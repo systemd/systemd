@@ -38,11 +38,13 @@
 #include "utf8.h"
 #include "label.h"
 #include "fileio-label.h"
+#include "uid-range.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',
         ADD_GROUP = 'g',
         ADD_MEMBER = 'm',
+        ADD_RANGE = 'r',
 } ItemType;
 typedef struct Item {
         ItemType type;
@@ -82,8 +84,9 @@ static Hashmap *members = NULL;
 static Hashmap *database_uid = NULL, *database_user = NULL;
 static Hashmap *database_gid = NULL, *database_group = NULL;
 
-static uid_t search_uid = SYSTEM_UID_MAX;
-static gid_t search_gid = SYSTEM_GID_MAX;
+static uid_t search_uid = (uid_t) -1;
+static UidRange *uid_range = NULL;
+static unsigned n_uid_range = 0;
 
 #define UID_TO_PTR(u) (ULONG_TO_PTR(u+1))
 #define PTR_TO_UID(u) ((uid_t) (PTR_TO_ULONG(u)-1))
@@ -916,7 +919,7 @@ static int add_user(Item *i) {
 
                 if (read_id_from_file(i, &c, NULL) > 0) {
 
-                        if (c <= 0 || c > SYSTEM_UID_MAX)
+                        if (c <= 0 || !uid_range_contains(uid_range, n_uid_range, c))
                                 log_debug("User ID " UID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = uid_is_ok(c, i->name);
@@ -947,7 +950,12 @@ static int add_user(Item *i) {
 
         /* And if that didn't work either, let's try to find a free one */
         if (!i->uid_set) {
-                for (; search_uid > 0; search_uid--) {
+                for (;;) {
+                        r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
+                        if (r < 0) {
+                                log_error("No free user ID available for %s.", i->name);
+                                return r;
+                        }
 
                         r = uid_is_ok(search_uid, i->name);
                         if (r < 0) {
@@ -957,15 +965,8 @@ static int add_user(Item *i) {
                                 break;
                 }
 
-                if (search_uid <= 0) {
-                        log_error("No free user ID available for %s.", i->name);
-                        return -E2BIG;
-                }
-
                 i->uid_set = true;
                 i->uid = search_uid;
-
-                search_uid--;
         }
 
         r = hashmap_ensure_allocated(&todo_uids, trivial_hash_func, trivial_compare_func);
@@ -1083,7 +1084,7 @@ static int add_group(Item *i) {
 
                 if (read_id_from_file(i, NULL, &c) > 0) {
 
-                        if (c <= 0 || c > SYSTEM_GID_MAX)
+                        if (c <= 0 || !uid_range_contains(uid_range, n_uid_range, c))
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = gid_is_ok(c);
@@ -1101,8 +1102,15 @@ static int add_group(Item *i) {
 
         /* And if that didn't work either, let's try to find a free one */
         if (!i->gid_set) {
-                for (; search_gid > 0; search_gid--) {
-                        r = gid_is_ok(search_gid);
+                for (;;) {
+                        /* We look for new GIDs in the UID pool! */
+                        r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
+                        if (r < 0) {
+                                log_error("No free group ID available for %s.", i->name);
+                                return r;
+                        }
+
+                        r = gid_is_ok(search_uid);
                         if (r < 0) {
                                 log_error("Failed to verify gid " GID_FMT ": %s", i->gid, strerror(-r));
                                 return r;
@@ -1110,15 +1118,8 @@ static int add_group(Item *i) {
                                 break;
                 }
 
-                if (search_gid <= 0) {
-                        log_error("No free group ID available for %s.", i->name);
-                        return -E2BIG;
-                }
-
                 i->gid_set = true;
-                i->gid = search_gid;
-
-                search_gid--;
+                i->gid = search_uid;
         }
 
         r = hashmap_ensure_allocated(&todo_gids, trivial_hash_func, trivial_compare_func);
@@ -1384,7 +1385,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 {}
         };
 
-        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL, *description = NULL, *home = NULL;
+        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL, *resolved_id = NULL, *description = NULL, *home = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         Hashmap *h;
@@ -1417,46 +1418,119 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EINVAL;
         }
 
-        if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER)) {
+        if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER, ADD_RANGE)) {
                 log_error("[%s:%u] Unknown command command type '%c'.", fname, line, action[0]);
                 return -EBADMSG;
         }
 
         /* Verify name */
-        r = specifier_printf(name, specifier_table, NULL, &resolved_name);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
-                return r;
+        if (isempty(name) || streq(name, "-")) {
+                free(name);
+                name = NULL;
         }
 
-        if (!valid_user_group_name(resolved_name)) {
-                log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_name);
-                return -EINVAL;
+        if (name) {
+                r = specifier_printf(name, specifier_table, NULL, &resolved_name);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
+                        return r;
+                }
+
+                if (!valid_user_group_name(resolved_name)) {
+                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_name);
+                        return -EINVAL;
+                }
         }
 
-        /* Simplify remaining columns */
+        /* Verify id */
         if (isempty(id) || streq(id, "-")) {
                 free(id);
                 id = NULL;
         }
 
+        if (id) {
+                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
+                        return r;
+                }
+        }
+
+        /* Verify description */
         if (isempty(description) || streq(description, "-")) {
                 free(description);
                 description = NULL;
         }
 
+        if (description) {
+                if (!valid_gecos(description)) {
+                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, description);
+                        return -EINVAL;
+                }
+        }
+
+        /* Verify home */
         if (isempty(home) || streq(home, "-")) {
                 free(home);
                 home = NULL;
         }
 
+        if (home) {
+                if (!valid_home(home)) {
+                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, home);
+                        return -EINVAL;
+                }
+        }
+
         switch (action[0]) {
 
+        case ADD_RANGE:
+                if (resolved_name) {
+                        log_error("[%s:%u] Lines of type 'r' don't take a name field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (!resolved_id) {
+                        log_error("[%s:%u] Lines of type 'r' require a ID range in the third field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (description) {
+                        log_error("[%s:%u] Lines of type 'r' don't take a GECOS field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (home) {
+                        log_error("[%s:%u] Lines of type 'r' don't take a home directory field.", fname, line);
+                        return -EINVAL;
+                }
+
+                r = uid_range_add_str(&uid_range, &n_uid_range, resolved_id);
+                if (r < 0) {
+                        log_error("[%s:%u] Invalid UID range %s.", fname, line, resolved_id);
+                        return -EINVAL;
+                }
+
+                return 0;
+
         case ADD_MEMBER: {
-                _cleanup_free_ char *resolved_id = NULL;
                 char **l;
 
                 /* Try to extend an existing member or group item */
+                if (!name) {
+                        log_error("[%s:%u] Lines of type 'm' require a user name in the second field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (!resolved_id) {
+                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (!valid_user_group_name(resolved_id)) {
+                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_id);
+                        return -EINVAL;
+                }
 
                 if (description) {
                         log_error("[%s:%u] Lines of type 'm' don't take a GECOS field.", fname, line);
@@ -1465,22 +1539,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (home) {
                         log_error("[%s:%u] Lines of type 'm' don't take a home directory field.", fname, line);
-                        return -EINVAL;
-                }
-
-                if (!id) {
-                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
-                        return -EINVAL;
-                }
-
-                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
-                        return r;
-                }
-
-                if (!valid_user_group_name(resolved_id)) {
-                        log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_id);
                         return -EINVAL;
                 }
 
@@ -1521,6 +1579,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         case ADD_USER:
+                if (!name) {
+                        log_error("[%s:%u] Lines of type 'u' require a user name in the second field.", fname, line);
+                        return -EINVAL;
+                }
+
                 r = hashmap_ensure_allocated(&users, string_hash_func, string_compare_func);
                 if (r < 0)
                         return log_oom();
@@ -1529,14 +1592,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (!i)
                         return log_oom();
 
-                if (id) {
-                        if (path_is_absolute(id)) {
-                                i->uid_path = id;
-                                id = NULL;
+                if (resolved_id) {
+                        if (path_is_absolute(resolved_id)) {
+                                i->uid_path = resolved_id;
+                                resolved_id = NULL;
 
                                 path_kill_slashes(i->uid_path);
                         } else {
-                                r = parse_uid(id, &i->uid);
+                                r = parse_uid(resolved_id, &i->uid);
                                 if (r < 0) {
                                         log_error("Failed to parse UID: %s", id);
                                         return -EBADMSG;
@@ -1546,30 +1609,20 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         }
                 }
 
-                if (description) {
-                        if (!valid_gecos(description)) {
-                                log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, description);
-                                return -EINVAL;
-                        }
+                i->description = description;
+                description = NULL;
 
-                        i->description = description;
-                        description = NULL;
-                }
-
-                if (home) {
-                        if (!valid_home(home)) {
-                                log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, home);
-                                return -EINVAL;
-                        }
-
-                        i->home = home;
-                        home = NULL;
-                }
+                i->home = home;
+                home = NULL;
 
                 h = users;
                 break;
 
         case ADD_GROUP:
+                if (!name) {
+                        log_error("[%s:%u] Lines of type 'g' require a user name in the second field.", fname, line);
+                        return -EINVAL;
+                }
 
                 if (description) {
                         log_error("[%s:%u] Lines of type 'g' don't take a GECOS field.", fname, line);
@@ -1589,14 +1642,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (!i)
                         return log_oom();
 
-                if (id) {
-                        if (path_is_absolute(id)) {
-                                i->gid_path = id;
-                                id = NULL;
+                if (resolved_id) {
+                        if (path_is_absolute(resolved_id)) {
+                                i->gid_path = resolved_id;
+                                resolved_id = NULL;
 
                                 path_kill_slashes(i->gid_path);
                         } else {
-                                r = parse_gid(id, &i->gid);
+                                r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0) {
                                         log_error("Failed to parse GID: %s", id);
                                         return -EBADMSG;
@@ -1608,6 +1661,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 h = groups;
                 break;
+
         default:
                 return -EBADMSG;
         }
@@ -1809,6 +1863,15 @@ int main(int argc, char *argv[]) {
                         k = read_config_file(*f, true);
                         if (k < 0 && r == 0)
                                 r = k;
+                }
+        }
+
+        if (!uid_range) {
+                /* Default to default range of 1..SYSTEMD_UID_MAX */
+                r = uid_range_add(&uid_range, &n_uid_range, 1, SYSTEM_UID_MAX);
+                if (r < 0) {
+                        log_oom();
+                        goto finish;
                 }
         }
 

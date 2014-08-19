@@ -228,6 +228,7 @@
 /test-time
 /test-tmpfiles
 /test-udev
+/test-uid-range
 /test-unifont
 /test-unit-file
 /test-unit-name

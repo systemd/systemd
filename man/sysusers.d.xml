@@ -134,6 +134,25 @@ u root 0 "Superuser" /root</programlisting>
                                         will be implicitly
                                         created.</para></listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>r</varname></term>
+                                        <listitem><para>Add a range of
+                                        numeric UIDs/GIDs to the pool
+                                        to allocate new UIDs and GIDs
+                                        from. If no line of this type
+                                        is specified the range of
+                                        UIDs/GIDs is set to some
+                                        compiled-in default. Note that
+                                        both UIDs and GIDs are
+                                        allocated from the same pool,
+                                        in order to ensure that users
+                                        and groups of the same name
+                                        are likely to carry the same
+                                        numeric UID and
+                                        GID.</para></listitem>
+                                </varlistentry>
+
                         </variablelist>
                 </refsect2>
 
@@ -154,6 +173,10 @@ u root 0 "Superuser" /root</programlisting>
                         <para>For <varname>m</varname> lines this
                         field should contain the user name to add to a
                         group.</para>
+
+                        <para>For lines of type <varname>r</varname>
+                        this field should be set to
+                        <literal>-</literal>.</para>
                 </refsect2>
 
                 <refsect2>
@@ -175,6 +198,14 @@ u root 0 "Superuser" /root</programlisting>
                         <para>For <varname>m</varname> lines this
                         field should contain the group name to add to
                         a user to.</para>
+
+                        <para>For lines of type <varname>r</varname>
+                        this field should be set to a UID/GID range in
+                        the format <literal>FROM-TO</literal> where
+                        both values are formatted as decimal ASCII
+                        numbers. Alternatively, a single UID/GID may
+                        be specified formatted as decimal ASCII
+                        numbers.</para>
                 </refsect2>
 
                 <refsect2>

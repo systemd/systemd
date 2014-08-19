@@ -862,6 +862,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/memfd.c \
 	src/shared/memfd.h \
+	src/shared/uid-range.c \
+	src/shared/uid-range.h \
 	src/shared/nss-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
@@ -1322,7 +1324,8 @@ tests += \
 	test-capability \
 	test-async \
 	test-ratelimit \
-	test-condition-util
+	test-condition-util \
+	test-uid-range
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1485,6 +1488,12 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-core.la
+
+test_uid_range_SOURCES = \
+	src/test/test-uid-range.c
+
+test_uid_range_LDADD = \
 	libsystemd-core.la
 
 test_socket_util_SOURCES = \
