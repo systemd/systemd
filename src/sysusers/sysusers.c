@@ -51,6 +51,7 @@ typedef struct Item {
         char *uid_path;
         char *gid_path;
         char *description;
+        char *home;
 
         gid_t gid;
         uid_t uid;
@@ -556,19 +557,19 @@ static int write_files(void) {
                                 .pw_uid = i->uid,
                                 .pw_gid = i->gid,
                                 .pw_gecos = i->description,
-                                .pw_passwd = (char*) "x",
-                        };
 
-                        /* Initialize the home directory and the shell
-                         * to nologin, with one exception: for root we
-                         * patch in something special */
-                        if (i->uid == 0) {
-                                n.pw_shell = (char*) "/bin/sh";
-                                n.pw_dir = (char*) "/root";
-                        } else {
-                                n.pw_shell = (char*) "/sbin/nologin";
-                                n.pw_dir = (char*) "/";
-                        }
+                                /* "x" means the password is stored in
+                                 * the shadow file */
+                                .pw_passwd = (char*) "x",
+
+                                /* We default to the root directory as home */
+                                .pw_dir = i->home ? i->home : (char*) "/",
+
+                                /* Initialize the shell to nologin,
+                                 * with one exception: for root we
+                                 * patch in something special */
+                                .pw_shell = i->uid == 0 ? (char*) "/bin/sh" : (char*) "/sbin/nologin",
+                        };
 
                         errno = 0;
                         if (putpwent(&n, passwd) != 0) {
@@ -1292,6 +1293,9 @@ static bool item_equal(Item *a, Item *b) {
         if (a->gid_set && a->gid != b->gid)
                 return false;
 
+        if (!streq_ptr(a->home, b->home))
+                return false;
+
         return true;
 }
 
@@ -1330,6 +1334,9 @@ static bool valid_user_group_name(const char *u) {
 
 static bool valid_gecos(const char *d) {
 
+        if (!d)
+                return false;
+
         if (!utf8_is_valid(d))
                 return false;
 
@@ -1338,6 +1345,30 @@ static bool valid_gecos(const char *d) {
 
         /* Colons are used as field separators, and hence not OK */
         if (strchr(d, ':'))
+                return false;
+
+        return true;
+}
+
+static bool valid_home(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (!utf8_is_valid(p))
+                return false;
+
+        if (string_has_cc(p, NULL))
+                return false;
+
+        if (!path_is_absolute(p))
+                return false;
+
+        if (!path_is_safe(p))
+                return false;
+
+        /* Colons are used as field separators, and hence not OK */
+        if (strchr(p, ':'))
                 return false;
 
         return true;
@@ -1353,27 +1384,34 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 {}
         };
 
-        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL;
+        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL, *description = NULL, *home = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         Hashmap *h;
-        int r, n = -1;
+        int r;
+        const char *p;
 
         assert(fname);
         assert(line >= 1);
         assert(buffer);
 
-        r = sscanf(buffer,
-                   "%ms %ms %ms %n",
-                   &action,
-                   &name,
-                   &id,
-                   &n);
-        if (r < 2) {
+        /* Parse columns */
+        p = buffer;
+        r = unquote_many_words(&p, &action, &name, &id, &description, &home, NULL);
+        if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
-                return -EIO;
+                return r;
+        }
+        if (r < 2) {
+                log_error("[%s:%u] Missing action and name columns.", fname, line);
+                return -EINVAL;
+        }
+        if (*p != 0) {
+                log_error("[%s:%u] Trailing garbage.", fname, line);
+                return -EINVAL;
         }
 
+        /* Verify action */
         if (strlen(action) != 1) {
                 log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
                 return -EINVAL;
@@ -1384,6 +1422,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EBADMSG;
         }
 
+        /* Verify name */
         r = specifier_printf(name, specifier_table, NULL, &resolved_name);
         if (r < 0) {
                 log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, name);
@@ -1395,11 +1434,20 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EINVAL;
         }
 
-        if (n >= 0) {
-                n += strspn(buffer+n, WHITESPACE);
+        /* Simplify remaining columns */
+        if (isempty(id) || streq(id, "-")) {
+                free(id);
+                id = NULL;
+        }
 
-                if (STR_IN_SET(buffer + n, "", "-"))
-                        n = -1;
+        if (isempty(description) || streq(description, "-")) {
+                free(description);
+                description = NULL;
+        }
+
+        if (isempty(home) || streq(home, "-")) {
+                free(home);
+                home = NULL;
         }
 
         switch (action[0]) {
@@ -1408,13 +1456,19 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 _cleanup_free_ char *resolved_id = NULL;
                 char **l;
 
-                r = hashmap_ensure_allocated(&members, string_hash_func, string_compare_func);
-                if (r < 0)
-                        return log_oom();
-
                 /* Try to extend an existing member or group item */
 
-                if (!id || streq(id, "-")) {
+                if (description) {
+                        log_error("[%s:%u] Lines of type 'm' don't take a GECOS field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (home) {
+                        log_error("[%s:%u] Lines of type 'm' don't take a home directory field.", fname, line);
+                        return -EINVAL;
+                }
+
+                if (!id) {
                         log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
                         return -EINVAL;
                 }
@@ -1430,10 +1484,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                if (n >= 0) {
-                        log_error("[%s:%u] Lines of type 'm' don't take a GECOS field.", fname, line);
-                        return -EINVAL;
-                }
+                r = hashmap_ensure_allocated(&members, string_hash_func, string_compare_func);
+                if (r < 0)
+                        return log_oom();
 
                 l = hashmap_get(members, resolved_id);
                 if (l) {
@@ -1476,15 +1529,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (!i)
                         return log_oom();
 
-                if (id && !streq(id, "-")) {
-
+                if (id) {
                         if (path_is_absolute(id)) {
-                                i->uid_path = strdup(id);
-                                if (!i->uid_path)
-                                        return log_oom();
+                                i->uid_path = id;
+                                id = NULL;
 
                                 path_kill_slashes(i->uid_path);
-
                         } else {
                                 r = parse_uid(id, &i->uid);
                                 if (r < 0) {
@@ -1496,40 +1546,53 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         }
                 }
 
-                if (n >= 0) {
-                        i->description = unquote(buffer+n, "\"");
-                        if (!i->description)
-                                return log_oom();
-
-                        if (!valid_gecos(i->description)) {
-                                log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, i->description);
+                if (description) {
+                        if (!valid_gecos(description)) {
+                                log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, description);
                                 return -EINVAL;
                         }
+
+                        i->description = description;
+                        description = NULL;
+                }
+
+                if (home) {
+                        if (!valid_home(home)) {
+                                log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, home);
+                                return -EINVAL;
+                        }
+
+                        i->home = home;
+                        home = NULL;
                 }
 
                 h = users;
                 break;
 
         case ADD_GROUP:
-                r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
-                if (r < 0)
-                        return log_oom();
 
-                if (n >= 0) {
+                if (description) {
                         log_error("[%s:%u] Lines of type 'g' don't take a GECOS field.", fname, line);
                         return -EINVAL;
                 }
+
+                if (home) {
+                        log_error("[%s:%u] Lines of type 'g' don't take a home directory field.", fname, line);
+                        return -EINVAL;
+                }
+
+                r = hashmap_ensure_allocated(&groups, string_hash_func, string_compare_func);
+                if (r < 0)
+                        return log_oom();
 
                 i = new0(Item, 1);
                 if (!i)
                         return log_oom();
 
-                if (id && !streq(id, "-")) {
-
+                if (id) {
                         if (path_is_absolute(id)) {
-                                i->gid_path = strdup(id);
-                                if (!i->gid_path)
-                                        return log_oom();
+                                i->gid_path = id;
+                                id = NULL;
 
                                 path_kill_slashes(i->gid_path);
                         } else {
@@ -1542,7 +1605,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 i->gid_set = true;
                         }
                 }
-
 
                 h = groups;
                 break;

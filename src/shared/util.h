@@ -128,6 +128,8 @@ bool streq_ptr(const char *a, const char *b) _pure_;
 
 #define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
 
+#define newa0(t, n) ((t*) alloca0(sizeof(t)*(n)))
+
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define malloc0(n) (calloc((n), 1))
@@ -968,3 +970,6 @@ bool is_localhost(const char *hostname);
 int take_password_lock(const char *root);
 
 int is_symlink(const char *path);
+
+int unquote_first_word(const char **p, char **ret);
+int unquote_many_words(const char **p, ...) _sentinel_;

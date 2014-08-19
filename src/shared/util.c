@@ -6934,3 +6934,208 @@ int is_symlink(const char *path) {
 
         return 0;
 }
+
+int unquote_first_word(const char **p, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        size_t allocated = 0, sz = 0;
+
+        enum {
+                START,
+                VALUE,
+                VALUE_ESCAPE,
+                SINGLE_QUOTE,
+                SINGLE_QUOTE_ESCAPE,
+                DOUBLE_QUOTE,
+                DOUBLE_QUOTE_ESCAPE,
+                SPACE,
+        } state = START;
+
+        assert(p);
+        assert(*p);
+        assert(ret);
+
+        /* Parses the first word of a string, and returns it in
+         * *ret. Removes all quotes in the process. When parsing fails
+         * (because of an uneven number of quotes or similar), leaves
+         * the pointer *p at the first invalid character. */
+
+        for (;;) {
+                char c = **p;
+
+                switch (state) {
+
+                case START:
+                        if (c == 0)
+                                goto finish;
+                        else if (strchr(WHITESPACE, c))
+                                break;
+
+                        state = VALUE;
+                        /* fallthrough */
+
+                case VALUE:
+                        if (c == 0)
+                                goto finish;
+                        else if (c == '\'')
+                                state = SINGLE_QUOTE;
+                        else if (c == '\\')
+                                state = VALUE_ESCAPE;
+                        else if (c == '\"')
+                                state = DOUBLE_QUOTE;
+                        else if (strchr(WHITESPACE, c))
+                                state = SPACE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case VALUE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = VALUE;
+
+                        break;
+
+                case SINGLE_QUOTE:
+                        if (c == 0)
+                                return -EINVAL;
+                        else if (c == '\'')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = SINGLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case SINGLE_QUOTE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = SINGLE_QUOTE;
+                        break;
+
+                case DOUBLE_QUOTE:
+                        if (c == 0)
+                                return -EINVAL;
+                        else if (c == '\"')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = DOUBLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case DOUBLE_QUOTE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = DOUBLE_QUOTE;
+                        break;
+
+                case SPACE:
+                        if (c == 0)
+                                goto finish;
+                        if (!strchr(WHITESPACE, c))
+                                goto finish;
+
+                        break;
+                }
+
+                (*p) ++;
+        }
+
+finish:
+        if (!s) {
+                *ret = NULL;
+                return 0;
+        }
+
+        s[sz] = 0;
+        *ret = s;
+        s = NULL;
+
+        return 1;
+}
+
+int unquote_many_words(const char **p, ...) {
+        va_list ap;
+        char **l;
+        int n = 0, i, c, r;
+
+        /* Parses a number of words from a string, stripping any
+         * quotes if necessary. */
+
+        assert(p);
+
+        /* Count how many words are expected */
+        va_start(ap, p);
+        for (;;) {
+                if (!va_arg(ap, char **))
+                        break;
+                n++;
+        }
+        va_end(ap);
+
+        if (n <= 0)
+                return 0;
+
+        /* Read all words into a temporary array */
+        l = newa0(char*, n);
+        for (c = 0; c < n; c++) {
+
+                r = unquote_first_word(p, &l[c]);
+                if (r < 0) {
+                        int j;
+
+                        for (j = 0; j < c; j++) {
+                                free(l[j]);
+                                return r;
+                        }
+                }
+
+                if (r == 0)
+                        break;
+        }
+
+        /* If we managed to parse all words, return them in the passed
+         * in parameters */
+        va_start(ap, p);
+        for (i = 0; i < n; i++) {
+                char **v;
+
+                v = va_arg(ap, char **);
+                assert(v);
+
+                *v = l[i];
+        }
+        va_end(ap);
+
+        return c;
+}

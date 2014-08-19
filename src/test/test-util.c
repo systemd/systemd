@@ -1101,6 +1101,113 @@ static void test_execute_directory(void) {
         rm_rf_dangerous(tempdir, false, true, false);
 }
 
+static void test_unquote_first_word(void) {
+        const char *p, *original;
+        char *t;
+
+        p = original = "foobar waldo";
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(p == original + 7);
+
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(p == original + 12);
+
+        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(!t);
+        assert_se(p == original + 12);
+
+        p = original = "\"foobar\" \'waldo\'";
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(p == original + 9);
+
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(p == original + 16);
+
+        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(!t);
+        assert_se(p == original + 16);
+
+        p = original = "\"";
+        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(p == original + 1);
+
+        p = original = "\'";
+        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(p == original + 1);
+
+        p = original = "yay\'foo\'bar";
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "yayfoobar"));
+        free(t);
+        assert_se(p == original + 11);
+
+        p = original = "   foobar   ";
+        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(p == original + 12);
+}
+
+static void test_unquote_many_words(void) {
+        const char *p, *original;
+        char *a, *b, *c;
+
+        p = original = "foobar waldi piep";
+        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 3);
+        assert_se(p == original + 17);
+        assert_se(streq_ptr(a, "foobar"));
+        assert_se(streq_ptr(b, "waldi"));
+        assert_se(streq_ptr(c, "piep"));
+        free(a);
+        free(b);
+        free(c);
+
+        p = original = "'foobar' wa\"ld\"i   ";
+        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 2);
+        assert_se(p == original + 19);
+        assert_se(streq_ptr(a, "foobar"));
+        assert_se(streq_ptr(b, "waldi"));
+        assert_se(streq_ptr(c, NULL));
+        free(a);
+        free(b);
+
+        p = original = "";
+        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 0);
+        assert_se(p == original);
+        assert_se(streq_ptr(a, NULL));
+        assert_se(streq_ptr(b, NULL));
+        assert_se(streq_ptr(c, NULL));
+
+        p = original = "  ";
+        assert_se(unquote_many_words(&p, &a, &b, &c, NULL) == 0);
+        assert_se(p == original+2);
+        assert_se(streq_ptr(a, NULL));
+        assert_se(streq_ptr(b, NULL));
+        assert_se(streq_ptr(c, NULL));
+
+        p = original = "foobar";
+        assert_se(unquote_many_words(&p, NULL) == 0);
+        assert_se(p == original);
+
+        p = original = "foobar waldi";
+        assert_se(unquote_many_words(&p, &a, NULL) == 1);
+        assert_se(p == original+7);
+        assert_se(streq_ptr(a, "foobar"));
+
+        p = original = "     foobar    ";
+        assert_se(unquote_many_words(&p, &a, NULL) == 1);
+        assert_se(p == original+15);
+        assert_se(streq_ptr(a, "foobar"));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1168,6 +1275,8 @@ int main(int argc, char *argv[]) {
         test_search_and_fopen_nulstr();
         test_glob_exists();
         test_execute_directory();
+        test_unquote_first_word();
+        test_unquote_many_words();
 
         return 0;
 }

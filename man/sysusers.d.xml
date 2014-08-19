@@ -77,13 +77,14 @@
                 configuration.</para>
 
                 <para>The file format is one line per user or group
-                containing name, ID and GECOS field description:</para>
+                containing name, ID, GECOS field description and home directory:</para>
 
                 <programlisting># Type Name ID GECOS
 u httpd 440 "HTTP User"
 u authd /usr/bin/authd "Authorization user"
 g input - -
-m authd input</programlisting>
+m authd input
+u root 0 "Superuser" /root</programlisting>
 
                 <refsect2>
                         <title>Type</title>
@@ -103,11 +104,13 @@ m authd input</programlisting>
                                         bearing the same name. The
                                         user's shell will be set to
                                         <filename>/sbin/nologin</filename>,
-                                        the home directory to
-                                        <filename>/</filename>. The
-                                        account will be created
-                                        disabled, so that logins are
-                                        not allowed.</para></listitem>
+                                        the home directory to the
+                                        specified home directory, or
+                                        <filename>/</filename> if none
+                                        is given. The account will be
+                                        created disabled, so that
+                                        logins are not
+                                        allowed.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -160,8 +163,8 @@ m authd input</programlisting>
                         <varname>g</varname> the numeric 32bit UID or
                         GID of the user/group. Do not use IDs 65535 or
                         4294967295, as they have special placeholder
-                        meanings. Specify "-" for automatic UID/GID
-                        allocation for the user or
+                        meanings. Specify <literal>-</literal> for
+                        automatic UID/GID allocation for the user or
                         group. Alternatively, specify an absolute path
                         in the file system. In this case the UID/GID
                         is read from the path's owner/group. This is
@@ -183,7 +186,24 @@ m authd input</programlisting>
 
                         <para>Only applies to lines of type
                         <varname>u</varname> and should otherwise be
-                        left unset.</para>
+                        left unset, or be set to
+                        <literal>-</literal>.</para>
+                </refsect2>
+
+                <refsect2>
+                        <title>Home Directory</title>
+
+                        <para>The home directory for a new system
+                        user. If omitted defaults to the root
+                        directory. It is recommended to not
+                        unnecessarily specify home directories for
+                        system users, unless software strictly
+                        requires one to be set.</para>
+
+                        <para>Only applies to lines of type
+                        <varname>u</varname> and should otherwise be
+                        left unset, or be set to
+                        <literal>-</literal>.</para>
                 </refsect2>
 
         </refsect1>
