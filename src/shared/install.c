@@ -2044,6 +2044,12 @@ int unit_file_get_list(
         if (root_dir && scope != UNIT_FILE_SYSTEM)
                 return -EINVAL;
 
+        if (root_dir) {
+                r = access(root_dir, F_OK);
+                if (r < 0)
+                        return -errno;
+        }
+
         r = lookup_paths_init_from_scope(&paths, scope, root_dir);
         if (r < 0)
                 return r;
