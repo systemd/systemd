@@ -1508,7 +1508,7 @@ static int verify(sd_journal *j) {
 
         log_show_color(true);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 int k;
                 usec_t first, validated, last;
 
@@ -1603,7 +1603,7 @@ static int access_check(sd_journal *j) {
         assert(j);
 
         if (set_isempty(j->errors)) {
-                if (hashmap_isempty(j->files))
+                if (ordered_hashmap_isempty(j->files))
                         log_notice("No journal files were found.");
                 return 0;
         }
@@ -1635,7 +1635,7 @@ static int access_check(sd_journal *j) {
                 }
 #endif
 
-                if (hashmap_isempty(j->files)) {
+                if (ordered_hashmap_isempty(j->files)) {
                         log_error("No journal files were opened due to insufficient permissions.");
                         r = -EACCES;
                 }

@@ -100,7 +100,7 @@ struct sd_journal {
         char *path;
         char *prefix;
 
-        Hashmap *files;
+        OrderedHashmap *files;
         MMapCache *mmap;
 
         Location current_location;

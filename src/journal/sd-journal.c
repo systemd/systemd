@@ -86,7 +86,7 @@ static void detach_location(sd_journal *j) {
         j->current_file = NULL;
         j->current_field = 0;
 
-        HASHMAP_FOREACH(f, j->files, i)
+        ORDERED_HASHMAP_FOREACH(f, j->files, i)
                 f->current_offset = 0;
 }
 
@@ -879,7 +879,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 bool found;
 
                 r = next_beyond_location(j, f, direction, &o, &p);
@@ -1288,10 +1288,10 @@ static int add_any_file(sd_journal *j, const char *path) {
         assert(j);
         assert(path);
 
-        if (hashmap_get(j->files, path))
+        if (ordered_hashmap_get(j->files, path))
                 return 0;
 
-        if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
+        if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 log_warning("Too many open journal files, not adding %s.", path);
                 return set_put_error(j, -ETOOMANYREFS);
         }
@@ -1302,7 +1302,7 @@ static int add_any_file(sd_journal *j, const char *path) {
 
         /* journal_file_dump(f); */
 
-        r = hashmap_put(j->files, f->path, f);
+        r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
                 journal_file_close(f);
                 return r;
@@ -1351,7 +1351,7 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
         if (!path)
                 return -ENOMEM;
 
-        f = hashmap_get(j->files, path);
+        f = ordered_hashmap_get(j->files, path);
         if (!f)
                 return 0;
 
@@ -1363,7 +1363,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         assert(j);
         assert(f);
 
-        hashmap_remove(j->files, f->path);
+        ordered_hashmap_remove(j->files, f->path);
 
         log_debug("File %s removed.", f->path);
 
@@ -1374,7 +1374,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
 
         if (j->unique_file == f) {
                 /* Jump to the next unique_file or NULL if that one was last */
-                j->unique_file = hashmap_next(j->files, j->unique_file->path);
+                j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
                 j->unique_offset = 0;
                 if (!j->unique_file)
                         j->unique_file_lost = true;
@@ -1634,7 +1634,7 @@ static int add_current_paths(sd_journal *j) {
          * "root" directories. We don't expect errors here, so we
          * treat them as fatal. */
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 _cleanup_free_ char *dir;
                 int r;
 
@@ -1689,7 +1689,7 @@ static sd_journal *journal_new(int flags, const char *path) {
                         goto fail;
         }
 
-        j->files = hashmap_new(&string_hash_ops);
+        j->files = ordered_hashmap_new(&string_hash_ops);
         j->directories_by_path = hashmap_new(&string_hash_ops);
         j->mmap = mmap_cache_new();
         if (!j->files || !j->directories_by_path || !j->mmap)
@@ -1835,10 +1835,10 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         sd_journal_flush_matches(j);
 
-        while ((f = hashmap_steal_first(j->files)))
+        while ((f = ordered_hashmap_steal_first(j->files)))
                 journal_file_close(f);
 
-        hashmap_free(j->files);
+        ordered_hashmap_free(j->files);
 
         while ((d = hashmap_first(j->directories_by_path)))
                 remove_directory(j, d);
@@ -2368,7 +2368,7 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
         assert_return(from || to, -EINVAL);
         assert_return(from != to, -EINVAL);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 usec_t fr, t;
 
                 r = journal_file_get_cutoff_realtime_usec(f, &fr, &t);
@@ -2408,7 +2408,7 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
         assert_return(from || to, -EINVAL);
         assert_return(from != to, -EINVAL);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 usec_t fr, t;
 
                 r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &fr, &t);
@@ -2443,7 +2443,7 @@ void journal_print_header(sd_journal *j) {
 
         assert(j);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 if (newline)
                         putchar('\n');
                 else
@@ -2462,7 +2462,7 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(bytes, -EINVAL);
 
-        HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 struct stat st;
 
                 if (fstat(f->fd, &st) < 0)
@@ -2511,7 +2511,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 if (j->unique_file_lost)
                         return 0;
 
-                j->unique_file = hashmap_first(j->files);
+                j->unique_file = ordered_hashmap_first(j->files);
                 if (!j->unique_file)
                         return 0;
 
@@ -2545,7 +2545,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 /* We reached the end of the list? Then start again, with the next file */
                 if (j->unique_offset == 0) {
-                        j->unique_file = hashmap_next(j->files, j->unique_file->path);
+                        j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
                         if (!j->unique_file)
                                 return 0;
 
@@ -2594,7 +2594,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                  * object by checking if it exists in the earlier
                  * traversed files. */
                 found = false;
-                HASHMAP_FOREACH(of, j->files, i) {
+                ORDERED_HASHMAP_FOREACH(of, j->files, i) {
                         Object *oo;
                         uint64_t op;
 
