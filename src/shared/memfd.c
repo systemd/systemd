@@ -54,13 +54,7 @@ int memfd_new(const char *name) {
                 if (isempty(pr))
                         name = "sd";
                 else {
-                        _cleanup_free_ char *e = NULL;
-
-                        e = utf8_escape_invalid(pr);
-                        if (!e)
-                                return -ENOMEM;
-
-                        g = strappend("sd-", e);
+                        g = strappend("sd-", pr);
                         if (!g)
                                 return -ENOMEM;
 
