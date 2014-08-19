@@ -83,6 +83,10 @@ systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
 systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
+%sysusers_create_inline() \
+echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
+%{nil}
+
 %sysctl_apply() \
 @rootlibexecdir@/systemd-sysctl %{?*} >/dev/null 2>&1 || : \
 %{nil}
