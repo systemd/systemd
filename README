@@ -201,6 +201,27 @@ USERS AND GROUPS:
         Similarly, the kdbus dbus1 proxy daemon requires the
         "systemd-bus-proxy" system user and group to exist.
 
+NSS:
+        systemd ships with three NSS modules:
+
+        nss-myhostname resolves the local hostname to locally
+        configured IP addresses, as well as "localhost" to
+        127.0.0.1/::1.
+
+        nss-resolve enables DNS resolution via the systemd-resolved
+        DNS/LLMNR caching stub resolver "systemd-resolved".
+
+        nss-mymachines enables resolution of all local containers
+        registered with machined to their respective IP addresses.
+
+        To make use of these NSS modules, please add them to the
+        "hosts: " line in /etc/nsswitch.conf. The "resolve" module
+        should replace the glibc "dns" module in this file.
+
+        The three modules should be used in the following order:
+
+                hosts: files mymachines resolve myhostname
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
