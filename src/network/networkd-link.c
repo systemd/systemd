@@ -1052,7 +1052,6 @@ static int link_joined(Link *link) {
         int r;
 
         assert(link);
-        assert(link->state == LINK_STATE_ENSLAVING);
         assert(link->network);
 
         if (!(link->flags & IFF_UP)) {
@@ -1072,8 +1071,6 @@ static int netdev_join_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
         int r;
 
         assert(link);
-        assert(IN_SET(link->state, LINK_STATE_ENSLAVING, LINK_STATE_FAILED,
-                      LINK_STATE_LINGER));
         assert(link->network);
 
         link->enslaving --;
