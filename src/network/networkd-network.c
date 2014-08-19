@@ -172,8 +172,10 @@ void network_free(Network *network) {
 
         netdev_unref(network->bond);
 
-        HASHMAP_FOREACH(netdev, network->stacked_netdevs, i)
+        HASHMAP_FOREACH(netdev, network->stacked_netdevs, i) {
+                hashmap_remove(network->stacked_netdevs, netdev->ifname);
                 netdev_unref(netdev);
+        }
         hashmap_free(network->stacked_netdevs);
 
         while ((route = network->static_routes))
