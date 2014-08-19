@@ -1573,20 +1573,27 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 }
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_fclose_ FILE *rf = NULL;
+        FILE *f = NULL;
         char line[LINE_MAX];
         unsigned v = 0;
         int r;
 
         assert(fn);
 
-        r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &f);
-        if (r < 0) {
-                if (ignore_enoent && r == -ENOENT)
-                        return 0;
+        if (streq(fn, "-"))
+                f = stdin;
+        else {
+                r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &rf);
+                if (r < 0) {
+                        if (ignore_enoent && r == -ENOENT)
+                                return 0;
 
-                log_error("Failed to open '%s', ignoring: %s", fn, strerror(-r));
-                return r;
+                        log_error("Failed to open '%s', ignoring: %s", fn, strerror(-r));
+                        return r;
+                }
+
+                f = rf;
         }
 
         FOREACH_LINE(line, f, break) {

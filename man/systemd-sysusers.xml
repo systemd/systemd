@@ -75,7 +75,10 @@
                 basename of a file is specified, all directories as
                 specified in
                 <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                are searched for a matching file.</para>
+                are searched for a matching file. If the string
+                <filename>-</filename> is specified as filenames
+                entries from the standard input of the process are
+                read.</para>
         </refsect1>
 
         <refsect1>
