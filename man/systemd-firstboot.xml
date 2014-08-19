@@ -213,7 +213,7 @@
                                 <para>Query the user for locale,
                                 timezone, hostname and root
                                 password. This is equivalent to
-                                specifiying
+                                specifying
                                 <option>--prompt-locale</option>,
                                 <option>--prompt-timezone</option>,
                                 <option>--prompt-hostname</option>,
@@ -238,7 +238,7 @@
 
                                 <para>Copy locale, time zone and root
                                 password from the host. This is
-                                equivalent to specifiying
+                                equivalent to specifying
                                 <option>--copy-locale</option>,
                                 <option>--copy-timezone</option>,
                                 <option>--copy-root-password</option>

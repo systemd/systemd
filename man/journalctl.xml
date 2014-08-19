@@ -99,9 +99,9 @@
                 <literal>_KERNEL_DEVICE=</literal> match for the
                 device.</para>
 
-                <para>Additional contraints may be added using options
+                <para>Additional constraints may be added using options
                 <option>--boot</option>, <option>--unit=</option>,
-                etc, to futher limit what entries will be shown
+                etc, to further limit what entries will be shown
                 (logical AND).</para>
 
                 <para>Output is interleaved from all accessible
@@ -128,7 +128,7 @@
                 <option>--no-pager</option> option and the "Environment"
                 section below.</para>
 
-                <para>When outputing to a tty, lines are colored
+                <para>When outputting to a tty, lines are colored
                 according to priority: lines of level ERROR and higher
                 are colored red; lines of level NOTICE and higher are
                 highlighted; other lines are displayed normally.
