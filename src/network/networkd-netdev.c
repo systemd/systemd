@@ -445,13 +445,17 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         return 0;
 }
 
-static int netdev_create(NetDev *netdev, Link *link) {
+static int netdev_create(NetDev *netdev, Link *link,
+                         sd_rtnl_message_handler_t callback) {
         int r;
 
         assert(netdev);
+        assert(!link || callback);
 
         /* create netdev */
         if (NETDEV_VTABLE(netdev)->create) {
+                assert(!link);
+
                 r = NETDEV_VTABLE(netdev)->create(netdev);
                 if (r < 0)
                         return r;
@@ -546,14 +550,30 @@ static int netdev_create(NetDev *netdev, Link *link) {
                 }
 
 
-                r = sd_rtnl_call_async(netdev->manager->rtnl, m, netdev_create_handler, netdev, 0, NULL);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not send rtnetlink message: %s", strerror(-r));
-                        return r;
-                }
+                if (link) {
+                        r = sd_rtnl_call_async(netdev->manager->rtnl, m,
+                                               callback, link, 0, NULL);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not send rtnetlink message: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
 
-                netdev_ref(netdev);
+                        link_ref(link);
+                } else {
+                        r = sd_rtnl_call_async(netdev->manager->rtnl, m,
+                                               netdev_create_handler, netdev, 0,
+                                               NULL);
+                        if (r < 0) {
+                                log_error_netdev(netdev,
+                                                 "Could not send rtnetlink message: %s",
+                                                 strerror(-r));
+                                return r;
+                        }
+
+                        netdev_ref(netdev);
+                }
 
                 netdev->state = NETDEV_STATE_CREATING;
 
@@ -580,7 +600,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) 
 
                 break;
         case NETDEV_CREATE_STACKED:
-                r = netdev_create(netdev, link);
+                r = netdev_create(netdev, link, callback);
                 if (r < 0)
                         return r;
 
@@ -699,7 +719,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         switch (NETDEV_VTABLE(netdev)->create_type) {
         case NETDEV_CREATE_MASTER:
         case NETDEV_CREATE_INDEPENDENT:
-                r = netdev_create(netdev, NULL);
+                r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
 
