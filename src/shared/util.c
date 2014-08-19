@@ -3942,7 +3942,6 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                                 _exit(EXIT_FAILURE);
                         }
 
-
                         log_debug("Spawned %s as " PID_FMT ".", path, pid);
 
                         r = hashmap_put(pids, UINT_TO_PTR(pid), path);
