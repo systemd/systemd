@@ -1693,7 +1693,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         FILE *f = NULL;
         char line[LINE_MAX];
         unsigned v = 0;
-        int r;
+        int r = 0;
 
         assert(fn);
 
