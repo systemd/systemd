@@ -52,7 +52,7 @@ CHANGES WITH 216:
           interfaces that have DNS servers configured, in order to
           properly handle VPNs and local LANs which might resolve
           separate sets of domain names. systemd-resolved may acquire
-          DNS server information from systemd-resolved automatically,
+          DNS server information from systemd-networkd automatically,
           which in turn might have discovered them via DHCP. A tool
           "systemd-resolve-host" has been added that may be used to
           query the DNS logic in resolved. systemd-resolved implements
@@ -80,7 +80,7 @@ CHANGES WITH 216:
           turning off Nagle's algorithm on TCP has been added
           (NoDelay=).
 
-        * logind learnt a new session type "web", for use in projects
+        * logind learned a new session type "web", for use in projects
           like Cockpit which register web clients as PAM sessions.
 
         * timer units with at least one OnCalendar= setting will now
@@ -158,7 +158,7 @@ CHANGES WITH 216:
 
         * A new component "systemd-firstboot" has been added that
           queries the most basic systemd information (timezone,
-          hostname, root password) inertactively on first
+          hostname, root password) interactively on first
           boot. Alternatively it may also be used to provision these
           things offline on OS images installed into directories.
 
