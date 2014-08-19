@@ -93,8 +93,8 @@ int main(int argc, char *argv[]) {
         memset(p+1, 'L', FIRST_ARRAY-2);
         p[FIRST_ARRAY-1] = '>';
 
-        r = memfd_new_and_map(&f, NULL, STRING_SIZE, (void**) &s);
-        assert_se(r >= 0);
+        f = memfd_new_and_map(NULL, STRING_SIZE, (void**) &s);
+        assert_se(f >= 0);
 
         s[0] = '<';
         for (i = 1; i < STRING_SIZE-2; i++)
@@ -112,8 +112,8 @@ int main(int argc, char *argv[]) {
 
         close(f);
 
-        r = memfd_new_and_map(&f, NULL, SECOND_ARRAY, (void**) &p);
-        assert_se(r >= 0);
+        f = memfd_new_and_map(NULL, SECOND_ARRAY, (void**) &p);
+        assert_se(f >= 0);
 
         p[0] = '<';
         memset(p+1, 'P', SECOND_ARRAY-2);

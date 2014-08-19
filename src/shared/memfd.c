@@ -30,14 +30,12 @@
 #include "missing.h"
 #include "memfd.h"
 
-#include "sd-bus.h"
-
-int memfd_new(int *fd, const char *name) {
+int memfd_new(const char *name) {
 
         _cleanup_free_ char *g = NULL;
-        int n;
+        int fd;
 
-        assert_return(fd, -EINVAL);
+        assert(name);
 
         if (name) {
                 /* The kernel side is pretty picky about the character
@@ -76,21 +74,20 @@ int memfd_new(int *fd, const char *name) {
                 }
         }
 
-        n = memfd_create(name, MFD_ALLOW_SEALING);
-        if (n < 0)
+        fd = memfd_create(name, MFD_ALLOW_SEALING);
+        if (fd < 0)
                 return -errno;
 
-        *fd = n;
-        return 0;
+        return fd;
 }
 
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
-        assert_return(fd >= 0, -EINVAL);
-        assert_return(size > 0, -EINVAL);
-        assert_return(p, -EINVAL);
+        assert(fd >= 0);
+        assert(size > 0);
+        assert(p);
 
         sealed = memfd_get_sealed(fd);
         if (sealed < 0)
@@ -111,7 +108,7 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
 int memfd_set_sealed(int fd) {
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert(fd >= 0);
 
         r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
         if (r < 0)
@@ -123,7 +120,7 @@ int memfd_set_sealed(int fd) {
 int memfd_get_sealed(int fd) {
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert(fd >= 0);
 
         r = fcntl(fd, F_GET_SEALS);
         if (r < 0)
@@ -134,11 +131,11 @@ int memfd_get_sealed(int fd) {
 }
 
 int memfd_get_size(int fd, uint64_t *sz) {
-        int r;
         struct stat stat;
+        int r;
 
-        assert_return(fd >= 0, -EINVAL);
-        assert_return(sz, -EINVAL);
+        assert(fd >= 0);
+        assert(sz);
 
         r = fstat(fd, &stat);
         if (r < 0)
@@ -151,7 +148,7 @@ int memfd_get_size(int fd, uint64_t *sz) {
 int memfd_set_size(int fd, uint64_t sz) {
         int r;
 
-        assert_return(fd >= 0, -EINVAL);
+        assert(fd >= 0);
 
         r = ftruncate(fd, sz);
         if (r < 0)
@@ -160,25 +157,30 @@ int memfd_set_size(int fd, uint64_t sz) {
         return r;
 }
 
-int memfd_new_and_map(int *fd, const char *name, size_t sz, void **p) {
-        _cleanup_close_ int n = -1;
+int memfd_new_and_map(const char *name, size_t sz, void **p) {
+        _cleanup_close_ int fd = -1;
         int r;
 
-        r = memfd_new(&n, name);
+        assert(name);
+        assert(sz > 0);
+        assert(p);
+
+        fd = memfd_new(name);
+        if (fd < 0)
+                return fd;
+
+        r = memfd_set_size(fd, sz);
         if (r < 0)
                 return r;
 
-        r = memfd_set_size(n, sz);
+        r = memfd_map(fd, 0, sz, p);
         if (r < 0)
                 return r;
 
-        r = memfd_map(n, 0, sz, p);
-        if (r < 0)
-                return r;
+        r = fd;
+        fd = -1;
 
-        *fd = n;
-        n = -1;
-        return 0;
+        return r;
 }
 
 int memfd_get_name(int fd, char **name) {
@@ -187,8 +189,8 @@ int memfd_get_name(int fd, char **name) {
         _cleanup_free_ char *n = NULL;
         ssize_t k;
 
-        assert_return(fd >= 0, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert(fd >= 0);
+        assert(name);
 
         sprintf(path, "/proc/self/fd/%i", fd);
 
