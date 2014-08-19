@@ -24,6 +24,9 @@ External:
 
 Features:
 
+* journald: make use of uid-range.h to managed uid ranges to split
+  journals in.
+
 * tmpfiles: port to unquote_many_words(), similar to sysusers
 
 * unquote_many_words() should probably be used by a lot of code that
@@ -49,9 +52,10 @@ Features:
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
 
-* sd-event: - make it possible to embedd our event loop into foreign
-  event loops by passing out the epoll fd and providing three functions
-  that fit into GSource nicely.
+* sd-event:
+  - make it possible to embedd our event loop into foreign event loops
+    by passing out the epoll fd and providing three functions that fit
+    into GSource nicely.
 
 * networkd:
   - add LLDP client side support
@@ -108,9 +112,6 @@ Features:
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
-
-* sysusers:
-  - allow configuration of ranges to allocate items in
 
 * Add a new verb "systemctl top"
 
