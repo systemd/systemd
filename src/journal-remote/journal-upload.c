@@ -748,7 +748,7 @@ int main(int argc, char **argv) {
         log_parse_environment();
 
         r = parse_config();
-        if (r <= 0)
+        if (r < 0)
                 goto finish;
 
         r = parse_argv(argc, argv);
