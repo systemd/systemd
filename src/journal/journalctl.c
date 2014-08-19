@@ -89,6 +89,7 @@ static bool arg_force = false;
 #endif
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
+static char **arg_syslog_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
@@ -180,6 +181,7 @@ static void help(void) {
                "  -k --dmesg               Show kernel message log from the current boot\n"
                "  -u --unit=UNIT           Show data only from the specified unit\n"
                "     --user-unit=UNIT      Show data only from the specified user session unit\n"
+               "  -t --identifier=STRING   Show only messages with the specified syslog identifier\n"
                "  -p --priority=RANGE      Show only messages within the specified priority range\n"
                "  -e --pager-end           Immediately jump to end of the journal in the pager\n"
                "  -f --follow              Follow the journal\n"
@@ -276,6 +278,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "file",           required_argument, NULL, ARG_FILE           },
                 { "root",           required_argument, NULL, ARG_ROOT           },
                 { "header",         no_argument,       NULL, ARG_HEADER         },
+                { "identifier",     required_argument, NULL, 't'                },
                 { "priority",       required_argument, NULL, 'p'                },
                 { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
                 { "interval",       required_argument, NULL, ARG_INTERVAL       },
@@ -304,7 +307,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:u:F:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:t:u:F:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -588,6 +591,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
                         arg_until_set = true;
+                        break;
+
+                case 't':
+                        r = strv_extend(&arg_syslog_identifier, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case 'u':
@@ -1212,6 +1221,32 @@ static int add_priorities(sd_journal *j) {
         return 0;
 }
 
+
+static int add_syslog_identifier(sd_journal *j) {
+        int r;
+        char **i;
+
+        assert(j);
+
+        STRV_FOREACH(i, arg_syslog_identifier) {
+                char *u;
+
+                u = strappenda("SYSLOG_IDENTIFIER=", *i);
+                r = sd_journal_add_match(j, u, 0);
+                if (r < 0)
+                        return r;
+                r = sd_journal_add_disjunction(j);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int setup_keys(void) {
 #ifdef HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size, i;
@@ -1702,6 +1737,12 @@ int main(int argc, char *argv[]) {
 
         if (r < 0) {
                 log_error("Failed to add filter for units: %s", strerror(-r));
+                return EXIT_FAILURE;
+        }
+
+        r = add_syslog_identifier(j);
+        if (r < 0) {
+                log_error("Failed to add filter for syslog identifiers: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
 

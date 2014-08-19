@@ -498,6 +498,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-t</option></term>
+                                <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable>|<replaceable>PATTERN</replaceable></option></term>
+
+                                <listitem><para>Show messages for the
+                                specified syslog identifier
+                                <replaceable>SYSLOG_IDENTIFIER</replaceable>, or
+                                for any of the messages with a <literal>SYSLOG_IDENTIFIER</literal>
+                                matched by <replaceable>PATTERN</replaceable>.</para>
+
+                                <para>This parameter can be specified
+                                multiple times.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-u</option></term>
                                 <term><option>--unit=<replaceable>UNIT</replaceable>|<replaceable>PATTERN</replaceable></option></term>
 
