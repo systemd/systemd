@@ -26,7 +26,7 @@ CHANGES WITH 216:
           compatibility with certain tools like grpck.
 
         * A number of bus APIs of PID 1 now optionally consult
-          PolicyKit to permit access for otherwise unpriviliged
+          PolicyKit to permit access for otherwise unprivileged
           clients under certain conditions. Note that this currently
           doesn't support interactive authentication yet, but this is
           expected to be added eventually, too.
@@ -48,7 +48,7 @@ CHANGES WITH 216:
           be resolved via systemd-resolved D-Bus APIs. In contrast to
           the glibc internal resolver systemd-resolved is aware of
           multi-homed system, and keeps DNS server and caches separate
-          and per-interface. Queries are sent simultaneous on all
+          and per-interface. Queries are sent simultaneously on all
           interfaces that have DNS servers configured, in order to
           properly handle VPNs and local LANs which might resolve
           separate sets of domain names. systemd-resolved may acquire
@@ -68,7 +68,7 @@ CHANGES WITH 216:
         * A new client tool "networkctl" for systemd-networkd has been
           added. It currently is entirely passive and will query
           networking configuration from udev, rtnetlink and networkd,
-          and present it to the user in a very friendy
+          and present it to the user in a very friendly
           way. Eventually, we hope to extend it to become a full
           control utility for networkd.
 
@@ -136,7 +136,7 @@ CHANGES WITH 216:
           rsyslog (which appears to be the most commonly used syslog
           implementation these days) no longer makes use of this, and
           instead pulls the data out of the journal on its own. Since
-          forwarding the messages to a non-existant syslog server is
+          forwarding the messages to a non-existent syslog server is
           more expensive than we assumed we have now turned this
           off. If you run a syslog server that is not a recent rsyslog
           version, you have to turn this option on again
