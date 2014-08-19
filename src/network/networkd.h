@@ -126,6 +126,7 @@ struct Address {
         int family;
         unsigned char prefixlen;
         unsigned char scope;
+        unsigned char flags;
         char *label;
 
         struct in_addr broadcast;

@@ -1386,6 +1386,13 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
                 return 0;
         }
 
+        r = sd_rtnl_message_addr_get_flags(message, &address->flags);
+        if (r < 0) {
+                log_warning_link(link,
+                                 "rtnl: received address with invalid flags, ignoring");
+                return 0;
+        }
+
         switch (address->family) {
         case AF_INET:
                 r = sd_rtnl_message_read_in_addr(message, IFA_LOCAL,
@@ -1658,6 +1665,9 @@ static void link_update_operstate(Link *link) {
 
                 /* if we have carrier, check what addresses we have */
                 LIST_FOREACH(addresses, address, link->addresses) {
+                        if (address->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED))
+                                continue;
+
                         if (address->scope < scope)
                                 scope = address->scope;
                 }
