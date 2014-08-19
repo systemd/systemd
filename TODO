@@ -24,6 +24,12 @@ External:
 
 Features:
 
+* tmpfiles: port to unquote_many_words(), similar to sysusers
+
+* unquote_many_words() should probably be used by a lot of code that
+  currently uses FOREACH_WORD and friends. For example, most conf
+  parsing callbacks should use it.
+
 * logind: make the Suspend()/Hibernate() bus calls wait for the for
   the job to be completed. before returning, so that clients can wait
   for "systemctl suspend" to finish to know when the suspending is
@@ -104,7 +110,6 @@ Features:
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
 
 * sysusers:
-  - allow setting the home directory of system users
   - allow configuration of ranges to allocate items in
 
 * Add a new verb "systemctl top"
