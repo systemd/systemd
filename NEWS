@@ -1,11 +1,184 @@
 systemd System and Service Manager
 
 CHANGES WITH 216:
-        * timedated does no longer read NTP unit names from
+
+        * timedated no longer reads NTP implementation unit names from
           /usr/lib/systemd/ntp-units.d/*.list. Alternative NTP
-          implementations should add a:
+          implementations should add a
+
             Conflicts=systemd-timesyncd.service
-          to take over and replace systemd's NTP functionality.
+
+          to their unit files to take over and replace systemd's NTP
+          default functionality.
+
+        * systemd-sysusers gained a new line type "r" for configuring
+          which UID/GID ranges to allocate system users/groups
+          from. Lines of type "u" may now add an additional column
+          that specifies the home directory for the system user to be
+          created. Also, systemd-sysusers may now optionally read user
+          information from STDIN instead of a file. This is useful for
+          invoking it from RPM preinst scriptlets that need to create
+          users before the first RPM file is installed since these
+          files might need to be owned by them. A new
+          %sysusers_create_inline RPM macro has been introduced to do
+          just that. systemd-sysusers now updates the shadow files as
+          well as the user/group databases, which should enhance
+          compatibility with certain tools like grpck.
+
+        * A number of bus APIs of PID 1 now optionally consult
+          PolicyKit to permit access for otherwise unpriviliged
+          clients under certain conditions. Note that this currently
+          doesn't support interactive authentication yet, but this is
+          expected to be added eventually, too.
+
+        * /etc/machine-info now has new fields for configuring the
+          deployment environment of the machine, as well as the
+          location of the machine. hostnamectl has been updated with
+          new command to update these fields.
+
+        * systemd-timesyncd has been updated to automatically acquire
+          NTP server information from systemd-networkd, which might
+          have been discovered via DHCP.
+
+        * systemd-resolved now includes a caching DNS stub resolver
+          and a complete LLMNR name resolution implementation. A new
+          NSS module "nss-resolve" has been added which make be used
+          of glibc's own "nss-dns" to resolve hostnames via
+          systemd-resolved. Hostnames, addresses and arbitrary RRs may
+          be resolved via systemd-resolved D-Bus APIs. In contrast to
+          the glibc internal resolver systemd-resolved is aware of
+          multi-homed system, and keeps DNS server and caches separate
+          and per-interface. Queries are sent simultaneous on all
+          interfaces that have DNS servers configured, in order to
+          properly handle VPNs and local LANs which might resolve
+          separate sets of domain names. systemd-resolved may acquire
+          DNS server information from systemd-resolved automatically,
+          which in turn might have discovered them via DHCP. A tool
+          "systemd-resolve-host" has been added that may be used to
+          query the DNS logic in resolved. systemd-resolved implements
+          IDNA and automatically uses IDNA or UTF-8 encoding depending
+          on whether classic DNS or LLMNR is used as transport. In the
+          next releases we intend to add a DNSSEC and mDNS/DNS-SD
+          implementation to systemd-resolved.
+
+        * A new NSS module nss-mymachines has been added, that
+          automatically resolves the names of all local registered
+          containers to their respective IP addresses.
+
+        * A new client tool "networkctl" for systemd-networkd has been
+          added. It currently is entirely passive and will query
+          networking configuration from udev, rtnetlink and networkd,
+          and present it to the user in a very friendy
+          way. Eventually, we hope to extend it to become a full
+          control utility for networkd.
+
+        * .socket units gained a new DeferAcceptSec= setting that
+          controls the kernels' TCP_DEFER_ACCEPT sockopt for
+          TCP. Similar, support for controlling TCP keep-alive
+          settings has been added (KeepAliveTimeSec=,
+          KeepAliveIntervalSec=, KeepAliveProbes=). Also, support for
+          turning off Nagle's algorithm on TCP has been added
+          (NoDelay=).
+
+        * logind learnt a new session type "web", for use in projects
+          like Cockpit which register web clients as PAM sessions.
+
+        * timer units with at least one OnCalendar= setting will now
+          be started only after timer-sync.target has been
+          reached. This way they will not elapse before the system
+          clock has been corrected by a local NTP client or
+          similar. This is particular useful on RTC-less embedded
+          machines, that come up with an invalid system clock.
+
+        * systemd-nspawn's --network-veth= switch should now result in
+          stable MAC addresses for both the outer and the inner side
+          of the link.
+
+        * systemd-nspawn gained a new --volatile= switch for running
+          container instances with /etc or /var unpopulated.
+
+        * The kdbus client code has been updated to use the new Linux
+          3.17 memfd subsystem instead of the old kdbus-specific one.
+
+        * systemd-networkd's DHCP client and server now support
+          FORCERENEW.
+
+        * systemd will no longer inform the kernel about the current
+          timezone, as this is necessarily incorrect and racy as the
+          kernel has no understanding of DST and similar
+          concepts. This hence means FAT timestamps will be always
+          considered UTC, similar to what Android is already
+          doing. Also, when the RTC is configured to the local time
+          (rather than UTC) systemd will never synchronize back to it,
+          as this might confuse Windows at a later boot.
+
+        * systemd-analyze gained a new command "verify" for offline
+          validation of unit files.
+
+        * systemd-networkd gained support for a couple of additional
+          settings for bonding networking setups. Also, the metric for
+          statically configured routes may now be configured. For
+          network interfaces where this is appropriate the peer IP
+          address may now be configured.
+
+        * A new library systemd-terminal has been added that
+          implements full TTY stream parsing and rendering. This
+          library is supposed to be used later on for implementing a
+          full userspace VT subsystem, replacing the current kernel
+          implementation.
+
+        * A new tool systemd-journal-upload has been added to push
+          journal data to a remote system running
+          systemd-journal-remote.
+
+        * journald will no longer forward all local data to another
+          running syslog daemon. This change has been made because
+          rsyslog (which appears to be the most commonly used syslog
+          implementation these days) no longer makes use of this, and
+          instead pulls the data out of the journal on its own. Since
+          forwarding the messages to a non-existant syslog server is
+          more expensive than we assumed we have now turned this
+          off. If you run a syslog server that is not a recent rsyslog
+          version, you have to turn this option on again
+          (ForwardToSyslog= in journald.conf).
+
+        * journald now optionally supports the LZ4 compressor for
+          larger journal fields. This compressor should perform much
+          better than XZ which was the previous default.
+
+        * machinectl now shows the IP addresses of local containers,
+          if it knows them, plus the interface name of the container.
+
+        * A new tool "systemd-escape" has been added that makes it
+          easy to escape strings to build unit names and similar.
+
+        * sd_notify() messages may now include a new ERRNO= field
+          which is parsed and collected by systemd and shown among the
+          "systemctl status" output for a service.
+
+        * A new component "systemd-firstboot" has been added that
+          queries the most basic systemd information (timezone,
+          hostname, root password) inertactively on first
+          boot. Alternatively it may also be used to provision these
+          things offline on OS images installed into directories.
+
+        Contributions from: Ansgar Burchardt, Bastien Nocera, Colin
+        Walters, Dan Dedrick, Daniel Buch, Daniel Korostil, Daniel
+        Mack, Dan Williams, Dave Reisner, David Herrmann, Denis
+        Kenzior, Eelco Dolstra, Eric Cook, Hannes Reinecke, Harald
+        Hoyer, Hong Shick Pak, Hui Wang, Jean-André Santoni, Jóhann
+        B. Guðmundsson, Jon Severinsson, Karel Zak, Kay Sievers, Kevin
+        Wells, Lennart Poettering, Lukas Nykryn, Mantas Mikulėnas,
+        Marc-Antoine Perennou, Martin Pitt, Michael Biebl, Michael
+        Marineau, Michael Olbrich, Michal Schmidt, Michal Sekletar,
+        Miguel Angel Ajo, Mike Gilbert, Olivier Brunel, Robert
+        Schiele, Ronny Chevalier, Simon McVittie, Sjoerd Simons, Stef
+        Walter, Steven Noonan, Susant Sahani, Tanu Kaskinen, Thomas
+        Blume, Thomas Hindoe Paaboel Andersen, Timofey Titovets,
+        Tobias Geerinckx-Rice, Tomasz Torcz, Tom Gundersen, Umut
+        Tezduyar Lindskog, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-08-19
 
 CHANGES WITH 215:
 
