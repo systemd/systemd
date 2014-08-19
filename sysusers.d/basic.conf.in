@@ -6,32 +6,32 @@
 #  (at your option) any later version.
 
 # The superuser
-u root                          0               "Super User"
+u root    0     "Super User" /root
 
 # The nobody user for NFS file systems
-u nobody                        65534           "Nobody"
+u nobody  65534 "Nobody"     -
 
 # Administrator group: can *see* more than normal users
-g adm                           -               -
+g adm     -     -            -
 
 # Administrator group: can *do* more than normal users
-g wheel                         -               -
+g wheel   -     -            -
 
 # Access to certain kernel and userspace facilities
-g kmem                          -               -
-g lock                          -               -
-g tty                           @TTY_GID@               -
-g utmp                          -               -
+g kmem    -     -            -
+g lock    -     -            -
+g tty     @TTY_GID@     -            -
+g utmp    -     -            -
 
 # Hardware access groups
-g audio                         -               -
-g cdrom                         -               -
-g dialout                       -               -
-g disk                          -               -
-g input                         -               -
-g lp                            -               -
-g tape                          -               -
-g video                         -               -
+g audio   -     -            -
+g cdrom   -     -            -
+g dialout -     -            -
+g disk    -     -            -
+g input   -     -            -
+g lp      -     -            -
+g tape    -     -            -
+g video   -     -            -
 
 # Default group for normal users
-g users                         -               -
+g users   -     -            -
