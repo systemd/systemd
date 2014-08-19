@@ -39,7 +39,6 @@ void label_context_clear(void);
 void label_free(const char *label);
 
 int label_get_create_label_from_exe(const char *exe, char **label);
-int label_get_child_label(int socket_fd, const char *exec, char **label);
 
 int label_mkdir(const char *path, mode_t mode);
 

@@ -676,17 +676,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                          <term><varname>SELinuxLabelViaNet=</varname></term>
-                          <listitem><para>Takes a boolean
-                          value. Controls whether systemd attempts to figure out
-                          SELinux label used for instantiated service from
-                          information handed by peer over the
-                          network. Configuration option has effect only
-                          on sockets with <literal>Accept=</literal>
-                          mode set to <literal>yes</literal>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>PipeSize=</varname></term>
                                 <listitem><para>Takes a size in
                                 bytes. Controls the pipe buffer size

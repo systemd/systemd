@@ -31,7 +31,6 @@
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #include <selinux/label.h>
-#include <selinux/context.h>
 #endif
 
 #include "label.h"
@@ -241,74 +240,6 @@ fail:
         freecon(fcon);
 #endif
 
-        return r;
-}
-
-int label_get_child_label(int socket_fd, const char *exe, char **label) {
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-
-        security_context_t mycon = NULL, peercon = NULL, fcon = NULL, ret = NULL;
-        security_class_t sclass;
-        context_t pcon = NULL, bcon = NULL;
-        const char *range = NULL;
-
-        assert(socket_fd >= 0);
-        assert(exe);
-        assert(label);
-
-        r = getcon(&mycon);
-        if (r < 0)
-                goto out;
-
-        r = getpeercon(socket_fd, &peercon);
-        if (r < 0)
-                goto out;
-
-        r = getfilecon(exe, &fcon);
-        if (r < 0)
-                goto out;
-
-        bcon = context_new(mycon);
-        if (!bcon)
-                goto out;
-
-        pcon = context_new(peercon);
-        if (!pcon)
-                goto out;
-
-        range = context_range_get(pcon);
-        if (!range)
-                goto out;
-
-        r = context_range_set(bcon, range);
-        if (r)
-                goto out;
-
-        freecon(mycon);
-        mycon = context_str(bcon);
-        if (!mycon)
-                goto out;
-
-        sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, &ret);
-        if (r < 0)
-                goto out;
-
-        *label = ret;
-
-out:
-        if (r && security_getenforce() == 1)
-                r = -errno;
-
-        freecon(mycon);
-        freecon(peercon);
-        freecon(fcon);
-        context_free(pcon);
-        context_free(bcon);
-
-#endif
         return r;
 }
 

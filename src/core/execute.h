@@ -136,7 +136,6 @@ struct ExecContext {
 
         bool selinux_context_ignore;
         char *selinux_context;
-        bool selinux_label_via_net;
 
         bool apparmor_profile_ignore;
         char *apparmor_profile;

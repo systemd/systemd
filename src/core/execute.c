@@ -83,7 +83,6 @@
 #include "af-list.h"
 #include "mkdir.h"
 #include "apparmor-util.h"
-#include "label.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1730,22 +1729,6 @@ int exec_spawn(ExecCommand *command,
                                         goto fail_child;
                                 }
                         }
-
-                        if (context->selinux_label_via_net && use_selinux()) {
-                                _cleanup_free_ char *label = NULL;
-
-                                err = label_get_child_label(socket_fd, command->path, &label);
-                                if (err < 0) {
-                                        r = EXIT_SELINUX_CONTEXT;
-                                        goto fail_child;
-                                }
-
-                                err = setexeccon(label);
-                                if (err < 0) {
-                                        r = EXIT_SELINUX_CONTEXT;
-                                        goto fail_child;
-                                }
-                        }
 #endif
 
 #ifdef HAVE_APPARMOR
@@ -2129,8 +2112,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateDevices: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
-                "%sIgnoreSIGPIPE: %s\n"
-                "%sSELinuxLabelViaNet: %s\n",
+                "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -2140,8 +2122,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_devices),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
-                prefix, yes_no(c->ignore_sigpipe),
-                prefix, yes_no(c->selinux_label_via_net));
+                prefix, yes_no(c->ignore_sigpipe));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

@@ -165,8 +165,6 @@ struct Socket {
         char *smack_ip_in;
         char *smack_ip_out;
 
-        bool selinux_label_via_net;
-
         char *user, *group;
 };
 

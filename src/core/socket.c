@@ -31,10 +31,6 @@
 #include <mqueue.h>
 #include <sys/xattr.h>
 
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include "sd-event.h"
 #include "log.h"
 #include "load-dropin.h"
@@ -492,8 +488,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassCredentials: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n"
-                "%sRemoveOnStop: %s\n"
-                "%sSELinuxLabelViaNet: %s\n",
+                "%sRemoveOnStop: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -508,8 +503,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_cred),
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion),
-                prefix, yes_no(s->remove_on_stop),
-                prefix, yes_no(s->selinux_label_via_net));
+                prefix, yes_no(s->remove_on_stop));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -1136,14 +1130,7 @@ static int socket_open_fds(Socket *s) {
                         continue;
 
                 if (p->type == SOCKET_SOCKET) {
-#ifdef HAVE_SELINUX
-                        if (!know_label && s->selinux_label_via_net) {
-                                r = getcon(&label);
-                                if (r < 0)
-                                        return r;
-                                know_label = true;
-                        }
-#endif
+
                         if (!know_label) {
 
                                 r = socket_instantiate_service(s);
@@ -1841,9 +1828,6 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 cfd = -1;
                 s->n_connections ++;
-
-                if (s->selinux_label_via_net)
-                        service->exec_context.selinux_label_via_net = true;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL);
                 if (r < 0)
