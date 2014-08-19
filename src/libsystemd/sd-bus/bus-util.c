@@ -322,7 +322,6 @@ int bus_verify_polkit_async(
 
 #ifdef ENABLE_POLKIT
         _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
         AsyncPolkitQuery *q;
         const char *sender;
         sd_bus_message_handler_t callback;

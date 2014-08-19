@@ -30,7 +30,6 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
 
 static int verify_sys_admin_or_owner_sync(sd_bus_message *message, Job *j, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
 
         if (sd_bus_track_contains(j->clients, sd_bus_message_get_sender(message)))
