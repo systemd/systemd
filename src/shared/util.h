@@ -248,9 +248,6 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         _FOREACH_WORD(word, length, s, WHITESPACE, true, state)
 
-#define FOREACH_WORD_SEPARATOR_QUOTED(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, true, state)
-
 #define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
