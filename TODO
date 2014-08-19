@@ -48,7 +48,7 @@ Features:
   that fit into GSource nicely.
 
 * networkd:
-  - add LLDP support
+  - add LLDP client side support
   - ipv4ll with multiple interfaces doesn't work when both dhcp and
     ipv4ll is used. for some reasons the kernel will currently pick an
     ipv4ll source address to reach non-ipv4ll gateways.
@@ -104,7 +104,6 @@ Features:
 * the resolv.conf tmpfiles line should be covered by ENABLE_NETWORKD...
 
 * sysusers:
-  - also create entries in /etc/shadow, /etc/gshadow
   - allow setting the home directory of system users
   - allow configuration of ranges to allocate items in
   - add mode where we read sysusers data from stdin, so that we can run this from rpm scriptlets
@@ -123,9 +122,6 @@ Features:
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
 * support setting empty environment variables with Environment= and EnvironmentFile=
-
-* machined/machinectl: sort IP addresses we return by scope and protocol
-* machined: write NSS module for looking up IP addresses for machines
 
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
@@ -223,8 +219,6 @@ Features:
 
 * unify dispatch table in systemctl_main() and friends
 
-* Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
-
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
@@ -288,8 +282,6 @@ Features:
 * add a pam module that on password changes updates any LUKS slot where the password matches
 
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
-
-* timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
 * timedatectl: print a nicer message when enabling ntp fails because ntpd/chrony are not installed
 
