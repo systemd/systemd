@@ -121,6 +121,19 @@ CHANGES WITH 216:
           network interfaces where this is appropriate the peer IP
           address may now be configured.
 
+        * systemd-networkd's DHCP client will no longer request
+          broadcasting by default, as this tripped up some networks.
+          For hardware where broadcast is required the feature should
+          be switched back on using RequestBroadcast=yes.
+
+        * systemd-networkd will now set up IPv4LL addresses (when
+          enabled) even if DHCP is configured successfully.
+
+        * udev will now default to respect network device names given
+          by the kernel when the kernel indicates that these are
+          predictable. This behavior can be tweaked by changing
+          NamePolicy= in the relevant .link file.
+
         * A new library systemd-terminal has been added that
           implements full TTY stream parsing and rendering. This
           library is supposed to be used later on for implementing a
