@@ -1134,25 +1134,24 @@ static int parse_config(void) {
 static void help(void) {
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to journal file(s).\n\n"
-               "Options:\n"
-               "  --url=URL            Read events from systemd-journal-gatewayd at URL\n"
-               "  --getter=COMMAND     Read events from the output of COMMAND\n"
-               "  --listen-raw=ADDR    Listen for connections at ADDR\n"
-               "  --listen-http=ADDR   Listen for HTTP connections at ADDR\n"
-               "  --listen-https=ADDR  Listen for HTTPS connections at ADDR\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --url=URL            Read events from systemd-journal-gatewayd at URL\n"
+               "     --getter=COMMAND     Read events from the output of COMMAND\n"
+               "     --listen-raw=ADDR    Listen for connections at ADDR\n"
+               "     --listen-http=ADDR   Listen for HTTP connections at ADDR\n"
+               "     --listen-https=ADDR  Listen for HTTPS connections at ADDR\n"
                "  -o --output=FILE|DIR Write output to FILE or DIR/external-*.journal\n"
-               "  --[no-]compress      Use XZ-compression in the output journal (default: yes)\n"
-               "  --[no-]seal          Use Event sealing in the output journal (default: no)\n"
-               "  --key=FILENAME       Specify key in PEM format (default:\n"
-               "                           \"" PRIV_KEY_FILE "\")\n"
-               "  --cert=FILENAME      Specify certificate in PEM format (default:\n"
-               "                           \"" CERT_FILE "\")\n"
-               "  --trust=FILENAME|all Specify CA certificate or disable checking (default:\n"
-               "                           \"" TRUST_FILE "\")\n"
-               "  --gnutls-log=CATEGORY...\n"
-               "                       Specify a list of gnutls logging categories\n"
-               "  -h --help            Show this help and exit\n"
-               "  --version            Print version string and exit\n"
+               "     --compress[=BOOL]    Use XZ-compression in the output journal (default: yes)\n"
+               "     --seal[=BOOL]        Use Event sealing in the output journal (default: no)\n"
+               "     --key=FILENAME       Specify key in PEM format (default:\n"
+               "                          \"" PRIV_KEY_FILE "\")\n"
+               "     --cert=FILENAME      Specify certificate in PEM format (default:\n"
+               "                          \"" CERT_FILE "\")\n"
+               "     --trust=FILENAME|all Specify CA certificate or disable checking (default:\n"
+               "                          \"" TRUST_FILE "\")\n"
+               "     --gnutls-log=CATEGORY...\n"
+               "                          Specify a list of gnutls logging categories\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be consumed, too.\n"
                , program_invocation_short_name);
@@ -1168,9 +1167,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GETTER,
                 ARG_SPLIT_MODE,
                 ARG_COMPRESS,
-                ARG_NO_COMPRESS,
                 ARG_SEAL,
-                ARG_NO_SEAL,
                 ARG_KEY,
                 ARG_CERT,
                 ARG_TRUST,
@@ -1187,10 +1184,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
                 { "output",       required_argument, NULL, 'o'              },
                 { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     no_argument,       NULL, ARG_COMPRESS     },
-                { "no-compress",  no_argument,       NULL, ARG_NO_COMPRESS  },
-                { "seal",         no_argument,       NULL, ARG_SEAL         },
-                { "no-seal",      no_argument,       NULL, ARG_NO_SEAL      },
+                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
+                { "seal",         optional_argument, NULL, ARG_SEAL         },
                 { "key",          required_argument, NULL, ARG_KEY          },
                 { "cert",         required_argument, NULL, ARG_CERT         },
                 { "trust",        required_argument, NULL, ARG_TRUST        },
@@ -1332,16 +1327,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_COMPRESS:
-                        arg_compress = true;
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --compress= parameter.");
+                                        return -EINVAL;
+                                }
+
+                                arg_compress = !!r;
+                        } else
+                                arg_compress = true;
+
                         break;
-                case ARG_NO_COMPRESS:
-                        arg_compress = false;
-                        break;
+
                 case ARG_SEAL:
-                        arg_seal = true;
-                        break;
-                case ARG_NO_SEAL:
-                        arg_seal = false;
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --seal= parameter.");
+                                        return -EINVAL;
+                                }
+
+                                arg_seal = !!r;
+                        } else
+                                arg_seal = true;
+
                         break;
 
                 case ARG_GNUTLS_LOG: {

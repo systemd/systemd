@@ -1202,7 +1202,7 @@ static void help(void) {
                "                          services, which finished TIMESPAN earlier, than the\n"
                "                          latest in the branch. The unit of TIMESPAN is seconds\n"
                "                          unless specified with a different unit, i.e. 50ms\n"
-               "     --no-man             Do not check for existence of man pages\n\n"
+               "     --man[=BOOL]         Do [not] check for existence of man pages\n\n"
                "Commands:\n"
                "  time                    Print time spent in the kernel before reaching userspace\n"
                "  blame                   Print list of running units ordered by time to init\n"
@@ -1230,7 +1230,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DOT_TO_PATTERN,
                 ARG_FUZZ,
                 ARG_NO_PAGER,
-                ARG_NO_MAN,
+                ARG_MAN,
         };
 
         static const struct option options[] = {
@@ -1244,7 +1244,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
                 { "fuzz",         required_argument, NULL, ARG_FUZZ             },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
-                { "no-man",       no_argument,       NULL, ARG_NO_MAN           },
+                { "man",          optional_argument, NULL, ARG_MAN              },
                 { "host",         required_argument, NULL, 'H'                  },
                 { "machine",      required_argument, NULL, 'M'                  },
                 {}
@@ -1315,8 +1315,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
-                case ARG_NO_MAN:
-                        arg_man = false;
+                case ARG_MAN:
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --man= argument.");
+                                        return -EINVAL;
+                                }
+
+                                arg_man = !!r;
+                        } else
+                                arg_man = true;
+
                         break;
 
                 case '?':

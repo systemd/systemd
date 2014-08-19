@@ -505,24 +505,25 @@ static int parse_config(void) {
 static void help(void) {
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
-               "Options:\n"
-               "  -u --url=URL             Upload to this address\n"
-               "  --key=FILENAME           Specify key in PEM format\n"
-               "  --cert=FILENAME          Specify certificate in PEM format\n"
-               "  --trust=FILENAME         Specify CA certificate in PEM format\n"
-               "     --system              Use the system journal\n"
-               "     --user                Use the user journal for the current user\n"
-               "  -m --merge               Use  all available journals\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "  -D --directory=PATH      Use journal files from directory\n"
-               "     --file=PATH           Use this journal file\n"
-               "  --cursor=CURSOR          Start at the specified cursor\n"
-               "  --after-cursor=CURSOR    Start after the specified cursor\n"
-               "  --[no-]follow            Do [not] wait for input\n"
-               "  --save-state[=FILE]      Save uploaded cursors (default \n"
-               "                           " STATE_FILE ")\n"
-               "  -h --help                Show this help and exit\n"
-               "  --version                Print version string and exit\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "  -u --url=URL              Upload to this address\n"
+               "     --key=FILENAME         Specify key in PEM format\n"
+               "     --cert=FILENAME        Specify certificate in PEM format\n"
+               "     --trust=FILENAME       Specify CA certificate in PEM format\n"
+               "     --system               Use the system journal\n"
+               "     --user                 Use the user journal for the current user\n"
+               "  -m --merge                Use  all available journals\n"
+               "  -M --machine=CONTAINER    Operate on local container\n"
+               "  -D --directory=PATH       Use journal files from directory\n"
+               "     --file=PATH            Use this journal file\n"
+               "     --cursor=CURSOR        Start at the specified cursor\n"
+               "     --after-cursor=CURSOR  Start after the specified cursor\n"
+               "     --follow[=BOOL]        Do [not] wait for input\n"
+               "     --save-state[=FILE]    Save uploaded cursors (default \n"
+               "                            " STATE_FILE ")\n"
+               "  -h --help                 Show this help and exit\n"
+               "     --version              Print version string and exit\n"
                , program_invocation_short_name);
 }
 
@@ -538,7 +539,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CURSOR,
                 ARG_AFTER_CURSOR,
                 ARG_FOLLOW,
-                ARG_NO_FOLLOW,
                 ARG_SAVE_STATE,
         };
 
@@ -557,8 +557,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "file",         required_argument, NULL, ARG_FILE           },
                 { "cursor",       required_argument, NULL, ARG_CURSOR         },
                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "follow",       no_argument,       NULL, ARG_FOLLOW         },
-                { "no-follow",    no_argument,       NULL, ARG_NO_FOLLOW      },
+                { "follow",       optional_argument, NULL, ARG_FOLLOW         },
                 { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
                 {}
         };
@@ -675,11 +674,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FOLLOW:
-                        arg_follow = true;
-                        break;
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --follow= parameter.");
+                                        return -EINVAL;
+                                }
 
-                case ARG_NO_FOLLOW:
-                        arg_follow = false;
+                                arg_follow = !!r;
+                        } else
+                                arg_follow = true;
+
                         break;
 
                 case ARG_SAVE_STATE:

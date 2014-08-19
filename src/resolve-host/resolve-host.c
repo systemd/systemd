@@ -466,14 +466,14 @@ static void help(void) {
                "  -p --protocol=PROTOCOL  Look via protocol\n"
                "  -t --type=TYPE          Query RR with DNS type\n"
                "  -c --class=CLASS        Query RR with DNS class\n"
-               "     --no-legend          Do not print column headers\n"
+               "     --legend[=BOOL]      Do [not] print column headers\n"
                , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
-                ARG_NO_LEGEND,
+                ARG_LEGEND,
         };
 
         static const struct option options[] = {
@@ -481,7 +481,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "type",      required_argument, NULL, 't'           },
                 { "class",     required_argument, NULL, 'c'           },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "legend", optional_argument,    NULL, ARG_LEGEND    },
                 { "protocol",  required_argument, NULL, 'p'           },
                 {}
         };
@@ -548,8 +548,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
+                case ARG_LEGEND:
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0) {
+                                        log_error("Failed to parse --legend= argument");
+                                        return r;
+                                }
+
+                                arg_legend = !!r;
+                        } else
+                                arg_legend = false;
                         break;
 
                 case 'p':
