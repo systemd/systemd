@@ -488,7 +488,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>KeepAliveTime=</varname></term>
+                                <term><varname>KeepAliveTimeSec=</varname></term>
                                 <listitem><para>Takes time (in seconds) as argument . The connection needs to remain
                                 idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
                                 socket option (see
@@ -500,7 +500,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>KeepAliveInterval=</varname></term>
+                                <term><varname>KeepAliveIntervalSec=</varname></term>
                                 <listitem><para>Takes time (in seconds) as argument between individual keepalive probes,
                                 if the socket option SO_KEEPALIVE has  been set on this socket seconds as argument.
                                 This controls the TCP_KEEPINTVL socket option (see
@@ -546,7 +546,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>DeferAccept=</varname></term>
+                                <term><varname>DeferAcceptSec=</varname></term>
 
                                 <listitem><para>Takes time (in
                                 seconds) as argument. If set, the

@@ -596,28 +596,25 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, strna(s->user),
                         prefix, strna(s->group));
 
-        if(s->keep_alive_time)
+        if (s->keep_alive_time > 0)
                 fprintf(f,
-                        "%sKeepAliveTime: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                                s->keep_alive_time, USEC_PER_SEC));
+                        "%sKeepAliveTimeSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
 
-        if(s->keep_alive_interval)
+        if (s->keep_alive_interval)
                 fprintf(f,
-                        "%sKeepAliveInterval: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                                s->keep_alive_interval, USEC_PER_SEC));
+                        "%sKeepAliveIntervalSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
 
-        if(s->keep_alive_cnt)
+        if (s->keep_alive_cnt)
                 fprintf(f,
                         "%sKeepAliveProbes: %u\n",
                         prefix, s->keep_alive_cnt);
 
-        if(s->defer_accept)
+        if (s->defer_accept)
                 fprintf(f,
-                        "%sDeferAccept: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX,
-                                                s->defer_accept, USEC_PER_SEC));
+                        "%sDeferAcceptSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
