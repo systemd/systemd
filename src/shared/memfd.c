@@ -29,25 +29,19 @@
 #include "bus-label.h"
 #include "missing.h"
 #include "memfd.h"
+#include "utf8.h"
 
 int memfd_new(const char *name) {
 
         _cleanup_free_ char *g = NULL;
         int fd;
 
-        assert(name);
-
         if (name) {
-                /* The kernel side is pretty picky about the character
-                 * set here, let's do the usual bus escaping to deal
-                 * with that. */
-
-                g = bus_label_escape(name);
+                g = utf8_escape_invalid(name);
                 if (!g)
                         return -ENOMEM;
 
                 name = g;
-
         } else {
                 char pr[17] = {};
 
@@ -62,7 +56,7 @@ int memfd_new(const char *name) {
                 else {
                         _cleanup_free_ char *e = NULL;
 
-                        e = bus_label_escape(pr);
+                        e = utf8_escape_invalid(pr);
                         if (!e)
                                 return -ENOMEM;
 
@@ -161,7 +155,6 @@ int memfd_new_and_map(const char *name, size_t sz, void **p) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        assert(name);
         assert(sz > 0);
         assert(p);
 
@@ -221,7 +214,7 @@ int memfd_get_name(int fd, char **name) {
         if (!n)
                 return -ENOMEM;
 
-        e = bus_label_unescape(n);
+        e = utf8_escape_invalid(n);
         if (!e)
                 return -ENOMEM;
 
