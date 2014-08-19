@@ -32,17 +32,10 @@
 #include "utf8.h"
 
 int memfd_new(const char *name) {
-
         _cleanup_free_ char *g = NULL;
         int fd;
 
-        if (name) {
-                g = utf8_escape_invalid(name);
-                if (!g)
-                        return -ENOMEM;
-
-                name = g;
-        } else {
+        if (!name) {
                 char pr[17] = {};
 
                 /* If no name is specified we generate one. We include
@@ -54,7 +47,13 @@ int memfd_new(const char *name) {
                 if (isempty(pr))
                         name = "sd";
                 else {
-                        g = strappend("sd-", pr);
+                        _cleanup_free_ char *e = NULL;
+
+                        e = utf8_escape_invalid(pr);
+                        if (!e)
+                                return -ENOMEM;
+
+                        g = strappend("sd-", e);
                         if (!g)
                                 return -ENOMEM;
 
@@ -130,7 +129,7 @@ int memfd_get_size(int fd, uint64_t *sz) {
                 return -errno;
 
         *sz = stat.st_size;
-        return r;
+        return 0;
 }
 
 int memfd_set_size(int fd, uint64_t sz) {
@@ -142,7 +141,7 @@ int memfd_set_size(int fd, uint64_t sz) {
         if (r < 0)
                 return -errno;
 
-        return r;
+        return 0;
 }
 
 int memfd_new_and_map(const char *name, size_t sz, void **p) {
