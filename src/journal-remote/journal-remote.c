@@ -579,7 +579,6 @@ static int request_handler(
                         log_error("MHD_get_connection_info failed: cannot get remote fd");
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote address");
-                        return code;
                 }
 
                 fd = ci->connect_fd;
