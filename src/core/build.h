@@ -123,12 +123,6 @@
 #define _KMOD_FEATURE_ "-KMOD"
 #endif
 
-#ifdef HAVE_KMOD
-#define _KMOD_FEATURE_ "+KMOD"
-#else
-#define _KMOD_FEATURE_ "-KMOD"
-#endif
-
 #ifdef HAVE_LIBIDN
 #define _IDN_FEATURE_ "+IDN"
 #else
