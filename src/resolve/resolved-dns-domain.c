@@ -434,8 +434,8 @@ int dns_name_endswith(const char *name, const char *suffix) {
                         saved_n = n;
 
                 q = dns_label_unescape(&s, ls, sizeof(ls));
-                if (r < 0)
-                        return r;
+                if (q < 0)
+                        return q;
                 w = dns_label_undo_idna(ls, q, ls, sizeof(ls));
                 if (w < 0)
                         return w;
