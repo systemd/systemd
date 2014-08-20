@@ -699,7 +699,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 }
 
 static void write_resolv_conf_search(const char *domain, FILE *f,
-                                     unsigned *length, unsigned *count) {
+                                     unsigned *count, unsigned *length) {
         assert(domain);
         assert(f);
         assert(length);
