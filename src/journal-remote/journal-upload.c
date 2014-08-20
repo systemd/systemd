@@ -324,7 +324,7 @@ static int dispatch_fd_input(sd_event_source *event,
 }
 
 static int open_file_for_upload(Uploader *u, const char *filename) {
-        int fd, r;
+        int fd, r = 0;
 
         if (streq(filename, "-"))
                 fd = STDIN_FILENO;
