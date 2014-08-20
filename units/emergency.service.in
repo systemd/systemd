@@ -11,6 +11,7 @@ Documentation=man:sulogin(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Conflicts=rescue.service
+Conflicts=syslog.socket
 Before=shutdown.target
 
 [Service]
