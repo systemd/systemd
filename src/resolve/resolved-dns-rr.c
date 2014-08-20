@@ -425,13 +425,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
 
         case DNS_TYPE_RRSIG:
                 /* do the fast comparisons first */
-                if (a->rrsig.type_covered != a->rrsig.type_covered ||
-                    a->rrsig.algorithm != a->rrsig.algorithm ||
-                    a->rrsig.labels != a->rrsig.labels ||
-                    a->rrsig.original_ttl != a->rrsig.original_ttl ||
-                    a->rrsig.expiration != a->rrsig.expiration ||
-                    a->rrsig.inception != a->rrsig.inception ||
-                    a->rrsig.key_tag != a->rrsig.key_tag ||
+                if (a->rrsig.type_covered != b->rrsig.type_covered ||
+                    a->rrsig.algorithm != b->rrsig.algorithm ||
+                    a->rrsig.labels != b->rrsig.labels ||
+                    a->rrsig.original_ttl != b->rrsig.original_ttl ||
+                    a->rrsig.expiration != b->rrsig.expiration ||
+                    a->rrsig.inception != b->rrsig.inception ||
+                    a->rrsig.key_tag != b->rrsig.key_tag ||
                     a->rrsig.signature_size != b->rrsig.signature_size ||
                     memcmp(a->rrsig.signature, b->rrsig.signature, a->rrsig.signature_size) != 0)
                         return false;
