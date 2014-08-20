@@ -7113,10 +7113,10 @@ int unquote_many_words(const char **p, ...) {
                 if (r < 0) {
                         int j;
 
-                        for (j = 0; j < c; j++) {
+                        for (j = 0; j < c; j++)
                                 free(l[j]);
-                                return r;
-                        }
+
+                        return r;
                 }
 
                 if (r == 0)
