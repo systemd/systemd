@@ -52,6 +52,23 @@ char *strv_find_prefix(char **l, const char *name) {
         return NULL;
 }
 
+char *strv_find_startswith(char **l, const char *name) {
+        char **i, *e;
+
+        assert(name);
+
+        /* Like strv_find_prefix, but actually returns only the
+         * suffix, not the whole item */
+
+        STRV_FOREACH(i, l) {
+                e = startswith(*i, name);
+                if (e)
+                        return e;
+        }
+
+        return NULL;
+}
+
 void strv_free(char **l) {
         char **k;
 

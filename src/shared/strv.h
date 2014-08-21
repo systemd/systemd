@@ -28,6 +28,7 @@
 
 char *strv_find(char **l, const char *name) _pure_;
 char *strv_find_prefix(char **l, const char *name) _pure_;
+char *strv_find_startswith(char **l, const char *name) _pure_;
 
 void strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);

@@ -2526,12 +2526,13 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         /* Interpret MAINPID= */
-        e = strv_find_prefix(tags, "MAINPID=");
+        e = strv_find_startswith(tags, "MAINPID=");
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
-                if (parse_pid(e + 8, &pid) < 0)
+                if (parse_pid(e, &pid) < 0)
                         log_warning_unit(u->id, "Failed to parse MAINPID= field in notification message: %s", e);
                 else {
-                        log_debug_unit(u->id, "%s: got %s", u->id, e);
+                        log_debug_unit(u->id, "%s: got MAINPID=%s", u->id, e);
+
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
                         notify_dbus = true;
@@ -2546,44 +2547,41 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         /* Interpret STATUS= */
-        e = strv_find_prefix(tags, "STATUS=");
+        e = strv_find_startswith(tags, "STATUS=");
         if (e) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
-                if (e[7]) {
-                        if (!utf8_is_valid(e+7)) {
+                if (!isempty(e)) {
+                        if (!utf8_is_valid(e))
                                 log_warning_unit(u->id, "Status message in notification is not UTF-8 clean.");
-                                return;
+                        else {
+                                log_debug_unit(u->id, "%s: got STATUS=%s", u->id, e);
+
+                                t = strdup(e);
+                                if (!t)
+                                        log_oom();
                         }
-
-                        log_debug_unit(u->id, "%s: got %s", u->id, e);
-
-                        t = strdup(e+7);
-                        if (!t) {
-                                log_oom();
-                                return;
-                        }
-
-                } else
-                        t = NULL;
+                }
 
                 if (!streq_ptr(s->status_text, t)) {
+
                         free(s->status_text);
                         s->status_text = t;
+                        t = NULL;
+
                         notify_dbus = true;
-                } else
-                        free(t);
+                }
         }
 
         /* Interpret ERRNO= */
-        e = strv_find_prefix(tags, "ERRNO=");
+        e = strv_find_startswith(tags, "ERRNO=");
         if (e) {
                 int status_errno;
 
-                if (safe_atoi(e + 6, &status_errno) < 0 || status_errno < 0)
+                if (safe_atoi(e, &status_errno) < 0 || status_errno < 0)
                         log_warning_unit(u->id, "Failed to parse ERRNO= field in notification message: %s", e);
                 else {
-                        log_debug_unit(u->id, "%s: got %s", u->id, e);
+                        log_debug_unit(u->id, "%s: got ERRNO=%s", u->id, e);
 
                         if (s->status_errno != status_errno) {
                                 s->status_errno = status_errno;
