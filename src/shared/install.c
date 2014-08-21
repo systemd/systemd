@@ -45,8 +45,6 @@ typedef struct {
         Hashmap *have_installed;
 } InstallContext;
 
-#define _cleanup_install_context_done_ _cleanup_(install_context_done)
-
 static int in_search_path(const char *path, char **search) {
         _cleanup_free_ char *parent = NULL;
         int r;
@@ -1161,7 +1159,7 @@ static int unit_file_can_install(
                 const char *name,
                 bool allow_symlink) {
 
-        _cleanup_install_context_done_ InstallContext c = {};
+        _cleanup_(install_context_done) InstallContext c = {};
         InstallInfo *i;
         int r;
 
@@ -1498,7 +1496,7 @@ int unit_file_enable(
                 unsigned *n_changes) {
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_install_context_done_ InstallContext c = {};
+        _cleanup_(install_context_done) InstallContext c = {};
         char **i;
         _cleanup_free_ char *config_path = NULL;
         int r;
@@ -1537,7 +1535,7 @@ int unit_file_disable(
                 unsigned *n_changes) {
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_install_context_done_ InstallContext c = {};
+        _cleanup_(install_context_done) InstallContext c = {};
         char **i;
         _cleanup_free_ char *config_path = NULL;
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
@@ -1597,7 +1595,7 @@ int unit_file_set_default(
                 unsigned *n_changes) {
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_install_context_done_ InstallContext c = {};
+        _cleanup_(install_context_done) InstallContext c = {};
         _cleanup_free_ char *config_path = NULL;
         char *path;
         int r;
@@ -1859,7 +1857,7 @@ int unit_file_preset(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_install_context_done_ InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_free_ char *config_path = NULL;
         char **i;
@@ -1927,7 +1925,7 @@ int unit_file_preset_all(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        _cleanup_install_context_done_ InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_free_ char *config_path = NULL;
         char **i;
@@ -2019,14 +2017,15 @@ int unit_file_preset_all(
         return r;
 }
 
-static void unitfilelist_free(UnitFileList **f) {
-        if (!*f)
+static void unit_file_list_free_one(UnitFileList *f) {
+        if (!f)
                 return;
 
-        free((*f)->path);
-        free(*f);
+        free(f->path);
+        free(f);
 }
-#define _cleanup_unitfilelist_free_ _cleanup_(unitfilelist_free)
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
 
 int unit_file_get_list(
                 UnitFileScope scope,
@@ -2071,7 +2070,7 @@ int unit_file_get_list(
                 }
 
                 for (;;) {
-                        _cleanup_unitfilelist_free_ UnitFileList *f = NULL;
+                        _cleanup_(unit_file_list_free_onep) UnitFileList *f = NULL;
                         struct dirent *de;
 
                         errno = 0;
