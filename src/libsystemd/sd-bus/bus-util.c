@@ -22,6 +22,8 @@
 #include <sys/socket.h>
 #include <sys/capability.h>
 
+#include "systemd/sd-daemon.h"
+
 #include "util.h"
 #include "strv.h"
 #include "macro.h"
@@ -128,11 +130,17 @@ int bus_event_loop_with_idle(
                         if (r == -EBUSY)
                                 continue;
 
+                        /* Fallback for dbus1 connections: we
+                         * unregister the name and wait for the
+                         * response to come through for it */
                         if (r == -ENOTSUP) {
-                                /* Fallback for dbus1 connections: we
-                                 * unregister the name and wait for
-                                 * the response to come through for
-                                 * it */
+
+                                /* Inform the service manager that we
+                                 * are going down, so that it will
+                                 * queue all further start requests,
+                                 * instead of assuming we are already
+                                 * running. */
+                                sd_notify(false, "STOPPING=1");
 
                                 r = bus_async_unregister_and_exit(e, bus, name);
                                 if (r < 0)
