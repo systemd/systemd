@@ -158,15 +158,23 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
-static inline const char *startswith(const char *s, const char *prefix) {
-        if (strncmp(s, prefix, strlen(prefix)) == 0)
-                return s + strlen(prefix);
+static inline char *startswith(const char *s, const char *prefix) {
+        size_t l;
+
+        l = strlen(prefix);
+        if (strncmp(s, prefix, l) == 0)
+                return (char*) s + l;
+
         return NULL;
 }
 
-static inline const char *startswith_no_case(const char *s, const char *prefix) {
-        if (strncasecmp(s, prefix, strlen(prefix)) == 0)
-                return s + strlen(prefix);
+static inline char *startswith_no_case(const char *s, const char *prefix) {
+        size_t l;
+
+        l = strlen(prefix);
+        if (strncasecmp(s, prefix, l) == 0)
+                return (char*) s + l;
+
         return NULL;
 }
 
