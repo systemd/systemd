@@ -180,9 +180,6 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 static void service_close_socket_fd(Service *s) {
         assert(s);
 
-        if (s->socket_fd < 0)
-                return;
-
         s->socket_fd = asynchronous_close(s->socket_fd);
 }
 
