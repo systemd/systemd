@@ -38,9 +38,6 @@ Features:
   for "systemctl suspend" to finish to know when the suspending is
   complete.
 
-* sd_notify("SHUTDOWN=1") to fix a dbus activation race.
-  http://lists.freedesktop.org/archives/systemd-devel/2014-July/020983.html
-
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
 
 * make "systemctl suspend" block until we are back from suspend
@@ -603,9 +600,7 @@ Features:
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
-* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1), and add ReloadSignal= then to use in combination
-
-* support sd_notify() style notification when shutting down, to make auto-exit bus services work (STOPPING=1)
+* add ReloadSignal= for configuring a reload signal to use
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
