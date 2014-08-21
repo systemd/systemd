@@ -862,7 +862,7 @@ fail:
 static int service_spawn(
                 Service *s,
                 ExecCommand *c,
-                bool timeout,
+                usec_t timeout,
                 bool pass_fds,
                 bool apply_permissions,
                 bool apply_chroot,
@@ -907,8 +907,8 @@ static int service_spawn(
                 }
         }
 
-        if (timeout && s->timeout_start_usec > 0) {
-                r = service_arm_timer(s, s->timeout_start_usec);
+        if (timeout > 0) {
+                r = service_arm_timer(s, timeout);
                 if (r < 0)
                         goto fail;
         } else
@@ -1108,7 +1108,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  true,
+                                  s->timeout_stop_usec,
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
@@ -1207,7 +1207,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  true,
+                                  s->timeout_stop_usec,
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
@@ -1270,7 +1270,7 @@ static void service_enter_start_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  true,
+                                  s->timeout_start_usec,
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
@@ -1334,8 +1334,7 @@ static void service_enter_start(Service *s) {
 
         r = service_spawn(s,
                           c,
-                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS ||
-                            s->type == SERVICE_NOTIFY || s->type == SERVICE_ONESHOT,
+                          IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_NOTIFY, SERVICE_ONESHOT) ? s->timeout_start_usec : 0,
                           true,
                           true,
                           true,
@@ -1401,7 +1400,7 @@ static void service_enter_start_pre(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  true,
+                                  s->timeout_start_usec,
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
@@ -1482,7 +1481,7 @@ static void service_enter_reload(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  true,
+                                  s->timeout_start_usec,
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
@@ -1519,7 +1518,7 @@ static void service_run_next_control(Service *s) {
 
         r = service_spawn(s,
                           s->control_command,
-                          true,
+                          IN_SET(s->state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec,
                           false,
                           !s->permissions_start_only,
                           !s->root_directory_start_only,
@@ -1563,7 +1562,7 @@ static void service_run_next_main(Service *s) {
 
         r = service_spawn(s,
                           s->main_command,
-                          true,
+                          s->timeout_start_usec,
                           true,
                           true,
                           true,
