@@ -521,10 +521,6 @@ Features:
 
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
 
-* allow services with no ExecStart= but with an ExecStop=
-
-* dracut-shutdown needs to be ordered before unmounting /boot
-
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
 
 * rename "userspace" to "core-os"
