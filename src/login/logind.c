@@ -1226,6 +1226,7 @@ int main(int argc, char *argv[]) {
 
 finish:
         sd_notify(false,
+                  "STOPPING=1\n"
                   "STATUS=Shutting down...");
 
         if (m)

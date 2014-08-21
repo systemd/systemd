@@ -456,6 +456,7 @@ finish:
         }
 
         sd_notify(false,
+                  "STOPPING=\n"
                   "STATUS=Exiting...");
 
         return r;

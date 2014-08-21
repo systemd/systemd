@@ -100,7 +100,9 @@ int main(int argc, char *argv[]) {
         sd_event_get_exit_code(m->event, &r);
 
 finish:
-        sd_notify(false, "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPIN=1\n"
+                  "STATUS=Shutting down...");
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

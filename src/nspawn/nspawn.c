@@ -3071,7 +3071,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        sd_notify(0, "READY=1");
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Container running.");
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigemptyset(&mask_chld) == 0);
@@ -3504,6 +3506,10 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Terminating...");
+
         loop_remove(loop_nr, &image_fd);
 
         if (pid > 0)

@@ -116,7 +116,9 @@ int main(int argc, char *argv[]) {
         server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
-        sd_notify(false, "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
 
         server_done(&server);
 

@@ -132,7 +132,9 @@ int main(int argc, char *argv[]) {
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
         log_debug("systemd-timesyncd running as pid %lu", (unsigned long) getpid());
-        sd_notify(false, "READY=1");
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Daemon is running");
 
         if (network_is_online()) {
                 r = manager_connect(m);
@@ -153,7 +155,9 @@ int main(int argc, char *argv[]) {
         sd_event_get_exit_code(m->event, &r);
 
 finish:
-        sd_notify(false, "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

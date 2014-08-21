@@ -431,6 +431,7 @@ int main(int argc, char *argv[]) {
 
 fail:
         sd_notify(false,
+                  "STOPPING=1\n"
                   "STATUS=Shutting down...");
 
         server_done(&server);

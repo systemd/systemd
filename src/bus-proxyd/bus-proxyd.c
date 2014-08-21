@@ -239,7 +239,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
                   pid, p,
                   uid, name,
                   a->unique_name);
-                ;
+
         return 0;
 }
 
@@ -1474,6 +1474,10 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down.");
+
         policy_free(&policy);
         strv_free(arg_configuration);
         free(arg_address);

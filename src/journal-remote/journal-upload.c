@@ -818,7 +818,10 @@ int main(int argc, char **argv) {
         }
 
 cleanup:
-        sd_notify(false, "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
+
         destroy_uploader(&u);
 
 finish:

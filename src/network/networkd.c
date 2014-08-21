@@ -125,6 +125,7 @@ int main(int argc, char *argv[]) {
 
 out:
         sd_notify(false,
+                  "STOPPING=1\n"
                   "STATUS=Shutting down...");
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

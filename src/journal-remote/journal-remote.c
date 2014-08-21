@@ -1530,10 +1530,12 @@ int main(int argc, char **argv) {
                 }
         }
 
-        server_destroy(&s);
+        sd_notifyf(false,
+                   "STOPPING=1\n"
+                   "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 
-        sd_notify(false, "STATUS=Shutting down...");
+        server_destroy(&s);
 
         free(arg_key);
         free(arg_cert);
