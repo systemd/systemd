@@ -791,7 +791,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
         UnitDependency d;
         Iterator i;
-        _cleanup_free_ char *p2 = NULL;
         const char *prefix2;
         char
                 timestamp1[FORMAT_TIMESTAMP_MAX],
@@ -806,10 +805,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         assert(u);
         assert(u->type >= 0);
 
-        if (!prefix)
-                prefix = "";
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
+        prefix = strempty(prefix);
+        prefix2 = strappenda(prefix, "\t");
 
         fprintf(f,
                 "%s-> Unit %s:\n"

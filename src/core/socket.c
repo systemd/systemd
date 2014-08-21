@@ -471,6 +471,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         assert(s);
         assert(f);
 
+        prefix = strempty(prefix);
         prefix2 = strappenda(prefix, "\t");
 
         fprintf(f,

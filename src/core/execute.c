@@ -2398,11 +2398,10 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
         assert(s);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
-
         if (s->pid <= 0)
                 return;
+
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%sPID: "PID_FMT"\n",
@@ -2463,21 +2462,16 @@ char *exec_command_line(char **argv) {
 }
 
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
-        _cleanup_free_ char *p2 = NULL;
-        const char *prefix2;
-
         _cleanup_free_ char *cmd = NULL;
+        const char *prefix2;
 
         assert(c);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
+        prefix = strempty(prefix);
+        prefix2 = strappenda(prefix, "\t");
 
         cmd = exec_command_line(c->argv);
-
         fprintf(f,
                 "%sCommand Line: %s\n",
                 prefix, cmd ? cmd : strerror(ENOMEM));
@@ -2488,8 +2482,7 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
         assert(f);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         LIST_FOREACH(command, c, c)
                 exec_command_dump(c, f, prefix);

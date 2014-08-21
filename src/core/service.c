@@ -463,16 +463,14 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
-
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
-        _cleanup_free_ char *p2 = NULL;
 
         assert(s);
 
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
+        prefix = strempty(prefix);
+        prefix2 = strappenda(prefix, "\t");
 
         fprintf(f,
                 "%sService State: %s\n"
