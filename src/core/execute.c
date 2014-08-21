@@ -1635,7 +1635,9 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 /* We repeat the fd closing here, to make sure that
-                 * nothing is leaked from the PAM modules */
+                 * nothing is leaked from the PAM modules. Note that
+                 * we are more aggressive this time since socket_fd
+                 * and the netns fds we don#t need anymore. */
                 err = close_all_fds(fds, n_fds);
                 if (err >= 0)
                         err = shift_fds(fds, n_fds);
