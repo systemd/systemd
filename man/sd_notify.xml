@@ -46,7 +46,7 @@
         <refnamediv>
                 <refname>sd_notify</refname>
                 <refname>sd_notifyf</refname>
-                <refpurpose>Notify service manager about start-up completion and other daemon status changes</refpurpose>
+                <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -70,12 +70,12 @@
 
         <refsect1>
                 <title>Description</title>
-                <para><function>sd_notify()</function> shall be called
-                by a daemon to notify the init system about status
-                changes. It can be used to send arbitrary information,
-                encoded in an environment-block-like string. Most
-                importantly it can be used for start-up completion
-                notification.</para>
+                <para><function>sd_notify()</function> may be called
+                by a service to notify the service manager about
+                state changes. It can be used to send arbitrary
+                information, encoded in an environment-block-like
+                string. Most importantly it can be used for start-up
+                completion notification.</para>
 
                 <para>If the <parameter>unset_environment</parameter>
                 parameter is non-zero, <function>sd_notify()</function>
@@ -99,58 +99,87 @@
                         <varlistentry>
                                 <term>READY=1</term>
 
-                                <listitem><para>Tells the init system
-                                that daemon startup is finished. This
-                                is only used by systemd if the service
-                                definition file has Type=notify
-                                set. The passed argument is a boolean
-                                "1" or "0". Since there is little
+                                <listitem><para>Tells the service
+                                manager that service startup is
+                                finished. This is only used by systemd
+                                if the service definition file has
+                                Type=notify set. Since there is little
                                 value in signaling non-readiness, the
-                                only value daemons should send is
-                                "READY=1".</para></listitem>
+                                only value services should send is
+                                <literal>READY=1</literal>
+                                (i.e. <literal>READY=0</literal> is
+                                not defined).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>RELOADING=1</term>
+
+                                <listitem><para>Tells the service manager
+                                that the service is reloading its
+                                configuration. This is useful to allow
+                                the service manager to track the service's
+                                internal state, and present it to the
+                                user. Note that a service that sends
+                                this notification must also send a
+                                <literal>READY=1</literal>
+                                notification when it completed
+                                reloading its
+                                configuration.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>STOPPING=1</term>
+
+                                <listitem><para>Tells the service manager
+                                that the service is beginning its
+                                shutdown. This is useful to allow the
+                                service manager to track the service's
+                                internal state, and present it to the
+                                user.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>STATUS=...</term>
 
                                 <listitem><para>Passes a single-line
-                                status string back to the init system
-                                that describes the daemon state. This
+                                UTF-8 status string back to the service manager
+                                that describes the service state. This
                                 is free-form and can be used for
                                 various purposes: general state
                                 feedback, fsck-like programs could
                                 pass completion percentages and
                                 failing programs could pass a human
                                 readable error message. Example:
-                                "STATUS=Completed 66% of file system
-                                check..."</para></listitem>
+                                <literal>STATUS=Completed 66% of file
+                                system
+                                check...</literal></para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>ERRNO=...</term>
 
-                                <listitem><para>If a daemon fails, the
+                                <listitem><para>If a service fails, the
                                 errno-style error code, formatted as
-                                string. Example: "ERRNO=2" for
+                                string. Example: <literal>ERRNO=2</literal> for
                                 ENOENT.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>BUSERROR=...</term>
 
-                                <listitem><para>If a daemon fails, the
+                                <listitem><para>If a service fails, the
                                 D-Bus error-style error code. Example:
-                                "BUSERROR=org.freedesktop.DBus.Error.TimedOut"</para></listitem>
+                                <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal></para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>MAINPID=...</term>
 
                                 <listitem><para>The main pid of the
-                                daemon, in case the init system did
+                                service, in case the service manager did
                                 not fork off the process
                                 itself. Example:
-                                "MAINPID=4711"</para></listitem>
+                                <literal>MAINPID=4711</literal></para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -183,7 +212,7 @@
                 clashes.</para>
 
                 <para>Note that systemd will accept status data sent
-                from a daemon only if the
+                from a service only if the
                 <varname>NotifyAccess=</varname> option is correctly
                 set in the service definition file. See
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -222,7 +251,7 @@
                 <varname>$NOTIFY_SOCKET</varname> is <literal>@</literal>, the string is
                 understood as Linux abstract namespace socket. The
                 datagram is accompanied by the process credentials of
-                the sending daemon, using SCM_CREDENTIALS.</para>
+                the sending service, using SCM_CREDENTIALS.</para>
         </refsect1>
 
         <refsect1>
@@ -232,7 +261,7 @@
                         <varlistentry>
                                 <term><varname>$NOTIFY_SOCKET</varname></term>
 
-                                <listitem><para>Set by the init system
+                                <listitem><para>Set by the service manager
                                 for supervised processes for status
                                 and start-up completion
                                 notification. This environment variable
@@ -249,9 +278,9 @@
                 <example>
                         <title>Start-up Notification</title>
 
-                        <para>When a daemon finished starting up, it
+                        <para>When a service finished starting up, it
                         might issue the following call to notify
-                        the init system:</para>
+                        the service manager:</para>
 
                         <programlisting>sd_notify(0, "READY=1");</programlisting>
                 </example>
@@ -259,7 +288,7 @@
                 <example>
                         <title>Extended Start-up Notification</title>
 
-                        <para>A daemon could send the following after
+                        <para>A service could send the following after
                         completing initialization:</para>
 
                         <programlisting>sd_notifyf(0, "READY=1\n"
@@ -271,7 +300,7 @@
                 <example>
                         <title>Error Cause Notification</title>
 
-                        <para>A daemon could send the following shortly before exiting, on failure</para>
+                        <para>A service could send the following shortly before exiting, on failure</para>
 
                         <programlisting>sd_notifyf(0, "STATUS=Failed to start up: %s\n"
               "ERRNO=%i",

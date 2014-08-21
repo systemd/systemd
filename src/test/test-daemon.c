@@ -25,13 +25,29 @@
 
 int main(int argc, char*argv[]) {
 
-        sd_notify(0, "STATUS=Starting up");
+        sd_notify(0,
+                  "STATUS=Starting up");
         sleep(5);
+
         sd_notify(0,
                   "STATUS=Running\n"
                   "READY=1");
-        sleep(10);
-        sd_notify(0, "STATUS=Quitting");
+        sleep(5);
+
+        sd_notify(0,
+                  "STATUS=Reloading\n"
+                  "RELOADING=1");
+        sleep(5);
+
+        sd_notify(0,
+                  "STATUS=Running\n"
+                  "READY=1");
+        sleep(5);
+
+        sd_notify(0,
+                  "STATUS=Quitting\n"
+                  "STOPPING=1");
+        sleep(5);
 
         return 0;
 }

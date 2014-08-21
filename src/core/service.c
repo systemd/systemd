@@ -92,6 +92,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
+static void service_enter_reload_by_notify(Service *s);
 
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
@@ -473,7 +474,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sGuessMainPID: %s\n"
                 "%sType: %s\n"
                 "%sRestart: %s\n"
-                "%sNotifyAccess: %s\n",
+                "%sNotifyAccess: %s\n"
+                "%sNotifyState: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
@@ -483,7 +485,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->guess_main_pid),
                 prefix, service_type_to_string(s->type),
                 prefix, service_restart_to_string(s->restart),
-                prefix, notify_access_to_string(s->notify_access));
+                prefix, notify_access_to_string(s->notify_access),
+                prefix, notify_state_to_string(s->notify_state));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -1176,6 +1179,17 @@ fail:
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
+static void service_enter_stop_by_notify(Service *s) {
+        assert(s);
+
+        unit_watch_all_pids(UNIT(s));
+
+        if (s->timeout_stop_usec > 0)
+                service_arm_timer(s, s->timeout_stop_usec);
+
+        service_set_state(s, SERVICE_STOP);
+}
+
 static void service_enter_stop(Service *s, ServiceResult f) {
         int r;
 
@@ -1226,9 +1240,18 @@ static void service_enter_running(Service *s, ServiceResult f) {
         cgroup_ok = cgroup_good(s);
 
         if ((main_pid_ok > 0 || (main_pid_ok < 0 && cgroup_ok != 0)) &&
-            (s->bus_name_good || s->type != SERVICE_DBUS))
-                service_set_state(s, SERVICE_RUNNING);
-        else if (s->remain_after_exit)
+            (s->bus_name_good || s->type != SERVICE_DBUS)) {
+
+                /* If there are any queued up sd_notify()
+                 * notifications, process them now */
+                if (s->notify_state == NOTIFY_RELOADING)
+                        service_enter_reload_by_notify(s);
+                else if (s->notify_state == NOTIFY_STOPPING)
+                        service_enter_stop_by_notify(s);
+                else
+                        service_set_state(s, SERVICE_RUNNING);
+
+        } else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
@@ -1433,10 +1456,17 @@ static void service_enter_restart(Service *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id,
-                         "%s failed to schedule restart job: %s",
-                         UNIT(s)->id, bus_error_message(&error, -r));
+        log_warning_unit(UNIT(s)->id, "%s failed to schedule restart job: %s", UNIT(s)->id, bus_error_message(&error, -r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
+}
+
+static void service_enter_reload_by_notify(Service *s) {
+        assert(s);
+
+        if (s->timeout_start_usec > 0)
+                service_arm_timer(s, s->timeout_start_usec);
+
+        service_set_state(s, SERVICE_RELOAD);
 }
 
 static void service_enter_reload(Service *s) {
@@ -1666,6 +1696,8 @@ static int service_start(Unit *u) {
         free(s->status_text);
         s->status_text = NULL;
         s->status_errno = 0;
+
+        s->notify_state = NOTIFY_UNKNOWN;
 
         service_enter_start_pre(s);
         return 0;
@@ -2504,13 +2536,15 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 
 static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         Service *s = SERVICE(u);
-        const char *e;
+        _cleanup_free_ char *cc = NULL;
         bool notify_dbus = false;
+        const char *e;
 
         assert(u);
 
-        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT" (%s...)",
-                       u->id, pid, tags && *tags ? tags[0] : "(empty)");
+        cc = strv_join(tags, ", ");
+        log_debug_unit(u->id, "%s: Got notification message from PID "PID_FMT" (%s)",
+                       u->id, pid, isempty(cc) ? "n/a" : cc);
 
         if (s->notify_access == NOTIFY_NONE) {
                 log_warning_unit(u->id, "%s: Got notification message from PID "PID_FMT", but reception is disabled.", u->id, pid);
@@ -2539,10 +2573,46 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 }
         }
 
+        /* Interpret RELOADING= */
+        if (strv_find(tags, "RELOADING=1")) {
+
+                log_debug_unit(u->id, "%s: got RELOADING=1", u->id);
+                s->notify_state = NOTIFY_RELOADING;
+
+                if (s->state == SERVICE_RUNNING)
+                        service_enter_reload_by_notify(s);
+
+                notify_dbus = true;
+        }
+
         /* Interpret READY= */
-        if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START && strv_find(tags, "READY=1")) {
+        if (strv_find(tags, "READY=1")) {
+
                 log_debug_unit(u->id, "%s: got READY=1", u->id);
-                service_enter_start_post(s);
+                s->notify_state = NOTIFY_READY;
+
+                /* Type=notify services inform us about completed
+                 * initialization with READY=1 */
+                if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START)
+                        service_enter_start_post(s);
+
+                /* Sending READY=1 while we are reloading informs us
+                 * that the reloading is complete */
+                if (s->state == SERVICE_RELOAD && s->control_pid == 0)
+                        service_enter_running(s, SERVICE_SUCCESS);
+
+                notify_dbus = true;
+        }
+
+        /* Interpret STOPPING= */
+        if (strv_find(tags, "STOPPING=1")) {
+
+                log_debug_unit(u->id, "%s: got STOPPING=1", u->id);
+                s->notify_state = NOTIFY_STOPPING;
+
+                if (s->state == SERVICE_RUNNING)
+                        service_enter_stop_by_notify(s);
+
                 notify_dbus = true;
         }
 
@@ -2797,6 +2867,15 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
+        [NOTIFY_UNKNOWN] = "unknown",
+        [NOTIFY_READY] = "ready",
+        [NOTIFY_RELOADING] = "reloading",
+        [NOTIFY_STOPPING] = "stopping",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(notify_state, NotifyState);
 
 static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_SUCCESS] = "success",

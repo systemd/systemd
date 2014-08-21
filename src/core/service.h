@@ -91,6 +91,15 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
 
+typedef enum NotifyState {
+        NOTIFY_UNKNOWN,
+        NOTIFY_READY,
+        NOTIFY_RELOADING,
+        NOTIFY_STOPPING,
+        _NOTIFY_STATE_MAX,
+        _NOTIFY_STATE_INVALID = -1
+} NotifyState;
+
 typedef enum ServiceResult {
         SERVICE_SUCCESS,
         SERVICE_FAILURE_RESOURCES,
@@ -196,6 +205,7 @@ struct Service {
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
+        NotifyState notify_state;
 };
 
 extern const UnitVTable service_vtable;
@@ -218,6 +228,9 @@ ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
 const char* notify_access_to_string(NotifyAccess i) _const_;
 NotifyAccess notify_access_from_string(const char *s) _pure_;
+
+const char* notify_state_to_string(NotifyState i) _const_;
+NotifyState notify_state_from_string(const char *s) _pure_;
 
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
