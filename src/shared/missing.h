@@ -593,3 +593,7 @@ static inline int setns(int fd, int nstype) {
 #ifndef NET_NAME_RENAMED
 #  define NET_NAME_RENAMED 4
 #endif
+
+#ifndef BPF_XOR
+#  define BPF_XOR 0xa0
+#endif
