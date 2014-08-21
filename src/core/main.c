@@ -1853,8 +1853,8 @@ finish:
                          * deserializing. */
                         broadcast_signal(SIGTERM, false, true);
 
-                        /* And switch root */
-                        r = switch_root(switch_root_dir);
+                        /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
+                        r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
                         if (r < 0)
                                 log_error("Failed to switch root, ignoring: %s", strerror(-r));
                 }

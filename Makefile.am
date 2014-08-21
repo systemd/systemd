@@ -868,6 +868,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/memfd.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
+	src/shared/switch-root.h \
+	src/shared/switch-root.c \
 	src/shared/nss-util.h
 
 nodist_libsystemd_shared_la_SOURCES = \
@@ -1109,8 +1111,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/namespace.h \
 	src/core/build.h \
 	src/core/sysfs-show.h \
-	src/core/switch-root.h \
-	src/core/switch-root.c \
 	src/core/killall.h \
 	src/core/killall.c \
 	src/core/audit-fd.c \

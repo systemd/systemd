@@ -34,7 +34,7 @@
 #include "base-filesystem.h"
 #include "missing.h"
 
-int switch_root(const char *new_root) {
+int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {
 
         /*  Don't try to unmount/move the old "/", there's no way to do it. */
         static const char move_mounts[] =
@@ -52,14 +52,8 @@ int switch_root(const char *new_root) {
         if (path_equal(new_root, "/"))
                 return 0;
 
-        /* When using pivot_root() we assume that /mnt exists as place
-         * we can temporarily move the old root to. As we immediately
-         * unmount it from there it doesn't matter much which
-         * directory we choose for this, but it should be more likely
-         * than not that /mnt exists and is suitable as mount point
-         * and is on the same fs as the old root dir */
-        temporary_old_root = strappenda(new_root, "/mnt");
-        mkdir_p(temporary_old_root, 0755);
+        temporary_old_root = strappenda(new_root, oldroot);
+        mkdir_p_label(temporary_old_root, 0755);
 
         old_root_remove = in_initrd();
 
@@ -84,7 +78,7 @@ int switch_root(const char *new_root) {
                 snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
                 char_array_0(new_mount);
 
-                mkdir_p(new_mount, 0755);
+                mkdir_p_label(new_mount, 0755);
 
                 if ((stat(new_mount, &sb) < 0) ||
                     sb.st_dev != new_root_stat.st_dev) {
@@ -97,11 +91,16 @@ int switch_root(const char *new_root) {
                         continue;
                 }
 
-                if (mount(i, new_mount, NULL, MS_MOVE, NULL) < 0) {
-                        log_error("Failed to move mount %s to %s, forcing unmount: %m", i, new_mount);
+                if (mount(i, new_mount, NULL, mountflags, NULL) < 0) {
+                        if (mountflags & MS_MOVE) {
+                                log_error("Failed to move mount %s to %s, forcing unmount: %m", i, new_mount);
 
-                        if (umount2(i, MNT_FORCE) < 0)
-                                log_warning("Failed to unmount %s: %m", i);
+                                if (umount2(i, MNT_FORCE) < 0)
+                                        log_warning("Failed to unmount %s: %m", i);
+                        }
+                        if (mountflags & MS_BIND)
+                                log_error("Failed to bind mount %s to %s: %m", i, new_mount);
+
                 }
         }
 
@@ -127,10 +126,10 @@ int switch_root(const char *new_root) {
          * not possible however, and hence we simply overmount root */
         if (pivot_root(new_root, temporary_old_root) >= 0) {
 
-                /* Immediately get rid of the old root. Since we are
-                 * running off it we need to do this lazily. */
-                if (umount2("/mnt", MNT_DETACH) < 0) {
-                        log_error("Failed to umount old root dir /mnt: %m");
+                /* Immediately get rid of the old root, if detach_oldroot is set.
+                 * Since we are running off it we need to do this lazily. */
+                if (detach_oldroot && umount2(oldroot, MNT_DETACH) < 0) {
+                        log_error("Failed to umount old root dir %s: %m", oldroot);
                         return -errno;
                 }
 
