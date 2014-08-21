@@ -313,14 +313,23 @@ static int service_verify(Service *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (!s->exec_command[SERVICE_EXEC_START]) {
-                log_error_unit(UNIT(s)->id, "%s lacks ExecStart setting. Refusing.", UNIT(s)->id);
+        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]) {
+                log_error_unit(UNIT(s)->id, "%s lacks both ExecStart= and ExecStop= setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
-        if (s->type != SERVICE_ONESHOT &&
-            s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error_unit(UNIT(s)->id, "%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+        if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START]) {
+                log_error_unit(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
+
+        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START]) {
+                log_error_unit(UNIT(s)->id, "%s has no ExecStart= setting, which is only allowed for RemainAfterExit=yes services. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
+
+        if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next) {
+                log_error_unit(UNIT(s)->id, "%s has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -410,8 +419,15 @@ static int service_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (s->type == _SERVICE_TYPE_INVALID)
-                        s->type = s->bus_name ? SERVICE_DBUS : SERVICE_SIMPLE;
+                if (s->type == _SERVICE_TYPE_INVALID) {
+                        /* Figure out a type automatically */
+                        if (s->bus_name)
+                                s->type = SERVICE_DBUS;
+                        else if (s->exec_command[SERVICE_EXEC_START])
+                                s->type = SERVICE_SIMPLE;
+                        else
+                                s->type = SERVICE_ONESHOT;
+                }
 
                 /* Oneshot services have disabled start timeout by default */
                 if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
@@ -1309,9 +1325,6 @@ static void service_enter_start(Service *s) {
 
         assert(s);
 
-        assert(s->exec_command[SERVICE_EXEC_START]);
-        assert(!s->exec_command[SERVICE_EXEC_START]->command_next || s->type == SERVICE_ONESHOT);
-
         service_unwatch_control_pid(s);
         service_unwatch_main_pid(s);
 
@@ -1330,6 +1343,12 @@ static void service_enter_start(Service *s) {
                 s->control_command = NULL;
 
                 c = s->main_command = s->exec_command[SERVICE_EXEC_START];
+        }
+
+        if (!c) {
+                assert(s->type == SERVICE_ONESHOT);
+                service_enter_start_post(s);
+                return;
         }
 
         r = service_spawn(s,

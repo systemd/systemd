@@ -139,9 +139,10 @@
 
                                 <para>If set to
                                 <option>simple</option> (the default
-                                value if neither
+                                if neither
                                 <varname>Type=</varname> nor
-                                <varname>BusName=</varname> are
+                                <varname>BusName=</varname>, but
+                                <varname>ExecStart=</varname> are
                                 specified), it is expected that the
                                 process configured with
                                 <varname>ExecStart=</varname> is the
@@ -177,13 +178,17 @@
                                 exits.</para>
 
                                 <para>Behavior of
-                                <option>oneshot</option> is similar
-                                to <option>simple</option>; however,
-                                it is expected that the process has to
+                                <option>oneshot</option> is similar to
+                                <option>simple</option>; however, it
+                                is expected that the process has to
                                 exit before systemd starts follow-up
                                 units. <varname>RemainAfterExit=</varname>
                                 is particularly useful for this type
-                                of service.</para>
+                                of service. This is the implied
+                                default if neither
+                                <varname>Type=</varname> or
+                                <varname>ExecStart=</varname> are
+                                specified.</para>
 
                                 <para>Behavior of
                                 <option>dbus</option> is similar to
@@ -313,22 +318,27 @@
 
                                 <para>When <varname>Type</varname> is
                                 not <option>oneshot</option>, only one
-                                command may be given. When
+                                command may and must be given. When
                                 <varname>Type=oneshot</varname> is
-                                used, more than one command may be
-                                specified. Multiple command lines may
-                                be concatenated in a single directive
-                                by separating them with semicolons
-                                (these semicolons must be passed as
-                                separate words). Alternatively, this
-                                directive may be specified more than
-                                once with the same effect.
-                                Lone semicolons may be escaped as
+                                used, none or more than one command
+                                may be specified. Multiple command
+                                lines may be concatenated in a single
+                                directive by separating them with
+                                semicolons (these semicolons must be
+                                passed as separate
+                                words). Alternatively, this directive
+                                may be specified more than once with
+                                the same effect.  Lone semicolons may
+                                be escaped as
                                 <literal>\;</literal>. If the empty
                                 string is assigned to this option, the
                                 list of commands to start is reset,
                                 prior assignments of this option will
-                                have no effect.</para>
+                                have no effect. If no
+                                <varname>ExecStart=</varname> is
+                                specified, then the service must have
+                                <varname>RemainAfterExit=yes</varname>
+                                set.</para>
 
                                 <para>Each command line is split on
                                 whitespace, with the first item being
