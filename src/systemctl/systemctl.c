@@ -1351,11 +1351,8 @@ static int list_unit_files(sd_bus *bus, char **args) {
 
                 n_units = hashmap_size(h);
 
-                if (n_units == 0)
-                        return 0;
-
                 units = new(UnitFileList, n_units);
-                if (!units) {
+                if (!units && n_units > 0) {
                         unit_file_list_free(h);
                         return log_oom();
                 }
@@ -1411,14 +1408,13 @@ static int list_unit_files(sd_bus *bus, char **args) {
                         return bus_log_parse_error(r);
         }
 
-        if (c > 0) {
-                qsort(units, c, sizeof(UnitFileList), compare_unit_file_list);
-                output_unit_file_list(units, c);
-        }
+        qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
+        output_unit_file_list(units, c);
 
-        if (avoid_bus())
+        if (avoid_bus()) {
                 for (unit = units; unit < units + c; unit++)
                         free(unit->path);
+        }
 
         return 0;
 }
