@@ -694,9 +694,13 @@ static void service_set_state(Service *s, ServiceState state) {
         /* For remain_after_exit services, let's see if we can "release" the
          * hold on the console, since unit_notify() only does that in case of
          * change of state */
-        if (state == SERVICE_EXITED && s->remain_after_exit &&
+        if (state == SERVICE_EXITED &&
+            s->remain_after_exit &&
             UNIT(s)->manager->n_on_console > 0) {
-                ExecContext *ec = unit_get_exec_context(UNIT(s));
+
+                ExecContext *ec;
+
+                ec = unit_get_exec_context(UNIT(s));
                 if (ec && exec_context_may_touch_console(ec)) {
                         Manager *m = UNIT(s)->manager;
 
