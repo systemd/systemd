@@ -167,6 +167,9 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #      define __NR_fanotify_mark 5296
 #    endif
 #  endif
+#  ifndef __NR_memfd_create
+#    define __NR_memfd_create 0xffffffff /* FIXME */
+#  endif
 #else
 #  ifndef __NR_fanotify_init
 #    define __NR_fanotify_init 338
