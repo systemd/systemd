@@ -1155,19 +1155,6 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>RebootArgument=</varname></term>
-                                <listitem><para>Configure the optional
-                                argument for the
-                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                system call if
-                                <varname>StartLimitAction=</varname>
-                                is a reboot action. This works just
-                                like the optional argument to
-                                <command>systemctl reboot</command>
-                                command.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>FailureAction=</varname></term>
                                 <listitem><para>Configure the action
                                 to take when the service enters a failed
@@ -1176,6 +1163,20 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 and executes the same actions.
                                 Defaults to <option>none</option>.
                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RebootArgument=</varname></term>
+                                <listitem><para>Configure the optional
+                                argument for the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call if
+                                <varname>StartLimitAction=</varname>
+                                or <varname>FailureAction=</varname>
+                                is a reboot action. This works just
+                                like the optional argument to
+                                <command>systemctl reboot</command>
+                                command.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

@@ -28,6 +28,7 @@ typedef struct Service Service;
 #include "ratelimit.h"
 #include "kill.h"
 #include "exit-status.h"
+#include "failure-action.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -113,15 +114,6 @@ typedef enum ServiceResult {
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
 
-typedef enum FailureAction {
-        SERVICE_FAILURE_ACTION_NONE,
-        SERVICE_FAILURE_ACTION_REBOOT,
-        SERVICE_FAILURE_ACTION_REBOOT_FORCE,
-        SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE,
-        _SERVICE_FAILURE_ACTION_MAX,
-        _SERVICE_FAILURE_ACTION_INVALID = -1
-} FailureAction;
-
 struct Service {
         Unit meta;
 
@@ -193,10 +185,9 @@ struct Service {
         char *status_text;
         int status_errno;
 
-        FailureAction failure_action;
-
         RateLimit start_limit;
         FailureAction start_limit_action;
+        FailureAction failure_action;
         char *reboot_arg;
 
         UnitRef accept_socket;
@@ -234,6 +225,3 @@ NotifyState notify_state_from_string(const char *s) _pure_;
 
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
-
-const char* failure_action_to_string(FailureAction i) _const_;
-FailureAction failure_action_from_string(const char *s) _pure_;

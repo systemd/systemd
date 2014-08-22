@@ -1112,7 +1112,9 @@ libsystemd_core_la_SOURCES = \
 	src/core/audit-fd.c \
 	src/core/audit-fd.h \
 	src/core/show-status.c \
-	src/core/show-status.h
+	src/core/show-status.h \
+	src/core/failure-action.c \
+	src/core/failure-action.h
 
 if HAVE_KMOD
 libsystemd_core_la_SOURCES += \

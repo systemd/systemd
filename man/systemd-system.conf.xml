@@ -254,7 +254,6 @@
                                 signal.</para></listitem>
                         </varlistentry>
 
-
                         <varlistentry>
                                 <term><varname>TimerSlackNSec=</varname></term>
 
@@ -278,6 +277,32 @@
                                 unit is specified. The usual time
                                 units are understood
                                 too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>StartTimeoutSec=</varname></term>
+                                <term><varname>StartTimeoutAction=</varname></term>
+                                <term><varname>StartTimeoutRebootArgument=</varname></term>
+
+                                <listitem><para>Configures an over-all
+                                system start-up timeout and controls
+                                what to do when the timeout is
+                                reached. <varname>StartTimeoutSec=</varname>
+                                specifies the timeout, and defaults to
+                                <literal>15min</literal>. <varname>StartTimeoutAction=</varname>
+                                configures the action to take when the
+                                system did not finish boot-up within
+                                the specified time. It takes the same
+                                values as the per-service
+                                <varname>StartLimitAction=</varname>
+                                setting, see
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. Defaults to
+                                <option>reboot-force</option>. <varname>StartTimeoutRebootArgument=</varname>
+                                configures an optional reboot string
+                                to pass to the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

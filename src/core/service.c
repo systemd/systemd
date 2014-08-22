@@ -23,9 +23,6 @@
 #include <signal.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <sys/reboot.h>
-#include <linux/reboot.h>
-#include <sys/syscall.h>
 
 #include "async.h"
 #include "manager.h"
@@ -1052,8 +1049,6 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
-static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none);
-
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
@@ -1063,8 +1058,10 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
-        if (s->result != SERVICE_SUCCESS)
-                service_execute_action(s, s->failure_action, "failed", false);
+        if (s->result != SERVICE_SUCCESS) {
+                log_warning_unit(UNIT(s)->id, "%s failed.", UNIT(s)->id);
+                failure_action(UNIT(s)->manager, s->failure_action, s->reboot_arg);
+        }
 
         if (allow_restart &&
             !s->forbid_restart &&
@@ -1601,67 +1598,15 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none) {
-        assert(s);
-
-        if (action == SERVICE_FAILURE_ACTION_REBOOT ||
-            action == SERVICE_FAILURE_ACTION_REBOOT_FORCE)
-                update_reboot_param_file(s->reboot_arg);
-
-        switch (action) {
-
-        case SERVICE_FAILURE_ACTION_NONE:
-                if (log_action_none)
-                        log_warning_unit(UNIT(s)->id, "%s %s, refusing to start.", UNIT(s)->id, reason);
-                break;
-
-        case SERVICE_FAILURE_ACTION_REBOOT: {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                int r;
-
-                log_warning_unit(UNIT(s)->id, "%s %s, rebooting.", UNIT(s)->id, reason);
-
-                r = manager_add_job_by_name(UNIT(s)->manager, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
-                if (r < 0)
-                        log_error_unit(UNIT(s)->id, "Failed to reboot: %s.", bus_error_message(&error, r));
-
-                break;
-        }
-
-        case SERVICE_FAILURE_ACTION_REBOOT_FORCE:
-                log_warning_unit(UNIT(s)->id, "%s %s, forcibly rebooting.", UNIT(s)->id, reason);
-                UNIT(s)->manager->exit_code = MANAGER_REBOOT;
-                break;
-
-        case SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE:
-                log_warning_unit(UNIT(s)->id, "%s %s, rebooting immediately.", UNIT(s)->id, reason);
-
-                sync();
-
-                if (s->reboot_arg) {
-                        log_info("Rebooting with argument '%s'.", s->reboot_arg);
-                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, s->reboot_arg);
-                }
-
-                log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
-                break;
-
-        default:
-                log_error_unit(UNIT(s)->id, "failure action=%i", action);
-                assert_not_reached("Unknown FailureAction.");
-        }
-
-        return -ECANCELED;
-}
-
 static int service_start_limit_test(Service *s) {
         assert(s);
 
         if (ratelimit_test(&s->start_limit))
                 return 0;
 
-        return service_execute_action(s, s->start_limit_action, "start request repeated too quickly", true);
+        log_warning_unit(UNIT(s)->id, "start request repeated too quickly for %s", UNIT(s)->id);
+
+        return failure_action(UNIT(s)->manager, s->start_limit_action, s->reboot_arg);
 }
 
 static int service_start(Unit *u) {
@@ -2907,14 +2852,6 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
-
-static const char* const failure_action_table[_SERVICE_FAILURE_ACTION_MAX] = {
-        [SERVICE_FAILURE_ACTION_NONE] = "none",
-        [SERVICE_FAILURE_ACTION_REBOOT] = "reboot",
-        [SERVICE_FAILURE_ACTION_REBOOT_FORCE] = "reboot-force",
-        [SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate"
-};
-DEFINE_STRING_TABLE_LOOKUP(failure_action, FailureAction);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),

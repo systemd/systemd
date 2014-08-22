@@ -7137,3 +7137,24 @@ int unquote_many_words(const char **p, ...) {
 
         return c;
 }
+
+int free_and_strdup(char **p, const char *s) {
+        char *t;
+
+        assert(p);
+
+        /* Replaces a string pointer with an strdup()ed new string,
+         * possibly freeing the old one. */
+
+        if (s) {
+                t = strdup(s);
+                if (!t)
+                        return -ENOMEM;
+        } else
+                t = NULL;
+
+        free(*p);
+        *p = t;
+
+        return 0;
+}

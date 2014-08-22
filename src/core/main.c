@@ -116,6 +116,9 @@ static FILE* arg_serialization = NULL;
 static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
+static usec_t arg_start_timeout_usec = DEFAULT_MANAGER_START_TIMEOUT_USEC;
+static FailureAction arg_start_timeout_action = FAILURE_ACTION_REBOOT_FORCE;
+static char *arg_start_timeout_reboot_arg = NULL;
 
 static void nop_handler(int sig) {}
 
@@ -669,6 +672,9 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",   config_parse_bool,             0, &arg_default_memory_accounting         },
+                { "Manager", "StartTimeoutSec",           config_parse_sec,              0, &arg_start_timeout_usec                },
+                { "Manager", "StartTimeoutAction",        config_parse_failure_action,   0, &arg_start_timeout_action              },
+                { "Manager", "StartTimeoutRebootArgument",config_parse_string,           0, &arg_start_timeout_reboot_arg          },
                 {}
         };
 
@@ -1628,6 +1634,10 @@ int main(int argc, char *argv[]) {
         m->default_memory_accounting = arg_default_memory_accounting;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
+        m->start_timeout_usec = arg_start_timeout_usec;
+        m->start_timeout_action = arg_start_timeout_action;
+        free_and_strdup(&m->start_timeout_reboot_arg, arg_start_timeout_reboot_arg);
+
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
         m->initrd_timestamp = initrd_timestamp;
@@ -1815,6 +1825,9 @@ finish:
 
         set_free(arg_syscall_archs);
         arg_syscall_archs = NULL;
+
+        free(arg_start_timeout_reboot_arg);
+        arg_start_timeout_reboot_arg = NULL;
 
         label_finish();
 

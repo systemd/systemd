@@ -33,6 +33,8 @@
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 
+#define DEFAULT_MANAGER_START_TIMEOUT_USEC (15*USEC_PER_MINUTE)
+
 typedef struct Manager Manager;
 
 typedef enum ManagerState {
@@ -69,6 +71,7 @@ typedef enum ManagerExitCode {
 #include "unit-name.h"
 #include "exit-status.h"
 #include "show-status.h"
+#include "failure-action.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -152,6 +155,7 @@ struct Manager {
         dual_timestamp initrd_timestamp;
         dual_timestamp userspace_timestamp;
         dual_timestamp finish_timestamp;
+
         dual_timestamp security_start_timestamp;
         dual_timestamp security_finish_timestamp;
         dual_timestamp generators_start_timestamp;
@@ -279,6 +283,12 @@ struct Manager {
 
         /* Used for processing polkit authorization responses */
         Hashmap *polkit_registry;
+
+        /* System wide startup timeouts */
+        usec_t start_timeout_usec;
+        sd_event_source *start_timeout_event_source;
+        FailureAction start_timeout_action;
+        char *start_timeout_reboot_arg;
 };
 
 int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);
