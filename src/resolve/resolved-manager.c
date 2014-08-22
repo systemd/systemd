@@ -449,7 +449,7 @@ static int manager_llmnr_start(Manager *m) {
         return 0;
 
 eaddrinuse:
-        log_warning("There appears to be another LLMNR respondering running. Turning off LLMNR support.");
+        log_warning("There appears to be another LLMNR responder running. Turning off LLMNR support.");
         m->llmnr_support = SUPPORT_NO;
         manager_llmnr_stop(m);
 
