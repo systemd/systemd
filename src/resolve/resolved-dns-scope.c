@@ -82,10 +82,10 @@ DnsScope* dns_scope_free(DnsScope *s) {
                 dns_transaction_free(t);
         }
 
-        while ((rr = hashmap_steal_first(s->conflict_queue)))
+        while ((rr = ordered_hashmap_steal_first(s->conflict_queue)))
                 dns_resource_record_unref(rr);
 
-        hashmap_free(s->conflict_queue);
+        ordered_hashmap_free(s->conflict_queue);
         sd_event_source_unref(s->conflict_event_source);
 
         dns_cache_flush(&s->cache);
@@ -682,7 +682,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
-                rr = hashmap_steal_first(scope->conflict_queue);
+                rr = ordered_hashmap_steal_first(scope->conflict_queue);
                 if (!rr)
                         break;
 
@@ -709,7 +709,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
 
         /* We don't send these queries immediately. Instead, we queue
          * them, and send them after some jitter delay. */
-        r = hashmap_ensure_allocated(&scope->conflict_queue, &dns_resource_key_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&scope->conflict_queue, &dns_resource_key_hash_ops);
         if (r < 0) {
                 log_oom();
                 return r;
@@ -718,7 +718,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         /* We only place one RR per key in the conflict
          * messages, not all of them. That should be enough to
          * indicate where there might be a conflict */
-        r = hashmap_put(scope->conflict_queue, rr->key, rr);
+        r = ordered_hashmap_put(scope->conflict_queue, rr->key, rr);
         if (r == -EEXIST || r == 0)
                 return 0;
         if (r < 0) {

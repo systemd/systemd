@@ -55,7 +55,7 @@ struct DnsScope {
         DnsCache cache;
         DnsZone zone;
 
-        Hashmap *conflict_queue;
+        OrderedHashmap *conflict_queue;
         sd_event_source *conflict_event_source;
 
         RateLimit ratelimit;
