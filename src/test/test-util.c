@@ -90,6 +90,10 @@ static void test_max(void) {
         assert_se(val1.a == 100);
         assert_se(MAX(++d, 0) == 1);
         assert_se(d == 1);
+
+        assert_cc(MAXSIZE(char[3], uint16_t) == 3);
+        assert_cc(MAXSIZE(char[3], uint32_t) == 4);
+        assert_cc(MAXSIZE(char, long) == sizeof(long));
 }
 
 static void test_first_word(void) {

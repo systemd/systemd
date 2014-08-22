@@ -64,7 +64,7 @@ static int dns_stream_complete(DnsStream *s, int error) {
 static int dns_stream_identify(DnsStream *s) {
         union {
                 struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(CONST_MAX(sizeof(struct in_pktinfo), sizeof(struct in6_pktinfo)))
+                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra space */];
         } control;
         struct msghdr mh = {};

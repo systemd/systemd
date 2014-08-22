@@ -149,6 +149,9 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 ((_A) > (_B)) ? (_A) : (_B),                            \
                 (void)0))
 
+/* takes two types and returns the size of the larger one */
+#define MAXSIZE(A, B) (sizeof(union _packed_ { typeof(A) a; typeof(B) b; }))
+
 #define MAX3(x,y,z)                                     \
         __extension__ ({                                \
                         const typeof(x) _c = MAX(x,y);  \

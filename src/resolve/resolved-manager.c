@@ -841,7 +841,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         union {
                 struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(CONST_MAX(sizeof(struct in_pktinfo), sizeof(struct in6_pktinfo)))
+                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
                                + CMSG_SPACE(int) /* ttl/hoplimit */
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
