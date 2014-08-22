@@ -79,6 +79,9 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
+#define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
+#define UNIQ __COUNTER__
+
 /* Rounds up */
 
 #define ALIGN4(l) (((l) + 3) & ~3)
@@ -122,13 +125,13 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * @ptr: the pointer to the member.
  * @type: the type of the container struct this is embedded in.
  * @member: the name of the member within the struct.
- *
  */
-#define container_of(ptr, type, member)                                 \
+#define container_of(ptr, type, member) __container_of(UNIQ, (ptr), type, member)
+#define __container_of(uniq, ptr, type, member)                         \
         __extension__ ({                                                \
-                        const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-                        (type *)( (char *)__mptr - offsetof(type,member) ); \
-                })
+                const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
+                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type,member) ); \
+        })
 
 #undef MAX
 #define MAX(a,b)                                        \

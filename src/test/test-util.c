@@ -96,6 +96,24 @@ static void test_max(void) {
         assert_cc(MAXSIZE(char, long) == sizeof(long));
 }
 
+static void test_container_of(void) {
+        struct mytype {
+                uint8_t pad1[3];
+                uint64_t v1;
+                uint8_t pad2[2];
+                uint32_t v2;
+        } _packed_ myval = { };
+
+        assert_cc(sizeof(myval) == 17);
+        assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
+        assert_se(container_of(&myval.v2, struct mytype, v2) == &myval);
+        assert_se(container_of(&container_of(&myval.v2,
+                                             struct mytype,
+                                             v2)->v1,
+                               struct mytype,
+                               v1) == &myval);
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -1218,6 +1236,7 @@ int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_align_power2();
         test_max();
+        test_container_of();
         test_first_word();
         test_close_many();
         test_parse_boolean();
