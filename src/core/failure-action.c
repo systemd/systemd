@@ -40,10 +40,19 @@ int failure_action(
         assert(action >= 0);
         assert(action < _FAILURE_ACTION_MAX);
 
-        switch (action) {
+        if (action == FAILURE_ACTION_NONE)
+                return -ECANCELED;
 
-        case FAILURE_ACTION_NONE:
-                break;
+        if (m->running_as == SYSTEMD_USER) {
+                /* Downgrade all options to simply exiting if we run
+                 * in user mode */
+
+                log_warning("Exiting as result of failure.");
+                m->exit_code = MANAGER_EXIT;
+                return -ECANCELED;
+        }
+
+        switch (action) {
 
         case FAILURE_ACTION_REBOOT: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -78,6 +87,32 @@ int failure_action(
                 reboot(RB_AUTOBOOT);
                 break;
 
+        case FAILURE_ACTION_POWEROFF: {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                log_warning("Powering off as result of failure.");
+
+                r = manager_add_job_by_name(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, true, &error, NULL);
+                if (r < 0)
+                        log_error("Failed to poweroff: %s.", bus_error_message(&error, r));
+
+                break;
+        }
+
+        case FAILURE_ACTION_POWEROFF_FORCE:
+                log_warning("Forcibly powering off as result of failure.");
+                m->exit_code = MANAGER_POWEROFF;
+                break;
+
+        case FAILURE_ACTION_POWEROFF_IMMEDIATE:
+                log_warning("Powering off immediately as result of failure.");
+
+                sync();
+
+                log_info("Powering off.");
+                reboot(RB_POWER_OFF);
+                break;
+
         default:
                 assert_not_reached("Unknown failure action");
         }
@@ -89,6 +124,9 @@ static const char* const failure_action_table[_FAILURE_ACTION_MAX] = {
         [FAILURE_ACTION_NONE] = "none",
         [FAILURE_ACTION_REBOOT] = "reboot",
         [FAILURE_ACTION_REBOOT_FORCE] = "reboot-force",
-        [FAILURE_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate"
+        [FAILURE_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate",
+        [FAILURE_ACTION_POWEROFF] = "poweroff",
+        [FAILURE_ACTION_POWEROFF_FORCE] = "poweroff-force",
+        [FAILURE_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate"
 };
 DEFINE_STRING_TABLE_LOOKUP(failure_action, FailureAction);

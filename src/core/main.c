@@ -117,7 +117,7 @@ static bool arg_default_cpu_accounting = false;
 static bool arg_default_blockio_accounting = false;
 static bool arg_default_memory_accounting = false;
 static usec_t arg_start_timeout_usec = DEFAULT_MANAGER_START_TIMEOUT_USEC;
-static FailureAction arg_start_timeout_action = FAILURE_ACTION_REBOOT_FORCE;
+static FailureAction arg_start_timeout_action = FAILURE_ACTION_POWEROFF_FORCE;
 static char *arg_start_timeout_reboot_arg = NULL;
 
 static void nop_handler(int sig) {}

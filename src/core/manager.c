@@ -436,7 +436,7 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
         m->start_timeout_usec = DEFAULT_MANAGER_START_TIMEOUT_USEC;
-        m->start_timeout_action = FAILURE_ACTION_REBOOT_FORCE;
+        m->start_timeout_action = FAILURE_ACTION_POWEROFF_FORCE;
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 

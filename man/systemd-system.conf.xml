@@ -298,7 +298,7 @@
                                 setting, see
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. Defaults to
-                                <option>reboot-force</option>. <varname>StartTimeoutRebootArgument=</varname>
+                                <option>poweroff-force</option>. <varname>StartTimeoutRebootArgument=</varname>
                                 configures an optional reboot string
                                 to pass to the
                                 <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>

@@ -1131,26 +1131,35 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 hit. Takes one of
                                 <option>none</option>,
                                 <option>reboot</option>,
-                                <option>reboot-force</option>, or
-                                <option>reboot-immediate</option>. If
-                                <option>none</option> is set,
-                                hitting the rate limit will trigger no
-                                action besides that the start will not
-                                be permitted. <option>reboot</option>
+                                <option>reboot-force</option>,
+                                <option>reboot-immediate</option>,
+                                <option>poweroff</option>,
+                                <option>poweroff-force</option> or
+                                <option>poweroff-immediate</option>. If
+                                <option>none</option> is set, hitting
+                                the rate limit will trigger no action
+                                besides that the start will not be
+                                permitted. <option>reboot</option>
                                 causes a reboot following the normal
                                 shutdown procedure (i.e. equivalent to
                                 <command>systemctl reboot</command>).
-                                <option>reboot-force</option> causes
-                                a forced reboot which will terminate
-                                all processes forcibly but should
-                                cause no dirty file systems on reboot
+                                <option>reboot-force</option> causes a
+                                forced reboot which will terminate all
+                                processes forcibly but should cause no
+                                dirty file systems on reboot
                                 (i.e. equivalent to <command>systemctl
                                 reboot -f</command>) and
                                 <option>reboot-immediate</option>
                                 causes immediate execution of the
                                 <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 system call, which might result in
-                                data loss. Defaults to
+                                data loss. Similar,
+                                <option>poweroff</option>,
+                                <option>poweroff-force</option>,
+                                <option>poweroff-immediate</option>
+                                have the effect of powering down the
+                                system with similar
+                                semantics. Defaults to
                                 <option>none</option>.</para></listitem>
                         </varlistentry>
 

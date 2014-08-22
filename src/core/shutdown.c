@@ -435,8 +435,7 @@ int main(int argc, char *argv[]) {
 
                         if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
                                 log_info("Rebooting with argument '%s'.", param);
-                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-                                        LINUX_REBOOT_CMD_RESTART2, param);
+                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
                         }
                 }
 
