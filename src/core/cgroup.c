@@ -300,7 +300,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
 
                 sprintf(buf, "%lu\n",
-                        state == MANAGER_STARTING && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
+                        IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
                         c->cpu_shares != (unsigned long) -1 ? c->cpu_shares : 1024);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
@@ -328,7 +328,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 CGroupBlockIODeviceBandwidth *b;
 
                 if (!is_root) {
-                        sprintf(buf, "%lu\n", state == MANAGER_STARTING && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
+                        sprintf(buf, "%lu\n", IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING) && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
                                 c->blockio_weight != (unsigned long) -1 ? c->blockio_weight : 1000);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)

@@ -38,6 +38,7 @@
 typedef struct Manager Manager;
 
 typedef enum ManagerState {
+        MANAGER_INITIALIZING,
         MANAGER_STARTING,
         MANAGER_RUNNING,
         MANAGER_DEGRADED,

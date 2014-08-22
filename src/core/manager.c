@@ -2837,7 +2837,7 @@ static bool manager_get_show_status(Manager *m) {
         if (m->no_console_output)
                 return false;
 
-        if (!IN_SET(manager_state(m), MANAGER_STARTING, MANAGER_STOPPING))
+        if (!IN_SET(manager_state(m), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING))
                 return false;
 
         if (m->show_status > 0)
@@ -2928,8 +2928,14 @@ ManagerState manager_state(Manager *m) {
         assert(m);
 
         /* Did we ever finish booting? If not then we are still starting up */
-        if (!dual_timestamp_is_set(&m->finish_timestamp))
+        if (!dual_timestamp_is_set(&m->finish_timestamp)) {
+
+                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+                if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                        return MANAGER_INITIALIZING;
+
                 return MANAGER_STARTING;
+        }
 
         /* Is the special shutdown target queued? If so, we are in shutdown state */
         u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
@@ -2955,6 +2961,7 @@ ManagerState manager_state(Manager *m) {
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
+        [MANAGER_INITIALIZING] = "initializing",
         [MANAGER_STARTING] = "starting",
         [MANAGER_RUNNING] = "running",
         [MANAGER_DEGRADED] = "degraded",
