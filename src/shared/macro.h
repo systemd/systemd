@@ -79,8 +79,6 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
-#define UNIQUE(prefix) CONCATENATE(prefix, __LINE__)
-
 /* Rounds up */
 
 #define ALIGN4(l) (((l) + 3) & ~3)
@@ -219,7 +217,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #else
 #define assert_cc(expr)                                                 \
         DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
-        struct UNIQUE(_assert_struct_) {                                \
+        struct CONCATENATE(_assert_struct_, __LINE__) {                 \
                 char x[(expr) ? 0 : -1];                                \
         };                                                              \
         REENABLE_WARNING
