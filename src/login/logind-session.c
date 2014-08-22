@@ -1061,11 +1061,13 @@ bool session_is_controller(Session *s, const char *sender) {
 
 static void session_swap_controller(Session *s, char *name) {
         SessionDevice *sd;
+        char *c;
 
         if (s->controller) {
-                manager_drop_busname(s->manager, s->controller);
-                free(s->controller);
+                c = s->controller;
                 s->controller = NULL;
+                manager_drop_busname(s->manager, c);
+                free(c);
 
                 /* Drop all devices as they're now unused. Do that after the
                  * controller is released to avoid sending out useles
