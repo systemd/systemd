@@ -168,7 +168,8 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #    endif
 #  endif
 #  ifndef __NR_memfd_create
-#    define __NR_memfd_create 0xffffffff /* FIXME */
+#    warning "__NR_memfd_create not yet defined for MIPS"
+#    define __NR_memfd_create 0xffffffff
 #  endif
 #else
 #  ifndef __NR_fanotify_init
