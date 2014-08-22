@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
                             (char **) inaccessible,
                             tmp_dir,
                             var_tmp_dir,
+                            NULL,
                             true,
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,

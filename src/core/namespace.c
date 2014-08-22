@@ -51,6 +51,7 @@ typedef enum MountMode {
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
         PRIVATE_DEV,
+        PRIVATE_BUS_ENDPOINT,
         READWRITE
 } MountMode;
 
@@ -272,6 +273,84 @@ fail:
         return r;
 }
 
+static int mount_kdbus(BindMount *m) {
+
+        char temporary_mount[] = "/tmp/kdbus-dev-XXXXXX";
+        _cleanup_free_ char *basepath = NULL;
+        _cleanup_umask_ mode_t u;
+        char *busnode, *root;
+        struct stat st;
+        int r;
+
+        assert(m);
+
+        u = umask(0000);
+
+        if (!mkdtemp(temporary_mount)) {
+                log_error("Failed create temp dir: %m");
+                return -errno;
+        }
+
+        root = strappenda(temporary_mount, "/kdbus");
+        mkdir(root, 0755);
+        if (mount("tmpfs", root, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=777") < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        /* create a new /dev/null dev node copy so we have some fodder to
+         * bind-mount the custom endpoint over. */
+        if (stat("/dev/null", &st) < 0) {
+                log_error("Failed to stat /dev/null: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        busnode = strappenda(root, "/bus");
+        if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
+                log_error("mknod() for %s failed: %m", busnode);
+                r = -errno;
+                goto fail;
+        }
+
+        r = mount(m->path, busnode, "bind", MS_BIND, NULL);
+        if (r < 0) {
+                log_error("bind mount of %s failed: %m", m->path);
+                r = -errno;
+                goto fail;
+        }
+
+        basepath = dirname_malloc(m->path);
+        if (!basepath) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (mount(root, basepath, NULL, MS_MOVE, NULL) < 0) {
+                log_error("bind mount of %s failed: %m", basepath);
+                r = -errno;
+                goto fail;
+        }
+
+        rmdir(temporary_mount);
+        return 0;
+
+fail:
+        if (busnode) {
+                umount(busnode);
+                unlink(busnode);
+        }
+
+        if (root) {
+                umount(root);
+                rmdir(root);
+        }
+
+        rmdir(temporary_mount);
+
+        return r;
+}
+
 static int apply_mount(
                 BindMount *m,
                 const char *tmp_dir,
@@ -310,6 +389,9 @@ static int apply_mount(
 
         case PRIVATE_DEV:
                 return mount_dev(m);
+
+        case PRIVATE_BUS_ENDPOINT:
+                return mount_kdbus(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -350,6 +432,7 @@ int setup_namespace(
                 char** inaccessible_dirs,
                 char* tmp_dir,
                 char* var_tmp_dir,
+                char* bus_endpoint_path,
                 bool private_dev,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
@@ -365,7 +448,7 @@ int setup_namespace(
         if (unshare(CLONE_NEWNS) < 0)
                 return -errno;
 
-        n = !!tmp_dir + !!var_tmp_dir +
+        n = !!tmp_dir + !!var_tmp_dir + !!bus_endpoint_path +
                 strv_length(read_write_dirs) +
                 strv_length(read_only_dirs) +
                 strv_length(inaccessible_dirs) +
@@ -403,6 +486,12 @@ int setup_namespace(
                 if (private_dev) {
                         m->path = "/dev";
                         m->mode = PRIVATE_DEV;
+                        m++;
+                }
+
+                if (bus_endpoint_path) {
+                        m->path = bus_endpoint_path;
+                        m->mode = PRIVATE_BUS_ENDPOINT;
                         m++;
                 }
 
