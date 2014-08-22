@@ -24,6 +24,9 @@ External:
 
 Features:
 
+* apply start timeout during the "initializing" manager state only,
+  instead of both "initializing" and "starting".
+
 * journald: make use of uid-range.h to managed uid ranges to split
   journals in.
 
@@ -137,8 +140,6 @@ Features:
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
   they run added to the initial transaction and thus confuse Type=idle.
-
-* Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
 * Run most system services with cgroupfs read-only and procfs with a more secure mode (doesn't work, since the hidepid= option is per-pid-namespace, not per-mount)
 
