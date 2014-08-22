@@ -45,6 +45,7 @@
 #include "fileio.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "bus-kernel.h"
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -102,6 +103,7 @@ static void service_init(Unit *u) {
         s->restart_usec = u->manager->default_restart_usec;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -1;
+        s->bus_endpoint_fd = -1;
         s->guess_main_pid = true;
 
         RATELIMIT_INIT(s->start_limit, u->manager->default_start_limit_interval, u->manager->default_start_limit_burst);
@@ -273,6 +275,7 @@ static void service_done(Unit *u) {
                 s->bus_name = NULL;
         }
 
+        s->bus_endpoint_fd = safe_close(s->bus_endpoint_fd);
         service_close_socket_fd(s);
         service_connection_unref(s);
 
@@ -889,6 +892,7 @@ static int service_spawn(
         int *fds = NULL;
         _cleanup_free_ int *fdsbuf = NULL;
         unsigned n_fds = 0, n_env = 0;
+        _cleanup_free_ char *bus_endpoint_path = NULL;
         _cleanup_strv_free_ char
                 **argv = NULL, **final_env = NULL, **our_env = NULL;
         const char *path;
@@ -896,6 +900,7 @@ static int service_spawn(
                 .apply_permissions = apply_permissions,
                 .apply_chroot      = apply_chroot,
                 .apply_tty_stdin   = apply_tty_stdin,
+                .bus_endpoint_fd   = -1,
         };
 
         assert(s);
@@ -972,6 +977,20 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
+#ifdef ENABLE_KDBUS
+        if (s->exec_context.bus_endpoint) {
+                r = bus_kernel_create_endpoint(UNIT(s)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user",
+                                               UNIT(s)->id, &bus_endpoint_path);
+                if (r < 0)
+                        goto fail;
+
+                /* Pass the fd to the exec_params so that the child process can upload the policy.
+                 * Keep a reference to the fd in the service, so the endpoint is kept alive as long
+                 * as the service is running. */
+                exec_params.bus_endpoint_fd = s->bus_endpoint_fd = r;
+        }
+#endif
+
         exec_params.argv = argv;
         exec_params.fds = fds;
         exec_params.n_fds = n_fds;
@@ -982,6 +1001,7 @@ static int service_spawn(
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.unit_id = UNIT(s)->id;
         exec_params.watchdog_usec = s->watchdog_usec;
+        exec_params.bus_endpoint_path = bus_endpoint_path;
         if (s->type == SERVICE_IDLE)
                 exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
 
@@ -1770,6 +1790,15 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 unit_serialize_item_format(u, f, "socket-fd", "%i", copy);
         }
 
+        if (s->bus_endpoint_fd >= 0) {
+                int copy;
+
+                if ((copy = fdset_put_dup(fds, s->bus_endpoint_fd)) < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "endpoint-fd", "%i", copy);
+        }
+
         if (s->main_exec_status.pid > 0) {
                 unit_serialize_item_format(u, f, "main-exec-status-pid", PID_FMT,
                                            s->main_exec_status.pid);
@@ -1879,9 +1908,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                         log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
                 else {
-
                         asynchronous_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
+                }
+        } else if (streq(key, "endpoint-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug_unit(u->id, "Failed to parse endpoint-fd value %s", value);
+                else {
+                        safe_close(s->bus_endpoint_fd);
+                        s->bus_endpoint_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;

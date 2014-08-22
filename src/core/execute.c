@@ -83,6 +83,7 @@
 #include "af-list.h"
 #include "mkdir.h"
 #include "apparmor-util.h"
+#include "bus-kernel.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1236,7 +1237,7 @@ static int exec_child(ExecCommand *command,
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL;
         unsigned n_dont_close = 0;
-        int dont_close[n_fds + 3];
+        int dont_close[n_fds + 4];
         uid_t uid = (uid_t) -1;
         gid_t gid = (gid_t) -1;
         int i, err;
@@ -1279,6 +1280,8 @@ static int exec_child(ExecCommand *command,
                 memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
                 n_dont_close += n_fds;
         }
+        if (params->bus_endpoint_fd >= 0)
+                dont_close[n_dont_close++] = params->bus_endpoint_fd;
         if (runtime) {
                 if (runtime->netns_storage_socket[0] >= 0)
                         dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
@@ -1428,6 +1431,18 @@ static int exec_child(ExecCommand *command,
                 }
         }
 
+#ifdef ENABLE_KDBUS
+        if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
+                uid_t ep_uid = (uid == (uid_t) -1) ? 0 : uid;
+
+                err = bus_kernel_set_endpoint_policy(params->bus_endpoint_fd, ep_uid, context->bus_endpoint);
+                if (err < 0) {
+                        *error = EXIT_BUS_ENDPOINT;
+                        return err;
+                }
+        }
+#endif
+
 #ifdef HAVE_PAM
         if (params->cgroup_path && context->user && context->pam_name) {
                 err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0644, uid, gid);
@@ -1498,6 +1513,7 @@ static int exec_child(ExecCommand *command,
             !strv_isempty(context->inaccessible_dirs) ||
             context->mount_flags != 0 ||
             (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir)) ||
+            params->bus_endpoint_path ||
             context->private_devices ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO) {
@@ -1523,7 +1539,7 @@ static int exec_child(ExecCommand *command,
                                 context->inaccessible_dirs,
                                 tmp,
                                 var,
-                                NULL,
+                                params->bus_endpoint_path,
                                 context->private_devices,
                                 context->protect_home,
                                 context->protect_system,
@@ -1564,7 +1580,9 @@ static int exec_child(ExecCommand *command,
         /* We repeat the fd closing here, to make sure that
          * nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time since socket_fd
-         * and the netns fds we don#t need anymore. */
+         * and the netns fds we don't need anymore. The custom
+         * endpoint fd was needed to upload the policy and can
+         * now be closed as well. */
         err = close_all_fds(fds, n_fds);
         if (err >= 0)
                 err = shift_fds(fds, n_fds);

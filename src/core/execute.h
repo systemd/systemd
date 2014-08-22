@@ -210,6 +210,8 @@ struct ExecParameters {
         const char *unit_id;
         usec_t watchdog_usec;
         int *idle_pipe;
+        char *bus_endpoint_path;
+        int bus_endpoint_fd;
 };
 
 int exec_spawn(ExecCommand *command,
