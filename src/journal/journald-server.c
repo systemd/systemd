@@ -266,7 +266,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        f = hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
+        f = ordered_hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
         if (f)
                 return f;
 
@@ -274,9 +274,9 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                      SD_ID128_FORMAT_VAL(machine), uid) < 0)
                 return s->system_journal;
 
-        while (hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
+        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
                 /* Too many open? Then let's close one */
-                f = hashmap_steal_first(s->user_journals);
+                f = ordered_hashmap_steal_first(s->user_journals);
                 assert(f);
                 journal_file_close(f);
         }
@@ -287,7 +287,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         server_fix_perms(s, f, uid);
 
-        r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
+        r = ordered_hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
         if (r < 0) {
                 journal_file_close(f);
                 return s->system_journal;
@@ -328,13 +328,13 @@ void server_rotate(Server *s) {
         do_rotate(s, &s->runtime_journal, "runtime", false, 0);
         do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
-        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = do_rotate(s, &f, "user", s->seal, PTR_TO_UINT32(k));
                 if (r >= 0)
-                        hashmap_replace(s->user_journals, k, f);
+                        ordered_hashmap_replace(s->user_journals, k, f);
                 else if (!f)
                         /* Old file has been closed and deallocated */
-                        hashmap_remove(s->user_journals, k);
+                        ordered_hashmap_remove(s->user_journals, k);
         }
 }
 
@@ -350,7 +350,7 @@ void server_sync(Server *s) {
                         log_error("Failed to sync system journal: %s", strerror(-r));
         }
 
-        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
                         log_error("Failed to sync user journal: %s", strerror(-r));
@@ -1484,7 +1484,7 @@ int server_init(Server *s) {
 
         mkdir_p("/run/systemd/journal", 0755);
 
-        s->user_journals = hashmap_new(NULL);
+        s->user_journals = ordered_hashmap_new(NULL);
         if (!s->user_journals)
                 return log_oom();
 
@@ -1604,7 +1604,7 @@ void server_maybe_append_tags(Server *s) {
         if (s->system_journal)
                 journal_file_maybe_append_tag(s->system_journal, n);
 
-        HASHMAP_FOREACH(f, s->user_journals, i)
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i)
                 journal_file_maybe_append_tag(f, n);
 #endif
 }
@@ -1622,10 +1622,10 @@ void server_done(Server *s) {
         if (s->runtime_journal)
                 journal_file_close(s->runtime_journal);
 
-        while ((f = hashmap_steal_first(s->user_journals)))
+        while ((f = ordered_hashmap_steal_first(s->user_journals)))
                 journal_file_close(f);
 
-        hashmap_free(s->user_journals);
+        ordered_hashmap_free(s->user_journals);
 
         sd_event_source_unref(s->syslog_event_source);
         sd_event_source_unref(s->native_event_source);

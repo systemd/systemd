@@ -76,7 +76,7 @@ typedef struct Server {
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
-        Hashmap *user_journals;
+        OrderedHashmap *user_journals;
 
         uint64_t seqnum;
 
