@@ -40,6 +40,7 @@ static int create_dbus_files(
 
         _cleanup_free_ char *b = NULL, *s = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
         assert(name);
@@ -100,11 +101,14 @@ static int create_dbus_files(
                         }
                 }
 
-                fflush(f);
-                if (ferror(f)) {
-                        log_error("Failed to write %s: %m", a);
-                        return -errno;
+                r = fflush_and_check(f);
+                if (r < 0) {
+                        log_error("Failed to write %s: %s", a, strerror(-r));
+                        return r;
                 }
+
+                fclose(f);
+                f = NULL;
 
                 service = s;
         }
@@ -134,10 +138,10 @@ static int create_dbus_files(
                 name,
                 service);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error("Failed to write %s: %m", b);
-                return -errno;
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error("Failed to write %s: %s", b, strerror(-r));
+                return r;
         }
 
         lnk = strjoin(arg_dest_late, "/" SPECIAL_BUSNAMES_TARGET ".wants/", name, ".busname", NULL);
