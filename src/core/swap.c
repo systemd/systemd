@@ -619,6 +619,11 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
+        ExecParameters exec_params = {
+                .apply_permissions = true,
+                .apply_chroot      = true,
+                .apply_tty_stdin   = true,
+        };
 
         assert(s);
         assert(c);
@@ -634,21 +639,16 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
+        exec_params.environment = UNIT(s)->manager->environment;
+        exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
+        exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
+        exec_params.cgroup_path = UNIT(s)->cgroup_path;
+        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
+        exec_params.unit_id = UNIT(s)->id;
+
         r = exec_spawn(c,
-                       NULL,
                        &s->exec_context,
-                       NULL, 0,
-                       UNIT(s)->manager->environment,
-                       true,
-                       true,
-                       true,
-                       UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->manager->cgroup_supported,
-                       UNIT(s)->cgroup_path,
-                       manager_get_runtime_prefix(UNIT(s)->manager),
-                       UNIT(s)->id,
-                       0,
-                       NULL,
+                       &exec_params,
                        s->exec_runtime,
                        &pid);
         if (r < 0)

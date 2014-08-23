@@ -1138,7 +1138,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 }
 
 static int build_environment(
-                ExecContext *c,
+                const ExecContext *c,
                 unsigned n_fds,
                 usec_t watchdog_usec,
                 const char *home,
@@ -1224,67 +1224,56 @@ static int build_environment(
 }
 
 int exec_spawn(ExecCommand *command,
-               char **argv,
-               ExecContext *context,
-               int fds[], unsigned n_fds,
-               char **environment,
-               bool apply_permissions,
-               bool apply_chroot,
-               bool apply_tty_stdin,
-               bool confirm_spawn,
-               CGroupControllerMask cgroup_supported,
-               const char *cgroup_path,
-               const char *runtime_prefix,
-               const char *unit_id,
-               usec_t watchdog_usec,
-               int idle_pipe[4],
+               const ExecContext *context,
+               const ExecParameters *exec_params,
                ExecRuntime *runtime,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
+        int *fds = NULL; unsigned n_fds = 0;
         int socket_fd;
-        char *line;
+        char *line, **argv;
         pid_t pid;
         int r;
 
         assert(command);
         assert(context);
         assert(ret);
-        assert(fds || n_fds <= 0);
+        assert(exec_params);
+        assert(exec_params->fds || exec_params->n_fds <= 0);
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (n_fds != 1)
+                if (exec_params->n_fds != 1)
                         return -EINVAL;
 
-                socket_fd = fds[0];
-
-                fds = NULL;
-                n_fds = 0;
-        } else
+                socket_fd = exec_params->fds[0];
+        } else {
                 socket_fd = -1;
+                fds = exec_params->fds;
+                n_fds = exec_params->n_fds;
+        }
 
         r = exec_context_load_environment(context, &files_env);
         if (r < 0) {
                 log_struct_unit(LOG_ERR,
-                           unit_id,
+                           exec_params->unit_id,
                            "MESSAGE=Failed to load environment files: %s", strerror(-r),
                            "ERRNO=%d", -r,
                            NULL);
                 return r;
         }
 
-        if (!argv)
-                argv = command->argv;
+        argv = exec_params->argv ?: command->argv;
 
         line = exec_command_line(argv);
         if (!line)
                 return log_oom();
 
         log_struct_unit(LOG_DEBUG,
-                        unit_id,
+                        exec_params->unit_id,
                         "EXECUTABLE=%s", command->path,
                         "MESSAGE=About to execute: %s", line,
                         NULL);
@@ -1324,8 +1313,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (idle_pipe)
-                        do_idle_pipe_dance(idle_pipe);
+                if (exec_params->idle_pipe)
+                        do_idle_pipe_dance(exec_params->idle_pipe);
 
                 /* Close sockets very early to make sure we don't
                  * block init reexecution because it cannot bind its
@@ -1360,7 +1349,7 @@ int exec_spawn(ExecCommand *command,
 
                 exec_context_tty_reset(context);
 
-                if (confirm_spawn) {
+                if (exec_params->confirm_spawn) {
                         char response;
 
                         err = ask_for_confirmation(&response, argv);
@@ -1385,26 +1374,26 @@ int exec_spawn(ExecCommand *command,
                 if (socket_fd >= 0)
                         fd_nonblock(socket_fd, false);
 
-                err = setup_input(context, socket_fd, apply_tty_stdin);
+                err = setup_input(context, socket_fd, exec_params->apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDIN;
                         goto fail_child;
                 }
 
-                err = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), exec_params->unit_id, exec_params->apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDOUT;
                         goto fail_child;
                 }
 
-                err = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), exec_params->unit_id, exec_params->apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;
                 }
 
-                if (cgroup_path) {
-                        err = cg_attach_everywhere(cgroup_supported, cgroup_path, 0);
+                if (exec_params->cgroup_path) {
+                        err = cg_attach_everywhere(exec_params->cgroup_supported, exec_params->cgroup_path, 0);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
@@ -1497,15 +1486,15 @@ int exec_spawn(ExecCommand *command,
                 }
 
 #ifdef HAVE_PAM
-                if (cgroup_path && context->user && context->pam_name) {
-                        err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0644, uid, gid);
+                if (exec_params->cgroup_path && context->user && context->pam_name) {
+                        err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, exec_params->cgroup_path, 0644, uid, gid);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
                         }
 
 
-                        err = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0755, uid, gid);
+                        err = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, exec_params->cgroup_path, 0755, uid, gid);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
@@ -1513,13 +1502,13 @@ int exec_spawn(ExecCommand *command,
                 }
 #endif
 
-                if (!strv_isempty(context->runtime_directory) && runtime_prefix) {
+                if (!strv_isempty(context->runtime_directory) && exec_params->runtime_prefix) {
                         char **rt;
 
                         STRV_FOREACH(rt, context->runtime_directory) {
                                 _cleanup_free_ char *p;
 
-                                p = strjoin(runtime_prefix, "/", *rt, NULL);
+                                p = strjoin(exec_params->runtime_prefix, "/", *rt, NULL);
                                 if (!p) {
                                         r = EXIT_RUNTIME_DIRECTORY;
                                         err = -ENOMEM;
@@ -1534,7 +1523,7 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (apply_permissions) {
+                if (exec_params->apply_permissions) {
                         err = enforce_groups(context, username, gid);
                         if (err < 0) {
                                 r = EXIT_GROUP;
@@ -1545,7 +1534,7 @@ int exec_spawn(ExecCommand *command,
                 umask(context->umask);
 
 #ifdef HAVE_PAM
-                if (apply_permissions && context->pam_name && username) {
+                if (exec_params->apply_permissions && context->pam_name && username) {
                         err = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
                         if (err < 0) {
                                 r = EXIT_PAM;
@@ -1601,7 +1590,7 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (apply_chroot) {
+                if (exec_params->apply_chroot) {
                         if (context->root_directory)
                                 if (chroot(context->root_directory) < 0) {
                                         err = -errno;
@@ -1646,7 +1635,7 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (apply_permissions) {
+                if (exec_params->apply_permissions) {
 
                         for (i = 0; i < _RLIMIT_MAX; i++) {
                                 if (!context->rlimit[i])
@@ -1742,14 +1731,14 @@ int exec_spawn(ExecCommand *command,
 #endif
                 }
 
-                err = build_environment(context, n_fds, watchdog_usec, home, username, shell, &our_env);
+                err = build_environment(context, n_fds, exec_params->watchdog_usec, home, username, shell, &our_env);
                 if (r < 0) {
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
 
                 final_env = strv_env_merge(5,
-                                           environment,
+                                           exec_params->environment,
                                            our_env,
                                            context->environment,
                                            files_env,
@@ -1775,7 +1764,7 @@ int exec_spawn(ExecCommand *command,
                         if (line) {
                                 log_open();
                                 log_struct_unit(LOG_DEBUG,
-                                                unit_id,
+                                                exec_params->unit_id,
                                                 "EXECUTABLE=%s", command->path,
                                                 "MESSAGE=Executing: %s", line,
                                                 NULL);
@@ -1805,7 +1794,7 @@ int exec_spawn(ExecCommand *command,
         }
 
         log_struct_unit(LOG_DEBUG,
-                        unit_id,
+                        exec_params->unit_id,
                         "MESSAGE=Forked %s as "PID_FMT,
                         command->path, pid,
                         NULL);
@@ -1815,8 +1804,8 @@ int exec_spawn(ExecCommand *command,
          * outside of the cgroup) and in the parent (so that we can be
          * sure that when we kill the cgroup the process will be
          * killed too). */
-        if (cgroup_path)
-                cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, pid);
+        if (exec_params->cgroup_path)
+                cg_attach(SYSTEMD_CGROUP_CONTROLLER, exec_params->cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 

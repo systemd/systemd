@@ -691,6 +691,11 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
+        ExecParameters exec_params = {
+                .apply_permissions = true,
+                .apply_chroot      = true,
+                .apply_tty_stdin   = true,
+        };
 
         assert(m);
         assert(c);
@@ -706,21 +711,16 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
+        exec_params.environment = UNIT(m)->manager->environment;
+        exec_params.confirm_spawn = UNIT(m)->manager->confirm_spawn;
+        exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
+        exec_params.cgroup_path = UNIT(m)->cgroup_path;
+        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(m)->manager);
+        exec_params.unit_id = UNIT(m)->id;
+
         r = exec_spawn(c,
-                       NULL,
                        &m->exec_context,
-                       NULL, 0,
-                       UNIT(m)->manager->environment,
-                       true,
-                       true,
-                       true,
-                       UNIT(m)->manager->confirm_spawn,
-                       UNIT(m)->manager->cgroup_supported,
-                       UNIT(m)->cgroup_path,
-                       manager_get_runtime_prefix(UNIT(m)->manager),
-                       UNIT(m)->id,
-                       0,
-                       NULL,
+                       &exec_params,
                        m->exec_runtime,
                        &pid);
         if (r < 0)

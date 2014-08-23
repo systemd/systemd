@@ -892,6 +892,11 @@ static int service_spawn(
         _cleanup_strv_free_ char
                 **argv = NULL, **final_env = NULL, **our_env = NULL;
         const char *path;
+        ExecParameters exec_params = {
+                .apply_permissions = apply_permissions,
+                .apply_chroot      = apply_chroot,
+                .apply_tty_stdin   = apply_tty_stdin,
+        };
 
         assert(s);
         assert(c);
@@ -967,21 +972,22 @@ static int service_spawn(
         } else
                 path = UNIT(s)->cgroup_path;
 
+        exec_params.argv = argv;
+        exec_params.fds = fds;
+        exec_params.n_fds = n_fds;
+        exec_params.environment = final_env;
+        exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
+        exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
+        exec_params.cgroup_path = path;
+        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
+        exec_params.unit_id = UNIT(s)->id;
+        exec_params.watchdog_usec = s->watchdog_usec;
+        if (s->type == SERVICE_IDLE)
+                exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
+
         r = exec_spawn(c,
-                       argv,
                        &s->exec_context,
-                       fds, n_fds,
-                       final_env,
-                       apply_permissions,
-                       apply_chroot,
-                       apply_tty_stdin,
-                       UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->manager->cgroup_supported,
-                       path,
-                       manager_get_runtime_prefix(UNIT(s)->manager),
-                       UNIT(s)->id,
-                       s->watchdog_usec,
-                       s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
+                       &exec_params,
                        s->exec_runtime,
                        &pid);
         if (r < 0)

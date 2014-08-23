@@ -25,6 +25,7 @@ typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
+typedef struct ExecParameters ExecParameters;
 
 #include <linux/types.h>
 #include <sys/time.h>
@@ -191,21 +192,25 @@ struct ExecContext {
 
 #include "cgroup.h"
 
+struct ExecParameters {
+        char **argv;
+        int *fds; unsigned n_fds;
+        char **environment;
+        bool apply_permissions;
+        bool apply_chroot;
+        bool apply_tty_stdin;
+        bool confirm_spawn;
+        CGroupControllerMask cgroup_supported;
+        const char *cgroup_path;
+        const char *runtime_prefix;
+        const char *unit_id;
+        usec_t watchdog_usec;
+        int *idle_pipe;
+};
+
 int exec_spawn(ExecCommand *command,
-               char **argv,
-               ExecContext *context,
-               int fds[], unsigned n_fds,
-               char **environment,
-               bool apply_permissions,
-               bool apply_chroot,
-               bool apply_tty_stdin,
-               bool confirm_spawn,
-               CGroupControllerMask cgroup_mask,
-               const char *cgroup_path,
-               const char *runtime_prefix,
-               const char *unit_id,
-               usec_t watchdog_usec,
-               int pipe_fd[2],
+               const ExecContext *context,
+               const ExecParameters *exec_params,
                ExecRuntime *runtime,
                pid_t *ret);
 
