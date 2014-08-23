@@ -2382,7 +2382,7 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
         while (!set_isempty(s)) {
                 q = bus_process_wait(bus);
                 if (q < 0) {
-                        log_error("Failed to wait for response: %s", strerror(-r));
+                        log_error("Failed to wait for response: %s", strerror(-q));
                         return q;
                 }
 
