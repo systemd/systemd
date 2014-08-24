@@ -1,13 +1,13 @@
 # translation of pl.po to Polish
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013.
+# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013, 2014.
 # Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-01-12 19:29+0100\n"
-"PO-Revision-Date: 2013-01-12 19:30+0100\n"
+"POT-Creation-Date: 2014-08-24 18:10+0200\n"
+"PO-Revision-Date: 2014-08-24 18:15+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -389,3 +389,31 @@ msgid "Authentication is required to access the system and service manager."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uzyskać dostęp do menedżera systemu i "
 "usług."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system services or units"
+msgstr "Zarządzanie usługami lub jednostkami systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system services or units."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zarządzać usługami lub jednostkami "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Manage system service or unit files"
+msgstr "Zarządzanie plikami usług lub jednostek systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zarządzać plikami usług lub jednostek "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Ponowne wczytanie stanu systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
