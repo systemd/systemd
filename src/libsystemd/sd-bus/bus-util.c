@@ -974,31 +974,16 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return r;
 }
 
-int bus_map_all_properties(sd_bus *bus,
-                           const char *destination,
-                           const char *path,
-                           const struct bus_properties_map *map,
-                           void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+int bus_message_map_all_properties(sd_bus *bus,
+                                   sd_bus_message *m,
+                                   const struct bus_properties_map *map,
+                                   void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
-        assert(destination);
-        assert(path);
+        assert(m);
         assert(map);
-
-        r = sd_bus_call_method(
-                        bus,
-                        destination,
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &m,
-                        "s", "");
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -1052,7 +1037,73 @@ int bus_map_all_properties(sd_bus *bus,
                         return r;
         }
 
-        return r;
+        return sd_bus_message_exit_container(m);
+}
+
+int bus_message_map_properties_changed(sd_bus *bus,
+                                       sd_bus_message *m,
+                                       const struct bus_properties_map *map,
+                                       void *userdata) {
+        const char *member;
+        int r, invalidated, i;
+
+        assert(bus);
+        assert(m);
+        assert(map);
+
+        /* skip interface, but allow callers to do that themselves */
+        sd_bus_message_skip(m, "s");
+
+        r = bus_message_map_all_properties(bus, m, map, userdata);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return r;
+
+        invalidated = 0;
+        while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &member)) > 0)
+                for (i = 0; map[i].member; i++)
+                        if (streq(map[i].member, member)) {
+                                ++invalidated;
+                                break;
+                        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return invalidated;
+}
+
+int bus_map_all_properties(sd_bus *bus,
+                           const char *destination,
+                           const char *path,
+                           const struct bus_properties_map *map,
+                           void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(destination);
+        assert(path);
+        assert(map);
+
+        r = sd_bus_call_method(
+                        bus,
+                        destination,
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &error,
+                        &m,
+                        "s", "");
+        if (r < 0)
+                return r;
+
+        return bus_message_map_all_properties(bus, m, map, userdata);
 }
 
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {

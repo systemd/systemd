@@ -46,6 +46,14 @@ struct bus_properties_map {
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
+int bus_message_map_all_properties(sd_bus *bus,
+                                   sd_bus_message *m,
+                                   const struct bus_properties_map *map,
+                                   void *userdata);
+int bus_message_map_properties_changed(sd_bus *bus,
+                                       sd_bus_message *m,
+                                       const struct bus_properties_map *map,
+                                       void *userdata);
 int bus_map_all_properties(sd_bus *bus,
                            const char *destination,
                            const char *path,
