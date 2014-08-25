@@ -42,8 +42,8 @@ CHANGES WITH 216:
 
         * systemd-resolved now includes a caching DNS stub resolver
           and a complete LLMNR name resolution implementation. A new
-          NSS module "nss-resolve" has been added which make be used
-          of glibc's own "nss-dns" to resolve hostnames via
+          NSS module "nss-resolve" has been added which can be used
+          instead of glibc's own "nss-dns" to resolve hostnames via
           systemd-resolved. Hostnames, addresses and arbitrary RRs may
           be resolved via systemd-resolved D-Bus APIs. In contrast to
           the glibc internal resolver systemd-resolved is aware of
@@ -606,7 +606,7 @@ CHANGES WITH 214:
 
         * Access modes specified in tmpfiles snippets may now be
           prefixed with "~", which indicates that they shall be masked
-          by whether the existing file or directly is currently
+          by whether the existing file or directory is currently
           writable, readable or executable at all. Also, if specified,
           the sgid/suid/sticky bits will be masked for all
           non-directories.
