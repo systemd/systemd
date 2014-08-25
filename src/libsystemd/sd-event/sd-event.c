@@ -2256,7 +2256,11 @@ _public_ int sd_event_prepare(sd_event *e) {
 
 pending:
         e->state = SD_EVENT_PREPARED;
-        return sd_event_wait(e, 0);
+        r = sd_event_wait(e, 0);
+        if (r == 0)
+                e->state = SD_EVENT_PREPARED;
+
+        return r;
 }
 
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
