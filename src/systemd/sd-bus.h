@@ -28,7 +28,6 @@
 
 #include "sd-id128.h"
 #include "sd-event.h"
-#include "memfd.h"
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
