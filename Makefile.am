@@ -378,7 +378,8 @@ rootlibexec_PROGRAMS = \
 	systemd-sleep \
 	systemd-bus-proxyd \
 	systemd-socket-proxyd \
-	systemd-update-done
+	systemd-update-done \
+	systemd-hibernate-resume
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
@@ -528,7 +529,8 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/systemd-update-done.service
+	units/systemd-update-done.service \
+	units/systemd-hibernate-resume@.service
 
 dist_userunit_DATA = \
 	units/user/basic.target \
@@ -575,7 +577,8 @@ EXTRA_DIST += \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
-	units/systemd-update-done.service.in
+	units/systemd-update-done.service.in \
+	units/systemd-hibernate-resume@.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -2100,6 +2103,14 @@ systemd_delta_SOURCES = \
 	src/delta/delta.c
 
 systemd_delta_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_hibernate_resume_SOURCES = \
+	src/hibernate-resume/hibernate-resume.c
+
+systemd_hibernate_resume_LDADD = \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
