@@ -88,9 +88,10 @@ static int udev_builtin_hwdb_search(struct udev_device *dev, struct udev_device 
                                     const char *filter, bool test) {
         struct udev_device *d;
         char s[16];
-        int n = 0;
+        bool last = false;
+        int r = 0;
 
-        for (d = srcdev; d; d = udev_device_get_parent(d)) {
+        for (d = srcdev; d && !last; d = udev_device_get_parent(d)) {
                 const char *dsubsys;
                 const char *modalias = NULL;
 
@@ -104,19 +105,24 @@ static int udev_builtin_hwdb_search(struct udev_device *dev, struct udev_device 
 
                 modalias = udev_device_get_property_value(d, "MODALIAS");
 
-                /* the usb_device does not have a modalias, compose one */
-                if (!modalias && streq(dsubsys, "usb"))
-                        modalias = modalias_usb(d, s, sizeof(s));
+                if (streq(dsubsys, "usb") && streq_ptr(udev_device_get_devtype(d), "usb_device")) {
+                        /* if the usb_device does not have a modalias, compose one */
+                        if (!modalias)
+                                modalias = modalias_usb(d, s, sizeof(s));
+
+                        /* avoid looking at any parent device, they are usually just a USB hub */
+                        last = true;
+                }
 
                 if (!modalias)
                         continue;
 
-                n = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
-                if (n > 0)
+                r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
+                if (r > 0)
                         break;
         }
 
-        return n;
+        return r;
 }
 
 static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool test) {
