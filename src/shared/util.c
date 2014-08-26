@@ -937,7 +937,7 @@ int readlink_and_canonicalize(const char *p, char **r) {
 }
 
 int reset_all_signal_handlers(void) {
-        int sig;
+        int sig, r = 0;
 
         for (sig = 1; sig < _NSIG; sig++) {
                 struct sigaction sa = {
@@ -945,17 +945,18 @@ int reset_all_signal_handlers(void) {
                         .sa_flags = SA_RESTART,
                 };
 
+                /* These two cannot be caught... */
                 if (sig == SIGKILL || sig == SIGSTOP)
                         continue;
 
                 /* On Linux the first two RT signals are reserved by
                  * glibc, and sigaction() will return EINVAL for them. */
                 if ((sigaction(sig, &sa, NULL) < 0))
-                        if (errno != EINVAL)
-                                return -errno;
+                        if (errno != EINVAL && r == 0)
+                                r = -errno;
         }
 
-        return 0;
+        return r;
 }
 
 char *strstrip(char *s) {
