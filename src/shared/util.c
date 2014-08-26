@@ -3890,16 +3890,13 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                 _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
                 _cleanup_closedir_ DIR *_d = NULL;
                 struct dirent *de;
-                sigset_t ss;
 
                 /* We fork this all off from a child process so that
                  * we can somewhat cleanly make use of SIGALRM to set
                  * a time limit */
 
                 reset_all_signal_handlers();
-
-                assert_se(sigemptyset(&ss) == 0);
-                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+                reset_signal_mask();
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 

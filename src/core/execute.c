@@ -1301,7 +1301,6 @@ int exec_spawn(ExecCommand *command,
                 int dont_close[n_fds + 3];
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                sigset_t ss;
                 int i, err;
 
                 /* child */
@@ -1319,9 +1318,8 @@ int exec_spawn(ExecCommand *command,
                 if (context->ignore_sigpipe)
                         ignore_signals(SIGPIPE, -1);
 
-                assert_se(sigemptyset(&ss) == 0);
-                if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
-                        err = -errno;
+                err = reset_signal_mask();
+                if (err < 0) {
                         r = EXIT_SIGNAL_MASK;
                         goto fail_child;
                 }

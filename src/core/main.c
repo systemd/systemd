@@ -1834,7 +1834,6 @@ finish:
         if (reexecute) {
                 const char **args;
                 unsigned i, args_size;
-                sigset_t ss;
 
                 /* Close and disarm the watchdog, so that the new
                  * instance can reinitialize it, but doesn't get
@@ -1918,12 +1917,10 @@ finish:
                 args[i++] = NULL;
                 assert(i <= args_size);
 
-                /* reenable any blocked signals, especially important
+                /* Reenable any blocked signals, especially important
                  * if we switch from initial ramdisk to init=... */
                 reset_all_signal_handlers();
-
-                assert_se(sigemptyset(&ss) == 0);
-                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+                reset_signal_mask();
 
                 if (switch_root_init) {
                         args[0] = switch_root_init;

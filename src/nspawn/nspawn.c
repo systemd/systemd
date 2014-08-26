@@ -3156,9 +3156,7 @@ int main(int argc, char *argv[]) {
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
 
                         reset_all_signal_handlers();
-
-                        assert_se(sigemptyset(&mask) == 0);
-                        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+                        reset_signal_mask();
 
                         k = open_terminal(console, O_RDWR);
                         if (k != STDIN_FILENO) {
