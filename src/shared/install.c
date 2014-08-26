@@ -2099,7 +2099,7 @@ int unit_file_get_list(
                         if (!f)
                                 return -ENOMEM;
 
-                        f->path = path_make_absolute(de->d_name, *i);
+                        f->path = path_make_absolute(de->d_name, units_dir);
                         if (!f->path)
                                 return -ENOMEM;
 
