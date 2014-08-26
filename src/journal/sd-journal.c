@@ -2557,7 +2557,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
 
                 /* Let's do the type check by hand, since we used 0 context above. */
                 if (o->object.type != OBJECT_DATA) {
-                        log_error("%s:offset " OFSfmt ": object has type %d, expected %d",
+                        log_debug("%s:offset " OFSfmt ": object has type %d, expected %d",
                                   j->unique_file->path, j->unique_offset,
                                   o->object.type, OBJECT_DATA);
                         return -EBADMSG;
