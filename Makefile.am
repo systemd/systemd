@@ -2971,6 +2971,9 @@ libsystemd_terminal_la_CFLAGS = \
 	$(AM_CFLAGS)
 
 libsystemd_terminal_la_SOURCES = \
+	src/libsystemd-terminal/sysview.h \
+	src/libsystemd-terminal/sysview-internal.h \
+	src/libsystemd-terminal/sysview.c \
 	src/libsystemd-terminal/term-internal.h \
 	src/libsystemd-terminal/term-charset.c \
 	src/libsystemd-terminal/term-page.c \
@@ -2981,6 +2984,7 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/unifont.c
 
 libsystemd_terminal_la_LIBADD = \
+	libudev-internal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
