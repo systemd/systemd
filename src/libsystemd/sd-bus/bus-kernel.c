@@ -1535,37 +1535,6 @@ int bus_kernel_create_domain(const char *name, char **s) {
         return fd;
 }
 
-int bus_kernel_create_monitor(const char *bus) {
-        struct kdbus_cmd_hello *hello;
-        int fd;
-
-        assert(bus);
-
-        fd = bus_kernel_open_bus_fd(bus, NULL);
-        if (fd < 0)
-                return fd;
-
-        hello = alloca0(sizeof(struct kdbus_cmd_hello));
-        hello->size = sizeof(struct kdbus_cmd_hello);
-        hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
-        hello->pool_size = KDBUS_POOL_SIZE;
-
-        if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        /* The higher 32bit of both flags fields are considered
-         * 'incompatible flags'. Refuse them all for now. */
-        if (hello->bus_flags > 0xFFFFFFFFULL ||
-            hello->conn_flags > 0xFFFFFFFFULL) {
-                safe_close(fd);
-                return -ENOTSUP;
-        }
-
-        return fd;
-}
-
 int bus_kernel_try_close(sd_bus *bus) {
         assert(bus);
         assert(bus->is_kernel);
