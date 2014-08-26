@@ -70,6 +70,7 @@ MANPAGES += \
 	man/systemd-getty-generator.8 \
 	man/systemd-gpt-auto-generator.8 \
 	man/systemd-halt.service.8 \
+	man/systemd-hibernate-resume-generator.8 \
 	man/systemd-hibernate-resume@.service.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
@@ -1625,6 +1626,7 @@ EXTRA_DIST += \
 	man/systemd-getty-generator.xml \
 	man/systemd-gpt-auto-generator.xml \
 	man/systemd-halt.service.xml \
+	man/systemd-hibernate-resume-generator.xml \
 	man/systemd-hibernate-resume@.service.xml \
 	man/systemd-hostnamed.service.xml \
 	man/systemd-inhibit.xml \

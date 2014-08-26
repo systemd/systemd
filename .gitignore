@@ -76,6 +76,7 @@
 /systemd-gnome-ask-password-agent
 /systemd-gpt-auto-generator
 /systemd-hibernate-resume
+/systemd-hibernate-resume-generator
 /systemd-hostnamed
 /systemd-inhibit
 /systemd-initctl

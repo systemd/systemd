@@ -351,6 +351,17 @@
                                 </listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>resume=</varname></term>
+
+                                <listitem>
+                                        <para>Enables resume from hibernation
+                                        using the specified device.
+                                        All <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
+                                        pathes are supported. For details, see
+                                        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
@@ -373,7 +384,8 @@
                           <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-rfkill@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd-rfkill@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

@@ -385,7 +385,8 @@ systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
 	systemd-system-update-generator \
-	systemd-debug-generator
+	systemd-debug-generator \
+	systemd-hibernate-resume-generator
 
 dist_bashcompletion_DATA = \
 	shell-completion/bash/busctl \
@@ -2143,6 +2144,14 @@ systemd_system_update_generator_SOURCES = \
 	src/system-update-generator/system-update-generator.c
 
 systemd_system_update_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_hibernate_resume_generator_SOURCES = \
+	src/resume-generator/resume-generator.c
+
+systemd_hibernate_resume_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
