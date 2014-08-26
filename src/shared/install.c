@@ -2072,6 +2072,7 @@ int unit_file_get_list(
                 for (;;) {
                         _cleanup_(unit_file_list_free_onep) UnitFileList *f = NULL;
                         struct dirent *de;
+                        _cleanup_free_ char *path = NULL;
 
                         errno = 0;
                         de = readdir(d);
@@ -2121,7 +2122,11 @@ int unit_file_get_list(
                                 goto found;
                         }
 
-                        r = unit_file_can_install(&paths, root_dir, f->path, true);
+                        path = path_make_absolute(de->d_name, *i);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = unit_file_can_install(&paths, root_dir, path, true);
                         if (r == -EINVAL ||  /* Invalid setting? */
                             r == -EBADMSG || /* Invalid format? */
                             r == -ENOENT     /* Included file not found? */)
