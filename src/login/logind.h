@@ -114,6 +114,7 @@ struct Manager {
         HandleAction handle_suspend_key;
         HandleAction handle_hibernate_key;
         HandleAction handle_lid_switch;
+        HandleAction handle_lid_switch_docked;
 
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
@@ -159,6 +160,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
 bool manager_is_docked(Manager *m);
 int manager_count_displays(Manager *m);
+bool manager_is_docked_or_multiple_displays(Manager *m);
 
 extern const sd_bus_vtable manager_vtable[];
 

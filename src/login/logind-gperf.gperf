@@ -24,6 +24,7 @@ Login.HandlePowerKey,              config_parse_handle_action, 0, offsetof(Manag
 Login.HandleSuspendKey,            config_parse_handle_action, 0, offsetof(Manager, handle_suspend_key)
 Login.HandleHibernateKey,          config_parse_handle_action, 0, offsetof(Manager, handle_hibernate_key)
 Login.HandleLidSwitch,             config_parse_handle_action, 0, offsetof(Manager, handle_lid_switch)
+Login.HandleLidSwitchDocked,       config_parse_handle_action, 0, offsetof(Manager, handle_lid_switch_docked)
 Login.PowerKeyIgnoreInhibited,     config_parse_bool,          0, offsetof(Manager, power_key_ignore_inhibited)
 Login.SuspendKeyIgnoreInhibited,   config_parse_bool,          0, offsetof(Manager, suspend_key_ignore_inhibited)
 Login.HibernateKeyIgnoreInhibited, config_parse_bool,          0, offsetof(Manager, hibernate_key_ignore_inhibited)

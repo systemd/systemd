@@ -97,13 +97,27 @@ int button_set_seat(Button *b, const char *sn) {
         return 0;
 }
 
+static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
+        HandleAction handle_action;
+
+        assert(manager);
+
+        /* If we are docked, handle the lid switch differently */
+        if (manager_is_docked_or_multiple_displays(manager))
+                handle_action = manager->handle_lid_switch_docked;
+        else
+                handle_action = manager->handle_lid_switch;
+
+        manager_handle_action(manager, INHIBIT_HANDLE_LID_SWITCH, handle_action, manager->lid_switch_ignore_inhibited, is_edge);
+}
+
 static int button_recheck(sd_event_source *e, void *userdata) {
         Button *b = userdata;
 
         assert(b);
         assert(b->lid_closed);
 
-        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
+        button_lid_switch_handle_action(b->manager, false);
         return 1;
 }
 
@@ -186,7 +200,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                    NULL);
 
                         b->lid_closed = true;
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                        button_lid_switch_handle_action(b->manager, true);
                         button_install_check_event_source(b);
 
                 } else if (ev.code == SW_DOCK) {

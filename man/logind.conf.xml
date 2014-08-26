@@ -224,6 +224,7 @@
                                 <term><varname>HandleSuspendKey=</varname></term>
                                 <term><varname>HandleHibernateKey=</varname></term>
                                 <term><varname>HandleLidSwitch=</varname></term>
+                                <term><varname>HandleLidSwitchDocked=</varname></term>
 
                                 <listitem><para>Controls whether
                                 logind shall handle the system power
@@ -255,13 +256,18 @@
                                 and
                                 <varname>HandleLidSwitch=</varname>
                                 default to <literal>suspend</literal>.
+                                <varname>HandleLidSwitchDocked=</varname>
+                                defaults to <literal>ignore</literal>.
                                 <varname>HandleHibernateKey=</varname>
                                 defaults to
-                                <literal>hibernate</literal>. Note
-                                that the lid switch is ignored if the
-                                system is inserted in a docking
-                                station, or if more than one display
-                                is connected.</para></listitem>
+                                <literal>hibernate</literal>. If the
+                                system is inserted in a docking station,
+                                or if more than one display is connected,
+                                the action specified by
+                                <varname>HandleLidSwitchDocked=</varname>
+                                occurs; otherwise the
+                                <varname>HandleLidSwitch=</varname>
+                                action occurs.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
