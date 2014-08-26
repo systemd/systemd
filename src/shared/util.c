@@ -959,6 +959,18 @@ int reset_all_signal_handlers(void) {
         return r;
 }
 
+int reset_signal_mask(void) {
+        sigset_t ss;
+
+        if (sigemptyset(&ss) < 0)
+                return -errno;
+
+        if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0)
+                return -errno;
+
+        return 0;
+}
+
 char *strstrip(char *s) {
         char *e;
 
@@ -5130,6 +5142,12 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
 
         /* Don't leak fds to the agent */
         close_all_fds(except, n_except);
+
+        /* Make sure we actually can kill the agent, if we need to, in
+         * case somebody invoked us from a shell script that trapped
+         * SIGTERM or so... */
+        reset_all_signal_handlers();
+        reset_signal_mask();
 
         stdout_is_tty = isatty(STDOUT_FILENO);
         stderr_is_tty = isatty(STDERR_FILENO);

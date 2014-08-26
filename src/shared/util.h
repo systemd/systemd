@@ -274,6 +274,7 @@ int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
 int reset_all_signal_handlers(void);
+int reset_signal_mask(void);
 
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
