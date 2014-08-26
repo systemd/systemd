@@ -24,8 +24,15 @@ External:
 
 Features:
 
+* remove multi-seat-x now
+
+* refcounting in sd-resolve is borked
+
+* exponential backoff in timesyncd and resolved when we cannot reach a server
+
 * apply start timeout during the "initializing" manager state only,
-  instead of both "initializing" and "starting".
+  instead of both "initializing" and "starting". maybe rename the
+  timeout to "initialization-timeout" then or so?
 
 * journald: make use of uid-range.h to managed uid ranges to split
   journals in.
