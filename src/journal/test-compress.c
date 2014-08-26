@@ -145,11 +145,11 @@ static void test_compress_stream(int compression,
 
         assert_se((dst = mkostemp_safe(pattern, O_RDWR|O_CLOEXEC)) >= 0);
 
-        assert(compress(src, dst, -1) == 0);
+        assert_se(compress(src, dst, -1) == 0);
 
         if (cat) {
                 assert_se(asprintf(&cmd, "%s %s | diff %s -", cat, pattern, srcfile) > 0);
-                assert(system(cmd) == 0);
+                assert_se(system(cmd) == 0);
         }
 
         log_debug("/* test decompression */");
