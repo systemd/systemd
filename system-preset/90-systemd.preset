@@ -10,7 +10,6 @@
 
 enable remote-fs.target
 enable getty@.service
-enable systemd-readahead-*
 enable systemd-timesyncd.service
 enable systemd-networkd.service
 enable systemd-resolved.service

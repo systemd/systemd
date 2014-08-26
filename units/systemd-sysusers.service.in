@@ -10,7 +10,7 @@ Description=Create System Users
 Documentation=man:sysusers.d(5) man:systemd-sysusers.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
 ConditionNeedsUpdate=/etc
 

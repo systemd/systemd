@@ -11,7 +11,7 @@ Documentation=man:systemd-backlight@.service(8)
 DefaultDependencies=no
 RequiresMountsFor=/var/lib/systemd/backlight
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 
 [Service]

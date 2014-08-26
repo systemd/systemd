@@ -10,7 +10,6 @@ Description=Apply Kernel Variables
 Documentation=man:systemd-sysctl.service(8) man:sysctl.d(5)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service
 After=systemd-modules-load.service
 Before=sysinit.target shutdown.target
 ConditionPathIsReadWrite=/proc/sys/

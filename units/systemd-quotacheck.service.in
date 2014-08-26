@@ -9,7 +9,7 @@
 Description=File System Quota Check
 Documentation=man:systemd-quotacheck.service(8)
 DefaultDependencies=no
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=local-fs.target shutdown.target
 ConditionPathExists=@QUOTACHECK@
 

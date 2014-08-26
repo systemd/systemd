@@ -10,7 +10,6 @@ Description=Load Kernel Modules
 Documentation=man:systemd-modules-load.service(8) man:modules-load.d(5)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
 ConditionCapability=CAP_SYS_MODULE
 ConditionDirectoryNotEmpty=|/lib/modules-load.d

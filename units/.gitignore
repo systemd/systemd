@@ -47,9 +47,6 @@
 /systemd-poweroff.service
 /systemd-quotacheck.service
 /systemd-random-seed.service
-/systemd-readahead-collect.service
-/systemd-readahead-done.service
-/systemd-readahead-replay.service
 /systemd-reboot.service
 /systemd-remount-fs.service
 /systemd-resolved.service

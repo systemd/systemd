@@ -2346,8 +2346,7 @@ systemctl_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_notify_SOURCES = \
-	src/notify/notify.c \
-	src/readahead/sd-readahead.c
+	src/notify/notify.c
 
 systemd_notify_LDADD = \
 	libsystemd-internal.la \
@@ -4331,57 +4330,6 @@ endif
 
 EXTRA_DIST += \
 	units/systemd-vconsole-setup.service.in
-
-# ------------------------------------------------------------------------------
-if ENABLE_READAHEAD
-systemd_readahead_SOURCES = \
-	src/readahead/readahead.c \
-	src/readahead/readahead-collect.c \
-	src/readahead/readahead-replay.c \
-	src/readahead/readahead-analyze.c \
-	src/readahead/readahead-common.c \
-	src/readahead/readahead-common.h
-
-systemd_readahead_LDADD = \
-	libsystemd-internal.la \
-	libudev-internal.la \
-	libsystemd-shared.la
-
-dist_doc_DATA += \
-	src/readahead/sd-readahead.c \
-	src/systemd/sd-readahead.h
-
-rootlibexec_PROGRAMS += \
-	systemd-readahead
-
-dist_systemunit_DATA += \
-	units/systemd-readahead-drop.service \
-	units/systemd-readahead-done.timer
-
-nodist_systemunit_DATA += \
-	units/systemd-readahead-collect.service \
-	units/systemd-readahead-replay.service \
-	units/systemd-readahead-done.service
-
-manual_tests += \
-	test-ssd
-
-test_ssd_SOURCES = \
-	src/readahead/test-ssd.c \
-	src/readahead/readahead-common.c \
-	src/readahead/readahead-common.h
-
-test_ssd_LDADD = \
-	libsystemd-internal.la \
-	libudev-internal.la \
-	libsystemd-shared.la
-
-endif
-
-EXTRA_DIST += \
-	units/systemd-readahead-collect.service.in \
-	units/systemd-readahead-replay.service.in \
-	units/systemd-readahead-done.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BOOTCHART

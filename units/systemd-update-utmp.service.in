@@ -11,7 +11,7 @@ Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
 Before=sysinit.target shutdown.target
 
 [Service]

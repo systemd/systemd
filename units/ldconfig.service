@@ -10,7 +10,7 @@ Description=Rebuild Dynamic Linker Cache
 Documentation=man:ldconfig(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
 ConditionNeedsUpdate=/etc
 

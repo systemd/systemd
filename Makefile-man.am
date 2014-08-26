@@ -1141,34 +1141,6 @@ man/systemd-random-seed.html: man/systemd-random-seed.service.html
 
 endif
 
-if ENABLE_READAHEAD
-MANPAGES += \
-	man/sd-readahead.3 \
-	man/sd_readahead.3 \
-	man/systemd-readahead-replay.service.8
-MANPAGES_ALIAS += \
-	man/systemd-readahead-collect.service.8 \
-	man/systemd-readahead-done.service.8 \
-	man/systemd-readahead-done.timer.8 \
-	man/systemd-readahead.8
-man/systemd-readahead-collect.service.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead-done.service.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead-done.timer.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead-collect.service.html: man/systemd-readahead-replay.service.html
-	$(html-alias)
-
-man/systemd-readahead-done.service.html: man/systemd-readahead-replay.service.html
-	$(html-alias)
-
-man/systemd-readahead-done.timer.html: man/systemd-readahead-replay.service.html
-	$(html-alias)
-
-man/systemd-readahead.html: man/systemd-readahead-replay.service.html
-	$(html-alias)
-
-endif
-
 if ENABLE_RESOLVED
 MANPAGES += \
 	man/resolved.conf.5 \
@@ -1549,7 +1521,6 @@ EXTRA_DIST += \
 	man/sd-id128.xml \
 	man/sd-journal.xml \
 	man/sd-login.xml \
-	man/sd-readahead.xml \
 	man/sd_booted.xml \
 	man/sd_bus_creds_get_pid.xml \
 	man/sd_bus_creds_new_from_pid.xml \
@@ -1591,7 +1562,6 @@ EXTRA_DIST += \
 	man/sd_login_monitor_new.xml \
 	man/sd_notify.xml \
 	man/sd_pid_get_session.xml \
-	man/sd_readahead.xml \
 	man/sd_seat_get_active.xml \
 	man/sd_session_is_active.xml \
 	man/sd_uid_get_state.xml \
@@ -1647,7 +1617,6 @@ EXTRA_DIST += \
 	man/systemd-path.xml \
 	man/systemd-quotacheck.service.xml \
 	man/systemd-random-seed.service.xml \
-	man/systemd-readahead-replay.service.xml \
 	man/systemd-remount-fs.service.xml \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill@.service.xml \

@@ -11,7 +11,7 @@ Documentation=man:systemd-random-seed.service(8) man:random(4)
 DefaultDependencies=no
 RequiresMountsFor=@RANDOM_SEED@
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 
 [Service]

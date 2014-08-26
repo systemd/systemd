@@ -141,17 +141,6 @@
                                 <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
                         </varlistentry>
 
-                        <varlistentry>
-                                <term><option>--readahead=</option></term>
-
-                                <listitem><para>Controls disk
-                                read-ahead operations. The argument
-                                must be a string, and either "cancel",
-                                "done" or "noreplay". For details
-                                about the semantics of this option see
-                                <citerefentry><refentrytitle>sd_readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
-                        </varlistentry>
-
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
