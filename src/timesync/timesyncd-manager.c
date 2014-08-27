@@ -500,7 +500,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct cmsghdr *cmsg;
-        struct timespec now_ts;
         struct timeval *recv_time;
         ssize_t len;
         double origin, receive, trans, dest;
@@ -613,8 +612,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
          *  The round-trip delay, d, and system clock offset, t, are defined as:
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
-        assert_se(clock_gettime(clock_boottime_or_monotonic(), &now_ts) >= 0);
-        origin = tv_to_d(recv_time) - (ts_to_d(&now_ts) - ts_to_d(&m->trans_time_mon)) + OFFSET_1900_1970;
+        origin = ts_to_d(&m->trans_time) + OFFSET_1900_1970;
         receive = ntp_ts_to_d(&ntpmsg.recv_time);
         trans = ntp_ts_to_d(&ntpmsg.trans_time);
         dest = tv_to_d(recv_time) + OFFSET_1900_1970;
