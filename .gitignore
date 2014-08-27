@@ -69,6 +69,7 @@
 /systemd-detect-virt
 /systemd-efi-boot-generator
 /systemd-escape
+/systemd-evcat
 /systemd-firstboot
 /systemd-fsck
 /systemd-fstab-generator

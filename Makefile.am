@@ -2954,6 +2954,7 @@ noinst_LTLIBRARIES += \
 	libsystemd-terminal.la
 
 noinst_PROGRAMS += \
+	systemd-evcat \
 	systemd-subterm
 
 unifontdatadir=$(datadir)/unifont
@@ -2991,6 +2992,19 @@ libsystemd_terminal_la_SOURCES = \
 
 libsystemd_terminal_la_LIBADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	$(TERMINAL_LIBS)
+
+systemd_evcat_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(TERMINAL_CFLAGS)
+
+systemd_evcat_SOURCES = \
+	src/libsystemd-terminal/evcat.c
+
+systemd_evcat_LDADD = \
+	libsystemd-terminal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(TERMINAL_LIBS)
