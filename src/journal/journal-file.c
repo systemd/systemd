@@ -425,7 +425,6 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (!VALID64(offset))
                 return -EFAULT;
 
-
         r = journal_file_move_to(f, type_to_context(type), false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;

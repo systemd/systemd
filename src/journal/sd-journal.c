@@ -2571,6 +2571,21 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 if (r < 0)
                         return r;
 
+                /* Check if we have at least the field name and "=". */
+                if (ol <= k) {
+                        log_debug("%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
+                                  j->unique_file->path, j->unique_offset,
+                                  ol, k + 1);
+                        return -EBADMSG;
+                }
+
+                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=') {
+                        log_debug("%s:offset " OFSfmt ": object does not start with \"%s=\"",
+                                  j->unique_file->path, j->unique_offset,
+                                  j->unique_field);
+                        return -EBADMSG;
+                }
+
                 /* OK, now let's see if we already returned this data
                  * object by checking if it exists in the earlier
                  * traversed files. */
