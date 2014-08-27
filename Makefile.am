@@ -1940,14 +1940,16 @@ nodist_systemunit_DATA += \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service
 
+nodist_tmpfiles_DATA = \
+	tmpfiles.d/etc.conf
+
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
 	tmpfiles.d/systemd-nologin.conf \
 	tmpfiles.d/systemd-remote.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf \
-	tmpfiles.d/var.conf \
-	tmpfiles.d/etc.conf
+	tmpfiles.d/var.conf
 
 if HAVE_SYSV_COMPAT
 dist_tmpfiles_DATA += \
@@ -1970,9 +1972,13 @@ INSTALL_DIRS += \
 endif
 
 EXTRA_DIST += \
+	tmpfiles.d/etc.conf.m4 \
 	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in
+
+CLEANFILES += \
+	tmpfiles.d/etc.conf
 
 # ------------------------------------------------------------------------------
 if ENABLE_SYSUSERS
@@ -5707,6 +5713,11 @@ src/%.c: src/%.gperf
 src/%: src/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
+
+tmpfiles.d/%: tmpfiles.d/%.m4
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
+
 
 units/%: units/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
