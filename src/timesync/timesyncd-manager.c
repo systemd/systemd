@@ -574,7 +574,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC) {
+        if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC ||
+            ntpmsg.stratum == 0 || ntpmsg.stratum >= 16) {
                 log_debug("Server is not synchronized. Disconnecting.");
                 return manager_connect(m);
         }
