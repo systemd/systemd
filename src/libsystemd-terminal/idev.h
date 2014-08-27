@@ -26,6 +26,8 @@
 #pragma once
 
 #include <inttypes.h>
+#include <libudev.h>
+#include <linux/input.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -33,6 +35,7 @@
 #include "util.h"
 
 typedef struct idev_data                idev_data;
+typedef struct idev_data_evdev          idev_data_evdev;
 
 typedef struct idev_event               idev_event;
 typedef struct idev_device              idev_device;
@@ -44,6 +47,7 @@ typedef struct idev_context             idev_context;
  */
 
 enum {
+        IDEV_ELEMENT_EVDEV,
         IDEV_ELEMENT_CNT
 };
 
@@ -52,17 +56,30 @@ enum {
 };
 
 /*
+ * Evdev Elements
+ */
+
+struct idev_data_evdev {
+        struct input_event event;
+};
+
+/*
  * Data Packets
  */
 
 enum {
         IDEV_DATA_RESYNC,
+        IDEV_DATA_EVDEV,
         IDEV_DATA_CNT
 };
 
 struct idev_data {
         unsigned int type;
         bool resync : 1;
+
+        union {
+                idev_data_evdev evdev;
+        };
 };
 
 /*
@@ -121,6 +138,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(idev_session*, idev_session_free);
 bool idev_session_is_enabled(idev_session *s);
 void idev_session_enable(idev_session *s);
 void idev_session_disable(idev_session *s);
+
+int idev_session_add_evdev(idev_session *s, struct udev_device *ud);
+int idev_session_remove_evdev(idev_session *s, struct udev_device *ud);
 
 /*
  * Contexts

@@ -1066,8 +1066,11 @@ AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
 have_terminal=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
-        AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])
-        have_terminal=yes
+        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 ], [have_terminal=yes])
+        AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
+              [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
+              [test "x$have_terminal" = xyes],
+              [AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])])
 fi
 AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes"])
 

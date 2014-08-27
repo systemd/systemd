@@ -22,6 +22,8 @@
 #pragma once
 
 #include <inttypes.h>
+#include <libudev.h>
+#include <linux/input.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -35,6 +37,14 @@ typedef struct idev_link                idev_link;
 typedef struct idev_device_vtable       idev_device_vtable;
 typedef struct idev_element             idev_element;
 typedef struct idev_element_vtable      idev_element_vtable;
+
+/*
+ * Evdev Elements
+ */
+
+bool idev_is_evdev(idev_element *e);
+idev_element *idev_find_evdev(idev_session *s, dev_t devnum);
+int idev_evdev_new(idev_element **out, idev_session *s, struct udev_device *ud);
 
 /*
  * Element Links

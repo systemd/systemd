@@ -20,6 +20,8 @@
 ***/
 
 #include <inttypes.h>
+#include <libudev.h>
+#include <linux/input.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -31,6 +33,7 @@
 #include "login-shared.h"
 #include "macro.h"
 #include "set.h"
+#include "udev-util.h"
 #include "util.h"
 
 static void element_open(idev_element *e);
@@ -520,6 +523,51 @@ void idev_session_disable(idev_session *s) {
                 HASHMAP_FOREACH(e, s->element_map, i)
                         element_disable(e);
         }
+}
+
+int idev_session_add_evdev(idev_session *s, struct udev_device *ud) {
+        idev_element *e;
+        dev_t devnum;
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(ud, -EINVAL);
+
+        devnum = udev_device_get_devnum(ud);
+        if (devnum == 0)
+                return 0;
+
+        e = idev_find_evdev(s, devnum);
+        if (e)
+                return 0;
+
+        r = idev_evdev_new(&e, s, ud);
+        if (r < 0)
+                return r;
+
+        r = session_add_element(s, e);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int idev_session_remove_evdev(idev_session *s, struct udev_device *ud) {
+        idev_element *e;
+        dev_t devnum;
+
+        assert(s);
+        assert(ud);
+
+        devnum = udev_device_get_devnum(ud);
+        if (devnum == 0)
+                return 0;
+
+        e = idev_find_evdev(s, devnum);
+        if (!e)
+                return 0;
+
+        return session_remove_element(s, e);
 }
 
 /*

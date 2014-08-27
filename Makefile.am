@@ -2968,12 +2968,14 @@ tests += \
 endif
 
 libsystemd_terminal_la_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(TERMINAL_CFLAGS)
 
 libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/idev.h \
 	src/libsystemd-terminal/idev-internal.h \
 	src/libsystemd-terminal/idev.c \
+	src/libsystemd-terminal/idev-evdev.c \
 	src/libsystemd-terminal/sysview.h \
 	src/libsystemd-terminal/sysview-internal.h \
 	src/libsystemd-terminal/sysview.c \
@@ -2989,7 +2991,8 @@ libsystemd_terminal_la_SOURCES = \
 libsystemd_terminal_la_LIBADD = \
 	libudev-internal.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(TERMINAL_LIBS)
 
 systemd_subterm_SOURCES = \
 	src/libsystemd-terminal/subterm.c
