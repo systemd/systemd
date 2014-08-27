@@ -136,10 +136,6 @@ static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
 
-static double tv_to_d(const struct timeval *tv) {
-        return tv->tv_sec + (1.0e-6 * tv->tv_usec);
-}
-
 static double square(double d) {
         return d * d;
 }
@@ -500,7 +496,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct cmsghdr *cmsg;
-        struct timeval *recv_time;
+        struct timespec *recv_time;
         ssize_t len;
         double origin, receive, trans, dest;
         double delay, offset;
@@ -543,8 +539,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         continue;
 
                 switch (cmsg->cmsg_type) {
-                case SCM_TIMESTAMP:
-                        recv_time = (struct timeval *) CMSG_DATA(cmsg);
+                case SCM_TIMESTAMPNS:
+                        recv_time = (struct timespec *) CMSG_DATA(cmsg);
                         break;
                 }
         }
@@ -615,7 +611,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         origin = ts_to_d(&m->trans_time) + OFFSET_1900_1970;
         receive = ntp_ts_to_d(&ntpmsg.recv_time);
         trans = ntp_ts_to_d(&ntpmsg.trans_time);
-        dest = tv_to_d(recv_time) + OFFSET_1900_1970;
+        dest = ts_to_d(recv_time) + OFFSET_1900_1970;
 
         offset = ((receive - origin) + (trans - dest)) / 2;
         delay = (dest - origin) - (trans - receive);
@@ -697,7 +693,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(m->server_socket, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on));
+        r = setsockopt(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, &on, sizeof(on));
         if (r < 0)
                 return -errno;
 
