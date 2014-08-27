@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
+#include <xkbcommon/xkbcommon.h>
 #include "hashmap.h"
 #include "idev.h"
 #include "list.h"
@@ -45,6 +46,14 @@ typedef struct idev_element_vtable      idev_element_vtable;
 bool idev_is_evdev(idev_element *e);
 idev_element *idev_find_evdev(idev_session *s, dev_t devnum);
 int idev_evdev_new(idev_element **out, idev_session *s, struct udev_device *ud);
+
+/*
+ * Keyboard Devices
+ */
+
+bool idev_is_keyboard(idev_device *d);
+idev_device *idev_find_keyboard(idev_session *s, const char *name);
+int idev_keyboard_new(idev_device **out, idev_session *s, const char *name);
 
 /*
  * Element Links

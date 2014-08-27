@@ -27,6 +27,7 @@
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
 #include <systemd/sd-login.h>
+#include <xkbcommon/xkbcommon.h>
 #include "hashmap.h"
 #include "idev.h"
 #include "idev-internal.h"
@@ -525,10 +526,40 @@ void idev_session_disable(idev_session *s) {
         }
 }
 
+static int add_link(idev_element *e, idev_device *d) {
+        idev_link *l;
+
+        assert(e);
+        assert(d);
+
+        l = new0(idev_link, 1);
+        if (!l)
+                return -ENOMEM;
+
+        l->element = e;
+        l->device = d;
+        LIST_PREPEND(links_by_element, e->links, l);
+        LIST_PREPEND(links_by_device, d->links, l);
+        device_attach(d, l);
+
+        return 0;
+}
+
+static int guess_type(struct udev_device *d) {
+        const char *id_key;
+
+        id_key = udev_device_get_property_value(d, "ID_INPUT_KEY");
+        if (streq_ptr(id_key, "1"))
+                return IDEV_DEVICE_KEYBOARD;
+
+        return IDEV_DEVICE_CNT;
+}
+
 int idev_session_add_evdev(idev_session *s, struct udev_device *ud) {
         idev_element *e;
+        idev_device *d;
         dev_t devnum;
-        int r;
+        int r, type;
 
         assert_return(s, -EINVAL);
         assert_return(ud, -EINVAL);
@@ -549,7 +580,34 @@ int idev_session_add_evdev(idev_session *s, struct udev_device *ud) {
         if (r != 0)
                 return r;
 
-        return 0;
+        type = guess_type(ud);
+        if (type < 0)
+                return type;
+
+        switch (type) {
+        case IDEV_DEVICE_KEYBOARD:
+                d = idev_find_keyboard(s, e->name);
+                if (d) {
+                        log_debug("idev: %s: keyboard for new evdev element '%s' already available",
+                                  s->name, e->name);
+                        return 0;
+                }
+
+                r = idev_keyboard_new(&d, s, e->name);
+                if (r < 0)
+                        return r;
+
+                r = add_link(e, d);
+                if (r < 0) {
+                        idev_device_free(d);
+                        return r;
+                }
+
+                return session_add_device(s, d);
+        default:
+                /* unknown elements are silently ignored */
+                return 0;
+        }
 }
 
 int idev_session_remove_evdev(idev_session *s, struct udev_device *ud) {

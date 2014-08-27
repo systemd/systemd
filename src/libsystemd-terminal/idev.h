@@ -32,10 +32,12 @@
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
+#include <xkbcommon/xkbcommon.h>
 #include "util.h"
 
 typedef struct idev_data                idev_data;
 typedef struct idev_data_evdev          idev_data_evdev;
+typedef struct idev_data_keyboard       idev_data_keyboard;
 
 typedef struct idev_event               idev_event;
 typedef struct idev_device              idev_device;
@@ -52,6 +54,7 @@ enum {
 };
 
 enum {
+        IDEV_DEVICE_KEYBOARD,
         IDEV_DEVICE_CNT
 };
 
@@ -64,12 +67,57 @@ struct idev_data_evdev {
 };
 
 /*
+ * Keyboard Devices
+ */
+
+struct xkb_state;
+
+enum {
+        IDEV_KBDMOD_IDX_SHIFT,
+        IDEV_KBDMOD_IDX_CTRL,
+        IDEV_KBDMOD_IDX_ALT,
+        IDEV_KBDMOD_IDX_LINUX,
+        IDEV_KBDMOD_IDX_CAPS,
+        IDEV_KBDMOD_CNT,
+
+        IDEV_KBDMOD_SHIFT               = 1 << IDEV_KBDMOD_IDX_SHIFT,
+        IDEV_KBDMOD_CTRL                = 1 << IDEV_KBDMOD_IDX_CTRL,
+        IDEV_KBDMOD_ALT                 = 1 << IDEV_KBDMOD_IDX_ALT,
+        IDEV_KBDMOD_LINUX               = 1 << IDEV_KBDMOD_IDX_LINUX,
+        IDEV_KBDMOD_CAPS                = 1 << IDEV_KBDMOD_IDX_CAPS,
+};
+
+enum {
+        IDEV_KBDLED_IDX_NUM,
+        IDEV_KBDLED_IDX_CAPS,
+        IDEV_KBDLED_IDX_SCROLL,
+        IDEV_KBDLED_CNT,
+
+        IDEV_KBDLED_NUM                 = 1 << IDEV_KBDLED_IDX_NUM,
+        IDEV_KBDLED_CAPS                = 1 << IDEV_KBDLED_IDX_CAPS,
+        IDEV_KBDLED_SCROLL              = 1 << IDEV_KBDLED_IDX_SCROLL,
+};
+
+struct idev_data_keyboard {
+        struct xkb_state *xkb_state;
+        int8_t ascii;
+        uint8_t value;
+        uint16_t keycode;
+        uint32_t mods;
+        uint32_t consumed_mods;
+        uint32_t n_syms;
+        uint32_t *keysyms;
+        uint32_t *codepoints;
+};
+
+/*
  * Data Packets
  */
 
 enum {
         IDEV_DATA_RESYNC,
         IDEV_DATA_EVDEV,
+        IDEV_DATA_KEYBOARD,
         IDEV_DATA_CNT
 };
 
@@ -79,6 +127,7 @@ struct idev_data {
 
         union {
                 idev_data_evdev evdev;
+                idev_data_keyboard keyboard;
         };
 };
 

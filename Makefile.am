@@ -2976,6 +2976,7 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/idev-internal.h \
 	src/libsystemd-terminal/idev.c \
 	src/libsystemd-terminal/idev-evdev.c \
+	src/libsystemd-terminal/idev-keyboard.c \
 	src/libsystemd-terminal/sysview.h \
 	src/libsystemd-terminal/sysview-internal.h \
 	src/libsystemd-terminal/sysview.c \
