@@ -432,6 +432,7 @@ int sigprocmask_many(int how, ...);
 
 bool hostname_is_set(void);
 
+char* lookup_uid(uid_t uid);
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
