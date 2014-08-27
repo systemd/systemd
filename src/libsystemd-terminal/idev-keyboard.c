@@ -312,7 +312,6 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
                                           sd_bus_message *signal,
                                           void *userdata,
                                           sd_bus_error *ret_err) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         kbdctx *kc = userdata;
         int r;
 
