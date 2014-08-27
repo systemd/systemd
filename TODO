@@ -61,11 +61,6 @@ Features:
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
 
-* sd-event:
-  - make it possible to embedd our event loop into foreign event loops
-    by passing out the epoll fd and providing three functions that fit
-    into GSource nicely.
-
 * networkd:
   - add LLDP client side support
   - ipv4ll with multiple interfaces doesn't work when both dhcp and
@@ -74,18 +69,10 @@ Features:
   - dhcp and ipv4ll should probably be skipped for "lo" devices, even
     if the user has a catchall .network file installed, that might
     theoretically match it.
-  - we probably should introduce a new operational state that
-    indicates that we are trying to acquire some configuration for a
-    link but haven't acquired any yet. Just to inform the admin that
-    networkd cares about an interface, but is still in progress..
   - the DHCP lease data (such as NTP/DNS) is still made available when
     a carrier is lost on a link. It should be removed instantly.
   - .network setting that allows overriding of the hostname to send to the dhcp server
     http://lists.freedesktop.org/archives/systemd-devel/2014-July/021550.html
-  - add per-network Domains= settings, with a special syntax Domains=*
-    for routing all non-otherwise routed traffic to this link
-  - add UseDomains= setting to [DHCP] to add dhcp supplied domains to
-    per-interface Domains= list.
   - expose in the API the following bits:
         - option 15, domain name and/or option 119, search list
         - option 12, host name and/or option 81, fqdn
