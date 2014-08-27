@@ -939,7 +939,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*550P*:pvr*
 # Series 7 / 9
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700G*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X[34][CDEFG]*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X[34]*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*940X3G*:pvr*
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
  KEYBOARD_KEY_a0=!mute                                  # Fn+F6 mute
