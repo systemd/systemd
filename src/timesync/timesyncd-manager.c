@@ -89,6 +89,9 @@
 #define NTP_FIELD_MODE(f)               ((f) & 7)
 #define NTP_FIELD(l, v, m)              (((l) << 6) | ((v) << 3) | (m))
 
+/* Maximum acceptable root distance in seconds. */
+#define NTP_MAX_ROOT_DISTANCE           5.0
+
 /*
  * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
  * in seconds relative to 0h on 1 January 1900."
@@ -127,6 +130,10 @@ struct ntp_msg {
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
+
+static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
+        return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
+}
 
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
         return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
@@ -500,6 +507,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         ssize_t len;
         double origin, receive, trans, dest;
         double delay, offset;
+        double root_distance;
         bool spike;
         int leap_sec;
         int r;
@@ -585,6 +593,12 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
+        root_distance = ntp_ts_short_to_d(&ntpmsg.root_delay) / 2 + ntp_ts_short_to_d(&ntpmsg.root_dispersion);
+        if (root_distance > NTP_MAX_ROOT_DISTANCE) {
+                log_debug("Server has too large root distance. Disconnecting.");
+                return manager_connect(m);
+        }
+
         /* valid packet */
         m->pending = false;
         m->retry_interval = 0;
@@ -626,6 +640,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   "  mode         : %u\n"
                   "  stratum      : %u\n"
                   "  precision    : %.6f sec (%d)\n"
+                  "  root distance: %.6f sec\n"
                   "  reference    : %.4s\n"
                   "  origin       : %.3f\n"
                   "  receive      : %.3f\n"
@@ -641,6 +656,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   NTP_FIELD_MODE(ntpmsg.field),
                   ntpmsg.stratum,
                   exp2(ntpmsg.precision), ntpmsg.precision,
+                  root_distance,
                   ntpmsg.stratum == 1 ? ntpmsg.refid : "n/a",
                   origin - OFFSET_1900_1970,
                   receive - OFFSET_1900_1970,
