@@ -700,6 +700,11 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         if (r < 0)
                 goto error;
 
+        r = sd_event_source_set_name(client->timeout_resend,
+                                     "dhcp4-resend-timer");
+        if (r < 0)
+                goto error;
+
         switch (client->state) {
         case DHCP_STATE_INIT:
                 r = client_send_discover(client);
@@ -773,6 +778,11 @@ static int client_initialize_io_events(sd_dhcp_client *client,
         if (r < 0)
                 goto error;
 
+        r = sd_event_source_set_name(client->receive_message,
+                                     "dhcp4-receive-message");
+        if (r < 0)
+                goto error;
+
 error:
         if (r < 0)
                 client_stop(client, r);
@@ -798,6 +808,11 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         r = sd_event_source_set_priority(client->timeout_resend,
                                          client->event_priority);
+
+        r = sd_event_source_set_name(client->timeout_resend,
+                                     "dhcp4-resend-timer");
+        if (r < 0)
+                goto error;
 
 error:
         if (r < 0)
@@ -1107,6 +1122,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_name(client->timeout_expire,
+                                     "dhcp4-lifetime");
+        if (r < 0)
+                return r;
+
         log_dhcp_client(client, "lease expires in %s",
                         format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                         lifetime_timeout - time_now, 0));
@@ -1130,6 +1150,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_name(client->timeout_t2,
+                                     "dhcp4-t2-timeout");
+        if (r < 0)
+                return r;
+
         log_dhcp_client(client, "T2 expires in %s",
                         format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                         t2_timeout - time_now, 0));
@@ -1149,6 +1174,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         r = sd_event_source_set_priority(client->timeout_t1,
                                          client->event_priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_name(client->timeout_t1,
+                                     "dhcp4-t1-timer");
         if (r < 0)
                 return r;
 
@@ -1190,6 +1220,11 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
 
                         r = sd_event_source_set_priority(client->timeout_resend,
                                                          client->event_priority);
+                        if (r < 0)
+                                goto error;
+
+                        r = sd_event_source_set_name(client->timeout_resend,
+                                                     "dhcp4-resend-timer");
                         if (r < 0)
                                 goto error;
                 } else if (r == -ENOMSG)

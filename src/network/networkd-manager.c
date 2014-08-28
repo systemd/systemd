@@ -370,6 +370,10 @@ int manager_udev_listen(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_name(m->udev_event_source, "networkd-udev");
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
