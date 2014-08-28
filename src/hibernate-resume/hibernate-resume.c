@@ -46,6 +46,10 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
+        /* Refuse to run unless we are in an initrd() */
+        if (!in_initrd())
+                return EXIT_SUCCESS;
+
         device = argv[1];
 
         if (stat(device, &st) < 0) {
