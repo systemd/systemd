@@ -550,6 +550,7 @@ int idev_keyboard_new(idev_device **out, idev_session *s, const char *name) {
 static void keyboard_free(idev_device *d) {
         idev_keyboard *k = keyboard_from_device(d);
 
+        xkb_state_unref(k->xkb_state);
         free(k->repdata.keyboard.codepoints);
         free(k->repdata.keyboard.keysyms);
         free(k->evdata.keyboard.codepoints);
