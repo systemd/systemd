@@ -39,7 +39,7 @@
 
 struct sysview_device {
         sysview_seat *seat;
-        const char *name;
+        char *name;
         unsigned int type;
 
         union {

@@ -98,6 +98,7 @@ sysview_device *sysview_device_free(sysview_device *device) {
                 break;
         }
 
+        free(device->name);
         free(device);
 
         return NULL;
