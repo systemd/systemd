@@ -2001,6 +2001,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
   </refsect1>
 
   <refsect1>
+    <title>Examples</title>
+    <para>
+            For examples how to use systemctl in comparsion
+            with old service and chkconfig command please see:
+            <ulink url="https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/System_Administrators_Guide/sect-Managing_Services_with_systemd-Services.html">
+                    Managing System Services
+            </ulink>
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
