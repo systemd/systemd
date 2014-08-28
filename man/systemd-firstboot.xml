@@ -101,7 +101,7 @@
                 allows <command>systemd-firstboot</command> to operate
                 on mounted but not booted disk images and in early
                 boot. It is not recommended to use
-                <command>systemd-firsboot</command> on the running
+                <command>systemd-firstboot</command> on the running
                 system while it is up.</para>
         </refsect1>
 
