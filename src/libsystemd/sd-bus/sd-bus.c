@@ -2107,13 +2107,15 @@ static int process_timeout(sd_bus *bus) {
         r = c->callback(bus, m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
-        bus->current_slot = sd_bus_slot_unref(slot);
+        bus->current_slot = NULL;
         bus->current_message = NULL;
 
         if (slot->floating) {
                 bus_slot_disconnect(slot);
                 sd_bus_slot_unref(slot);
         }
+
+        sd_bus_slot_unref(slot);
 
         return bus_maybe_reply_error(m, r, &error_buffer);
 }
@@ -2203,12 +2205,14 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         r = c->callback(bus, m, slot->userdata, &error_buffer);
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
-        bus->current_slot = sd_bus_slot_unref(slot);
+        bus->current_slot = NULL;
 
         if (slot->floating) {
                 bus_slot_disconnect(slot);
                 sd_bus_slot_unref(slot);
         }
+
+        sd_bus_slot_unref(slot);
 
         return bus_maybe_reply_error(m, r, &error_buffer);
 }
@@ -2529,13 +2533,15 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 r = c->callback(bus, m, slot->userdata, &error_buffer);
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
-                bus->current_slot = sd_bus_slot_unref(slot);
+                bus->current_slot = NULL;
                 bus->current_message = NULL;
 
                 if (slot->floating) {
                         bus_slot_disconnect(slot);
                         sd_bus_slot_unref(slot);
                 }
+
+                sd_bus_slot_unref(slot);
 
                 return bus_maybe_reply_error(m, r, &error_buffer);
         }
