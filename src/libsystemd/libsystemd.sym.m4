@@ -382,6 +382,8 @@ global:
         sd_event_get_watchdog;
         sd_event_source_ref;
         sd_event_source_unref;
+        sd_event_source_set_name;
+        sd_event_source_get_name;
         sd_event_source_set_prepare;
         sd_event_source_get_pending;
         sd_event_source_get_priority;

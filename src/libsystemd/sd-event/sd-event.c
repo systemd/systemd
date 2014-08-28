@@ -66,6 +66,8 @@ struct sd_event_source {
         void *userdata;
         sd_event_handler_t prepare;
 
+        char *name;
+
         EventSourceType type:5;
         int enabled:3;
         bool pending:1;
@@ -685,6 +687,7 @@ static void source_free(sd_event_source *s) {
         assert(s);
 
         source_disconnect(s);
+        free(s->name);
         free(s);
 }
 
@@ -1221,6 +1224,32 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         }
 
         return NULL;
+}
+
+_public_ int sd_event_source_set_name(sd_event_source *s, const char *name) {
+        char *new_name = NULL;
+
+        assert_return(s, -EINVAL);
+
+        if (name) {
+                new_name = strdup(name);
+                if (!new_name)
+                        return -ENOMEM;
+        }
+
+        free(s->name);
+        s->name = new_name;
+
+        return 0;
+}
+
+_public_ int sd_event_source_get_name(sd_event_source *s, const char **name) {
+        assert_return(s, -EINVAL);
+        assert_return(name, -EINVAL);
+
+        *name = s->name;
+
+        return 0;
 }
 
 _public_ sd_event *sd_event_source_get_event(sd_event_source *s) {
