@@ -821,7 +821,7 @@ static int context_ud_prepare_monitor(sysview_context *c, struct udev_monitor *m
                         return r;
         }
 
-        return r;
+        return 0;
 }
 
 static int context_ud_prepare_scan(sysview_context *c, struct udev_enumerate *e) {
