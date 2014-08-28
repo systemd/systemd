@@ -1051,9 +1051,6 @@ int bus_message_map_properties_changed(sd_bus *bus,
         assert(m);
         assert(map);
 
-        /* skip interface, but allow callers to do that themselves */
-        sd_bus_message_skip(m, "s");
-
         r = bus_message_map_all_properties(bus, m, map, userdata);
         if (r < 0)
                 return r;

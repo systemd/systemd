@@ -317,11 +317,14 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
 
         kc->slot_locale_get_all = sd_bus_slot_unref(kc->slot_locale_get_all);
 
+        /* skip interface name */
+        r = sd_bus_message_skip(signal, "s");
+        if (r < 0)
+                goto error;
+
         r = bus_message_map_properties_changed(bus, signal, kbdctx_locale_map, kc);
-        if (r < 0) {
-                log_debug("idev-keyboard: cannot handle PropertiesChanged from locale1: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                goto error;
 
         if (r > 0) {
                 r = kbdctx_query_locale(kc);
@@ -331,6 +334,10 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
 
         kbdctx_refresh_keymap(kc);
         return 0;
+
+error:
+        log_debug("idev-keyboard: cannot handle PropertiesChanged from locale1: %s", strerror(-r));
+        return r;
 }
 
 static int kbdctx_setup_bus(kbdctx *kc) {
