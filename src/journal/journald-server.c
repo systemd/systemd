@@ -1224,6 +1224,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         touch("/run/systemd/journal/flushed");
         server_flush_to_var(s);
         server_sync(s);
+        server_vacuum(s);
 
         return 0;
 }
