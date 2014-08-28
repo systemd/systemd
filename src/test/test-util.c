@@ -94,6 +94,23 @@ static void test_max(void) {
         assert_cc(MAXSIZE(char[3], uint16_t) == 3);
         assert_cc(MAXSIZE(char[3], uint32_t) == 4);
         assert_cc(MAXSIZE(char, long) == sizeof(long));
+
+        assert_se(MAX(-5, 5) == 5);
+        assert_se(MAX(5, 5) == 5);
+        assert_se(MAX(MAX(1, MAX(2, MAX(3, 4))), 5) == 5);
+        assert_se(MAX(MAX(1, MAX(2, MAX(3, 2))), 1) == 3);
+        assert_se(MAX(MIN(1, MIN(2, MIN(3, 4))), 5) == 5);
+        assert_se(MAX(MAX(1, MIN(2, MIN(3, 2))), 1) == 2);
+        assert_se(LESS_BY(8, 4) == 4);
+        assert_se(LESS_BY(8, 8) == 0);
+        assert_se(LESS_BY(4, 8) == 0);
+        assert_se(LESS_BY(16, LESS_BY(8, 4)) == 12);
+        assert_se(LESS_BY(4, LESS_BY(8, 4)) == 0);
+        assert_se(CLAMP(-5, 0, 1) == 0);
+        assert_se(CLAMP(5, 0, 1) == 1);
+        assert_se(CLAMP(5, -10, 1) == 1);
+        assert_se(CLAMP(5, -10, 10) == 5);
+        assert_se(CLAMP(CLAMP(0, -10, 10), CLAMP(-5, 10, 20), CLAMP(100, -5, 20)) == 10);
 }
 
 static void test_container_of(void) {

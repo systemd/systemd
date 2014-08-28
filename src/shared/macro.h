@@ -134,12 +134,13 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         })
 
 #undef MAX
-#define MAX(a,b)                                        \
+#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
+#define __MAX(aq, a, bq, b)                             \
         __extension__ ({                                \
-                        const typeof(a) _a = (a);       \
-                        const typeof(b) _b = (b);       \
-                        _a > _b ? _a : _b;              \
-                })
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+        })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
 #define CONST_MAX(_A, _B) \
@@ -160,12 +161,13 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 })
 
 #undef MIN
-#define MIN(a,b)                                        \
+#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define __MIN(aq, a, bq, b)                             \
         __extension__ ({                                \
-                        const typeof(a) _a = (a);       \
-                        const typeof(b) _b = (b);       \
-                        _a < _b ? _a : _b;              \
-                })
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) < UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+        })
 
 #define MIN3(x,y,z)                                     \
         __extension__ ({                                \
@@ -173,22 +175,27 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                         MIN(_c, z);                     \
                 })
 
-#define LESS_BY(A,B)                                    \
+#define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
+#define __LESS_BY(aq, a, bq, b)                         \
         __extension__ ({                                \
-                        const typeof(A) _A = (A);       \
-                        const typeof(B) _B = (B);       \
-                        _A > _B ? _A - _B : 0;          \
-                })
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) - UNIQ_T(B,bq) : 0; \
+        })
 
-#ifndef CLAMP
-#define CLAMP(x, low, high)                                             \
+#undef CLAMP
+#define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
+#define __CLAMP(xq, x, lowq, low, highq, high)                          \
         __extension__ ({                                                \
-                        const typeof(x) _x = (x);                       \
-                        const typeof(low) _low = (low);                 \
-                        const typeof(high) _high = (high);              \
-                        ((_x > _high) ? _high : ((_x < _low) ? _low : _x)); \
-                })
-#endif
+                const typeof(x) UNIQ_T(X,xq) = (x);                     \
+                const typeof(low) UNIQ_T(LOW,lowq) = (low);             \
+                const typeof(high) UNIQ_T(HIGH,highq) = (high);         \
+                        UNIQ_T(X,xq) > UNIQ_T(HIGH,highq) ?             \
+                                UNIQ_T(HIGH,highq) :                    \
+                                UNIQ_T(X,xq) < UNIQ_T(LOW,lowq) ?       \
+                                        UNIQ_T(LOW,lowq) :              \
+                                        UNIQ_T(X,xq);                   \
+        })
 
 #define assert_se(expr)                                                 \
         do {                                                            \
