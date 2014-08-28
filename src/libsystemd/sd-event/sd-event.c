@@ -2112,8 +2112,12 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
-        if (r < 0)
-                log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
+        if (r < 0) {
+                if (s->name)
+                        log_debug("Event source '%s' returned error, disabling: %s", s->name, strerror(-r));
+                else
+                        log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
+        }
 
         if (s->n_ref == 0)
                 source_free(s);
@@ -2146,8 +2150,12 @@ static int event_prepare(sd_event *e) {
                 r = s->prepare(s, s->userdata);
                 s->dispatching = false;
 
-                if (r < 0)
-                        log_debug("Prepare callback of event source %p returned error, disabling: %s", s, strerror(-r));
+                if (r < 0) {
+                        if (s->name)
+                                log_debug("Prepare callback of event source '%s' returned error, disabling: %s", s->name, strerror(-r));
+                        else
+                                log_debug("Prepare callback of event source %p returned error, disabling: %s", s, strerror(-r));
+                }
 
                 if (s->n_ref == 0)
                         source_free(s);
