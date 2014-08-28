@@ -7,7 +7,7 @@
 
 [Unit]
 Description=First Boot Wizard
-Documentation=man:systemd-firstboot(8)
+Documentation=man:systemd-firstboot(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service systemd-sysusers.service
