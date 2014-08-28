@@ -1227,20 +1227,9 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
 }
 
 _public_ int sd_event_source_set_name(sd_event_source *s, const char *name) {
-        char *new_name = NULL;
-
         assert_return(s, -EINVAL);
 
-        if (name) {
-                new_name = strdup(name);
-                if (!new_name)
-                        return -ENOMEM;
-        }
-
-        free(s->name);
-        s->name = new_name;
-
-        return 0;
+        return free_and_strdup(&s->name, name);
 }
 
 _public_ int sd_event_source_get_name(sd_event_source *s, const char **name) {
