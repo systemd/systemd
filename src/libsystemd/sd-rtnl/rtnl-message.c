@@ -1132,10 +1132,13 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         assert(iov);
 
         r = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (r < 0)
+        if (r < 0) {
                 /* no data */
+                if (errno == ENOBUFS)
+                        log_debug("rtnl: kernel receive buffer overrun");
+
                 return (errno == EAGAIN) ? 0 : -errno;
-        else if (r == 0)
+        } else if (r == 0)
                 /* connection was closed by the kernel */
                 return -ECONNRESET;
 
