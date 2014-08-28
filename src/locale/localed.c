@@ -1046,7 +1046,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
                                 "org.freedesktop.locale1",
-                                "X11Layout" "X11Model" "X11Variant" "X11Options", NULL);
+                                "X11Layout", "X11Model", "X11Variant", "X11Options", NULL);
 
                 if (convert) {
                         r = x11_convert_to_vconsole(c, bus);
