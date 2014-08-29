@@ -1,13 +1,13 @@
 # translation of ru.po to Rissian
 # Julia Dronova <juliette.tux@gmail.com>, 2013.
-# Sergey Ptashnick <0comffdiz@inbox.ru>, 2013.
+# Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2014.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: 0comffdiz@inbox.ru\n"
 "POT-Creation-Date: 2013-03-24 19:22+0300\n"
-"PO-Revision-Date: 2013-11-18 02:18+0400\n"
+"PO-Revision-Date: 2014-08-29 19:29+0400\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -293,3 +293,27 @@ msgstr "Привилегированный доступ к системному 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
 msgid "Authentication is required to access the system and service manager."
 msgstr "Для привилегированного доступа к системному менеджеру необходимо пройти аутентификацию."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system services or units"
+msgstr "Управление системными службами и юнитами"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system services or units."
+msgstr "Для управления системными службами и юнитами, необходимо пройти аутентификацию."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Manage system service or unit files"
+msgstr "Управление файлами конфигурации системных служб и юнитов"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to manage system service or unit files."
+msgstr "Для управления файлами конфигурации системных служб и юнитов, необходимо пройти аутентификацию."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Перечитать конфигурацию systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Чтобы заставить systemd перечитать конфигурацию, необходимо пройти аутентификацию."
