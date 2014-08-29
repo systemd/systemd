@@ -207,7 +207,7 @@ static int test_advertise_option(sd_event *e) {
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
         uint8_t *optval, *opt = &msg_advertise[sizeof(DHCP6Message)];
         uint16_t optcode;
-        size_t optlen, len = sizeof(msg_advertise);
+        size_t optlen, len = sizeof(msg_advertise) - sizeof(DHCP6Message);
         be32_t val;
         uint8_t preference = 255;
         struct in6_addr addr;
