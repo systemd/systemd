@@ -564,7 +564,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         if (r < 0)
                 goto out;
 
-        r = sd_event_source_set_name(ll->timer, "ipv4ll-receive-message");
+        r = sd_event_source_set_name(ll->receive_message, "ipv4ll-receive-message");
         if (r < 0)
                 goto out;
 
