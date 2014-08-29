@@ -680,7 +680,7 @@ int sd_rtnl_call(sd_rtnl *rtnl,
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        /* receieved message, so try to process straight away */
+                        /* received message, so try to process straight away */
                         continue;
 
                 if (timeout > 0) {
