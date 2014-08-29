@@ -106,7 +106,8 @@ static void check_p_g_s(const char *path, int code, const char *result) {
 static void test_path_get_session(void) {
         check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "2");
         check_p_g_s("/session-3.scope", 0, "3");
-        check_p_g_s("", -ENOENT, 0);
+        check_p_g_s("/session-.scope", -ENOENT, NULL);
+        check_p_g_s("", -ENOENT, NULL);
 }
 
 static void check_p_g_o_u(const char *path, int code, uid_t result) {

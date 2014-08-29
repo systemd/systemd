@@ -1306,9 +1306,8 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 }
 
 int cg_path_get_session(const char *path, char **session) {
-        const char *e, *n, *x;
+        const char *e, *n, *x, *y;
         char *s;
-        size_t l;
 
         assert(path);
 
@@ -1325,17 +1324,14 @@ int cg_path_get_session(const char *path, char **session) {
         x = startswith(s, "session-");
         if (!x)
                 return -ENOENT;
-        if (!endswith(x, ".scope"))
-                return -ENOENT;
-
-        l = strlen(x);
-        if (l <= 6)
+        y = endswith(x, ".scope");
+        if (!y || x == y)
                 return -ENOENT;
 
         if (session) {
                 char *r;
 
-                r = strndup(x, l - 6);
+                r = strndup(x, y - x);
                 if (!r)
                         return -ENOMEM;
 
