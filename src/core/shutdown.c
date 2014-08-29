@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
             access("/run/initramfs/shutdown", X_OK) == 0) {
                 r = switch_root_initramfs();
                 if (r >= 0) {
-                        arguments[0] = (char*) "/shutdown";
+                        argv[0] = (char*) "/shutdown";
 
                         setsid();
                         make_console_stdio();
@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
                         log_info("Successfully changed into root pivot.\n"
                                  "Returning to initrd...");
 
-                        execv("/shutdown", arguments);
+                        execv("/shutdown", argv);
                         log_error("Failed to execute shutdown binary: %m");
                 } else
                         log_error("Failed to switch root to \"/run/initramfs\": %s", strerror(-r));
