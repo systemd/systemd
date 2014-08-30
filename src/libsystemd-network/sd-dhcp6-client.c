@@ -583,11 +583,14 @@ static int client_parse_message(sd_dhcp6_client *client,
                                 DHCP6Message *message, size_t len,
                                 sd_dhcp6_lease *lease) {
         int r;
-        uint8_t *optval, *option = (uint8_t *)(message + 1), *id = NULL;
+        uint8_t *optval, *option, *id = NULL;
         uint16_t optcode, status;
         size_t optlen, id_len;
         bool clientid = false;
         be32_t iaid_lease;
+
+        option = (uint8_t *)message + sizeof(DHCP6Message);
+        len -= sizeof(DHCP6Message);
 
         while ((r = dhcp6_option_parse(&option, &len, &optcode, &optlen,
                                        &optval)) >= 0) {

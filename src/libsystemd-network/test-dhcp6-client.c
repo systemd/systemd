@@ -205,7 +205,7 @@ static uint8_t msg_reply[173] = {
 static int test_advertise_option(sd_event *e) {
         _cleanup_dhcp6_lease_free_ sd_dhcp6_lease *lease = NULL;
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
-        uint8_t *optval, *opt = &msg_advertise[sizeof(DHCP6Message)];
+        uint8_t *optval, *opt = msg_advertise + sizeof(DHCP6Message);
         uint16_t optcode;
         size_t optlen, len = sizeof(msg_advertise) - sizeof(DHCP6Message);
         be32_t val;
