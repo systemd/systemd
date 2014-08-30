@@ -766,8 +766,11 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
         if (m->current_server_address == a)
                 return;
 
-        m->current_server_name = a ? a->name : NULL;
         m->current_server_address = a;
+        /* If a is NULL, we are just clearing the address, without
+         * changing the name. Keep the existing name in that case. */
+        if (a)
+                m->current_server_name = a->name;
 
         manager_disconnect(m);
 
