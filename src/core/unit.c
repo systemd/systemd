@@ -3425,7 +3425,7 @@ int unit_setup_exec_runtime(Unit *u) {
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         assert(offset > 0);
 
-        /* Check if ther already is an ExecRuntime for this unit? */
+        /* Check if there already is an ExecRuntime for this unit? */
         rt = (ExecRuntime**) ((uint8_t*) u + offset);
         if (*rt)
                 return 0;

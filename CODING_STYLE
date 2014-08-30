@@ -155,7 +155,7 @@
   function or a "non-logging" function. "Logging" functions do logging
   on their own, "non-logging" function never log on their own and
   expect their callers to log. All functions in "library" code,
-  i.e. in src/shared/ and suchlike must be "non-logging". Everytime a
+  i.e. in src/shared/ and suchlike must be "non-logging". Every time a
   "logging" function calls a "non-logging" function, it should log
   about the resulting errors. If a "logging" function calls another
   "logging" function, then it should not generate log messages, so

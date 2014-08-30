@@ -252,7 +252,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     D-Bus error names are available as constants
     <constant>SD_BUS_ERROR_FAILED</constant>, etc., listed above. If
     <parameter>name</parameter> is <constant>NULL</constant>, it is
-    assumed that no error occured, and 0 is returned. This means that
+    assumed that no error occurred, and 0 is returned. This means that
     this function may be conveniently used in a
     <function>return</function> statement.</para>
 

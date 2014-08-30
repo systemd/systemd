@@ -212,7 +212,7 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd,
         if (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
-        log_icmp6_nd(nd, "Received Router Advertisment flags %s/%s",
+        log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
                      (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)? "MANAGED":
                      "none",
                      (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER)? "OTHER":

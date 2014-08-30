@@ -42,7 +42,7 @@
  * support Unicode combining-characters, therefore this gets more complicated.
  * Characters themselves are represented by a "term_char_t" object. It
  * should be treated as a normal integer and passed by value. The
- * sorrounding struct is just to hide the internals. A term-char can contain a
+ * surrounding struct is just to hide the internals. A term-char can contain a
  * base character together with up to 2 combining-chars in a single integer.
  * Only if you need more combining-chars (very unlikely!) a term-char is a
  * pointer to an allocated storage. This requires you to always free term-char
@@ -1012,7 +1012,7 @@ void term_line_append_combchar(term_line *line, unsigned int pos_x, uint32_t ucs
  * @age: current age for all modifications
  * @keep_protected: true if protected cells should be kept
  *
- * This is the standard erase operation. It clears all cells in the targetted
+ * This is the standard erase operation. It clears all cells in the targeted
  * area and re-initializes them. Cells to the right are not shifted left, you
  * must use DELETE to achieve that. Cells outside the visible area are skipped.
  *

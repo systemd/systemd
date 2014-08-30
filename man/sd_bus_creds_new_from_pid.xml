@@ -149,7 +149,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     and other functions which correspond directly to the constants
     listed above.</para>
 
-    <para>A mask of fields which were actually sucessfully set
+    <para>A mask of fields which were actually successfully set
     (acquired from <filename>/proc</filename>, etc.) can be retrieved
     with <function>sd_bus_creds_get_mask()</function>. If the
     credentials object was created with
@@ -162,7 +162,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     object will not be destroyed until
     <function>sd_bus_creds_unref</function> has been called as many
     times plus once more. Once the reference count has dropped to zero,
-    <parameter>c</parameter> cannot be used anymore, so futher
+    <parameter>c</parameter> cannot be used anymore, so further
     calls to <function>sd_bus_creds_ref(c)</function> or
     <function>sd_bus_creds_unref(c)</function> are illegal.</para>
 

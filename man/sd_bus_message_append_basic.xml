@@ -95,7 +95,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <row>
             <entry><literal>y</literal></entry>
             <entry><constant>SD_BUS_TYPE_BYTE</constant></entry>
-            <entry>unsigned interger</entry>
+            <entry>unsigned integer</entry>
             <entry>1 byte</entry>
           </row>
 
@@ -200,7 +200,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     valid Unicode string encoded as UTF-8. In case of the two latter
     types, the additional requirements for a D-Bus object path or
     type signature should be satisfied. Those requirements should be
-    verified by the recepient of the message.
+    verified by the recipient of the message.
     </para>
   </refsect1>
 

@@ -486,7 +486,7 @@ enum kdbus_policy_type {
  *				policy entries for a name. The provided name
  *				is not activated and not registered with the
  *				name database, it only allows unprivileged
- *				connections to aquire a name, talk or discover
+ *				connections to acquire a name, talk or discover
  *				a service
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic

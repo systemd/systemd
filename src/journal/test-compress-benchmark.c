@@ -61,7 +61,7 @@ static void test_compress_decompress(const char* label,
                 int r;
 
                 r = compress(text, i, buf, &j);
-                /* assume compresion must be succesful except for small inputs */
+                /* assume compression must be successful except for small inputs */
                 assert(r == 0 || (i < 2048 && r == -ENOBUFS));
                 /* check for overwrites */
                 assert(buf[i] == 0);

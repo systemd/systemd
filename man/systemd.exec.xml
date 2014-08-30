@@ -1059,7 +1059,7 @@
                                 namespace. Note that
                                 <option>slave</option> means that file
                                 systems mounted on the host might stay
-                                mounted continously in the unit's
+                                mounted continuously in the unit's
                                 namespace, and thus keep the device
                                 busy. Note that the file system
                                 namespace related options

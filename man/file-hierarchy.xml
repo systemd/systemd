@@ -914,7 +914,7 @@
                       </row>
                       <row>
                         <entry><filename>~/.local/lib/<replaceable>package</replaceable></filename></entry>
-                        <entry>Private, static vendor resources of the package, compatible wih any architecture, or any other kind of read-only vendor data.</entry>
+                        <entry>Private, static vendor resources of the package, compatible with any architecture, or any other kind of read-only vendor data.</entry>
                       </row>
                       <row>
                         <entry><filename>~/.local/lib/<replaceable>arch-id</replaceable>/<replaceable>package</replaceable></filename></entry>

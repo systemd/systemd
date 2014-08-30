@@ -263,7 +263,7 @@ static void test_term_char_allocating(void) {
  * in the range 'A'-'Z', 'a'-'z'. All those are combined and used as term_char_t
  * on this cell. Any numbers in the description are combined and are used as
  * cell-age.
- * The occurance of a '*'-symbol marks the cell as bold, '/' marks it as italic.
+ * The occurrence of a '*'-symbol marks the cell as bold, '/' marks it as italic.
  * You can use those characters multiple times, but only the first one has an
  * effect.
  * For further symbols, see parse_attr().

@@ -513,7 +513,7 @@
 
                         <varlistentry>
                                 <term><varname>KeepAliveProbes=</varname></term>
-                                <listitem><para>Takes interger as argument. It's the number of unacknowledged probes to
+                                <listitem><para>Takes integer as argument. It's the number of unacknowledged probes to
                                 send before considering the connection dead and notifying the application layer.
                                 This controls the TCP_KEEPCNT socket option (see
                                 <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>

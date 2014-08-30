@@ -668,7 +668,7 @@
                                 as <literal>tmpfs</literal> instance
                                 into it (the system thus starts up
                                 with read-only OS resources and
-                                configuration, but prestine state, any
+                                configuration, but pristine state, any
                                 changes to the latter are lost on
                                 shutdown). When the mode parameter is
                                 specified as <literal>no</literal>

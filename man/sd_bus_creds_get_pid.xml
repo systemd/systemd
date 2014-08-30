@@ -405,7 +405,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><varname>-ENXIO</varname></term>
 
-        <listitem><para>An error occured in parsing cgroup paths.
+        <listitem><para>An error occurred in parsing cgroup paths.
         <filename>libsystemd</filename> might be out of sync with
         the running systemd version.</para></listitem>
       </varlistentry>

@@ -455,7 +455,7 @@ static uint32_t screen_map(term_screen *screen, uint32_t val) {
 
 /*
  * Command Handlers
- * This is the inofficial documentation of all the TERM_CMD_* definitions. Each
+ * This is the unofficial documentation of all the TERM_CMD_* definitions. Each
  * handled command has a separate function with an extensive comment on the
  * semantics of the command.
  * Note that many semantics are unknown and need to be verified. This is mostly
@@ -1040,7 +1040,7 @@ static int screen_DECELR(term_screen *screen, const term_seq *seq) {
         /*
          * DECELR - enable-locator-reporting
          * This changes the locator-reporting mode. @args[0] specifies the mode
-         * to set, 0 disables locator-reporting, 1 enables it continously, 2
+         * to set, 0 disables locator-reporting, 1 enables it continuously, 2
          * enables it for a single report. @args[1] specifies the
          * precision-mode. 0 and 2 set the reporting to cell-precision, 1 sets
          * pixel-precision.

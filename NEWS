@@ -1613,7 +1613,7 @@ CHANGES WITH 208:
           kernel, and on seats that are not seat0.
 
         * A new kernel command line option luks.options= is understood
-          now which allows specifiying LUKS options for usage for LUKS
+          now which allows specifying LUKS options for usage for LUKS
           encrypted partitions specified with luks.uuid=.
 
         * tmpfiles.d(5) snippets may now use specifier expansion in
