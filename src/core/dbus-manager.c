@@ -1241,7 +1241,7 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
                 return r;
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Root switching is only supported by system manager.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
         if (r < 0)
@@ -1252,7 +1252,7 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
 
         /* Safety check */
         if (isempty(init)) {
-                if (! path_is_os_tree(root))
+                if (!path_is_os_tree(root))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. os-release file is missing.", root);
         } else {
                 _cleanup_free_ char *p = NULL;
