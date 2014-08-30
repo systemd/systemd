@@ -182,7 +182,7 @@ _systemctl () {
                 comps=$( __filter_units_by_property $mode CanStart yes \
                       $( __get_all_units $mode \
                         | while read -r line; do \
-                                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
+                                [[ "$line" =~ @\.|\.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
                         done ))
                 compopt -o filenames
 
