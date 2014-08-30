@@ -460,10 +460,10 @@ int compress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
 
                 total_in += n;
 
-                r = LZ4_compress_limitedOutput_continue(&lz4_data, buf, out, n, n);
+                r = LZ4_compress_continue(&lz4_data, buf, out, n);
                 if (r == 0) {
-                        log_debug("Compressed size exceeds original, aborting compression.");
-                        return -ENOBUFS;
+                        log_error("LZ4 compression failed.");
+                        return -EBADMSG;
                 }
 
                 header = htole32(r);
