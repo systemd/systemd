@@ -1154,25 +1154,6 @@ fi
 AM_CONDITIONAL(HAVE_MYHOSTNAME, [test "$have_myhostname" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_WITH(firmware-path,
-       AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
-          [Firmware search path (default="")]),
-       [], [with_firmware_path=""])
-OLD_IFS=$IFS
-IFS=:
-for i in $with_firmware_path; do
-       if test "x${FIRMWARE_PATH}" = "x"; then
-              FIRMWARE_PATH="\\\"${i}/\\\""
-       else
-              FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
-       fi
-done
-IFS=$OLD_IFS
-AC_SUBST(FIRMWARE_PATH)
-AS_IF([test "x${FIRMWARE_PATH}" != "x"], [ AC_DEFINE(HAVE_FIRMWARE, 1, [Define if FIRMWARE is available]) ])
-AM_CONDITIONAL(ENABLE_FIRMWARE, [test "x${FIRMWARE_PATH}" != "x"])
-
-# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gudev],
        AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
        [], [enable_gudev=yes])
@@ -1409,7 +1390,6 @@ AC_MSG_RESULT([
         Build Python:            ${PYTHON}
         Installation Python:     ${PYTHON_BINARY}
         sphinx binary:           ${SPHINX_BUILD}
-        firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
         PAM configuration dir:   ${with_pamconfdir}
         D-Bus policy dir:        ${with_dbuspolicydir}

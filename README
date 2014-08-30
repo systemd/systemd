@@ -37,8 +37,7 @@ LICENSE:
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 3.0
-        Linux kernel >= 3.3 for loop device partition support features with nspawn
+        Linux kernel >= 3.7
         Linux kernel >= 3.8 for Smack support
 
         Kernel Config Options:
@@ -53,14 +52,14 @@ REQUIREMENTS:
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
-        Udev will fail to work with the legacy layout:
+        udev will fail to work with the legacy sysfs layout:
           CONFIG_SYSFS_DEPRECATED=n
 
         Legacy hotplug slows down the system and confuses udev:
           CONFIG_UEVENT_HELPER_PATH=""
 
-        Userspace firmware loading is deprecated, will go away, and
-        sometimes causes problems:
+        Userspace firmware loading is not supported and should
+        be disabled in the kernel:
           CONFIG_FW_LOADER_USER_HELPER=n
 
         Some udev rules and virtualization detection relies on it:

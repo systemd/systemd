@@ -100,9 +100,6 @@ struct event {
         dev_t devnum;
         int ifindex;
         bool is_block;
-#ifdef HAVE_FIRMWARE
-        bool nodelay;
-#endif
 };
 
 static inline struct event *node_to_event(struct udev_list_node *node) {
@@ -458,10 +455,6 @@ static int event_queue_insert(struct udev_device *dev) {
         event->devnum = udev_device_get_devnum(dev);
         event->is_block = streq("block", udev_device_get_subsystem(dev));
         event->ifindex = udev_device_get_ifindex(dev);
-#ifdef HAVE_FIRMWARE
-        if (streq(udev_device_get_subsystem(dev), "firmware"))
-                event->nodelay = true;
-#endif
 
         log_debug("seq %llu queued, '%s' '%s'", udev_device_get_seqnum(dev),
              udev_device_get_action(dev), udev_device_get_subsystem(dev));
@@ -537,12 +530,6 @@ static bool is_devpath_busy(struct event *event) {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
-
-#ifdef HAVE_FIRMWARE
-                /* allow to bypass the dependency tracking */
-                if (event->nodelay)
-                        continue;
-#endif
 
                 /* parent device event found */
                 if (event->devpath[common] == '/') {

@@ -3284,18 +3284,6 @@ libudev_core_la_LIBADD = \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
-libudev_core_la_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
-
-if ENABLE_FIRMWARE
-libudev_core_la_SOURCES += \
-	src/udev/udev-builtin-firmware.c
-
-dist_udevrules_DATA += \
-	rules/50-firmware.rules
-endif
-
 if HAVE_KMOD
 libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-kmod.c
