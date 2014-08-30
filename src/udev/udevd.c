@@ -73,7 +73,7 @@ static bool reload;
 static int children;
 static int children_max;
 static int exec_delay;
-static usec_t event_timeout_usec = 30 * USEC_PER_SEC;
+static usec_t event_timeout_usec = 60 * USEC_PER_SEC;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
