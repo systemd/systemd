@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2013-11-14 17:49+0100\n"
-"PO-Revision-Date: 2013-11-14 17:57+0100\n"
+"PO-Revision-Date: 2014-04-29 09:17+0300\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -395,3 +395,29 @@ msgid "Authentication is required to access the system and service manager."
 msgstr ""
 "Authentification requise pour accéder au gestionnaire du système et des "
 "services."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system services or units"
+msgstr "Gérer les services système ou les unités"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system services or units."
+msgstr ""
+"Authentification requise pour gérer les services système ou les unités."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Manage system service or unit files"
+msgstr "Gérer le service système ou ses fichiers unités"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Authentification requise pour gérer le service système ou ses fichiers unités."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Recharger l'état de systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Authentification requise pour recharger l'état de systemd"
