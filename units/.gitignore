@@ -16,7 +16,6 @@
 /quotaon.service
 /rc-local.service
 /rescue.service
-/rescue.service.m4
 /serial-getty@.service
 /systemd-ask-password-console.service
 /systemd-ask-password-wall.service
