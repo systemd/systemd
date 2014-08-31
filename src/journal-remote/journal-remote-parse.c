@@ -478,7 +478,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 char *tmp;
 
                 tmp = realloc(source->buf, target);
-                if (tmp)
+                if (!tmp)
                         log_warning("Failed to reallocate buffer to (smaller) size %zu",
                                     target);
                 else {
