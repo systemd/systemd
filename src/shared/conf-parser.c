@@ -710,6 +710,7 @@ int config_parse_strv(const char *unit,
 
                 if (!utf8_is_valid(n)) {
                         log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                        free(n);
                         continue;
                 }
 
