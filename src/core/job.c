@@ -632,11 +632,18 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                                 unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
-                case JOB_FAILED:
+                case JOB_FAILED: {
+                        bool quotes;
+
+                        quotes = chars_intersect(u->id, SHELL_NEED_QUOTES);
+
                         manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
-                        manager_status_printf(u->manager, false, NULL, "See 'systemctl status %s' for details.", u->id);
+                        manager_status_printf(u->manager, false, NULL,
+                                              "See \"systemctl status %s%s%s\" for details.",
+                                              quotes ? "'" : "", u->id, quotes ? "'" : "");
                         break;
+                }
 
                 case JOB_DEPENDENCY:
                         manager_flip_auto_status(u->manager, true);

@@ -2351,8 +2351,18 @@ static int check_wait_response(WaitData *d) {
                         log_error("Job for %s canceled.", strna(d->name));
                 else if (streq(d->result, "dependency"))
                         log_error("A dependency job for %s failed. See 'journalctl -xn' for details.", strna(d->name));
-                else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
-                        log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl -xn' for details.", strna(d->name), strna(d->name));
+                else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
+                        if (d->name) {
+                                bool quotes;
+
+                                quotes = chars_intersect(d->name, SHELL_NEED_QUOTES);
+
+                                log_error("Job for %s failed. See \"systemctl status %s%s%s\" and \"journalctl -xn\" for details.",
+                                          d->name,
+                                          quotes ? "'" : "", d->name, quotes ? "'" : "");
+                        } else
+                                log_error("Job failed. See \"journalctl -xn\" for details.");
+                }
         }
 
         if (streq(d->result, "timeout"))
