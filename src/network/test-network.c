@@ -96,9 +96,9 @@ static void test_deserialize_dhcp_routes(void) {
                 assert_se(routes[0].gw_addr.s_addr == inet_addr("192.168.0.1"));
                 assert_se(routes[0].dst_prefixlen == 16);
 
-                assert_se(routes[2].dst_addr.s_addr == inet_addr("0.0.0.0"));
-                assert_se(routes[2].gw_addr.s_addr == inet_addr("10.0.1.1"));
-                assert_se(routes[2].dst_prefixlen == 0);
+                assert_se(routes[1].dst_addr.s_addr == inet_addr("0.0.0.0"));
+                assert_se(routes[1].gw_addr.s_addr == inet_addr("10.0.1.1"));
+                assert_se(routes[1].dst_prefixlen == 0);
         }
 
         {
