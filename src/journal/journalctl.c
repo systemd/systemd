@@ -68,7 +68,7 @@ static bool arg_follow = false;
 static bool arg_full = true;
 static bool arg_all = false;
 static bool arg_no_pager = false;
-static int arg_lines = -1;
+static int arg_lines = -2;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
@@ -327,7 +327,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'e':
                         arg_pager_end = true;
 
-                        if (arg_lines < 0)
+                        if (arg_lines < -1)
                                 arg_lines = 1000;
 
                         break;
@@ -366,29 +366,33 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         if (optarg) {
-                                r = safe_atoi(optarg, &arg_lines);
-                                if (r < 0 || arg_lines < 0) {
-                                        log_error("Failed to parse lines '%s'", optarg);
-                                        return -EINVAL;
+                                if (streq(optarg, "all"))
+                                        arg_lines = -1;
+                                else {
+                                        r = safe_atoi(optarg, &arg_lines);
+                                        if (r < 0 || arg_lines < 0) {
+                                                log_error("Failed to parse lines '%s'", optarg);
+                                                return -EINVAL;
+                                        }
                                 }
                         } else {
-                                int n;
+                                arg_lines = 10;
 
                                 /* Hmm, no argument? Maybe the next
                                  * word on the command line is
                                  * supposed to be the argument? Let's
                                  * see if there is one, and is
-                                 * parsable as a positive
-                                 * integer... */
-
-                                if (optind < argc &&
-                                    safe_atoi(argv[optind], &n) >= 0 &&
-                                    n >= 0) {
-
-                                        arg_lines = n;
-                                        optind++;
-                                } else
-                                        arg_lines = 10;
+                                 * parsable. */
+                                if (optind < argc) {
+                                        int n;
+                                        if (streq(argv[optind], "all")) {
+                                                arg_lines = -1;
+                                                optind++;
+                                        } else if (safe_atoi(argv[optind], &n) >= 0 && n >= 0) {
+                                                arg_lines = n;
+                                                optind++;
+                                        }
+                                }
                         }
 
                         break;
@@ -642,7 +646,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_follow && !arg_no_tail && arg_lines < 0)
+        if (arg_follow && !arg_no_tail && arg_lines < -1)
                 arg_lines = 10;
 
         if (!!arg_directory + !!arg_file + !!arg_machine > 1) {

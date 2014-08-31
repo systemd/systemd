@@ -189,9 +189,9 @@
                                 that the pager will not buffer logs of
                                 unbounded size. This may be overridden
                                 with an explicit <option>-n</option>
-                                with some other numeric value on the
-                                command line. Note that this option is
-                                only supported for the
+                                with some other numeric value while
+                                <option>-nall</option> will disable this cap.
+                                Note that this option is only supported for the
                                 <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 pager.</para></listitem>
                         </varlistentry>
@@ -204,9 +204,10 @@
                                 journal events and limit the number of
                                 events shown. If
                                 <option>--follow</option> is used,
-                                this option is implied. The argument,
-                                a positive integer, is optional, and
-                                defaults to 10. </para></listitem>
+                                this option is implied. The argument is
+                                a positive integer or <literal>all</literal>
+                                to disable line limiting. The default value is
+                                10 if no argument is given.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
