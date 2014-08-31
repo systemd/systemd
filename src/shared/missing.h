@@ -558,6 +558,10 @@ static inline int setns(int fd, int nstype) {
 #define IPV6_UNICAST_IF 76
 #endif
 
+#ifndef IFF_MULTI_QUEUE
+#define IFF_MULTI_QUEUE 0x100
+#endif
+
 #ifndef IFF_LOWER_UP
 #define IFF_LOWER_UP 0x10000
 #endif
