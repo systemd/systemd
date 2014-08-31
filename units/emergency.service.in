@@ -10,6 +10,7 @@ Description=Emergency Shell
 Documentation=man:sulogin(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
+Conflicts=rescue.service
 Before=shutdown.target
 
 [Service]
