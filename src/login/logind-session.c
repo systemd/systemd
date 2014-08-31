@@ -1114,8 +1114,10 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * If logind crashes/restarts, we restore the controller during restart
          * or reset the VT in case it crashed/exited, too. */
         r = session_prepare_vt(s);
-        if (r < 0)
+        if (r < 0) {
+                free(t);
                 return r;
+        }
 
         session_swap_controller(s, t);
 
