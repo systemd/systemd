@@ -1059,32 +1059,30 @@ bool session_is_controller(Session *s, const char *sender) {
         return streq_ptr(s->controller, sender);
 }
 
-static void session_swap_controller(Session *s, char *name) {
+static void session_release_controller(Session *s, bool notify) {
+        _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
-        char *c;
 
-        if (s->controller) {
-                c = s->controller;
+        if (!s->controller)
+                return;
+
+        name = s->controller;
+
+        /* By resetting the controller before releasing the devices, we won't
+         * send notification signals. This avoids sending useless notifications
+         * if the controller is released on disconnects. */
+        if (!notify)
                 s->controller = NULL;
-                manager_drop_busname(s->manager, c);
-                free(c);
 
-                /* Drop all devices as they're now unused. Do that after the
-                 * controller is released to avoid sending out useles
-                 * dbus signals. */
-                while ((sd = hashmap_first(s->devices)))
-                        session_device_free(sd);
+        while ((sd = hashmap_first(s->devices)))
+                session_device_free(sd);
 
-                if (!name)
-                        session_restore_vt(s);
-        }
-
-        s->controller = name;
-        session_save(s);
+        s->controller = NULL;
+        manager_drop_busname(s->manager, name);
 }
 
 int session_set_controller(Session *s, const char *sender, bool force) {
-        char *t;
+        _cleanup_free_ char *name = NULL;
         int r;
 
         assert(s);
@@ -1095,15 +1093,13 @@ int session_set_controller(Session *s, const char *sender, bool force) {
         if (s->controller && !force)
                 return -EBUSY;
 
-        t = strdup(sender);
-        if (!t)
+        name = strdup(sender);
+        if (!name)
                 return -ENOMEM;
 
-        r = manager_watch_busname(s->manager, sender);
-        if (r) {
-                free(t);
+        r = manager_watch_busname(s->manager, name);
+        if (r)
                 return r;
-        }
 
         /* When setting a session controller, we forcibly mute the VT and set
          * it into graphics-mode. Applications can override that by changing
@@ -1115,11 +1111,14 @@ int session_set_controller(Session *s, const char *sender, bool force) {
          * or reset the VT in case it crashed/exited, too. */
         r = session_prepare_vt(s);
         if (r < 0) {
-                free(t);
+                manager_drop_busname(s->manager, name);
                 return r;
         }
 
-        session_swap_controller(s, t);
+        session_release_controller(s, true);
+        s->controller = name;
+        name = NULL;
+        session_save(s);
 
         return 0;
 }
@@ -1130,7 +1129,9 @@ void session_drop_controller(Session *s) {
         if (!s->controller)
                 return;
 
-        session_swap_controller(s, NULL);
+        session_release_controller(s, false);
+        session_save(s);
+        session_restore_vt(s);
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
