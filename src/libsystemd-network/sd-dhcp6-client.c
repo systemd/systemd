@@ -49,6 +49,7 @@ struct sd_dhcp6_client {
         struct ether_addr mac_addr;
         DHCP6IA ia_na;
         be32_t transaction_id;
+        usec_t transaction_start;
         struct sd_dhcp6_lease *lease;
         int fd;
         be16_t *req_opts;
@@ -203,6 +204,7 @@ static int client_reset(sd_dhcp6_client *client) {
         client->fd = safe_close(client->fd);
 
         client->transaction_id = 0;
+        client->transaction_start = 0;
 
         client->ia_na.timeout_t1 =
                 sd_event_source_unref(client->ia_na.timeout_t1);
@@ -230,13 +232,15 @@ static void client_stop(sd_dhcp6_client *client, int error) {
         client_reset(client);
 }
 
-static int client_send_message(sd_dhcp6_client *client) {
+static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
         size_t len, optlen = 512;
         uint8_t *opt;
         int r;
+        usec_t elapsed_usec;
+        be16_t elapsed_time;
 
         len = sizeof(DHCP6Message) + optlen;
 
@@ -305,6 +309,17 @@ static int client_send_message(sd_dhcp6_client *client) {
 
         r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
                                 sizeof(client->duid), &client->duid);
+        if (r < 0)
+                return r;
+
+        elapsed_usec = time_now - client->transaction_start;
+        if (elapsed_usec < 0xffff * USEC_PER_MSEC * 10)
+                elapsed_time = htobe16(elapsed_usec / USEC_PER_MSEC / 10);
+        else
+                elapsed_time = 0xffff;
+
+        r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_ELAPSED_TIME,
+                                sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
 
@@ -455,14 +470,13 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 return 0;
         }
 
-        r = client_send_message(client);
-        if (r >= 0)
-                client->retransmit_count++;
-
-
         r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 goto error;
+
+        r = client_send_message(client, time_now);
+        if (r >= 0)
+                client->retransmit_count++;
 
         if (!client->retransmit_time) {
                 client->retransmit_time =
@@ -882,6 +896,15 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
+        if (client->state == DHCP6_STATE_STOPPED) {
+                time_now = now(clock_boottime_or_monotonic());
+        } else {
+                r = sd_event_now(client->event, clock_boottime_or_monotonic(),
+                                 &time_now);
+                if (r < 0)
+                        return r;
+        }
+
         switch (state) {
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_SOLICITATION:
@@ -925,10 +948,6 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 break;
 
         case DHCP6_STATE_BOUND:
-
-                r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
-                if (r < 0)
-                        return r;
 
                 if (client->lease->ia.lifetime_t1 == 0xffffffff ||
                     client->lease->ia.lifetime_t2 == 0xffffffff) {
@@ -996,6 +1015,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         }
 
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
+        client->transaction_start = time_now;
 
         r = sd_event_add_time(client->event, &client->timeout_resend,
                               clock_boottime_or_monotonic(), 0, 0, client_timeout_resend,
