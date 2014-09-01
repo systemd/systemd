@@ -531,7 +531,6 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
                 /* if no data was passed, make sure we still initialize the padding
                    note that we can have data_length > 0 (used by some containers) */
                 padding = RTA_DATA(rta);
-                data_length = 0;
         }
 
         /* make sure also the padding at the end of the message is initialized */
