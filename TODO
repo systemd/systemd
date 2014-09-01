@@ -703,7 +703,6 @@ Features:
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
    - implement information request, see 1.2. and 18.1.5.
    - implement support for temporary adressess (IA_TA)
-   - implement elapsed time option
    - implement dhcpv6 authentication
    - investigate the usefulness of Confirm messages; i.e. are there any
      situations where the link changes without any loss in carrier detection
