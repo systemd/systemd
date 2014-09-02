@@ -53,6 +53,7 @@ struct Manager {
         ServerName *current_server_name;
         ServerAddress *current_server_address;
         int server_socket;
+        int missed_replies;
         uint64_t packet_count;
         sd_event_source *event_timeout;
 

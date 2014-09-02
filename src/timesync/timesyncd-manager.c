@@ -92,6 +92,9 @@
 /* Maximum acceptable root distance in seconds. */
 #define NTP_MAX_ROOT_DISTANCE           5.0
 
+/* Maximum number of missed replies before selecting another source. */
+#define NTP_MAX_MISSED_REPLIES          2
+
 /*
  * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
  * in seconds relative to 0h on 1 January 1900."
@@ -206,15 +209,18 @@ static int manager_send_request(Manager *m) {
                 return manager_connect(m);
         }
 
-        r = sd_event_add_time(
-                        m->event,
-                        &m->event_timeout,
-                        clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
-                        manager_timeout, m);
-        if (r < 0) {
-                log_error("Failed to arm timeout timer: %s", strerror(-r));
-                return r;
+        m->missed_replies++;
+        if (m->missed_replies > NTP_MAX_MISSED_REPLIES) {
+                r = sd_event_add_time(
+                                m->event,
+                                &m->event_timeout,
+                                clock_boottime_or_monotonic(),
+                                now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
+                                manager_timeout, m);
+                if (r < 0) {
+                        log_error("Failed to arm timeout timer: %s", strerror(-r));
+                        return r;
+                }
         }
 
         return 0;
@@ -549,6 +555,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
+        m->missed_replies = 0;
+
         /* check our "time cookie" (we just stored nanoseconds in the fraction field) */
         if (be32toh(ntpmsg.origin_time.sec) != m->trans_time.tv_sec + OFFSET_1900_1970 ||
             be32toh(ntpmsg.origin_time.frac) != m->trans_time.tv_nsec) {
@@ -712,6 +720,7 @@ static int manager_begin(Manager *m) {
         assert_return(m->current_server_name, -EHOSTUNREACH);
         assert_return(m->current_server_address, -EHOSTUNREACH);
 
+        m->missed_replies = NTP_MAX_MISSED_REPLIES;
         m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         server_address_pretty(m->current_server_address, &pretty);
