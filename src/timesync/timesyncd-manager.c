@@ -206,19 +206,6 @@ static int manager_send_request(Manager *m) {
                 return manager_connect(m);
         }
 
-        /* re-arm timer with increasing timeout, in case the packets never arrive back */
-        if (m->retry_interval > 0) {
-                if (m->retry_interval < NTP_POLL_INTERVAL_MAX_SEC * USEC_PER_SEC)
-                        m->retry_interval *= 2;
-        } else
-                m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
-
-        r = manager_arm_timer(m, m->retry_interval);
-        if (r < 0) {
-                log_error("Failed to rearm timer: %s", strerror(-r));
-                return r;
-        }
-
         r = sd_event_add_time(
                         m->event,
                         &m->event_timeout,
@@ -601,7 +588,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         /* valid packet */
         m->pending = false;
-        m->retry_interval = 0;
 
         /* announce leap seconds */
         if (NTP_FIELD_LEAP(ntpmsg.field) & NTP_LEAP_PLUSSEC)
