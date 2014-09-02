@@ -217,7 +217,7 @@ static int idev_evdev_io(idev_evdev *evdev) {
 
 error:
         idev_evdev_hup(evdev);
-        return r;
+        return 0; /* idev_evdev_hup() handles the error so discard it */
 }
 
 static int idev_evdev_event_fn(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
