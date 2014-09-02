@@ -41,7 +41,7 @@ typedef struct unmanaged_evdev unmanaged_evdev;
 typedef struct managed_evdev managed_evdev;
 
 struct idev_evdev {
-        struct idev_element element;
+        idev_element element;
         struct libevdev *evdev;
         int fd;
         sd_event_source *fd_src;
@@ -52,12 +52,12 @@ struct idev_evdev {
 };
 
 struct unmanaged_evdev {
-        struct idev_evdev evdev;
+        idev_evdev evdev;
         char *devnode;
 };
 
 struct managed_evdev {
-        struct idev_evdev evdev;
+        idev_evdev evdev;
         dev_t devnum;
 
         sd_bus_slot *slot_pause_device;
