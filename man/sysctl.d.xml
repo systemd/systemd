@@ -155,7 +155,7 @@
 
                 <example>
                         <title>Disable packet filter on bridged packets (method one)</title>
-                        <para><filename>/etc/udev/rules.d/99-bridge.conf</filename>:
+                        <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
                         </para>
 
                         <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
