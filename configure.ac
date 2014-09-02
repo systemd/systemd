@@ -1168,6 +1168,12 @@ AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(hibernate,
+       [AC_HELP_STRING([--disable-hibernate], [disable hibernation support])],
+       enable_hibernate=$enableval, enable_hibernate=yes)
+AM_CONDITIONAL(ENABLE_HIBERNATE, [test x$enable_hibernate = xyes])
+
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE(ldconfig,
        [AC_HELP_STRING([--disable-ldconfig], [disable ldconfig])],
        enable_ldconfig=$enableval, enable_ldconfig=yes)

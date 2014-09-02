@@ -378,15 +378,13 @@ rootlibexec_PROGRAMS = \
 	systemd-sleep \
 	systemd-bus-proxyd \
 	systemd-socket-proxyd \
-	systemd-update-done \
-	systemd-hibernate-resume
+	systemd-update-done
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
 	systemd-system-update-generator \
-	systemd-debug-generator \
-	systemd-hibernate-resume-generator
+	systemd-debug-generator
 
 dist_bashcompletion_DATA = \
 	shell-completion/bash/busctl \
@@ -453,7 +451,6 @@ dist_systemunit_DATA = \
 	units/network-online.target \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \
-	units/hibernate.target \
 	units/hybrid-sleep.target \
 	units/poweroff.target \
 	units/reboot.target \
@@ -511,7 +508,6 @@ nodist_systemunit_DATA = \
 	units/emergency.service \
 	units/rescue.service \
 	units/user@.service \
-	units/systemd-hibernate.service \
 	units/systemd-hybrid-sleep.service \
 	units/systemd-suspend.service \
 	units/systemd-halt.service \
@@ -530,8 +526,7 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/systemd-update-done.service \
-	units/systemd-hibernate-resume@.service
+	units/systemd-update-done.service
 
 dist_userunit_DATA = \
 	units/user/basic.target \
@@ -569,7 +564,6 @@ EXTRA_DIST += \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
 	units/debug-shell.service.in \
-	units/systemd-hibernate.service.in \
 	units/systemd-hybrid-sleep.service.in \
 	units/systemd-suspend.service.in \
 	units/quotaon.service.in \
@@ -578,8 +572,7 @@ EXTRA_DIST += \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
-	units/systemd-update-done.service.in \
-	units/systemd-hibernate-resume@.service.in
+	units/systemd-update-done.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -2112,14 +2105,6 @@ systemd_delta_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-systemd_hibernate_resume_SOURCES = \
-	src/hibernate-resume/hibernate-resume.c
-
-systemd_hibernate_resume_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
-# ------------------------------------------------------------------------------
 systemd_getty_generator_SOURCES = \
 	src/getty-generator/getty-generator.c
 
@@ -2153,6 +2138,20 @@ systemd_system_update_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+if ENABLE_HIBERNATE
+systemgenerator_PROGRAMS += \
+        systemd-hibernate-resume-generator
+
+rootlibexec_PROGRAMS += \
+        systemd-hibernate-resume
+
+systemd_hibernate_resume_SOURCES = \
+        src/hibernate-resume/hibernate-resume.c
+
+systemd_hibernate_resume_LDADD = \
+        libsystemd-internal.la \
+        libsystemd-shared.la
+
 systemd_hibernate_resume_generator_SOURCES = \
 	src/resume-generator/resume-generator.c
 
@@ -2160,8 +2159,21 @@ systemd_hibernate_resume_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-if ENABLE_EFI
+EXTRA_DIST += \
+        units/systemd-hibernate.service.in \
+        units/systemd-hibernate-resume@.service.in
+
+dist_systemunit_DATA += \
+        units/hibernate.target
+
+nodist_systemunit_DATA += \
+        units/systemd-hibernate.service \
+        units/systemd-hibernate-resume@.service
+
+endif
+
 # ------------------------------------------------------------------------------
+if ENABLE_EFI
 systemgenerator_PROGRAMS +=  \
 	systemd-efi-boot-generator
 
