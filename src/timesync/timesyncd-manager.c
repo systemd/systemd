@@ -721,7 +721,8 @@ static int manager_begin(Manager *m) {
         assert_return(m->current_server_address, -EHOSTUNREACH);
 
         m->missed_replies = NTP_MAX_MISSED_REPLIES;
-        m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
+        if (m->poll_interval_usec == 0)
+                m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         server_address_pretty(m->current_server_address, &pretty);
         log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
