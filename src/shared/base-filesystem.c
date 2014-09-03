@@ -58,16 +58,17 @@ int base_filesystem_create(const char *root) {
         int r;
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
+        if (fd < 0) {
+                log_error("Failed to open root file system: %m");
                 return -errno;
+        }
 
         for (i = 0; i < ELEMENTSOF(table); i ++) {
                 if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
 
                 if (table[i].target) {
-                        const char *target = NULL;
-                        const char *s;
+                        const char *target = NULL, *s;
 
                         /* check if one of the targets exists */
                         NULSTR_FOREACH(s, table[i].target) {
