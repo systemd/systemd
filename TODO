@@ -21,6 +21,14 @@ External:
 
 Features:
 
+* introduce machines.target to order after all nspawn instances
+
+* systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
+
+* "machinectl list" should probably show columns for OS version and IP addresses
+
+* systemctl: if it fails, show log output?
+
 * maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
 
 * dbus: add new message hdr field for allowing interactive auth, write spec for it. update dbus spec to mandate that unknown flags *must* be ignored...
