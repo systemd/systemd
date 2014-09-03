@@ -62,12 +62,12 @@ int base_filesystem_create(const char *root) {
                 return -errno;
 
         for (i = 0; i < ELEMENTSOF(table); i ++) {
+                if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        continue;
+
                 if (table[i].target) {
                         const char *target = NULL;
                         const char *s;
-
-                        if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
-                                continue;
 
                         /* check if one of the targets exists */
                         NULSTR_FOREACH(s, table[i].target) {
