@@ -140,6 +140,7 @@ nodist_pkgsysconf_DATA =
 dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
 dist_dbussystemservice_DATA =
+dist_systemunit_DATA_busnames =
 check_PROGRAMS =
 check_DATA =
 tests=
@@ -263,10 +264,12 @@ install-target-wants-hook:
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(systemunitdir) && $(add-wants)
-	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(USER_SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(userunitdir) && $(add-wants)
+
+install-busnames-target-wants-hook:
+	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(USER_BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(userunitdir) && $(add-wants)
 
 define add-wants
@@ -315,6 +318,11 @@ INSTALL_EXEC_HOOKS += \
 	install-directories-hook \
 	install-aliases-hook \
 	install-touch-usr-hook
+
+if ENABLE_KDBUS
+INSTALL_EXEC_HOOKS += \
+	install-busnames-target-wants-hook
+endif
 
 # ------------------------------------------------------------------------------
 AM_V_M4 = $(AM_V_M4_$(V))
@@ -463,7 +471,6 @@ dist_systemunit_DATA = \
 	units/sigpwr.target \
 	units/sleep.target \
 	units/sockets.target \
-	units/busnames.target \
 	units/timers.target \
 	units/paths.target \
 	units/suspend.target \
@@ -490,6 +497,14 @@ dist_systemunit_DATA = \
 	units/systemd-udevd-kernel.socket \
 	units/system-update.target \
 	units/initrd-switch-root.target
+
+if ENABLE_KDBUS
+dist_systemunit_DATA += \
+	$(dist_systemunit_DATA_busnames)
+endif
+
+dist_systemunit_DATA_busnames += \
+	units/busnames.target
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -4486,7 +4501,7 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-hostnamed.service
 
-dist_systemunit_DATA += \
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.hostname1.busname
 
 dist_dbuspolicy_DATA += \
@@ -4529,13 +4544,11 @@ EXTRA_DIST += \
 	units/systemd-hostnamed.service.in
 
 # ------------------------------------------------------------------------------
-if ENABLE_KDBUS
-dist_systemunit_DATA += \
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.systemd1.busname
 
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.systemd1.busname
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
@@ -4550,7 +4563,7 @@ systemd_localed_LDADD = \
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
 
-dist_systemunit_DATA += \
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.locale1.busname
 
 rootlibexec_PROGRAMS += \
@@ -4625,7 +4638,7 @@ dist_dbuspolicy_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-timedated.service
 
-dist_systemunit_DATA += \
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.timedate1.busname
 
 polkitpolicy_files += \
@@ -4787,7 +4800,9 @@ nodist_systemunit_DATA += \
 	units/systemd-machined.service
 
 dist_systemunit_DATA += \
-	units/machine.slice \
+	units/machine.slice
+
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.machine1.busname
 
 dist_dbussystemservice_DATA += \
@@ -4897,7 +4912,7 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-resolved.service
 
-dist_systemunit_DATA += \
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.resolve1.busname
 
 dist_dbuspolicy_DATA += \
@@ -5289,7 +5304,9 @@ nodist_systemunit_DATA += \
 	units/systemd-user-sessions.service
 
 dist_systemunit_DATA += \
-	units/user.slice \
+	units/user.slice
+
+dist_systemunit_DATA_busnames += \
 	units/org.freedesktop.login1.busname
 
 dist_dbussystemservice_DATA += \
@@ -5903,13 +5920,17 @@ SYSTEM_UNIT_ALIASES += \
 USER_UNIT_ALIASES += \
 	$(systemunitdir)/shutdown.target shutdown.target \
 	$(systemunitdir)/sockets.target sockets.target \
-	$(systemunitdir)/busnames.target busnames.target \
 	$(systemunitdir)/timers.target timers.target \
 	$(systemunitdir)/paths.target paths.target \
 	$(systemunitdir)/bluetooth.target bluetooth.target \
 	$(systemunitdir)/printer.target printer.target \
 	$(systemunitdir)/sound.target sound.target \
 	$(systemunitdir)/smartcard.target smartcard.target
+
+if ENABLE_KDBUS
+USER_UNIT_ALIASES += \
+	$(systemunitdir)/busnames.target busnames.target
+endif
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
