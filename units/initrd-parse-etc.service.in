@@ -16,7 +16,7 @@ ConditionPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStartPre=@rootbindir@/systemctl daemon-reload
+ExecStartPre=-@rootbindir@/systemctl daemon-reload
 # we have to retrigger initrd-fs.target after daemon-reload
 ExecStart=-@rootbindir@/systemctl --no-block start initrd-fs.target
 ExecStart=@rootbindir@/systemctl --no-block start initrd-cleanup.service
