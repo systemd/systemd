@@ -47,7 +47,6 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
         struct stat new_root_stat;
         bool old_root_remove;
         const char *i, *temporary_old_root;
-        int r;
 
         if (path_equal(new_root, "/"))
                 return 0;
@@ -103,11 +102,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 }
         }
 
-        r = base_filesystem_create(new_root);
-        if (r < 0) {
-                log_error("Failed to create the base filesystem: %s", strerror(-r));
-                return r;
-        }
+        (void) base_filesystem_create(new_root);
 
         if (chdir(new_root) < 0) {
                 log_error("Failed to change directory to %s: %m", new_root);
