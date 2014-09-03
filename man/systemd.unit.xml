@@ -1256,9 +1256,10 @@
         <refsect1>
                 <title>[Install] Section Options</title>
 
-                <para>Unit file may include a [Install] section, which
-                carries installation information for the unit. This
-                section is not interpreted by
+                <para>Unit file may include an
+                <literal>[Install]</literal> section, which carries
+                installation information for the unit. This section is
+                not interpreted by
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 during runtime. It is used exclusively by the
                 <command>enable</command> and
@@ -1270,7 +1271,7 @@
                         <varlistentry>
                                 <term><varname>Alias=</varname></term>
 
-                                <listitem><para>A space-seperated list
+                                <listitem><para>A space-separated list
                                 of additional names this unit shall be
                                 installed under. The names listed here
                                 must have the same suffix (i.e. type)
