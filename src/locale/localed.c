@@ -208,7 +208,7 @@ static int vconsole_read_data(Context *c) {
 }
 
 static int x11_read_data(Context *c) {
-        FILE *f;
+        _cleanup_fclose_ FILE *f;
         char line[LINE_MAX];
         bool in_section = false;
         int r;
@@ -229,13 +229,11 @@ static int x11_read_data(Context *c) {
                         continue;
 
                 if (in_section && first_word(l, "Option")) {
-                        char **a;
+                        _cleanup_strv_free_ char **a = NULL;
 
                         r = strv_split_quoted(&a, l);
-                        if (r < 0) {
-                                fclose(f);
+                        if (r < 0)
                                 return r;
-                        }
 
                         if (strv_length(a) == 3) {
                                 if (streq(a[1], "XkbLayout")) {
@@ -253,26 +251,19 @@ static int x11_read_data(Context *c) {
                                 }
                         }
 
-                        strv_free(a);
-
                 } else if (!in_section && first_word(l, "Section")) {
-                        char **a;
+                        _cleanup_strv_free_ char **a = NULL;
 
                         r = strv_split_quoted(&a, l);
-                        if (r < 0) {
-                                fclose(f);
+                        if (r < 0)
                                 return -ENOMEM;
-                        }
 
                         if (strv_length(a) == 2 && streq(a[1], "InputClass"))
                                 in_section = true;
 
-                        strv_free(a);
                 } else if (in_section && first_word(l, "EndSection"))
                         in_section = false;
         }
-
-        fclose(f);
 
         return 0;
 }
@@ -289,14 +280,15 @@ static int context_read_data(Context *c) {
 
 static int locale_write_data(Context *c) {
         int r, p;
-        char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
 
         r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
         for (p = 0; p < _LOCALE_MAX; p++) {
-                char *t, **u;
+                _cleanup_free_ char *t = NULL;
+                char **u;
 
                 assert(names[p]);
 
@@ -305,34 +297,25 @@ static int locale_write_data(Context *c) {
                         continue;
                 }
 
-                if (asprintf(&t, "%s=%s", names[p], c->locale[p]) < 0) {
-                        strv_free(l);
+                if (asprintf(&t, "%s=%s", names[p], c->locale[p]) < 0)
                         return -ENOMEM;
-                }
 
                 u = strv_env_set(l, t);
-                free(t);
-                strv_free(l);
-
                 if (!u)
                         return -ENOMEM;
 
+                strv_free(l);
                 l = u;
         }
 
         if (strv_isempty(l)) {
-                strv_free(l);
-
                 if (unlink("/etc/locale.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
                 return 0;
         }
 
-        r = write_env_file_label("/etc/locale.conf", l);
-        strv_free(l);
-
-        return r;
+        return write_env_file_label("/etc/locale.conf", l);
 }
 
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
@@ -403,38 +386,36 @@ static int vconsole_write_data(Context *c) {
         if (isempty(c->vc_keymap))
                 l = strv_env_unset(l, "KEYMAP");
         else {
-                char *s, **u;
+                _cleanup_free_ char *s = NULL;
+                char **u;
 
                 s = strappend("KEYMAP=", c->vc_keymap);
                 if (!s)
                         return -ENOMEM;
 
                 u = strv_env_set(l, s);
-                free(s);
-                strv_free(l);
-
                 if (!u)
                         return -ENOMEM;
 
+                strv_free(l);
                 l = u;
         }
 
         if (isempty(c->vc_keymap_toggle))
                 l = strv_env_unset(l, "KEYMAP_TOGGLE");
         else  {
-                char *s, **u;
+                _cleanup_free_ char *s = NULL;
+                char **u;
 
                 s = strappend("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
                 if (!s)
                         return -ENOMEM;
 
                 u = strv_env_set(l, s);
-                free(s);
-                strv_free(l);
-
                 if (!u)
                         return -ENOMEM;
 
+                strv_free(l);
                 l = u;
         }
 
@@ -445,8 +426,7 @@ static int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/vconsole.conf", l);
-        return r;
+        return write_env_file_label("/etc/vconsole.conf", l);
 }
 
 static int write_data_x11(Context *c) {
@@ -868,13 +848,12 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         }
 
         /* Check whether a variable is unset */
-        if (!modified)  {
+        if (!modified)
                 for (p = 0; p < _LOCALE_MAX; p++)
                         if (!isempty(c->locale[p]) && !passed[p]) {
                                 modified = true;
                                 break;
                         }
-        }
 
         if (modified) {
                 r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-locale", interactive, &c->polkit_registry, error);
@@ -883,7 +862,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-                STRV_FOREACH(i, l) {
+                STRV_FOREACH(i, l)
                         for (p = 0; p < _LOCALE_MAX; p++) {
                                 size_t k;
 
@@ -900,7 +879,6 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                                         break;
                                 }
                         }
-                }
 
                 for (p = 0; p < _LOCALE_MAX; p++) {
                         if (passed[p])
@@ -1112,7 +1090,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 }
 
 int main(int argc, char *argv[]) {
-        Context context = {};
+        _cleanup_(context_free) Context context = {};
         _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
@@ -1155,7 +1133,5 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        context_free(&context);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
