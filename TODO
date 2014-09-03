@@ -11,9 +11,6 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 External:
-* Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
-   https://bugzilla.redhat.com/show_bug.cgi?id=975864
-
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
