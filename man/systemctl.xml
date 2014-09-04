@@ -60,10 +60,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemctl</command> may be used to
-    introspect and control the state of the
+    <para><command>systemctl</command> may be used to introspect and
+    control the state of the <literal>systemd</literal> system and
+    service manager. Please refer to
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    system and service manager.</para>
+    for an introduction into the basic concepts and functionality this
+    tool manages.</para>
   </refsect1>
 
   <refsect1>
