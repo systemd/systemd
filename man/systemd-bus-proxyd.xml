@@ -80,7 +80,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Connect to the bus specified by
-          <replaceable>ADDRESS</replaceable>. Multiple colon-seperated
+          <replaceable>ADDRESS</replaceable>. Multiple colon-separated
           addresses can be specified, in which case
           <command>systemd-bus-proxyd</command> will attempt to
           connect to them in turn.</para>
