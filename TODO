@@ -19,6 +19,11 @@ External:
 
 * Fedora: remove /etc/resolv.conf tmpfiles hack
 
+* wiki: update journal format documentation for lz4 additions
+
+* When lz4 gets an API for lz4 command output, make use of it to
+  compress coredumps in a way compatible with /usr/bin/lz4.
+
 Features:
 
 * introduce machines.target to order after all nspawn instances
