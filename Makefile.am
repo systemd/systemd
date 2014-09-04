@@ -2168,7 +2168,7 @@ systemd_hibernate_resume_LDADD = \
         libsystemd-shared.la
 
 systemd_hibernate_resume_generator_SOURCES = \
-	src/resume-generator/resume-generator.c
+	src/hibernate-resume/hibernate-resume-generator.c
 
 systemd_hibernate_resume_generator_LDADD = \
 	libsystemd-label.la \
