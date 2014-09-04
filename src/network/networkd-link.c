@@ -1250,6 +1250,12 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
         } else if (r < 0)
                 return r;
 
+        if (link->flags & IFF_LOOPBACK) {
+                log_debug_link(link, "matching network ignored for loopback link");
+                link_enter_unmanaged(link);
+                return 1;
+        }
+
         r = network_apply(link->manager, network, link);
         if (r < 0)
                 return r;
