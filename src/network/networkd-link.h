@@ -113,7 +113,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
 int link_save(Link *link);
 
-bool link_has_carrier(unsigned flags, uint8_t operstate);
+bool link_has_carrier(Link *link);
 
 int link_set_mtu(Link *link, uint32_t mtu);
 int link_set_hostname(Link *link, const char *hostname);

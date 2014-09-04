@@ -863,15 +863,15 @@ static int link_acquire_conf(Link *link) {
         return 0;
 }
 
-bool link_has_carrier(unsigned flags, uint8_t operstate) {
+bool link_has_carrier(Link *link) {
         /* see Documentation/networking/operstates.txt in the kernel sources */
 
-        if (operstate == IF_OPER_UP)
+        if (link->kernel_operstate == IF_OPER_UP)
                 return true;
 
-        if (operstate == IF_OPER_UNKNOWN)
+        if (link->kernel_operstate == IF_OPER_UNKNOWN)
                 /* operstate may not be implemented, so fall back to flags */
-                if ((flags & IFF_LOWER_UP) && !(flags & IFF_DORMANT))
+                if ((link->flags & IFF_LOWER_UP) && !(link->flags & IFF_DORMANT))
                         return true;
 
         return false;
@@ -885,7 +885,6 @@ bool link_has_carrier(unsigned flags, uint8_t operstate) {
 static int link_update_flags(Link *link, sd_rtnl_message *m) {
         unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
         uint8_t operstate;
-        bool carrier_gained = false, carrier_lost = false;
         int r;
 
         assert(link);
@@ -949,39 +948,10 @@ static int link_update_flags(Link *link, sd_rtnl_message *m) {
                                        unknown_flags_removed);
         }
 
-        carrier_gained = !link_has_carrier(link->flags, link->kernel_operstate) &&
-                       link_has_carrier(flags, operstate);
-        carrier_lost = link_has_carrier(link->flags, link->kernel_operstate) &&
-                         !link_has_carrier(flags, operstate);
-
         link->flags = flags;
         link->kernel_operstate = operstate;
 
         link_save(link);
-
-        if (link->state == LINK_STATE_FAILED ||
-            link->state == LINK_STATE_UNMANAGED)
-                return 0;
-
-        if (carrier_gained) {
-                log_info_link(link, "gained carrier");
-
-                if (link->network) {
-                        r = link_acquire_conf(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-        } else if (carrier_lost) {
-                log_info_link(link, "lost carrier");
-
-                r = link_stop_clients(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
 
         return 0;
 }
@@ -1244,7 +1214,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_has_carrier(link->flags, link->kernel_operstate)) {
+        if (link_has_carrier(link)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
@@ -1554,6 +1524,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
         struct ether_addr mac;
         const char *ifname;
         uint32_t mtu;
+        bool had_carrier, carrier_gained, carrier_lost;
         int r;
 
         assert(link);
@@ -1650,7 +1621,36 @@ int link_update(Link *link, sd_rtnl_message *m) {
                 }
         }
 
-        return link_update_flags(link, m);
+        had_carrier = link_has_carrier(link);
+
+        r = link_update_flags(link, m);
+        if (r < 0)
+                return r;
+
+        carrier_gained = !had_carrier && link_has_carrier(link);
+        carrier_lost = had_carrier && !link_has_carrier(link);
+
+        if (carrier_gained) {
+                log_info_link(link, "gained carrier");
+
+                if (link->network) {
+                        r = link_acquire_conf(link);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return r;
+                        }
+                }
+        } else if (carrier_lost) {
+                log_info_link(link, "lost carrier");
+
+                r = link_stop_clients(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        return 0;
 }
 
 static void link_update_operstate(Link *link) {
@@ -1659,7 +1659,7 @@ static void link_update_operstate(Link *link) {
 
         if (link->kernel_operstate == IF_OPER_DORMANT)
                 link->operstate = LINK_OPERSTATE_DORMANT;
-        else if (link_has_carrier(link->flags, link->kernel_operstate)) {
+        else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
 
