@@ -35,6 +35,85 @@
 
 #include "dhcp-lease-internal.h"
 
+#define FLAG_STRING(string, flag, old, new) \
+        (((old ^ new) & flag) \
+                ? ((old & flag) ? (" -" string) : (" +" string)) \
+                : "")
+
+static int link_update_flags(Link *link, sd_rtnl_message *m) {
+        unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
+        uint8_t operstate;
+        int r;
+
+        assert(link);
+
+        r = sd_rtnl_message_link_get_flags(m, &flags);
+        if (r < 0) {
+                log_warning_link(link, "Could not get link flags");
+                return r;
+        }
+
+        r = sd_rtnl_message_read_u8(m, IFLA_OPERSTATE, &operstate);
+        if (r < 0)
+                /* if we got a message without operstate, take it to mean
+                   the state was unchanged */
+                operstate = link->kernel_operstate;
+
+        if ((link->flags == flags) && (link->kernel_operstate == operstate))
+                return 0;
+
+        if (link->flags != flags) {
+                log_debug_link(link, "flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
+                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
+                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
+                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
+                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
+                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
+                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
+                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
+                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
+                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
+                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
+                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
+                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
+                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
+                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
+                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
+                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
+                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
+                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
+
+                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
+                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
+                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
+                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
+                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
+                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
+                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
+                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
+
+                /* link flags are currently at most 18 bits, let's align to
+                 * printing 20 */
+                if (unknown_flags_added)
+                        log_debug_link(link,
+                                       "unknown link flags gained: %#.5x (ignoring)",
+                                       unknown_flags_added);
+
+                if (unknown_flags_removed)
+                        log_debug_link(link,
+                                       "unknown link flags lost: %#.5x (ignoring)",
+                                       unknown_flags_removed);
+        }
+
+        link->flags = flags;
+        link->kernel_operstate = operstate;
+
+        link_save(link);
+
+        return 0;
+}
+
 static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         _cleanup_link_unref_ Link *link = NULL;
         uint16_t type;
@@ -92,6 +171,10 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
                 return r;
 
         r = hashmap_put(manager->links, INT_TO_PTR(link->ifindex), link);
+        if (r < 0)
+                return r;
+
+        r = link_update_flags(link, message);
         if (r < 0)
                 return r;
 
@@ -875,85 +958,6 @@ bool link_has_carrier(Link *link) {
                         return true;
 
         return false;
-}
-
-#define FLAG_STRING(string, flag, old, new) \
-        (((old ^ new) & flag) \
-                ? ((old & flag) ? (" -" string) : (" +" string)) \
-                : "")
-
-static int link_update_flags(Link *link, sd_rtnl_message *m) {
-        unsigned flags, unknown_flags_added, unknown_flags_removed, unknown_flags;
-        uint8_t operstate;
-        int r;
-
-        assert(link);
-
-        r = sd_rtnl_message_link_get_flags(m, &flags);
-        if (r < 0) {
-                log_warning_link(link, "Could not get link flags");
-                return r;
-        }
-
-        r = sd_rtnl_message_read_u8(m, IFLA_OPERSTATE, &operstate);
-        if (r < 0)
-                /* if we got a message without operstate, take it to mean
-                   the state was unchanged */
-                operstate = link->kernel_operstate;
-
-        if ((link->flags == flags) && (link->kernel_operstate == operstate))
-                return 0;
-
-        if (link->flags != flags) {
-                log_debug_link(link, "flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
-                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
-                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
-                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
-                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
-                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
-                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
-                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
-                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
-                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
-                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
-                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
-                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
-                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
-                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
-                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
-                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
-                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
-                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
-
-                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
-                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
-                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
-                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
-                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
-                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
-                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
-                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
-
-                /* link flags are currently at most 18 bits, let's align to
-                 * printing 20 */
-                if (unknown_flags_added)
-                        log_debug_link(link,
-                                       "unknown link flags gained: %#.5x (ignoring)",
-                                       unknown_flags_added);
-
-                if (unknown_flags_removed)
-                        log_debug_link(link,
-                                       "unknown link flags lost: %#.5x (ignoring)",
-                                       unknown_flags_removed);
-        }
-
-        link->flags = flags;
-        link->kernel_operstate = operstate;
-
-        link_save(link);
-
-        return 0;
 }
 
 static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
