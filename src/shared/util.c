@@ -4981,24 +4981,6 @@ bool kexec_loaded(void) {
        return loaded;
 }
 
-int strdup_or_null(const char *a, char **b) {
-        char *c;
-
-        assert(b);
-
-        if (!a) {
-                *b = NULL;
-                return 0;
-        }
-
-        c = strdup(a);
-        if (!c)
-                return -ENOMEM;
-
-        *b = c;
-        return 0;
-}
-
 int prot_from_flags(int flags) {
 
         switch (flags & O_ACCMODE) {
