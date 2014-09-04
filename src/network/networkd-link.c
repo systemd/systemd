@@ -35,6 +35,46 @@
 
 #include "dhcp-lease-internal.h"
 
+static bool link_dhcp6_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return IN_SET(link->network->dhcp, DHCP_SUPPORT_V6, DHCP_SUPPORT_BOTH);
+}
+
+static bool link_dhcp4_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return IN_SET(link->network->dhcp, DHCP_SUPPORT_V4, DHCP_SUPPORT_BOTH);
+}
+
+static bool link_dhcp4_server_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return link->network->dhcp_server;
+}
+
+static bool link_ipv4ll_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return link->network->ipv4ll;
+}
+
 #define FLAG_STRING(string, flag, old, new) \
         (((old ^ new) & flag) \
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
@@ -387,7 +427,7 @@ static int link_enter_configured(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
 
-        if (link->network->dhcp_server &&
+        if (link_dhcp4_server_enabled(link) &&
             !sd_dhcp_server_is_running(link->dhcp_server)) {
                 struct in_addr pool_start;
                 Address *address;
@@ -454,13 +494,12 @@ void link_client_handler(Link *link) {
         if (!link->static_configured)
                 return;
 
-        if (link->network->ipv4ll)
+        if (link_ipv4ll_enabled(link))
                 if (!link->ipv4ll_address ||
                     !link->ipv4ll_route)
                         return;
 
-        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V4))
-                if (!link->dhcp4_configured)
+        if (link_dhcp4_enabled(link) && !link->dhcp4_configured)
                         return;
 
         if (link->state != LINK_STATE_CONFIGURED)
@@ -904,7 +943,7 @@ static int link_acquire_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (link->network->ipv4ll) {
+        if (link_ipv4ll_enabled(link)) {
                 assert(link->ipv4ll);
 
                 log_debug_link(link, "acquiring IPv4 link-local address");
@@ -917,7 +956,7 @@ static int link_acquire_conf(Link *link) {
                 }
         }
 
-        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V4)) {
+        if (link_dhcp4_enabled(link)) {
                 assert(link->dhcp_client);
 
                 log_debug_link(link, "acquiring DHCPv4 lease");
@@ -930,7 +969,7 @@ static int link_acquire_conf(Link *link) {
                 }
         }
 
-        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
+        if (link_dhcp6_enabled(link)) {
                 assert(link->icmp6_router_discovery);
 
                 log_debug_link(link, "discovering IPv6 routers");
@@ -1170,19 +1209,19 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-        if (link->network->ipv4ll) {
+        if (link_ipv4ll_enabled(link)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
                         return r;
         }
 
-        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V4)) {
+        if (link_dhcp4_enabled(link)) {
                 r = dhcp4_configure(link);
                 if (r < 0)
                         return r;
         }
 
-        if (link->network->dhcp_server) {
+        if (link_dhcp4_server_enabled(link)) {
                 r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
                 if (r < 0)
                         return r;
@@ -1192,7 +1231,7 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (IN_SET(link->network->dhcp, DHCP_SUPPORT_BOTH, DHCP_SUPPORT_V6)) {
+        if (link_dhcp6_enabled(link)) {
                 r = sd_icmp6_nd_new(&link->icmp6_router_discovery);
                 if (r < 0)
                         return r;
@@ -1251,9 +1290,14 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
                 return r;
 
         if (link->flags & IFF_LOOPBACK) {
-                log_debug_link(link, "matching network ignored for loopback link");
-                link_enter_unmanaged(link);
-                return 1;
+                if (network->ipv4ll)
+                        log_debug_link(link, "ignoring IPv4LL for loopback link");
+
+                if (network->dhcp != DHCP_SUPPORT_NONE)
+                        log_debug_link(link, "ignoring DHCP clients for loopback link");
+
+                if (network->dhcp_server)
+                        log_debug_link(link, "ignoring DHCP server for loopback link");
         }
 
         r = network_apply(link->manager, network, link);
