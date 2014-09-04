@@ -430,7 +430,7 @@ static int vconsole_write_data(Context *c) {
         return write_env_file_label("/etc/vconsole.conf", l);
 }
 
-static int write_data_x11(Context *c) {
+static int x11_write_data(Context *c) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *temp_path = NULL;
         int r;
@@ -605,7 +605,7 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
         if (modified) {
                 int r;
 
-                r = write_data_x11(c);
+                r = x11_write_data(c);
                 if (r < 0) {
                         log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
                         return r;
@@ -1050,7 +1050,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     free_and_strdup(&c->x11_options, options) < 0)
                         return -ENOMEM;
 
-                r = write_data_x11(c);
+                r = x11_write_data(c);
                 if (r < 0) {
                         log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
                         return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
