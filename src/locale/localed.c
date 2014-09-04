@@ -265,9 +265,11 @@ static int context_read_data(Context *c) {
         return r < 0 ? r : q < 0 ? q : p;
 }
 
-static int locale_write_data(Context *c) {
+static int locale_write_data(Context *c, char ***settings) {
         int r, p;
         _cleanup_strv_free_ char **l = NULL;
+
+        /* Set values will be returned as strv in *settings on success. */
 
         r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
@@ -302,7 +304,13 @@ static int locale_write_data(Context *c) {
                 return 0;
         }
 
-        return write_env_file_label("/etc/locale.conf", l);
+        r = write_env_file_label("/etc/locale.conf", l);
+        if (r < 0)
+                return r;
+
+        *settings = l;
+        l = NULL;
+        return 0;
 }
 
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
@@ -595,11 +603,18 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                 if (r < 0)
                         log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
 
+                log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
+                         strempty(c->x11_layout),
+                         strempty(c->x11_model),
+                         strempty(c->x11_variant),
+                         strempty(c->x11_options));
+
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
                                 "org.freedesktop.locale1",
                                 "X11Layout", "X11Model", "X11Variant", "X11Options", NULL);
-        }
+        } else
+                log_debug("X11 keyboard layout was not modified.");
 
         return 0;
 }
@@ -617,13 +632,18 @@ static int find_converted_keymap(Context *c, char **new_keymap) {
 
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
                 _cleanup_free_ char *p = NULL, *pz = NULL;
+                bool uncompressed;
 
                 p = strjoin(dir, "xkb/", n, ".map", NULL);
                 pz = strjoin(dir, "xkb/", n, ".map.gz", NULL);
                 if (!p || !pz)
                         return -ENOMEM;
 
-                if (access(p, F_OK) == 0 || access(pz, F_OK) == 0) {
+                uncompressed = access(p, F_OK) == 0;
+                if (uncompressed || access(pz, F_OK) == 0) {
+                        log_debug("Found converted keymap %s at %s",
+                                  n, uncompressed ? p : pz);
+
                         *new_keymap = n;
                         n = NULL;
                         return 1;
@@ -697,12 +717,17 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
                 }
 
                 /* The best matching entry so far, then let's save that */
-                if (matching > best_matching) {
-                        best_matching = matching;
+                if (matching >= MAX(best_matching, 1u)) {
+                        log_debug("Found legacy keymap %s with score %u",
+                                  a[0], matching);
 
-                        r = free_and_strdup(new_keymap, a[0]);
-                        if (r < 0)
-                                return r;
+                        if (matching > best_matching) {
+                                best_matching = matching;
+
+                                r = free_and_strdup(new_keymap, a[0]);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -747,13 +772,17 @@ static int x11_convert_to_vconsole(Context *c, sd_bus *bus) {
                 if (r < 0)
                         log_error("Failed to set virtual console keymap: %s", strerror(-r));
 
+                log_info("Changed virtual console keymap to '%s' toggle '%s'",
+                         strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
                                 "org.freedesktop.locale1",
                                 "VConsoleKeymap", "VConsoleKeymapToggle", NULL);
 
                 return vconsole_reload(bus);
-        }
+        } else
+                log_debug("Virtual console keymap was not modified.");
 
         return 0;
 }
@@ -808,7 +837,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        /* Check whether a variable changed and if so valid */
+        /* Check whether a variable changed and if it is valid */
         STRV_FOREACH(i, l) {
                 bool valid = false;
 
@@ -842,6 +871,8 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                         }
 
         if (modified) {
+                _cleanup_strv_free_ char **settings = NULL;
+
                 r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-locale", interactive, &c->polkit_registry, error);
                 if (r < 0)
                         return r;
@@ -870,7 +901,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 
                 locale_simplify(c);
 
-                r = locale_write_data(c);
+                r = locale_write_data(c, &settings);
                 if (r < 0) {
                         log_error("Failed to set locale: %s", strerror(-r));
                         return sd_bus_error_set_errnof(error, r, "Failed to set locale: %s", strerror(-r));
@@ -878,13 +909,21 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 
                 locale_update_system_manager(c, bus);
 
-                log_info("Changed locale information.");
+                if (settings) {
+                        _cleanup_free_ char *line;
+
+                        line = strv_join(settings, ", ");
+                        log_info("Changed locale to %s.", strnull(line));
+                } else
+                        log_info("Changed locale to unset.");
 
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
                                 "org.freedesktop.locale1",
                                 "Locale", NULL);
-        }
+        } else
+                log_debug("Locale settings were not modified.");
+
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -928,7 +967,8 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                         return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %s", strerror(-r));
                 }
 
-                log_info("Changed virtual console keymap to '%s'", strempty(c->vc_keymap));
+                log_info("Changed virtual console keymap to '%s' toggle '%s'",
+                         strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
 
                 r = vconsole_reload(bus);
                 if (r < 0)
@@ -1000,7 +1040,11 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                         return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
                 }
 
-                log_info("Changed X11 keyboard layout to '%s'", strempty(c->x11_layout));
+                log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
+                         strempty(c->x11_layout),
+                         strempty(c->x11_model),
+                         strempty(c->x11_variant),
+                         strempty(c->x11_options));
 
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
