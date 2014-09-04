@@ -1357,18 +1357,18 @@ static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_strv(message, &plus);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_read_strv(message, &minus);
         if (r < 0)
                 return r;
 
-        if (!strv_env_is_valid(plus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+        r = sd_bus_message_read_strv(message, &plus);
+        if (r < 0)
+                return r;
+
         if (!strv_env_name_or_assignment_is_valid(minus))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
+        if (!strv_env_is_valid(plus))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
         r = manager_environment_add(m, minus, plus);
         if (r < 0)
