@@ -26,6 +26,8 @@ External:
 
 Features:
 
+* man: maybe use the word "inspect" rather than "introspect"?
+
 * introduce machines.target to order after all nspawn instances
 
 * systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
