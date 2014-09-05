@@ -144,6 +144,17 @@ int route_drop(Route *route, Link *link,
                 }
         }
 
+        if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in6);
+                if (r < 0) {
+                        log_error("Could not append RTA_PREFSRC attribute: %s", strerror(-r));
+                        return r;
+                }
+        }
+
         r = sd_rtnl_message_route_set_scope(req, route->scope);
         if (r < 0) {
                 log_error("Could not set scope: %s", strerror(-r));
@@ -214,6 +225,17 @@ int route_configure(Route *route, Link *link,
                 r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
                 if (r < 0) {
                         log_error("Could not set destination prefix length: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in6);
+                if (r < 0) {
+                        log_error("Could not append RTA_PREFSRC attribute: %s", strerror(-r));
                         return r;
                 }
         }

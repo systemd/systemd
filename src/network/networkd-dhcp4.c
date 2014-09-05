@@ -67,8 +67,17 @@ static int link_set_dhcp_routes(Link *link) {
                 return r;
         }
         if (r >= 0) {
+                struct in_addr address;
                 _cleanup_route_free_ Route *route = NULL;
                 _cleanup_route_free_ Route *route_gw = NULL;
+
+                r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+                if (r < 0) {
+                        log_warning_link(link,
+                                         "DHCP error: could not get address: %s",
+                                         strerror(-r));
+                        return r;
+                }
 
                 r = route_new_dynamic(&route, RTPROT_DHCP);
                 if (r < 0) {
@@ -92,6 +101,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->family = AF_INET;
                 route_gw->dst_addr.in = gateway;
                 route_gw->dst_prefixlen = 32;
+                route_gw->prefsrc_addr.in = address;
                 route_gw->scope = RT_SCOPE_LINK;
                 route_gw->metrics = DHCP_ROUTE_METRIC;
 
@@ -107,6 +117,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 route->family = AF_INET;
                 route->in_addr.in = gateway;
+                route->prefsrc_addr.in = address;
                 route->metrics = DHCP_ROUTE_METRIC;
 
                 r = route_configure(route, link, &dhcp4_route_handler);

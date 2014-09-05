@@ -150,6 +150,7 @@ struct Route {
 
         union in_addr_union in_addr;
         union in_addr_union dst_addr;
+        union in_addr_union prefsrc_addr;
 
         LIST_FIELDS(Route, routes);
 };
