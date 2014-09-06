@@ -63,17 +63,15 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         const char *group;
         uid_t uid;
         gid_t gid;
-        int r = 0;
+        int r;
 
         assert(netdev);
         assert(ifr);
 
         fd = open(TUN_DEV, O_RDWR);
         if (fd < 0) {
-                log_error_netdev(netdev,
-                                 "Failed to open tun dev: %s",
-                                 strerror(-r));
-                return r;
+                log_error_netdev(netdev, "Failed to open tun dev: %m");
+                return -errno;
         }
 
         r = ioctl(fd, TUNSETIFF, ifr);
@@ -139,7 +137,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 return r;
         }
 
-        return r;
+        return 0;
 }
 
 static int netdev_create_tuntap(NetDev *netdev) {
