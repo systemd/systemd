@@ -212,17 +212,14 @@ static unsigned type_to_context(int type) {
         return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
-static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset) {
+static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset, void **release_cookie) {
         unsigned context = type_to_context(o->object.type);
         uint64_t s = le64toh(o->object.size);
 
         return mmap_cache_get(f->mmap, f->fd, f->prot, context, true,
-                              offset, s, &f->last_stat, NULL);
+                              offset, s, &f->last_stat, NULL, release_cookie);
 }
 
-static inline int journal_file_object_release(JournalFile *f, Object *o, uint64_t offset) {
-        unsigned context = type_to_context(o->object.type);
-        uint64_t s = le64toh(o->object.size);
-
-        return mmap_cache_release(f->mmap, f->fd, f->prot, context, offset, s);
+static inline int journal_file_object_release(JournalFile *f, void *release_cookie) {
+        return mmap_cache_release(f->mmap, f->fd, release_cookie);
 }
