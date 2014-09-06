@@ -721,7 +721,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         case NETDEV_CREATE_INDEPENDENT:
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
-                        return r;
+                        return 0;
 
                 break;
         default:
