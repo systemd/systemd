@@ -10,7 +10,9 @@ Description=Network Service
 Documentation=man:systemd-networkd.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
-After=dbus.service network-pre.target systemd-sysusers.service
+# dbus.service can be dropped once on kdbus, and systemd-udevd.service can be
+# dropped once tuntap is moved to netlink
+After=systemd-udevd.service dbus.service network-pre.target systemd-sysusers.service
 Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
 Wants=network.target
