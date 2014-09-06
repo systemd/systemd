@@ -63,7 +63,7 @@
                 <para>Snapshots are not configured on disk but created
                 dynamically via <command>systemctl snapshot</command>
                 (see
-                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 for details) or an equivalent command. When created,
                 they will automatically get dependencies on the
                 currently activated units. They act as saved
@@ -79,7 +79,7 @@
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
