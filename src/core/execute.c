@@ -939,7 +939,7 @@ static void rename_process_from_path(const char *path) {
 
 #ifdef HAVE_SECCOMP
 
-static int apply_seccomp(ExecContext *c) {
+static int apply_seccomp(const ExecContext *c) {
         uint32_t negative_action, action;
         scmp_filter_ctx *seccomp;
         Iterator i;
@@ -988,7 +988,7 @@ finish:
         return r;
 }
 
-static int apply_address_families(ExecContext *c) {
+static int apply_address_families(const ExecContext *c) {
         scmp_filter_ctx *seccomp;
         Iterator i;
         int r;
