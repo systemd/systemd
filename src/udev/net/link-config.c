@@ -424,8 +424,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         } else
                 new_name = NULL;
 
-        *name = new_name;
-
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
                         if (mac_is_random(device)) {
@@ -458,6 +456,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                             old_name, strerror(-r));
                 return r;
         }
+
+        *name = new_name;
 
         return 0;
 }
