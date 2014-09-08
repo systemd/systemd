@@ -85,6 +85,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_hostname = true;
         network->dhcp_routes = true;
         network->dhcp_sendhost = true;
+        network->dhcp_route_metric = DHCP_ROUTE_METRIC;
 
         network->llmnr = LLMNR_SUPPORT_YES;
 

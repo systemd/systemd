@@ -57,6 +57,7 @@ DHCP.SendHostname,           config_parse_bool,                  0,             
 DHCP.RequestBroadcast,       config_parse_bool,                  0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,     config_parse_bool,                  0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,  config_parse_string,                0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.RouteMetric,            config_parse_unsigned,              0,                             offsetof(Network, dhcp_route_metric)
 /* backwards compatibility: do not add new entries to this section */
 DHCPv4.UseDNS,               config_parse_bool,                  0,                             offsetof(Network, dhcp_dns)
 DHCPv4.UseMTU,               config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)

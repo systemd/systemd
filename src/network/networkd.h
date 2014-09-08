@@ -100,6 +100,7 @@ struct Network {
         bool dhcp_broadcast;
         bool dhcp_critical;
         bool dhcp_routes;
+        unsigned dhcp_route_metric;
         bool ipv4ll;
         bool ipv4ll_route;
 

@@ -494,6 +494,12 @@
                                                 hand, this must not be enabled on networks where broadcasts are filtered out.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>RouteMetric=</varname></term>
+                                        <listitem>
+                                                <para>Set the routing metric for routes specified by the DHCP server.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
 
         </refsect1>
