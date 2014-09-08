@@ -120,6 +120,30 @@ _public_ int sd_network_link_get_setup_state(int ifindex, char **state) {
         return 0;
 }
 
+_public_ int sd_network_link_get_network_file(int ifindex, char **filename) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(filename, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "NETWORK_FILE", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *filename = s;
+        s = NULL;
+
+        return 0;
+}
+
 _public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         int r;

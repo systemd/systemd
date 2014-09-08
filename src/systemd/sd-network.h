@@ -93,6 +93,9 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
 
+/* Get path to .network file applied to link */
+int sd_network_link_get_network_file(int ifindex, char **filename);
+
 /* Get DNS entries for a given link. These are string representations of
  * IP addresses */
 int sd_network_link_get_dns(int ifindex, char ***addr);

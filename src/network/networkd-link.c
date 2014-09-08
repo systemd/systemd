@@ -1785,6 +1785,8 @@ int link_save(Link *link) {
                 char **address, **domain;
                 bool space;
 
+                fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
+
                 fputs("DNS=", f);
                 space = false;
                 STRV_FOREACH(address, link->network->dns) {
