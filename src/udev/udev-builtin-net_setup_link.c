@@ -57,6 +57,8 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 return EXIT_FAILURE;
         }
 
+        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
+
         if (name)
                 udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
