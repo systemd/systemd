@@ -184,7 +184,7 @@ bluetooth:v003B*
  ID_VENDOR_FROM_DATABASE=Gennum Corporation
 
 bluetooth:v003C*
- ID_VENDOR_FROM_DATABASE=Research In Motion
+ ID_VENDOR_FROM_DATABASE=BlackBerry Limited (formerly Research In Motion)
 
 bluetooth:v003D*
  ID_VENDOR_FROM_DATABASE=IPextreme, Inc.
@@ -1073,3 +1073,78 @@ bluetooth:v0162*
 
 bluetooth:v0163*
  ID_VENDOR_FROM_DATABASE=PCH International
+
+bluetooth:v0164*
+ ID_VENDOR_FROM_DATABASE=Qingdao Yeelink Information Technology Co., Ltd.
+
+bluetooth:v0165*
+ ID_VENDOR_FROM_DATABASE=Milwaukee Tool (formerly Milwaukee Electric Tools)
+
+bluetooth:v0166*
+ ID_VENDOR_FROM_DATABASE=MISHIK Pte Ltd
+
+bluetooth:v0167*
+ ID_VENDOR_FROM_DATABASE=Bayer HealthCare
+
+bluetooth:v0168*
+ ID_VENDOR_FROM_DATABASE=Spicebox LLC
+
+bluetooth:v0169*
+ ID_VENDOR_FROM_DATABASE=emberlight
+
+bluetooth:v016A*
+ ID_VENDOR_FROM_DATABASE=Cooper-Atkins Corporation
+
+bluetooth:v016B*
+ ID_VENDOR_FROM_DATABASE=Qblinks
+
+bluetooth:v016C*
+ ID_VENDOR_FROM_DATABASE=MYSPHERA
+
+bluetooth:v016D*
+ ID_VENDOR_FROM_DATABASE=LifeScan Inc
+
+bluetooth:v016E*
+ ID_VENDOR_FROM_DATABASE=Volantic AB
+
+bluetooth:v016F*
+ ID_VENDOR_FROM_DATABASE=Podo Labs, Inc
+
+bluetooth:v0170*
+ ID_VENDOR_FROM_DATABASE=Roche Diabetes Care AG
+
+bluetooth:v0171*
+ ID_VENDOR_FROM_DATABASE=Amazon Fulfillment Service
+
+bluetooth:v0172*
+ ID_VENDOR_FROM_DATABASE=Connovate Technology Private Limited
+
+bluetooth:v0173*
+ ID_VENDOR_FROM_DATABASE=Kocomojo, LLC
+
+bluetooth:v0174*
+ ID_VENDOR_FROM_DATABASE=Everykey LLC
+
+bluetooth:v0175*
+ ID_VENDOR_FROM_DATABASE=Dynamic Controls
+
+bluetooth:v0176*
+ ID_VENDOR_FROM_DATABASE=SentriLock
+
+bluetooth:v0177*
+ ID_VENDOR_FROM_DATABASE=I-SYST inc.
+
+bluetooth:v0178*
+ ID_VENDOR_FROM_DATABASE=CASIO COMPUTER CO., LTD.
+
+bluetooth:v0179*
+ ID_VENDOR_FROM_DATABASE=LAPIS Semiconductor Co., Ltd.
+
+bluetooth:v017A*
+ ID_VENDOR_FROM_DATABASE=Telemonitor, Inc.
+
+bluetooth:v017B*
+ ID_VENDOR_FROM_DATABASE=taskit GmbH
+
+bluetooth:v017C*
+ ID_VENDOR_FROM_DATABASE=Daimler AG
