@@ -294,7 +294,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL;
         const char *on_color_operational, *off_color_operational,
                    *on_color_setup, *off_color_setup;
@@ -396,11 +396,14 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                         model = udev_device_get_property_value(d, "ID_MODEL");
         }
 
+        sd_network_link_get_network_file(ifindex, &network);
 
         printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, ifindex, name);
 
-        printf("        Type: %s\n"
+        printf("Network File: %s\n"
+               "        Type: %s\n"
                "       State: %s%s%s (%s%s%s)\n",
+               strna(network),
                strna(t),
                on_color_operational, strna(operational_state), off_color_operational,
                on_color_setup, strna(setup_state), off_color_setup);
