@@ -459,7 +459,6 @@ dist_systemunit_DATA = \
 	units/network-online.target \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \
-	units/hybrid-sleep.target \
 	units/poweroff.target \
 	units/reboot.target \
 	units/rescue.target \
@@ -523,7 +522,6 @@ nodist_systemunit_DATA = \
 	units/emergency.service \
 	units/rescue.service \
 	units/user@.service \
-	units/systemd-hybrid-sleep.service \
 	units/systemd-suspend.service \
 	units/systemd-halt.service \
 	units/systemd-poweroff.service \
@@ -579,7 +577,6 @@ EXTRA_DIST += \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
 	units/debug-shell.service.in \
-	units/systemd-hybrid-sleep.service.in \
 	units/systemd-suspend.service.in \
 	units/quotaon.service.in \
 	units/initrd-parse-etc.service.in \
@@ -2159,17 +2156,17 @@ systemd_system_update_generator_LDADD = \
 # ------------------------------------------------------------------------------
 if ENABLE_HIBERNATE
 systemgenerator_PROGRAMS += \
-        systemd-hibernate-resume-generator
+	systemd-hibernate-resume-generator
 
 rootlibexec_PROGRAMS += \
-        systemd-hibernate-resume
+	systemd-hibernate-resume
 
 systemd_hibernate_resume_SOURCES = \
-        src/hibernate-resume/hibernate-resume.c
+	src/hibernate-resume/hibernate-resume.c
 
 systemd_hibernate_resume_LDADD = \
-        libsystemd-internal.la \
-        libsystemd-shared.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 systemd_hibernate_resume_generator_SOURCES = \
 	src/hibernate-resume/hibernate-resume-generator.c
@@ -2179,16 +2176,18 @@ systemd_hibernate_resume_generator_LDADD = \
 	libsystemd-shared.la
 
 EXTRA_DIST += \
-        units/systemd-hibernate.service.in \
-        units/systemd-hibernate-resume@.service.in
+	units/systemd-hibernate.service.in \
+	units/systemd-hibernate-resume@.service.in \
+	units/systemd-hybrid-sleep.service.in
 
 dist_systemunit_DATA += \
-        units/hibernate.target
+	units/hibernate.target \
+	units/hybrid-sleep.target
 
 nodist_systemunit_DATA += \
-        units/systemd-hibernate.service \
-        units/systemd-hibernate-resume@.service
-
+	units/systemd-hibernate.service \
+	units/systemd-hibernate-resume@.service \
+	units/systemd-hybrid-sleep.service
 endif
 
 # ------------------------------------------------------------------------------
