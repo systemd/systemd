@@ -278,7 +278,7 @@ static int mount_kdbus(BindMount *m) {
         char temporary_mount[] = "/tmp/kdbus-dev-XXXXXX";
         _cleanup_free_ char *basepath = NULL;
         _cleanup_umask_ mode_t u;
-        char *busnode, *root;
+        char *busnode = NULL, *root;
         struct stat st;
         int r;
 
