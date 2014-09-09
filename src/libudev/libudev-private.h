@@ -170,6 +170,5 @@ int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
-ssize_t print_kmsg(const char *fmt, ...) _printf_(1, 2);
 
 #endif
