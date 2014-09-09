@@ -310,6 +310,8 @@ int detect_container(const char **id) {
                 _id = "lxc-libvirt";
         else if (streq(e, "systemd-nspawn"))
                 _id = "systemd-nspawn";
+        else if (streq(e, "docker"))
+                _id = "docker";
         else
                 _id = "other";
 
