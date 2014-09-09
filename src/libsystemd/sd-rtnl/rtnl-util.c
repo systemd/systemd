@@ -55,10 +55,9 @@ int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
         return 0;
 }
 
-int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
+int rtnl_set_link_properties(sd_rtnl **rtnl, int ifindex, const char *alias,
                              const struct ether_addr *mac, unsigned mtu) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
-        bool need_update = false;
         int r;
 
         assert(rtnl);
@@ -67,7 +66,13 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         if (!alias && !mac && mtu == 0)
                 return 0;
 
-        r = sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex);
+        if (!*rtnl) {
+                r = sd_rtnl_open(rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
 
@@ -75,32 +80,23 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
                 r = sd_rtnl_message_append_string(message, IFLA_IFALIAS, alias);
                 if (r < 0)
                         return r;
-
-                need_update = true;
-
         }
 
         if (mac) {
                 r = sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, mac);
                 if (r < 0)
                         return r;
-
-                need_update = true;
         }
 
         if (mtu > 0) {
                 r = sd_rtnl_message_append_u32(message, IFLA_MTU, mtu);
                 if (r < 0)
                         return r;
-
-                need_update = true;
         }
 
-        if  (need_update) {
-                r = sd_rtnl_call(rtnl, message, 0, NULL);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_rtnl_call(*rtnl, message, 0, NULL);
+        if (r < 0)
+                return r;
 
         return 0;
 }

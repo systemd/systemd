@@ -63,7 +63,7 @@ int ethtool_connect(int *ret) {
         return 0;
 }
 
-int ethtool_get_driver(int fd, const char *ifname, char **ret) {
+int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         struct ethtool_drvinfo ecmd = {
                 .cmd = ETHTOOL_GDRVINFO
         };
@@ -73,9 +73,17 @@ int ethtool_get_driver(int fd, const char *ifname, char **ret) {
         char *d;
         int r;
 
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0) {
+                        log_warning("link_config: could not connect to ethtool: %s", strerror(-r));
+                        return r;
+                }
+        }
+
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -87,7 +95,7 @@ int ethtool_get_driver(int fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex duplex)
+int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex)
 {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET
@@ -101,9 +109,17 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0) {
+                        log_warning("link_config: could not connect to ethtool: %s", strerror(-r));
+                        return r;
+                }
+        }
+
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -132,7 +148,7 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SSET;
 
-                r = ioctl(fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -140,7 +156,7 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
         return 0;
 }
 
-int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
+int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL
         };
@@ -153,9 +169,17 @@ int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
         if (wol == _WOL_INVALID)
                 return 0;
 
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0) {
+                        log_warning("link_config: could not connect to ethtool: %s", strerror(-r));
+                        return r;
+                }
+        }
+
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -185,7 +209,7 @@ int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SWOL;
 
-                r = ioctl(fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }

@@ -88,30 +88,6 @@ int link_config_ctx_new(link_config_ctx **ret) {
         return 0;
 }
 
-static int link_config_ctx_connect(link_config_ctx *ctx) {
-        int r;
-
-        if (ctx->ethtool_fd == -1) {
-                r = ethtool_connect(&ctx->ethtool_fd);
-                if (r < 0) {
-                        log_warning("link_config: could not connect to ethtool: %s",
-                                    strerror(-r));
-                        return r;
-                }
-        }
-
-        if (!ctx->rtnl) {
-                r = sd_rtnl_open(&ctx->rtnl, 0);
-                if (r < 0) {
-                        log_warning("link_config: could not connect to rtnl: %s",
-                                    strerror(-r));
-                        return r;
-                }
-        }
-
-        return 0;
-}
-
 static void link_configs_free(link_config_ctx *ctx) {
         link_config *link, *link_next;
 
@@ -361,22 +337,18 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         assert(device);
         assert(name);
 
-        r = link_config_ctx_connect(ctx);
-        if (r < 0)
-                return r;
-
         old_name = udev_device_get_sysname(device);
         if (!old_name)
                 return -EINVAL;
 
-        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed / 1024,
+        r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024,
                               config->duplex);
         if (r < 0)
                 log_warning("Could not set speed or duplex of %s to %u Mbps (%s): %s",
                             old_name, config->speed / 1024,
                             duplex_to_string(config->duplex), strerror(-r));
 
-        r = ethtool_set_wol(ctx->ethtool_fd, old_name, config->wol);
+        r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
                 log_warning("Could not set WakeOnLan of %s to %s: %s",
                             old_name, wol_to_string(config->wol), strerror(-r));
@@ -449,7 +421,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(ctx->rtnl, ifindex, config->alias, mac,
+        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
                                      config->mtu);
         if (r < 0) {
                 log_warning("Could not set Alias, MACAddress or MTU on %s: %s",
@@ -467,15 +439,11 @@ int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret
         char *driver;
         int r;
 
-        r = link_config_ctx_connect(ctx);
-        if (r < 0)
-                return r;
-
         name = udev_device_get_sysname(device);
         if (!name)
                 return -EINVAL;
 
-        r = ethtool_get_driver(ctx->ethtool_fd, name, &driver);
+        r = ethtool_get_driver(&ctx->ethtool_fd, name, &driver);
         if (r < 0)
                 return r;
 
