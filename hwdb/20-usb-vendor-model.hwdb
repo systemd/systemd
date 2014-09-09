@@ -30222,7 +30222,7 @@ usb:v0930p6544*
  ID_MODEL_FROM_DATABASE=Kingston DataTraveler 2.0 Stick (2GB)
 
 usb:v0930p6545*
- ID_MODEL_FROM_DATABASE=Kingston DataTraveler 102 Flash Drive / HEMA Flash Drive 2 GB / PNY Attache 4GB Stick
+ ID_MODEL_FROM_DATABASE=Kingston DataTraveler 102/2.0 / HEMA Flash Drive 2 GB / PNY Attache 4GB Stick
 
 usb:v0931*
  ID_VENDOR_FROM_DATABASE=Harmonic Data Systems, Ltd
