@@ -805,6 +805,22 @@ void udev_event_execute_rules(struct udev_event *event,
                                 udev_watch_end(event->udev, event->dev_db);
                 }
 
+                if (major(udev_device_get_devnum(dev)) == 0 &&
+                    streq(udev_device_get_action(dev), "move")) {
+                        struct udev_list_entry *entry;
+
+                        for ((entry = udev_device_get_properties_list_entry(event->dev_db)); entry; entry = udev_list_entry_get_next(entry)) {
+                                const char *key, *value;
+                                struct udev_list_entry *property;
+
+                                key = udev_list_entry_get_name(entry);
+                                value = udev_list_entry_get_value(entry);
+
+                                property = udev_device_add_property(event->dev, key, value);
+                                udev_list_entry_set_num(property, true);
+                        }
+                }
+
                 udev_rules_apply_to_event(rules, event, timeout_usec, sigmask);
 
                 /* rename a new network interface, if needed */
