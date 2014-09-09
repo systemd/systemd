@@ -762,7 +762,7 @@ static int rename_netif(struct udev_event *event) {
                 return r;
         }
 
-        print_kmsg("renamed network interface '%s' to '%s'\n", oldname, name);
+        log_debug("renamed network interface '%s' to '%s'\n", oldname, name);
 
         return 0;
 }
