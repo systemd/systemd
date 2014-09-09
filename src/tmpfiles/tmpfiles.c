@@ -1576,7 +1576,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                                 candidate_item = j;
                 }
 
-                if (candidate_item) {
+                if (candidate_item && candidate_item->age_set) {
                         i->age = candidate_item->age;
                         i->age_set = true;
                 }
