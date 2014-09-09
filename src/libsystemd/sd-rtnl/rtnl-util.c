@@ -26,7 +26,7 @@
 #include "rtnl-util.h"
 #include "rtnl-internal.h"
 
-int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
+int rtnl_set_link_name(sd_rtnl **rtnl, int ifindex, const char *name) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;
         int r;
 
@@ -34,7 +34,13 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         assert(ifindex > 0);
         assert(name);
 
-        r = sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex);
+        if (!*rtnl) {
+                r = sd_rtnl_open(rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
 
@@ -42,7 +48,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_call(rtnl, message, 0, NULL);
+        r = sd_rtnl_call(*rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
 

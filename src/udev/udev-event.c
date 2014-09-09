@@ -53,6 +53,7 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
 void udev_event_unref(struct udev_event *event) {
         if (event == NULL)
                 return;
+        sd_rtnl_unref(event->rtnl);
         udev_list_cleanup(&event->run_list);
         udev_list_cleanup(&event->seclabel_list);
         free(event->program_result);
@@ -746,30 +747,24 @@ out:
 
 static int rename_netif(struct udev_event *event) {
         struct udev_device *dev = event->dev;
-        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char name[IFNAMSIZ];
         const char *oldname;
         int r;
 
         oldname = udev_device_get_sysname(dev);
 
-        log_debug("changing net interface name from '%s' to '%s'",
-                  oldname, event->name);
-
         strscpy(name, IFNAMSIZ, event->name);
 
-        r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0)
-                return r;
-
-        r = rtnl_set_link_name(rtnl, udev_device_get_ifindex(dev), name);
-        if (r < 0)
-                log_error("error changing net interface name %s to %s: %s",
+        r = rtnl_set_link_name(&event->rtnl, udev_device_get_ifindex(dev), name);
+        if (r < 0) {
+                log_error("error changing net interface name '%s' to '%s': %s",
                           oldname, name, strerror(-r));
-        else
-                print_kmsg("renamed network interface %s to %s\n", oldname, name);
+                return r;
+        }
 
-        return r;
+        print_kmsg("renamed network interface '%s' to '%s'\n", oldname, name);
+
+        return 0;
 }
 
 void udev_event_execute_rules(struct udev_event *event,
@@ -832,8 +827,6 @@ void udev_event_execute_rules(struct udev_event *event,
 
                         r = rename_netif(event);
                         if (r >= 0) {
-                                log_debug("renamed netif to '%s'", event->name);
-
                                 /* remember old name */
                                 udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
 

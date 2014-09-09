@@ -48,6 +48,7 @@
 
 #include "udev.h"
 #include "udev-util.h"
+#include "rtnl-util.h"
 #include "sd-daemon.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
@@ -200,6 +201,7 @@ static void worker_new(struct event *event) {
         case 0: {
                 struct udev_device *dev = NULL;
                 int fd_monitor;
+                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
                 struct epoll_event ep_signal, ep_monitor;
                 sigset_t mask;
                 int rc = EXIT_SUCCESS;
@@ -301,10 +303,16 @@ static void worker_new(struct event *event) {
                                 }
                         }
 
+                        /* needed for renaming netifs */
+                        udev_event->rtnl = rtnl;
+
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event, event_timeout_usec, rules, &sigmask_orig);
 
                         udev_event_execute_run(udev_event, event_timeout_usec, &sigmask_orig);
+
+                        /* in case rtnl was initialized */
+                        rtnl = sd_rtnl_ref(udev_event->rtnl);
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {

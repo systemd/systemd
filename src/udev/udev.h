@@ -23,6 +23,7 @@
 #include <signal.h>
 
 #include "macro.h"
+#include "sd-rtnl.h"
 #include "libudev.h"
 #include "libudev-private.h"
 #include "util.h"
@@ -44,6 +45,7 @@ struct udev_event {
         int exec_delay;
         usec_t birth_usec;
         int fd_signal;
+        sd_rtnl *rtnl;
         unsigned int builtin_run;
         unsigned int builtin_ret;
         bool sigterm;
