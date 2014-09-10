@@ -3339,8 +3339,10 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
         }
 
         r = bus_creds_add_more(c, mask, pid, 0);
-        if (r < 0)
+        if (r < 0) {
+                sd_bus_creds_unref(c);
                 return r;
+        }
 
         *ret = c;
         return 0;
