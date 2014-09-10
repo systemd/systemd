@@ -110,8 +110,7 @@ static int add_match(Set *set, const char *match) {
         log_debug("Adding pattern: %s", pattern);
         r = set_consume(set, pattern);
         if (r < 0) {
-                log_error("Failed to add pattern '%s': %s",
-                          pattern, strerror(-r));
+                log_error("Failed to add pattern: %s", strerror(-r));
                 goto fail;
         }
 
