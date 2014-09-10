@@ -496,15 +496,15 @@ static int add_mmap(
 
         c = context_add(m, context);
         if (!c)
-                return -ENOMEM;
+                goto outofmem;
 
         f = fd_add(m, fd);
         if (!f)
-                return -ENOMEM;
+                goto outofmem;
 
         w = window_add(m);
         if (!w)
-                return -ENOMEM;
+                goto outofmem;
 
         w->keep_always = keep_always;
         w->ptr = d;
@@ -522,6 +522,10 @@ static int add_mmap(
         if (ret)
                 *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;
+
+outofmem:
+        munmap(d, wsize);
+        return -ENOMEM;
 }
 
 int mmap_cache_get(
