@@ -1323,7 +1323,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 if (cmd < UDEV_BUILTIN_MAX)
                                         rule_add_key(&rule_tmp, TK_A_RUN_BUILTIN, op, value, &cmd);
                                 else
-                                        log_error("IMPORT{builtin}: '%s' unknown %s:%u", value, filename, lineno);
+                                        log_error("RUN{builtin}: '%s' unknown %s:%u", value, filename, lineno);
                         } else if (streq(attr, "program")) {
                                 enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
 
