@@ -242,7 +242,7 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
 
 static int do_accept(const char* name, char **argv, char **envp, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
-        int fd2;
+        _cleanup_close_ int fd2 = -1;
 
         fd2 = accept(fd, NULL, NULL);
         if (fd2 < 0) {
