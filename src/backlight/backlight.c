@@ -372,8 +372,11 @@ int main(int argc, char *argv[]) {
          * device probing should be complete), so that the validity
          * check at boot time doesn't have to be reliable. */
 
-        if (streq(argv[1], "load") && shall_restore_state()) {
+        if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
+
+                if (!shall_restore_state())
+                        return EXIT_SUCCESS;
 
                 if (!validate_device(udev, device))
                         return EXIT_SUCCESS;
