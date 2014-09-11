@@ -858,7 +858,6 @@ static int managed_evdev_new(idev_element **out, idev_session *s, struct udev_de
         int r;
 
         assert_return(s, -EINVAL);
-        assert_return(s->context->sysbus, -EINVAL);
         assert_return(s->managed, -EINVAL);
         assert_return(s->context->sysbus, -EINVAL);
         assert_return(ud, -EINVAL);
