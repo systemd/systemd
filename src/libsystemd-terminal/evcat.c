@@ -313,8 +313,6 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                         return r;
                 }
 
-                idev_session_enable(e->idev_session);
-
                 if (e->managed) {
                         r = sysview_session_take_control(ev->session_add.session);
                         if (r < 0) {
@@ -322,6 +320,8 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                                 return r;
                         }
                 }
+
+                idev_session_enable(e->idev_session);
 
                 break;
         case SYSVIEW_EVENT_SESSION_REMOVE:
