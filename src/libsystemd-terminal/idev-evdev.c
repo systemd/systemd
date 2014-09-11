@@ -307,7 +307,7 @@ static int idev_evdev_resume(idev_evdev *evdev, int dev_fd) {
 
         flags = fcntl(fd, F_GETFL, 0);
         if (flags < 0)
-                return r;
+                return -errno;
 
         flags &= O_ACCMODE;
         if (flags == O_WRONLY)
