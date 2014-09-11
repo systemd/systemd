@@ -277,7 +277,8 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         return c;
 
 fail:
-        free_unit_times(unit_times, (unsigned) c);
+        if (unit_times)
+                free_unit_times(unit_times, (unsigned) c);
         return r;
 }
 
