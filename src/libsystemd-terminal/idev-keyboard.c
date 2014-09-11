@@ -770,8 +770,10 @@ static int keyboard_feed_evdev(idev_keyboard *k, idev_data *data) {
                 /* TODO: update LEDs */
         }
 
-        if (num < 0)
+        if (num < 0) {
+                r = num;
                 goto error;
+        }
 
         r = keyboard_fill(k, &k->evdata, data->resync, ev->code, ev->value, num, keysyms);
         if (r < 0)
