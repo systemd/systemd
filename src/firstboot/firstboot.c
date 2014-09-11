@@ -856,6 +856,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_COPY:
                         arg_copy_locale = arg_copy_timezone = arg_copy_root_password = true;
+                        break;
 
                 case ARG_COPY_LOCALE:
                         arg_copy_locale = true;
