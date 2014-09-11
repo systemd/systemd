@@ -1732,14 +1732,33 @@ void udev_device_set_is_initialized(struct udev_device *udev_device)
         udev_device->is_initialized = true;
 }
 
+static bool is_valid_tag(const char *tag)
+{
+        return !strchr(tag, ':') && !strchr(tag, ' ');
+}
+
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag)
 {
-        if (strchr(tag, ':') != NULL || strchr(tag, ' ') != NULL)
+        if (!is_valid_tag(tag))
                 return -EINVAL;
         udev_device->tags_uptodate = false;
         if (udev_list_entry_add(&udev_device->tags_list, tag, NULL) != NULL)
                 return 0;
         return -ENOMEM;
+}
+
+void udev_device_remove_tag(struct udev_device *udev_device, const char *tag)
+{
+        struct udev_list_entry *e;
+
+        if (!is_valid_tag(tag))
+                return;
+        e = udev_list_get_entry(&udev_device->tags_list);
+        e = udev_list_entry_get_by_name(e, tag);
+        if (e) {
+                udev_device->tags_uptodate = false;
+                udev_list_entry_delete(e);
+        }
 }
 
 void udev_device_cleanup_tags_list(struct udev_device *udev_device)

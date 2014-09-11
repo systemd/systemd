@@ -114,6 +114,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><literal>-=</literal></term>
+          <listitem>
+            <para>Remove the value from a key that holds a list of entries.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><literal>:=</literal></term>
           <listitem>
             <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
