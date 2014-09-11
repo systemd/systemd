@@ -918,11 +918,11 @@ static void test_readlink_and_make_absolute(void) {
 }
 
 static void test_read_one_char(void) {
+        _cleanup_fclose_ FILE *file = NULL;
         char r;
         bool need_nl;
         char name[] = "/tmp/test-read_one_char.XXXXXX";
-        _cleanup_close_ int fd = -1;
-        FILE *file;
+        int fd;
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
