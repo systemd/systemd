@@ -33,7 +33,6 @@
 #include "idev-internal.h"
 #include "login-shared.h"
 #include "macro.h"
-#include "set.h"
 #include "udev-util.h"
 #include "util.h"
 
