@@ -1221,18 +1221,6 @@ int main(int argc, char *argv[]) {
 
         log_info("starting version " VERSION "\n");
 
-        if (!arg_debug) {
-                int fd;
-
-                fd = open("/dev/null", O_RDWR);
-                if (fd >= 0) {
-                        dup2(fd, STDIN_FILENO);
-                        dup2(fd, STDOUT_FILENO);
-                        dup2(fd, STDERR_FILENO);
-                        close(fd);
-                }
-        }
-
         fd_inotify = udev_watch_init(udev);
         if (fd_inotify < 0) {
                 log_error("error initializing inotify");
