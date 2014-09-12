@@ -1085,7 +1085,11 @@ int main(int argc, char *argv[]) {
         int fd_ctrl = -1;
         int fd_netlink = -1;
         int fd_worker = -1;
-        struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
+        struct epoll_event ep_ctrl = { .events = EPOLLIN };
+        struct epoll_event ep_inotify = { .events = EPOLLIN };
+        struct epoll_event ep_signal = { .events = EPOLLIN };
+        struct epoll_event ep_netlink = { .events = EPOLLIN };
+        struct epoll_event ep_worker = { .events = EPOLLIN };
         struct udev_ctrl_connection *ctrl_conn = NULL;
         int rc = 1, r;
 
@@ -1221,6 +1225,32 @@ int main(int argc, char *argv[]) {
 
         log_info("starting version " VERSION "\n");
 
+        udev_builtin_init(udev);
+
+        rules = udev_rules_new(udev, arg_resolve_names);
+        if (rules == NULL) {
+                log_error("error reading rules");
+                goto exit;
+        }
+
+        rc = udev_rules_apply_static_dev_perms(rules);
+        if (rc < 0)
+                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
+
+        if (arg_children_max <= 0) {
+                cpu_set_t cpu_set;
+
+                arg_children_max = 8;
+
+                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
+                }
+        }
+        log_debug("set children_max to %u", arg_children_max);
+
+        udev_list_node_init(&event_list);
+        udev_list_node_init(&worker_list);
+
         fd_inotify = udev_watch_init(udev);
         if (fd_inotify < 0) {
                 log_error("error initializing inotify");
@@ -1247,32 +1277,10 @@ int main(int argc, char *argv[]) {
         }
         fd_worker = worker_watch[READ_END];
 
-        udev_builtin_init(udev);
-
-        rules = udev_rules_new(udev, arg_resolve_names);
-        if (rules == NULL) {
-                log_error("error reading rules");
-                goto exit;
-        }
-
-        memzero(&ep_ctrl, sizeof(struct epoll_event));
-        ep_ctrl.events = EPOLLIN;
         ep_ctrl.data.fd = fd_ctrl;
-
-        memzero(&ep_inotify, sizeof(struct epoll_event));
-        ep_inotify.events = EPOLLIN;
         ep_inotify.data.fd = fd_inotify;
-
-        memzero(&ep_signal, sizeof(struct epoll_event));
-        ep_signal.events = EPOLLIN;
         ep_signal.data.fd = fd_signal;
-
-        memzero(&ep_netlink, sizeof(struct epoll_event));
-        ep_netlink.events = EPOLLIN;
         ep_netlink.data.fd = fd_netlink;
-
-        memzero(&ep_worker, sizeof(struct epoll_event));
-        ep_worker.events = EPOLLIN;
         ep_worker.data.fd = fd_worker;
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
@@ -1288,24 +1296,6 @@ int main(int argc, char *argv[]) {
                 log_error("fail to add fds to epoll: %m");
                 goto exit;
         }
-
-        if (arg_children_max <= 0) {
-                cpu_set_t cpu_set;
-
-                arg_children_max = 8;
-
-                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
-                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
-                }
-        }
-        log_debug("set children_max to %u", arg_children_max);
-
-        rc = udev_rules_apply_static_dev_perms(rules);
-        if (rc < 0)
-                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
-
-        udev_list_node_init(&event_list);
-        udev_list_node_init(&worker_list);
 
         for (;;) {
                 static usec_t last_usec;
