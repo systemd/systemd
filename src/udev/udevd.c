@@ -1058,7 +1058,6 @@ static int parse_argv(int argc, char *argv[]) {
                         } else if (streq(optarg, "never")) {
                                 arg_resolve_names = -1;
                         } else {
-                                fprintf(stderr, "resolve-names must be early, late or never\n");
                                 log_error("resolve-names must be early, late or never");
                                 return 0;
                         }
@@ -1116,7 +1115,6 @@ int main(int argc, char *argv[]) {
         }
 
         if (getuid() != 0) {
-                fprintf(stderr, "root privileges required\n");
                 log_error("root privileges required");
                 goto exit;
         }
@@ -1142,7 +1140,6 @@ int main(int argc, char *argv[]) {
                         if (fd > STDERR_FILENO)
                                 close(fd);
                 } else {
-                        fprintf(stderr, "cannot open /dev/null\n");
                         log_error("cannot open /dev/null");
                 }
         }
@@ -1170,7 +1167,6 @@ int main(int argc, char *argv[]) {
                 /* open control and netlink socket */
                 udev_ctrl = udev_ctrl_new(udev);
                 if (udev_ctrl == NULL) {
-                        fprintf(stderr, "error initializing udev control socket");
                         log_error("error initializing udev control socket");
                         rc = 1;
                         goto exit;
@@ -1179,7 +1175,6 @@ int main(int argc, char *argv[]) {
 
                 monitor = udev_monitor_new_from_netlink(udev, "kernel");
                 if (monitor == NULL) {
-                        fprintf(stderr, "error initializing netlink socket\n");
                         log_error("error initializing netlink socket");
                         rc = 3;
                         goto exit;
@@ -1188,14 +1183,12 @@ int main(int argc, char *argv[]) {
         }
 
         if (udev_monitor_enable_receiving(monitor) < 0) {
-                fprintf(stderr, "error binding netlink socket\n");
                 log_error("error binding netlink socket");
                 rc = 3;
                 goto exit;
         }
 
         if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
-                fprintf(stderr, "error binding udev control socket\n");
                 log_error("error binding udev control socket");
                 rc = 1;
                 goto exit;
@@ -1242,7 +1235,6 @@ int main(int argc, char *argv[]) {
 
         fd_inotify = udev_watch_init(udev);
         if (fd_inotify < 0) {
-                fprintf(stderr, "error initializing inotify\n");
                 log_error("error initializing inotify");
                 rc = 4;
                 goto exit;
@@ -1254,7 +1246,6 @@ int main(int argc, char *argv[]) {
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
         fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (fd_signal < 0) {
-                fprintf(stderr, "error creating signalfd\n");
                 log_error("error creating signalfd");
                 rc = 5;
                 goto exit;
@@ -1262,7 +1253,6 @@ int main(int argc, char *argv[]) {
 
         /* unnamed socket from workers to the main daemon */
         if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
-                fprintf(stderr, "error creating socketpair\n");
                 log_error("error creating socketpair");
                 rc = 6;
                 goto exit;
