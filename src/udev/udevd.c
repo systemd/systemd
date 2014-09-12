@@ -54,8 +54,6 @@
 #include "dev-setup.h"
 #include "fileio.h"
 
-static bool debug;
-
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args) {
@@ -72,10 +70,13 @@ static int fd_inotify = -1;
 static bool stop_exec_queue;
 static bool reload;
 static int children;
-static int children_max;
-static int exec_delay;
-static usec_t event_timeout_usec = 180 * USEC_PER_SEC;
-static usec_t event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
+static bool arg_debug = false;
+static int arg_daemonize = false;
+static int arg_resolve_names = 1;
+static int arg_children_max;
+static int arg_exec_delay;
+static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
+static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
@@ -274,8 +275,8 @@ static void worker_new(struct event *event) {
                         /* needed for SIGCHLD/SIGTERM in spawn() */
                         udev_event->fd_signal = fd_signal;
 
-                        if (exec_delay > 0)
-                                udev_event->exec_delay = exec_delay;
+                        if (arg_exec_delay > 0)
+                                udev_event->exec_delay = arg_exec_delay;
 
                         /*
                          * Take a shared lock on the device node; this establishes
@@ -309,9 +310,9 @@ static void worker_new(struct event *event) {
                         udev_event->rtnl = rtnl;
 
                         /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event, event_timeout_usec, event_timeout_warn_usec, rules, &sigmask_orig);
+                        udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, rules, &sigmask_orig);
 
-                        udev_event_execute_run(udev_event, event_timeout_usec, event_timeout_warn_usec, &sigmask_orig);
+                        udev_event_execute_run(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, &sigmask_orig);
 
                         /* in case rtnl was initialized */
                         rtnl = sd_rtnl_ref(udev_event->rtnl);
@@ -441,8 +442,8 @@ static void event_run(struct event *event) {
                 return;
         }
 
-        if (children >= children_max) {
-                if (children_max > 1)
+        if (children >= arg_children_max) {
+                if (arg_children_max > 1)
                         log_debug("maximum number (%i) of children reached", children);
                 return;
         }
@@ -692,7 +693,7 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl) {
         i = udev_ctrl_get_set_children_max(ctrl_msg);
         if (i >= 0) {
                 log_debug("udevd message (SET_MAX_CHILDREN) received, children_max=%i", i);
-                children_max = i;
+                arg_children_max = i;
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
@@ -985,12 +986,12 @@ static void kernel_cmdline_options(struct udev *udev) {
                         log_set_max_level(prio);
                         udev_set_log_priority(udev, prio);
                 } else if (startswith(opt, "udev.children-max=")) {
-                        children_max = strtoul(opt + 18, NULL, 0);
+                        arg_children_max = strtoul(opt + 18, NULL, 0);
                 } else if (startswith(opt, "udev.exec-delay=")) {
-                        exec_delay = strtoul(opt + 16, NULL, 0);
+                        arg_exec_delay = strtoul(opt + 16, NULL, 0);
                 } else if (startswith(opt, "udev.event-timeout=")) {
-                        event_timeout_usec = strtoul(opt + 16, NULL, 0) * USEC_PER_SEC;
-                        event_timeout_warn_usec = (event_timeout_usec / 3) ? : 1;
+                        arg_event_timeout_usec = strtoul(opt + 16, NULL, 0) * USEC_PER_SEC;
+                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
                 }
 
                 free(s);
@@ -1011,28 +1012,83 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
+static int parse_argv(int argc, char *argv[]) {
+        static const struct option options[] = {
+                { "daemon",             no_argument,            NULL, 'd' },
+                { "debug",              no_argument,            NULL, 'D' },
+                { "children-max",       required_argument,      NULL, 'c' },
+                { "exec-delay",         required_argument,      NULL, 'e' },
+                { "event-timeout",      required_argument,      NULL, 't' },
+                { "resolve-names",      required_argument,      NULL, 'N' },
+                { "help",               no_argument,            NULL, 'h' },
+                { "version",            no_argument,            NULL, 'V' },
+                {}
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "c:de:DtN:hV", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'd':
+                        arg_daemonize = true;
+                        break;
+                case 'c':
+                        arg_children_max = strtoul(optarg, NULL, 0);
+                        break;
+                case 'e':
+                        arg_exec_delay = strtoul(optarg, NULL, 0);
+                        break;
+                case 't':
+                        arg_event_timeout_usec = strtoul(optarg, NULL, 0) * USEC_PER_SEC;
+                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
+                        break;
+                case 'D':
+                        arg_debug = true;
+                        break;
+                case 'N':
+                        if (streq(optarg, "early")) {
+                                arg_resolve_names = 1;
+                        } else if (streq(optarg, "late")) {
+                                arg_resolve_names = 0;
+                        } else if (streq(optarg, "never")) {
+                                arg_resolve_names = -1;
+                        } else {
+                                fprintf(stderr, "resolve-names must be early, late or never\n");
+                                log_error("resolve-names must be early, late or never");
+                                return 0;
+                        }
+                        break;
+                case 'h':
+                        help();
+                        return 0;
+                case 'V':
+                        printf("%s\n", VERSION);
+                        return 0;
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached("Unhandled option");
+
+                }
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         struct udev *udev;
         sigset_t mask;
-        int daemonize = false;
-        int resolve_names = 1;
-        static const struct option options[] = {
-                { "daemon", no_argument, NULL, 'd' },
-                { "debug", no_argument, NULL, 'D' },
-                { "children-max", required_argument, NULL, 'c' },
-                { "exec-delay", required_argument, NULL, 'e' },
-                { "event-timeout", required_argument, NULL, 't' },
-                { "resolve-names", required_argument, NULL, 'N' },
-                { "help", no_argument, NULL, 'h' },
-                { "version", no_argument, NULL, 'V' },
-                {}
-        };
         int fd_ctrl = -1;
         int fd_netlink = -1;
         int fd_worker = -1;
         struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
         struct udev_ctrl_connection *ctrl_conn = NULL;
-        int rc = 1;
+        int rc = 1, r;
 
         udev = udev_new();
         if (udev == NULL)
@@ -1048,57 +1104,16 @@ int main(int argc, char *argv[]) {
         log_debug("version %s", VERSION);
         label_init("/dev");
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "c:de:DtN:hV", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
-                case 'd':
-                        daemonize = true;
-                        break;
-                case 'c':
-                        children_max = strtoul(optarg, NULL, 0);
-                        break;
-                case 'e':
-                        exec_delay = strtoul(optarg, NULL, 0);
-                        break;
-                case 't':
-                        event_timeout_usec = strtoul(optarg, NULL, 0) * USEC_PER_SEC;
-                        event_timeout_warn_usec = (event_timeout_usec / 3) ? : 1;
-                        break;
-                case 'D':
-                        debug = true;
-                        log_set_max_level(LOG_DEBUG);
-                        udev_set_log_priority(udev, LOG_DEBUG);
-                        break;
-                case 'N':
-                        if (streq(optarg, "early")) {
-                                resolve_names = 1;
-                        } else if (streq(optarg, "late")) {
-                                resolve_names = 0;
-                        } else if (streq(optarg, "never")) {
-                                resolve_names = -1;
-                        } else {
-                                fprintf(stderr, "resolve-names must be early, late or never\n");
-                                log_error("resolve-names must be early, late or never");
-                                goto exit;
-                        }
-                        break;
-                case 'h':
-                        help();
-                        goto exit;
-                case 'V':
-                        printf("%s\n", VERSION);
-                        goto exit;
-                default:
-                        goto exit;
-                }
-        }
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto exit;
 
         kernel_cmdline_options(udev);
+
+        if (arg_debug) {
+                log_set_max_level(LOG_DEBUG);
+                udev_set_log_priority(udev, LOG_DEBUG);
+        }
 
         if (getuid() != 0) {
                 fprintf(stderr, "root privileges required\n");
@@ -1115,7 +1130,7 @@ int main(int argc, char *argv[]) {
         dev_setup(NULL);
 
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */
-        if (daemonize) {
+        if (arg_daemonize) {
                 int fd;
 
                 fd = open("/dev/null", O_RDWR);
@@ -1188,7 +1203,7 @@ int main(int argc, char *argv[]) {
 
         udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
-        if (daemonize) {
+        if (arg_daemonize) {
                 pid_t pid;
 
                 pid = fork();
@@ -1213,7 +1228,7 @@ int main(int argc, char *argv[]) {
 
         log_info("starting version " VERSION "\n");
 
-        if (!debug) {
+        if (!arg_debug) {
                 int fd;
 
                 fd = open("/dev/null", O_RDWR);
@@ -1256,7 +1271,7 @@ int main(int argc, char *argv[]) {
 
         udev_builtin_init(udev);
 
-        rules = udev_rules_new(udev, resolve_names);
+        rules = udev_rules_new(udev, arg_resolve_names);
         if (rules == NULL) {
                 log_error("error reading rules");
                 goto exit;
@@ -1296,16 +1311,16 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        if (children_max <= 0) {
+        if (arg_children_max <= 0) {
                 cpu_set_t cpu_set;
 
-                children_max = 8;
+                arg_children_max = 8;
 
                 if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
-                        children_max +=  CPU_COUNT(&cpu_set) * 2;
+                        arg_children_max +=  CPU_COUNT(&cpu_set) * 2;
                 }
         }
-        log_debug("set children_max to %u", children_max);
+        log_debug("set children_max to %u", arg_children_max);
 
         rc = udev_rules_apply_static_dev_perms(rules);
         if (rc < 0)
@@ -1401,8 +1416,8 @@ int main(int argc, char *argv[]) {
 
                                 ts = now(CLOCK_MONOTONIC);
 
-                                if ((ts - worker->event_start_usec) > event_timeout_warn_usec) {
-                                        if ((ts - worker->event_start_usec) > event_timeout_usec) {
+                                if ((ts - worker->event_start_usec) > arg_event_timeout_warn_usec) {
+                                        if ((ts - worker->event_start_usec) > arg_event_timeout_usec) {
                                                 log_error("worker [%u] %s timeout; kill it", worker->pid, worker->event->devpath);
                                                 kill(worker->pid, SIGKILL);
                                                 worker->state = WORKER_KILLED;
@@ -1473,7 +1488,7 @@ int main(int argc, char *argv[]) {
                 if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue) {
                         udev_builtin_init(udev);
                         if (rules == NULL)
-                                rules = udev_rules_new(udev, resolve_names);
+                                rules = udev_rules_new(udev, arg_resolve_names);
                         if (rules != NULL)
                                 event_queue_start(udev);
                 }
