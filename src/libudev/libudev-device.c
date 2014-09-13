@@ -161,7 +161,7 @@ _public_ dev_t udev_device_get_devnum(struct udev_device *udev_device)
         return udev_device->devnum;
 }
 
-static int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
+int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 {
         char num[32];
 

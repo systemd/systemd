@@ -59,6 +59,7 @@ uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
 gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
+int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);

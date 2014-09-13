@@ -813,6 +813,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (event->dev_db != NULL) {
                         udev_device_set_syspath(event->dev_db, udev_device_get_syspath(dev));
                         udev_device_set_subsystem(event->dev_db, udev_device_get_subsystem(dev));
+                        udev_device_set_devnum(event->dev_db, udev_device_get_devnum(dev));
                         udev_device_read_db(event->dev_db, NULL);
                         udev_device_set_info_loaded(event->dev_db);
 
