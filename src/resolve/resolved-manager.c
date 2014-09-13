@@ -1687,6 +1687,9 @@ fail:
         return r;
 }
 
+/* lo having ifindex 1 is hardcoded in the kernel */
+#define LOOPBACK_IFINDEX 1
+
 int manager_ifindex_is_loopback(Manager *m, int ifindex) {
         Link *l;
         assert(m);
@@ -1695,7 +1698,10 @@ int manager_ifindex_is_loopback(Manager *m, int ifindex) {
                 return -EINVAL;
 
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
-        if (l->flags & IFF_LOOPBACK)
+        if (!l)
+                /* in case we don't yet track the link, rely on the hardcoded value */
+                return ifindex == LOOPBACK_IFINDEX;
+        else if (l->flags & IFF_LOOPBACK)
                 return 1;
 
         return 0;
