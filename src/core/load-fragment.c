@@ -1369,7 +1369,7 @@ int config_parse_timer(const char *unit,
         v = new0(TimerValue, 1);
         if (!v) {
                 if (c)
-                        free(c);
+                        calendar_spec_free(c);
                 return log_oom();
         }
 
