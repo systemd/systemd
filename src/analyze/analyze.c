@@ -848,7 +848,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         char ts[FORMAT_TIMESPAN_MAX];
         struct unit_times *times;
         int r;
-        const char *path, *id;
+        const char *id;
+        _cleanup_free_ char *path = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         struct boot_times *boot;
