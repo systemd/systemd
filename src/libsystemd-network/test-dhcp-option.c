@@ -100,9 +100,9 @@ static void test_message_init(void)
         magic = (uint8_t*)&message->magic;
 
         assert_se(magic[0] == 99);
-        assert_se(magic[1] = 130);
-        assert_se(magic[2] = 83);
-        assert_se(magic[3] = 99);
+        assert_se(magic[1] == 130);
+        assert_se(magic[2] == 83);
+        assert_se(magic[3] == 99);
 
         assert_se(dhcp_option_parse(message, len, NULL, NULL) >= 0);
 }
