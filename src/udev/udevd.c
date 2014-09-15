@@ -986,11 +986,20 @@ static void kernel_cmdline_options(struct udev *udev) {
                         log_set_max_level(prio);
                         udev_set_log_priority(udev, prio);
                 } else if (startswith(opt, "udev.children-max=")) {
-                        arg_children_max = strtoul(opt + 18, NULL, 0);
+                        r = safe_atoi(opt + 18, &arg_children_max);
+                        if (r < 0)
+                                log_warning("Invalid udev.children-max ignored: %s", opt + 18);
                 } else if (startswith(opt, "udev.exec-delay=")) {
-                        arg_exec_delay = strtoul(opt + 16, NULL, 0);
+                        r = safe_atoi(opt + 16, &arg_exec_delay);
+                        if (r < 0)
+                                log_warning("Invalid udev.exec-delay ignored: %s", opt + 16);
                 } else if (startswith(opt, "udev.event-timeout=")) {
-                        arg_event_timeout_usec = strtoul(opt + 16, NULL, 0) * USEC_PER_SEC;
+                        r = safe_atou64(opt + 16, &arg_event_timeout_usec);
+                        if (r < 0) {
+                                log_warning("Invalid udev.event-timeout ignored: %s", opt + 16);
+                                break;
+                        }
+                        arg_event_timeout_usec *= USEC_PER_SEC;
                         arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
                 }
 
@@ -1031,6 +1040,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "c:de:DtN:hV", options, NULL)) >= 0) {
+                int r;
 
                 switch (c) {
 
@@ -1038,13 +1048,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_daemonize = true;
                         break;
                 case 'c':
-                        arg_children_max = strtoul(optarg, NULL, 0);
+                        safe_atoi(optarg, &arg_children_max);
                         break;
                 case 'e':
-                        arg_exec_delay = strtoul(optarg, NULL, 0);
+                        safe_atoi(optarg, &arg_exec_delay);
                         break;
                 case 't':
-                        arg_event_timeout_usec = strtoul(optarg, NULL, 0) * USEC_PER_SEC;
+                        r = safe_atou64(optarg, &arg_event_timeout_usec);
+                        if (r < 0)
+                                break;
+                        arg_event_timeout_usec *= USEC_PER_SEC;
                         arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
                         break;
                 case 'D':
