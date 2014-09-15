@@ -1072,8 +1072,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 _cleanup_free_ char *tmp;
 
                                 tmp = cescape(buf);
-                                log_error("invalid key/value pair in file %s on line %u,"
-                                          "starting at character %tu ('%s')\n",
+                                log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')\n",
                                           filename, lineno, linepos - line + 1, tmp);
                                 if (linepos[1] == '#')
                                         log_error("hint: comments can only start at beginning of line");
