@@ -368,11 +368,11 @@ int sysview_seat_new(sysview_seat **out, sysview_context *c, const char *name) {
         if (!seat->name)
                 return -ENOMEM;
 
-        seat->session_map = hashmap_new(string_hash_func, string_compare_func);
+        seat->session_map = hashmap_new(&string_hash_ops);
         if (!seat->session_map)
                 return -ENOMEM;
 
-        seat->device_map = hashmap_new(string_hash_func, string_compare_func);
+        seat->device_map = hashmap_new(&string_hash_ops);
         if (!seat->device_map)
                 return -ENOMEM;
 
@@ -767,15 +767,15 @@ int sysview_context_new(sysview_context **out,
                         return errno > 0 ? -errno : -EFAULT;
         }
 
-        c->seat_map = hashmap_new(string_hash_func, string_compare_func);
+        c->seat_map = hashmap_new(&string_hash_ops);
         if (!c->seat_map)
                 return -ENOMEM;
 
-        c->session_map = hashmap_new(string_hash_func, string_compare_func);
+        c->session_map = hashmap_new(&string_hash_ops);
         if (!c->session_map)
                 return -ENOMEM;
 
-        c->device_map = hashmap_new(string_hash_func, string_compare_func);
+        c->device_map = hashmap_new(&string_hash_ops);
         if (!c->device_map)
                 return -ENOMEM;
 

@@ -454,11 +454,11 @@ int idev_session_new(idev_session **out,
                         return r;
         }
 
-        s->element_map = hashmap_new(string_hash_func, string_compare_func);
+        s->element_map = hashmap_new(&string_hash_ops);
         if (!s->element_map)
                 return -ENOMEM;
 
-        s->device_map = hashmap_new(string_hash_func, string_compare_func);
+        s->device_map = hashmap_new(&string_hash_ops);
         if (!s->device_map)
                 return -ENOMEM;
 
@@ -647,11 +647,11 @@ int idev_context_new(idev_context **out, sd_event *event, sd_bus *sysbus) {
         if (sysbus)
                 c->sysbus = sd_bus_ref(sysbus);
 
-        c->session_map = hashmap_new(string_hash_func, string_compare_func);
+        c->session_map = hashmap_new(&string_hash_ops);
         if (!c->session_map)
                 return -ENOMEM;
 
-        c->data_map = hashmap_new(string_hash_func, string_compare_func);
+        c->data_map = hashmap_new(&string_hash_ops);
         if (!c->data_map)
                 return -ENOMEM;
 
