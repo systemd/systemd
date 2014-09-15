@@ -263,7 +263,7 @@ static int session_take_control_fn(sd_bus *bus,
 
                 log_debug("sysview: %s: TakeControl failed: %s: %s",
                           session->name, e->name, e->message);
-                error = sd_bus_error_get_errno(e);
+                error = -sd_bus_error_get_errno(e);
         } else {
                 session->has_control = true;
                 error = 0;
@@ -1195,7 +1195,7 @@ static int context_ld_list_seats_fn(sd_bus *bus,
 
                 log_debug("sysview: ListSeats on logind failed: %s: %s",
                           error->name, error->message);
-                return sd_bus_error_get_errno(error);
+                return -sd_bus_error_get_errno(error);
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(so)");
@@ -1247,7 +1247,7 @@ static int context_ld_list_sessions_fn(sd_bus *bus,
 
                 log_debug("sysview: ListSessions on logind failed: %s: %s",
                           error->name, error->message);
-                return sd_bus_error_get_errno(error);
+                return -sd_bus_error_get_errno(error);
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(susso)");
