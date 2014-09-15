@@ -162,13 +162,8 @@ int util_log_priority(const char *priority)
         prio = strtol(priority, &endptr, 10);
         if (endptr[0] == '\0' || isspace(endptr[0]))
                 return prio;
-        if (startswith(priority, "err"))
-                return LOG_ERR;
-        if (startswith(priority, "info"))
-                return LOG_INFO;
-        if (startswith(priority, "debug"))
-                return LOG_DEBUG;
-        return 0;
+
+        return log_level_from_string(priority);
 }
 
 size_t util_path_encode(const char *src, char *dest, size_t size)
