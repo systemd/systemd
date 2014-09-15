@@ -5337,7 +5337,7 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
 }
 
 _public_ int sd_bus_message_get_errno(sd_bus_message *m) {
-        assert_return(m, -EINVAL);
+        assert_return(m, EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;

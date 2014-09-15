@@ -349,8 +349,6 @@ static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd
         assert(reply);
 
         r = sd_bus_message_get_errno(reply);
-        if (r < 0)
-                return r;
         if (r > 0)
                 return -r;
 

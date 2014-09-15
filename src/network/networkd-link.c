@@ -725,8 +725,6 @@ static int set_hostname_handler(sd_bus *bus, sd_bus_message *m, void *userdata,
                 return 1;
 
         r = sd_bus_message_get_errno(m);
-        if (r < 0)
-                r = -r;
         if (r > 0)
                 log_warning_link(link, "Could not set hostname: %s",
                                  strerror(r));
