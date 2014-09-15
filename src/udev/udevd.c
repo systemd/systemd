@@ -1199,6 +1199,20 @@ int main(int argc, char *argv[]) {
 
         udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
+        log_info("starting version " VERSION "\n");
+
+        udev_builtin_init(udev);
+
+        rules = udev_rules_new(udev, arg_resolve_names);
+        if (rules == NULL) {
+                log_error("error reading rules");
+                goto exit;
+        }
+
+        rc = udev_rules_apply_static_dev_perms(rules);
+        if (rc < 0)
+                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
+
         if (arg_daemonize) {
                 pid_t pid;
 
@@ -1221,20 +1235,6 @@ int main(int argc, char *argv[]) {
         } else {
                 sd_notify(1, "READY=1");
         }
-
-        log_info("starting version " VERSION "\n");
-
-        udev_builtin_init(udev);
-
-        rules = udev_rules_new(udev, arg_resolve_names);
-        if (rules == NULL) {
-                log_error("error reading rules");
-                goto exit;
-        }
-
-        rc = udev_rules_apply_static_dev_perms(rules);
-        if (rc < 0)
-                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
 
         if (arg_children_max <= 0) {
                 cpu_set_t cpu_set;
