@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <getopt.h>
-#include <error.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
