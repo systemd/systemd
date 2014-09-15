@@ -179,7 +179,6 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 
 /* manage "stack of names" with possibly specified device priorities */
 static void link_update(struct udev_device *dev, const char *slink, bool add) {
-        struct udev *udev = udev_device_get_udev(dev);
         char name_enc[UTIL_PATH_SIZE];
         char filename[UTIL_PATH_SIZE * 2];
         char dirname[UTIL_PATH_SIZE];
@@ -197,7 +196,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
         if (target == NULL) {
                 log_debug("no reference left, remove '%s'", slink);
                 if (unlink(slink) == 0)
-                        util_delete_path(udev, slink);
+                        rmdir_parents(slink, "/");
         } else {
                 log_debug("creating link '%s' to '%s'", slink, target);
                 node_symlink(dev, target, slink);

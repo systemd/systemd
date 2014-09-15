@@ -45,38 +45,6 @@
  * Utilities useful when dealing with devices and device node names.
  */
 
-int util_delete_path(struct udev *udev, const char *path)
-{
-        char p[UTIL_PATH_SIZE];
-        char *pos;
-        int err = 0;
-
-        if (path[0] == '/')
-                while(path[1] == '/')
-                        path++;
-        strscpy(p, sizeof(p), path);
-        pos = strrchr(p, '/');
-        if (pos == p || pos == NULL)
-                return 0;
-
-        for (;;) {
-                *pos = '\0';
-                pos = strrchr(p, '/');
-
-                /* don't remove the last one */
-                if ((pos == p) || (pos == NULL))
-                        break;
-
-                err = rmdir(p);
-                if (err < 0) {
-                        if (errno == ENOENT)
-                                err = 0;
-                        break;
-                }
-        }
-        return err;
-}
-
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                                char *result, size_t maxsize, int read_value)

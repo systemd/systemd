@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
                         mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
                 } else {
                         unlink(udev_device_get_devnode(dev));
-                        util_delete_path(udev, udev_device_get_devnode(dev));
+                        rmdir_parents(udev_device_get_devnode(dev), "/");
                 }
         }
 
