@@ -2751,8 +2751,10 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
 
         if (!strv_isempty(plus)) {
                 b = strv_env_merge(2, l, plus);
-                if (!b)
+                if (!b) {
+                        strv_free(a);
                         return -ENOMEM;
+                }
 
                 l = b;
         }
