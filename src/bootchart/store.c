@@ -399,7 +399,7 @@ schedstat_next:
                         continue;
 
                 ps->sample->next = new0(struct ps_sched_struct, 1);
-                if (!ps->sample) {
+                if (!ps->sample->next) {
                         log_oom();
                         exit(EXIT_FAILURE);
                 }
