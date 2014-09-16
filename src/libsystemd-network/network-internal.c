@@ -199,7 +199,6 @@ int config_parse_ifname(const char *unit,
         if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                free(n);
                 return 0;
         }
 
