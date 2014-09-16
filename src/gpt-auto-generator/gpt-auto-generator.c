@@ -124,7 +124,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
                 return log_oom();
 
         p = strjoin(arg_dest, "/", n, NULL);
-        if (!n)
+        if (!p)
                 return log_oom();
 
         f = fopen(p, "wxe");
