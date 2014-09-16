@@ -251,6 +251,7 @@ schedstat_next:
                         _cleanup_fclose_ FILE *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
+                        int r;
 
                         ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps) {
@@ -310,7 +311,11 @@ schedstat_next:
                         if (!sscanf(m, "%*s %*s %s", t))
                                 continue;
 
-                        ps->starttime = strtod(t, NULL) / 1000.0;
+                        r = safe_atod(t, &ps->starttime);
+                        if (r < 0)
+                                continue;
+
+                        ps->starttime /= 1000.0;
 
                         if (arg_show_cgroup)
                                 /* if this fails, that's OK */
