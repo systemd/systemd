@@ -804,7 +804,7 @@ int journal_file_verify(
         usec_t last_usec = 0;
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         unsigned i;
-        bool found_last;
+        bool found_last = false;
 #ifdef HAVE_GCRYPT
         uint64_t last_tag = 0;
 #endif
