@@ -114,9 +114,9 @@ static int add_symlink(const char *service, const char *where) {
 }
 
 static int generate_unit_file(SysvStub *s) {
-        char *unit;
         char **p;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *before = NULL;
         _cleanup_free_ char *after = NULL;
         _cleanup_free_ char *wants = NULL;
