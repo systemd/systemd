@@ -325,7 +325,7 @@ static void test_write_string_file(void) {
 
         assert_se(write_string_file(fn, "boohoo") == 0);
 
-        assert_se(read(fd, buf, sizeof(buf)));
+        assert_se(read(fd, buf, sizeof(buf)) == 7);
         assert_se(streq(buf, "boohoo\n"));
 
         unlink(fn);
