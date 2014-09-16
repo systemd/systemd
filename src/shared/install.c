@@ -1025,8 +1025,10 @@ static int config_parse_default_instance(
         if (r < 0)
                 return r;
 
-        if (!unit_instance_is_valid(printed))
+        if (!unit_instance_is_valid(printed)) {
+                free(printed);
                 return -EINVAL;
+        }
 
         free(i->default_instance);
         i->default_instance = printed;
