@@ -314,11 +314,7 @@ static int idev_evdev_resume(idev_evdev *evdev, int dev_fd) {
                 return -EACCES;
 
         evdev->element.readable = true;
-        evdev->element.writable = true;
-        if (flags == O_RDONLY)
-                evdev->element.writable = false;
-        else if (flags == O_WRONLY)
-                evdev->element.readable = false;
+        evdev->element.writable = !(flags & O_RDONLY);
 
         /*
          * TODO: We *MUST* re-sync the device so we get a delta of the changed
