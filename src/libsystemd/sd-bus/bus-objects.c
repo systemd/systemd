@@ -820,19 +820,6 @@ static int property_get_all_callbacks_run(
         return 1;
 }
 
-static bool bus_node_with_object_manager(sd_bus *bus, struct node *n) {
-        assert(bus);
-        assert(n);
-
-        if (n->object_managers)
-                return true;
-
-        if (n->parent)
-                return bus_node_with_object_manager(bus, n->parent);
-
-        return false;
-}
-
 static bool bus_node_exists(
                 sd_bus *bus,
                 struct node *n,
@@ -902,7 +889,7 @@ static int process_introspect(
         if (r < 0)
                 return r;
 
-        r = introspect_write_default_interfaces(&intro, bus_node_with_object_manager(bus, n));
+        r = introspect_write_default_interfaces(&intro, !require_fallback && n->object_managers);
         if (r < 0)
                 return r;
 
@@ -1142,7 +1129,8 @@ static int process_get_managed_objects(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_set_free_free_ Set *s = NULL;
-        bool empty;
+        Iterator i;
+        char *path;
         int r;
 
         assert(bus);
@@ -1150,7 +1138,11 @@ static int process_get_managed_objects(
         assert(n);
         assert(found_object);
 
-        if (!bus_node_with_object_manager(bus, n))
+        /* Spec says, GetManagedObjects() is only implemented on the root of a
+         * sub-tree. Therefore, we require a registered object-manager on
+         * exactly the queried path, otherwise, we refuse to respond. */
+
+        if (require_fallback || !n->object_managers)
                 return 0;
 
         r = get_child_nodes(bus, m->path, n, &s, &error);
@@ -1167,42 +1159,13 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        empty = set_isempty(s);
-        if (empty) {
-                struct node_vtable *c;
+        SET_FOREACH(path, s, i) {
+                r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
+                if (r < 0)
+                        return r;
 
-                /* Hmm, so we have no children? Then let's check
-                 * whether we exist at all, i.e. whether at least one
-                 * vtable exists. */
-
-                LIST_FOREACH(vtables, c, n->vtables) {
-
-                        if (require_fallback && !c->is_fallback)
-                                continue;
-
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        empty = false;
-                        break;
-                }
-
-                if (empty)
+                if (bus->nodes_modified)
                         return 0;
-        } else {
-                Iterator i;
-                char *path;
-
-                SET_FOREACH(path, s, i) {
-                        r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
-                        if (r < 0)
-                                return r;
-
-                        if (bus->nodes_modified)
-                                return 0;
-                }
         }
 
         r = sd_bus_message_close_container(reply);
