@@ -1575,7 +1575,7 @@ invalid:
 }
 
 static int parse_file(struct udev_rules *rules, const char *filename) {
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         unsigned int first_token;
         unsigned int filename_off;
         char line[UTIL_LINE_SIZE];
@@ -1633,7 +1633,6 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
                 }
                 add_rule(rules, key, filename, filename_off, line_nr);
         }
-        fclose(f);
 
         /* link GOTOs to LABEL rules in this file to be able to fast-forward */
         for (i = first_token+1; i < rules->token_cur; i++) {
