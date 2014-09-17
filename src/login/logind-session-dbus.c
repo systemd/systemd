@@ -249,7 +249,7 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
                 return r;
 
         if (uid != 0 && uid != s->user->uid)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session my set idle hint");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may set idle hint");
 
         session_set_idle_hint(s, b);
 
