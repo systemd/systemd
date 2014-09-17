@@ -178,7 +178,7 @@ static int dhcp_lease_lost(Link *link) {
         struct in_addr addr;
         struct in_addr netmask;
         struct in_addr gateway;
-        unsigned prefixlen;
+        unsigned prefixlen = 0;
         int r;
 
         assert(link);
@@ -237,15 +237,18 @@ static int dhcp_lease_lost(Link *link) {
                         }
                 }
 
-                sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
-                sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
-                prefixlen = in_addr_netmask_to_prefixlen(&netmask);
+                r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
+                if (r >= 0) {
+                        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+                        if (r >= 0)
+                                prefixlen = in_addr_netmask_to_prefixlen(&netmask);
 
-                address->family = AF_INET;
-                address->in_addr.in = addr;
-                address->prefixlen = prefixlen;
+                        address->family = AF_INET;
+                        address->in_addr.in = addr;
+                        address->prefixlen = prefixlen;
 
-                address_drop(address, link, &link_address_drop_handler);
+                       address_drop(address, link, &link_address_drop_handler);
+                }
         }
 
         if (link->network->dhcp_mtu) {
