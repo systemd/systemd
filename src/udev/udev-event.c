@@ -494,6 +494,9 @@ static void spawn_read(struct udev_event *event,
                 for (i = 0; i < fdcount; i++) {
                         int *fd = (int *)ev[i].data.ptr;
 
+                        if (*fd < 0)
+                                continue;
+
                         if (ev[i].events & EPOLLIN) {
                                 ssize_t count;
                                 char buf[4096];
