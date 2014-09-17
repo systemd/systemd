@@ -179,6 +179,9 @@ int log_syntax_internal(const char *unit, int level,
                 assert(data);                                                  \
                                                                                \
                 xs = new0(type, 1);                                            \
+                if(!xs)                                                        \
+                        return -ENOMEM;                                        \
+                                                                               \
                 *xs = invalid;                                                 \
                                                                                \
                 FOREACH_WORD(word, l, rvalue, state) {                         \
@@ -211,6 +214,7 @@ int log_syntax_internal(const char *unit, int level,
                         xs = realloc(xs, (++i + 1) * sizeof(type));            \
                         if (!xs)                                               \
                                 return -ENOMEM;                                \
+                                                                               \
                         *(xs + i) = invalid;                                   \
                 }                                                              \
                                                                                \
