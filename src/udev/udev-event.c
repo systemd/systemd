@@ -422,9 +422,17 @@ static void spawn_read(struct udev_event *event,
                        const char *cmd,
                        int fd_stdout, int fd_stderr,
                        char *result, size_t ressize) {
+        _cleanup_close_ int fd_ep = -1;
+        struct epoll_event ep_outpipe = {
+                .events = EPOLLIN,
+                .data.ptr = &fd_stdout,
+        };
+        struct epoll_event ep_errpipe = {
+                .events = EPOLLIN,
+                .data.ptr = &fd_stderr,
+        };
         size_t respos = 0;
-        int fd_ep = -1;
-        struct epoll_event ep_outpipe, ep_errpipe;
+        int r;
 
         /* read from child if requested */
         if (fd_stdout < 0 && fd_stderr < 0)
@@ -433,26 +441,22 @@ static void spawn_read(struct udev_event *event,
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
                 log_error("error creating epoll fd: %m");
-                goto out;
+                return;
         }
 
         if (fd_stdout >= 0) {
-                memzero(&ep_outpipe, sizeof(struct epoll_event));
-                ep_outpipe.events = EPOLLIN;
-                ep_outpipe.data.ptr = &fd_stdout;
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe) < 0) {
-                        log_error("fail to add fd to epoll: %m");
-                        goto out;
+                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe);
+                if (r < 0) {
+                        log_error("fail to add stdout fd to epoll: %m");
+                        return;
                 }
         }
 
         if (fd_stderr >= 0) {
-                memzero(&ep_errpipe, sizeof(struct epoll_event));
-                ep_errpipe.events = EPOLLIN;
-                ep_errpipe.data.ptr = &fd_stderr;
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe) < 0) {
-                        log_error("fail to add fd to epoll: %m");
-                        goto out;
+                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe);
+                if (r < 0) {
+                        log_error("fail to add stderr fd to epoll: %m");
+                        return;
                 }
         }
 
@@ -469,7 +473,7 @@ static void spawn_read(struct udev_event *event,
                         age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
                         if (age_usec >= timeout_usec) {
                                 log_error("timeout '%s'", cmd);
-                                goto out;
+                                return;
                         }
                         timeout = ((timeout_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
                 } else {
@@ -481,11 +485,10 @@ static void spawn_read(struct udev_event *event,
                         if (errno == EINTR)
                                 continue;
                         log_error("failed to poll: %m");
-                        goto out;
-                }
-                if (fdcount == 0) {
+                        return;
+                } else if (fdcount == 0) {
                         log_error("timeout '%s'", cmd);
-                        goto out;
+                        return;
                 }
 
                 for (i = 0; i < fdcount; i++) {
@@ -522,9 +525,10 @@ static void spawn_read(struct udev_event *event,
                                         }
                                 }
                         } else if (ev[i].events & EPOLLHUP) {
-                                if (epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL) < 0) {
+                                r = epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL);
+                                if (r < 0) {
                                         log_error("failed to remove fd from epoll: %m");
-                                        goto out;
+                                        return;
                                 }
                                 *fd = -1;
                         }
@@ -534,9 +538,6 @@ static void spawn_read(struct udev_event *event,
         /* return the child's stdout string */
         if (result != NULL)
                 result[respos] = '\0';
-out:
-        if (fd_ep >= 0)
-                close(fd_ep);
 }
 
 static int spawn_wait(struct udev_event *event,
