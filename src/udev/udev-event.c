@@ -376,8 +376,7 @@ out:
 static int spawn_exec(struct udev_event *event,
                       const char *cmd, char *const argv[], char **envp, const sigset_t *sigmask,
                       int fd_stdout, int fd_stderr) {
-        int err;
-        int fd;
+        _cleanup_close_ int fd = -1;
 
         /* discard child output or connect to pipe */
         fd = open("/dev/null", O_RDWR);
@@ -387,19 +386,17 @@ static int spawn_exec(struct udev_event *event,
                         dup2(fd, STDOUT_FILENO);
                 if (fd_stderr < 0)
                         dup2(fd, STDERR_FILENO);
-                close(fd);
-        } else {
+        } else
                 log_error("open /dev/null failed: %m");
-        }
 
         /* connect pipes to std{out,err} */
         if (fd_stdout >= 0) {
                 dup2(fd_stdout, STDOUT_FILENO);
-                        close(fd_stdout);
+                safe_close(fd_stdout);
         }
         if (fd_stderr >= 0) {
                 dup2(fd_stderr, STDERR_FILENO);
-                close(fd_stderr);
+                safe_close(fd_stderr);
         }
 
         /* terminate child in case parent goes away */
@@ -412,9 +409,9 @@ static int spawn_exec(struct udev_event *event,
         execve(argv[0], argv, envp);
 
         /* exec failed */
-        err = -errno;
         log_error("failed to execute '%s' '%s': %m", argv[0], cmd);
-        return err;
+
+        return -errno;
 }
 
 static void spawn_read(struct udev_event *event,
