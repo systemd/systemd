@@ -219,7 +219,7 @@ static void help(void) {
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n"
+               "     --prefix=PATH      Only apply rules with the specified prefix\n"
                , program_invocation_short_name);
 }
 
@@ -258,11 +258,19 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PREFIX: {
                         char *p;
 
-                        for (p = optarg; *p; p++)
-                                if (*p == '.')
-                                        *p = '/';
+                        /* We used to require people to specify absolute paths
+                         * in /proc/sys in the past. This is kinda useless, but
+                         * we need to keep compatibility. We now support any
+                         * sysctl name available. */
+                        normalize_sysctl(optarg);
+                        if (startswith(optarg, "/proc/sys"))
+                                p = strdup(optarg);
+                        else
+                                p = strappend("/proc/sys/", optarg);
 
-                        if (strv_extend(&arg_prefixes, optarg) < 0)
+                        if (!p)
+                                return log_oom();
+                        if (strv_consume(&arg_prefixes, p) < 0)
                                 return log_oom();
 
                         break;
