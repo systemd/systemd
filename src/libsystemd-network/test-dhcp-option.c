@@ -115,6 +115,7 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
         size_t len = sizeof(DHCPMessage) + optlen;
 
         message = malloc0(len);
+        assert_se(message);
 
         if (options && optlen)
                 memcpy(&message->options, options, optlen);
