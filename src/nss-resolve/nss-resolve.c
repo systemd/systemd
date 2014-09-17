@@ -466,11 +466,6 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         goto fail;
                 }
 
-                if (ifindex < 0) {
-                        r = -EINVAL;
-                        goto fail;
-                }
-
                 memcpy(r_addr + i*ALIGN(alen), a, alen);
                 i++;
         }
