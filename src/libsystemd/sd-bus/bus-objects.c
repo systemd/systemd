@@ -820,7 +820,7 @@ static int property_get_all_callbacks_run(
         return 1;
 }
 
-static bool bus_node_exists(
+static int bus_node_exists(
                 sd_bus *bus,
                 struct node *n,
                 const char *path,
@@ -828,6 +828,7 @@ static bool bus_node_exists(
 
         struct node_vtable *c;
         struct node_callback *k;
+        int r;
 
         assert(bus);
         assert(n);
@@ -836,11 +837,14 @@ static bool bus_node_exists(
         /* Tests if there's anything attached directly to this node
          * for the specified path */
 
+        if (!require_fallback && (n->enumerators || n->object_managers))
+                return true;
+
         LIST_FOREACH(callbacks, k, n->callbacks) {
                 if (require_fallback && !k->is_fallback)
                         continue;
 
-                return true;
+                return 1;
         }
 
         LIST_FOREACH(vtables, c, n->vtables) {
@@ -849,13 +853,14 @@ static bool bus_node_exists(
                 if (require_fallback && !c->is_fallback)
                         continue;
 
-                if (node_vtable_get_userdata(bus, path, c, NULL, &error) > 0)
-                        return true;
+                r = node_vtable_get_userdata(bus, path, c, NULL, &error);
+                if (r != 0)
+                        return r;
                 if (bus->nodes_modified)
-                        return false;
+                        return 0;
         }
 
-        return !require_fallback && (n->enumerators || n->object_managers);
+        return 0;
 }
 
 static int process_introspect(
@@ -938,12 +943,12 @@ static int process_introspect(
                 /* Nothing?, let's see if we exist at all, and if not
                  * refuse to do anything */
                 r = bus_node_exists(bus, n, m->path, require_fallback);
-                if (r < 0)
-                        return r;
-                if (bus->nodes_modified)
-                        return 0;
-                if (r == 0)
+                if (r <= 0)
                         goto finish;
+                if (bus->nodes_modified) {
+                        r = 0;
+                        goto finish;
+                }
         }
 
         *found_object = true;
@@ -1293,6 +1298,8 @@ static int object_find_and_run(
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
                 if (r > 0)
                         *found_object = true;
         }
