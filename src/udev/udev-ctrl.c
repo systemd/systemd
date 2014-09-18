@@ -205,7 +205,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         /* enable receiving of the sender credentials in the messages */
         r = setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
         if (r < 0)
-                log_warning("colud not set SO_PASSCRED: %m");
+                log_warning("could not set SO_PASSCRED: %m");
 
         udev_ctrl_ref(uctrl);
         return conn;

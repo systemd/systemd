@@ -1060,7 +1060,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 't':
                         r = safe_atou64(optarg, &arg_event_timeout_usec);
                         if (r < 0)
-                                log_warning("Invalig --event-timeout ignored: %s", optarg);
+                                log_warning("Invalid --event-timeout ignored: %s", optarg);
                         else {
                                 arg_event_timeout_usec *= USEC_PER_SEC;
                                 arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
