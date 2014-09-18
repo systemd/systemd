@@ -23,12 +23,6 @@
 #include <netinet/ether.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <linux/netlink.h>
-#include <linux/veth.h>
-#include <linux/if.h>
-#include <linux/ip.h>
-#include <linux/if_tunnel.h>
-#include <linux/if_bridge.h>
 
 #include "util.h"
 #include "refcnt.h"
