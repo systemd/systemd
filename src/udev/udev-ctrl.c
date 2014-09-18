@@ -73,6 +73,7 @@ struct udev_ctrl_connection {
 struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         struct udev_ctrl *uctrl;
         const int on = 1;
+        int r;
 
         uctrl = new0(struct udev_ctrl, 1);
         if (uctrl == NULL)
@@ -91,7 +92,9 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
                 uctrl->bound = true;
                 uctrl->sock = fd;
         }
-        setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        r = setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        if (r < 0)
+                log_warning("could not set SO_PASSCRED: %m");
 
         uctrl->saddr.sun_family = AF_LOCAL;
         strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
@@ -200,7 +203,10 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         }
 
         /* enable receiving of the sender credentials in the messages */
-        setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        r = setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        if (r < 0)
+                log_warning("colud not set SO_PASSCRED: %m");
+
         udev_ctrl_ref(uctrl);
         return conn;
 err:
