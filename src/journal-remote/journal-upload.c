@@ -191,7 +191,7 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_POST, 1L,
                             LOG_ERR, return -EXFULL);
 
-                easy_setopt(curl, CURLOPT_ERRORBUFFER, &u->error,
+                easy_setopt(curl, CURLOPT_ERRORBUFFER, u->error,
                             LOG_ERR, return -EXFULL);
 
                 /* set where to write to */
