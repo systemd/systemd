@@ -796,8 +796,8 @@ static int root_stat(const char *p, struct stat *st) {
 static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
         struct stat st;
         bool found_uid = false, found_gid = false;
-        uid_t uid;
-        gid_t gid;
+        uid_t uid = 0;
+        gid_t gid = 0;
 
         assert(i);
 
