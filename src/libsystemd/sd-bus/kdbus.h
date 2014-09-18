@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2013 Kay Sievers
- * Copyright (C) 2013 Greg Kroah-Hartman <gregkh@linuxfoundation.org>
- * Copyright (C) 2013 Linux Foundation
- * Copyright (C) 2013 Lennart Poettering
- * Copyright (C) 2013 Daniel Mack <daniel@zonque.org>
+ * Copyright (C) 2013-2014 Kay Sievers
+ * Copyright (C) 2013-2014 Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+ * Copyright (C) 2013-2014 Linux Foundation
+ * Copyright (C) 2013-2014 Lennart Poettering
+ * Copyright (C) 2013-2014 Daniel Mack <daniel@zonque.org>
  *
  * kdbus is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the
@@ -14,8 +14,8 @@
  *   -- Albert Einstein
  */
 
-#ifndef _KDBUS_H_
-#define _KDBUS_H_
+#ifndef _KDBUS_UAPI_H_
+#define _KDBUS_UAPI_H_
 
 #ifndef __KERNEL__
 #include <sys/ioctl.h>
@@ -126,7 +126,7 @@ struct kdbus_timestamp {
  *			relative to the message head
  *
  * Attached to:
- *   KDBUS_ITEM_PAYLOAD_VEC
+ *   KDBUS_ITEM_PAYLOAD_VEC, KDBUS_ITEM_PAYLOAD_OFF
  */
 struct kdbus_vec {
 	__u64 size;
@@ -358,9 +358,9 @@ struct kdbus_item {
  *					name is not currently active
  */
 enum kdbus_msg_flags {
-	KDBUS_MSG_FLAGS_EXPECT_REPLY	= 1 << 0,
-	KDBUS_MSG_FLAGS_SYNC_REPLY	= 1 << 1,
-	KDBUS_MSG_FLAGS_NO_AUTO_START	= 1 << 2,
+	KDBUS_MSG_FLAGS_EXPECT_REPLY	= 1ULL << 0,
+	KDBUS_MSG_FLAGS_SYNC_REPLY	= 1ULL << 1,
+	KDBUS_MSG_FLAGS_NO_AUTO_START	= 1ULL << 2,
 };
 
 /**
@@ -425,9 +425,9 @@ struct kdbus_msg {
  *				the priority value is ignored.
  */
 enum kdbus_recv_flags {
-	KDBUS_RECV_PEEK		= 1 <<  0,
-	KDBUS_RECV_DROP		= 1 <<  1,
-	KDBUS_RECV_USE_PRIORITY	= 1 <<  2,
+	KDBUS_RECV_PEEK		= 1ULL <<  0,
+	KDBUS_RECV_DROP		= 1ULL <<  1,
+	KDBUS_RECV_USE_PRIORITY	= 1ULL <<  2,
 };
 
 /**
@@ -486,16 +486,16 @@ enum kdbus_policy_type {
  *				policy entries for a name. The provided name
  *				is not activated and not registered with the
  *				name database, it only allows unprivileged
- *				connections to acquire a name, talk or discover
+ *				connections to aquire a name, talk or discover
  *				a service
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic
  */
 enum kdbus_hello_flags {
-	KDBUS_HELLO_ACCEPT_FD		=  1 <<  0,
-	KDBUS_HELLO_ACTIVATOR		=  1 <<  1,
-	KDBUS_HELLO_POLICY_HOLDER	=  1 <<  2,
-	KDBUS_HELLO_MONITOR		=  1 <<  3,
+	KDBUS_HELLO_ACCEPT_FD		=  1ULL <<  0,
+	KDBUS_HELLO_ACTIVATOR		=  1ULL <<  1,
+	KDBUS_HELLO_POLICY_HOLDER	=  1ULL <<  2,
+	KDBUS_HELLO_MONITOR		=  1ULL <<  3,
 };
 
 /**
@@ -515,19 +515,19 @@ enum kdbus_hello_flags {
  * @_KDBUS_ATTACH_ALL:		All of the above
  */
 enum kdbus_attach_flags {
-	KDBUS_ATTACH_TIMESTAMP		=  1 <<  0,
-	KDBUS_ATTACH_CREDS		=  1 <<  1,
-	KDBUS_ATTACH_AUXGROUPS		=  1 <<  2,
-	KDBUS_ATTACH_NAMES		=  1 <<  3,
-	KDBUS_ATTACH_COMM		=  1 <<  4,
-	KDBUS_ATTACH_EXE		=  1 <<  5,
-	KDBUS_ATTACH_CMDLINE		=  1 <<  6,
-	KDBUS_ATTACH_CGROUP		=  1 <<  7,
-	KDBUS_ATTACH_CAPS		=  1 <<  8,
-	KDBUS_ATTACH_SECLABEL		=  1 <<  9,
-	KDBUS_ATTACH_AUDIT		=  1 << 10,
-	KDBUS_ATTACH_CONN_NAME		=  1 << 11,
-	_KDBUS_ATTACH_ALL		=  (1 << 12) - 1,
+	KDBUS_ATTACH_TIMESTAMP		=  1ULL <<  0,
+	KDBUS_ATTACH_CREDS		=  1ULL <<  1,
+	KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  2,
+	KDBUS_ATTACH_NAMES		=  1ULL <<  3,
+	KDBUS_ATTACH_COMM		=  1ULL <<  4,
+	KDBUS_ATTACH_EXE		=  1ULL <<  5,
+	KDBUS_ATTACH_CMDLINE		=  1ULL <<  6,
+	KDBUS_ATTACH_CGROUP		=  1ULL <<  7,
+	KDBUS_ATTACH_CAPS		=  1ULL <<  8,
+	KDBUS_ATTACH_SECLABEL		=  1ULL <<  9,
+	KDBUS_ATTACH_AUDIT		=  1ULL << 10,
+	KDBUS_ATTACH_CONN_NAME		=  1ULL << 11,
+	_KDBUS_ATTACH_ALL		=  (1ULL << 12) - 1,
 };
 
 /**
@@ -569,8 +569,8 @@ struct kdbus_cmd_hello {
  * @KDBUS_MAKE_ACCESS_WORLD:	Make the device node world-accessible
  */
 enum kdbus_make_flags {
-	KDBUS_MAKE_ACCESS_GROUP		= 1 <<  0,
-	KDBUS_MAKE_ACCESS_WORLD		= 1 <<  1,
+	KDBUS_MAKE_ACCESS_GROUP		= 1ULL <<  0,
+	KDBUS_MAKE_ACCESS_WORLD		= 1ULL <<  1,
 };
 
 /**
@@ -597,11 +597,11 @@ struct kdbus_cmd_make {
  * @KDBUS_NAME_ACTIVATOR:		Name is owned by a activator connection
  */
 enum kdbus_name_flags {
-	KDBUS_NAME_REPLACE_EXISTING	= 1 <<  0,
-	KDBUS_NAME_ALLOW_REPLACEMENT	= 1 <<  1,
-	KDBUS_NAME_QUEUE		= 1 <<  2,
-	KDBUS_NAME_IN_QUEUE		= 1 <<  3,
-	KDBUS_NAME_ACTIVATOR		= 1 <<  4,
+	KDBUS_NAME_REPLACE_EXISTING	= 1ULL <<  0,
+	KDBUS_NAME_ALLOW_REPLACEMENT	= 1ULL <<  1,
+	KDBUS_NAME_QUEUE		= 1ULL <<  2,
+	KDBUS_NAME_IN_QUEUE		= 1ULL <<  3,
+	KDBUS_NAME_ACTIVATOR		= 1ULL <<  4,
 };
 
 /**
@@ -630,10 +630,10 @@ struct kdbus_cmd_name {
  * @KDBUS_NAME_LIST_QUEUED:	All queued-up names
  */
 enum kdbus_name_list_flags {
-	KDBUS_NAME_LIST_UNIQUE		= 1 <<  0,
-	KDBUS_NAME_LIST_NAMES		= 1 <<  1,
-	KDBUS_NAME_LIST_ACTIVATORS	= 1 <<  2,
-	KDBUS_NAME_LIST_QUEUED		= 1 <<  3,
+	KDBUS_NAME_LIST_UNIQUE		= 1ULL <<  0,
+	KDBUS_NAME_LIST_NAMES		= 1ULL <<  1,
+	KDBUS_NAME_LIST_ACTIVATORS	= 1ULL <<  2,
+	KDBUS_NAME_LIST_QUEUED		= 1ULL <<  3,
 };
 
 /**
@@ -749,11 +749,11 @@ struct kdbus_cmd_match {
  * @KDBUS_CMD_HELLO:		By opening the bus device node a connection is
  *				created. After a HELLO the opened connection
  *				becomes an active peer on the bus.
- * @KDBUS_CMD_BYEBYE:		Disconnect a connection. If the connection's
- *				message list is empty, the calls succeeds, and
- *				the handle is rendered unusable. Otherwise,
- *				-EAGAIN is returned without any further side-
- *				effects.
+ * @KDBUS_CMD_BYEBYE:		Disconnect a connection. If there are no
+ *				messages queued up in the connection's pool,
+ *				the call succeeds, and the handle is rendered
+ *				unusable. Otherwise, -EBUSY is returned without
+ *				any further side-effects.
  * @KDBUS_CMD_MSG_SEND:		Send a message and pass data from userspace to
  *				the kernel.
  * @KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
@@ -824,82 +824,4 @@ enum kdbus_ioctl_type {
 					     struct kdbus_cmd_match),
 };
 
-/*
- * errno - api error codes
- * @E2BIG:		A message contains too many records or items.
- * @EADDRINUSE:		A well-known bus name is already taken by another
- *			connection.
- * @EADDRNOTAVAIL:	A message flagged not to activate a service, addressed
- *			a service which is not currently running.
- * @EAGAIN:		No messages are queued at the moment.
- * @EALREADY:		A requested name is already owned by the connection,
- *			a connection is already disconnected, memfd is already
- *			sealed or has the requested size.
- * @EBADF:		File descriptors passed with the message are not valid.
- * @EBADFD:		A bus connection is in a corrupted state.
- * @EBADMSG:		Passed data contains a combination of conflicting or
- *			inconsistent types.
- * @EBUSY:		The user tried to say BYEBYE to a connection, but the
- *			connection had a non-empty message list.
- * @ECANCELED:		A synchronous message sending was cancelled.
- * @ECONNRESET:		A connection is shut down, no further operations are
- *			possible.
- * @ECOMM:		A peer does not accept the file descriptors addressed
- *			to it.
- * @EDESTADDRREQ:	The well-known bus name is required but missing.
- * @EDOM:		The size of data does not match the expectations. Used
- *			for bloom bit field sizes.
- * @EEXIST:		A requested domain, bus or endpoint with the same
- *			name already exists.  A specific data type, which is
- *			only expected once, is provided multiple times.
- * @EFAULT:		The supplied memory could not be accessed, the data
- *			is not properly aligned, or the current task's memory
- *			is inaccessible.
- * @EINVAL:		The provided data does not match its type or other
- *			expectations, like a string which is not NUL terminated,
- *			or a string length that points behind the first
- *			\0-byte in the string.
- * @EMEDIUMTYPE:	A file descriptor which is not a kdbus memfd was
- *			refused to send as KDBUS_MSG_PAYLOAD_MEMFD.
- * @EMFILE:		Too many file descriptors have been supplied with a
- *			message.
- *			Too many connections or buses are created for a given
- *			user.
- * @EMLINK:		Too many requests from this connection to other peers
- *			are queued and waiting for a reply
- * @EMSGSIZE:		The supplied data is larger than the allowed maximum
- *			size.
- * @ENAMETOOLONG:	The requested name is larger than the allowed maximum
- *			size.
- * @ENOBUFS:		There is no space left for the submitted data to fit
- *			into the receiver's pool.
- * @ENOENT:		The to be cancelled message was not found.
- * @ENOMEM:		Out of memory.
- * @ENOMSG:		The queue is not empty, but no message with a matching
- *			priority is currently queued.
- * @ENOSYS:		The requested functionality is not available.
- * @ENOTTY:		An unknown ioctl command was received.
- * @ENOTUNIQ:		A specific data type was addressed to a broadcast
- *			address, but only direct addresses support this kind of
- *			data.
- * @ENXIO:		A unique address does not exist, or an offset in the
- *			receiver's pool does not represent a queued message.
- * @EOPNOTSUPP:		The feature negotiation failed, a not supported feature
- *			was requested, or an unknown item type was received.
- * @EPERM:		The policy prevented an operation. The requested
- *			resource is owned by another entity.
- * @EPIPE:		When sending a message, a synchronous reply from the
- *			receiving connection was expected but the connection
- *			died before answering.
- * @ESHUTDOWN:		A domain, bus or endpoint is currently shutting down;
- *			no further operations will be possible.
- * @ESRCH:		A requested well-known bus name is not found.
- * @ETIMEDOUT:		A synchronous wait for a message reply did not arrive
- *			within the specified time frame.
- * @ETXTBSY:		A kdbus memfd file cannot be sealed or the seal removed,
- *			because it is shared with other processes or still
- *			mmap()ed.
- * @EXFULL:		The size limits in the pool are reached, no data of
- *			the size tried to submit can be queued.
- */
-#endif
+#endif /* _KDBUS_UAPI_H_ */
