@@ -45,7 +45,7 @@ static void test_condition_test_host(void) {
         sd_id128_t id;
         int r;
         char sid[SD_ID128_STRING_MAX];
-        char *hostname;
+        _cleanup_free_ char *hostname = NULL;
 
         r = sd_id128_get_machine(&id);
         assert_se(r >= 0);

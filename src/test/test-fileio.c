@@ -303,7 +303,7 @@ static void test_write_string_stream(void) {
         assert_se(f);
         assert_se(write_string_stream(f, "boohoo") < 0);
 
-        f = fdopen(fd, "r+");
+        f = freopen(fn, "r+", f);
         assert_se(f);
 
         assert_se(write_string_stream(f, "boohoo") == 0);
@@ -317,8 +317,8 @@ static void test_write_string_stream(void) {
 
 static void test_write_string_file(void) {
         char fn[] = "/tmp/test-write_string_file-XXXXXX";
-        int fd;
-        char buf[64] = {0};
+        char buf[64] = {};
+        _cleanup_close_ int fd;
 
         fd = mkostemp_safe(fn, O_RDWR);
         assert_se(fd >= 0);
@@ -334,8 +334,7 @@ static void test_write_string_file(void) {
 static void test_sendfile_full(void) {
         char in_fn[] = "/tmp/test-sendfile_full-XXXXXX";
         char out_fn[] = "/tmp/test-sendfile_full-XXXXXX";
-        _cleanup_close_ int in_fd = -1;
-        int out_fd;
+        _cleanup_close_ int in_fd, out_fd;
         char text[] = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {0};
 
