@@ -404,10 +404,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         alen = FAMILY_ADDRESS_SIZE(af);
         l = strlen(canonical);
 
-        ms = ALIGN(l+1) +
-                sizeof(char*) +
-                (c > 0 ? c : 1) * ALIGN(alen) +
-                (c > 0 ? c+1 : 2) * sizeof(char*);
+        ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
                 *errnop = ENOMEM;
