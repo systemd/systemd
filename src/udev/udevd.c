@@ -1048,17 +1048,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_daemonize = true;
                         break;
                 case 'c':
-                        safe_atoi(optarg, &arg_children_max);
+                        r = safe_atoi(optarg, &arg_children_max);
+                        if (r < 0)
+                                log_warning("Invalid --children-max ignored: %s", optarg);
                         break;
                 case 'e':
-                        safe_atoi(optarg, &arg_exec_delay);
+                        r = safe_atoi(optarg, &arg_exec_delay);
+                        if (r < 0)
+                                log_warning("Invalid --exec-delay ignored: %s", optarg);
                         break;
                 case 't':
                         r = safe_atou64(optarg, &arg_event_timeout_usec);
                         if (r < 0)
-                                break;
-                        arg_event_timeout_usec *= USEC_PER_SEC;
-                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
+                                log_warning("Invalig --event-timeout ignored: %s", optarg);
+                        else {
+                                arg_event_timeout_usec *= USEC_PER_SEC;
+                                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
+                        }
                         break;
                 case 'D':
                         arg_debug = true;
