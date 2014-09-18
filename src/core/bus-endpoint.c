@@ -34,8 +34,8 @@ int bus_endpoint_new(BusEndpoint **ep)
 
 int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess access)
 {
-        _cleanup_free_ BusEndpointPolicy *po;
-        _cleanup_free_ char *key;
+        _cleanup_free_ BusEndpointPolicy *po = NULL;
+        _cleanup_free_ char *key = NULL;
         int r;
 
         assert(ep);
