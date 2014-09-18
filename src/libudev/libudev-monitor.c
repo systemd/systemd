@@ -412,7 +412,10 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
         }
 
         /* enable receiving of sender credentials */
-        setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        if (err < 0)
+                udev_err(udev_monitor->udev, "setting SO_PASSCRED failed: %m\n");
+
         return 0;
 }
 
