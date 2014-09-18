@@ -1155,7 +1155,7 @@ int main(int argc, char *argv[]) {
         umask(022);
 
         r = mkdir("/run/udev", 0755);
-        if (r < 0) {
+        if (r < 0 && errno != EEXIST) {
                 log_error("could not create /run/udev: %m");
                 goto exit;
         }
