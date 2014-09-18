@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
