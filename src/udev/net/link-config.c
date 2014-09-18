@@ -20,7 +20,6 @@
 ***/
 
 #include <netinet/ether.h>
-#include <linux/netdevice.h>
 
 #include "sd-id128.h"
 
