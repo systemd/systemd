@@ -31,8 +31,12 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        if (argc >= 2)
-                safe_atoi(argv[1], &I);
+        if (argc >= 2) {
+                r = safe_atoi(argv[1], &I);
+                if (r < 0)
+                        log_info("Could not parse loop count argument. Using default.");
+        }
+
         log_info("Running %d loops", I);
 
         assert_se(mkdtemp(t));
