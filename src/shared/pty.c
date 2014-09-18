@@ -45,6 +45,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/ioctl.h>
 #include <pty.h>
 #include <signal.h>
 #include <stdbool.h>
