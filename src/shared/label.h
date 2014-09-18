@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <stdbool.h>
 #include <sys/socket.h>
+#include <stdio.h>
 
 int label_init(const char *prefix);
 void label_finish(void);
