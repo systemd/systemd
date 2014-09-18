@@ -808,7 +808,11 @@ static int remoteserver_init(RemoteServer *s,
                 return -EINVAL;
         }
 
-        sd_event_default(&s->events);
+        r = sd_event_default(&s->events);
+        if (r < 0) {
+                log_error("Failed to allocate event loop: %s", strerror(-r));
+                return r;
+        }
 
         setup_signals(s);
 
