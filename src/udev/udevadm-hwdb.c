@@ -365,7 +365,12 @@ static int trie_store(struct trie *trie, const char *filename) {
         fchmod(fileno(t.f), 0444);
 
         /* write nodes */
-        fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
+        err = fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
+        if (err < 0) {
+                fclose(t.f);
+                unlink_noerrno(filename_tmp);
+                return -errno;
+        }
         root_off = trie_store_nodes(&t, trie->root);
         h.nodes_root_off = htole64(root_off);
         pos = ftello(t.f);
@@ -378,7 +383,12 @@ static int trie_store(struct trie *trie, const char *filename) {
         /* write header */
         size = ftello(t.f);
         h.file_size = htole64(size);
-        fseeko(t.f, 0, SEEK_SET);
+        err = fseeko(t.f, 0, SEEK_SET);
+        if (err < 0) {
+                fclose(t.f);
+                unlink_noerrno(filename_tmp);
+                return -errno;
+        }
         fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
         err = ferror(t.f);
         if (err)
