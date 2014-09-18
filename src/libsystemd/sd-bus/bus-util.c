@@ -631,7 +631,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
         }
 
         case SD_BUS_TYPE_BOOLEAN: {
-                bool b;
+                int b;
 
                 r = sd_bus_message_read_basic(property, type, &b);
                 if (r < 0)
