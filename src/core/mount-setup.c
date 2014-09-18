@@ -351,6 +351,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
         return 0;
 }
 
+#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
 static int nftw_cb(
                 const char *fpath,
                 const struct stat *sb,
@@ -372,6 +373,7 @@ static int nftw_cb(
 
         return FTW_CONTINUE;
 };
+#endif
 
 int mount_setup(bool loaded_policy) {
         int r;
@@ -384,6 +386,7 @@ int mount_setup(bool loaded_policy) {
                         return r;
         }
 
+#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
         /* Nodes in devtmpfs and /run need to be manually updated for
          * the appropriate labels, after mounting. The other virtual
          * API file systems like /sys and /proc do not need that, they
@@ -402,6 +405,7 @@ int mount_setup(bool loaded_policy) {
                 log_info("Relabelled /dev and /run in %s.",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
+#endif
 
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start
