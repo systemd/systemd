@@ -39,6 +39,14 @@ static void policy_item_free(PolicyItem *i) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PolicyItem*, policy_item_free);
 
+static void item_append(PolicyItem *i, PolicyItem **list) {
+
+        PolicyItem *tail;
+
+        LIST_FIND_TAIL(items, *list, tail);
+        LIST_INSERT_AFTER(items, *list, tail, i);
+}
+
 static int file_load(Policy *p, const char *path) {
 
         _cleanup_free_ char *c = NULL, *policy_user = NULL, *policy_group = NULL;
@@ -330,9 +338,9 @@ static int file_load(Policy *p, const char *path) {
                                 }
 
                                 if (policy_category == POLICY_CATEGORY_DEFAULT)
-                                        LIST_PREPEND(items, p->default_items, i);
+                                        item_append(i, &p->default_items);
                                 else if (policy_category == POLICY_CATEGORY_MANDATORY)
-                                        LIST_PREPEND(items, p->mandatory_items, i);
+                                        item_append(i, &p->mandatory_items);
                                 else if (policy_category == POLICY_CATEGORY_USER) {
                                         const char *u = policy_user;
 
@@ -355,7 +363,7 @@ static int file_load(Policy *p, const char *path) {
                                                 PolicyItem *first;
 
                                                 first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
-                                                LIST_PREPEND(items, first, i);
+                                                item_append(i, &first);
 
                                                 r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
                                                 if (r < 0) {
@@ -386,7 +394,7 @@ static int file_load(Policy *p, const char *path) {
                                                 PolicyItem *first;
 
                                                 first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
-                                                LIST_PREPEND(items, first, i);
+                                                item_append(i, &first);
 
                                                 r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
                                                 if (r < 0) {
