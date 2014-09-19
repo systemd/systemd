@@ -1342,7 +1342,8 @@ tests += \
 	test-async \
 	test-ratelimit \
 	test-condition-util \
-	test-uid-range
+	test-uid-range \
+	test-bus-policy
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1374,7 +1375,12 @@ EXTRA_DIST += \
 	test/sysinit.target \
 	test/testsuite.target \
 	test/timers.target \
-	test/unstoppable.service
+	test/unstoppable.service \
+	test/bus-policy/hello.conf \
+	test/bus-policy/methods.conf \
+	test/bus-policy/ownerships.conf \
+	test/bus-policy/signals.conf
+
 
 EXTRA_DIST += \
 	src/test/test-helper.h
@@ -1780,6 +1786,16 @@ test_conf_files_SOURCES = \
 	src/test/test-conf-files.c
 
 test_conf_files_LDADD = \
+	libsystemd-shared.la
+
+test_bus_policy_SOURCES = \
+	src/bus-proxyd/test-bus-policy.c \
+	src/bus-proxyd/bus-policy.c \
+	src/bus-proxyd/bus-policy.h
+
+test_bus_policy_LDADD = \
+	libsystemd-capability.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------

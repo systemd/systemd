@@ -146,6 +146,7 @@
 /test-bus-match
 /test-bus-memfd
 /test-bus-objects
+/test-bus-policy
 /test-bus-server
 /test-bus-signature
 /test-bus-zero-copy
