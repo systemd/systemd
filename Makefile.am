@@ -3008,6 +3008,7 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/grdev.h \
 	src/libsystemd-terminal/grdev-internal.h \
 	src/libsystemd-terminal/grdev.c \
+	src/libsystemd-terminal/grdev-drm.c \
 	src/libsystemd-terminal/idev.h \
 	src/libsystemd-terminal/idev-internal.h \
 	src/libsystemd-terminal/idev.c \

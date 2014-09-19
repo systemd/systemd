@@ -55,6 +55,7 @@
 
 #include <drm_fourcc.h>
 #include <inttypes.h>
+#include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -170,6 +171,10 @@ void grdev_session_disable(grdev_session *session);
 
 void grdev_session_commit(grdev_session *session);
 void grdev_session_restore(grdev_session *session);
+
+void grdev_session_add_drm(grdev_session *session, struct udev_device *ud);
+void grdev_session_remove_drm(grdev_session *session, struct udev_device *ud);
+void grdev_session_hotplug_drm(grdev_session *session, struct udev_device *ud);
 
 /*
  * Contexts

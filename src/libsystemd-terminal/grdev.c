@@ -20,6 +20,7 @@
 ***/
 
 #include <inttypes.h>
+#include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -30,6 +31,7 @@
 #include "hashmap.h"
 #include "login-shared.h"
 #include "macro.h"
+#include "udev-util.h"
 #include "util.h"
 
 static void pipe_enable(grdev_pipe *pipe);
@@ -1081,6 +1083,68 @@ void grdev_session_restore(grdev_session *session) {
         HASHMAP_FOREACH(card, session->card_map, iter)
                 if (card->vtable->restore)
                         card->vtable->restore(card);
+}
+
+void grdev_session_add_drm(grdev_session *session, struct udev_device *ud) {
+        grdev_card *card;
+        dev_t devnum;
+        int r;
+
+        assert(session);
+        assert(ud);
+
+        devnum = udev_device_get_devnum(ud);
+        if (devnum == 0)
+                return;
+
+        card = grdev_find_drm_card(session, devnum);
+        if (card)
+                return;
+
+        r = grdev_drm_card_new(&card, session, ud);
+        if (r < 0) {
+                log_debug("grdev: %s: cannot add DRM device for %s: %s",
+                          session->name, udev_device_get_syspath(ud), strerror(-r));
+                return;
+        }
+
+        session_add_card(session, card);
+}
+
+void grdev_session_remove_drm(grdev_session *session, struct udev_device *ud) {
+        grdev_card *card;
+        dev_t devnum;
+
+        assert(session);
+        assert(ud);
+
+        devnum = udev_device_get_devnum(ud);
+        if (devnum == 0)
+                return;
+
+        card = grdev_find_drm_card(session, devnum);
+        if (!card)
+                return;
+
+        session_remove_card(session, card);
+}
+
+void grdev_session_hotplug_drm(grdev_session *session, struct udev_device *ud) {
+        grdev_card *card;
+        dev_t devnum;
+
+        assert(session);
+        assert(ud);
+
+        devnum = udev_device_get_devnum(ud);
+        if (devnum == 0)
+                return;
+
+        card = grdev_find_drm_card(session, devnum);
+        if (!card)
+                return;
+
+        /* TODO: hotplug card */
 }
 
 static void session_configure(grdev_session *session) {

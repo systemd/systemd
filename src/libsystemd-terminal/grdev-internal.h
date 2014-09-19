@@ -22,6 +22,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
@@ -38,6 +39,14 @@ typedef struct grdev_pipe_vtable        grdev_pipe_vtable;
 typedef struct grdev_pipe               grdev_pipe;
 typedef struct grdev_card_vtable        grdev_card_vtable;
 typedef struct grdev_card               grdev_card;
+
+/*
+ * DRM cards
+ */
+
+bool grdev_is_drm_card(grdev_card *card);
+grdev_card *grdev_find_drm_card(grdev_session *session, dev_t devnum);
+int grdev_drm_card_new(grdev_card **out, grdev_session *session, struct udev_device *ud);
 
 /*
  * Displays
