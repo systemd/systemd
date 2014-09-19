@@ -24,6 +24,7 @@
 #include "strv.h"
 #include "conf-files.h"
 #include "bus-internal.h"
+#include "bus-message.h"
 #include "bus-policy.h"
 
 static void policy_item_free(PolicyItem *i) {
@@ -589,6 +590,161 @@ static int file_load(Policy *p, const char *path) {
                         break;
                 }
         }
+}
+
+static bool is_matching_name_request(sd_bus_message *m, const char *name, bool prefix) {
+
+        char *n = NULL;
+        int r;
+
+        if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName"))
+                return false;
+
+        r = sd_bus_message_read(m, "s", &n);
+        if (r < 0)
+                return false;
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return false;
+
+        if (prefix)
+                return startswith(name, n);
+        else
+                return streq_ptr(name, n);
+}
+
+static bool is_matching_call(PolicyItem *i, sd_bus_message *m, const char *name) {
+
+        if (i->message_type && (i->message_type != m->header->type))
+                return false;
+
+        if (i->path && (!m->path || !streq(i->path, m->path)))
+                return false;
+
+        if (i->member && (!m->member || !streq(i->member, m->member)))
+                return false;
+
+        if (i->interface && (!m->interface || !streq(i->interface, m->interface)))
+                return false;
+
+        if (i->name && (!name || !streq(i->name, name)))
+                return false;
+
+        return true;
+}
+
+enum {
+        ALLOW,
+        DUNNO,
+        DENY,
+};
+
+static int is_permissive(PolicyItem *i) {
+
+        return (i->type == POLICY_ITEM_ALLOW) ? ALLOW : DENY;
+}
+
+static int check_policy_item(PolicyItem *i, sd_bus_message *m, const struct ucred *ucred) {
+
+        switch (i->class) {
+        case POLICY_ITEM_SEND:
+                if ((m->bus->is_kernel  && is_matching_call(i, m, m->destination)) ||
+                    (!m->bus->is_kernel && is_matching_call(i, m, m->sender)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_RECV:
+                if ((m->bus->is_kernel  && is_matching_call(i, m, m->sender)) ||
+                    (!m->bus->is_kernel && is_matching_call(i, m, m->destination)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_OWN:
+                if (is_matching_name_request(m, i->name, false))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_OWN_PREFIX:
+                if (is_matching_name_request(m, i->name, true))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_USER:
+                if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "Hello") &&
+                    (streq_ptr(i->name, "*") || (i->uid_valid && i->uid == ucred->uid)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_GROUP:
+                if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "Hello") &&
+                    (streq_ptr(i->name, "*") || (i->gid_valid && i->gid == ucred->gid)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_IGNORE:
+        default:
+                break;
+        }
+
+        return DUNNO;
+}
+
+static int check_policy_items(PolicyItem *items, sd_bus_message *m, const struct ucred *ucred) {
+
+        PolicyItem *i;
+        int r, ret = DUNNO;
+
+        /* Check all policies in a set - a broader one might be followed by a more specific one,
+         * and the order of rules in policy definitions matters */
+        LIST_FOREACH(items, i, items) {
+                r = check_policy_item(i, m, ucred);
+                if (r != DUNNO)
+                        ret = r;
+        }
+
+        return ret;
+}
+
+bool policy_check(Policy *p, sd_bus_message *m, const struct ucred *ucred) {
+
+        PolicyItem *items;
+        int r;
+
+        /*
+         * The policy check is implemented by the following logic:
+         *
+         * 1. Check mandatory items. If the message matches any of these, it is decisive.
+         * 2. See if the passed ucred match against the user/group hashmaps. A matching entry is also decisive.
+         * 3. Consult the defaults if non of the above matched with a more specific rule.
+         * 4. If the message isn't caught be the defaults either, reject it.
+         */
+
+        r = check_policy_items(p->mandatory_items, m, ucred);
+        if (r != DUNNO)
+                return r == ALLOW;
+
+        if (ucred->pid > 0) {
+                items = hashmap_get(p->user_items, UINT32_TO_PTR(ucred->uid));
+                if (items) {
+                        r = check_policy_items(items, m, ucred);
+                        if (r != DUNNO)
+                                return r == ALLOW;
+                }
+
+                items = hashmap_get(p->group_items, UINT32_TO_PTR(ucred->gid));
+                if (items) {
+                        r = check_policy_items(items, m, ucred);
+                        if (r != DUNNO)
+                                return r == ALLOW;
+                }
+        }
+
+        r = check_policy_items(p->default_items, m, ucred);
+        if (r != DUNNO)
+                return r == ALLOW;
+
+        return false;
 }
 
 int policy_load(Policy *p, char **files) {

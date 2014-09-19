@@ -76,6 +76,8 @@ typedef struct Policy {
 int policy_load(Policy *p, char **files);
 void policy_free(Policy *p);
 
+bool policy_check(Policy *p, sd_bus_message *m, const struct ucred *c);
+
 void policy_dump(Policy *p);
 
 const char* policy_item_type_to_string(PolicyItemType t) _const_;
