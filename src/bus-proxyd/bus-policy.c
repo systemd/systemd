@@ -332,7 +332,7 @@ static int file_load(Policy *p, const char *path) {
                                 if (policy_category == POLICY_CATEGORY_DEFAULT)
                                         LIST_PREPEND(items, p->default_items, i);
                                 else if (policy_category == POLICY_CATEGORY_MANDATORY)
-                                        LIST_PREPEND(items, p->default_items, i);
+                                        LIST_PREPEND(items, p->mandatory_items, i);
                                 else if (policy_category == POLICY_CATEGORY_USER) {
                                         const char *u = policy_user;
 
