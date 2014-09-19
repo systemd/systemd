@@ -658,64 +658,64 @@ void policy_free(Policy *p) {
         p->user_items = p->group_items = NULL;
 }
 
-static void dump_items(PolicyItem *i, const char *prefix) {
+static void dump_items(PolicyItem *items, const char *prefix) {
 
-        if (!i)
+        PolicyItem *i;
+
+        if (!items)
                 return;
 
         if (!prefix)
                 prefix = "";
 
-        printf("%sType: %s\n"
-               "%sClass: %s\n",
-               prefix, policy_item_type_to_string(i->type),
-               prefix, policy_item_class_to_string(i->class));
+        LIST_FOREACH(items, i, items) {
 
-        if (i->interface)
-                printf("%sInterface: %s\n",
-                       prefix, i->interface);
+                printf("%sType: %s\n"
+                       "%sClass: %s\n",
+                       prefix, policy_item_type_to_string(i->type),
+                       prefix, policy_item_class_to_string(i->class));
 
-        if (i->member)
-                printf("%sMember: %s\n",
-                       prefix, i->member);
+                if (i->interface)
+                        printf("%sInterface: %s\n",
+                               prefix, i->interface);
 
-        if (i->error)
-                printf("%sError: %s\n",
-                       prefix, i->error);
+                if (i->member)
+                        printf("%sMember: %s\n",
+                               prefix, i->member);
 
-        if (i->path)
-                printf("%sPath: %s\n",
-                       prefix, i->path);
+                if (i->error)
+                        printf("%sError: %s\n",
+                               prefix, i->error);
 
-        if (i->name)
-                printf("%sName: %s\n",
-                       prefix, i->name);
+                if (i->path)
+                        printf("%sPath: %s\n",
+                               prefix, i->path);
 
-        if (i->message_type != 0)
-                printf("%sMessage Type: %s\n",
-                       prefix, bus_message_type_to_string(i->message_type));
+                if (i->name)
+                        printf("%sName: %s\n",
+                               prefix, i->name);
 
-        if (i->uid_valid) {
-                _cleanup_free_ char *user;
+                if (i->message_type != 0)
+                        printf("%sMessage Type: %s\n",
+                               prefix, bus_message_type_to_string(i->message_type));
 
-                user = uid_to_name(i->uid);
+                if (i->uid_valid) {
+                        _cleanup_free_ char *user;
 
-                printf("%sUser: %s\n",
-                       prefix, strna(user));
-        }
+                        user = uid_to_name(i->uid);
 
-        if (i->gid_valid) {
-                _cleanup_free_ char *group;
+                        printf("%sUser: %s\n",
+                               prefix, strna(user));
+                }
 
-                group = gid_to_name(i->gid);
+                if (i->gid_valid) {
+                        _cleanup_free_ char *group;
 
-                printf("%sGroup: %s\n",
-                       prefix, strna(group));
-        }
+                        group = gid_to_name(i->gid);
 
-        if (i->items_next) {
-                printf("%s%s\n", prefix, draw_special_char(DRAW_DASH));
-                dump_items(i->items_next, prefix);
+                        printf("%sGroup: %s\n",
+                               prefix, strna(group));
+                }
         }
 }
 
