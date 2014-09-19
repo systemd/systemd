@@ -1657,7 +1657,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
 
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
-        snprintf(iface_name, IFNAMSIZ, "%s-%s",
+        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
                  arg_network_bridge ? "vb" : "ve", arg_machine);
 
         r = generate_mac(&mac_container, CONTAINER_HASH_KEY);
