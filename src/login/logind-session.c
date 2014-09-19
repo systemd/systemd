@@ -1053,6 +1053,27 @@ void session_restore_vt(Session *s) {
         s->vtfd = safe_close(s->vtfd);
 }
 
+void session_leave_vt(Session *s) {
+        assert(s);
+
+        /* This is called whenever we get a VT-switch signal from the kernel.
+         * We acknowledge all of them unconditionally. Note that session are
+         * free to overwrite those handlers and we only register them for
+         * sessions with controllers. Legacy sessions are not affected.
+         * However, if we switch from a non-legacy to a legacy session, we must
+         * make sure to pause all device before acknowledging the switch. We
+         * process the real switch only after we are notified via sysfs, so the
+         * legacy session might have already started using the devices. If we
+         * don't pause the devices before the switch, we might confuse the
+         * session we switch to. */
+
+        if (s->vtfd < 0)
+                return;
+
+        session_device_pause_all(s);
+        ioctl(s->vtfd, VT_RELDISP, 1);
+}
+
 bool session_is_controller(Session *s, const char *sender) {
         assert(s);
 

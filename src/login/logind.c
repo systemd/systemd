@@ -750,11 +750,11 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
         }
 
         if (active->vtfd >= 0) {
-                ioctl(active->vtfd, VT_RELDISP, 1);
+                session_leave_vt(active);
         } else {
                 LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions) {
                         if (iter->vtnr == active->vtnr && iter->vtfd >= 0) {
-                                ioctl(iter->vtfd, VT_RELDISP, 1);
+                                session_leave_vt(iter);
                                 break;
                         }
                 }
