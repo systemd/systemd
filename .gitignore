@@ -90,6 +90,7 @@
 /systemd-logind
 /systemd-machine-id-setup
 /systemd-machined
+/systemd-modeset
 /systemd-modules-load
 /systemd-multi-seat-x
 /systemd-networkd
