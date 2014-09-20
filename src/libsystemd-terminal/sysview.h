@@ -63,9 +63,8 @@ enum {
         SYSVIEW_EVENT_SESSION_REMOVE,
         SYSVIEW_EVENT_SESSION_ATTACH,
         SYSVIEW_EVENT_SESSION_DETACH,
+        SYSVIEW_EVENT_SESSION_REFRESH,
         SYSVIEW_EVENT_SESSION_CONTROL,
-
-        SYSVIEW_EVENT_DEVICE_CHANGE,
 };
 
 struct sysview_event {
@@ -94,13 +93,14 @@ struct sysview_event {
 
                 struct {
                         sysview_session *session;
-                        int error;
-                } session_control;
-
-                struct {
                         sysview_device *device;
                         struct udev_device *ud;
-                } device_change;
+                } session_refresh;
+
+                struct {
+                        sysview_session *session;
+                        int error;
+                } session_control;
         };
 };
 

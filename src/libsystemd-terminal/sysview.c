@@ -517,10 +517,11 @@ static int context_raise_session_detach(sysview_context *c, sysview_session *ses
         return context_raise(c, &event, 0);
 }
 
-static int context_raise_device_change(sysview_context *c, sysview_device *device, struct udev_device *ud) {
+static int context_raise_session_refresh(sysview_context *c, sysview_session *session, sysview_device *device, struct udev_device *ud) {
         sysview_event event = {
-                .type = SYSVIEW_EVENT_DEVICE_CHANGE,
-                .device_change = {
+                .type = SYSVIEW_EVENT_SESSION_REFRESH,
+                .session_refresh = {
+                        .session = session,
                         .device = device,
                         .ud = ud,
                 }
@@ -578,6 +579,31 @@ static int context_remove_device(sysview_context *c, sysview_device *device) {
                 log_debug("sysview: error while removing device '%s': %s",
                           device->name, strerror(-r));
         sysview_device_free(device);
+        return error;
+}
+
+static int context_change_device(sysview_context *c, sysview_device *device, struct udev_device *ud) {
+        sysview_session *session;
+        int r, error = 0;
+        Iterator i;
+
+        assert(c);
+        assert(device);
+
+        log_debug("sysview: change device '%s'", device->name);
+
+        HASHMAP_FOREACH(session, device->seat->session_map, i) {
+                if (!session->public)
+                        continue;
+
+                r = context_raise_session_refresh(c, session, device, ud);
+                if (r != 0)
+                        error = r;
+        }
+
+        if (error < 0)
+                log_debug("sysview: error while changing device '%s': %s",
+                          device->name, strerror(-r));
         return error;
 }
 
@@ -884,7 +910,7 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
                 if (!device)
                         return 0;
 
-                return context_raise_device_change(c, device, d);
+                return context_change_device(c, device, d);
         } else if (!action || streq_ptr(action, "add")) {
                 struct udev_device *p;
                 unsigned int type, t;

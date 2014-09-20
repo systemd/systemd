@@ -348,6 +348,13 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                         grdev_session_remove_drm(m->grdev_session, sysview_device_get_ud(d));
 
                 break;
+        case SYSVIEW_EVENT_SESSION_REFRESH:
+                d = ev->session_refresh.device;
+                type = sysview_device_get_type(d);
+                if (type == SYSVIEW_DEVICE_DRM)
+                        grdev_session_hotplug_drm(m->grdev_session, ev->session_refresh.ud);
+
+                break;
         case SYSVIEW_EVENT_SESSION_CONTROL:
                 r = ev->session_control.error;
                 if (r < 0) {
@@ -360,13 +367,6 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                         log_error("Cannot set K_UNICODE on stdout: %m");
                         return -errno;
                 }
-
-                break;
-        case SYSVIEW_EVENT_DEVICE_CHANGE:
-                d = ev->device_change.device;
-                type = sysview_device_get_type(d);
-                if (type == SYSVIEW_DEVICE_DRM)
-                        grdev_session_hotplug_drm(m->grdev_session, ev->device_change.ud);
 
                 break;
         }
