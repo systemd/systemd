@@ -704,8 +704,8 @@ static void dump_items(PolicyItem *items, const char *prefix) {
 
                         user = uid_to_name(i->uid);
 
-                        printf("%sUser: %s\n",
-                               prefix, strna(user));
+                        printf("%sUser: %s (%d)\n",
+                               prefix, strna(user), i->uid);
                 }
 
                 if (i->gid_valid) {
@@ -713,8 +713,8 @@ static void dump_items(PolicyItem *items, const char *prefix) {
 
                         group = gid_to_name(i->gid);
 
-                        printf("%sGroup: %s\n",
-                               prefix, strna(group));
+                        printf("%sGroup: %s (%d)\n",
+                               prefix, strna(group), i->gid);
                 }
         }
 }
