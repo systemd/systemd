@@ -1095,7 +1095,7 @@ void grdev_session_add_drm(grdev_session *session, struct udev_device *ud) {
 
         devnum = udev_device_get_devnum(ud);
         if (devnum == 0)
-                return;
+                return grdev_session_hotplug_drm(session, ud);
 
         card = grdev_find_drm_card(session, devnum);
         if (card)
@@ -1120,7 +1120,7 @@ void grdev_session_remove_drm(grdev_session *session, struct udev_device *ud) {
 
         devnum = udev_device_get_devnum(ud);
         if (devnum == 0)
-                return;
+                return grdev_session_hotplug_drm(session, ud);
 
         card = grdev_find_drm_card(session, devnum);
         if (!card)
@@ -1130,17 +1130,23 @@ void grdev_session_remove_drm(grdev_session *session, struct udev_device *ud) {
 }
 
 void grdev_session_hotplug_drm(grdev_session *session, struct udev_device *ud) {
-        grdev_card *card;
+        grdev_card *card = NULL;
+        struct udev_device *p;
         dev_t devnum;
 
         assert(session);
         assert(ud);
 
-        devnum = udev_device_get_devnum(ud);
-        if (devnum == 0)
-                return;
+        for (p = ud; p; p = udev_device_get_parent_with_subsystem_devtype(p, "drm", NULL)) {
+                devnum = udev_device_get_devnum(ud);
+                if (devnum == 0)
+                        continue;
 
-        card = grdev_find_drm_card(session, devnum);
+                card = grdev_find_drm_card(session, devnum);
+                if (card)
+                        break;
+        }
+
         if (!card)
                 return;
 
