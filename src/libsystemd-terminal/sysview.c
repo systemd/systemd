@@ -895,7 +895,7 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
 
                 if (streq(subsystem, "input") && startswith(sysname, "event") && safe_atou(sysname + 5, &t) >= 0)
                         type = SYSVIEW_DEVICE_EVDEV;
-                else if (streq(subsystem, "drm") && startswith(sysname, "card") && safe_atou(sysname + 4, &t) >= 0)
+                else if (streq(subsystem, "drm") && startswith(sysname, "card"))
                         type = SYSVIEW_DEVICE_DRM;
                 else
                         type = (unsigned)-1;
