@@ -893,11 +893,11 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
 
                 p = d;
                 seatname = NULL;
-                while ((p = udev_device_get_parent(p))) {
+                do {
                         seatname = udev_device_get_property_value(p, "ID_SEAT");
                         if (seatname)
                                 break;
-                }
+                } while ((p = udev_device_get_parent(p)));
 
                 seat = sysview_find_seat(c, seatname ? : "seat0");
                 if (!seat)
