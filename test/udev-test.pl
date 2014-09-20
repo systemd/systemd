@@ -549,21 +549,21 @@ KERNEL=="tty33", OWNER="bad", GROUP="name"
 EOF
         },
         {
-                desc            => "permissions OWNER=5000",
+                desc            => "permissions OWNER=1",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "node",
-                exp_perms       => "5000::0600",
+                exp_perms       => "1::0600",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="5000"
+SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="1"
 EOF
         },
         {
-                desc            => "permissions GROUP=100",
+                desc            => "permissions GROUP=1",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "node",
-                exp_perms       => ":100:0660",
+                exp_perms       => ":1:0660",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", GROUP="100"
+SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", GROUP="1"
 EOF
         },
         {
@@ -603,30 +603,30 @@ SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", MODE="0777"
 EOF
         },
         {
-                desc            => "permissions OWNER=5000 GROUP=100 MODE=0777",
+                desc            => "permissions OWNER=1 GROUP=1 MODE=0777",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "node",
-                exp_perms       => "5000:100:0777",
+                exp_perms       => "1:1:0777",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="5000", GROUP="100", MODE="0777"
+SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="1", GROUP="1", MODE="0777"
 EOF
         },
         {
-                desc            => "permissions OWNER to 5000",
+                desc            => "permissions OWNER to 1",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => "5000::",
+                exp_perms       => "1::",
                 rules           => <<EOF
-KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", OWNER="5000"
+KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", OWNER="1"
 EOF
         },
         {
-                desc            => "permissions GROUP to 100",
+                desc            => "permissions GROUP to 1",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => ":100:0660",
+                exp_perms       => ":1:0660",
                 rules           => <<EOF
-KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", GROUP="100"
+KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", GROUP="1"
 EOF
         },
         {
@@ -642,19 +642,19 @@ EOF
                 desc            => "permissions OWNER, GROUP, MODE",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => "5000:100:0777",
+                exp_perms       => "1:1:0777",
                 rules           => <<EOF
-KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", OWNER="5000", GROUP="100", MODE="0777"
+KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", OWNER="1", GROUP="1", MODE="0777"
 EOF
         },
         {
                 desc            => "permissions only rule",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => "5000:100:0777",
+                exp_perms       => "1:1:0777",
                 rules           => <<EOF
-KERNEL=="ttyACM[0-9]*", OWNER="5000", GROUP="100", MODE="0777"
-KERNEL=="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
+KERNEL=="ttyACM[0-9]*", OWNER="1", GROUP="1", MODE="0777"
+KERNEL=="ttyUSX[0-9]*", OWNER="2", GROUP="2", MODE="0444"
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n"
 EOF
         },
@@ -662,12 +662,12 @@ EOF
                 desc            => "multiple permissions only rule",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => "3000:4000:0777",
+                exp_perms       => "1:1:0777",
                 rules           => <<EOF
-SUBSYSTEM=="tty", OWNER="3000"
-SUBSYSTEM=="tty", GROUP="4000"
+SUBSYSTEM=="tty", OWNER="1"
+SUBSYSTEM=="tty", GROUP="1"
 SUBSYSTEM=="tty", MODE="0777"
-KERNEL=="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
+KERNEL=="ttyUSX[0-9]*", OWNER="2", GROUP="2", MODE="0444"
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n"
 EOF
         },
@@ -675,13 +675,13 @@ EOF
                 desc            => "permissions only rule with override at SYMLINK+ rule",
                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
                 exp_name        => "ttyACM0",
-                exp_perms       => "3000:8000:0777",
+                exp_perms       => "1:2:0777",
                 rules           => <<EOF
-SUBSYSTEM=="tty", OWNER="3000"
-SUBSYSTEM=="tty", GROUP="4000"
+SUBSYSTEM=="tty", OWNER="1"
+SUBSYSTEM=="tty", GROUP="1"
 SUBSYSTEM=="tty", MODE="0777"
-KERNEL=="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
-KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", GROUP="8000"
+KERNEL=="ttyUSX[0-9]*", OWNER="2", GROUP="2", MODE="0444"
+KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", GROUP="2"
 EOF
         },
         {
@@ -1274,11 +1274,11 @@ EOF
                 desc            => "TEST PROGRAM feeds OWNER, GROUP, MODE",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "sda",
-                exp_perms       => "5000:100:0400",
+                exp_perms       => "1:1:0400",
                 exp_rem_error   => "yes",
                 rules           => <<EOF
 KERNEL=="sda", MODE="666"
-KERNEL=="sda", PROGRAM=="/bin/echo 5000 100 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+KERNEL=="sda", PROGRAM=="/bin/echo 1 1 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
         },
         {
