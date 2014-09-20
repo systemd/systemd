@@ -49,6 +49,7 @@ struct idev_evdev {
 
         bool unsync : 1;                /* not in-sync with kernel */
         bool resync : 1;                /* re-syncing with kernel */
+        bool running : 1;
 };
 
 struct unmanaged_evdev {
@@ -268,6 +269,12 @@ static void idev_evdev_enable(idev_evdev *evdev) {
         assert(evdev->fd_src);
         assert(evdev->idle_src);
 
+        if (evdev->running)
+                return;
+        if (evdev->fd < 0 || evdev->element.n_open < 1 || !evdev->element.enabled)
+                return;
+
+        evdev->running = true;
         sd_event_source_set_enabled(evdev->fd_src, SD_EVENT_ON);
         sd_event_source_set_enabled(evdev->idle_src, SD_EVENT_ONESHOT);
 }
@@ -277,6 +284,10 @@ static void idev_evdev_disable(idev_evdev *evdev) {
         assert(evdev->fd_src);
         assert(evdev->idle_src);
 
+        if (!evdev->running)
+                return;
+
+        evdev->running = false;
         sd_event_source_set_enabled(evdev->fd_src, SD_EVENT_OFF);
         sd_event_source_set_enabled(evdev->idle_src, SD_EVENT_OFF);
 }
@@ -288,9 +299,7 @@ static int idev_evdev_resume(idev_evdev *evdev, int dev_fd) {
 
         if (fd < 0 || evdev->fd == fd) {
                 fd = -1;
-                if (evdev->fd >= 0 && e->n_open > 0 && e->enabled)
-                        idev_evdev_enable(evdev);
-
+                idev_evdev_enable(evdev);
                 return 0;
         }
 
@@ -351,15 +360,14 @@ static int idev_evdev_resume(idev_evdev *evdev, int dev_fd) {
                 return r;
         }
 
-        if (e->n_open < 1 || !e->enabled) {
-                sd_event_source_set_enabled(evdev->fd_src, SD_EVENT_OFF);
-                sd_event_source_set_enabled(evdev->idle_src, SD_EVENT_OFF);
-        }
+        sd_event_source_set_enabled(evdev->fd_src, SD_EVENT_OFF);
+        sd_event_source_set_enabled(evdev->idle_src, SD_EVENT_OFF);
 
         evdev->unsync = true;
         evdev->fd = fd;
-
         fd = -1;
+
+        idev_evdev_enable(evdev);
         return 0;
 }
 
@@ -371,12 +379,11 @@ static void idev_evdev_pause(idev_evdev *evdev, bool release) {
 
         log_debug("idev-evdev: %s/%s: pause", e->session->name, e->name);
 
+        idev_evdev_disable(evdev);
         if (release) {
                 evdev->idle_src = sd_event_source_unref(evdev->idle_src);
                 evdev->fd_src = sd_event_source_unref(evdev->fd_src);
                 evdev->fd = safe_close(evdev->fd);
-        } else {
-                idev_evdev_disable(evdev);
         }
 }
 
