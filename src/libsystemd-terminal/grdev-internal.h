@@ -47,6 +47,7 @@ typedef struct grdev_card               grdev_card;
 bool grdev_is_drm_card(grdev_card *card);
 grdev_card *grdev_find_drm_card(grdev_session *session, dev_t devnum);
 int grdev_drm_card_new(grdev_card **out, grdev_session *session, struct udev_device *ud);
+void grdev_drm_card_hotplug(grdev_card *card, struct udev_device *ud);
 
 /*
  * Displays

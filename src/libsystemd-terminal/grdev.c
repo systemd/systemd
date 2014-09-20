@@ -1150,7 +1150,7 @@ void grdev_session_hotplug_drm(grdev_session *session, struct udev_device *ud) {
         if (!card)
                 return;
 
-        /* TODO: hotplug card */
+        grdev_drm_card_hotplug(card, ud);
 }
 
 static void session_configure(grdev_session *session) {

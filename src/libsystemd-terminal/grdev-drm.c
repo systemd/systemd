@@ -2096,8 +2096,11 @@ static void grdrm_card_hotplug(grdrm_card *card) {
         int r;
 
         assert(card);
-        assert(!card->ready);
 
+        if (!card->running)
+                return;
+
+        card->ready = false;
         r = grdrm_card_resync(card);
         if (r < 0) {
                 log_debug("grdrm: %s/%s: cannot re-sync card: %s",
@@ -2954,4 +2957,31 @@ int grdev_drm_card_new(grdev_card **out, grdev_session *session, struct udev_dev
         assert_return(ud, -EINVAL);
 
         return session->managed ? managed_card_new(out, session, ud) : unmanaged_card_new(out, session, ud);
+}
+
+void grdev_drm_card_hotplug(grdev_card *basecard, struct udev_device *ud) {
+        const char *p, *action;
+        grdrm_card *card;
+        dev_t devnum;
+
+        assert(basecard);
+        assert(grdev_is_drm_card(basecard));
+        assert(ud);
+
+        card = grdrm_card_from_base(basecard);
+
+        action = udev_device_get_action(ud);
+        if (!action || streq(action, "add") || streq(action, "remove")) {
+                /* If we get add/remove events on DRM nodes without devnum, we
+                 * got hotplugged DRM objects so refresh the device. */
+                devnum = udev_device_get_devnum(ud);
+                if (devnum == 0)
+                        grdrm_card_hotplug(card);
+        } else if (streq_ptr(action, "change")) {
+                /* A change event with HOTPLUG=1 is sent whenever a connector
+                 * changed state. Refresh the device to update our state. */
+                p = udev_device_get_property_value(ud, "HOTPLUG");
+                if (streq_ptr(p, "1"))
+                        grdrm_card_hotplug(card);
+        }
 }
