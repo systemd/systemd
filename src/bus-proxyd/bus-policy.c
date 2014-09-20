@@ -730,7 +730,7 @@ static void dump_hashmap_items(Hashmap *h) {
         }
 }
 
-noreturn void policy_dump(Policy *p) {
+void policy_dump(Policy *p) {
 
         printf("%s Default Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->default_items, "\t");
@@ -743,8 +743,6 @@ noreturn void policy_dump(Policy *p) {
 
         printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->mandatory_items, "\t");
-
-        exit(0);
 }
 
 static const char* const policy_item_type_table[_POLICY_ITEM_TYPE_MAX] = {
