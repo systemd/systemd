@@ -203,6 +203,9 @@ static void kdata_print(idev_data *data) {
                         k->value == 1 ? "DOWN" :
                         "REPEAT");
 
+        /* Resync state */
+        printf(" | %-6s", data->resync ? "RESYNC" : "");
+
         /* Keycode that triggered the event */
         printf(" | %5u", (unsigned)k->keycode);
 
