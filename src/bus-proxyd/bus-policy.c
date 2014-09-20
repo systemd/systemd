@@ -525,8 +525,36 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
+                                switch (i->class) {
+                                case POLICY_ITEM_USER:
+                                        if (!streq(name, "*")) {
+                                                const char *u = name;
+
+                                                r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
+                                                if (r < 0)
+                                                        log_error("Failed to resolve user %s: %s", name, strerror(-r));
+                                                else
+                                                        i->uid_valid = true;
+                                        }
+                                        break;
+                                case POLICY_ITEM_GROUP:
+                                        if (!streq(name, "*")) {
+                                                const char *g = name;
+
+                                                r = get_group_creds(&g, &i->gid);
+                                                if (r < 0)
+                                                        log_error("Failed to resolve group %s: %s", name, strerror(-r));
+                                                else
+                                                        i->gid_valid = true;
+                                        }
+                                        break;
+                                default:
+                                        break;
+                                }
+
                                 i->name = name;
                                 name = NULL;
+
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (14) in %s:%u.", path, line);
