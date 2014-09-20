@@ -346,6 +346,8 @@ static bool grdrm_modes_compatible(const struct drm_mode_modeinfo *a, const stru
                 return false;
         if (a->vdisplay != b->vdisplay)
                 return false;
+        if (a->vrefresh != b->vrefresh)
+                return false;
 
         return true;
 }
@@ -1038,7 +1040,8 @@ static void grdrm_crtc_expose(grdrm_crtc *crtc) {
         pipe = crtc->pipe;
         if (pipe) {
                 if (pipe->base.width != crtc->set.mode.hdisplay ||
-                    pipe->base.height != crtc->set.mode.vdisplay) {
+                    pipe->base.height != crtc->set.mode.vdisplay ||
+                    pipe->base.vrefresh != crtc->set.mode.vrefresh) {
                         grdev_pipe_free(&pipe->base);
                         crtc->pipe = NULL;
                         pipe = NULL;
@@ -1127,6 +1130,12 @@ static void grdrm_crtc_commit_deep(grdrm_crtc *crtc, grdev_fb **slot) {
         pipe->base.flipping = false;
         pipe->base.flip = false;
 
+        /* We cannot schedule dummy page-flips on pipes, hence, the
+         * application would have to schedule their own frame-timers.
+         * To avoid duplicating that everywhere, we schedule our own
+         * timer and raise a fake FRAME event when it fires. */
+        grdev_pipe_schedule(&pipe->base, 1);
+
         if (!pipe->base.back) {
                 for (i = 0; i < pipe->base.max_fbs; ++i) {
                         if (!pipe->base.fbs[i])
@@ -1188,6 +1197,11 @@ static int grdrm_crtc_commit_flip(grdrm_crtc *crtc, grdev_fb **slot) {
         pipe->counter = cnt;
         fb->flipid = cnt;
         *slot = NULL;
+
+        /* Raise fake FRAME event if it takes longer than 2
+         * frames to receive the pageflip event. We assume the
+         * queue ran over or some other error happened. */
+        grdev_pipe_schedule(&pipe->base, 2);
 
         if (!pipe->base.back) {
                 for (i = 0; i < pipe->base.max_fbs; ++i) {
@@ -1501,6 +1515,7 @@ static int grdrm_pipe_new(grdrm_pipe **out, grdrm_crtc *crtc, struct drm_mode_mo
         pipe->crtc = crtc;
         pipe->base.width = mode->hdisplay;
         pipe->base.height = mode->vdisplay;
+        pipe->base.vrefresh = mode->vrefresh ? : 25;
 
         grdrm_pipe_name(name, crtc);
         r = grdev_pipe_add(&pipe->base, name, n_fbs);

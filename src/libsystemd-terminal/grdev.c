@@ -574,6 +574,13 @@ grdev_pipe *grdev_find_pipe(grdev_card *card, const char *name) {
         return hashmap_get(card->pipe_map, name);
 }
 
+static int pipe_vsync_fn(sd_event_source *src, uint64_t usec, void *userdata) {
+        grdev_pipe *pipe = userdata;
+
+        grdev_pipe_frame(pipe);
+        return 0;
+}
+
 int grdev_pipe_add(grdev_pipe *pipe, const char *name, size_t n_fbs) {
         int r;
 
@@ -585,6 +592,7 @@ int grdev_pipe_add(grdev_pipe *pipe, const char *name, size_t n_fbs) {
         assert_return(!pipe->cache, -EINVAL);
         assert_return(pipe->width > 0, -EINVAL);
         assert_return(pipe->height > 0, -EINVAL);
+        assert_return(pipe->vrefresh > 0, -EINVAL);
         assert_return(!pipe->enabled, -EINVAL);
         assert_return(!pipe->running, -EINVAL);
         assert_return(name, -EINVAL);
@@ -602,6 +610,20 @@ int grdev_pipe_add(grdev_pipe *pipe, const char *name, size_t n_fbs) {
         }
 
         r = grdev_tile_new_leaf(&pipe->tile, pipe);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_time(pipe->card->session->context->event,
+                              &pipe->vsync_src,
+                              CLOCK_MONOTONIC,
+                              0,
+                              10 * USEC_PER_MSEC,
+                              pipe_vsync_fn,
+                              pipe);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(pipe->vsync_src, SD_EVENT_OFF);
         if (r < 0)
                 return r;
 
@@ -633,6 +655,7 @@ grdev_pipe *grdev_pipe_free(grdev_pipe *pipe) {
         tmp = *pipe;
         pipe->vtable->free(pipe);
 
+        sd_event_source_unref(tmp.vsync_src);
         grdev_tile_free(tmp.tile);
         card_modified(tmp.card);
         free(tmp.fbs);
@@ -676,17 +699,15 @@ void grdev_pipe_ready(grdev_pipe *pipe, bool running) {
         pipe->running = running;
 
         /* runtime events for unused pipes are not interesting */
-        if (pipe->cache) {
+        if (pipe->cache && pipe->enabled) {
                 grdev_display *display = pipe->tile->display;
 
                 assert(display);
 
-                if (running) {
-                        if (pipe->enabled)
-                                session_frame(display->session, display);
-                } else {
+                if (running)
+                        session_frame(display->session, display);
+                else
                         pipe->cache->incomplete = true;
-                }
         }
 }
 
@@ -696,14 +717,44 @@ void grdev_pipe_frame(grdev_pipe *pipe) {
         assert(pipe);
 
         /* if pipe is unused, ignore any frame events */
-        if (!pipe->cache)
+        if (!pipe->cache || !pipe->enabled)
                 return;
 
         display = pipe->tile->display;
         assert(display);
 
-        if (pipe->enabled)
-                session_frame(display->session, display);
+        grdev_pipe_schedule(pipe, 0);
+        session_frame(display->session, display);
+}
+
+void grdev_pipe_schedule(grdev_pipe *pipe, uint64_t frames) {
+        int r;
+        uint64_t ts;
+
+        if (!frames) {
+                sd_event_source_set_enabled(pipe->vsync_src, SD_EVENT_OFF);
+                return;
+        }
+
+        r = sd_event_now(pipe->card->session->context->event, CLOCK_MONOTONIC, &ts);
+        if (r < 0)
+                goto error;
+
+        ts += frames * USEC_PER_MSEC * 1000ULL / pipe->vrefresh;
+
+        r = sd_event_source_set_time(pipe->vsync_src, ts);
+        if (r < 0)
+                goto error;
+
+        r = sd_event_source_set_enabled(pipe->vsync_src, SD_EVENT_ONESHOT);
+        if (r < 0)
+                goto error;
+
+        return;
+
+error:
+        log_debug("grdev: %s/%s/%s: cannot schedule vsync timer: %s",
+                  pipe->card->session->name, pipe->card->name, pipe->name, strerror(-r));
 }
 
 /*

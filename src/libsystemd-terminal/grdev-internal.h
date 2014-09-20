@@ -142,9 +142,11 @@ struct grdev_pipe {
 
         grdev_tile *tile;
         grdev_display_cache *cache;
+        sd_event_source *vsync_src;
 
         uint32_t width;
         uint32_t height;
+        uint32_t vrefresh;
 
         size_t max_fbs;
         grdev_fb *front;
@@ -171,6 +173,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(grdev_pipe*, grdev_pipe_free);
 
 void grdev_pipe_ready(grdev_pipe *pipe, bool running);
 void grdev_pipe_frame(grdev_pipe *pipe);
+void grdev_pipe_schedule(grdev_pipe *pipe, uint64_t frames);
 
 /*
  * Cards
