@@ -364,6 +364,7 @@ static int file_load(Policy *p, const char *path) {
 
                                                 first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
                                                 item_append(i, &first);
+                                                i->uid_valid = true;
 
                                                 r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
                                                 if (r < 0) {
@@ -395,6 +396,7 @@ static int file_load(Policy *p, const char *path) {
 
                                                 first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
                                                 item_append(i, &first);
+                                                i->gid_valid = true;
 
                                                 r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
                                                 if (r < 0) {
