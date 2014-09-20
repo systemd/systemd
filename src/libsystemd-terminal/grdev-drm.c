@@ -1177,8 +1177,12 @@ static int grdrm_crtc_commit_flip(grdrm_crtc *crtc, grdev_fb **slot) {
         r = ioctl(card->fd, DRM_IOCTL_MODE_PAGE_FLIP, &page_flip);
         if (r < 0) {
                 r = -errno;
-                log_debug("grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
-                          card->base.name, crtc->object.id);
+                /* Avoid excessive logging on EINVAL; it is currently not
+                 * possible to see whether cards support page-flipping, so
+                 * avoid logging on each frame. */
+                if (r != -EINVAL)
+                        log_debug("grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
+                                  card->base.name, crtc->object.id);
 
                 if (grdrm_card_async(card, r))
                         return r;
@@ -2145,6 +2149,8 @@ static void grdrm_card_hotplug(grdrm_card *card) {
         if (!card->running)
                 return;
 
+        log_debug("grdrm: %s/%s: reconfigure card", card->base.session->name, card->base.name);
+
         card->ready = false;
         r = grdrm_card_resync(card);
         if (r < 0) {
@@ -2155,7 +2161,10 @@ static void grdrm_card_hotplug(grdrm_card *card) {
 
         grdev_session_pin(card->base.session);
 
-        grdrm_card_print(card);
+        /* debug statement to print card information */
+        if (0)
+                grdrm_card_print(card);
+
         grdrm_card_configure(card);
         card->ready = true;
 
