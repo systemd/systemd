@@ -268,7 +268,9 @@
                                 as defined by the <ulink
                                 url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
                                 Entry
-                                Specification</ulink>.</para></listitem>
+                                Specification</ulink>. See
+                                <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for more details.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

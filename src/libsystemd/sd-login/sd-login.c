@@ -485,6 +485,25 @@ _public_ int sd_session_get_class(const char *session, char **class) {
         return session_get_string(session, "CLASS", class);
 }
 
+_public_ int sd_session_get_desktop(const char *session, char **desktop) {
+        _cleanup_free_ char *escaped = NULL;
+        char *t;
+        int r;
+
+        assert_return(desktop, -EINVAL);
+
+        r = session_get_string(session, "DESKTOP", &escaped);
+        if (r < 0)
+                return r;
+
+        t = cunescape(escaped);
+        if (!t)
+                return -ENOMEM;
+
+        *desktop = t;
+        return 0;
+}
+
 _public_ int sd_session_get_display(const char *session, char **display) {
         return session_get_string(session, "DISPLAY", display);
 }

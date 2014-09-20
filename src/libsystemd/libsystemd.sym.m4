@@ -153,6 +153,11 @@ global:
         sd_machine_get_ifindices;
 } LIBSYSTEMD_214;
 
+LIBSYSTEMD_217 {
+global:
+        sd_session_get_desktop;
+} LIBSYSTEMD_216;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:
@@ -438,5 +443,5 @@ global:
         /* sd-path */
         sd_path_home;
         sd_path_search;
-} LIBSYSTEMD_216;
+} LIBSYSTEMD_217;
 )
