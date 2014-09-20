@@ -270,12 +270,10 @@ static void modeset_grdev_fn(grdev_session *session, void *userdata, grdev_event
         switch (ev->type) {
         case GRDEV_EVENT_DISPLAY_ADD:
                 grdev_display_enable(ev->display_add.display);
-                modeset_render(m, ev->display_add.display);
                 break;
         case GRDEV_EVENT_DISPLAY_REMOVE:
                 break;
         case GRDEV_EVENT_DISPLAY_CHANGE:
-                modeset_render(m, ev->display_change.display);
                 break;
         case GRDEV_EVENT_DISPLAY_FRAME:
                 modeset_render(m, ev->display_frame.display);

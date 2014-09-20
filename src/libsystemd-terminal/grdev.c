@@ -921,14 +921,17 @@ static void session_change_display(grdev_session *session, grdev_display *displa
 
         changed = display_cache(display);
 
-        if (display->n_leafs == 0)
+        if (display->n_leafs == 0) {
                 session_remove_display(session, display);
-        else if (!display->public)
+        } else if (!display->public) {
                 session_add_display(session, display);
-        else if (changed)
-                session_raise_display_change(session, display);
-        else if (display->framed)
                 session_frame(session, display);
+        } else if (changed) {
+                session_raise_display_change(session, display);
+                session_frame(session, display);
+        } else if (display->framed) {
+                session_frame(session, display);
+        }
 }
 
 static void session_frame(grdev_session *session, grdev_display *display) {
