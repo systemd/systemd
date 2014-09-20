@@ -102,7 +102,16 @@ static void idev_evdev_name(char *out, dev_t devnum) {
         sprintf(out, "evdev/%u:%u", major(devnum), minor(devnum));
 }
 
-static int idev_evdev_raise(idev_evdev *evdev, struct input_event *event) {
+static int idev_evdev_feed_resync(idev_evdev *evdev) {
+        idev_data data = {
+                .type = IDEV_DATA_RESYNC,
+                .resync = evdev->resync,
+        };
+
+        return idev_element_feed(&evdev->element, &data);
+}
+
+static int idev_evdev_feed_evdev(idev_evdev *evdev, struct input_event *event) {
         idev_data data = {
                 .type = IDEV_DATA_EVDEV,
                 .resync = evdev->resync,
@@ -156,7 +165,6 @@ static int idev_evdev_io(idev_evdev *evdev) {
          * case we cannot keep up with the kernel.
          * TODO: Make sure libevdev always reports SYN_DROPPED to us, regardless
          * whether any event was synced afterwards.
-         * TODO: Forward SYN_DROPPED to attached devices.
          */
 
         flags = LIBEVDEV_READ_FLAG_NORMAL;
@@ -191,7 +199,7 @@ static int idev_evdev_io(idev_evdev *evdev) {
                 } else if (r == LIBEVDEV_READ_STATUS_SYNC) {
                         if (evdev->resync) {
                                 /* sync-event */
-                                r = idev_evdev_raise(evdev, &ev);
+                                r = idev_evdev_feed_evdev(evdev, &ev);
                                 if (r != 0) {
                                         error = r;
                                         break;
@@ -200,10 +208,15 @@ static int idev_evdev_io(idev_evdev *evdev) {
                                 /* start of sync */
                                 evdev->resync = true;
                                 flags = LIBEVDEV_READ_FLAG_SYNC;
+                                r = idev_evdev_feed_resync(evdev);
+                                if (r != 0) {
+                                        error = r;
+                                        break;
+                                }
                         }
                 } else {
                         /* normal event */
-                        r = idev_evdev_raise(evdev, &ev);
+                        r = idev_evdev_feed_evdev(evdev, &ev);
                         if (r != 0) {
                                 error = r;
                                 break;
@@ -288,6 +301,7 @@ static void idev_evdev_disable(idev_evdev *evdev) {
                 return;
 
         evdev->running = false;
+        idev_evdev_feed_resync(evdev);
         sd_event_source_set_enabled(evdev->fd_src, SD_EVENT_OFF);
         sd_event_source_set_enabled(evdev->idle_src, SD_EVENT_OFF);
 }
