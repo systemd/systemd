@@ -364,6 +364,13 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                 }
 
                 break;
+        case SYSVIEW_EVENT_DEVICE_CHANGE:
+                d = ev->device_change.device;
+                type = sysview_device_get_type(d);
+                if (type == SYSVIEW_DEVICE_DRM)
+                        grdev_session_hotplug_drm(m->grdev_session, ev->device_change.ud);
+
+                break;
         }
 
         return 0;
