@@ -252,9 +252,9 @@ static void modeset_draw(Modeset *m, const grdev_display_target *t) {
 static void modeset_render(Modeset *m, grdev_display *d) {
         const grdev_display_target *t;
 
-        m->r = next_color(&m->r_up, m->r, 20);
-        m->g = next_color(&m->g_up, m->g, 10);
-        m->b = next_color(&m->b_up, m->b, 5);
+        m->r = next_color(&m->r_up, m->r, 4);
+        m->g = next_color(&m->g_up, m->g, 3);
+        m->b = next_color(&m->b_up, m->b, 2);
 
         GRDEV_DISPLAY_FOREACH_TARGET(d, t, 0) {
                 modeset_draw(m, t);
