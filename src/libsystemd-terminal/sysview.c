@@ -517,6 +517,18 @@ static int context_raise_session_detach(sysview_context *c, sysview_session *ses
         return context_raise(c, &event, 0);
 }
 
+static int context_raise_device_change(sysview_context *c, sysview_device *device, struct udev_device *ud) {
+        sysview_event event = {
+                .type = SYSVIEW_EVENT_DEVICE_CHANGE,
+                .device_change = {
+                        .device = device,
+                        .ud = ud,
+                }
+        };
+
+        return context_raise(c, &event, 0);
+}
+
 static int context_add_device(sysview_context *c, sysview_device *device) {
         sysview_session *session;
         int r, error = 0;
@@ -872,7 +884,7 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
                 if (!device)
                         return 0;
 
-                /* TODO: send REFRESH event */
+                return context_raise_device_change(c, device, d);
         } else if (!action || streq_ptr(action, "add")) {
                 struct udev_device *p;
                 unsigned int type, t;
