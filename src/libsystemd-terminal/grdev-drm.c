@@ -1083,15 +1083,136 @@ static void grdrm_crtc_expose(grdrm_crtc *crtc) {
         grdev_pipe_ready(&crtc->pipe->base, true);
 }
 
-static void grdrm_crtc_commit(grdrm_crtc *crtc) {
+static void grdrm_crtc_commit_deep(grdrm_crtc *crtc, grdev_fb **slot) {
+        struct drm_mode_crtc set_crtc = { .crtc_id = crtc->object.id };
+        grdrm_card *card = crtc->object.card;
+        grdrm_pipe *pipe = crtc->pipe;
+        grdrm_fb *fb = fb_from_base(*slot);
+        size_t i;
+        int r;
+
+        assert(crtc);
+        assert(slot);
+        assert(*slot);
+        assert(pipe);
+
+        set_crtc.set_connectors_ptr = PTR_TO_UINT64(crtc->set.connectors);
+        set_crtc.count_connectors = crtc->set.n_connectors;
+        set_crtc.fb_id = fb->id;
+        set_crtc.x = 0;
+        set_crtc.y = 0;
+        set_crtc.mode_valid = 1;
+        set_crtc.mode = crtc->set.mode;
+
+        r = ioctl(card->fd, DRM_IOCTL_MODE_SETCRTC, &set_crtc);
+        if (r < 0) {
+                r = -errno;
+                log_debug("grdrm: %s: cannot set crtc %" PRIu32 ": %m",
+                          card->base.name, crtc->object.id);
+
+                grdrm_card_async(card, r);
+                return;
+        }
+
+        if (!crtc->applied) {
+                log_debug("grdrm: %s: crtc %" PRIu32 " applied via deep modeset",
+                          card->base.name, crtc->object.id);
+                crtc->applied = true;
+        }
+
+        *slot = NULL;
+        pipe->base.front = &fb->base;
+        fb->flipid = 0;
+        ++pipe->counter;
+        pipe->base.flipping = false;
+        pipe->base.flip = false;
+
+        if (!pipe->base.back) {
+                for (i = 0; i < pipe->base.max_fbs; ++i) {
+                        if (!pipe->base.fbs[i])
+                                continue;
+
+                        fb = fb_from_base(pipe->base.fbs[i]);
+                        if (&fb->base == pipe->base.front)
+                                continue;
+
+                        fb->flipid = 0;
+                        pipe->base.back = &fb->base;
+                        break;
+                }
+        }
+}
+
+static int grdrm_crtc_commit_flip(grdrm_crtc *crtc, grdev_fb **slot) {
         struct drm_mode_crtc_page_flip page_flip = { .crtc_id = crtc->object.id };
+        grdrm_card *card = crtc->object.card;
+        grdrm_pipe *pipe = crtc->pipe;
+        grdrm_fb *fb = fb_from_base(*slot);
+        uint32_t cnt;
+        size_t i;
+        int r;
+
+        assert(crtc);
+        assert(slot);
+        assert(*slot);
+        assert(pipe);
+
+        if (!crtc->applied && !grdrm_modes_compatible(&crtc->kern.mode, &crtc->set.mode))
+                return 0;
+
+        cnt = ++pipe->counter ? : ++pipe->counter;
+        page_flip.fb_id = fb->id;
+        page_flip.flags = DRM_MODE_PAGE_FLIP_EVENT;
+        page_flip.user_data = grdrm_encode_vblank_data(crtc->object.id, cnt);
+
+        r = ioctl(card->fd, DRM_IOCTL_MODE_PAGE_FLIP, &page_flip);
+        if (r < 0) {
+                r = -errno;
+                log_debug("grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
+                          card->base.name, crtc->object.id);
+
+                if (grdrm_card_async(card, r))
+                        return r;
+
+                return 0;
+        }
+
+        if (!crtc->applied) {
+                log_debug("grdrm: %s: crtc %" PRIu32 " applied via page flip",
+                          card->base.name, crtc->object.id);
+                crtc->applied = true;
+        }
+
+        pipe->base.flipping = true;
+        pipe->base.flip = false;
+        pipe->counter = cnt;
+        fb->flipid = cnt;
+        *slot = NULL;
+
+        if (!pipe->base.back) {
+                for (i = 0; i < pipe->base.max_fbs; ++i) {
+                        if (!pipe->base.fbs[i])
+                                continue;
+
+                        fb = fb_from_base(pipe->base.fbs[i]);
+                        if (&fb->base == pipe->base.front)
+                                continue;
+                        if (fb->flipid)
+                                continue;
+
+                        pipe->base.back = &fb->base;
+                        break;
+                }
+        }
+
+        return 1;
+}
+
+static void grdrm_crtc_commit(grdrm_crtc *crtc) {
         struct drm_mode_crtc set_crtc = { .crtc_id = crtc->object.id };
         grdrm_card *card = crtc->object.card;
         grdrm_pipe *pipe;
         grdev_fb **slot;
-        grdrm_fb *fb;
-        uint32_t cnt;
-        size_t i;
         int r;
 
         assert(crtc);
@@ -1141,102 +1262,11 @@ static void grdrm_crtc_commit(grdrm_crtc *crtc) {
         if (!*slot)
                 return;
 
-        fb = fb_from_base(*slot);
-
-        if (crtc->applied || grdrm_modes_compatible(&crtc->kern.mode, &crtc->set.mode)) {
-                cnt = ++pipe->counter ? : ++pipe->counter;
-                page_flip.fb_id = fb->id;
-                page_flip.flags = DRM_MODE_PAGE_FLIP_EVENT;
-                page_flip.user_data = grdrm_encode_vblank_data(crtc->object.id, cnt);
-
-                r = ioctl(card->fd, DRM_IOCTL_MODE_PAGE_FLIP, &page_flip);
-                if (r < 0) {
-                        r = -errno;
-                        log_debug("grdrm: %s: cannot schedule page-flip on crtc %" PRIu32 ": %m",
-                                  card->base.name, crtc->object.id);
-
-                        if (grdrm_card_async(card, r))
-                                return;
-
-                        /* fall through to deep modeset */
-                } else {
-                        if (!crtc->applied) {
-                                log_debug("grdrm: %s: crtc %" PRIu32 " applied via page flip",
-                                          card->base.name, crtc->object.id);
-                                crtc->applied = true;
-                        }
-
-                        pipe->base.flipping = true;
-                        pipe->counter = cnt;
-                        fb->flipid = cnt;
-                        *slot = NULL;
-
-                        if (!pipe->base.back) {
-                                for (i = 0; i < pipe->base.max_fbs; ++i) {
-                                        if (!pipe->base.fbs[i])
-                                                continue;
-
-                                        fb = fb_from_base(pipe->base.fbs[i]);
-                                        if (&fb->base == pipe->base.front)
-                                                continue;
-                                        if (fb->flipid)
-                                                continue;
-
-                                        pipe->base.back = &fb->base;
-                                        break;
-                                }
-                        }
-                }
+        r = grdrm_crtc_commit_flip(crtc, slot);
+        if (r == 0) {
+                /* in case we couldn't page-flip, perform deep modeset */
+                grdrm_crtc_commit_deep(crtc, slot);
         }
-
-        if (!crtc->applied) {
-                set_crtc.set_connectors_ptr = PTR_TO_UINT64(crtc->set.connectors);
-                set_crtc.count_connectors = crtc->set.n_connectors;
-                set_crtc.fb_id = fb->id;
-                set_crtc.x = 0;
-                set_crtc.y = 0;
-                set_crtc.mode_valid = 1;
-                set_crtc.mode = crtc->set.mode;
-
-                r = ioctl(card->fd, DRM_IOCTL_MODE_SETCRTC, &set_crtc);
-                if (r < 0) {
-                        r = -errno;
-                        log_debug("grdrm: %s: cannot set crtc %" PRIu32 ": %m",
-                                  card->base.name, crtc->object.id);
-
-                        grdrm_card_async(card, r);
-                        return;
-                }
-
-                if (!crtc->applied) {
-                        log_debug("grdrm: %s: crtc %" PRIu32 " applied via deep modeset",
-                                  card->base.name, crtc->object.id);
-                        crtc->applied = true;
-                }
-
-                *slot = NULL;
-                pipe->base.front = &fb->base;
-                fb->flipid = 0;
-                ++pipe->counter;
-                pipe->base.flipping = false;
-
-                if (!pipe->base.back) {
-                        for (i = 0; i < pipe->base.max_fbs; ++i) {
-                                if (!pipe->base.fbs[i])
-                                        continue;
-
-                                fb = fb_from_base(pipe->base.fbs[i]);
-                                if (&fb->base == pipe->base.front)
-                                        continue;
-
-                                fb->flipid = 0;
-                                pipe->base.back = &fb->base;
-                                break;
-                        }
-                }
-        }
-
-        pipe->base.flip = false;
 }
 
 static void grdrm_crtc_restore(grdrm_crtc *crtc) {
