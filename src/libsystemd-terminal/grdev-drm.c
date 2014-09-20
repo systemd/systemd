@@ -264,6 +264,7 @@ struct grdrm_card {
         Hashmap *object_map;
 
         bool async_hotplug : 1;
+        bool hotplug : 1;
         bool running : 1;
         bool ready : 1;
         bool cap_dumb : 1;
@@ -603,12 +604,19 @@ static int grdrm_connector_resync(grdrm_connector *connector) {
                 res.count_encoders = connector->kern.max_encoders;
                 res.count_props = connector->kern.max_props;
 
-                /* Retrieve modes only if we have none. This avoids expensive
-                 * EDID reads in the kernel, that can slow down resyncs
-                 * considerably! */
-                if (connector->kern.n_modes == 0) {
-                        res.modes_ptr = PTR_TO_UINT64(connector->kern.modes);
-                        res.count_modes = connector->kern.max_modes;
+                /* The kernel reads modes from the EDID information only if we
+                 * pass count_modes==0. This is a legacy hack for libdrm (which
+                 * called every ioctl twice). Now we have to adopt.. *sigh*.
+                 * If we never received an hotplug event, there's no reason to
+                 * sync modes. EDID reads are heavy, so skip that if not
+                 * required. */
+                if (card->hotplug) {
+                        if (tries > 0) {
+                                res.modes_ptr = PTR_TO_UINT64(connector->kern.modes);
+                                res.count_modes = connector->kern.max_modes;
+                        } else {
+                                resized = true;
+                        }
                 }
 
                 r = ioctl(card->fd, DRM_IOCTL_MODE_GETCONNECTOR, &res);
@@ -689,7 +697,6 @@ static int grdrm_connector_resync(grdrm_connector *connector) {
                         continue;
 
                 connector->kern.n_encoders = res.count_encoders;
-                connector->kern.n_modes = res.count_modes;
                 connector->kern.n_props = res.count_props;
                 connector->kern.type = res.connector_type;
                 connector->kern.type_id = res.connector_type_id;
@@ -698,6 +705,8 @@ static int grdrm_connector_resync(grdrm_connector *connector) {
                 connector->kern.mm_width = res.mm_width;
                 connector->kern.mm_height = res.mm_height;
                 connector->kern.subpixel = res.subpixel;
+                if (res.modes_ptr == PTR_TO_UINT64(connector->kern.modes))
+                        connector->kern.n_modes = res.count_modes;
 
                 break;
         }
@@ -2167,6 +2176,7 @@ static void grdrm_card_hotplug(grdrm_card *card) {
 
         grdrm_card_configure(card);
         card->ready = true;
+        card->hotplug = false;
 
         grdev_session_unpin(card->base.session);
 }
@@ -2374,6 +2384,7 @@ static int grdrm_card_open(grdrm_card *card, int dev_fd) {
 
         sd_event_source_set_enabled(card->fd_src, SD_EVENT_OFF);
 
+        card->hotplug = true;
         card->fd = fd;
         fd = -1;
 
@@ -3029,13 +3040,17 @@ void grdev_drm_card_hotplug(grdev_card *basecard, struct udev_device *ud) {
                 /* If we get add/remove events on DRM nodes without devnum, we
                  * got hotplugged DRM objects so refresh the device. */
                 devnum = udev_device_get_devnum(ud);
-                if (devnum == 0)
+                if (devnum == 0) {
+                        card->hotplug = true;
                         grdrm_card_hotplug(card);
+                }
         } else if (streq_ptr(action, "change")) {
                 /* A change event with HOTPLUG=1 is sent whenever a connector
                  * changed state. Refresh the device to update our state. */
                 p = udev_device_get_property_value(ud, "HOTPLUG");
-                if (streq_ptr(p, "1"))
+                if (streq_ptr(p, "1")) {
+                        card->hotplug = true;
                         grdrm_card_hotplug(card);
+                }
         }
 }
