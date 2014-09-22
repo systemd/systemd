@@ -274,6 +274,22 @@ static void element_disable(idev_element *e) {
         }
 }
 
+static void element_resume(idev_element *e, int fd) {
+        assert(e);
+        assert(fd >= 0);
+
+        if (e->vtable->resume)
+                e->vtable->resume(e, fd);
+}
+
+static void element_pause(idev_element *e, const char *mode) {
+        assert(e);
+        assert(mode);
+
+        if (e->vtable->pause)
+                e->vtable->pause(e, mode);
+}
+
 /*
  * Sessions
  */
@@ -417,6 +433,98 @@ idev_session *idev_find_session(idev_context *c, const char *name) {
         return hashmap_get(c->session_map, name);
 }
 
+static int session_resume_device_fn(sd_bus *bus,
+                                    sd_bus_message *signal,
+                                    void *userdata,
+                                    sd_bus_error *ret_error) {
+        idev_session *s = userdata;
+        idev_element *e;
+        uint32_t major, minor;
+        int r, fd;
+
+        r = sd_bus_message_read(signal, "uuh", &major, &minor, &fd);
+        if (r < 0) {
+                log_debug("idev: %s: erroneous ResumeDevice signal", s->name);
+                return 0;
+        }
+
+        e = idev_find_evdev(s, makedev(major, minor));
+        if (!e)
+                return 0;
+
+        element_resume(e, fd);
+        return 0;
+}
+
+static int session_pause_device_fn(sd_bus *bus,
+                                   sd_bus_message *signal,
+                                   void *userdata,
+                                   sd_bus_error *ret_error) {
+        idev_session *s = userdata;
+        idev_element *e;
+        uint32_t major, minor;
+        const char *mode;
+        int r;
+
+        r = sd_bus_message_read(signal, "uus", &major, &minor, &mode);
+        if (r < 0) {
+                log_debug("idev: %s: erroneous PauseDevice signal", s->name);
+                return 0;
+        }
+
+        e = idev_find_evdev(s, makedev(major, minor));
+        if (!e)
+                return 0;
+
+        element_pause(e, mode);
+        return 0;
+}
+
+static int session_setup_bus(idev_session *s) {
+        _cleanup_free_ char *match = NULL;
+        int r;
+
+        if (!s->managed)
+                return 0;
+
+        match = strjoin("type='signal',"
+                        "sender='org.freedesktop.login1',"
+                        "interface='org.freedesktop.login1.Session',"
+                        "member='ResumeDevice',"
+                        "path='", s->path, "'",
+                        NULL);
+        if (!match)
+                return -ENOMEM;
+
+        r = sd_bus_add_match(s->context->sysbus,
+                             &s->slot_resume_device,
+                             match,
+                             session_resume_device_fn,
+                             s);
+        if (r < 0)
+                return r;
+
+        free(match);
+        match = strjoin("type='signal',"
+                        "sender='org.freedesktop.login1',"
+                        "interface='org.freedesktop.login1.Session',"
+                        "member='PauseDevice',"
+                        "path='", s->path, "'",
+                        NULL);
+        if (!match)
+                return -ENOMEM;
+
+        r = sd_bus_add_match(s->context->sysbus,
+                             &s->slot_pause_device,
+                             match,
+                             session_pause_device_fn,
+                             s);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int idev_session_new(idev_session **out,
                      idev_context *c,
                      unsigned int flags,
@@ -462,6 +570,10 @@ int idev_session_new(idev_session **out,
         if (!s->device_map)
                 return -ENOMEM;
 
+        r = session_setup_bus(s);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(c->session_map, s->name, s);
         if (r < 0)
                 return r;
@@ -485,6 +597,8 @@ idev_session *idev_session_free(idev_session *s) {
         if (s->name)
                 hashmap_remove_value(s->context->session_map, s->name, s);
 
+        s->slot_pause_device = sd_bus_slot_unref(s->slot_pause_device);
+        s->slot_resume_device = sd_bus_slot_unref(s->slot_resume_device);
         s->context = idev_context_unref(s->context);
         hashmap_free(s->device_map);
         hashmap_free(s->element_map);

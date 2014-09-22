@@ -60,9 +60,6 @@ struct unmanaged_evdev {
 struct managed_evdev {
         idev_evdev evdev;
         dev_t devnum;
-
-        sd_bus_slot *slot_pause_device;
-        sd_bus_slot *slot_resume_device;
         sd_bus_slot *slot_take_device;
 
         bool requested : 1;             /* TakeDevice() was sent */
@@ -580,7 +577,7 @@ static int managed_evdev_take_device_fn(sd_bus *bus,
         return 0;
 }
 
-static void managed_evdev_resume(idev_element *e) {
+static void managed_evdev_enable(idev_element *e) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         managed_evdev *em = managed_evdev_from_element(e);
         idev_session *s = e->session;
@@ -628,7 +625,7 @@ error:
                   s->name, e->name, strerror(-r));
 }
 
-static void managed_evdev_pause(idev_element *e) {
+static void managed_evdev_disable(idev_element *e) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         managed_evdev *em = managed_evdev_from_element(e);
         idev_session *s = e->session;
@@ -686,24 +683,45 @@ static void managed_evdev_pause(idev_element *e) {
                           s->name, e->name, strerror(-r));
 }
 
-static int managed_evdev_pause_device_fn(sd_bus *bus,
-                                         sd_bus_message *signal,
-                                         void *userdata,
-                                         sd_bus_error *ret_error) {
-        managed_evdev *em = userdata;
-        idev_element *e = &em->evdev.element;
+static void managed_evdev_resume(idev_element *e, int fd) {
+        managed_evdev *em = managed_evdev_from_element(e);
+        idev_session *s = e->session;
+        int r;
+
+        /*
+         * We get ResumeDevice signals whenever logind resumed a previously
+         * paused device. The arguments contain the major/minor number of the
+         * related device and a new file-descriptor for the freshly opened
+         * device-node. We take the file-descriptor and immediately resume the
+         * device.
+         */
+
+        fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0) {
+                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
+                          s->name, e->name);
+                return;
+        }
+
+        r = idev_evdev_resume(&em->evdev, fd);
+        if (r < 0)
+                log_debug("idev-evdev: %s/%s: cannot resume: %s",
+                          s->name, e->name, strerror(-r));
+
+        return;
+}
+
+static void managed_evdev_pause(idev_element *e, const char *mode) {
+        managed_evdev *em = managed_evdev_from_element(e);
         idev_session *s = e->session;
         idev_context *c = s->context;
-        uint32_t major, minor;
-        const char *mode;
         int r;
 
         /*
          * We get PauseDevice() signals from logind whenever a device we
          * requested was, or is about to be, paused. Arguments are major/minor
          * number of the device and the mode of the operation.
-         * In case the event is not about our device, we ignore it. Otherwise,
-         * we treat it as asynchronous access-revocation (as if we got HUP on
+         * We treat it as asynchronous access-revocation (as if we got HUP on
          * the device fd). Note that we might have already treated the HUP
          * event via EPOLLHUP, whichever comes first.
          *
@@ -727,17 +745,6 @@ static int managed_evdev_pause_device_fn(sd_bus *bus,
          * sent mode "pause", we also call PauseDeviceComplete() to immediately
          * acknowledge the request.
          */
-
-        r = sd_bus_message_read(signal, "uus", &major, &minor, &mode);
-        if (r < 0) {
-                log_debug("idev-evdev: %s/%s: erroneous PauseDevice signal",
-                          s->name, e->name);
-                return 0;
-        }
-
-        /* not our device? */
-        if (makedev(major, minor) != em->devnum)
-                return 0;
 
         idev_evdev_pause(&em->evdev, true);
 
@@ -763,7 +770,7 @@ static int managed_evdev_pause_device_fn(sd_bus *bus,
                                                    "org.freedesktop.login1.Session",
                                                    "PauseDeviceComplete");
                 if (r >= 0) {
-                        r = sd_bus_message_append(m, "uu", major, minor);
+                        r = sd_bus_message_append(m, "uu", major(em->devnum), minor(em->devnum));
                         if (r >= 0)
                                 r = sd_bus_send(c->sysbus, m, NULL);
                 }
@@ -772,99 +779,6 @@ static int managed_evdev_pause_device_fn(sd_bus *bus,
                         log_debug("idev-evdev: %s/%s: cannot send PauseDeviceComplete: %s",
                                   s->name, e->name, strerror(-r));
         }
-
-        return 0;
-}
-
-static int managed_evdev_resume_device_fn(sd_bus *bus,
-                                          sd_bus_message *signal,
-                                          void *userdata,
-                                          sd_bus_error *ret_error) {
-        managed_evdev *em = userdata;
-        idev_element *e = &em->evdev.element;
-        idev_session *s = e->session;
-        uint32_t major, minor;
-        int r, fd;
-
-        /*
-         * We get ResumeDevice signals whenever logind resumed a previously
-         * paused device. The arguments contain the major/minor number of the
-         * related device and a new file-descriptor for the freshly opened
-         * device-node.
-         * If the signal is not about our device, we simply ignore it.
-         * Otherwise, we take the file-descriptor and immediately resume the
-         * device.
-         */
-
-        r = sd_bus_message_read(signal, "uuh", &major, &minor, &fd);
-        if (r < 0) {
-                log_debug("idev-evdev: %s/%s: erroneous ResumeDevice signal",
-                          s->name, e->name);
-                return 0;
-        }
-
-        /* not our device? */
-        if (makedev(major, minor) != em->devnum)
-                return 0;
-
-        fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-        if (fd < 0) {
-                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
-                          s->name, e->name);
-                return 0;
-        }
-
-        r = idev_evdev_resume(&em->evdev, fd);
-        if (r < 0)
-                log_debug("idev-evdev: %s/%s: cannot resume: %s",
-                          s->name, e->name, strerror(-r));
-
-        return 0;
-}
-
-static int managed_evdev_setup_bus(managed_evdev *em) {
-        idev_element *e = &em->evdev.element;
-        idev_session *s = e->session;
-        idev_context *c = s->context;
-        _cleanup_free_ char *match = NULL;
-        int r;
-
-        match = strjoin("type='signal',"
-                        "sender='org.freedesktop.login1',"
-                        "interface='org.freedesktop.login1.Session',"
-                        "member='PauseDevice',"
-                        "path='", s->path, "'",
-                        NULL);
-        if (!match)
-                return -ENOMEM;
-
-        r = sd_bus_add_match(c->sysbus,
-                             &em->slot_pause_device,
-                             match,
-                             managed_evdev_pause_device_fn,
-                             em);
-        if (r < 0)
-                return r;
-
-        free(match);
-        match = strjoin("type='signal',"
-                        "sender='org.freedesktop.login1',"
-                        "interface='org.freedesktop.login1.Session',"
-                        "member='ResumeDevice',"
-                        "path='", s->path, "'",
-                        NULL);
-        if (!match)
-                return -ENOMEM;
-
-        r = sd_bus_add_match(c->sysbus,
-                             &em->slot_resume_device,
-                             match,
-                             managed_evdev_resume_device_fn,
-                             em);
-        if (r < 0)
-                return r;
-
-        return 0;
 }
 
 static int managed_evdev_new(idev_element **out, idev_session *s, struct udev_device *ud) {
@@ -893,10 +807,6 @@ static int managed_evdev_new(idev_element **out, idev_session *s, struct udev_de
         em->evdev = IDEV_EVDEV_INIT(&managed_evdev_vtable, s);
         em->devnum = devnum;
 
-        r = managed_evdev_setup_bus(em);
-        if (r < 0)
-                return r;
-
         r = idev_element_add(e, name);
         if (r < 0)
                 return r;
@@ -910,18 +820,18 @@ static int managed_evdev_new(idev_element **out, idev_session *s, struct udev_de
 static void managed_evdev_free(idev_element *e) {
         managed_evdev *em = managed_evdev_from_element(e);
 
-        em->slot_resume_device = sd_bus_slot_unref(em->slot_resume_device);
-        em->slot_pause_device = sd_bus_slot_unref(em->slot_pause_device);
         idev_evdev_destroy(&em->evdev);
         free(em);
 }
 
 static const idev_element_vtable managed_evdev_vtable = {
         .free                   = managed_evdev_free,
-        .enable                 = managed_evdev_resume,
-        .disable                = managed_evdev_pause,
-        .open                   = managed_evdev_resume,
-        .close                  = managed_evdev_pause,
+        .enable                 = managed_evdev_enable,
+        .disable                = managed_evdev_disable,
+        .open                   = managed_evdev_enable,
+        .close                  = managed_evdev_disable,
+        .resume                 = managed_evdev_resume,
+        .pause                  = managed_evdev_pause,
 };
 
 /*

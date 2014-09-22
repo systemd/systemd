@@ -116,6 +116,8 @@ struct idev_element_vtable {
         void (*disable) (idev_element *e);
         void (*open) (idev_element *e);
         void (*close) (idev_element *e);
+        void (*resume) (idev_element *e, int fd);
+        void (*pause) (idev_element *e, const char *mode);
         void (*feedback) (idev_element *e, idev_data *data);
 };
 
@@ -155,6 +157,8 @@ struct idev_session {
         idev_context *context;
         char *name;
         char *path;
+        sd_bus_slot *slot_resume_device;
+        sd_bus_slot *slot_pause_device;
 
         Hashmap *element_map;
         Hashmap *device_map;
