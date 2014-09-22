@@ -296,8 +296,9 @@ static int parse_env_file_internal(
                 const char *fname,
                 const char *newline,
                 int (*push) (const char *filename, unsigned line,
-                             const char *key, char *value, void *userdata),
-                void *userdata) {
+                             const char *key, char *value, void *userdata, int *n_pushed),
+                void *userdata,
+                int *n_pushed) {
 
         _cleanup_free_ char *contents = NULL, *key = NULL;
         size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
@@ -386,7 +387,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != (size_t) -1)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(fname, line, key, value, userdata);
+                                r = push(fname, line, key, value, userdata, n_pushed);
                                 if (r < 0)
                                         goto fail;
 
@@ -431,7 +432,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != (size_t) -1)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(fname, line, key, value, userdata);
+                                r = push(fname, line, key, value, userdata, n_pushed);
                                 if (r < 0)
                                         goto fail;
 
@@ -566,7 +567,7 @@ static int parse_env_file_internal(
                 if (last_key_whitespace != (size_t) -1)
                         key[last_key_whitespace] = 0;
 
-                r = push(fname, line, key, value, userdata);
+                r = push(fname, line, key, value, userdata, n_pushed);
                 if (r < 0)
                         goto fail;
         }
@@ -581,7 +582,8 @@ fail:
 static int parse_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata) {
+                void *userdata,
+                int *n_pushed) {
 
         const char *k;
         va_list aq, *ap = userdata;
@@ -613,6 +615,10 @@ static int parse_env_file_push(
                         va_end(aq);
                         free(*v);
                         *v = value;
+
+                        if (n_pushed)
+                                (*n_pushed)++;
+
                         return 1;
                 }
         }
@@ -628,22 +634,23 @@ int parse_env_file(
                 const char *newline, ...) {
 
         va_list ap;
-        int r;
+        int r, n_pushed = 0;
 
         if (!newline)
                 newline = NEWLINE;
 
         va_start(ap, newline);
-        r = parse_env_file_internal(NULL, fname, newline, parse_env_file_push, &ap);
+        r = parse_env_file_internal(NULL, fname, newline, parse_env_file_push, &ap, &n_pushed);
         va_end(ap);
 
-        return r;
+        return r < 0 ? r : n_pushed;
 }
 
 static int load_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata) {
+                void *userdata,
+                int *n_pushed) {
         char ***m = userdata;
         char *p;
         int r;
@@ -670,6 +677,9 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
+        if (n_pushed)
+                (*n_pushed)++;
+
         free(value);
         return 0;
 }
@@ -681,7 +691,7 @@ int load_env_file(FILE *f, const char *fname, const char *newline, char ***rl) {
         if (!newline)
                 newline = NEWLINE;
 
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push, &m);
+        r = parse_env_file_internal(f, fname, newline, load_env_file_push, &m, NULL);
         if (r < 0) {
                 strv_free(m);
                 return r;
@@ -694,7 +704,8 @@ int load_env_file(FILE *f, const char *fname, const char *newline, char ***rl) {
 static int load_env_file_push_pairs(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata) {
+                void *userdata,
+                int *n_pushed) {
         char ***m = userdata;
         int r;
 
@@ -726,6 +737,9 @@ static int load_env_file_push_pairs(
                         return r;
         }
 
+        if (n_pushed)
+                (*n_pushed)++;
+
         return 0;
 }
 
@@ -736,7 +750,7 @@ int load_env_file_pairs(FILE *f, const char *fname, const char *newline, char **
         if (!newline)
                 newline = NEWLINE;
 
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push_pairs, &m);
+        r = parse_env_file_internal(f, fname, newline, load_env_file_push_pairs, &m, NULL);
         if (r < 0) {
                 strv_free(m);
                 return r;
