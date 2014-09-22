@@ -60,7 +60,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
 
         l = strlen(name);
         size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-        n = alloca0(size);
+        n = alloca0_align(size, 8);
         n->size = size;
         kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
         memcpy(n->name, name, l+1);
@@ -151,7 +151,7 @@ static int bus_release_name_kernel(sd_bus *bus, const char *name) {
         assert(name);
 
         l = strlen(name);
-        n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
+        n = alloca0_align(offsetof(struct kdbus_cmd_name, name) + l + 1, 8);
         n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
         memcpy(n->name, name, l+1);
 
@@ -376,11 +376,11 @@ static int bus_get_owner_kdbus(
                 return r;
         if (r > 0) {
                 size = offsetof(struct kdbus_cmd_conn_info, name);
-                cmd = alloca0(size);
+                cmd = alloca0_align(size, 8);
                 cmd->id = id;
         } else {
                 size = offsetof(struct kdbus_cmd_conn_info, name) + strlen(name) + 1;
-                cmd = alloca0(size);
+                cmd = alloca0_align(size, 8);
                 strcpy(cmd->name, name);
         }
 
@@ -827,7 +827,7 @@ static int add_name_change_match(sd_bus *bus,
                             offsetof(struct kdbus_notify_name_change, name) +
                             l);
 
-                m = alloca0(sz);
+                m = alloca0_align(sz, 8);
                 m->size = sz;
                 m->cookie = cookie;
 
@@ -887,7 +887,7 @@ static int add_name_change_match(sd_bus *bus,
                             offsetof(struct kdbus_item, id_change) +
                             sizeof(struct kdbus_notify_id_change));
 
-                m = alloca0(sz);
+                m = alloca0_align(sz, 8);
                 m->size = sz;
                 m->cookie = cookie;
 
@@ -1057,7 +1057,7 @@ int bus_add_match_internal_kernel(
         if (using_bloom)
                 sz += ALIGN8(offsetof(struct kdbus_item, data64) + bus->bloom_size);
 
-        m = alloca0(sz);
+        m = alloca0_align(sz, 8);
         m->size = sz;
         m->cookie = cookie;
 

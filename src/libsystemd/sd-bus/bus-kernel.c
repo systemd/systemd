@@ -709,7 +709,7 @@ int bus_kernel_take_fd(sd_bus *b) {
                 sz += ALIGN8(offsetof(struct kdbus_item, str) + l + 1);
         }
 
-        hello = alloca0(sz);
+        hello = alloca0_align(sz, 8);
         hello->size = sz;
         hello->conn_flags = b->hello_flags;
         hello->attach_flags = b->attach_flags;
@@ -796,7 +796,7 @@ int bus_kernel_connect(sd_bus *b) {
 }
 
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
-        uint64_t off;
+        uint64_t off _alignas_(8);
         struct kdbus_item *d;
 
         assert(bus);
@@ -1268,10 +1268,11 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         if (fd < 0)
                 return -errno;
 
-        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                              offsetof(struct kdbus_item, data64) + sizeof(uint64_t) +
-                              offsetof(struct kdbus_item, str) +
-                              DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1));
+        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
+                                    offsetof(struct kdbus_item, data64) + sizeof(uint64_t) +
+                                    offsetof(struct kdbus_item, str) +
+                                    DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1),
+                             8);
 
         make->size = offsetof(struct kdbus_cmd_make, items);
 
@@ -1423,7 +1424,7 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
         size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(ep_name) + 1);
 
-        make = alloca0(size);
+        make = alloca0_align(size, 8);
         make->size = size;
         make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
@@ -1472,7 +1473,7 @@ int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep) {
                 size += ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
         }
 
-        update = alloca0(size);
+        update = alloca0_align(size, 8);
         update->size = size;
 
         n = update->items;
@@ -1528,7 +1529,7 @@ int bus_kernel_make_starter(
                ALIGN8(offsetof(struct kdbus_item, str) + strlen(name) + 1) +
                policy_cnt * ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
 
-        hello = alloca0(size);
+        hello = alloca0_align(size, 8);
 
         n = hello->items;
         strcpy(n->str, name);
@@ -1588,9 +1589,10 @@ int bus_kernel_create_domain(const char *name, char **s) {
         if (fd < 0)
                 return -errno;
 
-        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                              offsetof(struct kdbus_item, str) +
-                              strlen(name) + 1));
+        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
+                                    offsetof(struct kdbus_item, str) +
+                                    strlen(name) + 1),
+                             8);
 
         n = make->items;
         strcpy(n->str, name);
