@@ -843,11 +843,27 @@ static void test_is_valid_documentation_url(void) {
 }
 
 static void test_file_in_same_dir(void) {
-        assert_se(streq(file_in_same_dir("/", "a"), "/a"));
-        assert_se(streq(file_in_same_dir("/", "/a"), "/a"));
-        assert_se(streq(file_in_same_dir("", "a"), "a"));
-        assert_se(streq(file_in_same_dir("a/", "a"), "a/a"));
-        assert_se(streq(file_in_same_dir("bar/foo", "bar"), "bar/bar"));
+        char *t;
+
+        t = file_in_same_dir("/", "a");
+        assert_se(streq(t, "/a"));
+        free(t);
+
+        t = file_in_same_dir("/", "/a");
+        assert_se(streq(t, "/a"));
+        free(t);
+
+        t = file_in_same_dir("", "a");
+        assert_se(streq(t, "a"));
+        free(t);
+
+        t = file_in_same_dir("a/", "a");
+        assert_se(streq(t, "a/a"));
+        free(t);
+
+        t = file_in_same_dir("bar/foo", "bar");
+        assert_se(streq(t, "bar/bar"));
+        free(t);
 }
 
 static void test_endswith(void) {
@@ -1239,11 +1255,13 @@ static void test_unquote_many_words(void) {
         assert_se(unquote_many_words(&p, &a, NULL) == 1);
         assert_se(p == original+7);
         assert_se(streq_ptr(a, "foobar"));
+        free(a);
 
         p = original = "     foobar    ";
         assert_se(unquote_many_words(&p, &a, NULL) == 1);
         assert_se(p == original+15);
         assert_se(streq_ptr(a, "foobar"));
+        free(a);
 }
 
 int main(int argc, char *argv[]) {
