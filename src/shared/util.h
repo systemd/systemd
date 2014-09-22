@@ -852,6 +852,22 @@ int unlink_noerrno(const char *path);
                 (void *) memset(_new_, 0, _len_);       \
         })
 
+#define alloca_align(size, align)                                       \
+        ({                                                              \
+                void *_ptr_;                                            \
+                size_t _mask_ = (align) - 1;                            \
+                _ptr_ = alloca((size) + _mask_);                        \
+                (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
+        })
+
+#define alloca0_align(size, align)                                      \
+        ({                                                              \
+                void *_new_;                                            \
+                size_t _size_ = (size);                                 \
+                _new_ = alloca_align(_size_, (align));                  \
+                (void*)memset(_new_, 0, _size_);                        \
+        })
+
 #define strappenda(a, ...)                                       \
         ({                                                       \
                 int _len = strlen(a);                            \

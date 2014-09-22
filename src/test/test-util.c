@@ -131,6 +131,19 @@ static void test_container_of(void) {
                                v1) == &myval);
 }
 
+static void test_alloca(void) {
+        static const uint8_t zero[997] = { };
+        char *t;
+
+        t = alloca_align(17, 512);
+        assert_se(!((uintptr_t)t & 0xff));
+        memzero(t, 17);
+
+        t = alloca0_align(997, 1024);
+        assert_se(!((uintptr_t)t & 0x1ff));
+        assert_se(!memcmp(t, zero, 997));
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -1272,6 +1285,7 @@ int main(int argc, char *argv[]) {
         test_align_power2();
         test_max();
         test_container_of();
+        test_alloca();
         test_first_word();
         test_close_many();
         test_parse_boolean();
