@@ -64,6 +64,7 @@ struct sysview_session {
         sysview_seat *seat;
         char *name;
         char *path;
+        void *userdata;
 
         sd_bus_slot *slot_take_control;
 

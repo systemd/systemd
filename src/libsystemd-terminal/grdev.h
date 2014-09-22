@@ -108,6 +108,11 @@ struct grdev_display_target {
         const grdev_fb *fb;
 };
 
+void grdev_display_set_userdata(grdev_display *display, void *userdata);
+void *grdev_display_get_userdata(grdev_display *display);
+
+const char *grdev_display_get_name(grdev_display *display);
+
 bool grdev_display_is_enabled(grdev_display *display);
 void grdev_display_enable(grdev_display *display);
 void grdev_display_disable(grdev_display *display);

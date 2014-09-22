@@ -116,12 +116,16 @@ enum {
         SYSVIEW_DEVICE_CNT
 };
 
+const char *sysview_device_get_name(sysview_device *device);
 unsigned int sysview_device_get_type(sysview_device *device);
 struct udev_device *sysview_device_get_ud(sysview_device *device);
 
 /*
  * Sessions
  */
+
+void sysview_session_set_userdata(sysview_session *session, void *userdata);
+void *sysview_session_get_userdata(sysview_session *session);
 
 const char *sysview_session_get_name(sysview_session *session);
 

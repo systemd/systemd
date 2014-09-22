@@ -94,6 +94,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(grdev_tile*, grdev_tile_free);
 struct grdev_display {
         grdev_session *session;
         char *name;
+        void *userdata;
 
         size_t n_leafs;
         grdev_tile *tile;

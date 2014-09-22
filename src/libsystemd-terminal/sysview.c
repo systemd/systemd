@@ -104,6 +104,12 @@ sysview_device *sysview_device_free(sysview_device *device) {
         return NULL;
 }
 
+const char *sysview_device_get_name(sysview_device *device) {
+        assert_return(device, NULL);
+
+        return device->name;
+}
+
 unsigned int sysview_device_get_type(sysview_device *device) {
         assert_return(device, (unsigned)-1);
 
@@ -241,6 +247,18 @@ sysview_session *sysview_session_free(sysview_session *session) {
         free(session);
 
         return NULL;
+}
+
+void sysview_session_set_userdata(sysview_session *session, void *userdata) {
+        assert(session);
+
+        session->userdata = userdata;
+}
+
+void *sysview_session_get_userdata(sysview_session *session) {
+        assert_return(session, NULL);
+
+        return session->userdata;
 }
 
 const char *sysview_session_get_name(sysview_session *session) {

@@ -282,6 +282,24 @@ grdev_display *grdev_display_free(grdev_display *display) {
         return NULL;
 }
 
+void grdev_display_set_userdata(grdev_display *display, void *userdata) {
+        assert(display);
+
+        display->userdata = userdata;
+}
+
+void *grdev_display_get_userdata(grdev_display *display) {
+        assert_return(display, NULL);
+
+        return display->userdata;
+}
+
+const char *grdev_display_get_name(grdev_display *display) {
+        assert_return(display, NULL);
+
+        return display->name;
+}
+
 bool grdev_display_is_enabled(grdev_display *display) {
         return display && display->enabled;
 }
