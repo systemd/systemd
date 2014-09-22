@@ -150,7 +150,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                         return "MAKE_STARTER";
 
                 case EXIT_BUS_ENDPOINT:
-                        return "EXIT_BUS_ENDPOINT";
+                        return "BUS_ENDPOINT";
                 }
         }
 
