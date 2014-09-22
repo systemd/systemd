@@ -59,11 +59,14 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         assert(name);
 
         l = strlen(name);
-        size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l + 1);
         n = alloca0_align(size, 8);
         n->size = size;
         kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
-        memcpy(n->name, name, l+1);
+
+        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l + 1;
+        n->items[0].type = KDBUS_ITEM_NAME;
+        memcpy(n->items[0].str, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
         VALGRIND_MAKE_MEM_DEFINED(n, n->size);
@@ -144,16 +147,20 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
 
 static int bus_release_name_kernel(sd_bus *bus, const char *name) {
         struct kdbus_cmd_name *n;
-        size_t l;
+        size_t size, l;
         int r;
 
         assert(bus);
         assert(name);
 
         l = strlen(name);
-        n = alloca0_align(offsetof(struct kdbus_cmd_name, name) + l + 1, 8);
-        n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-        memcpy(n->name, name, l+1);
+        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l + 1);
+        n = alloca0_align(size, 8);
+        n->size = size;
+
+        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l + 1;
+        n->items[0].type = KDBUS_ITEM_NAME;
+        memcpy(n->items[0].str, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
         VALGRIND_MAKE_MEM_DEFINED(n, n->size);
@@ -235,6 +242,9 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
         KDBUS_ITEM_FOREACH(name, name_list, names) {
 
+                struct kdbus_item *item;
+                const char *entry_name = NULL;
+
                 if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->owner_id != previous_id) {
                         char *n;
 
@@ -248,8 +258,12 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                         previous_id = name->owner_id;
                 }
 
-                if (name->size > sizeof(*name) && service_name_is_valid(name->name)) {
-                        r = strv_extend(x, name->name);
+                KDBUS_ITEM_FOREACH(item, name, items)
+                        if (item->type == KDBUS_ITEM_NAME)
+                                entry_name = item->str;
+
+                if (entry_name && service_name_is_valid(entry_name)) {
+                        r = strv_extend(x, entry_name);
                         if (r < 0)
                                 return -ENOMEM;
                 }

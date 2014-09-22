@@ -743,12 +743,15 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 name_list = (struct kdbus_name_list *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
 
                 KDBUS_ITEM_FOREACH(name, name_list, names) {
+                        const char *entry_name = NULL;
+                        struct kdbus_item *item;
                         char *n;
 
-                        if (name->size <= sizeof(*name))
-                                continue;
+                        KDBUS_ITEM_FOREACH(item, name, items)
+                                if (item->type == KDBUS_ITEM_NAME)
+                                        entry_name = item->str;
 
-                        if (!streq(name->name, arg0))
+                        if (!streq_ptr(entry_name, arg0))
                                 continue;
 
                         if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {

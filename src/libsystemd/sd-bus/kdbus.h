@@ -17,11 +17,8 @@
 #ifndef _KDBUS_UAPI_H_
 #define _KDBUS_UAPI_H_
 
-#ifndef __KERNEL__
-#include <sys/ioctl.h>
-#include <sys/types.h>
+#include <linux/ioctl.h>
 #include <linux/types.h>
-#endif
 
 #define KDBUS_IOCTL_MAGIC		0x95
 #define KDBUS_SRC_ID_KERNEL		(0)
@@ -121,7 +118,7 @@ struct kdbus_timestamp {
 /**
  * struct kdbus_vec - I/O vector for kdbus payload items
  * @size:		The size of the vector
- * @address:		Memory address for memory addresses
+ * @address:		Memory address of data buffer
  * @offset:		Offset in the in-message payload memory,
  *			relative to the message head
  *
@@ -160,7 +157,7 @@ struct kdbus_bloom_filter {
  * struct kdbus_memfd - a kdbus memfd
  * @size:		The memfd's size
  * @fd:			The file descriptor number
- * @__pad:		Padding to ensure proper alignement and size
+ * @__pad:		Padding to ensure proper alignment and size
  *
  * Attached to:
  *   KDBUS_ITEM_PAYLOAD_MEMFD
@@ -477,7 +474,7 @@ enum kdbus_policy_type {
 
 /**
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
- * @KDBUS_HELLO_ACCEPT_FD:	The connection allows the receiving of
+ * @KDBUS_HELLO_ACCEPT_FD:	The connection allows the reception of
  *				any passed file descriptors
  * @KDBUS_HELLO_ACTIVATOR:	Special-purpose connection which registers
  *				a well-know name for a process to be started
@@ -533,8 +530,7 @@ enum kdbus_attach_flags {
 /**
  * struct kdbus_cmd_hello - struct to say hello to kdbus
  * @size:		The total size of the structure
- * @conn_flags:		Connection flags (KDBUS_HELLO_*). The kernel will
- *			return its capabilities in that field.
+ * @conn_flags:		Connection flags (KDBUS_HELLO_*).
  * @attach_flags:	Mask of metadata to attach to each message sent
  *			(KDBUS_ATTACH_*)
  * @bus_flags:		The flags field copied verbatim from the original
@@ -608,9 +604,10 @@ enum kdbus_name_flags {
  * struct kdbus_cmd_name - struct to describe a well-known name
  * @size:		The total size of the struct
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
- * @owner_id:		The current owner of the name.
+ * @owner_id:		The current owner of the name
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
- * @name:		The well-known name
+ * @items:		Item list, containing the well-known name as
+ *			KDBUS_ITEM_NAME
  *
  * This structure is used with the KDBUS_CMD_NAME_ACQUIRE ioctl.
  */
@@ -619,7 +616,7 @@ struct kdbus_cmd_name {
 	__u64 flags;
 	__u64 owner_id;
 	__u64 conn_flags;
-	char name[0];
+	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
 /**
@@ -808,7 +805,7 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_NAME_RELEASE =	_IOW(KDBUS_IOCTL_MAGIC, 0x51,
 					     struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOCTL_MAGIC, 0x52,
-					     struct kdbus_cmd_name_list),
+					      struct kdbus_cmd_name_list),
 
 	KDBUS_CMD_CONN_INFO =		_IOWR(KDBUS_IOCTL_MAGIC, 0x60,
 					      struct kdbus_cmd_conn_info),
