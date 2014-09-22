@@ -118,7 +118,7 @@ out:
         return parent;
 }
 
-static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path) {
+static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent, char **path) {
         struct udev *udev  = udev_device_get_udev(parent);
         struct udev_device *targetdev;
         struct udev_device *target_parent;
@@ -151,6 +151,100 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
                 free(lun);
 out:
         udev_device_unref(sasdev);
+        return parent;
+}
+
+static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path)
+{
+        struct udev *udev  = udev_device_get_udev(parent);
+        struct udev_device *targetdev;
+        struct udev_device *target_parent;
+        struct udev_device *port;
+        struct udev_device *expander;
+        struct udev_device *target_sasdev = NULL;
+        struct udev_device *expander_sasdev = NULL;
+        struct udev_device *port_sasdev = NULL;
+        const char *sas_address = NULL;
+        const char *phy_id;
+        const char *phy_count;
+        char *lun = NULL;
+
+        targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
+        if (targetdev == NULL)
+                return NULL;
+
+        target_parent = udev_device_get_parent(targetdev);
+        if (target_parent == NULL)
+                return NULL;
+
+        /* Get sas device */
+        target_sasdev = udev_device_new_from_subsystem_sysname(udev,
+                          "sas_device", udev_device_get_sysname(target_parent));
+        if (target_sasdev == NULL)
+                return NULL;
+
+        /* The next parent is sas port */
+        port = udev_device_get_parent(target_parent);
+        if (port == NULL) {
+                parent = NULL;
+                goto out;
+        }
+
+        /* Get port device */
+        port_sasdev = udev_device_new_from_subsystem_sysname(udev,
+                          "sas_port", udev_device_get_sysname(port));
+
+        phy_count = udev_device_get_sysattr_value(port_sasdev, "num_phys");
+        if (phy_count == NULL) {
+               parent = NULL;
+               goto out;
+        }
+
+        /* Check if we are simple disk */
+        if (strncmp(phy_count, "1", 2) != 0) {
+                 parent = handle_scsi_sas_wide_port(parent, path);
+                 goto out;
+        }
+
+        /* Get connected phy */
+        phy_id = udev_device_get_sysattr_value(target_sasdev, "phy_identifier");
+        if (phy_id == NULL) {
+                parent = NULL;
+                goto out;
+        }
+
+        /* The port's parent is either hba or expander */
+        expander = udev_device_get_parent(port);
+        if (expander == NULL) {
+                parent = NULL;
+                goto out;
+        }
+
+        /* Get expander device */
+        expander_sasdev = udev_device_new_from_subsystem_sysname(udev,
+                          "sas_device", udev_device_get_sysname(expander));
+        if (expander_sasdev != NULL) {
+                 /* Get expander's address */
+                 sas_address = udev_device_get_sysattr_value(expander_sasdev,
+                                                    "sas_address");
+                 if (sas_address == NULL) {
+                        parent = NULL;
+                        goto out;
+                 }
+        }
+
+        format_lun_number(parent, &lun);
+        if (sas_address)
+                 path_prepend(path, "sas-exp%s-phy%s-%s", sas_address, phy_id, lun);
+        else
+                 path_prepend(path, "sas-phy%s-%s", phy_id, lun);
+
+        if (lun)
+                free(lun);
+out:
+        udev_device_unref(target_sasdev);
+        udev_device_unref(expander_sasdev);
+        udev_device_unref(port_sasdev);
         return parent;
 }
 
