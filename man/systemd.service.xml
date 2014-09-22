@@ -310,7 +310,8 @@
                         <varlistentry>
                                 <term><varname>BusPolicy=</varname></term>
 
-                                <listitem><para>If specfied, a custom kdbus
+                                <listitem><para>If specified, a custom
+                                <ulink url="https://code.google.com/p/d-bus/">kdbus</ulink>
                                 endpoint will be created and installed as the
                                 default bus node for the service. Such a custom
                                 endpoint can hold an own set of policy rules
@@ -330,7 +331,7 @@
                                 of two parts; the bus name, and a verb to
                                 specify to granted access, which is one of
                                 <option>see</option>,
-                                <option>talk</option> or
+                                <option>talk</option>, or
                                 <option>own</option>.
                                 <option>talk</option> implies
                                 <option>see</option>, and <option>own</option>
