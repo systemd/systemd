@@ -1437,20 +1437,6 @@ void sysview_context_stop(sysview_context *c) {
 
         log_debug("sysview: stop");
 
-        c->running = false;
-        c->scanned = false;
-        c->event_fn = NULL;
-        c->userdata = NULL;
-        c->scan_src = sd_event_source_unref(c->scan_src);
-        context_ud_stop(c);
-        context_ld_stop(c);
-
-        /*
-         * Event-callbacks are already cleared, hence we can safely ignore
-         * return codes of the context_remove_*() helpers. They cannot be
-         * originated from user-callbacks, so we already handled them.
-         */
-
         while ((device = hashmap_first(c->device_map)))
                 context_remove_device(c, device);
 
@@ -1459,6 +1445,14 @@ void sysview_context_stop(sysview_context *c) {
 
         while ((seat = hashmap_first(c->seat_map)))
                 context_remove_seat(c, seat);
+
+        c->running = false;
+        c->scanned = false;
+        c->event_fn = NULL;
+        c->userdata = NULL;
+        c->scan_src = sd_event_source_unref(c->scan_src);
+        context_ud_stop(c);
+        context_ld_stop(c);
 }
 
 static int context_scan_fn(sd_event_source *s, void *userdata) {

@@ -330,7 +330,8 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
         case SYSVIEW_EVENT_SESSION_REMOVE:
                 idev_session_disable(e->idev_session);
                 e->idev_session = idev_session_free(e->idev_session);
-                sd_event_exit(e->event, 0);
+                if (sd_event_get_exit_code(e->event, &r) == -ENODATA)
+                        sd_event_exit(e->event, 0);
                 break;
         case SYSVIEW_EVENT_SESSION_ATTACH:
                 d = ev->session_attach.device;

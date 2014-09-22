@@ -332,7 +332,8 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                 grdev_session_restore(m->grdev_session);
                 grdev_session_disable(m->grdev_session);
                 m->grdev_session = grdev_session_free(m->grdev_session);
-                sd_event_exit(m->event, 0);
+                if (sd_event_get_exit_code(m->event, &r) == -ENODATA)
+                        sd_event_exit(m->event, 0);
                 break;
         case SYSVIEW_EVENT_SESSION_ATTACH:
                 d = ev->session_attach.device;
