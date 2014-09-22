@@ -272,7 +272,7 @@ static int session_take_control_fn(sd_bus *bus,
                                    void *userdata,
                                    sd_bus_error *ret_error) {
         sysview_session *session = userdata;
-        int error;
+        int r, error;
 
         session->slot_take_control = sd_bus_slot_unref(session->slot_take_control);
 
@@ -287,7 +287,12 @@ static int session_take_control_fn(sd_bus *bus,
                 error = 0;
         }
 
-        return context_raise_session_control(session->seat->context, session, error);
+        r = context_raise_session_control(session->seat->context, session, error);
+        if (r < 0)
+                log_debug("sysview: callback failed while signalling session control '%d' on session '%s': %s",
+                          error, session->name, strerror(-r));
+
+        return 0;
 }
 
 int sysview_session_take_control(sysview_session *session) {
@@ -548,10 +553,10 @@ static int context_raise_session_refresh(sysview_context *c, sysview_session *se
         return context_raise(c, &event, 0);
 }
 
-static int context_add_device(sysview_context *c, sysview_device *device) {
+static void context_add_device(sysview_context *c, sysview_device *device) {
         sysview_session *session;
-        int r, error = 0;
         Iterator i;
+        int r;
 
         assert(c);
         assert(device);
@@ -564,20 +569,16 @@ static int context_add_device(sysview_context *c, sysview_device *device) {
                         continue;
 
                 r = context_raise_session_attach(c, session, device);
-                if (r != 0)
-                        error = r;
+                if (r < 0)
+                        log_debug("sysview: callback failed while attaching device '%s' to session '%s': %s",
+                                  device->name, session->name, strerror(-r));
         }
-
-        if (error < 0)
-                log_debug("sysview: error while adding device '%s': %s",
-                          device->name, strerror(-r));
-        return error;
 }
 
-static int context_remove_device(sysview_context *c, sysview_device *device) {
+static void context_remove_device(sysview_context *c, sysview_device *device) {
         sysview_session *session;
-        int r, error = 0;
         Iterator i;
+        int r;
 
         assert(c);
         assert(device);
@@ -589,21 +590,18 @@ static int context_remove_device(sysview_context *c, sysview_device *device) {
                         continue;
 
                 r = context_raise_session_detach(c, session, device);
-                if (r != 0)
-                        error = r;
+                if (r < 0)
+                        log_debug("sysview: callback failed while detaching device '%s' from session '%s': %s",
+                                  device->name, session->name, strerror(-r));
         }
 
-        if (error < 0)
-                log_debug("sysview: error while removing device '%s': %s",
-                          device->name, strerror(-r));
         sysview_device_free(device);
-        return error;
 }
 
-static int context_change_device(sysview_context *c, sysview_device *device, struct udev_device *ud) {
+static void context_change_device(sysview_context *c, sysview_device *device, struct udev_device *ud) {
         sysview_session *session;
-        int r, error = 0;
         Iterator i;
+        int r;
 
         assert(c);
         assert(device);
@@ -615,21 +613,17 @@ static int context_change_device(sysview_context *c, sysview_device *device, str
                         continue;
 
                 r = context_raise_session_refresh(c, session, device, ud);
-                if (r != 0)
-                        error = r;
+                if (r < 0)
+                        log_debug("sysview: callback failed while changing device '%s' on session '%s': %s",
+                                  device->name, session->name, strerror(-r));
         }
-
-        if (error < 0)
-                log_debug("sysview: error while changing device '%s': %s",
-                          device->name, strerror(-r));
-        return error;
 }
 
-static int context_add_session(sysview_context *c, sysview_seat *seat, const char *id) {
+static void context_add_session(sysview_context *c, sysview_seat *seat, const char *id) {
         sysview_session *session;
         sysview_device *device;
-        int r, error = 0;
         Iterator i;
+        int r;
 
         assert(c);
         assert(seat);
@@ -637,7 +631,7 @@ static int context_add_session(sysview_context *c, sysview_seat *seat, const cha
 
         session = sysview_find_session(c, id);
         if (session)
-                return 0;
+                return;
 
         log_debug("sysview: add session '%s' on seat '%s'", id, seat->name);
 
@@ -654,35 +648,33 @@ static int context_add_session(sysview_context *c, sysview_seat *seat, const cha
         if (seat->public) {
                 session->public = true;
                 r = context_raise_session_add(c, session);
-                if (r != 0) {
+                if (r < 0) {
+                        log_debug("sysview: callback failed while adding session '%s': %s",
+                                  session->name, strerror(-r));
                         session->public = false;
                         goto error;
                 }
 
                 HASHMAP_FOREACH(device, seat->device_map, i) {
                         r = context_raise_session_attach(c, session, device);
-                        if (r != 0)
-                                error = r;
+                        if (r < 0)
+                                log_debug("sysview: callback failed while attaching device '%s' to new session '%s': %s",
+                                          device->name, session->name, strerror(-r));
                 }
-
-                r = error;
-                if (r != 0)
-                        goto error;
         }
 
-        return 0;
+        return;
 
 error:
         if (r < 0)
                 log_debug("sysview: error while adding session '%s': %s",
                           id, strerror(-r));
-        return r;
 }
 
-static int context_remove_session(sysview_context *c, sysview_session *session) {
+static void context_remove_session(sysview_context *c, sysview_session *session) {
         sysview_device *device;
-        int r, error = 0;
         Iterator i;
+        int r;
 
         assert(c);
         assert(session);
@@ -692,27 +684,25 @@ static int context_remove_session(sysview_context *c, sysview_session *session) 
         if (session->public) {
                 HASHMAP_FOREACH(device, session->seat->device_map, i) {
                         r = context_raise_session_detach(c, session, device);
-                        if (r != 0)
-                                error = r;
+                        if (r < 0)
+                                log_debug("sysview: callback failed while detaching device '%s' from old session '%s': %s",
+                                          device->name, session->name, strerror(-r));
                 }
 
                 session->public = false;
                 r = context_raise_session_remove(c, session);
-                if (r != 0)
-                        error = r;
+                if (r < 0)
+                        log_debug("sysview: callback failed while removing session '%s': %s",
+                                  session->name, strerror(-r));
         }
 
         if (!session->custom)
                 sysview_session_release_control(session);
 
-        if (error < 0)
-                log_debug("sysview: error while removing session '%s': %s",
-                          session->name, strerror(-error));
         sysview_session_free(session);
-        return error;
 }
 
-static int context_add_seat(sysview_context *c, const char *id) {
+static void context_add_seat(sysview_context *c, const char *id) {
         sysview_seat *seat;
         int r;
 
@@ -721,7 +711,7 @@ static int context_add_seat(sysview_context *c, const char *id) {
 
         seat = sysview_find_seat(c, id);
         if (seat)
-                return 0;
+                return;
 
         log_debug("sysview: add seat '%s'", id);
 
@@ -731,54 +721,45 @@ static int context_add_seat(sysview_context *c, const char *id) {
 
         seat->public = true;
         r = context_raise_seat_add(c, seat);
-        if (r != 0) {
+        if (r < 0) {
+                log_debug("sysview: callback failed while adding seat '%s': %s",
+                          seat->name, strerror(-r));
                 seat->public = false;
-                goto error;
         }
 
-        return 0;
+        return;
 
 error:
         if (r < 0)
                 log_debug("sysview: error while adding seat '%s': %s",
                           id, strerror(-r));
-        return r;
 }
 
-static int context_remove_seat(sysview_context *c, sysview_seat *seat) {
+static void context_remove_seat(sysview_context *c, sysview_seat *seat) {
         sysview_session *session;
         sysview_device *device;
-        int r, error = 0;
+        int r;
 
         assert(c);
         assert(seat);
 
         log_debug("sysview: remove seat '%s'", seat->name);
 
-        while ((device = hashmap_first(seat->device_map))) {
-                r = context_remove_device(c, device);
-                if (r != 0)
-                        error = r;
-        }
+        while ((device = hashmap_first(seat->device_map)))
+                context_remove_device(c, device);
 
-        while ((session = hashmap_first(seat->session_map))) {
-                r = context_remove_session(c, session);
-                if (r != 0)
-                        error = r;
-        }
+        while ((session = hashmap_first(seat->session_map)))
+                context_remove_session(c, session);
 
         if (seat->public) {
                 seat->public = false;
                 r = context_raise_seat_remove(c, seat);
-                if (r != 0)
-                        error = r;
+                if (r < 0)
+                        log_debug("sysview: callback failed while removing seat '%s': %s",
+                                  seat->name, strerror(-r));
         }
 
-        if (error < 0)
-                log_debug("sysview: error while removing seat '%s': %s",
-                          seat->name, strerror(-error));
         sysview_seat_free(seat);
-        return error;
 }
 
 int sysview_context_new(sysview_context **out,
@@ -923,12 +904,12 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
                 if (!device)
                         return 0;
 
-                return context_remove_device(c, device);
+                context_remove_device(c, device);
         } else if (streq_ptr(action, "change")) {
                 if (!device)
                         return 0;
 
-                return context_change_device(c, device, d);
+                context_change_device(c, device, d);
         } else if (!action || streq_ptr(action, "add")) {
                 struct udev_device *p;
                 unsigned int type, t;
@@ -966,7 +947,7 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
                         return r;
                 }
 
-                return context_add_device(c, device);
+                context_add_device(c, device);
         }
 
         return 0;
@@ -1093,7 +1074,8 @@ static int context_ld_seat_new(sysview_context *c, sd_bus_message *signal) {
                 return r;
         }
 
-        return context_add_seat(c, id);
+        context_add_seat(c, id);
+        return 0;
 }
 
 static int context_ld_seat_removed(sysview_context *c, sd_bus_message *signal) {
@@ -1112,7 +1094,8 @@ static int context_ld_seat_removed(sysview_context *c, sd_bus_message *signal) {
         if (!seat)
                 return 0;
 
-        return context_remove_seat(c, seat);
+        context_remove_seat(c, seat);
+        return 0;
 }
 
 static int context_ld_session_new(sysview_context *c, sd_bus_message *signal) {
@@ -1159,14 +1142,13 @@ static int context_ld_session_new(sysview_context *c, sd_bus_message *signal) {
         }
 
         r = context_raise_session_filter(c, id, seatid, username, uid);
-        if (r <= 0) {
-                if (r < 0)
-                        log_debug("sysview: cannot filter new session '%s' on seat '%s': %s",
-                                  id, seatid, strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                log_debug("sysview: callback failed while filtering session '%s': %s",
+                          id, strerror(-r));
+        else if (r > 0)
+                context_add_session(c, seat, id);
 
-        return context_add_session(c, seat, id);
+        return 0;
 
 error:
         log_debug("sysview: failed retrieving information for new session '%s': %s",
@@ -1190,7 +1172,8 @@ static int context_ld_session_removed(sysview_context *c, sd_bus_message *signal
         if (!session)
                 return 0;
 
-        return context_remove_session(c, session);
+        context_remove_session(c, session);
+        return 0;
 }
 
 static int context_ld_manager_signal_fn(sd_bus *bus,
@@ -1265,9 +1248,7 @@ static int context_ld_list_seats_fn(sd_bus *bus,
                 if (r < 0)
                         goto error;
 
-                r = context_add_seat(c, id);
-                if (r != 0)
-                        return r;
+                context_add_seat(c, id);
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
@@ -1328,15 +1309,11 @@ static int context_ld_list_sessions_fn(sd_bus *bus,
                 seat = sysview_find_seat(c, seatid);
                 if (seat) {
                         r = context_raise_session_filter(c, id, seatid, username, uid);
-                        if (r < 0) {
-                                log_debug("sysview: cannot filter listed session '%s' on seat '%s': %s",
-                                          id, seatid, strerror(-r));
-                                return r;
-                        } else if (r > 0) {
-                                r = context_add_session(c, seat, id);
-                                if (r != 0)
-                                        return r;
-                        }
+                        if (r < 0)
+                                log_debug("sysview: callback failed while filtering session '%s': %s",
+                                          id, strerror(-r));
+                        else if (r > 0)
+                                context_add_session(c, seat, id);
                 }
 
                 r = sd_bus_message_exit_container(reply);
