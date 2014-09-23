@@ -46,7 +46,7 @@ struct kdbus_notify_id_change {
 /**
  * struct kdbus_notify_name_change - name registry change message
  * @old:		ID and flags of former owner of a name
- * @new:		ID and flags of new owner of a name
+ * @now:		ID and flags of new owner of a name
  * @name:		Well-known name
  *
  * Sent from kernel to userspace when the owner or activator of
@@ -58,8 +58,8 @@ struct kdbus_notify_id_change {
  *   KDBUS_ITEM_NAME_CHANGE
  */
 struct kdbus_notify_name_change {
-	struct kdbus_notify_id_change old;
-	struct kdbus_notify_id_change new;
+	struct kdbus_notify_id_change old_id;
+	struct kdbus_notify_id_change new_id;
 	char name[0];
 };
 
