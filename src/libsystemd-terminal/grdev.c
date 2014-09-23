@@ -301,6 +301,18 @@ const char *grdev_display_get_name(grdev_display *display) {
         return display->name;
 }
 
+uint32_t grdev_display_get_width(grdev_display *display) {
+        assert_return(display, 0);
+
+        return display->width;
+}
+
+uint32_t grdev_display_get_height(grdev_display *display) {
+        assert_return(display, 0);
+
+        return display->height;
+}
+
 bool grdev_display_is_enabled(grdev_display *display) {
         return display && display->enabled;
 }
@@ -572,6 +584,8 @@ static bool display_cache(grdev_display *display) {
         }
 
         display_cache_targets(display);
+        display->width = display->tile->cache_w;
+        display->height = display->tile->cache_h;
 
         r = 0;
 

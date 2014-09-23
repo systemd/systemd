@@ -112,6 +112,8 @@ void grdev_display_set_userdata(grdev_display *display, void *userdata);
 void *grdev_display_get_userdata(grdev_display *display);
 
 const char *grdev_display_get_name(grdev_display *display);
+uint32_t grdev_display_get_width(grdev_display *display);
+uint32_t grdev_display_get_height(grdev_display *display);
 
 bool grdev_display_is_enabled(grdev_display *display);
 void grdev_display_enable(grdev_display *display);
