@@ -345,7 +345,7 @@ const grdev_display_target *grdev_display_next_target(grdev_display *display, co
                 assert(cache->pipe->tile->display == display);
                 assert(display->pipes >= cache);
 
-                idx = (cache - display->pipes) / sizeof(*cache) + 1;
+                idx = cache - display->pipes + 1;
         } else {
                 idx = 0;
         }
