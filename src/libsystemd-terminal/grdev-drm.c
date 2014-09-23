@@ -2223,7 +2223,7 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
                 for (i = 0; i < l; i += event->length) {
                         event = (void*)&buf[i];
 
-                        if (i + event->length > l) {
+                        if (i + (ssize_t)sizeof(*event) > l || i + (ssize_t)event->length > l) {
                                 log_debug("grdrm: %s/%s: truncated event", card->base.session->name, card->base.name);
                                 break;
                         }
