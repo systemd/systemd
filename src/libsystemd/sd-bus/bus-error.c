@@ -312,7 +312,7 @@ static void bus_error_strerror(sd_bus_error *e, int error) {
                         continue;
                 }
 
-                if (!x || errno) {
+                if (errno) {
                         free(m);
                         return;
                 }
