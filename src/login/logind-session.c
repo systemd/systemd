@@ -1054,6 +1054,8 @@ void session_restore_vt(Session *s) {
 }
 
 void session_leave_vt(Session *s) {
+        int r;
+
         assert(s);
 
         /* This is called whenever we get a VT-switch signal from the kernel.
@@ -1071,7 +1073,9 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        ioctl(s->vtfd, VT_RELDISP, 1);
+        r = ioctl(s->vtfd, VT_RELDISP, 1);
+        if (r < 0)
+                log_debug("Cannot release VT of session %s: %m", s->id);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

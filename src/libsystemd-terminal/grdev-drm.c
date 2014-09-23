@@ -1474,14 +1474,19 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
 grdrm_fb *grdrm_fb_free(grdrm_fb *fb) {
         unsigned int i;
+        int r;
 
         if (!fb)
                 return NULL;
 
         assert(fb->card);
 
-        if (fb->id > 0 && fb->card->fd >= 0)
-                ioctl(fb->card->fd, DRM_IOCTL_MODE_RMFB, fb->id);
+        if (fb->id > 0 && fb->card->fd >= 0) {
+                r = ioctl(fb->card->fd, DRM_IOCTL_MODE_RMFB, fb->id);
+                if (r < 0)
+                        log_debug("grdrm: %s: cannot delete framebuffer %" PRIu32 ": %m",
+                                  fb->card->base.name, fb->id);
+        }
 
         for (i = 0; i < ELEMENTSOF(fb->handles); ++i) {
                 struct drm_mode_destroy_dumb destroy_dumb = { };
@@ -1491,7 +1496,10 @@ grdrm_fb *grdrm_fb_free(grdrm_fb *fb) {
 
                 if (fb->handles[i] > 0 && fb->card->fd >= 0) {
                         destroy_dumb.handle = fb->handles[i];
-                        ioctl(fb->card->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
+                        r = ioctl(fb->card->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
+                        if (r < 0)
+                                log_debug("grdrm: %s: cannot destroy dumb-buffer %" PRIu32 ": %m",
+                                          fb->card->base.name, fb->handles[i]);
                 }
         }
 
@@ -2549,8 +2557,13 @@ static int unmanaged_card_new(grdev_card **out, grdev_session *session, struct u
                           basecard->session->name, basecard->name, cu->devnode);
         } else {
                 /* We might get DRM-Master implicitly on open(); drop it immediately
-                 * so we acquire it only once we're actually enabled. */
-                ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
+                 * so we acquire it only once we're actually enabled. We don't
+                 * really care whether this call fails or not, but lets log any
+                 * weird errors, anyway. */
+                r = ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
+                if (r < 0 && errno != EACCES && errno != EINVAL)
+                        log_debug("grdrm: %s/%s: cannot drop DRM-Master: %m",
+                                  basecard->session->name, basecard->name);
 
                 r = grdrm_card_open(&cu->card, fd);
                 if (r < 0)
