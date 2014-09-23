@@ -60,7 +60,7 @@ enum {
 };
 
 struct grdev_tile {
-        LIST_FIELDS(grdev_tile, childs_by_node);
+        LIST_FIELDS(grdev_tile, children_by_node);
         grdev_tile *parent;
         grdev_display *display;
 
@@ -79,7 +79,7 @@ struct grdev_tile {
                 } leaf;
 
                 struct {
-                        size_t n_childs;
+                        size_t n_children;
                         LIST_HEAD(grdev_tile, child_list);
                 } node;
         };

@@ -54,10 +54,10 @@ static inline grdev_tile *tile_leftmost(grdev_tile *tile) {
 }
 
 #define TILE_FOREACH(_root, _i) \
-        for (_i = tile_leftmost(_root); _i; _i = tile_leftmost(_i->childs_by_node_next) ? : _i->parent)
+        for (_i = tile_leftmost(_root); _i; _i = tile_leftmost(_i->children_by_node_next) ? : _i->parent)
 
 #define TILE_FOREACH_SAFE(_root, _i, _next) \
-        for (_i = tile_leftmost(_root); _i && ((_next = tile_leftmost(_i->childs_by_node_next) ? : _i->parent), true); _i = _next)
+        for (_i = tile_leftmost(_root); _i && ((_next = tile_leftmost(_i->children_by_node_next) ? : _i->parent), true); _i = _next)
 
 static void tile_link(grdev_tile *tile, grdev_tile *parent) {
         grdev_display *display;
@@ -73,8 +73,8 @@ static void tile_link(grdev_tile *tile, grdev_tile *parent) {
 
         assert(!display || !display->enabled);
 
-        ++parent->node.n_childs;
-        LIST_PREPEND(childs_by_node, parent->node.child_list, tile);
+        ++parent->node.n_children;
+        LIST_PREPEND(children_by_node, parent->node.child_list, tile);
         tile->parent = parent;
 
         if (display) {
@@ -105,10 +105,10 @@ static void tile_unlink(grdev_tile *tile) {
 
         assert(parent->type == GRDEV_TILE_NODE);
         assert(parent->display == display);
-        assert(parent->node.n_childs > 0);
+        assert(parent->node.n_children > 0);
 
-        --parent->node.n_childs;
-        LIST_REMOVE(childs_by_node, parent->node.child_list, tile);
+        --parent->node.n_children;
+        LIST_REMOVE(children_by_node, parent->node.child_list, tile);
         tile->parent = NULL;
 
         if (display) {
@@ -127,14 +127,14 @@ static void tile_unlink(grdev_tile *tile) {
          * we must take care to not leave them around. Therefore, whenever we
          * unlink any part of a tree, we also destroy the parent, in case it's
          * now stale.
-         * Parents are stale if they have no childs and either have no display
+         * Parents are stale if they have no children and either have no display
          * or if they are intermediate nodes (i.e, they have a parent).
          * This means, you can easily create trees, but you can never partially
          * move or destruct them so far. They're always reduced to minimal form
          * if you cut them. This might change later, but so far we didn't need
          * partial destruction or the ability to move whole trees. */
 
-        if (parent->node.n_childs < 1 && (parent->parent || !parent->display))
+        if (parent->node.n_children < 1 && (parent->parent || !parent->display))
                 grdev_tile_free(parent);
 }
 
@@ -207,7 +207,7 @@ grdev_tile *grdev_tile_free(grdev_tile *tile) {
         case GRDEV_TILE_NODE:
                 assert(!tile->parent);
                 assert(!tile->display);
-                assert(tile->node.n_childs == 0);
+                assert(tile->node.n_children == 0);
 
                 break;
         }
@@ -472,10 +472,10 @@ static void display_cache_targets(grdev_display *display) {
 
         assert(display);
 
-        /* depth-first with childs before parent */
+        /* depth-first with children before parent */
         for (tile = tile_leftmost(display->tile);
              tile;
-             tile = tile_leftmost(tile->childs_by_node_next) ? : tile->parent) {
+             tile = tile_leftmost(tile->children_by_node_next) ? : tile->parent) {
                 if (tile->type == GRDEV_TILE_LEAF) {
                         grdev_pipe *p;
 
@@ -504,7 +504,7 @@ static void display_cache_targets(grdev_display *display) {
                 } else {
                         grdev_tile *child, *l;
 
-                        /* We're now at a node with all it's childs already
+                        /* We're now at a node with all its children already
                          * computed (depth-first, child before parent). We
                          * first need to know the size of our tile, then we
                          * recurse into all leafs and update their cache. */
@@ -512,7 +512,7 @@ static void display_cache_targets(grdev_display *display) {
                         tile->cache_w = 0;
                         tile->cache_h = 0;
 
-                        LIST_FOREACH(childs_by_node, child, tile->node.child_list) {
+                        LIST_FOREACH(children_by_node, child, tile->node.child_list) {
                                 if (child->x + child->cache_w > tile->cache_w)
                                         tile->cache_w = child->x + child->cache_w;
                                 if (child->y + child->cache_h > tile->cache_h)
