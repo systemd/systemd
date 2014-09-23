@@ -158,6 +158,7 @@ int grdev_tile_new_leaf(grdev_tile **out, grdev_pipe *pipe) {
         _cleanup_(grdev_tile_freep) grdev_tile *tile = NULL;
         int r;
 
+        assert_return(out, -EINVAL);
         assert_return(pipe, -EINVAL);
         assert_return(!pipe->tile, -EINVAL);
 
