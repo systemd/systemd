@@ -252,9 +252,10 @@ fail:
 
 int label_get_our_label(char **label) {
         int r = -EOPNOTSUPP;
-        char *l = NULL;
 
 #ifdef HAVE_SELINUX
+        char *l = NULL;
+
         r = getcon(&l);
         if (r < 0)
                 return r;
