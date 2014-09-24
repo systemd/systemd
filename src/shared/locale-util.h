@@ -21,5 +21,30 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+typedef enum LocaleVariable {
+        /* We don't list LC_ALL here on purpose. People should be
+         * using LANG instead. */
+
+        VARIABLE_LANG,
+        VARIABLE_LANGUAGE,
+        VARIABLE_LC_CTYPE,
+        VARIABLE_LC_NUMERIC,
+        VARIABLE_LC_TIME,
+        VARIABLE_LC_COLLATE,
+        VARIABLE_LC_MONETARY,
+        VARIABLE_LC_MESSAGES,
+        VARIABLE_LC_PAPER,
+        VARIABLE_LC_NAME,
+        VARIABLE_LC_ADDRESS,
+        VARIABLE_LC_TELEPHONE,
+        VARIABLE_LC_MEASUREMENT,
+        VARIABLE_LC_IDENTIFICATION,
+        _VARIABLE_LC_MAX,
+        _VARIABLE_LC_INVALID = -1
+} LocaleVariable;
+
 int get_locales(char ***l);
 bool locale_is_valid(const char *name);
+
+const char* locale_variable_to_string(LocaleVariable i) _const_;
+LocaleVariable locale_variable_from_string(const char *s) _pure_;

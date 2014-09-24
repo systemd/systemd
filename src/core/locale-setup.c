@@ -30,48 +30,11 @@
 #include "fileio.h"
 #include "strv.h"
 #include "env-util.h"
-
-enum {
-        /* We don't list LC_ALL here on purpose. People should be
-         * using LANG instead. */
-
-        VARIABLE_LANG,
-        VARIABLE_LANGUAGE,
-        VARIABLE_LC_CTYPE,
-        VARIABLE_LC_NUMERIC,
-        VARIABLE_LC_TIME,
-        VARIABLE_LC_COLLATE,
-        VARIABLE_LC_MONETARY,
-        VARIABLE_LC_MESSAGES,
-        VARIABLE_LC_PAPER,
-        VARIABLE_LC_NAME,
-        VARIABLE_LC_ADDRESS,
-        VARIABLE_LC_TELEPHONE,
-        VARIABLE_LC_MEASUREMENT,
-        VARIABLE_LC_IDENTIFICATION,
-        _VARIABLE_MAX
-};
-
-static const char * const variable_names[_VARIABLE_MAX] = {
-        [VARIABLE_LANG] = "LANG",
-        [VARIABLE_LANGUAGE] = "LANGUAGE",
-        [VARIABLE_LC_CTYPE] = "LC_CTYPE",
-        [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
-        [VARIABLE_LC_TIME] = "LC_TIME",
-        [VARIABLE_LC_COLLATE] = "LC_COLLATE",
-        [VARIABLE_LC_MONETARY] = "LC_MONETARY",
-        [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
-        [VARIABLE_LC_PAPER] = "LC_PAPER",
-        [VARIABLE_LC_NAME] = "LC_NAME",
-        [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
-        [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
-        [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
-        [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
-};
+#include "locale-util.h"
 
 int locale_setup(char ***environment) {
         char **add;
-        char *variables[_VARIABLE_MAX] = {};
+        char *variables[_VARIABLE_LC_MAX] = {};
         int r = 0, i;
 
         if (detect_container(NULL) <= 0) {
@@ -121,13 +84,13 @@ int locale_setup(char ***environment) {
         }
 
         add = NULL;
-        for (i = 0; i < _VARIABLE_MAX; i++) {
+        for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                 char *s;
 
                 if (!variables[i])
                         continue;
 
-                s = strjoin(variable_names[i], "=", variables[i], NULL);
+                s = strjoin(locale_variable_to_string(i), "=", variables[i], NULL);
                 if (!s) {
                         r = -ENOMEM;
                         goto finish;
@@ -157,7 +120,7 @@ int locale_setup(char ***environment) {
 finish:
         strv_free(add);
 
-        for (i = 0; i < _VARIABLE_MAX; i++)
+        for (i = 0; i < _VARIABLE_LC_MAX; i++)
                 free(variables[i]);
 
         return r;
