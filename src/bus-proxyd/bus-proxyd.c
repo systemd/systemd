@@ -997,7 +997,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         }
 }
 
-static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hello) {
+static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred, bool *got_hello) {
         _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
         bool is_hello;
         int r;
@@ -1027,6 +1027,11 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
         if (*got_hello) {
                 log_error("Got duplicate hello, aborting.");
                 return -EIO;
+        }
+
+        if (!policy_check_hello(policy, ucred)) {
+                log_error("Policy denied HELLO");
+                return -EPERM;
         }
 
         *got_hello = true;
@@ -1418,7 +1423,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        k = process_hello(a, b, m, &got_hello);
+                        k = process_hello(a, b, m, &policy, &ucred, &got_hello);
                         if (k < 0) {
                                 r = k;
                                 log_error("Failed to process HELLO: %s", strerror(-r));
