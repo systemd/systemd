@@ -51,6 +51,8 @@ static char *arg_command_line_buffer = NULL;
 static bool arg_drop_privileges = false;
 static char **arg_configuration = NULL;
 
+static Hashmap *names_hash = NULL;
+
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
@@ -837,6 +839,8 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         return synthetic_reply_method_errno(m, r, NULL);
                 }
 
+                hashmap_remove(names_hash, name);
+
                 return synthetic_reply_method_return(m, "u", BUS_NAME_RELEASED);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReloadConfig")) {
@@ -849,6 +853,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
                 const char *name;
                 uint32_t flags, param;
+                bool in_queue;
 
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
@@ -876,7 +881,13 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         return synthetic_reply_method_errno(m, r, NULL);
                 }
 
-                if (r == 0)
+                in_queue = (r == 0);
+
+                r = hashmap_put(names_hash, name, NULL);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                if (in_queue)
                         return synthetic_reply_method_return(m, "u", BUS_NAME_IN_QUEUE);
 
                 return synthetic_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
@@ -1184,6 +1195,12 @@ int main(int argc, char *argv[]) {
                 r = drop_privileges(uid, gid, 1ULL << CAP_IPC_OWNER);
                 if (r < 0)
                         goto finish;
+        }
+
+        names_hash = hashmap_new(&string_hash_ops);
+        if (!names_hash) {
+                log_oom();
+                goto finish;
         }
 
         r = sd_bus_new(&a);
@@ -1514,6 +1531,7 @@ finish:
 
         policy_free(&policy);
         strv_free(arg_configuration);
+        hashmap_free(names_hash);
         free(arg_address);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
