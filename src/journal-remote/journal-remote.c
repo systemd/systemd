@@ -819,6 +819,10 @@ static int remoteserver_init(RemoteServer *s,
         assert(server == NULL);
         server = s;
 
+        r = init_writer_hashmap(s);
+        if (r < 0)
+                return r;
+
         n = sd_listen_fds(true);
         if (n < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s",
@@ -941,10 +945,6 @@ static int remoteserver_init(RemoteServer *s,
                 log_error("Zarro sources specified");
                 return -EINVAL;
         }
-
-        r = init_writer_hashmap(s);
-        if (r < 0)
-                return r;
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE) {
                 /* In this case we know what the writer will be
