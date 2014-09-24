@@ -509,7 +509,7 @@ static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
         return false;
 }
 
-static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
+static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred) {
         int r;
 
         assert(a);
@@ -858,6 +858,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
+
+                if (!policy_check_own(policy, ucred, name))
+                        return synthetic_reply_method_errno(m, -EPERM, NULL);
 
                 if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
@@ -1440,7 +1443,7 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
-                                k = process_driver(a, b, m);
+                                k = process_driver(a, b, m, &policy, &ucred);
                                 if (k < 0) {
                                         r = k;
                                         log_error("Failed to process driver calls: %s", strerror(-r));
