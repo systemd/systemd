@@ -592,52 +592,21 @@ static int file_load(Policy *p, const char *path) {
         }
 }
 
-static bool is_matching_name_request(sd_bus_message *m, const char *name, bool prefix) {
-
-        char *n = NULL;
-        int r;
-
-        if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName"))
-                return false;
-
-        r = sd_bus_message_read(m, "s", &n);
-        if (r < 0)
-                return false;
-
-        r = sd_bus_message_rewind(m, true);
-        if (r < 0)
-                return false;
-
-        if (prefix)
-                return startswith(name, n);
-        else
-                return streq_ptr(name, n);
-}
-
-static bool is_matching_call(PolicyItem *i, sd_bus_message *m, const char *name) {
-
-        if (i->message_type && (i->message_type != m->header->type))
-                return false;
-
-        if (i->path && (!m->path || !streq(i->path, m->path)))
-                return false;
-
-        if (i->member && (!m->member || !streq(i->member, m->member)))
-                return false;
-
-        if (i->interface && (!m->interface || !streq(i->interface, m->interface)))
-                return false;
-
-        if (i->name && (!name || !streq(i->name, name)))
-                return false;
-
-        return true;
-}
-
 enum {
         ALLOW,
         DUNNO,
         DENY,
+};
+
+struct policy_check_filter {
+        int class;
+        const struct ucred *ucred;
+        int message_type;
+        const char *interface;
+        const char *path;
+        const char *member;
+        char **names_strv;
+        Hashmap *names_hash;
 };
 
 static int is_permissive(PolicyItem *i) {
@@ -645,40 +614,51 @@ static int is_permissive(PolicyItem *i) {
         return (i->type == POLICY_ITEM_ALLOW) ? ALLOW : DENY;
 }
 
-static int check_policy_item(PolicyItem *i, sd_bus_message *m, const struct ucred *ucred) {
+static int check_policy_item(PolicyItem *i, const struct policy_check_filter *filter) {
 
         switch (i->class) {
         case POLICY_ITEM_SEND:
-                if ((m->bus->is_kernel  && is_matching_call(i, m, m->destination)) ||
-                    (!m->bus->is_kernel && is_matching_call(i, m, m->sender)))
-                        return is_permissive(i);
-                break;
-
         case POLICY_ITEM_RECV:
-                if ((m->bus->is_kernel  && is_matching_call(i, m, m->sender)) ||
-                    (!m->bus->is_kernel && is_matching_call(i, m, m->destination)))
-                        return is_permissive(i);
-                break;
+
+                if (i->name) {
+                        if (filter->names_hash && !hashmap_contains(filter->names_hash, i->name))
+                                break;
+
+                        if (filter->names_strv && !strv_contains(filter->names_strv, i->name))
+                                break;
+                }
+
+                if (i->message_type && (i->message_type != filter->message_type))
+                        break;
+
+                if (i->path && !streq_ptr(i->path, filter->path))
+                        break;
+
+                if (i->member && !streq_ptr(i->member, filter->member))
+                        break;
+
+                if (i->interface && !streq_ptr(i->interface, filter->interface))
+                        break;
+
+                return is_permissive(i);
 
         case POLICY_ITEM_OWN:
-                if (is_matching_name_request(m, i->name, false))
+                if (streq(i->name, filter->member))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_OWN_PREFIX:
-                if (is_matching_name_request(m, i->name, true))
+                if (startswith(i->name, filter->member))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_USER:
-                if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "Hello") &&
-                    (streq_ptr(i->name, "*") || (i->uid_valid && i->uid == ucred->uid)))
+                if ((streq_ptr(i->name, "*") || (i->uid_valid && i->uid == filter->ucred->uid)))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_GROUP:
-                if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "Hello") &&
-                    (streq_ptr(i->name, "*") || (i->gid_valid && i->gid == ucred->gid)))
+                if ((streq_ptr(i->name, "*") || (i->gid_valid && i->gid == filter->ucred->gid)))
                         return is_permissive(i);
                 break;
 
@@ -690,7 +670,7 @@ static int check_policy_item(PolicyItem *i, sd_bus_message *m, const struct ucre
         return DUNNO;
 }
 
-static int check_policy_items(PolicyItem *items, sd_bus_message *m, const struct ucred *ucred) {
+static int check_policy_items(PolicyItem *items, const struct policy_check_filter *filter) {
 
         PolicyItem *i;
         int r, ret = DUNNO;
@@ -698,7 +678,10 @@ static int check_policy_items(PolicyItem *items, sd_bus_message *m, const struct
         /* Check all policies in a set - a broader one might be followed by a more specific one,
          * and the order of rules in policy definitions matters */
         LIST_FOREACH(items, i, items) {
-                r = check_policy_item(i, m, ucred);
+                if (i->class != filter->class)
+                        continue;
+
+                r = check_policy_item(i, filter);
                 if (r != DUNNO)
                         ret = r;
         }
@@ -706,7 +689,7 @@ static int check_policy_items(PolicyItem *items, sd_bus_message *m, const struct
         return ret;
 }
 
-bool policy_check(Policy *p, sd_bus_message *m, const struct ucred *ucred) {
+static int policy_check(Policy *p, const struct policy_check_filter *filter) {
 
         PolicyItem *items;
         int r;
@@ -720,31 +703,100 @@ bool policy_check(Policy *p, sd_bus_message *m, const struct ucred *ucred) {
          * 4. If the message isn't caught be the defaults either, reject it.
          */
 
-        r = check_policy_items(p->mandatory_items, m, ucred);
+        r = check_policy_items(p->mandatory_items, filter);
         if (r != DUNNO)
-                return r == ALLOW;
+                return r;
 
-        if (ucred->pid > 0) {
-                items = hashmap_get(p->user_items, UINT32_TO_PTR(ucred->uid));
+        if (filter->ucred) {
+                items = hashmap_get(p->user_items, UINT32_TO_PTR(filter->ucred->uid));
                 if (items) {
-                        r = check_policy_items(items, m, ucred);
+                        r = check_policy_items(items, filter);
                         if (r != DUNNO)
-                                return r == ALLOW;
+                                return r;
                 }
 
-                items = hashmap_get(p->group_items, UINT32_TO_PTR(ucred->gid));
+                items = hashmap_get(p->group_items, UINT32_TO_PTR(filter->ucred->gid));
                 if (items) {
-                        r = check_policy_items(items, m, ucred);
+                        r = check_policy_items(items, filter);
                         if (r != DUNNO)
-                                return r == ALLOW;
+                                return r;
                 }
         }
 
-        r = check_policy_items(p->default_items, m, ucred);
-        if (r != DUNNO)
-                return r == ALLOW;
+        return check_policy_items(p->default_items, filter);
+}
 
-        return false;
+bool policy_check_own(Policy *p, const struct ucred *ucred, const char *name) {
+
+        struct policy_check_filter filter = {
+                .class  = POLICY_ITEM_OWN,
+                .ucred  = ucred,
+                .member = name,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
+}
+
+bool policy_check_hello(Policy *p, const struct ucred *ucred) {
+
+        struct policy_check_filter filter = {
+                .class  = POLICY_ITEM_USER,
+                .ucred  = ucred,
+        };
+        int user, group;
+
+        user = policy_check(p, &filter);
+        if (user == DENY)
+                return false;
+
+        filter.class = POLICY_ITEM_GROUP;
+        group = policy_check(p, &filter);
+        if (user == DUNNO && group == DUNNO)
+                return false;
+
+        return !(user == DENY || group == DENY);
+}
+
+bool policy_check_recv(Policy *p,
+                       const struct ucred *ucred,
+                       Hashmap *names,
+                       int message_type,
+                       const char *path,
+                       const char *interface,
+                       const char *member) {
+
+        struct policy_check_filter filter = {
+                .class        = POLICY_ITEM_RECV,
+                .ucred        = ucred,
+                .names_hash   = names,
+                .message_type = message_type,
+                .interface    = interface,
+                .path         = path,
+                .member       = member,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
+}
+
+bool policy_check_send(Policy *p,
+                       const struct ucred *ucred,
+                       char **names,
+                       int message_type,
+                       const char *path,
+                       const char *interface,
+                       const char *member) {
+
+        struct policy_check_filter filter = {
+                .class        = POLICY_ITEM_SEND,
+                .ucred        = ucred,
+                .names_strv   = names,
+                .message_type = message_type,
+                .interface    = interface,
+                .path         = path,
+                .member       = member,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
 }
 
 int policy_load(Policy *p, char **files) {

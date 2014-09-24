@@ -44,122 +44,84 @@
 
 #include <bus-proxyd/bus-policy.h>
 
-static int make_name_request(sd_bus *bus,
-                             const char *name,
-                             sd_bus_message **ret) {
-
-        int r;
-        sd_bus_message *m = NULL;
-
-        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_basic(m, 's', name);
-        if (r < 0)
-                return r;
-
-        m->sealed = 1;
-        sd_bus_message_rewind(m, true);
-
-        *ret = m;
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
 
         Policy p = {};
-        sd_bus_message *m;
         struct ucred ucred = {};
-        _cleanup_bus_close_unref_ sd_bus *bus = NULL;;
-
-        assert_se(sd_bus_default_system(&bus) >= 0);
-
-        /* Fake pid for policy checks */
-        ucred.pid = 1;
+        char **names_strv;
+        Hashmap *names_hash;
 
         /* Ownership tests */
         assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/ownerships.conf")) == 0);
 
-        assert_se(make_name_request(bus, "org.test.test1", &m) == 0);
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == true);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test1") == true);
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == true);
-        assert_se(sd_bus_message_unref(m) == 0);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test1") == true);
 
-        assert_se(make_name_request(bus, "org.test.test2", &m) == 0);
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == true);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test2") == true);
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == false);
-        assert_se(sd_bus_message_unref(m) == 0);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test2") == false);
 
-        assert_se(make_name_request(bus, "org.test.test3", &m) == 0);
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == false);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test3") == false);
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == false);
-        assert_se(sd_bus_message_unref(m) == 0);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test3") == false);
 
-        assert_se(make_name_request(bus, "org.test.test4", &m) == 0);
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == false);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test4") == false);
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == true);
-        assert_se(sd_bus_message_unref(m) == 0);
+        assert_se(policy_check_own(&p, &ucred, "org.test.test4") == true);
 
         policy_free(&p);
 
-        /* Signal test */
+        /* Signaltest */
         assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/signals.conf")) == 0);
+        names_strv = STRV_MAKE("bli.bla.blubb");
 
-        assert_se(sd_bus_message_new_signal(bus, &m, "/an/object/path", "bli.bla.blubb", "Name") == 0);
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == true);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_SIGNAL, NULL, "/an/object/path", NULL) == true);
 
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == false);
-        assert_se(sd_bus_message_unref(m) == 0);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_SIGNAL, NULL, "/an/object/path", NULL) == false);
 
         policy_free(&p);
 
         /* Method calls */
         assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/methods.conf")) == 0);
+        names_strv = STRV_MAKE("org.test.test1");
+        policy_dump(&p);
 
         ucred.uid = 0;
-        assert_se(sd_bus_message_new_method_call(bus, &m, "org.foo.bar", "/an/object/path", "bli.bla.blubb", "Member") == 0);
-        assert_se(policy_check(&p, m, &ucred) == false);
 
-        assert_se(sd_bus_message_new_method_call(bus, &m, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == 0);
-        assert_se(policy_check(&p, m, &ucred) == false);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int1", "Member") == true);
+        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int2", "Member") == true);
 
-        bus->is_kernel = 1;
-        assert_se(sd_bus_message_new_method_call(bus, &m, "org.test.test1", "/an/object/path", "org.test.int1", "Member") == 0);
-        assert_se(policy_check(&p, m, &ucred) == true);
-
-        assert_se(sd_bus_message_new_method_call(bus, &m, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == 0);
-        assert_se(policy_check(&p, m, &ucred) == true);
+        names_hash = hashmap_new(&string_hash_ops);
+        assert(names_hash != NULL);
+        assert_se(hashmap_put(names_hash, "org.test.test3", NULL) >= 0);
+        assert_se(policy_check_recv(&p, &ucred, names_hash, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int3", "Member111") == true);
 
         policy_free(&p);
 
         /* User and groups */
         assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/hello.conf")) == 0);
-        assert_se(sd_bus_message_new_method_call(bus, &m, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "Hello") == 0);
         policy_dump(&p);
 
         ucred.uid = 0;
-        assert_se(policy_check(&p, m, &ucred) == true);
+        assert_se(policy_check_hello(&p, &ucred) == true);
 
         ucred.uid = 1;
-        assert_se(policy_check(&p, m, &ucred) == false);
+        assert_se(policy_check_hello(&p, &ucred) == false);
 
         ucred.uid = 0;
         ucred.gid = 1;
-        assert_se(policy_check(&p, m, &ucred) == false);
+        assert_se(policy_check_hello(&p, &ucred) == false);
 
         policy_free(&p);
-
 
         return EXIT_SUCCESS;
 }

@@ -76,7 +76,22 @@ typedef struct Policy {
 int policy_load(Policy *p, char **files);
 void policy_free(Policy *p);
 
-bool policy_check(Policy *p, sd_bus_message *m, const struct ucred *c);
+bool policy_check_own(Policy *p, const struct ucred *ucred, const char *name);
+bool policy_check_hello(Policy *p, const struct ucred *ucred);
+bool policy_check_recv(Policy *p,
+                       const struct ucred *ucred,
+                       Hashmap *names,
+                       int message_type,
+                       const char *path,
+                       const char *interface,
+                       const char *member);
+bool policy_check_send(Policy *p,
+                       const struct ucred *ucred,
+                       char **names,
+                       int message_type,
+                       const char *path,
+                       const char *interface,
+                       const char *member);
 
 void policy_dump(Policy *p);
 
