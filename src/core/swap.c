@@ -152,6 +152,9 @@ static void swap_done(Unit *u) {
         free(s->parameters_fragment.what);
         s->parameters_fragment.what = NULL;
 
+        free(s->parameters_fragment.discard);
+        s->parameters_fragment.discard = NULL;
+
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
@@ -602,10 +605,12 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sPriority: %i\n"
                         "%sNoAuto: %s\n"
-                        "%sNoFail: %s\n",
+                        "%sNoFail: %s\n"
+                        "%sDiscard: %s\n",
                         prefix, p->priority,
                         prefix, yes_no(p->noauto),
-                        prefix, yes_no(p->nofail));
+                        prefix, yes_no(p->nofail),
+                        prefix, p->discard);
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -734,36 +739,46 @@ fail:
 
 static void swap_enter_activating(Swap *s) {
         int r, priority;
+        char *discard;
 
         assert(s);
 
         s->control_command_id = SWAP_EXEC_ACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
-        if (s->from_fragment)
+        if (s->from_fragment) {
                 priority = s->parameters_fragment.priority;
-        else
+                discard = s->parameters_fragment.discard;
+        } else {
                 priority = -1;
+                discard = NULL;
+        }
+
+        r = exec_command_set(s->control_command, "/sbin/swapon", NULL);
+        if (r < 0)
+                goto fail;
 
         if (priority >= 0) {
                 char p[DECIMAL_STR_MAX(int)];
 
                 sprintf(p, "%i", priority);
+                r = exec_command_append(s->control_command, "-p", p, NULL);
+                if (r < 0)
+                        goto fail;
+        }
 
-                r = exec_command_set(
-                                s->control_command,
-                                "/sbin/swapon",
-                                "-p",
-                                p,
-                                s->what,
-                                NULL);
-        } else
-                r = exec_command_set(
-                                s->control_command,
-                                "/sbin/swapon",
-                                s->what,
-                                NULL);
+        if (discard && !streq(discard, "none")) {
+                const char *discard_arg = "--discard";
 
+                if (!streq(discard, "all"))
+                        discard_arg = strappenda("--discard=", discard);
+
+                r = exec_command_append(s->control_command, discard_arg, NULL);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = exec_command_append(s->control_command, s->what, NULL);
         if (r < 0)
                 goto fail;
 

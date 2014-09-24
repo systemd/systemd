@@ -171,6 +171,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>Discard=</varname></term>
+
+                                <listitem><para>Enable discards, if the swap
+                                backing device supports the discard or trim
+                                operation. Can be one of <literal>none</literal>,
+                                <literal>once</literal>, <literal>pages</literal>
+                                or <literal>all</literal>.  Defaults to
+                                <literal>none</literal>. (See
+                                <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for more information.)
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>TimeoutSec=</varname></term>
                                 <listitem><para>Configures the time to
                                 wait for the swapon command to

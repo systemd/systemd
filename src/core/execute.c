@@ -2566,6 +2566,31 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
         return 0;
 }
 
+int exec_command_append(ExecCommand *c, const char *path, ...) {
+        va_list ap;
+        char **l;
+        int r;
+
+        assert(c);
+        assert(path);
+
+        va_start(ap, path);
+        l = strv_new_ap(path, ap);
+        va_end(ap);
+
+        if (!l)
+                return -ENOMEM;
+
+        r = strv_extend_strv(&c->argv, l);
+        if (r < 0) {
+                strv_free(l);
+                return r;
+        }
+
+        return 0;
+}
+
+
 static int exec_runtime_allocate(ExecRuntime **rt) {
 
         if (*rt)

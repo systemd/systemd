@@ -73,6 +73,8 @@ static int mount_find_pri(struct mntent *me, int *ret) {
 static int add_swap(const char *what, struct mntent *me) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        char *discard = NULL;
+
         bool noauto;
         int r, pri = -1;
 
@@ -117,6 +119,14 @@ static int add_swap(const char *what, struct mntent *me) {
                 "[Swap]\n"
                 "What=%s\n",
                 what);
+
+        discard = mount_test_option(me->mnt_opts, "discard");
+        if (discard) {
+                discard = strpbrk(discard, "=");
+                fprintf(f,
+                        "Discard=%s\n",
+                        discard ? discard+1 : "all");
+        }
 
         if (pri >= 0)
                 fprintf(f,
