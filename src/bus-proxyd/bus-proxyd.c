@@ -311,48 +311,6 @@ static int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         return sd_bus_send(b, n, NULL);
 }
 
-static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m) {
-        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
-        int r;
-
-        assert(a);
-        assert(b);
-        assert(m);
-
-        if (!a->is_kernel)
-                return 0;
-
-        if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "GetAll"))
-                return 0;
-
-        if (!streq_ptr(m->path, "/org/gnome/DisplayManager/Slave"))
-                return 0;
-
-        r = sd_bus_message_new_method_errorf(m, &n, SD_BUS_ERROR_ACCESS_DENIED, "gdm, you are stupid");
-        if (r < 0)
-                return r;
-
-        r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error("Failed to append sender to gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error("Failed to seal gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error("Failed to send gdm reply: %s", strerror(-r));
-                return r;
-        }
-
-        return 1;
-}
-
 static int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {
         int r;
 
@@ -507,6 +465,30 @@ static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
                 return true;
 
         return false;
+}
+
+static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred) {
+        int r;
+        char **names_strv;
+
+        assert(a);
+        assert(b);
+        assert(m);
+
+        if (a->is_kernel)
+                return 0;
+
+        r = sd_bus_creds_get_well_known_names(&m->creds, &names_strv);
+        if (r < 0)
+                return r;
+
+        if (!policy_check_recv(policy, ucred, names_hash, m->header->type, m->path, m->interface, m->member))
+                return -EPERM;
+
+        if (!policy_check_send(policy, ucred, names_strv, m->header->type, m->path, m->interface, m->member))
+                return -EPERM;
+
+        return 0;
 }
 
 static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred) {
@@ -1436,13 +1418,6 @@ int main(int argc, char *argv[]) {
                         if (k > 0)
                                 r = k;
                         else {
-                                k = process_policy(a, b, m);
-                                if (k < 0) {
-                                        r = k;
-                                        log_error("Failed to process policy: %s", strerror(-r));
-                                        goto finish;
-                                }
-
                                 k = process_driver(a, b, m, &policy, &ucred);
                                 if (k < 0) {
                                         r = k;
@@ -1453,6 +1428,13 @@ int main(int argc, char *argv[]) {
                                 if (k > 0)
                                         r = k;
                                 else {
+                                        k = process_policy(a, b, m, &policy, &ucred);
+                                        if (k < 0) {
+                                                r = k;
+                                                log_error("Failed to process policy: %s", strerror(-r));
+                                                goto finish;
+                                        }
+
                                         k = sd_bus_send(a, m, NULL);
                                         if (k < 0) {
                                                 if (k == -ECONNRESET)
