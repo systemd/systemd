@@ -346,6 +346,16 @@ AS_IF([test "x$enable_dbus" != "xno"], [
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_utmp=yes
+AC_ARG_ENABLE([utmp], AS_HELP_STRING([--disable-utmp], [disable utmp/wtmp log handling]),
+        AS_CASE("x${enableval}",
+                [xyes], [have_utmp=yes],
+                [xno],  [have_utmp=no],
+                AC_MSG_ERROR(bad value ${enableval} for --enable-utmp)))
+AS_IF([test "x$have_utmp" = "xyes"], [AC_DEFINE(HAVE_UTMP, 1, [Define if utmp/wtmp support is enabled])])
+AM_CONDITIONAL([HAVE_UTMP], [test "x$have_utmp" = "xyes"])
+
+# ------------------------------------------------------------------------------
 have_compat_libs=no
 AC_ARG_ENABLE([compat_libs], AS_HELP_STRING([--enable-compat-libs],[Enable creation of compatibility libraries]),
                 [case "${enableval}" in
@@ -1372,6 +1382,7 @@ AC_MSG_RESULT([
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         compatibility libraries: ${have_compat_libs}
+        utmp/wtmp support:       ${have_utmp}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}

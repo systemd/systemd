@@ -378,7 +378,6 @@ rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \
 	systemd-initctl \
-	systemd-update-utmp \
 	systemd-shutdownd \
 	systemd-shutdown \
 	systemd-remount-fs \
@@ -390,6 +389,11 @@ rootlibexec_PROGRAMS = \
 	systemd-bus-proxyd \
 	systemd-socket-proxyd \
 	systemd-update-done
+
+if HAVE_UTMP
+rootlibexec_PROGRAMS += \
+	systemd-update-utmp
+endif
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
@@ -517,8 +521,6 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
 	units/systemd-remount-fs.service \
-	units/systemd-update-utmp.service \
-	units/systemd-update-utmp-runlevel.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
@@ -543,6 +545,12 @@ nodist_systemunit_DATA = \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
 	units/systemd-update-done.service
+
+if HAVE_UTMP
+nodist_systemunit_DATA += \
+	units/systemd-update-utmp.service \
+	units/systemd-update-utmp-runlevel.service
+endif
 
 dist_userunit_DATA = \
 	units/user/basic.target \
@@ -804,7 +812,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/cgroup-show.h \
 	src/shared/unit-name.c \
 	src/shared/unit-name.h \
-	src/shared/utmp-wtmp.c \
 	src/shared/utmp-wtmp.h \
 	src/shared/watchdog.c \
 	src/shared/watchdog.h \
@@ -877,6 +884,11 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/switch-root.h \
 	src/shared/switch-root.c \
 	src/shared/nss-util.h
+
+if HAVE_UTMP
+libsystemd_shared_la_SOURCES += \
+	src/shared/utmp-wtmp.c
+endif
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -5856,6 +5868,7 @@ SOCKETS_TARGET_WANTS += \
 	systemd-initctl.socket \
 	systemd-shutdownd.socket
 
+if HAVE_UTMP
 if HAVE_SYSV_COMPAT
 RUNLEVEL1_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
@@ -5870,7 +5883,10 @@ RUNLEVEL5_TARGET_WANTS += \
 endif
 
 SYSINIT_TARGET_WANTS += \
-	systemd-update-utmp.service \
+	systemd-update-utmp.service
+endif
+
+SYSINIT_TARGET_WANTS += \
 	systemd-update-done.service
 
 LOCAL_FS_TARGET_WANTS += \

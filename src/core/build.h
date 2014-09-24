@@ -63,6 +63,12 @@
 #define _SYSVINIT_FEATURE_ "-SYSVINIT"
 #endif
 
+#ifdef HAVE_UTMP
+#define _UTMP_FEATURE_ "+UTMP"
+#else
+#define _UTMP_FEATURE_ "-UTMP"
+#endif
+
 #ifdef HAVE_LIBCRYPTSETUP
 #define _LIBCRYPTSETUP_FEATURE_ "+LIBCRYPTSETUP"
 #else
@@ -137,6 +143,7 @@
         _APPARMOR_FEATURE_ " "                                          \
         _SMACK_FEATURE_ " "                                             \
         _SYSVINIT_FEATURE_ " "                                          \
+        _UTMP_FEATURE_ " "                                              \
         _LIBCRYPTSETUP_FEATURE_ " "                                     \
         _GCRYPT_FEATURE_ " "                                            \
         _GNUTLS_FEATURE_ " "                                            \
