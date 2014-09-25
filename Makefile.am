@@ -720,7 +720,6 @@ EXTRA_DIST += \
 	$(man_MANS) \
 	tools/make-man-index.py \
 	tools/make-directive-index.py \
-	tools/make-man-rules.py \
 	tools/xml_helper.py
 
 # ------------------------------------------------------------------------------
