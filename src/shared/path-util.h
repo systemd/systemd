@@ -65,8 +65,8 @@ int fsck_exists(const char *fstype);
  * the tree, to root. Also returns "" (and not "/"!) for the root
  * directory. Excludes the specified directory itself */
 #define PATH_FOREACH_PREFIX(prefix, path) \
-        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))
 
 /* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
 #define PATH_FOREACH_PREFIX_MORE(prefix, path) \
-        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))
