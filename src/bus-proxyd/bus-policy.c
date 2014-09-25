@@ -688,7 +688,6 @@ static int check_policy_items(PolicyItem *items, const struct policy_check_filte
         PolicyItem *i;
         int r, ret = DUNNO;
 
-        assert(items);
         assert(filter);
 
         /* Check all policies in a set - a broader one might be followed by a more specific one,
