@@ -675,7 +675,18 @@ static int mount_all(const char *dest) {
                 if (mount_table[k].what && t > 0)
                         continue;
 
-                mkdir_p(where, 0755);
+                t = mkdir_p(where, 0755);
+                if (t < 0) {
+                        if (mount_table[k].fatal) {
+                               log_error("Failed to create directory %s: %s", where, strerror(-t));
+
+                                if (r == 0)
+                                        r = t;
+                        } else
+                               log_warning("Failed to create directory %s: %s", where, strerror(-t));
+
+                        continue;
+                }
 
 #ifdef HAVE_SELINUX
                 if (arg_selinux_apifs_context &&
@@ -694,13 +705,15 @@ static int mount_all(const char *dest) {
                           where,
                           mount_table[k].type,
                           mount_table[k].flags,
-                          o) < 0 &&
-                    mount_table[k].fatal) {
+                          o) < 0) {
 
-                        log_error("mount(%s) failed: %m", where);
+                        if (mount_table[k].fatal) {
+                                log_error("mount(%s) failed: %m", where);
 
-                        if (r == 0)
-                                r = -errno;
+                                if (r == 0)
+                                        r = -errno;
+                        } else
+                                log_warning("mount(%s) failed: %m", where);
                 }
         }
 
@@ -743,15 +756,35 @@ static int mount_binds(const char *dest, char **l, bool ro) {
 
                 /* Create the mount point, but be conservative -- refuse to create block
                  * and char devices. */
-                if (S_ISDIR(source_st.st_mode))
-                        mkdir_label(where, 0755);
-                else if (S_ISFIFO(source_st.st_mode))
-                        mkfifo(where, 0644);
-                else if (S_ISSOCK(source_st.st_mode))
-                        mknod(where, 0644 | S_IFSOCK, 0);
-                else if (S_ISREG(source_st.st_mode))
-                        touch(where);
-                else {
+                if (S_ISDIR(source_st.st_mode)) {
+                        r = mkdir_label(where, 0755);
+                        if (r < 0) {
+                                log_error("Failed to create mount point %s: %s", where, strerror(-r));
+
+                                return r;
+                        }
+                } else if (S_ISFIFO(source_st.st_mode)) {
+                        r = mkfifo(where, 0644);
+                        if (r < 0 && errno != EEXIST) {
+                                log_error("Failed to create mount point %s: %m", where);
+
+                                return -errno;
+                        }
+                } else if (S_ISSOCK(source_st.st_mode)) {
+                        r = mknod(where, 0644 | S_IFSOCK, 0);
+                        if (r < 0 && errno != EEXIST) {
+                                log_error("Failed to create mount point %s: %m", where);
+
+                                return -errno;
+                        }
+                } else if (S_ISREG(source_st.st_mode)) {
+                        r = touch(where);
+                        if (r < 0) {
+                                log_error("Failed to create mount point %s: %s", where, strerror(-r));
+
+                                return r;
+                        }
+                } else {
                         log_error("Refusing to create mountpoint for file: %s", *x);
                         return -ENOTSUP;
                 }
@@ -778,12 +811,18 @@ static int mount_tmpfs(const char *dest) {
 
         STRV_FOREACH_PAIR(i, o, arg_tmpfs) {
                 _cleanup_free_ char *where = NULL;
+                int r;
 
                 where = strappend(dest, *i);
                 if (!where)
                         return log_oom();
 
-                mkdir_label(where, 0755);
+                r = mkdir_label(where, 0755);
+                if (r < 0) {
+                        log_error("creating mount point for tmpfs %s failed: %s", where, strerror(-r));
+
+                        return r;
+                }
 
                 if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0) {
                         log_error("tmpfs mount to %s failed: %m", where);
@@ -844,8 +883,19 @@ static int setup_timezone(const char *dest) {
         if (!what)
                 return log_oom();
 
-        mkdir_parents(where, 0755);
-        unlink(where);
+        r = mkdir_parents(where, 0755);
+        if (r < 0) {
+                log_error("Failed to create directory for timezone info %s in container: %s", where, strerror(-r));
+
+                return 0;
+        }
+
+        r = unlink(where);
+        if (r < 0 && errno != ENOENT) {
+                log_error("Failed to remove existing timezone info %s in container: %m", where);
+
+                return 0;
+        }
 
         if (symlink(what, where) < 0) {
                 log_error("Failed to correct timezone of container: %m");
@@ -857,6 +907,7 @@ static int setup_timezone(const char *dest) {
 
 static int setup_resolv_conf(const char *dest) {
         _cleanup_free_ char *where = NULL;
+        int r;
 
         assert(dest);
 
@@ -870,8 +921,19 @@ static int setup_resolv_conf(const char *dest) {
 
         /* We don't really care for the results of this really. If it
          * fails, it fails, but meh... */
-        mkdir_parents(where, 0755);
-        copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644);
+        r = mkdir_parents(where, 0755);
+        if (r < 0) {
+                log_warning("Failed to create parent directory for resolv.conf %s: %s", where, strerror(-r));
+
+                return 0;
+        }
+
+        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644);
+        if (r < 0) {
+                log_warning("Failed to copy /etc/resolv.conf to %s: %s", where, strerror(-r));
+
+                return 0;
+        }
 
         return 0;
 }
@@ -895,7 +957,11 @@ static int setup_volatile_state(const char *directory) {
         }
 
         p = strappenda(directory, "/var");
-        mkdir(p, 0755);
+        r = mkdir(p, 0755);
+        if (r < 0 && errno != EEXIST) {
+                log_error("Failed to create %s: %m", directory);
+                return -errno;
+        }
 
         if (mount("tmpfs", p, "tmpfs", MS_STRICTATIME, "mode=755") < 0) {
                 log_error("Failed to mount tmpfs to /var: %m");
@@ -935,7 +1001,13 @@ static int setup_volatile(const char *directory) {
         f = strappenda(directory, "/usr");
         t = strappenda(template, "/usr");
 
-        mkdir(t, 0755);
+        r = mkdir(t, 0755);
+        if (r < 0 && errno != EEXIST) {
+                log_error("Failed to create %s: %m", t);
+                r = -errno;
+                goto fail;
+        }
+
         if (mount(f, t, "bind", MS_BIND|MS_REC, NULL) < 0) {
                 log_error("Failed to create /usr bind mount: %m");
                 r = -errno;
@@ -1294,7 +1366,7 @@ static int setup_journal(const char *directory) {
 
                         r = mkdir_p(q, 0755);
                         if (r < 0)
-                                log_warning("failed to create directory %s: %m", q);
+                                log_warning("Failed to create directory %s: %m", q);
                         return 0;
                 }
 
@@ -1329,7 +1401,7 @@ static int setup_journal(const char *directory) {
 
                 r = mkdir_p(q, 0755);
                 if (r < 0)
-                        log_warning("failed to create directory %s: %m", q);
+                        log_warning("Failed to create directory %s: %m", q);
                 return 0;
         }
 
