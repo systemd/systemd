@@ -373,6 +373,8 @@ static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
+        assert(call);
+
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
@@ -386,6 +388,8 @@ static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error
 static int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
 
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+
+        assert(call);
 
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -401,6 +405,8 @@ static int synthetic_reply_method_errno(sd_bus_message *call, int error, const s
 static int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
+
+        assert(call);
 
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -425,6 +431,8 @@ static int synthetic_reply_method_return(sd_bus_message *call, const char *types
 static int synthetic_reply_return_strv(sd_bus_message *call, char **l) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
+
+        assert(call);
 
         r = sd_bus_message_new_method_return(call, &m);
         if (r < 0)

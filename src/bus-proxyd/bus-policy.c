@@ -611,10 +611,15 @@ struct policy_check_filter {
 
 static int is_permissive(PolicyItem *i) {
 
+        assert(i);
+
         return (i->type == POLICY_ITEM_ALLOW) ? ALLOW : DENY;
 }
 
 static int check_policy_item(PolicyItem *i, const struct policy_check_filter *filter) {
+
+        assert(i);
+        assert(filter);
 
         switch (i->class) {
         case POLICY_ITEM_SEND:
@@ -643,21 +648,29 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
                 return is_permissive(i);
 
         case POLICY_ITEM_OWN:
+                assert(filter->member);
+
                 if (streq(i->name, filter->member))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_OWN_PREFIX:
+                assert(filter->member);
+
                 if (startswith(i->name, filter->member))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_USER:
+                assert(filter->ucred);
+
                 if ((streq_ptr(i->name, "*") || (i->uid_valid && i->uid == filter->ucred->uid)))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_GROUP:
+                assert(filter->ucred);
+
                 if ((streq_ptr(i->name, "*") || (i->gid_valid && i->gid == filter->ucred->gid)))
                         return is_permissive(i);
                 break;
@@ -674,6 +687,9 @@ static int check_policy_items(PolicyItem *items, const struct policy_check_filte
 
         PolicyItem *i;
         int r, ret = DUNNO;
+
+        assert(items);
+        assert(filter);
 
         /* Check all policies in a set - a broader one might be followed by a more specific one,
          * and the order of rules in policy definitions matters */
@@ -693,6 +709,9 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
 
         PolicyItem *items;
         int r;
+
+        assert(p);
+        assert(filter);
 
         /*
          * The policy check is implemented by the following logic:
