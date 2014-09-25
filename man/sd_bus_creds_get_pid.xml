@@ -381,7 +381,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><varname>-ENODATA</varname></term>
+        <term><constant>-ENODATA</constant></term>
 
         <listitem><para>Given field is not available in
         <parameter>c</parameter>.</para>
@@ -389,7 +389,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ENOENT</varname></term>
+        <term><constant>-ENOENT</constant></term>
 
         <listitem><para>Given field is not specified for the sender.
         This will be returned by <function>sd_bus_get_unit</function>,
@@ -403,7 +403,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ENXIO</varname></term>
+        <term><constant>-ENXIO</constant></term>
 
         <listitem><para>An error occurred in parsing cgroup paths.
         <filename>libsystemd</filename> might be out of sync with
@@ -411,14 +411,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-EINVAL</varname></term>
+        <term><constant>-EINVAL</constant></term>
 
         <listitem><para>Specified pointer parameter is <constant>NULL</constant>.
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ENOMEM</varname></term>
+        <term><constant>-ENOMEM</constant></term>
 
         <listitem><para>Memory allocation failed.</para></listitem>
       </varlistentry>

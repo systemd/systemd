@@ -138,13 +138,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><varname>-ENOMEM</varname></term>
+        <term><constant>-ENOMEM</constant></term>
 
         <listitem><para>Not enough memory to allocate the object.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-EMFILE</varname></term>
+        <term><constant>-EMFILE</constant></term>
 
         <listitem><para>The maximum number of event loops has been allocated.</para></listitem>
 

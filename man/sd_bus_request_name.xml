@@ -143,7 +143,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><varname>-EALREADY</varname></term>
+                                <term><constant>-EALREADY</constant></term>
 
                                 <listitem><para>The caller already is
                                 the owner of the specified
@@ -151,7 +151,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-EEXIST</varname></term>
+                                <term><constant>-EEXIST</constant></term>
 
                                 <listitem><para>The name has already
                                 been acquired by a different peer, and
@@ -163,7 +163,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-ESRCH</varname></term>
+                                <term><constant>-ESRCH</constant></term>
 
                                 <listitem><para>It was attempted to
                                 release a name that is currently not
@@ -172,7 +172,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-EADDRINUSE</varname></term>
+                                <term><constant>-EADDRINUSE</constant></term>
 
                                 <listitem><para>It was attempted to
                                 release a name that is owned by a
@@ -181,21 +181,21 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-EINVAL</varname></term>
+                                <term><constant>-EINVAL</constant></term>
 
                                 <listitem><para>A specified parameter
                                 is invalid.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-ENOTCONN</varname></term>
+                                <term><constant>-ENOTCONN</constant></term>
 
                                 <listitem><para>The bus connection has
                                 been disconnected.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-ECHILD</varname></term>
+                                <term><constant>-ECHILD</constant></term>
 
                                 <listitem><para>The bus connection has
                                 been created in a different process

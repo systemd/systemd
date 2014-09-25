@@ -138,25 +138,25 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><varname>-ENOMEM</varname></term>
+        <term><constant>-ENOMEM</constant></term>
 
         <listitem><para>Not enough memory to allocate an object.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-EINVAL</varname></term>
+        <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An invalid argument has been passed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ESTALE</varname></term>
+        <term><constant>-ESTALE</constant></term>
 
         <listitem><para>The event loop is already terminated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ECHILD</varname></term>
+        <term><constant>-ECHILD</constant></term>
 
         <listitem><para>The event loop has been created in a different process.</para></listitem>
       </varlistentry>

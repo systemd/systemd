@@ -139,14 +139,14 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><varname>-EINVAL</varname></term>
+                                <term><constant>-EINVAL</constant></term>
 
                                 <listitem><para>A specified parameter
                                 is invalid.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-ENODATA</varname></term>
+                                <term><constant>-ENODATA</constant></term>
 
                                 <listitem><para>No timestamp or
                                 sequence number information is
