@@ -21,10 +21,10 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_add_signal" conditional="ENABLE_KDBUS">
+<refentry id="sd_event_add_child" conditional="ENABLE_KDBUS">
 
   <refentryinfo>
-    <title>sd_event_add_signal</title>
+    <title>sd_event_add_child</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -38,15 +38,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>sd_event_add_signal</refentrytitle>
+    <refentrytitle>sd_event_add_child</refentrytitle>
     <manvolnum>3</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>sd_event_add_signal</refname>
-    <refname>sd_event_source_get_signal</refname>
+    <refname>sd_event_add_child</refname>
+    <refname>sd_event_source_get_child_pid</refname>
 
-    <refpurpose>Add a signal event source to an event loop</refpurpose>
+    <refpurpose>Add a child state change event source to an event loop</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -54,24 +54,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int <function>sd_event_add_signal</function></funcdef>
+        <funcdef>int <function>sd_event_add_child</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
         <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
-        <paramdef>int <parameter>signal</parameter></paramdef>
-        <paramdef>sd_event_signal_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>int <parameter>options</parameter></paramdef>
+        <paramdef>sd_event_child_handler_t <parameter>handler</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>typedef int (*<function>sd_event_signal_handler_t</function>)</funcdef>
+        <funcdef>typedef int (*<function>sd_event_child_handler_t</function>)</funcdef>
         <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
-        <paramdef>const struct signalfd_siginfo *<parameter>si</parameter></paramdef>
+        <paramdef>const siginfo_t *<parameter>si</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_event_source_get_signal</function></funcdef>
+        <funcdef>int <function>sd_event_source_get_child_pid</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>pid_t *<parameter>pid</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -80,30 +82,30 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_add_signal()</function> adds a new signal
-    event source to an event loop object. The event loop is specified
-    in <parameter>event</parameter>, the event source is returned in
-    the <parameter>source</parameter> parameter. The
-    <parameter>signal</parameter> parameter specifies the signal to be handled
-    (see
-    <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
-    The <parameter>handler</parameter> must reference a function to
-    call when the signal is delivered or be <constant>NULL</constant>.
-    The handler function will be passed the
-    <parameter>userdata</parameter> pointer, which may be chosen
-    freely by the caller. The handler also receives a pointer to a
-    <structname>const struct signalfd_siginfo</structname> containing
-    the information about the received signal. See
-    <citerefentry><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    <para><function>sd_event_add_child()</function> adds a new child
+    state change event source to an event loop object. The event loop
+    is specified in <parameter>event</parameter>, the event source is
+    returned in the <parameter>source</parameter> parameter. The
+    <parameter>pid</parameter> parameter specifies the process to
+    watch. The <parameter>handler</parameter> must reference a
+    function to call when the process changes state. The handler
+    function will be passed the <parameter>userdata</parameter>
+    pointer, which may be chosen freely by the caller. The handler
+    also receives a pointer to a <structname>const
+    siginfo_t</structname> structure containing the information about
+    the event. The <parameter>options</parameter> parameter determines
+    which state changes will be watched for. It must contain an OR-ed
+    mask of <constant>WEXITED</constant> (watch for the child
+    terminating), <constant>WSTOPPED</constant> (watch for the child
+    being stopped by a signal), and <constant>WCONTINUED</constant>
+    (watch for the child being resumed by a signal). See
+    <citerefentry><refentrytitle>waitid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for futher information.</para>
 
     <para>Only a single handler may be installed for a specific
-    signal. The signal will be unblocked, and must be
-    blocked when the function is called. If the handler is not
-    specified (<parameter>handler</parameter> is
-    <constant>NULL</constant>), a default handler which causes the
-    program to exit will be used.  By default, the handler is enabled
-    permanently (<constant>SD_EVENT_ON</constant>), but this may be
+    child. The handler is enabled
+    for a single event (<constant>SD_EVENT_ONESHOT</constant>),
+    but this may be
     changed with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If the handler function returns a negative error code, it will be
@@ -111,12 +113,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <constant>SD_EVENT_ON</constant> mode is set.
     </para>
 
-    <para><function>sd_event_source_get_signal()</function> retrieves
-    the configured signal number of a signal event source created
-    previously with <function>sd_event_add_signal()</function>. It
-    takes the event source object as the <parameter>source</parameter>
-    parameter.</para>
-
+    <para><function>sd_event_source_get_child_pid()</function>
+    retrieves the configured <parameter>pid</parameter> of a child
+    state change event source created previously with
+    <function>sd_event_add_child()</function>. It takes the event
+    source object as the <parameter>source</parameter> parameter and a
+    pointer to <type>pid_t</type> to return the result in.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -124,7 +127,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
-    code. </para>
+    code.</para>
   </refsect1>
 
   <refsect1>
@@ -142,7 +145,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><varname>-EINVAL</varname></term>
 
-        <listitem><para>An invalid argument has been passed.</para></listitem>
+        <listitem><para>An invalid argument has been passed. This includes
+        specyfing an empty mask in <parameter>options</parameter> or a mask
+        which constains values different than a combination of
+        <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
+        <constant>WCONTINUED</constant>.
+        </para></listitem>
 
       </varlistentry>
 
@@ -150,7 +158,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>-EBUSY</varname></term>
 
         <listitem><para>An handler is already installed for this
-        signal or the signal was not blocked previously.</para></listitem>
+        child.</para></listitem>
 
       </varlistentry>
 
@@ -174,7 +182,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_event_add_signal()</function> and the other functions
+    <para><function>sd_event_add_child()</function> and the other functions
     described here are available as a shared library, which can be
     compiled and linked to with the
     <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -189,7 +197,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
