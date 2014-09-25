@@ -99,11 +99,8 @@ Writer* writer_free(Writer *w) {
                 journal_file_close(w->journal);
         }
 
-        if (w->server) {
-                w->server->event_count += w->seqnum;
-                if (w->hashmap_key)
-                        hashmap_remove(w->server->writers, w->hashmap_key);
-        }
+        if (w->server && w->hashmap_key)
+                hashmap_remove(w->server->writers, w->hashmap_key);
 
         free(w->hashmap_key);
 
@@ -129,40 +126,47 @@ Writer* writer_ref(Writer *w) {
         return w;
 }
 
-
-int writer_write(Writer *s,
+int writer_write(Writer *w,
                  struct iovec_wrapper *iovw,
                  dual_timestamp *ts,
                  bool compress,
                  bool seal) {
         int r;
 
-        assert(s);
+        assert(w);
         assert(iovw);
         assert(iovw->count > 0);
 
-        if (journal_file_rotate_suggested(s->journal, 0)) {
+        if (journal_file_rotate_suggested(w->journal, 0)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
-                         s->journal->path);
-                r = do_rotate(&s->journal, compress, seal);
+                         w->journal->path);
+                r = do_rotate(&w->journal, compress, seal);
                 if (r < 0)
                         return r;
         }
 
-        r = journal_file_append_entry(s->journal, ts, iovw->iovec, iovw->count,
-                                      &s->seqnum, NULL, NULL);
-        if (r >= 0)
+        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+                                      &w->seqnum, NULL, NULL);
+        if (r >= 0) {
+                if (w->server)
+                        w->server->event_count += 1;
                 return 1;
+        }
 
-        log_debug("%s: Write failed, rotating: %s", s->journal->path, strerror(-r));
-        r = do_rotate(&s->journal, compress, seal);
+        log_debug("%s: Write failed, rotating: %s", w->journal->path, strerror(-r));
+        r = do_rotate(&w->journal, compress, seal);
         if (r < 0)
                 return r;
         else
-                log_info("%s: Successfully rotated journal", s->journal->path);
+                log_info("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(s->journal, ts, iovw->iovec, iovw->count,
-                                      &s->seqnum, NULL, NULL);
-        return r < 0 ? r : 1;
+        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+                                      &w->seqnum, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        if (w->server)
+                w->server->event_count += 1;
+        return 1;
 }

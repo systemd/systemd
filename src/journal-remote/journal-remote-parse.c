@@ -367,7 +367,7 @@ int process_data(RemoteSource *source) {
                 assert(source->data_size == 0);
 
                 r = get_data_size(source);
-                log_debug("get_data_size() -> %d", r);
+                // log_debug("get_data_size() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -386,7 +386,7 @@ int process_data(RemoteSource *source) {
                 assert(source->data_size > 0);
 
                 r = get_data_data(source, &data);
-                log_debug("get_data_data() -> %d", r);
+                // log_debug("get_data_data() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -409,7 +409,7 @@ int process_data(RemoteSource *source) {
 
         case STATE_DATA_FINISH:
                 r = get_data_newline(source);
-                log_debug("get_data_newline() -> %d", r);
+                // log_debug("get_data_newline() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
