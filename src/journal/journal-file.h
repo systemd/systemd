@@ -78,7 +78,7 @@ typedef struct JournalFile {
 
         Hashmap *chain_cache;
 
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
         void *compress_buffer;
         size_t compress_buffer_size;
 #endif
