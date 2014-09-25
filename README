@@ -30,7 +30,6 @@ AUTHOR:
 
 LICENSE:
         LGPLv2.1+ for all code
-        - except sd-readahead.[ch] which is MIT
         - except src/shared/MurmurHash2.c which is Public Domain
         - except src/shared/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain

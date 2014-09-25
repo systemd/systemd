@@ -101,7 +101,6 @@
 /systemd-quotacheck
 /systemd-random-seed
 /systemd-rc-local-generator
-/systemd-readahead
 /systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password

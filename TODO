@@ -641,13 +641,6 @@ Features:
 
 * and a dbus call to generate target from current state
 
-* readahead:
-  - drop /.readahead on bigger upgrades with yum
-  - move readahead files into /var (look for them with .path units?)
-  - readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
-  - readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
-  - readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
-
 * GC unreferenced jobs (such as .device jobs)
 
 * write blog stories about:
