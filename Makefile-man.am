@@ -1289,6 +1289,7 @@ MANPAGES_ALIAS += \
 	man/sd_seat_can_tty.3 \
 	man/sd_seat_get_sessions.3 \
 	man/sd_session_get_class.3 \
+	man/sd_session_get_desktop.3 \
 	man/sd_session_get_display.3 \
 	man/sd_session_get_remote_host.3 \
 	man/sd_session_get_remote_user.3 \
@@ -1330,6 +1331,7 @@ man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
 man/sd_seat_can_tty.3: man/sd_seat_get_active.3
 man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_session_get_class.3: man/sd_session_is_active.3
+man/sd_session_get_desktop.3: man/sd_session_is_active.3
 man/sd_session_get_display.3: man/sd_session_is_active.3
 man/sd_session_get_remote_host.3: man/sd_session_is_active.3
 man/sd_session_get_remote_user.3: man/sd_session_is_active.3
@@ -1419,6 +1421,9 @@ man/sd_seat_get_sessions.html: man/sd_seat_get_active.html
 	$(html-alias)
 
 man/sd_session_get_class.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_desktop.html: man/sd_session_is_active.html
 	$(html-alias)
 
 man/sd_session_get_display.html: man/sd_session_is_active.html
