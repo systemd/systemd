@@ -86,7 +86,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <parameter>event</parameter> parameter. After use, drop
     the returned reference with
     <function>sd_event_unref()</function>. When the last reference is
-    dropped, the event loop is freed.</para>
+    dropped, the object is freed.</para>
 
     <para><function>sd_event_default()</function> acquires a reference
     to the default event loop object of the calling thread, possibly
@@ -100,23 +100,23 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     recommended to use this call instead of
     <function>sd_event_new()</function> in order to share event loop
     objects between various components that are dispatched in the same
-    thread. All threads either have exactly zero or one default event loop
-    associated, but never more.</para>
+    thread. All threads have exactly either zero or one default event loop
+    objects associated, but never more.</para>
 
     <para><function>sd_event_ref()</function> increases the reference
-    counter of the specified event loop object by one.</para>
+    count of the specified event loop object by one.</para>
 
     <para><function>sd_event_unref()</function> decreases the
-    reference counter of the specified event loop object by one. If
-    the counter hits zero, the event loop object is freed. Note that it
+    reference count of the specified event loop object by one. If
+    the count hits zero, the object is freed. Note that it
     is freed regardless of whether it is the default event loop object for a
     thread or not. This means that allocating an event loop with
     <function>sd_event_default()</function>, then releasing it, and
     then acquiring a new one with
     <function>sd_event_default()</function> will result in two
-    distinct objects. Note that, in order to free an event loop object,
+    distinct objects. Note that in order to free an event loop object,
     all remaining event sources of the event loop also need to be
-    freed as they each keep a reference to it.</para>
+    freed as each keeps a reference to it.</para>
   </refsect1>
 
   <refsect1>
@@ -128,7 +128,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     code. <function>sd_event_ref()</function> always returns a pointer
     to the event loop object passed
     in. <function>sd_event_unref()</function> always returns
-    NULL.</para>
+    <constant>NULL</constant>.</para>
   </refsect1>
 
   <refsect1>
@@ -140,7 +140,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><varname>-ENOMEM</varname></term>
 
-        <listitem><para>Not enough memory to allocate object</para></listitem>
+        <listitem><para>Not enough memory to allocate the object.</para></listitem>
       </varlistentry>
 
       <varlistentry>
