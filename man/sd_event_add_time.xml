@@ -69,6 +69,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </funcprototype>
 
       <funcprototype>
+        <funcdef>typedef int (*<function>sd_event_time_handler_t</function>)</funcdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_event_source_get_time</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>usec_t *<parameter>usec</parameter></paramdef>
@@ -132,11 +139,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     actually have been called at a slightly later time, subject to the
     specified accuracy value, the kernel timer slack (see
     <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
-    and additional scheduling latencies. By default, the timer will
-    elapse once (SD_EVENT_ONESHOT), but this may be changed with
-    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
-    the handler function returns a negative error code, it will be
-    disabled after the invocation, even if SD_EVENT_ON mode is set.
+    and additional scheduling latencies.</para>
+
+    <para>By default, the timer will elapse once
+    (<constant>SD_EVENT_ONESHOT</constant>), but this may be changed
+    with
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If the handler function returns a negative error code, it will be
+    disabled after the invocation, even if
+    <constant>SD_EVENT_ON</constant> mode is set.
     </para>
 
     <para><function>sd_event_source_get_time()</function> retrieves
@@ -187,7 +198,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><varname>-ENOMEM</varname></term>
 
-        <listitem><para>Not enough memory to allocate object.</para></listitem>
+        <listitem><para>Not enough memory to allocate an object.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -237,6 +248,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
