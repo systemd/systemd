@@ -742,6 +742,7 @@ MANPAGES += \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
 	man/sd_event_add_child.3 \
+	man/sd_event_add_defer.3 \
 	man/sd_event_add_signal.3 \
 	man/sd_event_add_time.3 \
 	man/sd_event_new.3 \
@@ -802,6 +803,8 @@ MANPAGES_ALIAS += \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
+	man/sd_event_add_exit.3 \
+	man/sd_event_add_post.3 \
 	man/sd_event_default.3 \
 	man/sd_event_ref.3 \
 	man/sd_event_source_get_child_pid.3 \
@@ -867,6 +870,8 @@ man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
+man/sd_event_add_exit.3: man/sd_event_add_defer.3
+man/sd_event_add_post.3: man/sd_event_add_defer.3
 man/sd_event_default.3: man/sd_event_new.3
 man/sd_event_ref.3: man/sd_event_new.3
 man/sd_event_source_get_child_pid.3: man/sd_event_add_child.3
@@ -1038,6 +1043,12 @@ man/sd_bus_release_name.html: man/sd_bus_request_name.html
 	$(html-alias)
 
 man/sd_bus_unref.html: man/sd_bus_new.html
+	$(html-alias)
+
+man/sd_event_add_exit.html: man/sd_event_add_defer.html
+	$(html-alias)
+
+man/sd_event_add_post.html: man/sd_event_add_defer.html
 	$(html-alias)
 
 man/sd_event_default.html: man/sd_event_new.html
@@ -1555,6 +1566,7 @@ EXTRA_DIST += \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
 	man/sd_event_add_child.xml \
+	man/sd_event_add_defer.xml \
 	man/sd_event_add_signal.xml \
 	man/sd_event_add_time.xml \
 	man/sd_event_new.xml \
