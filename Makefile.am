@@ -387,7 +387,6 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep \
-	systemd-bus-proxyd \
 	systemd-socket-proxyd \
 	systemd-update-done
 
@@ -2428,6 +2427,10 @@ systemd_run_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+if ENABLE_KDBUS
+rootlibexec_PROGRAMS += \
+	systemd-bus-proxyd
+
 systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-proxyd.c \
 	src/bus-proxyd/bus-policy.c \
@@ -2449,7 +2452,6 @@ bus-proxyd-uninstall-hook:
 INSTALL_EXEC_HOOKS += bus-proxyd-install-hook
 UNINSTALL_EXEC_HOOKS += bus-proxyd-uninstall-hook
 
-if ENABLE_KDBUS
 nodist_systemunit_DATA += \
 	units/systemd-bus-proxyd@.service
 
