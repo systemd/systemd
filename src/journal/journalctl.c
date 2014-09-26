@@ -1939,7 +1939,7 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                         }
 
-                        if (!arg_merge) {
+                        if (!arg_merge && !arg_quiet) {
                                 sd_id128_t boot_id;
 
                                 r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
