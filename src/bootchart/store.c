@@ -192,12 +192,14 @@ vmstat_next:
 
         m = buf;
         while (m) {
+                int r;
+
                 if (sscanf(m, "%s %*s %*s %*s %*s %*s %*s %s %s", key, rt, wt) < 3)
                         goto schedstat_next;
 
                 if (strstr(key, "cpu")) {
-                        c = atoi((const char*)(key+3));
-                        if (c > MAXCPUS)
+                        r = safe_atoi((const char*)(key+3), &c);
+                        if (r < 0 || c > MAXCPUS)
                                 /* Oops, we only have room for MAXCPUS data */
                                 break;
                         sampledata->runtime[c] = atoll(rt);
