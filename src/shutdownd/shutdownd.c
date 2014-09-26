@@ -52,8 +52,8 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
         union shutdown_buffer b; /* We maintain our own copy here, in
                                   * order not to corrupt the last message */
         struct iovec iovec = {
-                iovec.iov_base = &b,
-                iovec.iov_len = sizeof(b) - 1,
+                .iov_base = &b,
+                .iov_len = sizeof(b) - 1,
         };
         union {
                 struct cmsghdr cmsghdr;
