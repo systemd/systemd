@@ -44,6 +44,23 @@
 
 #include <bus-proxyd/bus-policy.h>
 
+static int test_policy_load(Policy *p, const char *name)
+{
+        char *path;
+        int r = 0;
+
+        path = strjoin(TEST_DIR, "/bus-policy/", name, NULL);
+
+        if (access(path, R_OK) == 0)
+                policy_load(p, STRV_MAKE(path));
+        else
+                r = -ENOENT;
+
+        free(path);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
 
         Policy p = {};
@@ -52,7 +69,7 @@ int main(int argc, char *argv[]) {
         Hashmap *names_hash;
 
         /* Ownership tests */
-        assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/ownerships.conf")) == 0);
+        assert_se(test_policy_load(&p, "ownerships.conf") == 0);
 
         ucred.uid = 0;
         assert_se(policy_check_own(&p, &ucred, "org.test.test1") == true);
@@ -77,7 +94,7 @@ int main(int argc, char *argv[]) {
         policy_free(&p);
 
         /* Signaltest */
-        assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/signals.conf")) == 0);
+        assert_se(test_policy_load(&p, "signals.conf") == 0);
         names_strv = STRV_MAKE("bli.bla.blubb");
 
         ucred.uid = 0;
@@ -89,7 +106,7 @@ int main(int argc, char *argv[]) {
         policy_free(&p);
 
         /* Method calls */
-        assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/methods.conf")) == 0);
+        assert_se(test_policy_load(&p, "methods.conf") == 0);
         names_strv = STRV_MAKE("org.test.test1");
         policy_dump(&p);
 
@@ -108,7 +125,7 @@ int main(int argc, char *argv[]) {
         policy_free(&p);
 
         /* User and groups */
-        assert_se(policy_load(&p, STRV_MAKE("test/bus-policy/hello.conf")) == 0);
+        assert_se(test_policy_load(&p, "hello.conf") == 0);
         policy_dump(&p);
 
         ucred.uid = 0;
