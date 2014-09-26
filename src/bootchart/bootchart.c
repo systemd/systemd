@@ -471,7 +471,7 @@ int main(int argc, char *argv[]) {
                 exit (EXIT_FAILURE);
         }
 
-        svg_do(build);
+        svg_do(strna(build));
 
         fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
 
