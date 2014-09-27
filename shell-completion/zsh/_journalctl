@@ -41,11 +41,11 @@ _journal_fields() {
 
 _journal_boots() {
   local -a _bootid _previousboots
-  _bootid=( ${(fao)"$(_call_program bootid "$service -F _BOOT_ID")"}  )
+  _bootid=( ${(f)"$(_call_program bootid "$service -F _BOOT_ID")"}  )
   _previousboots=( -{1..${#_bootid}} )
   _alternative : \
-    "offsets:boot offsets:(${_previousboots[1,-2]})" \
-    "bootid:boot ids:(${_bootid[@]})"
+    "offsets:boot offsets:compadd -a '_previousboots[1,-2]'" \
+    "bootid:boot ids:compadd -a _bootid"
 }
 
 _arguments -s \
@@ -63,7 +63,7 @@ _arguments -s \
     {-x,--catalog}'[Show explanatory texts with each log line]' \
     {-q,--quiet}"[Don't show privilege warning]" \
     {-m,--merge}'[Show entries from all available journals]' \
-    {-b+,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
+    {-b+,--boot=}'[Show data only from the specified boot or offset]::boot id or offset:_journal_boots' \
     '--list-boots[List boots ordered by time]' \
     {-k,--dmesg}'[Show only kernel messages from the current boot]' \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
