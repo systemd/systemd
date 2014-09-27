@@ -162,7 +162,7 @@ static void svg_title(const char *build) {
         char *c;
         FILE *f;
         time_t t;
-        int fd;
+        int fd, r;
         struct utsname uts;
 
         /* grab /proc/cmdline */
@@ -196,7 +196,8 @@ static void svg_title(const char *build) {
 
         /* date */
         t = time(NULL);
-        strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S %z", localtime(&t));
+        r = strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S %z", localtime(&t));
+        assert_se(r > 0);
 
         /* CPU type */
         fd = openat(procfd, "cpuinfo", O_RDONLY);

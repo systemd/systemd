@@ -389,7 +389,9 @@ int main(int argc, char *argv[]) {
 
                 if (!of && (access(arg_output_path, R_OK|W_OK|X_OK) == 0)) {
                         t = time(NULL);
-                        strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                        r = strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                        assert_se(r > 0);
+
                         snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
                         of = fopen(output_file, "we");
                 }
@@ -457,7 +459,9 @@ int main(int argc, char *argv[]) {
 
         if (!of) {
                 t = time(NULL);
-                strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                r = strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                assert_se(r > 0);
+
                 snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
                 of = fopen(output_file, "we");
         }
