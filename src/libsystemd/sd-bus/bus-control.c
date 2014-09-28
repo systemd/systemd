@@ -58,15 +58,15 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         assert(bus);
         assert(name);
 
-        l = strlen(name);
-        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l + 1);
+        l = strlen(name) + 1;
+        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l);
         n = alloca0_align(size, 8);
         n->size = size;
         kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
 
-        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l + 1;
+        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l;
         n->items[0].type = KDBUS_ITEM_NAME;
-        memcpy(n->items[0].str, name, l+1);
+        memcpy(n->items[0].str, name, l);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
         VALGRIND_MAKE_MEM_DEFINED(n, n->size);
@@ -153,14 +153,14 @@ static int bus_release_name_kernel(sd_bus *bus, const char *name) {
         assert(bus);
         assert(name);
 
-        l = strlen(name);
-        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l + 1);
+        l = strlen(name) + 1;
+        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l);
         n = alloca0_align(size, 8);
         n->size = size;
 
-        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l + 1;
+        n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l;
         n->items[0].type = KDBUS_ITEM_NAME;
-        memcpy(n->items[0].str, name, l+1);
+        memcpy(n->items[0].str, name, l);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
         VALGRIND_MAKE_MEM_DEFINED(n, n->size);
