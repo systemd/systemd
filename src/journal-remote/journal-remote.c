@@ -295,6 +295,8 @@ static int dispatch_raw_source_event(sd_event_source *event,
                                      int fd,
                                      uint32_t revents,
                                      void *userdata);
+static int dispatch_blocking_source_event(sd_event_source *event,
+                                          void *userdata);
 static int dispatch_raw_connection_event(sd_event_source *event,
                                          int fd,
                                          uint32_t revents,
@@ -378,6 +380,13 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
         r = sd_event_add_io(s->events, &source->event,
                             fd, EPOLLIN|EPOLLRDHUP|EPOLLPRI,
                             dispatch_raw_source_event, s);
+        if (r == -EPERM) {
+                log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, name);
+                r = sd_event_add_defer(s->events, &source->event,
+                                       dispatch_blocking_source_event, source);
+                if (r == 0)
+                        sd_event_source_set_enabled(source->event, SD_EVENT_ON);
+        }
         if (r < 0) {
                 log_error("Failed to register event source for fd:%d: %s",
                           fd, strerror(-r));
@@ -1027,6 +1036,13 @@ static int dispatch_raw_source_event(sd_event_source *event,
                 return 0;
         } else
                 return 1;
+}
+
+static int dispatch_blocking_source_event(sd_event_source *event,
+                                          void *userdata) {
+        RemoteSource *source = userdata;
+
+        return dispatch_raw_source_event(event, source->fd, EPOLLIN, server);
 }
 
 static int accept_connection(const char* type, int fd,
