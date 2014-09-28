@@ -46,17 +46,16 @@
 
 static int test_policy_load(Policy *p, const char *name)
 {
-        char *path;
+        _cleanup_free_ char *path = NULL;
         int r = 0;
 
         path = strjoin(TEST_DIR, "/bus-policy/", name, NULL);
+        assert_se(path);
 
         if (access(path, R_OK) == 0)
                 policy_load(p, STRV_MAKE(path));
         else
                 r = -ENOENT;
-
-        free(path);
 
         return r;
 }
