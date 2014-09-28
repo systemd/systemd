@@ -1208,11 +1208,25 @@ static Unit *swap_following(Unit *u) {
 
         assert(s);
 
-        if (streq_ptr(s->what, s->devnode))
+        /* If the user configured the swap through /etc/fstab or
+         * a device unit, follow that. */
+
+        if (s->from_fragment)
                 return NULL;
 
-        /* Make everybody follow the unit that's named after the swap
-         * device in the kernel */
+        LIST_FOREACH_AFTER(same_devnode, other, s)
+                if (other->from_fragment)
+                        return UNIT(other);
+
+        LIST_FOREACH_BEFORE(same_devnode, other, s)
+                if (other->from_fragment)
+                        return UNIT(other);
+
+        /* Otherwise make everybody follow the unit that's named after
+         * the swap device in the kernel */
+
+        if (streq_ptr(s->what, s->devnode))
+                return NULL;
 
         LIST_FOREACH_AFTER(same_devnode, other, s)
                 if (streq_ptr(other->what, other->devnode))
@@ -1225,6 +1239,7 @@ static Unit *swap_following(Unit *u) {
                 first = other;
         }
 
+        /* Fall back to the first on the list */
         return UNIT(first);
 }
 
