@@ -199,7 +199,7 @@ vmstat_next:
 
                 if (strstr(key, "cpu")) {
                         r = safe_atoi((const char*)(key+3), &c);
-                        if (r < 0 || c > MAXCPUS)
+                        if (r < 0 || c > MAXCPUS -1)
                                 /* Oops, we only have room for MAXCPUS data */
                                 break;
                         sampledata->runtime[c] = atoll(rt);
