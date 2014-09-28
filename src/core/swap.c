@@ -610,7 +610,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, p->priority,
                         prefix, yes_no(p->noauto),
                         prefix, yes_no(p->nofail),
-                        prefix, p->discard);
+                        prefix, p->discard ?: "none");
 
         if (s->control_pid > 0)
                 fprintf(f,
