@@ -105,10 +105,14 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
 
         case UNIT_FILE_USER:
 
-                if (root_dir || runtime)
+                if (root_dir)
                         return -EINVAL;
 
-                r = user_config_home(&p);
+                if (runtime)
+                        r = user_runtime(&p);
+                else
+                        r = user_config_home(&p);
+
                 if (r <= 0)
                         return r < 0 ? r : -ENOENT;
 
@@ -527,36 +531,33 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         int r;
-        _cleanup_free_ char *path2 = NULL;
+        _cleanup_free_ char *path = NULL;
         bool same_name_link_runtime = false, same_name_link = false;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(name);
 
-        if (scope == UNIT_FILE_SYSTEM || scope == UNIT_FILE_GLOBAL) {
-                _cleanup_free_ char *path = NULL;
 
-                /* First look in runtime config path */
-                r = get_config_path(scope, true, root_dir, &path);
-                if (r < 0)
-                        return r;
-
-                r = find_symlinks(name, path, &same_name_link_runtime);
-                if (r < 0)
-                        return r;
-                else if (r > 0) {
-                        *state = UNIT_FILE_ENABLED_RUNTIME;
-                        return r;
-                }
-        }
-
-        /* Then look in the normal config path */
-        r = get_config_path(scope, false, root_dir, &path2);
+        /* First look in runtime config path */
+        r = get_config_path(scope, true, root_dir, &path);
         if (r < 0)
                 return r;
 
-        r = find_symlinks(name, path2, &same_name_link);
+        r = find_symlinks(name, path, &same_name_link_runtime);
+        if (r < 0)
+                return r;
+        else if (r > 0) {
+                *state = UNIT_FILE_ENABLED_RUNTIME;
+                return r;
+        }
+
+        /* Then look in the normal config path */
+        r = get_config_path(scope, false, root_dir, &path);
+        if (r < 0)
+                return r;
+
+        r = find_symlinks(name, path, &same_name_link);
         if (r < 0)
                 return r;
         else if (r > 0) {

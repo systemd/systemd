@@ -61,6 +61,23 @@ int user_config_home(char **config_home) {
         return 0;
 }
 
+int user_runtime(char **user_runtime_path) {
+        const char *e;
+        char *r;
+
+        e = getenv("XDG_RUNTIME_DIR");
+        if (e) {
+                r = strappend(e, "/systemd/user");
+                if (!r)
+                        return -ENOMEM;
+
+                *user_runtime_path = r;
+                return 1;
+        }
+
+        return 0;
+}
+
 static char** user_dirs(
                 const char *generator,
                 const char *generator_early,
@@ -69,9 +86,10 @@ static char** user_dirs(
         const char * const config_unit_paths[] = {
                 USER_CONFIG_UNIT_PATH,
                 "/etc/systemd/user",
-                "/run/systemd/user",
                 NULL
         };
+
+        const char * const runtime_unit_path = "/run/systemd/user";
 
         const char * const data_unit_paths[] = {
                 "/usr/local/lib/systemd/user",
@@ -83,7 +101,7 @@ static char** user_dirs(
         };
 
         const char *home, *e;
-        _cleanup_free_ char *config_home = NULL, *data_home = NULL;
+        _cleanup_free_ char *config_home = NULL, *user_runtime_dir = NULL, *data_home = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         char **r = NULL;
 
@@ -97,6 +115,9 @@ static char** user_dirs(
          */
 
         if (user_config_home(&config_home) < 0)
+                goto fail;
+
+        if (user_runtime(&user_runtime_dir) < 0)
                 goto fail;
 
         home = getenv("HOME");
@@ -140,6 +161,13 @@ static char** user_dirs(
         if (config_home)
                 if (strv_extend(&r, config_home) < 0)
                         goto fail;
+
+        if (user_runtime_dir)
+                if (strv_extend(&r, user_runtime_dir) < 0)
+                        goto fail;
+
+        if (strv_extend(&r, runtime_unit_path) < 0)
+                goto fail;
 
         if (!strv_isempty(config_dirs))
                 if (strv_extend_strv_concat(&r, config_dirs, "/systemd/user") < 0)

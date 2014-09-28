@@ -39,6 +39,7 @@ typedef enum SystemdRunningAs {
 } SystemdRunningAs;
 
 int user_config_home(char **config_home);
+int user_runtime(char **user_runtime_path);
 
 int lookup_paths_init(LookupPaths *p,
                       SystemdRunningAs running_as,
