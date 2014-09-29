@@ -88,6 +88,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sysview_session*, sysview_session_free);
 struct sysview_seat {
         sysview_context *context;
         char *name;
+        char *path;
 
         Hashmap *session_map;
         Hashmap *device_map;

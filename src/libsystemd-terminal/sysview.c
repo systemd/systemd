@@ -391,6 +391,10 @@ int sysview_seat_new(sysview_seat **out, sysview_context *c, const char *name) {
         if (!seat->name)
                 return -ENOMEM;
 
+        r = sd_bus_path_encode("/org/freedesktop/login1/seat", seat->name, &seat->path);
+        if (r < 0)
+                return r;
+
         seat->session_map = hashmap_new(&string_hash_ops);
         if (!seat->session_map)
                 return -ENOMEM;
@@ -422,6 +426,7 @@ sysview_seat *sysview_seat_free(sysview_seat *seat) {
 
         hashmap_free(seat->device_map);
         hashmap_free(seat->session_map);
+        free(seat->path);
         free(seat->name);
         free(seat);
 
@@ -432,6 +437,29 @@ const char *sysview_seat_get_name(sysview_seat *seat) {
         assert_return(seat, NULL);
 
         return seat->name;
+}
+
+int sysview_seat_switch_to(sysview_seat *seat, uint32_t nr) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert_return(seat, -EINVAL);
+        assert_return(seat->context->sysbus, -EINVAL);
+
+        r = sd_bus_message_new_method_call(seat->context->sysbus,
+                                           &m,
+                                           "org.freedesktop.login1",
+                                           seat->path,
+                                           "org.freedesktop.login1.Seat",
+                                           "SwitchTo");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "u", nr);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(seat->context->sysbus, m, NULL);
 }
 
 /*

@@ -137,6 +137,7 @@ void sysview_session_release_control(sysview_session *session);
  */
 
 const char *sysview_seat_get_name(sysview_seat *seat);
+int sysview_seat_switch_to(sysview_seat *seat, uint32_t nr);
 
 /*
  * Contexts
