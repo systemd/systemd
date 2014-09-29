@@ -128,6 +128,7 @@ void sysview_session_set_userdata(sysview_session *session, void *userdata);
 void *sysview_session_get_userdata(sysview_session *session);
 
 const char *sysview_session_get_name(sysview_session *session);
+sysview_seat *sysview_session_get_seat(sysview_session *session);
 
 int sysview_session_take_control(sysview_session *session);
 void sysview_session_release_control(sysview_session *session);

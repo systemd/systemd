@@ -267,6 +267,12 @@ const char *sysview_session_get_name(sysview_session *session) {
         return session->name;
 }
 
+sysview_seat *sysview_session_get_seat(sysview_session *session) {
+        assert_return(session, NULL);
+
+        return session->seat;
+}
+
 static int session_take_control_fn(sd_bus *bus,
                                    sd_bus_message *reply,
                                    void *userdata,
