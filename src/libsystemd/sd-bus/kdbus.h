@@ -4,6 +4,7 @@
  * Copyright (C) 2013-2014 Linux Foundation
  * Copyright (C) 2013-2014 Lennart Poettering
  * Copyright (C) 2013-2014 Daniel Mack <daniel@zonque.org>
+ * Copyright (C) 2013-2014 David Herrmann <dh.herrmann@gmail.com>
  *
  * kdbus is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the
@@ -212,7 +213,6 @@ struct kdbus_policy_access {
  *				bloom filter
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
  * @KDBUS_ITEM_MAKE_NAME:	Name of domain, bus, endpoint
- * @KDBUS_ITEM_MEMFD_NAME:	The human readable name of a memfd (debugging)
  * @KDBUS_ITEM_ATTACH_FLAGS:	Attach-flags, used for updating which metadata
  *				a connection subscribes to
  * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
@@ -253,7 +253,6 @@ enum kdbus_item_type {
 	KDBUS_ITEM_BLOOM_MASK,
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_MAKE_NAME,
-	KDBUS_ITEM_MEMFD_NAME,
 	KDBUS_ITEM_ATTACH_FLAGS,
 
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
