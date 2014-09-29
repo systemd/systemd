@@ -3272,8 +3272,13 @@ unsigned columns(void) {
 
         c = 0;
         e = getenv("COLUMNS");
-        if (e)
-                safe_atoi(e, &c);
+        if (e) {
+                int r;
+
+                r = safe_atoi(e, &c);
+                if (r < 0) {}
+                        /* do nothing, we fall back to c = 0 */
+        }
 
         if (c <= 0)
                 c = fd_columns(STDOUT_FILENO);
@@ -3306,8 +3311,13 @@ unsigned lines(void) {
 
         l = 0;
         e = getenv("LINES");
-        if (e)
-                safe_atou(e, &l);
+        if (e) {
+                int r;
+
+                r = safe_atou(e, &l);
+                if (r < 0) {}
+                        /* do nothing, we fall back to l = 0 */
+        }
 
         if (l <= 0)
                 l = fd_lines(STDOUT_FILENO);
