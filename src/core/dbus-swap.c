@@ -55,12 +55,36 @@ static int property_get_priority(
         return sd_bus_message_append(reply, "i", p);
 }
 
+static int property_get_discard(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Swap *s = SWAP(userdata);
+        const char *p;
+
+        assert(bus);
+        assert(reply);
+        assert(s);
+
+        if (s->from_fragment)
+                p = s->parameters_fragment.discard ?: "none";
+        else
+                p = "none";
+        return sd_bus_message_append(reply, "s", p);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, swap_result, SwapResult);
 
 const sd_bus_vtable bus_swap_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("What", "s", NULL, offsetof(Swap, what), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Priority", "i", property_get_priority, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Discard", "s", property_get_discard, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Swap, timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Swap, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Swap, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
