@@ -33,7 +33,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 
-#define MAX_SIZE (4*1024*1024)
+#define MAX_SIZE (2*1024*1024)
 
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
