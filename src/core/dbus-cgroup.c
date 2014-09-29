@@ -133,24 +133,6 @@ static int property_get_device_allow(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_cpu_quota_per_sec_usec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        CGroupContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "t", c->cpu_quota_per_sec_usec);
-}
-
 static int property_get_ulong_as_u64(
                 sd_bus *bus,
                 const char *path,
@@ -174,7 +156,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUShares", "t", property_get_ulong_as_u64, offsetof(CGroupContext, cpu_shares), 0),
         SD_BUS_PROPERTY("StartupCPUShares", "t", property_get_ulong_as_u64, offsetof(CGroupContext, startup_cpu_shares), 0),
-        SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", property_get_cpu_quota_per_sec_usec, 0, 0),
+        SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
         SD_BUS_PROPERTY("BlockIOWeight", "t", property_get_ulong_as_u64, offsetof(CGroupContext, blockio_weight), 0),
         SD_BUS_PROPERTY("StartupBlockIOWeight", "t", property_get_ulong_as_u64, offsetof(CGroupContext, startup_blockio_weight), 0),
