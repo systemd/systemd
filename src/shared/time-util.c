@@ -279,11 +279,8 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         assert(buf);
         assert(l > 0);
 
-        if (t == USEC_INFINITY)
-                return NULL;
-
-        if (t <= 0) {
-                snprintf(p, l, "0");
+        if (t == USEC_INFINITY || t <= 0) {
+                strncpy(p, t == USEC_INFINITY ? "infinity" : "0", l);
                 p[l-1] = 0;
                 return p;
         }
@@ -628,7 +625,7 @@ int parse_sec(const char *t, usec_t *usec) {
                 { "", USEC_PER_SEC }, /* default is sec */
         };
 
-        const char *p;
+        const char *p, *s;
         usec_t r = 0;
         bool something = false;
 
@@ -636,6 +633,18 @@ int parse_sec(const char *t, usec_t *usec) {
         assert(usec);
 
         p = t;
+
+        p += strspn(p, WHITESPACE);
+        s = startswith(p, "infinity");
+        if (s) {
+                s += strspn(s, WHITESPACE);
+                if (*s != 0)
+                        return -EINVAL;
+
+                *usec = USEC_INFINITY;
+                return 0;
+        }
+
         for (;;) {
                 long long l, z = 0;
                 char *e;

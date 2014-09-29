@@ -111,7 +111,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->memory_accounting),
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
-                prefix, strna(format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1)),
+                prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,

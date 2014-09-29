@@ -242,7 +242,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 "%s%s: %s\n",
                                 prefix,
                                 timer_base_to_string(v->base),
-                                strna(format_timespan(timespan1, sizeof(timespan1), v->value, 0)));
+                                format_timespan(timespan1, sizeof(timespan1), v->value, 0));
                 }
         }
 }

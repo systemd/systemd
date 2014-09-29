@@ -43,12 +43,18 @@ static void test_parse_sec(void) {
         assert_se(u == 2500 * USEC_PER_MSEC);
         assert_se(parse_sec(".7", &u) >= 0);
         assert_se(u == 700 * USEC_PER_MSEC);
+        assert_se(parse_sec("infinity", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec(" infinity ", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
 
         assert_se(parse_sec(" xyz ", &u) < 0);
         assert_se(parse_sec("", &u) < 0);
         assert_se(parse_sec(" . ", &u) < 0);
         assert_se(parse_sec(" 5. ", &u) < 0);
         assert_se(parse_sec(".s ", &u) < 0);
+        assert_se(parse_sec(" infinity .7", &u) < 0);
+        assert_se(parse_sec(".3 infinity", &u) < 0);
 }
 
 static void test_parse_nsec(void) {
@@ -125,6 +131,7 @@ static void test_format_timespan(usec_t accuracy) {
         test_format_timespan_one(986087, accuracy);
         test_format_timespan_one(500 * USEC_PER_MSEC, accuracy);
         test_format_timespan_one(9*USEC_PER_YEAR/5 - 23, accuracy);
+        test_format_timespan_one(USEC_INFINITY, accuracy);
 }
 
 static void test_timezone_is_valid(void) {
