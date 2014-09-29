@@ -2607,20 +2607,27 @@ static int mount_devices(
 
 static void loop_remove(int nr, int *image_fd) {
         _cleanup_close_ int control = -1;
+        int r;
 
         if (nr < 0)
                 return;
 
         if (image_fd && *image_fd >= 0) {
-                ioctl(*image_fd, LOOP_CLR_FD);
+                r = ioctl(*image_fd, LOOP_CLR_FD);
+                if (r < 0)
+                        log_warning("Failed to close loop image: %m");
                 *image_fd = safe_close(*image_fd);
         }
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (control < 0)
+        if (control < 0) {
+                log_warning("Failed to open /dev/loop-control: %m");
                 return;
+        }
 
-        ioctl(control, LOOP_CTL_REMOVE, nr);
+        r = ioctl(control, LOOP_CTL_REMOVE, nr);
+        if (r < 0)
+                log_warning("Failed to remove loop %d: %m", nr);
 }
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
