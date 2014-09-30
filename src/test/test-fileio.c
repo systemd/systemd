@@ -258,7 +258,7 @@ static void test_status_field(void) {
                 assert_se(safe_atollu(s, &buffers) == 0);
         }
 
-        if (p && t)
+        if (p)
                 assert(buffers < total);
 
         /* Seccomp should be a good test for field full of zeros. */
