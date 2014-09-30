@@ -3306,13 +3306,8 @@ unsigned lines(void) {
 
         l = 0;
         e = getenv("LINES");
-        if (e) {
-                int r;
-
-                r = safe_atou(e, &l);
-                if (r < 0) {}
-                        /* do nothing, we fall back to l = 0 */
-        }
+        if (e)
+                (void) safe_atou(e, &l);
 
         if (l <= 0)
                 l = fd_lines(STDOUT_FILENO);
