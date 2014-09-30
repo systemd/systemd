@@ -163,17 +163,24 @@ static void test_prefixes(void) {
 }
 
 static void test_path_join(void) {
-        assert_se(streq(path_join("/root", "/a/b", "/c"), "/root/a/b/c"));
-        assert_se(streq(path_join("/root", "a/b", "c"), "/root/a/b/c"));
-        assert_se(streq(path_join("/root", "/a/b", "c"), "/root/a/b/c"));
-        assert_se(streq(path_join("/root", "/", "c"), "/root//c"));
-        assert_se(streq(path_join("/root", "/", NULL), "/root/"));
 
-        assert_se(streq(path_join(NULL, "/a/b", "/c"), "/a/b/c"));
-        assert_se(streq(path_join(NULL, "a/b", "c"), "a/b/c"));
-        assert_se(streq(path_join(NULL, "/a/b", "c"), "/a/b/c"));
-        assert_se(streq(path_join(NULL, "/", "c"), "//c"));
-        assert_se(streq(path_join(NULL, "/", NULL), "/"));
+#define test_join(root, path, rest, expected) {  \
+                _cleanup_free_ char *z = NULL;   \
+                z = path_join(root, path, rest); \
+                assert_se(streq(z, expected));   \
+        }
+
+        test_join("/root", "/a/b", "/c", "/root/a/b/c");
+        test_join("/root", "a/b", "c", "/root/a/b/c");
+        test_join("/root", "/a/b", "c", "/root/a/b/c");
+        test_join("/root", "/", "c", "/root//c");
+        test_join("/root", "/", NULL, "/root/");
+
+        test_join(NULL, "/a/b", "/c", "/a/b/c");
+        test_join(NULL, "a/b", "c", "a/b/c");
+        test_join(NULL, "/a/b", "c", "/a/b/c");
+        test_join(NULL, "/", "c", "//c");
+        test_join(NULL, "/", NULL, "/");
 }
 
 static void test_fsck_exists(void) {
@@ -192,10 +199,10 @@ static void test_make_relative(void) {
         assert_se(path_make_relative("some/relative/path", "/some/path", &result) < 0);
         assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
 
-#define test(from_dir, to_path, expected) {                     \
-                path_make_relative(from_dir, to_path, &result); \
-                assert_se(streq(result, expected));             \
-                free(result);                                   \
+#define test(from_dir, to_path, expected) {                \
+                _cleanup_free_ char *z = NULL;             \
+                path_make_relative(from_dir, to_path, &z); \
+                assert_se(streq(z, expected));             \
         }
 
         test("/", "/", ".");
