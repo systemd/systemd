@@ -28,7 +28,8 @@ static void test_one(const char *p) {
         char buf[FORMAT_TIMESTAMP_MAX], buf_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
 
         assert_se(parse_timestamp(p, &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
+        format_timestamp(buf, sizeof(buf), t);
+        log_info("%s", buf);
 
         /* Chop off timezone */
         *strrchr(buf, ' ') = 0;
@@ -36,7 +37,8 @@ static void test_one(const char *p) {
         assert_se(parse_timestamp(buf, &q) >= 0);
         assert_se(q == t);
 
-        log_info("%s", strna(format_timestamp_relative(buf_relative, sizeof(buf_relative), t)));
+        format_timestamp_relative(buf_relative, sizeof(buf_relative), t);
+        log_info("%s", strna(buf_relative));
         assert_se(parse_timestamp(buf, &q) >= 0);
 }
 
