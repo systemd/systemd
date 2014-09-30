@@ -183,7 +183,7 @@ static int ask_password_plymouth(
                         uint32_t size;
                         char **l;
 
-                        /* One ore more answers */
+                        /* One or more answers */
                         if (p < 5)
                                 continue;
 

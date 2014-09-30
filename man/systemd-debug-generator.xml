@@ -68,7 +68,7 @@
                 <para>If the <option>systemd.wants=</option> option is
                 specified and followed by a unit name, a start job for
                 this unit is added to the initial transaction. This is
-                useful to start one ore more additional units at
+                useful to start one or more additional units at
                 boot. May be specified more than once.</para>
 
                 <para>If the <option>systemd.debug-shell</option>
