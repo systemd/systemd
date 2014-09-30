@@ -243,6 +243,11 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
 
+# Dell XPS12 9Q33
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:pvr*
+ KEYBOARD_KEY_88=wlan
+ KEYBOARD_KEY_65=switchvideomode                        # Screen Rotate
+
 # Dell Latitude microphone mute
 keyboard:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
  KEYBOARD_KEY_150=f20                                   # Mic mute toggle, should be micmute
