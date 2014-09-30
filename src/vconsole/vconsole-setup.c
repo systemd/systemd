@@ -212,15 +212,15 @@ static void font_copy_to_all_vcs(int fd) {
                 /* copy font from active VT, where the font was uploaded to */
                 cfo.op = KD_FONT_OP_COPY;
                 cfo.height = vcs.v_active-1; /* tty1 == index 0 */
-                ioctl(vcfd, KDFONTOP, &cfo);
+                (void) ioctl(vcfd, KDFONTOP, &cfo);
 
                 /* copy map of 8bit chars */
                 if (ioctl(fd, GIO_SCRNMAP, map8) >= 0)
-                    ioctl(vcfd, PIO_SCRNMAP, map8);
+                    (void) ioctl(vcfd, PIO_SCRNMAP, map8);
 
                 /* copy map of 8bit chars -> 16bit Unicode values */
                 if (ioctl(fd, GIO_UNISCRNMAP, map16) >= 0)
-                    ioctl(vcfd, PIO_UNISCRNMAP, map16);
+                    (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
 
                 /* copy unicode translation table */
                 /* unimapd is a ushort count and a pointer to an
@@ -230,8 +230,8 @@ static void font_copy_to_all_vcs(int fd) {
                 if (ioctl(fd, GIO_UNIMAP, &unimapd) >= 0) {
                         struct unimapinit adv = { 0, 0, 0 };
 
-                        ioctl(vcfd, PIO_UNIMAPCLR, &adv);
-                        ioctl(vcfd, PIO_UNIMAP, &unimapd);
+                        (void) ioctl(vcfd, PIO_UNIMAPCLR, &adv);
+                        (void) ioctl(vcfd, PIO_UNIMAP, &unimapd);
                 }
         }
 }
