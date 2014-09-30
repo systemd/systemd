@@ -3272,13 +3272,8 @@ unsigned columns(void) {
 
         c = 0;
         e = getenv("COLUMNS");
-        if (e) {
-                int r;
-
-                r = safe_atoi(e, &c);
-                if (r < 0) {}
-                        /* do nothing, we fall back to c = 0 */
-        }
+        if (e)
+                (void) safe_atoi(e, &c);
 
         if (c <= 0)
                 c = fd_columns(STDOUT_FILENO);
