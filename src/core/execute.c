@@ -2567,8 +2567,8 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
 }
 
 int exec_command_append(ExecCommand *c, const char *path, ...) {
+        _cleanup_strv_free_ char **l = NULL;
         va_list ap;
-        char **l;
         int r;
 
         assert(c);
@@ -2582,10 +2582,8 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
                 return -ENOMEM;
 
         r = strv_extend_strv(&c->argv, l);
-        if (r < 0) {
-                strv_free(l);
+        if (r < 0)
                 return r;
-        }
 
         return 0;
 }
