@@ -3743,6 +3743,18 @@ static int screen_feed_cmd(term_screen *screen, const term_seq *seq) {
         return 0;
 }
 
+unsigned int term_screen_get_width(term_screen *screen) {
+        assert_return(screen, -EINVAL);
+
+        return screen->page->width;
+}
+
+unsigned int term_screen_get_height(term_screen *screen) {
+        assert_return(screen, -EINVAL);
+
+        return screen->page->height;
+}
+
 int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
         const uint32_t *ucs4_str;
         size_t i, j, ucs4_len;
