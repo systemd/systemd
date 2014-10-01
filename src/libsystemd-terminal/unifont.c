@@ -181,6 +181,18 @@ unifont *unifont_unref(unifont *u) {
         return NULL;
 }
 
+unsigned int unifont_get_width(unifont *u) {
+        assert(u);
+
+        return 8U;
+}
+
+unsigned int unifont_get_height(unifont *u) {
+        assert(u);
+
+        return 16U;
+}
+
 unsigned int unifont_get_stride(unifont *u) {
         assert(u);
 
