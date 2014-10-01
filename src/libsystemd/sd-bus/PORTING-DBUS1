@@ -66,7 +66,7 @@ fields as you need.
 
 The kernel will return in the "id" field your unique id. This is a
 simple numeric value. For compatibility with classic dbus1 simply
-format this as string and prefix ":0.".
+format this as string and prefix ":1.".
 
 The kernel will also return the bloom filter size and bloom filter
 hash function number used for the signal broadcast bloom filter (see
