@@ -30,7 +30,7 @@
 #include <string.h>
 #include "macro.h"
 #include "unifont-def.h"
-#include "unifont-internal.h"
+#include "unifont.h"
 #include "util.h"
 
 static void render(char *w, const unifont_glyph *g) {

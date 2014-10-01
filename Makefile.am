@@ -3059,7 +3059,8 @@ libsystemd_terminal_la_SOURCES = \
 	src/libsystemd-terminal/term-parser.c \
 	src/libsystemd-terminal/term-screen.c \
 	src/libsystemd-terminal/term-wcwidth.c \
-	src/libsystemd-terminal/unifont-internal.h \
+	src/libsystemd-terminal/unifont.h \
+	src/libsystemd-terminal/unifont-def.h \
 	src/libsystemd-terminal/unifont.c
 
 libsystemd_terminal_la_LIBADD = \

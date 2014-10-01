@@ -37,7 +37,7 @@
 #include <unistd.h>
 #include "macro.h"
 #include "unifont-def.h"
-#include "unifont-internal.h"
+#include "unifont.h"
 #include "util.h"
 
 struct unifont {
