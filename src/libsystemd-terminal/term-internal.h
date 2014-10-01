@@ -24,25 +24,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "term.h"
 #include "util.h"
 
 typedef struct term_char term_char_t;
 typedef struct term_charbuf term_charbuf_t;
 
-typedef struct term_color term_color;
-typedef struct term_attr term_attr;
 typedef struct term_cell term_cell;
 typedef struct term_line term_line;
 
 typedef struct term_page term_page;
 typedef struct term_history term_history;
 
-typedef struct term_utf8 term_utf8;
-typedef struct term_seq term_seq;
-typedef struct term_parser term_parser;
 typedef uint32_t term_charset[96];
-
-typedef struct term_screen term_screen;
 
 /*
  * Miscellaneous
@@ -53,24 +47,6 @@ int mk_wcwidth(wchar_t ucs4);
 int mk_wcwidth_cjk(wchar_t ucs4);
 int mk_wcswidth(const wchar_t *str, size_t len);
 int mk_wcswidth_cjk(const wchar_t *str, size_t len);
-
-/*
- * Ageing
- * Redrawing terminals is quite expensive. Therefore, we avoid redrawing on
- * each single modification and mark modified cells instead. This way, we know
- * which cells to redraw on the next frame. However, a single DIRTY flag is not
- * enough for double/triple buffered screens, hence, we use an AGE field for
- * each cell. If the cell is modified, we simply increase the age by one. Each
- * framebuffer can then remember its last rendered age and request an update of
- * all newer cells.
- * TERM_AGE_NULL is special. If used as cell age, the cell must always be
- * redrawn (forced update). If used as framebuffer age, all cells are drawn.
- * This way, we can allow integer wrap-arounds.
- */
-
-typedef uint64_t term_age_t;
-
-#define TERM_AGE_NULL 0
 
 /*
  * Characters
@@ -141,68 +117,6 @@ static inline term_char_t term_char_free(term_char_t ch) {
 static inline void term_char_freep(term_char_t *p) {
         term_char_free(*p);
 }
-
-/*
- * Attributes
- * Each cell in a terminal page can have its own set of attributes. These alter
- * the behavior of the renderer for this single cell. We use term_attr to
- * specify attributes.
- * The only non-obvious field is "ccode" for foreground and background colors.
- * This field contains the terminal color-code in case no full RGB information
- * was given by the host. It is also required for dynamic color palettes. If it
- * is set to TERM_CCODE_RGB, the "red", "green" and "blue" fields contain the
- * full RGB color.
- */
-
-enum {
-        /* special color-codes */
-        TERM_CCODE_DEFAULT,                                             /* default foreground/background color */
-        TERM_CCODE_256,                                                 /* 256color code */
-        TERM_CCODE_RGB,                                                 /* color is specified as RGB */
-
-        /* dark color-codes */
-        TERM_CCODE_BLACK,
-        TERM_CCODE_RED,
-        TERM_CCODE_GREEN,
-        TERM_CCODE_YELLOW,
-        TERM_CCODE_BLUE,
-        TERM_CCODE_MAGENTA,
-        TERM_CCODE_CYAN,
-        TERM_CCODE_WHITE,                                               /* technically: light grey */
-
-        /* light color-codes */
-        TERM_CCODE_LIGHT_BLACK          = TERM_CCODE_BLACK + 8,         /* technically: dark grey */
-        TERM_CCODE_LIGHT_RED            = TERM_CCODE_RED + 8,
-        TERM_CCODE_LIGHT_GREEN          = TERM_CCODE_GREEN + 8,
-        TERM_CCODE_LIGHT_YELLOW         = TERM_CCODE_YELLOW + 8,
-        TERM_CCODE_LIGHT_BLUE           = TERM_CCODE_BLUE + 8,
-        TERM_CCODE_LIGHT_MAGENTA        = TERM_CCODE_MAGENTA + 8,
-        TERM_CCODE_LIGHT_CYAN           = TERM_CCODE_CYAN + 8,
-        TERM_CCODE_LIGHT_WHITE          = TERM_CCODE_WHITE + 8,
-
-        TERM_CCODE_CNT,
-};
-
-struct term_color {
-        uint8_t ccode;
-        uint8_t c256;
-        uint8_t red;
-        uint8_t green;
-        uint8_t blue;
-};
-
-struct term_attr {
-        term_color fg;                          /* foreground color */
-        term_color bg;                          /* background color */
-
-        unsigned int bold : 1;                  /* bold font */
-        unsigned int italic : 1;                /* italic font */
-        unsigned int underline : 1;             /* underline text */
-        unsigned int inverse : 1;               /* inverse fg/bg */
-        unsigned int protect : 1;               /* protect from erase */
-        unsigned int blink : 1;                 /* blink text */
-        unsigned int hidden : 1;                /* hidden */
-};
 
 /*
  * Cells
@@ -342,26 +256,6 @@ void term_history_trim(term_history *history, unsigned int max);
 void term_history_push(term_history *history, term_line *line);
 term_line *term_history_pop(term_history *history, unsigned int reserve_width, const term_attr *attr, term_age_t age);
 unsigned int term_history_peek(term_history *history, unsigned int max, unsigned int reserve_width, const term_attr *attr, term_age_t age);
-
-/*
- * UTF-8
- * The UTF-decoder and encoder are adjusted for terminals and provide proper
- * fallbacks for invalid UTF-8. In terminals it's quite usual to use fallbacks
- * instead of rejecting invalid input. This way, old legacy applications still
- * work (this is especially important for 7bit/ASCII DEC modes).
- */
-
-struct term_utf8 {
-        uint32_t chars[5];
-        uint32_t ucs4;
-
-        unsigned int i_bytes : 3;
-        unsigned int n_bytes : 3;
-        unsigned int valid : 1;
-};
-
-size_t term_utf8_encode(char *out_utf8, uint32_t g);
-const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c);
 
 /*
  * Parsers
@@ -680,13 +574,6 @@ struct term_parser {
         bool is_host : 1;
 };
 
-int term_parser_new(term_parser **out, bool host);
-term_parser *term_parser_free(term_parser *parser);
-int term_parser_feed(term_parser *parser, const term_seq **seq_out, uint32_t raw);
-
-#define _term_parser_free_ _cleanup_(term_parser_freep)
-DEFINE_TRIVIAL_CLEANUP_FUNC(term_parser*, term_parser_free);
-
 /*
  * Screens
  * A term_screen object represents the terminal-side of the communication. It
@@ -712,9 +599,6 @@ enum {
         TERM_CONFORMANCE_LEVEL_VT400,
         TERM_CONFORMANCE_LEVEL_CNT,
 };
-
-typedef int (*term_screen_write_fn) (term_screen *screen, void *userdata, const void *buf, size_t size);
-typedef int (*term_screen_cmd_fn) (term_screen *screen, void *userdata, unsigned int cmd, const term_seq *seq);
 
 struct term_screen {
         unsigned long ref;
@@ -766,17 +650,3 @@ struct term_screen {
                 unsigned int flags;
         } saved;
 };
-
-int term_screen_new(term_screen **out, term_screen_write_fn write_fn, void *write_fn_data, term_screen_cmd_fn cmd_fn, void *cmd_fn_data);
-term_screen *term_screen_ref(term_screen *screen);
-term_screen *term_screen_unref(term_screen *screen);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(term_screen*, term_screen_unref);
-
-int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size);
-int term_screen_feed_keyboard(term_screen *screen, uint32_t keysym, uint32_t ascii, uint32_t ucs4, unsigned int mods);
-int term_screen_resize(term_screen *screen, unsigned int width, unsigned int height);
-void term_screen_soft_reset(term_screen *screen);
-void term_screen_hard_reset(term_screen *screen);
-
-int term_screen_set_answerback(term_screen *screen, const char *answerback);
