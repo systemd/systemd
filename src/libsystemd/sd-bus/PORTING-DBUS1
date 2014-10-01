@@ -156,11 +156,11 @@ multiple items. Some restrictions apply however:
    contained in the payload, as well is immediately before framing of a
    Gvariant, as well after as any padding bytes if there are any. The
    padding bytes must be wholly contained in the preceding
-   PAYLOAD_VEC/PAYLOAD_MEMFD item. You may not split up simple types
-   nor arrays of trivial types. The latter is necessary to allow APIs
-   to return direct pointers to linear chunks of fixed size trivial
-   arrays. Examples: The simple types "u", "s", "t" have to be in the
-   same payload item. The array of simple types "ay", "ai" have to be
+   PAYLOAD_VEC/PAYLOAD_MEMFD item. You may not split up basic types
+   nor arrays of fixed types. The latter is necessary to allow APIs
+   to return direct pointers to linear arrays of numeric
+   values. Examples: The basic types "u", "s", "t" have to be in the
+   same payload item. The array of fixed types "ay", "ai" have to be
    fully in contained in the same payload item. For an array "as" or
    "a(si)" the only restriction however is to keep each string
    individually in an uninterrupted item, to keep the framing of each
