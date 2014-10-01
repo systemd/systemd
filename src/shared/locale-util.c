@@ -25,7 +25,6 @@
 #include "util.h"
 #include "utf8.h"
 #include "strv.h"
-#include "util.h"
 
 #include "locale-util.h"
 

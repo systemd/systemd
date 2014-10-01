@@ -31,7 +31,6 @@
 #include "path-util.h"
 #include "path-lookup.h"
 #include "log.h"
-#include "strv.h"
 #include "unit.h"
 #include "unit-name.h"
 #include "special.h"

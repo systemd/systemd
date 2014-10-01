@@ -40,7 +40,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-internal.h"
 #include "build.h"
 #include "strv.h"
 #include "def.h"
