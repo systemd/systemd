@@ -1341,6 +1341,7 @@ tests += \
 	test-fileio \
 	test-time \
 	test-hashmap \
+	test-set \
 	test-list \
 	test-tables \
 	test-device-nodes \
@@ -1570,6 +1571,12 @@ test_hashmap_SOURCES = \
 	src/test/test-hashmap.c
 
 test_hashmap_LDADD = \
+	libsystemd-core.la
+
+test_set_SOURCES = \
+	src/test/test-set.c
+
+test_set_LDADD = \
 	libsystemd-core.la
 
 test_xml_SOURCES = \

@@ -507,6 +507,26 @@ static void test_hashmap_steal_first_key(void) {
         assert_se(hashmap_isempty(m));
 }
 
+static void test_hashmap_steal_first(void) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        int seen[3] = {};
+        char *val;
+
+        m = hashmap_new(&string_hash_ops);
+        assert_se(m);
+
+        assert_se(hashmap_put(m, "key 1", (void*) "1") == 1);
+        assert_se(hashmap_put(m, "key 2", (void*) "22") == 1);
+        assert_se(hashmap_put(m, "key 3", (void*) "333") == 1);
+
+        while ((val = hashmap_steal_first(m)))
+                seen[strlen(val) - 1]++;
+
+        assert(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
+
+        assert_se(hashmap_isempty(m));
+}
+
 static void test_hashmap_clear_free_free(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
@@ -560,6 +580,7 @@ int main(int argc, const char *argv[]) {
         test_hashmap_many();
         test_hashmap_first_key();
         test_hashmap_steal_first_key();
+        test_hashmap_steal_first();
         test_hashmap_clear_free_free();
         test_uint64_compare_func();
         test_trivial_compare_func();
