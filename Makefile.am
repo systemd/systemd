@@ -3025,9 +3025,7 @@ noinst_PROGRAMS += \
 	systemd-modeset \
 	systemd-subterm
 
-unifontdatadir=$(datadir)/unifont
-
-dist_unifontdata_DATA = \
+dist_pkgdata_DATA += \
 	src/libsystemd-terminal/unifont-glyph-array.bin
 
 tests += \

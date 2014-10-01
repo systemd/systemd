@@ -115,7 +115,7 @@ typedef struct unifont_glyph_header unifont_glyph_header;
  */
 
 /* path to binary file */
-#define UNIFONT_PATH "/usr/share/unifont/unifont-glyph-array.bin"
+#define UNIFONT_PATH "/usr/share/systemd/unifont-glyph-array.bin"
 
 /* header-size of version 1 */
 #define UNIFONT_HEADER_SIZE_MIN 32
