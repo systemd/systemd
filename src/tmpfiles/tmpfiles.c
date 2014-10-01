@@ -1064,7 +1064,7 @@ static int clean_item(Item *i) {
 
 static int process_item(Item *i) {
         int r, q, p;
-        char prefix[PATH_MAX];
+        _cleanup_free_ char *prefix = NULL;
 
         assert(i);
 
@@ -1072,6 +1072,10 @@ static int process_item(Item *i) {
                 return 0;
 
         i->done = true;
+
+        prefix = malloc(strlen(i->path) + 1);
+        if (!prefix)
+                return log_oom();
 
         PATH_FOREACH_PREFIX(prefix, i->path) {
                 Item *j;
