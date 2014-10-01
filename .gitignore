@@ -220,6 +220,7 @@
 /test-rtnl
 /test-rtnl-manual
 /test-sched-prio
+/test-set
 /test-sleep
 /test-socket-util
 /test-ssd
