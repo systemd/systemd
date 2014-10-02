@@ -1549,9 +1549,23 @@ static grdev_fb *grdrm_pipe_target(grdev_pipe *basepipe) {
         return basepipe->back;
 }
 
+static void grdrm_pipe_enable(grdev_pipe *basepipe) {
+        grdrm_pipe *pipe = grdrm_pipe_from_base(basepipe);
+
+        pipe->crtc->applied = false;
+}
+
+static void grdrm_pipe_disable(grdev_pipe *basepipe) {
+        grdrm_pipe *pipe = grdrm_pipe_from_base(basepipe);
+
+        pipe->crtc->applied = false;
+}
+
 static const grdev_pipe_vtable grdrm_pipe_vtable = {
         .free                   = grdrm_pipe_free,
         .target                 = grdrm_pipe_target,
+        .enable                 = grdrm_pipe_enable,
+        .disable                = grdrm_pipe_disable,
 };
 
 /*
