@@ -62,6 +62,8 @@ struct Barrier {
 int barrier_create(Barrier *obj);
 void barrier_destroy(Barrier *b);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);
+
 void barrier_set_role(Barrier *b, unsigned int role);
 
 bool barrier_place(Barrier *b);

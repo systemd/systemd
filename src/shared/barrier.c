@@ -112,15 +112,24 @@
  * Returns: 0 on success, negative error code on failure.
  */
 int barrier_create(Barrier *b) {
+        _cleanup_(barrier_destroyp) Barrier *staging = b;
+        int r;
+
         assert(b);
 
-        if ((b->me = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) < 0 ||
-            (b->them = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) < 0 ||
-            pipe2(b->pipe, O_CLOEXEC | O_NONBLOCK) < 0) {
-                barrier_destroy(b);
+        b->me = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+        if (b->me < 0)
                 return -errno;
-        }
 
+        b->them = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+        if (b->them < 0)
+                return -errno;
+
+        r = pipe2(b->pipe, O_CLOEXEC | O_NONBLOCK);
+        if (r < 0)
+                return -errno;
+
+        staging = NULL;
         return 0;
 }
 
