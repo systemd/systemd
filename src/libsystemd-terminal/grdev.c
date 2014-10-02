@@ -382,6 +382,8 @@ const grdev_display_target *grdev_display_next_target(grdev_display *display, co
                 if (!(fb = pipe->back)) {
                         if (!pipe->vtable->target || !(fb = pipe->vtable->target(pipe)))
                                 continue;
+
+                        assert(fb == pipe->back);
                 }
 
                 /* if back-buffer is up-to-date, schedule flip */
