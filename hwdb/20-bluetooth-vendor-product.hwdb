@@ -1148,3 +1148,21 @@ bluetooth:v017B*
 
 bluetooth:v017C*
  ID_VENDOR_FROM_DATABASE=Daimler AG
+
+bluetooth:v017D*
+ ID_VENDOR_FROM_DATABASE=BatAndCat
+
+bluetooth:v017E*
+ ID_VENDOR_FROM_DATABASE=BluDotz Ltd
+
+bluetooth:v017F*
+ ID_VENDOR_FROM_DATABASE=XTel ApS
+
+bluetooth:v0180*
+ ID_VENDOR_FROM_DATABASE=Gigaset Communications GmbH
+
+bluetooth:v0181*
+ ID_VENDOR_FROM_DATABASE=Gecko Health Innovations, Inc.
+
+bluetooth:v0182*
+ ID_VENDOR_FROM_DATABASE=HOP Ubiquitous
