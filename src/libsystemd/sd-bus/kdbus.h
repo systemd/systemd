@@ -681,7 +681,7 @@ struct kdbus_cmd_conn_info {
 	__u64 flags;
 	__u64 id;
 	__u64 offset;
-	char name[0];
+	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
 /**

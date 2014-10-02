@@ -389,13 +389,17 @@ static int bus_get_owner_kdbus(
         if (r < 0)
                 return r;
         if (r > 0) {
-                size = offsetof(struct kdbus_cmd_conn_info, name);
+                size = offsetof(struct kdbus_cmd_conn_info, items);
                 cmd = alloca0_align(size, 8);
                 cmd->id = id;
         } else {
-                size = offsetof(struct kdbus_cmd_conn_info, name) + strlen(name) + 1;
+                size_t item_size = KDBUS_ITEM_HEADER_SIZE + strlen(name) + 1;
+
+                size = offsetof(struct kdbus_cmd_conn_info, items) + item_size;
                 cmd = alloca0_align(size, 8);
-                strcpy(cmd->name, name);
+                cmd->items[0].size = item_size;
+                cmd->items[0].type = KDBUS_ITEM_NAME;
+                strcpy(cmd->items[0].str, name);
         }
 
         cmd->size = size;
