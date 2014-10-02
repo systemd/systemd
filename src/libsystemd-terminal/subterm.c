@@ -392,84 +392,88 @@ static void output_draw_menu(Output *o) {
         output_frame_printl(o, "     ^C: send ^C to the PTY");
 }
 
-static void output_draw_screen(Output *o, term_screen *s) {
-        unsigned int i, j;
-        bool first = true;
+static int output_draw_cell_fn(term_screen *screen,
+                               void *userdata,
+                               unsigned int x,
+                               unsigned int y,
+                               const term_attr *attr,
+                               const uint32_t *ch,
+                               size_t n_ch,
+                               unsigned int ch_width) {
+        Output *o = userdata;
+        size_t k, ulen;
+        char utf8[4];
 
+        if (x >= o->in_width || y >= o->in_height)
+                return 0;
+
+        if (x == 0 && y != 0)
+                output_printf(o, "\e[m\r\n" BORDER_VERT);
+
+        switch (attr->fg.ccode) {
+        case TERM_CCODE_DEFAULT:
+                output_printf(o, "\e[39m");
+                break;
+        case TERM_CCODE_256:
+                output_printf(o, "\e[38;5;%um", attr->fg.c256);
+                break;
+        case TERM_CCODE_RGB:
+                output_printf(o, "\e[38;2;%u;%u;%um", attr->fg.red, attr->fg.green, attr->fg.blue);
+                break;
+        case TERM_CCODE_BLACK ... TERM_CCODE_WHITE:
+                if (attr->bold)
+                        output_printf(o, "\e[%um", attr->fg.ccode - TERM_CCODE_BLACK + 90);
+                else
+                        output_printf(o, "\e[%um", attr->fg.ccode - TERM_CCODE_BLACK + 30);
+                break;
+        case TERM_CCODE_LIGHT_BLACK ... TERM_CCODE_LIGHT_WHITE:
+                output_printf(o, "\e[%um", attr->fg.ccode - TERM_CCODE_LIGHT_BLACK + 90);
+                break;
+        }
+
+        switch (attr->bg.ccode) {
+        case TERM_CCODE_DEFAULT:
+                output_printf(o, "\e[49m");
+                break;
+        case TERM_CCODE_256:
+                output_printf(o, "\e[48;5;%um", attr->bg.c256);
+                break;
+        case TERM_CCODE_RGB:
+                output_printf(o, "\e[48;2;%u;%u;%um", attr->bg.red, attr->bg.green, attr->bg.blue);
+                break;
+        case TERM_CCODE_BLACK ... TERM_CCODE_WHITE:
+                output_printf(o, "\e[%um", attr->bg.ccode - TERM_CCODE_BLACK + 40);
+                break;
+        case TERM_CCODE_LIGHT_BLACK ... TERM_CCODE_LIGHT_WHITE:
+                output_printf(o, "\e[%um", attr->bg.ccode - TERM_CCODE_LIGHT_BLACK + 100);
+                break;
+        }
+
+        output_printf(o, "\e[%u;%u;%u;%u;%u;%um",
+                      attr->bold ? 1 : 22,
+                      attr->italic ? 3 : 23,
+                      attr->underline ? 4 : 24,
+                      attr->inverse ? 7 : 27,
+                      attr->blink ? 5 : 25,
+                      attr->hidden ? 8 : 28);
+
+        if (n_ch < 1) {
+                output_printf(o, " ");
+        } else {
+                for (k = 0; k < n_ch; ++k) {
+                        ulen = term_utf8_encode(utf8, ch[k]);
+                        output_write(o, utf8, ulen);
+                }
+        }
+
+        return 0;
+}
+
+static void output_draw_screen(Output *o, term_screen *s) {
         assert(o);
         assert(s);
 
-        for (j = 0; j < s->page->height && j < o->in_height; ++j) {
-                if (!first)
-                        output_printf(o, "\e[m\r\n" BORDER_VERT);
-                first = false;
-
-                for (i = 0; i < s->page->width && i < o->in_width; ++i) {
-                        term_charbuf_t buf;
-                        term_cell *cell = &s->page->lines[j]->cells[i];
-                        size_t k, len, ulen;
-                        const uint32_t *str;
-                        char utf8[4];
-
-                        switch (cell->attr.fg.ccode) {
-                        case TERM_CCODE_DEFAULT:
-                                output_printf(o, "\e[39m");
-                                break;
-                        case TERM_CCODE_256:
-                                output_printf(o, "\e[38;5;%um", cell->attr.fg.c256);
-                                break;
-                        case TERM_CCODE_RGB:
-                                output_printf(o, "\e[38;2;%u;%u;%um", cell->attr.fg.red, cell->attr.fg.green, cell->attr.fg.blue);
-                                break;
-                        case TERM_CCODE_BLACK ... TERM_CCODE_WHITE:
-                                if (cell->attr.bold)
-                                        output_printf(o, "\e[%um", cell->attr.fg.ccode - TERM_CCODE_BLACK + 90);
-                                else
-                                        output_printf(o, "\e[%um", cell->attr.fg.ccode - TERM_CCODE_BLACK + 30);
-                                break;
-                        case TERM_CCODE_LIGHT_BLACK ... TERM_CCODE_LIGHT_WHITE:
-                                output_printf(o, "\e[%um", cell->attr.fg.ccode - TERM_CCODE_LIGHT_BLACK + 90);
-                                break;
-                        }
-
-                        switch (cell->attr.bg.ccode) {
-                        case TERM_CCODE_DEFAULT:
-                                output_printf(o, "\e[49m");
-                                break;
-                        case TERM_CCODE_256:
-                                output_printf(o, "\e[48;5;%um", cell->attr.bg.c256);
-                                break;
-                        case TERM_CCODE_RGB:
-                                output_printf(o, "\e[48;2;%u;%u;%um", cell->attr.bg.red, cell->attr.bg.green, cell->attr.bg.blue);
-                                break;
-                        case TERM_CCODE_BLACK ... TERM_CCODE_WHITE:
-                                output_printf(o, "\e[%um", cell->attr.bg.ccode - TERM_CCODE_BLACK + 40);
-                                break;
-                        case TERM_CCODE_LIGHT_BLACK ... TERM_CCODE_LIGHT_WHITE:
-                                output_printf(o, "\e[%um", cell->attr.bg.ccode - TERM_CCODE_LIGHT_BLACK + 100);
-                                break;
-                        }
-
-                        output_printf(o, "\e[%u;%u;%u;%u;%u;%um",
-                                      cell->attr.bold ? 1 : 22,
-                                      cell->attr.italic ? 3 : 23,
-                                      cell->attr.underline ? 4 : 24,
-                                      cell->attr.inverse ? 7 : 27,
-                                      cell->attr.blink ? 5 : 25,
-                                      cell->attr.hidden ? 8 : 28);
-
-                        str = term_char_resolve(cell->ch, &len, &buf);
-
-                        if (len < 1) {
-                                output_printf(o, " ");
-                        } else {
-                                for (k = 0; k < len; ++k) {
-                                        ulen = term_utf8_encode(utf8, str[k]);
-                                        output_write(o, utf8, ulen);
-                                }
-                        }
-                }
-        }
+        term_screen_draw(s, output_draw_cell_fn, o, NULL);
 
         output_move_to(o, s->cursor_x + 1, s->cursor_y + 3);
         output_printf(o, "\e[m");
