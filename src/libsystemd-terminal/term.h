@@ -147,3 +147,15 @@ void term_screen_soft_reset(term_screen *screen);
 void term_screen_hard_reset(term_screen *screen);
 
 int term_screen_set_answerback(term_screen *screen, const char *answerback);
+
+int term_screen_draw(term_screen *screen,
+                     int (*draw_fn) (term_screen *screen,
+                                     void *userdata,
+                                     unsigned int x,
+                                     unsigned int y,
+                                     const term_attr *attr,
+                                     const uint32_t *ch,
+                                     size_t n_ch,
+                                     unsigned int ch_width),
+                     void *userdata,
+                     uint64_t *fb_age);

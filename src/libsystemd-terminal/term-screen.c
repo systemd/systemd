@@ -3892,3 +3892,69 @@ int term_screen_set_answerback(term_screen *screen, const char *answerback) {
 
         return 0;
 }
+
+int term_screen_draw(term_screen *screen,
+                     int (*draw_fn) (term_screen *screen,
+                                     void *userdata,
+                                     unsigned int x,
+                                     unsigned int y,
+                                     const term_attr *attr,
+                                     const uint32_t *ch,
+                                     size_t n_ch,
+                                     unsigned int ch_width),
+                     void *userdata,
+                     uint64_t *fb_age) {
+        uint64_t cell_age, line_age, age = 0;
+        term_charbuf_t ch_buf;
+        const uint32_t *ch_str;
+        unsigned int i, j, cw;
+        term_page *page;
+        term_line *line;
+        term_cell *cell;
+        size_t ch_n;
+        int r;
+
+        assert(screen);
+        assert(draw_fn);
+
+        if (fb_age)
+                age = *fb_age;
+
+        page = screen->page;
+
+        for (j = 0; j < page->height; ++j) {
+                line = page->lines[j];
+                line_age = MAX(line->age, page->age);
+
+                for (i = 0; i < page->width; ++i) {
+                        cell = &line->cells[i];
+                        cell_age = MAX(cell->age, line_age);
+
+                        if (age != 0 && cell_age <= age)
+                                continue;
+
+                        ch_str = term_char_resolve(cell->ch, &ch_n, &ch_buf);
+
+                        /* Character-width of 0 is used for cleared cells.
+                         * Always treat this as single-cell character, so
+                         * renderers can assume ch_width is set properpy. */
+                        cw = MAX(cell->cwidth, 1U);
+
+                        r = draw_fn(screen,
+                                    userdata,
+                                    i,
+                                    j,
+                                    &cell->attr,
+                                    ch_str,
+                                    ch_n,
+                                    cw);
+                        if (r != 0)
+                                return r;
+                }
+        }
+
+        if (fb_age)
+                *fb_age = screen->age++;
+
+        return 0;
+}
