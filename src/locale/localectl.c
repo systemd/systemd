@@ -114,7 +114,7 @@ static void print_overriden_variables(void) {
                 goto finish;
         }
 
-        for (j = VARIABLE_LANG; j < _VARIABLE_LC_MAX; j++)
+        for (j = 0; j < _VARIABLE_LC_MAX; j++)
                 if (variables[j]) {
                         if (print_warning) {
                                 printf("Warning: Settings on Kernel Command Line override system locale settings in /etc/locale.conf\n");
@@ -126,7 +126,7 @@ static void print_overriden_variables(void) {
                         printf("                  %s=%s\n", locale_variable_to_string(j), variables[j]);
                 }
  finish:
-        for (j = VARIABLE_LANG; j < _VARIABLE_LC_MAX; j++)
+        for (j = 0; j < _VARIABLE_LC_MAX; j++)
                 free(variables[j]);
 }
 
