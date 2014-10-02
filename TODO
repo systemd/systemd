@@ -26,6 +26,8 @@ External:
 
 Features:
 
+* busctl: add a pcap writer, using LINKTYPE_DBUS/231
+
 * man: maybe use the word "inspect" rather than "introspect"?
 
 * introduce machines.target to order after all nspawn instances
