@@ -4466,9 +4466,7 @@ static int cat(sd_bus *bus, char **args) {
         STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
-                _cleanup_free_ char *fragment_path = NULL;
-                _cleanup_free_ char *unit = NULL;
-
+                _cleanup_free_ char *fragment_path = NULL, *unit = NULL;
                 char **path;
 
                 unit = unit_dbus_path_from_name(*name);
