@@ -2195,7 +2195,8 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
         uint32_t id, counter;
         grdrm_object *object;
         char buf[4096];
-        ssize_t l, i;
+        size_t len;
+        ssize_t l;
 
         if (revents & (EPOLLHUP | EPOLLERR)) {
                 /* Immediately close device on HUP; no need to flush pending
@@ -2214,15 +2215,12 @@ static int grdrm_card_io_fn(sd_event_source *s, int fd, uint32_t revents, void *
                         log_debug("grdrm: %s/%s: read error: %m", card->base.session->name, card->base.name);
                         grdrm_card_close(card);
                         return 0;
-                } else if ((size_t)l < sizeof(*event)) {
-                        log_debug("grdrm: %s/%s: short read of %zd bytes", card->base.session->name, card->base.name, l);
-                        return 0;
                 }
 
-                for (i = 0; i < l; i += event->length) {
-                        event = (void*)&buf[i];
+                for (len = l; len > 0; len -= event->length) {
+                        event = (void*)buf;
 
-                        if (i + (ssize_t)sizeof(*event) > l || i + (ssize_t)event->length > l) {
+                        if (len < sizeof(*event) || len < event->length) {
                                 log_debug("grdrm: %s/%s: truncated event", card->base.session->name, card->base.name);
                                 break;
                         }
