@@ -311,8 +311,10 @@ static int output_short(
                 uint64_t x;
                 time_t t;
                 struct tm tm;
+                struct tm *(*gettime_r)(const time_t *, struct tm *);
 
                 r = -ENOENT;
+                gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
 
                 if (realtime)
                         r = safe_atou64(realtime, &x);
@@ -329,17 +331,17 @@ static int output_short(
 
                 switch(mode) {
                 case OUTPUT_SHORT_ISO:
-                        r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm));
                         break;
                 case OUTPUT_SHORT_PRECISE:
-                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                         if (r > 0) {
                                 snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
                                          ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
                         }
                         break;
                 default:
-                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                 }
 
                 if (r <= 0) {

@@ -63,6 +63,7 @@
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
 static OutputMode arg_output = OUTPUT_SHORT;
+static bool arg_utc = false;
 static bool arg_pager_end = false;
 static bool arg_follow = false;
 static bool arg_full = true;
@@ -191,6 +192,7 @@ static void help(void) {
                "  -o --output=STRING       Change journal output mode (short, short-iso,\n"
                "                                   short-precise, short-monotonic, verbose,\n"
                "                                   export, json, json-pretty, json-sse, cat)\n"
+               "     --utc                 Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog             Add message explanations where available\n"
                "     --no-full             Ellipsize fields\n"
                "  -a --all                 Show all fields, including long and unprintable\n"
@@ -250,6 +252,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
                 ARG_FORCE,
+                ARG_UTC,
         };
 
         static const struct option options[] = {
@@ -299,6 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "update-catalog", no_argument,       NULL, ARG_UPDATE_CATALOG },
                 { "reverse",        no_argument,       NULL, 'r'                },
                 { "machine",        required_argument, NULL, 'M'                },
+                { "utc",            no_argument,       NULL, ARG_UTC            },
                 {}
         };
 
@@ -637,6 +641,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'r':
                         arg_reverse = true;
+                        break;
+
+                case ARG_UTC:
+                        arg_utc = true;
                         break;
 
                 case '?':
@@ -1958,7 +1966,8 @@ int main(int argc, char *argv[]) {
                                 arg_all * OUTPUT_SHOW_ALL |
                                 arg_full * OUTPUT_FULL_WIDTH |
                                 on_tty() * OUTPUT_COLOR |
-                                arg_catalog * OUTPUT_CATALOG;
+                                arg_catalog * OUTPUT_CATALOG |
+                                arg_utc * OUTPUT_UTC;
 
                         r = output_journal(stdout, j, arg_output, 0, flags, &ellipsized);
                         need_seek = true;
