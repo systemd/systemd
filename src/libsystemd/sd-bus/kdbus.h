@@ -714,6 +714,16 @@ struct kdbus_cmd_update {
 } __attribute__((aligned(8)));
 
 /**
+ * enum kdbus_cmd_match_flags - flags to control the KDBUS_CMD_MATCH_ADD ioctl
+ * @KDBUS_MATCH_REPLACE:	If entries with the supplied cookie already
+ *				exists, remove them before installing the new
+ *				matches.
+ */
+enum kdbus_cmd_match_flags {
+	KDBUS_MATCH_REPLACE	= 1ULL <<  0,
+};
+
+/**
  * struct kdbus_cmd_match - struct to add or remove matches
  * @size:		The total size of the struct
  * @cookie:		Userspace supplied cookie. When removing, the cookie
@@ -726,6 +736,7 @@ struct kdbus_cmd_update {
 struct kdbus_cmd_match {
 	__u64 size;
 	__u64 cookie;
+	__u64 flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
