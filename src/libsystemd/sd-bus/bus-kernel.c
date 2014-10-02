@@ -1411,7 +1411,7 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
 }
 
 int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **ep_path) {
-        _cleanup_free_ char *path;
+        _cleanup_free_ char *path = NULL;
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
         size_t size;
