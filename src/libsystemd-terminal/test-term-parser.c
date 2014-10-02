@@ -33,39 +33,40 @@
 
 static void test_term_utf8_invalid(void) {
         term_utf8 p = { };
-        const uint32_t *res;
+        uint32_t *res;
         size_t len;
 
-        res = term_utf8_decode(NULL, NULL, 0);
-        assert_se(res == NULL);
+        len = term_utf8_decode(NULL, NULL, 0);
+        assert_se(!len);
 
-        res = term_utf8_decode(&p, NULL, 0);
-        assert_se(res != NULL);
-
-        len = 5;
-        res = term_utf8_decode(NULL, &len, 0);
-        assert_se(res == NULL);
-        assert_se(len == 0);
-
-        len = 5;
-        res = term_utf8_decode(&p, &len, 0);
-        assert_se(res != NULL);
+        len = term_utf8_decode(&p, NULL, 0);
         assert_se(len == 1);
 
-        len = 5;
-        res = term_utf8_decode(&p, &len, 0xCf);
-        assert_se(res == NULL);
-        assert_se(len == 0);
-
-        len = 5;
-        res = term_utf8_decode(&p, &len, 0x0);
+        res = NULL;
+        len = term_utf8_decode(NULL, &res, 0);
+        assert_se(!len);
         assert_se(res != NULL);
+        assert_se(!*res);
+
+        len = term_utf8_decode(&p, &res, 0);
+        assert_se(len == 1);
+        assert_se(res != NULL);
+        assert_se(!*res);
+
+        len = term_utf8_decode(&p, &res, 0xCf);
+        assert_se(len == 0);
+        assert_se(res != NULL);
+        assert_se(!*res);
+
+        len = term_utf8_decode(&p, &res, 0);
         assert_se(len == 2);
+        assert_se(res != NULL);
+        assert_se(res[0] == 0xCf && res[1] == 0);
 }
 
 static void test_term_utf8_range(void) {
         term_utf8 p = { };
-        const uint32_t *res;
+        uint32_t *res;
         char u8[4];
         uint32_t i, j;
         size_t ulen, len;
@@ -78,8 +79,8 @@ static void test_term_utf8_range(void) {
                         continue;
 
                 for (j = 0; j < ulen; ++j) {
-                        res = term_utf8_decode(&p, &len, u8[j]);
-                        if (!res) {
+                        len = term_utf8_decode(&p, &res, u8[j]);
+                        if (len < 1) {
                                 assert_se(j + 1 != ulen);
                                 continue;
                         }
@@ -117,13 +118,13 @@ static void test_term_utf8_mix(void) {
                 0x00F0, 0x0080, 0x0080, 0x0001,
         };
         term_utf8 p = { };
-        const uint32_t *res;
+        uint32_t *res;
         unsigned int i, j;
         size_t len;
 
         for (i = 0, j = 0; i < sizeof(source); ++i) {
-                res = term_utf8_decode(&p, &len, source[i]);
-                if (!res)
+                len = term_utf8_decode(&p, &res, source[i]);
+                if (len < 1)
                         continue;
 
                 assert_se(j + len <= ELEMENTSOF(result));

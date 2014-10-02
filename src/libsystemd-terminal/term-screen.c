@@ -3756,7 +3756,7 @@ unsigned int term_screen_get_height(term_screen *screen) {
 }
 
 int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
-        const uint32_t *ucs4_str;
+        uint32_t *ucs4_str;
         size_t i, j, ucs4_len;
         const term_seq *seq;
         int r;
@@ -3768,7 +3768,7 @@ int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
          * 8bit mode if the stream is not valid UTF-8. This should be more than
          * enough to support old 7bit/8bit modes. */
         for (i = 0; i < size; ++i) {
-                ucs4_str = term_utf8_decode(&screen->utf8, &ucs4_len, in[i]);
+                ucs4_len = term_utf8_decode(&screen->utf8, &ucs4_str, in[i]);
                 for (j = 0; j < ucs4_len; ++j) {
                         r = term_parser_feed(screen->parser, &seq, ucs4_str[j]);
                         if (r < 0) {

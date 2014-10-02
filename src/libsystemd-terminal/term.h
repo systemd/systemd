@@ -111,7 +111,7 @@ struct term_utf8 {
 };
 
 size_t term_utf8_encode(char *out_utf8, uint32_t g);
-const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c);
+size_t term_utf8_decode(term_utf8 *p, uint32_t **out_buf, char c);
 
 /*
  * Parsers

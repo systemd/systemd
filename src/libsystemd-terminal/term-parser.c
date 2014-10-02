@@ -81,15 +81,16 @@ size_t term_utf8_encode(char *out_utf8, uint32_t g) {
 /**
  * term_utf8_decode() - Try decoding the next UCS-4 character
  * @p: decoder object to operate on or NULL
- * @out_len: output buffer for length of decoded UCS-4 string or NULL
+ * @out_len: output storage for pointer to decoded UCS-4 string or NULL
  * @c: next char to push into decoder
  *
  * This decodes a UTF-8 stream. It must be called for each input-byte of the
- * UTF-8 stream and returns a UCS-4 stream. The length of the returned UCS-4
- * string (number of parsed characters) is stored in @out_len if non-NULL. A
- * pointer to the string is returned (or NULL if none was parsed). The string
- * is not zero-terminated! Furthermore, the string is only valid until the next
- * invokation of this function. It is also bound to the parser-state @p.
+ * UTF-8 stream and returns a UCS-4 stream. A pointer to the parsed UCS-4
+ * string is stored in @out_buf if non-NULL. The length of this string (number
+ * of parsed UCS4 characters) is returned as result. The string is not
+ * zero-terminated! Furthermore, the string is only valid until the next
+ * invocation of this function. It is also bound to the parser state @p and
+ * must not be freed nor written to by the caller.
  *
  * This function is highly optimized to work with terminal-emulators. Instead
  * of being strict about UTF-8 validity, this tries to perform a fallback to
@@ -100,9 +101,10 @@ size_t term_utf8_encode(char *out_utf8, uint32_t g) {
  * no helpers to do that for you. To initialize it, simply reset it to all
  * zero. You can reset or free the object at any point in time.
  *
- * Returns: Pointer to the UCS-4 string or NULL.
+ * Returns: Number of parsed UCS4 characters
  */
-const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c) {
+size_t term_utf8_decode(term_utf8 *p, uint32_t **out_buf, char c) {
+        static uint32_t ucs4_null = 0;
         uint32_t t, *res = NULL;
         uint8_t byte;
         size_t len = 0;
@@ -246,9 +248,9 @@ const uint32_t *term_utf8_decode(term_utf8 *p, size_t *out_len, char c) {
         p->n_bytes = 0;
 
 out:
-        if (out_len)
-                *out_len = len;
-        return len > 0 ? res : NULL;
+        if (out_buf)
+                *out_buf = res ? : &ucs4_null;
+        return len;
 }
 
 /*

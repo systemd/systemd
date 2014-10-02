@@ -716,10 +716,10 @@ static int terminal_io_fn(sd_event_source *source, int fd, uint32_t revents, voi
 
         for (i = 0; i < len; ++i) {
                 const term_seq *seq;
-                const uint32_t *str;
+                uint32_t *str;
                 size_t n_str, j;
 
-                str = term_utf8_decode(&t->utf8, &n_str, buf[i]);
+                n_str = term_utf8_decode(&t->utf8, &str, buf[i]);
                 for (j = 0; j < n_str; ++j) {
                         type = term_parser_feed(t->parser, &seq, str[j]);
                         if (type < 0) {
