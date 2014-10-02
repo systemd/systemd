@@ -69,10 +69,25 @@ struct sd_dhcp6_client {
         void *userdata;
         union {
                 struct {
+                        uint16_t type; /* DHCP6_DUID_LLT */
+                        uint16_t htype;
+                        uint32_t time;
+                        uint8_t haddr[0];
+                } _packed_ llt;
+                struct {
                         uint16_t type; /* DHCP6_DUID_EN */
                         uint32_t pen;
                         uint8_t id[8];
                 } _packed_ en;
+                struct {
+                        uint16_t type; /* DHCP6_DUID_LL */
+                        uint16_t htype;
+                        uint8_t haddr[0];
+                } _packed_ ll;
+                struct {
+                        uint16_t type; /* DHCP6_DUID_UUID */
+                        sd_id128_t uuid;
+                } _packed_ uuid;
                 struct {
                         uint16_t type;
                         uint8_t data[MAX_DUID_LEN];
@@ -164,6 +179,28 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
         assert_return(client, -EINVAL);
         assert_return(duid, -EINVAL);
         assert_return(duid_len > 0 && duid_len <= MAX_DUID_LEN, -EINVAL);
+
+        switch (type) {
+        case DHCP6_DUID_LLT:
+                if (duid_len <= sizeof(client->duid.llt))
+                        return -EINVAL;
+                break;
+        case DHCP6_DUID_EN:
+                if (duid_len != sizeof(client->duid.en))
+                        return -EINVAL;
+                break;
+        case DHCP6_DUID_LL:
+                if (duid_len <= sizeof(client->duid.ll))
+                        return -EINVAL;
+                break;
+        case DHCP6_DUID_UUID:
+                if (duid_len != sizeof(client->duid.uuid))
+                        return -EINVAL;
+                break;
+        default:
+                /* accept unknown type in order to be forward compatible */
+                break;
+        }
 
         client->duid.raw.type = htobe16(type);
         memcpy(&client->duid.raw.data, duid, duid_len);
