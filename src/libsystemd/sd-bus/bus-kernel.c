@@ -1447,11 +1447,15 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         }
 
         if (ep_path) {
-                int r = asprintf(ep_path, "%s/%s", dirname(path), ep_name);
-                if (r == -1 || !*ep_path) {
+                char *p;
+
+                p = strjoin(dirname(path), "/", ep_name, NULL);
+                if (!p) {
                         safe_close(fd);
                         return -ENOMEM;
                 }
+
+                *ep_path = p;
         }
 
         return fd;
