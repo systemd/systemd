@@ -213,7 +213,7 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
-        bool nofail = false, noauto = false;
+        bool nofail, noauto;
         int r;
 
         assert(s);
@@ -228,23 +228,25 @@ static int swap_add_default_dependencies(Swap *s) {
         if (r < 0)
                 return r;
 
-        if (s->from_fragment) {
-                SwapParameters *p = &s->parameters_fragment;
+        if (!s->from_fragment)
+                /* The swap unit can either be for an alternative device name, in which
+                 * case we don't need to add the dependency on swap.target because this unit
+                 * is following a different unit which will have this dependency added,
+                 * or it can be derived from /proc/swaps, in which case it was started
+                 * manually, and should not become a dependency of swap.target. */
+                return 0;
 
-                nofail = p->nofail;
-                noauto = p->noauto;
-        }
+        nofail = s->parameters_fragment.nofail;
+        noauto = s->parameters_fragment.noauto;
 
         if (!noauto) {
                 if (nofail)
                         r = unit_add_dependency_by_name_inverse(UNIT(s), UNIT_WANTS, SPECIAL_SWAP_TARGET, NULL, true);
                 else
                         r = unit_add_two_dependencies_by_name_inverse(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SWAP_TARGET, NULL, true);
-                if (r < 0)
-                        return r;
         }
 
-        return 0;
+        return r < 0 ? r : 0;
 }
 
 static int swap_verify(Swap *s) {
