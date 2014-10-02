@@ -67,7 +67,17 @@ struct sd_dhcp6_client {
         sd_event_source *timeout_resend_expire;
         sd_dhcp6_client_cb_t cb;
         void *userdata;
-        uint8_t duid[MAX_DUID_LEN];
+        union {
+                struct {
+                        uint16_t type; /* DHCP6_DUID_EN */
+                        uint32_t pen;
+                        uint8_t id[8];
+                } _packed_ en;
+                struct {
+                        uint16_t type;
+                        uint8_t data[MAX_DUID_LEN];
+                } _packed_ raw;
+        } duid;
         size_t duid_len;
 };
 
@@ -148,14 +158,15 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
         return 0;
 }
 
-int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint8_t *duid,
+int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *duid,
                              size_t duid_len)
 {
         assert_return(client, -EINVAL);
         assert_return(duid, -EINVAL);
         assert_return(duid_len > 0 && duid_len <= MAX_DUID_LEN, -EINVAL);
 
-        memcpy(&client->duid, duid, duid_len);
+        client->duid.raw.type = htobe16(type);
+        memcpy(&client->duid.raw.data, duid, duid_len);
         client->duid_len = duid_len;
 
         return 0;
@@ -1130,16 +1141,9 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
         return client;
 }
 
-struct duid_en {
-        uint16_t type; /* DHCP6_DUID_EN */
-        uint32_t pen;
-        uint8_t id[8];
-} _packed_;
-
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 {
         _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
-        struct duid_en *duid;
         sd_id128_t machine_id;
         int r;
         size_t t;
@@ -1159,9 +1163,9 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->fd = -1;
 
         /* initialize DUID */
-        duid = (struct duid_en *) &client->duid;
-        duid->type = htobe16(DHCP6_DUID_EN);
-        duid->pen = htobe32(SYSTEMD_PEN);
+        client->duid.en.type = htobe16(DHCP6_DUID_EN);
+        client->duid.en.pen = htobe32(SYSTEMD_PEN);
+        client->duid_len = sizeof(client->duid.en);
 
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
@@ -1169,8 +1173,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 
         /* a bit of snake-oil perhaps, but no need to expose the machine-id
            directly */
-        siphash24(duid->id, &machine_id, sizeof(machine_id), HASH_KEY.bytes);
-        client->duid_len = sizeof (struct duid_en);
+        siphash24(client->duid.en.id, &machine_id, sizeof(machine_id), HASH_KEY.bytes);
 
         client->req_opts_len = ELEMENTSOF(default_req_opts);
 
