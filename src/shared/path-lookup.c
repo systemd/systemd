@@ -61,7 +61,7 @@ int user_config_home(char **config_home) {
         return 0;
 }
 
-int user_runtime(char **user_runtime_path) {
+int user_runtime_dir(char **runtime_dir) {
         const char *e;
         char *r;
 
@@ -71,7 +71,7 @@ int user_runtime(char **user_runtime_path) {
                 if (!r)
                         return -ENOMEM;
 
-                *user_runtime_path = r;
+                *runtime_dir = r;
                 return 1;
         }
 
@@ -101,7 +101,7 @@ static char** user_dirs(
         };
 
         const char *home, *e;
-        _cleanup_free_ char *config_home = NULL, *user_runtime_dir = NULL, *data_home = NULL;
+        _cleanup_free_ char *config_home = NULL, *runtime_dir = NULL, *data_home = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         char **r = NULL;
 
@@ -117,7 +117,7 @@ static char** user_dirs(
         if (user_config_home(&config_home) < 0)
                 goto fail;
 
-        if (user_runtime(&user_runtime_dir) < 0)
+        if (user_runtime_dir(&runtime_dir) < 0)
                 goto fail;
 
         home = getenv("HOME");
@@ -162,8 +162,8 @@ static char** user_dirs(
                 if (strv_extend(&r, config_home) < 0)
                         goto fail;
 
-        if (user_runtime_dir)
-                if (strv_extend(&r, user_runtime_dir) < 0)
+        if (runtime_dir)
+                if (strv_extend(&r, runtime_dir) < 0)
                         goto fail;
 
         if (strv_extend(&r, runtime_unit_path) < 0)

@@ -3083,7 +3083,7 @@ static int unit_drop_in_dir(Unit *u, UnitSetPropertiesMode mode, bool transient,
                 if (mode == UNIT_PERSISTENT && !transient)
                         r = user_config_home(dir);
                 else
-                        r = user_runtime(dir);
+                        r = user_runtime_dir(dir);
 
                 if (r == 0)
                         return -ENOENT;
@@ -3232,7 +3232,7 @@ int unit_make_transient(Unit *u) {
         if (u->manager->running_as == SYSTEMD_USER) {
                 _cleanup_free_ char *c = NULL;
 
-                r = user_runtime(&c);
+                r = user_runtime_dir(&c);
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -109,7 +109,7 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
                         return -EINVAL;
 
                 if (runtime)
-                        r = user_runtime(&p);
+                        r = user_runtime_dir(&p);
                 else
                         r = user_config_home(&p);
 
