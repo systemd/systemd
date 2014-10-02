@@ -221,3 +221,21 @@ int unifont_lookup(unifont *u, unifont_glyph *out, uint32_t ucs4) {
                 memcpy(out, &g, sizeof(g));
         return 0;
 }
+
+void unifont_fallback(unifont_glyph *out) {
+        static const uint8_t fallback_data[] = {
+                /* unifont 0xfffd '�' (unicode replacement character) */
+                0x00, 0x00, 0x00, 0x7e,
+                0x66, 0x5a, 0x5a, 0x7a,
+                0x76, 0x76, 0x7e, 0x76,
+                0x76, 0x7e, 0x00, 0x00,
+        };
+
+        assert(out);
+
+        out->width = 8;
+        out->height = 16;
+        out->stride = 1;
+        out->cwidth = 1;
+        out->data = fallback_data;
+}

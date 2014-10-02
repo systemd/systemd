@@ -54,3 +54,4 @@ unsigned int unifont_get_width(unifont *u);
 unsigned int unifont_get_height(unifont *u);
 unsigned int unifont_get_stride(unifont *u);
 int unifont_lookup(unifont *u, unifont_glyph *out, uint32_t ucs4);
+void unifont_fallback(unifont_glyph *out);
