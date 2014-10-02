@@ -105,7 +105,8 @@ struct grdev_display_target {
         uint32_t height;
         unsigned int rotate;
         unsigned int flip;
-        const grdev_fb *fb;
+        const grdev_fb *front;
+        const grdev_fb *back;
 };
 
 void grdev_display_set_userdata(grdev_display *display, void *userdata);
@@ -119,13 +120,13 @@ bool grdev_display_is_enabled(grdev_display *display);
 void grdev_display_enable(grdev_display *display);
 void grdev_display_disable(grdev_display *display);
 
-const grdev_display_target *grdev_display_next_target(grdev_display *display, const grdev_display_target *prev, uint64_t minage);
+const grdev_display_target *grdev_display_next_target(grdev_display *display, const grdev_display_target *prev);
 void grdev_display_flip_target(grdev_display *display, const grdev_display_target *target, uint64_t age);
 
-#define GRDEV_DISPLAY_FOREACH_TARGET(_display, _t, _minage)                     \
-        for ((_t) = grdev_display_next_target((_display), NULL, (_minage));     \
-             (_t);                                                              \
-             (_t) = grdev_display_next_target((_display), (_t), (_minage)))
+#define GRDEV_DISPLAY_FOREACH_TARGET(_display, _t)                      \
+        for ((_t) = grdev_display_next_target((_display), NULL);        \
+             (_t);                                                      \
+             (_t) = grdev_display_next_target((_display), (_t)))
 
 /*
  * Events

@@ -234,18 +234,18 @@ static void modeset_draw(Modeset *m, const grdev_display_target *t) {
         uint32_t j, k, *b;
         uint8_t *l;
 
-        assert(t->fb->format == DRM_FORMAT_XRGB8888 || t->fb->format == DRM_FORMAT_ARGB8888);
+        assert(t->back->format == DRM_FORMAT_XRGB8888 || t->back->format == DRM_FORMAT_ARGB8888);
         assert(!t->rotate);
         assert(!t->flip);
 
-        l = t->fb->maps[0];
+        l = t->back->maps[0];
         for (j = 0; j < t->height; ++j) {
                 for (k = 0; k < t->width; ++k) {
                         b = (uint32_t*)l;
                         b[k] = (0xff << 24) | (m->r << 16) | (m->g << 8) | m->b;
                 }
 
-                l += t->fb->strides[0];
+                l += t->back->strides[0];
         }
 }
 
@@ -256,7 +256,7 @@ static void modeset_render(Modeset *m, grdev_display *d) {
         m->g = next_color(&m->g_up, m->g, 3);
         m->b = next_color(&m->b_up, m->b, 2);
 
-        GRDEV_DISPLAY_FOREACH_TARGET(d, t, 0) {
+        GRDEV_DISPLAY_FOREACH_TARGET(d, t) {
                 modeset_draw(m, t);
                 grdev_display_flip_target(d, t, 1);
         }

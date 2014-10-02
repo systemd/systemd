@@ -343,7 +343,7 @@ void grdev_display_disable(grdev_display *display) {
         }
 }
 
-const grdev_display_target *grdev_display_next_target(grdev_display *display, const grdev_display_target *prev, uint64_t minage) {
+const grdev_display_target *grdev_display_next_target(grdev_display *display, const grdev_display_target *prev) {
         grdev_display_cache *cache;
         size_t idx;
 
@@ -374,26 +374,19 @@ const grdev_display_target *grdev_display_next_target(grdev_display *display, co
                 if (!pipe->running || !pipe->enabled)
                         continue;
 
-                /* if front-buffer is up-to-date, there's nothing to do */
-                if (minage > 0 && pipe->front && pipe->front->age >= minage)
-                        continue;
-
                 /* find suitable back-buffer */
-                if (!(fb = pipe->back)) {
-                        if (!pipe->vtable->target || !(fb = pipe->vtable->target(pipe)))
+                if (!pipe->back) {
+                        if (!pipe->vtable->target)
+                                continue;
+                        if (!(fb = pipe->vtable->target(pipe)))
                                 continue;
 
                         assert(fb == pipe->back);
                 }
 
-                /* if back-buffer is up-to-date, schedule flip */
-                if (minage > 0 && fb->age >= minage) {
-                        grdev_display_flip_target(display, target, fb->age);
-                        continue;
-                }
+                target->front = pipe->front;
+                target->back = pipe->back;
 
-                /* we have an out-of-date back-buffer; return for redraw */
-                target->fb = fb;
                 return target;
         }
 
@@ -408,7 +401,7 @@ void grdev_display_flip_target(grdev_display *display, const grdev_display_targe
         assert(!display->modified);
         assert(display->enabled);
         assert(target);
-        assert(target->fb);
+        assert(target->back);
 
         cache = container_of(target, grdev_display_cache, target);
 
@@ -416,12 +409,12 @@ void grdev_display_flip_target(grdev_display *display, const grdev_display_targe
         assert(cache->pipe->tile->display == display);
 
         /* reset age of all FB on overflow */
-        if (age < target->fb->age)
+        if (age < target->back->age)
                 for (i = 0; i < cache->pipe->max_fbs; ++i)
                         if (cache->pipe->fbs[i])
                                 cache->pipe->fbs[i]->age = 0;
 
-        ((grdev_fb*)target->fb)->age = age;
+        ((grdev_fb*)target->back)->age = age;
         cache->pipe->flip = true;
 }
 
