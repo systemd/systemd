@@ -39,7 +39,10 @@
 #define SYSTEMD_PEN 43793
 #define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 
-#define MAX_DUID_LEN 32
+/* RFC 3315 section 9.1:
+ *      A DUID can be no more than 128 octets long (not including the type code).
+ */
+#define MAX_DUID_LEN 128
 
 struct sd_dhcp6_client {
         RefCount n_ref;
