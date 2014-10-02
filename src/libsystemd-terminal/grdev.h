@@ -93,9 +93,15 @@ struct grdev_fb {
         uint32_t width;
         uint32_t height;
         uint32_t format;
-        uint64_t age;
         int32_t strides[4];
         void *maps[4];
+
+        union {
+                void *ptr;
+                uint64_t u64;
+        } data;
+
+        void (*free_fn) (void *ptr);
 };
 
 struct grdev_display_target {
@@ -105,8 +111,8 @@ struct grdev_display_target {
         uint32_t height;
         unsigned int rotate;
         unsigned int flip;
-        const grdev_fb *front;
-        const grdev_fb *back;
+        grdev_fb *front;
+        grdev_fb *back;
 };
 
 void grdev_display_set_userdata(grdev_display *display, void *userdata);
@@ -121,7 +127,7 @@ void grdev_display_enable(grdev_display *display);
 void grdev_display_disable(grdev_display *display);
 
 const grdev_display_target *grdev_display_next_target(grdev_display *display, const grdev_display_target *prev);
-void grdev_display_flip_target(grdev_display *display, const grdev_display_target *target, uint64_t age);
+void grdev_display_flip_target(grdev_display *display, const grdev_display_target *target);
 
 #define GRDEV_DISPLAY_FOREACH_TARGET(_display, _t)                      \
         for ((_t) = grdev_display_next_target((_display), NULL);        \

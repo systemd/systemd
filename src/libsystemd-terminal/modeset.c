@@ -258,7 +258,7 @@ static void modeset_render(Modeset *m, grdev_display *d) {
 
         GRDEV_DISPLAY_FOREACH_TARGET(d, t) {
                 modeset_draw(m, t);
-                grdev_display_flip_target(d, t, 1);
+                grdev_display_flip_target(d, t);
         }
 
         grdev_session_commit(m->grdev_session);

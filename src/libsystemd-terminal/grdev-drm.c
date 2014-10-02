@@ -1442,6 +1442,9 @@ grdrm_fb *grdrm_fb_free(grdrm_fb *fb) {
 
         assert(fb->card);
 
+        if (fb->base.free_fn)
+                fb->base.free_fn(fb->base.data.ptr);
+
         if (fb->id > 0 && fb->card->fd >= 0) {
                 r = ioctl(fb->card->fd, DRM_IOCTL_MODE_RMFB, fb->id);
                 if (r < 0)

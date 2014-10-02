@@ -393,28 +393,19 @@ const grdev_display_target *grdev_display_next_target(grdev_display *display, co
         return NULL;
 }
 
-void grdev_display_flip_target(grdev_display *display, const grdev_display_target *target, uint64_t age) {
+void grdev_display_flip_target(grdev_display *display, const grdev_display_target *target) {
         grdev_display_cache *cache;
-        size_t i;
 
         assert(display);
         assert(!display->modified);
         assert(display->enabled);
         assert(target);
-        assert(target->back);
 
         cache = container_of(target, grdev_display_cache, target);
 
         assert(cache->pipe);
         assert(cache->pipe->tile->display == display);
 
-        /* reset age of all FB on overflow */
-        if (age < target->back->age)
-                for (i = 0; i < cache->pipe->max_fbs; ++i)
-                        if (cache->pipe->fbs[i])
-                                cache->pipe->fbs[i]->age = 0;
-
-        ((grdev_fb*)target->back)->age = age;
         cache->pipe->flip = true;
 }
 
