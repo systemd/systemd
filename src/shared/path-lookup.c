@@ -162,18 +162,18 @@ static char** user_dirs(
                 if (strv_extend(&r, config_home) < 0)
                         goto fail;
 
-        if (runtime_dir)
-                if (strv_extend(&r, runtime_dir) < 0)
-                        goto fail;
-
-        if (strv_extend(&r, runtime_unit_path) < 0)
-                goto fail;
-
         if (!strv_isempty(config_dirs))
                 if (strv_extend_strv_concat(&r, config_dirs, "/systemd/user") < 0)
                         goto fail;
 
         if (strv_extend_strv(&r, (char**) config_unit_paths) < 0)
+                goto fail;
+
+        if (runtime_dir)
+                if (strv_extend(&r, runtime_dir) < 0)
+                        goto fail;
+
+        if (strv_extend(&r, runtime_unit_path) < 0)
                 goto fail;
 
         if (generator)

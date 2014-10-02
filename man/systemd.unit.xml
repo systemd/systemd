@@ -73,6 +73,7 @@
                 <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
 <filename>$HOME/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>$XDG_DATA_HOME/systemd/user/*</filename>
 <filename>$HOME/.local/share/systemd/user/*</filename>
@@ -342,6 +343,10 @@
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
                         <entry>Local configuration</entry>
+                      </row>
+                      <row>
+                        <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
+                        <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
                       </row>
                       <row>
                         <entry><filename>/run/systemd/user</filename></entry>
