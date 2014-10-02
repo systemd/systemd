@@ -1362,10 +1362,9 @@ static void grdrm_crtc_flip_complete(grdrm_crtc *crtc, uint32_t counter, struct 
                 fb = fb_from_base(pipe->base.fbs[i]);
                 if (counter != 0 && counter == pipe->counter && fb->flipid == counter) {
                         pipe->base.front = &fb->base;
+                        fb->flipid = 0;
                         flipped = true;
-                }
-
-                if (counter - fb->flipid < UINT16_MAX) {
+                } else if (counter - fb->flipid < UINT16_MAX) {
                         fb->flipid = 0;
                         back = fb;
                 } else if (fb->flipid == 0) {
@@ -1373,7 +1372,7 @@ static void grdrm_crtc_flip_complete(grdrm_crtc *crtc, uint32_t counter, struct 
                 }
         }
 
-        if (!pipe->base.back)
+        if (!pipe->base.back && back)
                 pipe->base.back = &back->base;
 
         if (flipped) {
