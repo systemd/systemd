@@ -117,13 +117,12 @@ static void print_overriden_variables(void) {
         for (j = 0; j < _VARIABLE_LC_MAX; j++)
                 if (variables[j]) {
                         if (print_warning) {
-                                printf("Warning: Settings on Kernel Command Line override system locale settings in /etc/locale.conf\n");
-                                printf("    Command Line: %s=%s\n", locale_variable_to_string(j), variables[j]);
+                                log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
+                                            "  Command Line: %s=%s\n", locale_variable_to_string(j), variables[j]);
 
                                 print_warning = false;
-                                continue;
-                        }
-                        printf("                  %s=%s\n", locale_variable_to_string(j), variables[j]);
+                        } else
+                                log_warning("                %s=%s\n", locale_variable_to_string(j), variables[j]);
                 }
  finish:
         for (j = 0; j < _VARIABLE_LC_MAX; j++)
