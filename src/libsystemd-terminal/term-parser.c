@@ -35,6 +35,122 @@
 #include "term-internal.h"
 #include "util.h"
 
+static const uint8_t default_palette[18][3] = {
+        {   0,   0,   0 }, /* black */
+        { 205,   0,   0 }, /* red */
+        {   0, 205,   0 }, /* green */
+        { 205, 205,   0 }, /* yellow */
+        {   0,   0, 238 }, /* blue */
+        { 205,   0, 205 }, /* magenta */
+        {   0, 205, 205 }, /* cyan */
+        { 229, 229, 229 }, /* light grey */
+        { 127, 127, 127 }, /* dark grey */
+        { 255,   0,   0 }, /* light red */
+        {   0, 255,   0 }, /* light green */
+        { 255, 255,   0 }, /* light yellow */
+        {  92,  92, 255 }, /* light blue */
+        { 255,   0, 255 }, /* light magenta */
+        {   0, 255, 255 }, /* light cyan */
+        { 255, 255, 255 }, /* white */
+
+        { 229, 229, 229 }, /* light grey */
+        {   0,   0,   0 }, /* black */
+};
+
+static uint32_t term_color_to_argb32(const term_color *color, const term_attr *attr, const uint8_t *palette) {
+        static const uint8_t bval[] = {
+                0x00, 0x5f, 0x87,
+                0xaf, 0xd7, 0xff,
+        };
+        uint8_t r, g, b, t;
+
+        assert(color);
+
+        if (!palette)
+                palette = (void*)default_palette;
+
+        switch (color->ccode) {
+        case TERM_CCODE_RGB:
+                r = color->red;
+                g = color->green;
+                b = color->blue;
+
+                break;
+        case TERM_CCODE_256:
+                t = color->c256;
+                if (t < 16) {
+                        r = palette[t * 3 + 0];
+                        g = palette[t * 3 + 1];
+                        b = palette[t * 3 + 2];
+                } else if (t < 232) {
+                        t -= 16;
+                        b = bval[t % 6];
+                        t /= 6;
+                        g = bval[t % 6];
+                        t /= 6;
+                        r = bval[t % 6];
+                } else {
+                        t = (t - 232) * 10 + 8;
+                        r = t;
+                        g = t;
+                        b = t;
+                }
+
+                break;
+        case TERM_CCODE_BLACK ... TERM_CCODE_LIGHT_WHITE:
+                t = color->ccode - TERM_CCODE_BLACK;
+
+                /* bold causes light colors */
+                if (t < 8 && attr->bold)
+                        t += 8;
+
+                r = palette[t * 3 + 0];
+                g = palette[t * 3 + 1];
+                b = palette[t * 3 + 2];
+                break;
+        case TERM_CCODE_DEFAULT:
+                /* fallthrough */
+        default:
+                t = 16 + !(color == &attr->fg);
+                r = palette[t * 3 + 0];
+                g = palette[t * 3 + 1];
+                b = palette[t * 3 + 2];
+                break;
+        }
+
+        return (0xff << 24) | (r << 16) | (g << 8) | b;
+}
+
+/**
+ * term_attr_to_argb32() - Encode terminal colors as native ARGB32 value
+ * @color: Terminal attributes to work on
+ * @fg: Storage for foreground color (or NULL)
+ * @bg: Storage for background color (or NULL)
+ * @palette: The color palette to use (or NULL for default)
+ *
+ * This encodes the colors attr->fg and attr->bg as native-endian ARGB32 values
+ * and returns them. Any color conversions are automatically applied.
+ */
+void term_attr_to_argb32(const term_attr *attr, uint32_t *fg, uint32_t *bg, const uint8_t *palette) {
+        uint32_t f, b, t;
+
+        assert(attr);
+
+        f = term_color_to_argb32(&attr->fg, attr, palette);
+        b = term_color_to_argb32(&attr->bg, attr, palette);
+
+        if (attr->inverse) {
+                t = f;
+                f = b;
+                b = t;
+        }
+
+        if (fg)
+                *fg = f;
+        if (bg)
+                *bg = b;
+}
+
 /**
  * term_utf8_encode() - Encode single UCS-4 character as UTF-8
  * @out_utf8: output buffer of at least 4 bytes or NULL

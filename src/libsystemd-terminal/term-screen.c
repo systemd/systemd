@@ -2944,31 +2944,9 @@ static int screen_SGR(term_screen *screen, const term_seq *seq) {
                                 if (i >= seq->n_args || seq->args[i] < 0)
                                         break;
 
+                                dst->ccode = TERM_CCODE_256;
                                 code = seq->args[i];
-                                if (code < 16) {
-                                        dst->ccode = code;
-                                } else if (code < 232) {
-                                        static const uint8_t bval[] = {
-                                                0x00, 0x5f, 0x87,
-                                                0xaf, 0xd7, 0xff,
-                                        };
-
-                                        dst->ccode = TERM_CCODE_256;
-                                        dst->c256 = code;
-                                        code -= 16;
-                                        dst->blue = bval[code % 6];
-                                        code /= 6;
-                                        dst->green = bval[code % 6];
-                                        code /= 6;
-                                        dst->red = bval[code % 6];
-                                } else if (code < 256) {
-                                        dst->ccode = TERM_CCODE_256;
-                                        dst->c256 = code;
-                                        code = (code - 232) * 10 + 8;
-                                        dst->red = code;
-                                        dst->green = code;
-                                        dst->blue = code;
-                                }
+                                dst->c256 = code < 256 ? code : 0;
 
                                 break;
                         }

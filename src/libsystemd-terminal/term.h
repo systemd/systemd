@@ -97,6 +97,8 @@ struct term_attr {
         unsigned int hidden : 1;                /* hidden */
 };
 
+void term_attr_to_argb32(const term_attr *attr, uint32_t *fg, uint32_t *bg, const uint8_t *palette);
+
 /*
  * UTF-8
  */
