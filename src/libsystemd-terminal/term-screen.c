@@ -419,6 +419,7 @@ static void screen_mode_change(term_screen *screen, unsigned int mode, bool dec,
                          * TODO
                          */
                         set_reset(screen, TERM_FLAG_HIDE_CURSOR, !set);
+                        screen_age_cursor(screen);
                 }
 
                 break;
