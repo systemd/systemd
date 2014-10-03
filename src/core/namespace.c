@@ -341,11 +341,8 @@ fail:
                 unlink(busnode);
         }
 
-        if (root) {
-                umount(root);
-                rmdir(root);
-        }
-
+        umount(root);
+        rmdir(root);
         rmdir(temporary_mount);
 
         return r;
