@@ -491,7 +491,7 @@ static int prompt_root_password(void) {
         for (;;) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
-                r = ask_password_tty(msg1, 0, NULL, &a);
+                r = ask_password_tty(msg1, 0, false, NULL, &a);
                 if (r < 0) {
                         log_error("Failed to query root password: %s", strerror(-r));
                         return r;
@@ -502,7 +502,7 @@ static int prompt_root_password(void) {
                         break;
                 }
 
-                r = ask_password_tty(msg2, 0, NULL, &b);
+                r = ask_password_tty(msg2, 0, false, NULL, &b);
                 if (r < 0) {
                         log_error("Failed to query root password: %s", strerror(-r));
                         clear_string(a);

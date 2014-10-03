@@ -52,6 +52,7 @@ static void backspace_chars(int ttyfd, size_t p) {
 int ask_password_tty(
                 const char *message,
                 usec_t until,
+                bool echo,
                 const char *flag_file,
                 char **_passphrase) {
 
@@ -218,7 +219,7 @@ int ask_password_tty(
                         passphrase[p++] = c;
 
                         if (!silent_mode && ttyfd >= 0)
-                                loop_write(ttyfd, "*", 1, false);
+                                loop_write(ttyfd, echo ? &c : "*", 1, false);
 
                         dirty = true;
                 }
@@ -300,6 +301,7 @@ int ask_password_agent(
                 const char *icon,
                 const char *id,
                 usec_t until,
+                bool echo,
                 bool accept_cached,
                 char ***_passphrases) {
 
@@ -362,10 +364,12 @@ int ask_password_agent(
                 "PID="PID_FMT"\n"
                 "Socket=%s\n"
                 "AcceptCached=%i\n"
+                "Echo=%i\n"
                 "NotAfter="USEC_FMT"\n",
                 getpid(),
                 socket_name,
                 accept_cached ? 1 : 0,
+                echo ? 1 : 0,
                 until);
 
         if (message)
@@ -550,7 +554,7 @@ int ask_password_auto(const char *message, const char *icon, const char *id,
                 int r;
                 char *s = NULL, **l = NULL;
 
-                r = ask_password_tty(message, until, NULL, &s);
+                r = ask_password_tty(message, until, false, NULL, &s);
                 if (r < 0)
                         return r;
 
@@ -561,5 +565,5 @@ int ask_password_auto(const char *message, const char *icon, const char *id,
                 *_passphrases = l;
                 return r;
         } else
-                return ask_password_agent(message, icon, id, until, accept_cached, _passphrases);
+                return ask_password_agent(message, icon, id, until, false, accept_cached, _passphrases);
 }

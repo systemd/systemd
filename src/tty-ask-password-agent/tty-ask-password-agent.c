@@ -214,7 +214,7 @@ static int parse_password(const char *filename, char **wall) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL, *packet = NULL;
         uint64_t not_after = 0;
         unsigned pid = 0;
-        bool accept_cached = false;
+        bool accept_cached = false, echo = false;
 
         const ConfigTableItem items[] = {
                 { "Ask", "Socket",       config_parse_string,   0, &socket_name   },
@@ -222,6 +222,7 @@ static int parse_password(const char *filename, char **wall) {
                 { "Ask", "Message",      config_parse_string,   0, &message       },
                 { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
                 { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
+                { "Ask", "Echo",         config_parse_bool,     0, &echo          },
                 {}
         };
 
@@ -314,7 +315,7 @@ static int parse_password(const char *filename, char **wall) {
                                         return tty_fd;
                         }
 
-                        r = ask_password_tty(message, not_after, filename, &password);
+                        r = ask_password_tty(message, not_after, echo, filename, &password);
 
                         if (arg_console) {
                                 safe_close(tty_fd);
