@@ -110,6 +110,28 @@ struct idev_data_keyboard {
         uint32_t *codepoints;
 };
 
+static inline bool idev_kbdmatch(idev_data_keyboard *kdata,
+                                 uint32_t mods, uint32_t n_syms,
+                                 const uint32_t *syms) {
+        const uint32_t significant = IDEV_KBDMOD_SHIFT |
+                                     IDEV_KBDMOD_CTRL |
+                                     IDEV_KBDMOD_ALT |
+                                     IDEV_KBDMOD_LINUX;
+        uint32_t real;
+
+        if (n_syms != kdata->n_syms)
+                return false;
+
+        real = kdata->mods & ~kdata->consumed_mods & significant;
+        if (real != (mods & ~kdata->consumed_mods))
+                return false;
+
+        return !memcmp(syms, kdata->keysyms, n_syms * sizeof(*syms));
+}
+
+#define IDEV_KBDMATCH(_kdata, _mods, _sym) \
+        idev_kbdmatch((_kdata), (_mods), 1, (const uint32_t[]){ (_sym) })
+
 /*
  * Data Packets
  */
