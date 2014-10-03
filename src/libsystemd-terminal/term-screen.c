@@ -4246,6 +4246,8 @@ int term_screen_draw(term_screen *screen,
                 line_age = MAX(line->age, page->age);
 
                 for (i = 0; i < page->width; ++i) {
+                        term_attr attr;
+
                         cell = &line->cells[i];
                         cell_age = MAX(cell->age, line_age);
 
@@ -4259,11 +4261,16 @@ int term_screen_draw(term_screen *screen,
                          * renderers can assume ch_width is set properpy. */
                         cw = MAX(cell->cwidth, 1U);
 
+                        attr = cell->attr;
+                        if (i == screen->cursor_x && j == screen->cursor_y &&
+                            !(screen->flags & TERM_FLAG_HIDE_CURSOR))
+                                attr.inverse ^= 1;
+
                         r = draw_fn(screen,
                                     userdata,
                                     i,
                                     j,
-                                    &cell->attr,
+                                    &attr,
                                     ch_str,
                                     ch_n,
                                     cw);

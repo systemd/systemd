@@ -286,6 +286,8 @@ static Output *output_free(Output *o) {
         if (!o)
                 return NULL;
 
+        /* re-enable cursor */
+        output_printf(o, "\e[?25h");
         /* disable alternate screen buffer */
         output_printf(o, "\e[?1049l");
         output_flush(o);
@@ -314,6 +316,11 @@ static int output_new(Output **out, int fd) {
 
         /* enable alternate screen buffer */
         r = output_printf(o, "\e[?1049h");
+        if (r < 0)
+                goto error;
+
+        /* always hide cursor */
+        r = output_printf(o, "\e[?25l");
         if (r < 0)
                 goto error;
 
@@ -538,10 +545,6 @@ static void output_draw(Output *o, bool menu, term_screen *screen) {
                 output_draw_menu(o);
         else
                 output_draw_screen(o, screen);
-
-        /* show cursor */
-        if (!(screen->flags & TERM_FLAG_HIDE_CURSOR))
-                output_printf(o, "\e[?25h");
 
         /*
          * Hack: sd-term was not written to support TTY as output-objects, thus
