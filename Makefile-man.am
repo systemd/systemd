@@ -733,6 +733,7 @@ MANPAGES += \
 	man/sd_event_add_defer.3 \
 	man/sd_event_add_signal.3 \
 	man/sd_event_add_time.3 \
+	man/sd_event_get_fd.3 \
 	man/sd_event_new.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
@@ -1574,6 +1575,7 @@ EXTRA_DIST += \
 	man/sd_event_add_defer.xml \
 	man/sd_event_add_signal.xml \
 	man/sd_event_add_time.xml \
+	man/sd_event_get_fd.xml \
 	man/sd_event_new.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \

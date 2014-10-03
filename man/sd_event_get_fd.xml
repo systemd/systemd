@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2014 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_event_get_fd" conditional="ENABLE_KDBUS"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_get_fd</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>More text</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_get_fd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_get_fd</refname>
+
+    <refpurpose>Obtain a file descriptor to poll for event loop events</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_get_fd</function></funcdef>
+        <paramdef>sd_bus *<parameter>event</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_get_fd()</function> returns the file
+    descriptor that the event loop object returned by the
+    <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    function uses to wait for events. This file descriptor can be
+    polled for events. This makes it possible to embed the
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    event loop inside of another event loop.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_event_get_fd()</function> returns a
+    non-negative integer. On failure, it returns a negative
+    errno-style error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para><parameter>event</parameter> is not a valid
+        pointer to an <structname>sd_event</structname> structure.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The event loop has been created in a different process.</para></listitem>
+
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Integration in glib event loop</title>
+
+      <programlisting><xi:include href="glib-event-glue.c" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para><function>sd_event_get_fd()</function> is available as a
+    shared library, which can be compiled and linked to with the
+    <constant>libsystemd</constant> <citerefentry
+    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
