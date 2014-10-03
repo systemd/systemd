@@ -1,5 +1,3 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
 /***
   Copyright 2014 Tom Gundersen
 
@@ -27,8 +25,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
-
-#include "glib-event-glue.h"
 
 typedef struct SDEventSource {
         GSource source;
