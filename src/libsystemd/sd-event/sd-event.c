@@ -1973,19 +1973,21 @@ static int process_signal(sd_event *e, uint32_t events) {
 
         for (;;) {
                 struct signalfd_siginfo si;
-                ssize_t ss;
+                ssize_t n;
                 sd_event_source *s = NULL;
 
-                ss = read(e->signal_fd, &si, sizeof(si));
-                if (ss < 0) {
+                n = read(e->signal_fd, &si, sizeof(si));
+                if (n < 0) {
                         if (errno == EAGAIN || errno == EINTR)
                                 return read_one;
 
                         return -errno;
                 }
 
-                if (_unlikely_(ss != sizeof(si)))
+                if (_unlikely_(n != sizeof(si)))
                         return -EIO;
+
+                assert(si.ssi_signo < _NSIG);
 
                 read_one = true;
 
