@@ -152,7 +152,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-char *format_timestamp(char *buf, size_t l, usec_t t) {
+char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
@@ -164,13 +164,21 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
 
         sec = (time_t) (t / USEC_PER_SEC);
 
-        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) <= 0)
+        if (utc)
+                gmtime_r(&sec, &tm);
+        else
+                localtime_r(&sec, &tm);
+        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", &tm) <= 0)
                 return NULL;
 
         return buf;
 }
 
-char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+char *format_timestamp(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal(buf, l, t, false);
+}
+
+char *format_timestamp_us(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
@@ -181,7 +189,10 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
-        localtime_r(&sec, &tm);
+        if (utc)
+                gmtime_r(&sec, &tm);
+        else
+                localtime_r(&sec, &tm);
 
         if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S", &tm) <= 0)
                 return NULL;

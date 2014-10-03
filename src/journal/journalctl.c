@@ -890,8 +890,8 @@ static int list_boots(sd_journal *j) {
                 printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
                        w, i - count + 1,
                        SD_ID128_FORMAT_VAL(id->id),
-                       format_timestamp(a, sizeof(a), id->first),
-                       format_timestamp(b, sizeof(b), id->last));
+                       format_timestamp_internal(a, sizeof(a), id->first, arg_utc),
+                       format_timestamp_internal(b, sizeof(b), id->last, arg_utc));
         }
 
         return 0;
@@ -1502,8 +1502,8 @@ static int verify(sd_journal *j) {
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
                                 if (validated > 0) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
-                                                 format_timestamp(a, sizeof(a), first),
-                                                 format_timestamp(b, sizeof(b), validated),
+                                                 format_timestamp_internal(a, sizeof(a), first, arg_utc),
+                                                 format_timestamp_internal(b, sizeof(b), validated, arg_utc),
                                                  format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
@@ -1898,11 +1898,11 @@ int main(int argc, char *argv[]) {
                 if (r > 0) {
                         if (arg_follow)
                                 printf("-- Logs begin at %s. --\n",
-                                       format_timestamp(start_buf, sizeof(start_buf), start));
+                                       format_timestamp_internal(start_buf, sizeof(start_buf), start, arg_utc));
                         else
                                 printf("-- Logs begin at %s, end at %s. --\n",
-                                       format_timestamp(start_buf, sizeof(start_buf), start),
-                                       format_timestamp(end_buf, sizeof(end_buf), end));
+                                       format_timestamp_internal(start_buf, sizeof(start_buf), start, arg_utc),
+                                       format_timestamp_internal(end_buf, sizeof(end_buf), end, arg_utc));
                 }
         }
 
