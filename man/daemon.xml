@@ -85,13 +85,14 @@
                                 with a fallback of iterating from file
                                 descriptor 3 to the value returned by
                                 <function>getrlimit()</function> for
-                                RLIMIT_NOFILE.</para></listitem>
+                                <constant>RLIMIT_NOFILE</constant>.
+                                </para></listitem>
 
                                 <listitem><para>Reset all signal
                                 handlers to their default. This is
                                 best done by iterating through the
                                 available signals up to the limit of
-                                _NSIG and resetting them to
+                                <constant>_NSIG</constant> and resetting them to
                                 <constant>SIG_DFL</constant>.</para></listitem>
 
                                 <listitem><para>Reset the signal mask
@@ -330,7 +331,7 @@
                                 init system. If log priorities are
                                 necessary, these can be encoded by
                                 prefixing individual log lines with
-                                strings like "&lt;4&gt;" (for log
+                                strings like <literal>&lt;4&gt;</literal> (for log
                                 priority 4 "WARNING" in the syslog
                                 priority scheme), following a similar
                                 style as the Linux kernel's
@@ -610,7 +611,7 @@
                         on a network interface, because network
                         sockets shall be bound to the
                         address. However, an alternative to implement
-                        this is by utilizing the Linux IP_FREEBIND
+                        this is by utilizing the Linux <constant>IP_FREEBIND</constant>
                         socket option, as accessible via
                         <varname>FreeBind=yes</varname> in systemd
                         socket files (see
