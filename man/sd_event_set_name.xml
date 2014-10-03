@@ -21,7 +21,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_event_get_fd" conditional="ENABLE_KDBUS"
+<refentry id="sd_event_set_name" conditional="ENABLE_KDBUS"
         xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
