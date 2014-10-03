@@ -67,7 +67,7 @@
 #include "ring.h"
 #include "util.h"
 
-#define PTY_BUFSIZE 16384
+#define PTY_BUFSIZE 4096
 
 enum {
         PTY_ROLE_UNKNOWN,
@@ -305,11 +305,11 @@ static int pty_dispatch_read(Pty *pty) {
         /*
          * We're edge-triggered, means we need to read the whole queue. This,
          * however, might cause us to stall if the writer is faster than we
-         * are. Therefore, we read twice and if the second read still returned
-         * data, we reschedule.
+         * are. Therefore, try reading as much as 8 times (32KiB) and only
+         * bail out then.
          */
 
-        for (i = 0; i < 2; ++i) {
+        for (i = 0; i < 8; ++i) {
                 len = read(pty->fd, pty->in_buf, sizeof(pty->in_buf) - 1);
                 if (len < 0) {
                         if (errno == EINTR)
