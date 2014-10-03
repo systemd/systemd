@@ -3020,6 +3020,9 @@ if ENABLE_TERMINAL
 noinst_LTLIBRARIES += \
 	libsystemd-terminal.la
 
+bin_PROGRAMS += \
+	systemd-consoled
+
 noinst_PROGRAMS += \
 	systemd-evcat \
 	systemd-modeset \
@@ -3064,6 +3067,25 @@ libsystemd_terminal_la_SOURCES = \
 
 libsystemd_terminal_la_LIBADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	$(TERMINAL_LIBS)
+
+systemd_consoled_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(TERMINAL_CFLAGS)
+
+systemd_consoled_SOURCES = \
+	src/console/consoled.h \
+	src/console/consoled.c \
+	src/console/consoled-display.c \
+	src/console/consoled-manager.c \
+	src/console/consoled-session.c \
+	src/console/consoled-terminal.c \
+	src/console/consoled-workspace.c
+
+systemd_consoled_LDADD = \
+	libsystemd-terminal.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(TERMINAL_LIBS)

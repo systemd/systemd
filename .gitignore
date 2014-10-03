@@ -60,6 +60,7 @@
 /systemd-cgls
 /systemd-cgroups-agent
 /systemd-cgtop
+/systemd-consoled
 /systemd-coredump
 /systemd-cryptsetup
 /systemd-cryptsetup-generator
