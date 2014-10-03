@@ -332,6 +332,18 @@ fail:
         return r;
 }
 
+static void unset_memfds(struct sd_bus_message *m) {
+        struct bus_body_part *part;
+        unsigned i;
+
+        assert(m);
+
+        /* Make sure the memfds are not freed twice */
+        MESSAGE_FOREACH_PART(part, i, m)
+                if (part->memfd >= 0)
+                        part->memfd = -1;
+}
+
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
@@ -627,17 +639,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         return 1;
 
 fail:
-        if (m) {
-                struct bus_body_part *part;
-                unsigned i;
-
-                /* Make sure the memfds are not freed twice */
-                MESSAGE_FOREACH_PART(part, i, m)
-                        if (part->memfd >= 0)
-                                part->memfd = -1;
-
-                sd_bus_message_unref(m);
-        }
+        unset_memfds(m);
+        sd_bus_message_unref(m);
 
         return r;
 }
