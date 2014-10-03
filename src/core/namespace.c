@@ -263,11 +263,8 @@ fail:
         if (devmqueue)
                 umount(devmqueue);
 
-        if (dev) {
-                umount(dev);
-                rmdir(dev);
-        }
-
+        umount(dev);
+        rmdir(dev);
         rmdir(temporary_mount);
 
         return r;
