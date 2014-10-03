@@ -64,6 +64,10 @@ static void sleep_for(usec_t usecs) {
                 pid_t pid1, pid2;                                       \
                                                                         \
                 assert_se(barrier_create(&b) >= 0);                     \
+                assert_se(b.me > 0);                                    \
+                assert_se(b.them > 0);                                  \
+                assert_se(b.pipe[0] > 0);                               \
+                assert_se(b.pipe[1] > 0);                               \
                                                                         \
                 pid1 = fork();                                          \
                 assert_se(pid1 >= 0);                                   \
