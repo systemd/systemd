@@ -3735,6 +3735,12 @@ unsigned int term_screen_get_height(term_screen *screen) {
         return screen->page->height;
 }
 
+uint64_t term_screen_get_age(term_screen *screen) {
+        assert_return(screen, 0);
+
+        return screen->age;
+}
+
 int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
         uint32_t *ucs4_str;
         size_t i, j, ucs4_len;
@@ -3742,6 +3748,8 @@ int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
         int r;
 
         assert_return(screen, -EINVAL);
+
+        ++screen->age;
 
         /* Feed bytes into utf8 decoder and handle parsed ucs4 chars. We always
          * treat data as UTF-8, but the parser makes sure to fall back to raw
@@ -4258,7 +4266,7 @@ int term_screen_draw(term_screen *screen,
         }
 
         if (fb_age)
-                *fb_age = screen->age++;
+                *fb_age = screen->age;
 
         return 0;
 }

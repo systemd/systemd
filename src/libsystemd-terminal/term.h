@@ -156,6 +156,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(term_screen*, term_screen_unref);
 
 unsigned int term_screen_get_width(term_screen *screen);
 unsigned int term_screen_get_height(term_screen *screen);
+uint64_t term_screen_get_age(term_screen *screen);
 
 int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size);
 int term_screen_feed_keyboard(term_screen *screen,
