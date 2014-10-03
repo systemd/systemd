@@ -575,7 +575,7 @@ static int8_t guess_ascii(struct xkb_state *state, uint32_t code, uint32_t n_sym
         const xkb_keysym_t *s;
         int num;
 
-        if (n_syms == 1 && syms[0] < 128)
+        if (n_syms == 1 && syms[0] < 128 && syms[0] > 0)
                 return syms[0];
 
         keymap = xkb_state_get_keymap(state);
@@ -584,7 +584,7 @@ static int8_t guess_ascii(struct xkb_state *state, uint32_t code, uint32_t n_sym
         for (lo = 0; lo < n_lo; ++lo) {
                 lv = xkb_state_key_get_level(state, code + KBDXKB_SHIFT, lo);
                 num = xkb_keymap_key_get_syms_by_level(keymap, code + KBDXKB_SHIFT, lo, lv, &s);
-                if (num == 1 && s[0] < 128)
+                if (num == 1 && s[0] < 128 && s[0] > 0)
                         return s[0];
         }
 
