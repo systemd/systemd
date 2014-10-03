@@ -47,6 +47,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 #include "macro.h"
 #include "term-internal.h"
 #include "util.h"
@@ -3784,12 +3785,329 @@ int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size) {
         return 0;
 }
 
-int term_screen_feed_keyboard(term_screen *screen, uint32_t keysym, uint32_t ascii, uint32_t ucs4, unsigned int mods) {
+static char *screen_map_key(term_screen *screen,
+                            char *p,
+                            const uint32_t *keysyms,
+                            size_t n_syms,
+                            uint32_t ascii,
+                            const uint32_t *ucs4,
+                            unsigned int mods) {
+        char ch, ch2, ch_mods;
+        uint32_t v;
+        size_t i;
+
+        /* TODO: All these key-mappings need to be verified. Public information
+         * on those mappings is pretty scarce and every emulator seems to do it
+         * slightly differently.
+         * A lot of mappings are also missing. */
+
+        if (n_syms < 1)
+                return p;
+
+        if (n_syms == 1)
+                v = keysyms[0];
+        else
+                v = XKB_KEY_NoSymbol;
+
+        /* In some mappings, the modifiers are encoded as CSI parameters. The
+         * encoding is rather arbitrary, but seems to work. */
+        ch_mods = 0;
+        switch (mods & (TERM_KBDMOD_SHIFT | TERM_KBDMOD_ALT | TERM_KBDMOD_CTRL)) {
+        case TERM_KBDMOD_SHIFT:
+                ch_mods = '2';
+                break;
+        case TERM_KBDMOD_ALT:
+                ch_mods = '3';
+                break;
+        case TERM_KBDMOD_SHIFT | TERM_KBDMOD_ALT:
+                ch_mods = '4';
+                break;
+        case TERM_KBDMOD_CTRL:
+                ch_mods = '5';
+                break;
+        case TERM_KBDMOD_CTRL | TERM_KBDMOD_SHIFT:
+                ch_mods = '6';
+                break;
+        case TERM_KBDMOD_CTRL | TERM_KBDMOD_ALT:
+                ch_mods = '7';
+                break;
+        case TERM_KBDMOD_CTRL | TERM_KBDMOD_SHIFT | TERM_KBDMOD_ALT:
+                ch_mods = '8';
+                break;
+        }
+
+        /* A user might actually use multiple layouts for keyboard
+         * input. @keysyms[0] contains the actual keysym that the user
+         * used. But if this keysym is not in the ascii range, the
+         * input handler does check all other layouts that the user
+         * specified whether one of them maps the key to some ASCII
+         * keysym and provides this via @ascii. We always use the real
+         * keysym except when handling CTRL+<XY> shortcuts we use the
+         * ascii keysym. This is for compatibility to xterm et. al. so
+         * ctrl+c always works regardless of the currently active
+         * keyboard layout. But if no ascii-sym is found, we still use
+         * the real keysym. */
+        if (ascii == XKB_KEY_NoSymbol)
+                ascii = v;
+
+        /* map CTRL+<ascii> */
+        if (mods & TERM_KBDMOD_CTRL) {
+                switch (ascii) {
+                case 0x60 ... 0x7e:
+                        /* Right hand side is mapped to the left and then
+                         * treated equally. Fall through to left-hand side.. */
+                        ascii -= 0x20;
+                case 0x20 ... 0x5f:
+                        /* Printable ASCII is mapped 1-1 in XKB and in
+                         * combination with CTRL bit 7 is flipped. This
+                         * is equivalent to the caret-notation. */
+                        *p++ = ascii ^ 0x40;
+                        return p;
+                }
+        }
+
+        /* map cursor keys */
+        ch = 0;
+        switch (v) {
+        case XKB_KEY_Up:
+                ch = 'A';
+                break;
+        case XKB_KEY_Down:
+                ch = 'B';
+                break;
+        case XKB_KEY_Right:
+                ch = 'C';
+                break;
+        case XKB_KEY_Left:
+                ch = 'D';
+                break;
+        case XKB_KEY_Home:
+                ch = 'H';
+                break;
+        case XKB_KEY_End:
+                ch = 'F';
+                break;
+        }
+        if (ch) {
+                *p++ = 0x1b;
+                if (screen->flags & TERM_FLAG_CURSOR_KEYS)
+                        *p++ = 'O';
+                else
+                        *p++ = '[';
+                if (ch_mods) {
+                        *p++ = '1';
+                        *p++ = ';';
+                        *p++ = ch_mods;
+                }
+                *p++ = ch;
+                return p;
+        }
+
+        /* map action keys */
+        ch = 0;
+        switch (v) {
+        case XKB_KEY_Find:
+                ch = '1';
+                break;
+        case XKB_KEY_Insert:
+                ch = '2';
+                break;
+        case XKB_KEY_Delete:
+                ch = '3';
+                break;
+        case XKB_KEY_Select:
+                ch = '4';
+                break;
+        case XKB_KEY_Page_Up:
+                ch = '5';
+                break;
+        case XKB_KEY_Page_Down:
+                ch = '6';
+                break;
+        }
+        if (ch) {
+                *p++ = 0x1b;
+                *p++ = '[';
+                *p++ = ch;
+                if (ch_mods) {
+                        *p++ = ';';
+                        *p++ = ch_mods;
+                }
+                *p++ = '~';
+                return p;
+        }
+
+        /* map lower function keys */
+        ch = 0;
+        switch (v) {
+        case XKB_KEY_F1:
+                ch = 'P';
+                break;
+        case XKB_KEY_F2:
+                ch = 'Q';
+                break;
+        case XKB_KEY_F3:
+                ch = 'R';
+                break;
+        case XKB_KEY_F4:
+                ch = 'S';
+                break;
+        }
+        if (ch) {
+                if (ch_mods) {
+                        *p++ = 0x1b;
+                        *p++ = '[';
+                        *p++ = '1';
+                        *p++ = ';';
+                        *p++ = ch_mods;
+                        *p++ = ch;
+                } else {
+                        *p++ = 0x1b;
+                        *p++ = 'O';
+                        *p++ = ch;
+                }
+
+                return p;
+        }
+
+        /* map upper function keys */
+        ch = 0;
+        ch2 = 0;
+        switch (v) {
+        case XKB_KEY_F5:
+                ch = '1';
+                ch2 = '5';
+                break;
+        case XKB_KEY_F6:
+                ch = '1';
+                ch2 = '7';
+                break;
+        case XKB_KEY_F7:
+                ch = '1';
+                ch2 = '8';
+                break;
+        case XKB_KEY_F8:
+                ch = '1';
+                ch2 = '9';
+                break;
+        case XKB_KEY_F9:
+                ch = '2';
+                ch2 = '0';
+                break;
+        case XKB_KEY_F10:
+                ch = '2';
+                ch2 = '1';
+                break;
+        case XKB_KEY_F11:
+                ch = '2';
+                ch2 = '2';
+                break;
+        case XKB_KEY_F12:
+                ch = '2';
+                ch2 = '3';
+                break;
+        }
+        if (ch) {
+                *p++ = 0x1b;
+                *p++ = '[';
+                *p++ = ch;
+                if (ch2)
+                        *p++ = ch2;
+                if (ch_mods) {
+                        *p++ = ';';
+                        *p++ = ch_mods;
+                }
+                *p++ = '~';
+                return p;
+        }
+
+        /* map special keys */
+        switch (v) {
+        case 0xff08: /* XKB_KEY_BackSpace */
+        case 0xff09: /* XKB_KEY_Tab */
+        case 0xff0a: /* XKB_KEY_Linefeed */
+        case 0xff0b: /* XKB_KEY_Clear */
+        case 0xff15: /* XKB_KEY_Sys_Req */
+        case 0xff1b: /* XKB_KEY_Escape */
+        case 0xffff: /* XKB_KEY_Delete */
+                *p++ = v - 0xff00;
+                return p;
+        case 0xff13: /* XKB_KEY_Pause */
+                /* TODO: What should we do with this key?
+                 * Sending XOFF is awful as there is no simple
+                 * way on modern keyboards to send XON again.
+                 * If someone wants this, we can re-eanble
+                 * optionally. */
+                return p;
+        case 0xff14: /* XKB_KEY_Scroll_Lock */
+                /* TODO: What should we do on scroll-lock?
+                 * Sending 0x14 is what the specs say but it is
+                 * not used today the way most users would
+                 * expect so we disable it. If someone wants
+                 * this, we can re-enable it (optionally). */
+                return p;
+        case XKB_KEY_Return:
+                *p++ = 0x0d;
+                if (screen->flags & TERM_FLAG_NEWLINE_MODE)
+                        *p++ = 0x0a;
+                return p;
+        case XKB_KEY_ISO_Left_Tab:
+                *p++ = 0x09;
+                return p;
+        }
+
+        /* map unicode keys */
+        for (i = 0; i < n_syms; ++i)
+                p += term_utf8_encode(p, ucs4[i]);
+
+        return p;
+}
+
+int term_screen_feed_keyboard(term_screen *screen,
+                              const uint32_t *keysyms,
+                              size_t n_syms,
+                              uint32_t ascii,
+                              const uint32_t *ucs4,
+                              unsigned int mods) {
+        _cleanup_free_ char *dyn = NULL;
+        static const size_t padding = 1;
+        char buf[128], *start, *p = buf;
+
         assert_return(screen, -EINVAL);
 
-        /* TODO */
+        /* allocate buffer if too small */
+        start = buf;
+        if (4 * n_syms + padding > sizeof(buf)) {
+                dyn = malloc(4 * n_syms + padding);
+                if (!dyn)
+                        return -ENOMEM;
 
-        return 0;
+                start = dyn;
+        }
+
+        /* reserve prefix space */
+        start += padding;
+        p = start;
+
+        p = screen_map_key(screen, p, keysyms, n_syms, ascii, ucs4, mods);
+        if (!p || p - start < 1)
+                return 0;
+
+        /* The ALT modifier causes ESC to be prepended to any key-stroke. We
+         * already accounted for that buffer space above, so simply prepend it
+         * here.
+         * TODO: is altSendsEscape a suitable default? What are the semantics
+         * exactly? Is it used in C0/C1 conversion? Is it prepended if there
+         * already is an escape character? */
+        if (mods & TERM_KBDMOD_ALT && *start != 0x1b)
+                *--start = 0x1b;
+
+        /* turn C0 into C1 */
+        if (!(screen->flags & TERM_FLAG_7BIT_MODE) && p - start >= 2)
+                if (start[0] == 0x1b && start[1] >= 0x40 && start[1] <= 0x5f)
+                        *++start ^= 0x40;
+
+        return screen_write(screen, start, p - start);
 }
 
 int term_screen_resize(term_screen *screen, unsigned int x, unsigned int y) {

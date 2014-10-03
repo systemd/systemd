@@ -128,6 +128,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(term_parser*, term_parser_free);
  * Screens
  */
 
+enum {
+        TERM_KBDMOD_IDX_SHIFT,
+        TERM_KBDMOD_IDX_CTRL,
+        TERM_KBDMOD_IDX_ALT,
+        TERM_KBDMOD_IDX_LINUX,
+        TERM_KBDMOD_IDX_CAPS,
+        TERM_KBDMOD_CNT,
+
+        TERM_KBDMOD_SHIFT               = 1 << TERM_KBDMOD_IDX_SHIFT,
+        TERM_KBDMOD_CTRL                = 1 << TERM_KBDMOD_IDX_CTRL,
+        TERM_KBDMOD_ALT                 = 1 << TERM_KBDMOD_IDX_ALT,
+        TERM_KBDMOD_LINUX               = 1 << TERM_KBDMOD_IDX_LINUX,
+        TERM_KBDMOD_CAPS                = 1 << TERM_KBDMOD_IDX_CAPS,
+};
+
 typedef int (*term_screen_write_fn) (term_screen *screen, void *userdata, const void *buf, size_t size);
 typedef int (*term_screen_cmd_fn) (term_screen *screen, void *userdata, unsigned int cmd, const term_seq *seq);
 
@@ -141,7 +156,12 @@ unsigned int term_screen_get_width(term_screen *screen);
 unsigned int term_screen_get_height(term_screen *screen);
 
 int term_screen_feed_text(term_screen *screen, const uint8_t *in, size_t size);
-int term_screen_feed_keyboard(term_screen *screen, uint32_t keysym, uint32_t ascii, uint32_t ucs4, unsigned int mods);
+int term_screen_feed_keyboard(term_screen *screen,
+                              const uint32_t *keysyms,
+                              size_t n_syms,
+                              uint32_t ascii,
+                              const uint32_t *ucs4,
+                              unsigned int mods);
 int term_screen_resize(term_screen *screen, unsigned int width, unsigned int height);
 void term_screen_soft_reset(term_screen *screen);
 void term_screen_hard_reset(term_screen *screen);
