@@ -3024,7 +3024,7 @@ if ENABLE_TERMINAL
 noinst_LTLIBRARIES += \
 	libsystemd-terminal.la
 
-bin_PROGRAMS += \
+rootlibexec_PROGRAMS += \
 	systemd-consoled
 
 noinst_PROGRAMS += \
