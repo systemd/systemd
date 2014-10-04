@@ -511,16 +511,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (streq(key, "root") && value) {
 
-                free(arg_root_what);
-                arg_root_what = strdup(value);
-                if (!arg_root_what)
+                if (free_and_strdup(&arg_root_what, value) < 0)
                         return log_oom();
 
         } else if (streq(key, "rootfstype") && value) {
 
-                free(arg_root_fstype);
-                arg_root_fstype = strdup(value);
-                if (!arg_root_fstype)
+                if (free_and_strdup(&arg_root_fstype, value) < 0)
                         return log_oom();
 
         } else if (streq(key, "rootflags") && value) {
