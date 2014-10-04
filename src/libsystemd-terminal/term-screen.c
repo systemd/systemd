@@ -1259,8 +1259,8 @@ static int screen_DECRC(term_screen *screen, const term_seq *seq) {
         screen->gr = screen->saved.gr;
         screen->glt = screen->saved.glt;
         screen->grt = screen->saved.grt;
-        set_reset(screen, TERM_FLAG_AUTO_WRAP, screen->flags & TERM_FLAG_AUTO_WRAP);
-        set_reset(screen, TERM_FLAG_ORIGIN_MODE, screen->flags & TERM_FLAG_ORIGIN_MODE);
+        set_reset(screen, TERM_FLAG_AUTO_WRAP, screen->saved.flags & TERM_FLAG_AUTO_WRAP);
+        set_reset(screen, TERM_FLAG_ORIGIN_MODE, screen->saved.flags & TERM_FLAG_ORIGIN_MODE);
         screen_cursor_set(screen, screen->saved.cursor_x, screen->saved.cursor_y);
 
         return 0;
