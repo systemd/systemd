@@ -183,11 +183,14 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         for (j = 0, p = buf; j < 16; j++) {
                 int a, b;
 
-                if (p >= buf + k)
+                if (p >= buf + k - 1)
                         return -EIO;
 
-                if (*p == '-')
+                if (*p == '-') {
                         p++;
+                        if (p >= buf + k - 1)
+                                return -EIO;
+                }
 
                 a = unhexchar(p[0]);
                 b = unhexchar(p[1]);
