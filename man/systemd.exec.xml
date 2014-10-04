@@ -776,20 +776,22 @@
                         <varlistentry>
                                 <term><varname>SecureBits=</varname></term>
                                 <listitem><para>Controls the secure
-                                bits set for the executed process. See
-                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details. Takes a list of strings:
+                                bits set for the executed process.
+                                Takes a space-separated combination of
+                                options from the following list:
                                 <option>keep-caps</option>,
                                 <option>keep-caps-locked</option>,
                                 <option>no-setuid-fixup</option>,
                                 <option>no-setuid-fixup-locked</option>,
-                                <option>noroot</option> and/or
+                                <option>noroot</option>, and
                                 <option>noroot-locked</option>. This
                                 option may appear more than once in
-                                which case the secure bits are
-                                ORed. If the empty string is assigned
-                                to this option, the bits are reset to
-                                0.</para></listitem>
+                                which case the secure bits are ORed.
+                                If the empty string is assigned to
+                                this option, the bits are reset to 0.
+                                See <citerefentry
+                                project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -806,7 +808,7 @@
                                 attached to the executed file. Due to
                                 that
                                 <varname>CapabilityBoundingSet=</varname>
-                                is probably the much more useful
+                                is probably a much more useful
                                 setting.</para></listitem>
                         </varlistentry>
 
