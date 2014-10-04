@@ -2477,13 +2477,16 @@ nodist_systemunit_DATA += \
 dist_systemunit_DATA += \
 	units/systemd-bus-proxyd.socket
 
-dist_userunit_DATA += \
-	units/user/systemd-bus-proxyd.socket \
+nodist_userunit_DATA += \
 	units/user/systemd-bus-proxyd@.service
+
+dist_userunit_DATA += \
+	units/user/systemd-bus-proxyd.socket
 endif
 
 EXTRA_DIST += \
-	units/systemd-bus-proxyd@.service.in
+	units/systemd-bus-proxyd@.service.in \
+	units/user/systemd-bus-proxyd@.service.in
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
