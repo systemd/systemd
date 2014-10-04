@@ -712,7 +712,8 @@ man/systemd.directives.xml: $(top_srcdir)/tools/make-directive-index.py $(SOURCE
 EXTRA_DIST += \
 	man/systemd.index.xml \
 	man/index.html \
-	man/systemd.directives.xml
+	man/systemd.directives.xml \
+	man/glib-event-glue.c
 
 CLEANFILES += \
 	man/systemd.index.xml \
