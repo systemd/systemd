@@ -35,7 +35,7 @@ static void test_set_steal_first(void) {
         while ((val = set_steal_first(m)))
                 seen[strlen(val) - 1]++;
 
-        assert(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
+        assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
         assert_se(set_isempty(m));
 }

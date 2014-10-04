@@ -48,39 +48,39 @@ static void test_strbuf(void) {
         /* check the content of the buffer directly */
         l = strv_parse_nulstr(sb->buf, sb->len);
 
-        assert(streq(l[0], "")); /* root*/
-        assert(streq(l[1], "waldo"));
-        assert(streq(l[2], "foo"));
-        assert(streq(l[3], "bar"));
-        assert(streq(l[4], "waldorf"));
+        assert_se(streq(l[0], "")); /* root*/
+        assert_se(streq(l[1], "waldo"));
+        assert_se(streq(l[2], "foo"));
+        assert_se(streq(l[3], "bar"));
+        assert_se(streq(l[4], "waldorf"));
 
-        assert(sb->nodes_count == 5); /* root + 4 non-duplicates */
-        assert(sb->dedup_count == 3);
-        assert(sb->in_count == 7);
+        assert_se(sb->nodes_count == 5); /* root + 4 non-duplicates */
+        assert_se(sb->dedup_count == 3);
+        assert_se(sb->in_count == 7);
 
-        assert(sb->in_len == 29);    /* length of all strings added */
-        assert(sb->dedup_len == 11); /* length of all strings duplicated */
-        assert(sb->len == 23);       /* buffer length: in - dedup + \0 for each node */
+        assert_se(sb->in_len == 29);    /* length of all strings added */
+        assert_se(sb->dedup_len == 11); /* length of all strings duplicated */
+        assert_se(sb->len == 23);       /* buffer length: in - dedup + \0 for each node */
 
         /* check the returned offsets and the respective content in the buffer */
-        assert(a == 1);
-        assert(b == 7);
-        assert(c == 11);
-        assert(d == 1);
-        assert(e == 2);
-        assert(f == 4);
-        assert(g == 15);
+        assert_se(a == 1);
+        assert_se(b == 7);
+        assert_se(c == 11);
+        assert_se(d == 1);
+        assert_se(e == 2);
+        assert_se(f == 4);
+        assert_se(g == 15);
 
-        assert(streq(sb->buf + a, "waldo"));
-        assert(streq(sb->buf + b, "foo"));
-        assert(streq(sb->buf + c, "bar"));
-        assert(streq(sb->buf + d, "waldo"));
-        assert(streq(sb->buf + e, "aldo"));
-        assert(streq(sb->buf + f, "do"));
-        assert(streq(sb->buf + g, "waldorf"));
+        assert_se(streq(sb->buf + a, "waldo"));
+        assert_se(streq(sb->buf + b, "foo"));
+        assert_se(streq(sb->buf + c, "bar"));
+        assert_se(streq(sb->buf + d, "waldo"));
+        assert_se(streq(sb->buf + e, "aldo"));
+        assert_se(streq(sb->buf + f, "do"));
+        assert_se(streq(sb->buf + g, "waldorf"));
 
         strbuf_complete(sb);
-        assert(sb->root == NULL);
+        assert_se(sb->root == NULL);
 
         strbuf_cleanup(sb);
 }

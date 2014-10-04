@@ -407,7 +407,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         printf("\n");
 
         hwdb = udev_hwdb_unref(hwdb);
-        assert(hwdb == NULL);
+        assert_se(hwdb == NULL);
 }
 
 int main(int argc, char *argv[]) {

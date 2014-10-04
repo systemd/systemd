@@ -522,7 +522,7 @@ static void test_hashmap_steal_first(void) {
         while ((val = hashmap_steal_first(m)))
                 seen[strlen(val) - 1]++;
 
-        assert(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
+        assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
         assert_se(hashmap_isempty(m));
 }

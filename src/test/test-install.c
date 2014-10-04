@@ -31,7 +31,7 @@
 static void dump_changes(UnitFileChange *c, unsigned n) {
         unsigned i;
 
-        assert(n == 0 || c);
+        assert_se(n == 0 || c);
 
         for (i = 0; i < n; i++) {
                 if (c[i].type == UNIT_FILE_UNLINK)

@@ -246,25 +246,25 @@ static void test_status_field(void) {
 
         r = get_status_field("/proc/meminfo", "MemTotal:", &p);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(p);
                 assert_se(safe_atollu(p, &total) == 0);
         }
 
         r = get_status_field("/proc/meminfo", "\nBuffers:", &s);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(s);
                 assert_se(safe_atollu(s, &buffers) == 0);
         }
 
         if (p)
-                assert(buffers < total);
+                assert_se(buffers < total);
 
         /* Seccomp should be a good test for field full of zeros. */
         r = get_status_field("/proc/meminfo", "\nSeccomp:", &z);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(z);
                 assert_se(safe_atollu(z, &buffers) == 0);
         }
@@ -283,10 +283,10 @@ static void test_capeff(void) {
                 if (r == -ENOENT || r == -EPERM)
                         return;
 
-                assert(r == 0);
-                assert(*capeff);
+                assert_se(r == 0);
+                assert_se(*capeff);
                 p = capeff[strspn(capeff, DIGITS "abcdefABCDEF")];
-                assert(!p || isspace(p));
+                assert_se(!p || isspace(p));
         }
 }
 

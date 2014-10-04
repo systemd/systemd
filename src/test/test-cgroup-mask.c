@@ -45,7 +45,7 @@ static int test_cgroup_mask(void) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
-        assert(r >= 0);
+        assert_se(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* Load units and verify hierarchy. */
@@ -54,48 +54,48 @@ static int test_cgroup_mask(void) {
         assert_se(manager_load_unit(m, "daughter.service", NULL, NULL, &daughter) >= 0);
         assert_se(manager_load_unit(m, "grandchild.service", NULL, NULL, &grandchild) >= 0);
         assert_se(manager_load_unit(m, "parent-deep.slice", NULL, NULL, &parent_deep) >= 0);
-        assert(parent->load_state == UNIT_LOADED);
-        assert(son->load_state == UNIT_LOADED);
-        assert(daughter->load_state == UNIT_LOADED);
-        assert(grandchild->load_state == UNIT_LOADED);
-        assert(parent_deep->load_state == UNIT_LOADED);
-        assert(UNIT_DEREF(son->slice) == parent);
-        assert(UNIT_DEREF(daughter->slice) == parent);
-        assert(UNIT_DEREF(parent_deep->slice) == parent);
-        assert(UNIT_DEREF(grandchild->slice) == parent_deep);
+        assert_se(parent->load_state == UNIT_LOADED);
+        assert_se(son->load_state == UNIT_LOADED);
+        assert_se(daughter->load_state == UNIT_LOADED);
+        assert_se(grandchild->load_state == UNIT_LOADED);
+        assert_se(parent_deep->load_state == UNIT_LOADED);
+        assert_se(UNIT_DEREF(son->slice) == parent);
+        assert_se(UNIT_DEREF(daughter->slice) == parent);
+        assert_se(UNIT_DEREF(parent_deep->slice) == parent);
+        assert_se(UNIT_DEREF(grandchild->slice) == parent_deep);
         root = UNIT_DEREF(parent->slice);
 
         /* Verify per-unit cgroups settings. */
-        assert(unit_get_cgroup_mask(son) == (CGROUP_CPU | CGROUP_CPUACCT));
-        assert(unit_get_cgroup_mask(daughter) == 0);
-        assert(unit_get_cgroup_mask(grandchild) == 0);
-        assert(unit_get_cgroup_mask(parent_deep) == CGROUP_MEMORY);
-        assert(unit_get_cgroup_mask(parent) == CGROUP_BLKIO);
-        assert(unit_get_cgroup_mask(root) == 0);
+        assert_se(unit_get_cgroup_mask(son) == (CGROUP_CPU | CGROUP_CPUACCT));
+        assert_se(unit_get_cgroup_mask(daughter) == 0);
+        assert_se(unit_get_cgroup_mask(grandchild) == 0);
+        assert_se(unit_get_cgroup_mask(parent_deep) == CGROUP_MEMORY);
+        assert_se(unit_get_cgroup_mask(parent) == CGROUP_BLKIO);
+        assert_se(unit_get_cgroup_mask(root) == 0);
 
         /* Verify aggregation of member masks */
-        assert(unit_get_members_mask(son) == 0);
-        assert(unit_get_members_mask(daughter) == 0);
-        assert(unit_get_members_mask(grandchild) == 0);
-        assert(unit_get_members_mask(parent_deep) == 0);
-        assert(unit_get_members_mask(parent) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY));
-        assert(unit_get_members_mask(root) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY));
+        assert_se(unit_get_members_mask(son) == 0);
+        assert_se(unit_get_members_mask(daughter) == 0);
+        assert_se(unit_get_members_mask(grandchild) == 0);
+        assert_se(unit_get_members_mask(parent_deep) == 0);
+        assert_se(unit_get_members_mask(parent) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY));
+        assert_se(unit_get_members_mask(root) == (CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY));
 
         /* Verify aggregation of sibling masks. */
-        assert(unit_get_siblings_mask(son) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_siblings_mask(daughter) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_siblings_mask(grandchild) == 0);
-        assert(unit_get_siblings_mask(parent_deep) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_siblings_mask(parent) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_siblings_mask(root) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_siblings_mask(son) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_siblings_mask(daughter) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_siblings_mask(grandchild) == 0);
+        assert_se(unit_get_siblings_mask(parent_deep) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_siblings_mask(parent) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_siblings_mask(root) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
 
         /* Verify aggregation of target masks. */
-        assert(unit_get_target_mask(son) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_target_mask(daughter) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_target_mask(grandchild) == 0);
-        assert(unit_get_target_mask(parent_deep) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_target_mask(parent) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
-        assert(unit_get_target_mask(root) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_target_mask(son) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_target_mask(daughter) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_target_mask(grandchild) == 0);
+        assert_se(unit_get_target_mask(parent_deep) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_target_mask(parent) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
+        assert_se(unit_get_target_mask(root) == ((CGROUP_CPU | CGROUP_CPUACCT | CGROUP_BLKIO | CGROUP_MEMORY) & m->cgroup_supported));
 
         manager_free(m);
 

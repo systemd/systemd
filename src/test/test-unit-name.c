@@ -43,7 +43,7 @@ static void test_replacements(void) {
                 _cleanup_free_ char *t =                           \
                         unit_name_replace_instance(pattern, repl); \
                 puts(t);                                           \
-                assert(streq(t, expected));                        \
+                assert_se(streq(t, expected));                        \
         }
 
         expect("foo@.service", "waldo", "foo@waldo.service");
@@ -64,7 +64,7 @@ static void test_replacements(void) {
                 puts(t);                                           \
                 k = unit_name_to_path(t);                          \
                 puts(k);                                           \
-                assert(streq(k, expected ? expected : path));      \
+                assert_se(streq(k, expected ? expected : path));      \
         }
 
         expect("/waldo", ".mount", NULL);
@@ -80,7 +80,7 @@ static void test_replacements(void) {
                 _cleanup_free_ char *t =                                     \
                         unit_name_from_path_instance(pattern, path, suffix); \
                 puts(t);                                                     \
-                assert(streq(t, expected));                                  \
+                assert_se(streq(t, expected));                                  \
         }
 
         expect("waldo", "/waldo", ".mount", "waldo@waldo.mount");
@@ -130,7 +130,7 @@ static int test_unit_printf(void) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
-        assert(r == 0);
+        assert_se(r == 0);
 
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
@@ -139,9 +139,9 @@ static int test_unit_printf(void) {
                 assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
                 printf("result: %s\nexpect: %s\n", t, expected);        \
                 if ((e = endswith(expected, "*")))                      \
-                        assert(strncmp(t, e, e-expected));              \
+                        assert_se(strncmp(t, e, e-expected));              \
                 else                                                    \
-                        assert(streq(t, expected));                     \
+                        assert_se(streq(t, expected));                     \
         }
 
         assert_se(setenv("USER", "root", 1) == 0);

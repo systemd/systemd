@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
-        assert(r >= 0);
+        assert_se(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         printf("Load1:\n");
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         r = manager_add_job(m, JOB_START, c, JOB_REPLACE, false, &err, &j);
         if (sd_bus_error_is_set(&err))
                 log_error("error: %s: %s", err.name, err.message);
-        assert(r == 0);
+        assert_se(r == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load2:\n");

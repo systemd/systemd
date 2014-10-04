@@ -79,8 +79,8 @@ int main(int argc, char*argv[]) {
         assert_se(cg_delete(SYSTEMD_CGROUP_CONTROLLER, "/test-a") >= 0);
 
         assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
-        assert(streq(c, "foobar"));
-        assert(streq(p, "/"));
+        assert_se(streq(c, "foobar"));
+        assert_se(streq(p, "/"));
         free(c);
         free(p);
 
@@ -92,13 +92,13 @@ int main(int argc, char*argv[]) {
         assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
 
         assert_se(cg_split_spec("/", &c, &p) >= 0);
-        assert(c == NULL);
-        assert(streq(p, "/"));
+        assert_se(c == NULL);
+        assert_se(streq(p, "/"));
         free(p);
 
         assert_se(cg_split_spec("foo", &c, &p) >= 0);
-        assert(streq(c, "foo"));
-        assert(p == NULL);
+        assert_se(streq(c, "foo"));
+        assert_se(p == NULL);
         free(c);
 
         return 0;

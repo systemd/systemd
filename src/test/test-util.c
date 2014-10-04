@@ -231,7 +231,7 @@ static void test_parse_pid(void) {
 
         pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
         r = parse_pid("0xFFFFFFFFFFFFFFFFF", &pid);
-        assert(r == -ERANGE);
+        assert_se(r == -ERANGE);
         assert_se(pid == 65);
 }
 
@@ -434,7 +434,7 @@ static void test_foreach_word_quoted(void) {
                 assert_se(strneq(expected[i++], word, l));
                 printf("<%s>\n", t);
         }
-        assert(isempty(state));
+        assert_se(isempty(state));
 }
 
 static void test_default_term_for_tty(void) {
@@ -466,26 +466,26 @@ static void test_memdup_multiply(void) {
 }
 
 static void test_hostname_is_valid(void) {
-        assert(hostname_is_valid("foobar"));
-        assert(hostname_is_valid("foobar.com"));
-        assert(!hostname_is_valid("fööbar"));
-        assert(!hostname_is_valid(""));
-        assert(!hostname_is_valid("."));
-        assert(!hostname_is_valid(".."));
-        assert(!hostname_is_valid("foobar."));
-        assert(!hostname_is_valid(".foobar"));
-        assert(!hostname_is_valid("foo..bar"));
-        assert(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        assert_se(hostname_is_valid("foobar"));
+        assert_se(hostname_is_valid("foobar.com"));
+        assert_se(!hostname_is_valid("fööbar"));
+        assert_se(!hostname_is_valid(""));
+        assert_se(!hostname_is_valid("."));
+        assert_se(!hostname_is_valid(".."));
+        assert_se(!hostname_is_valid("foobar."));
+        assert_se(!hostname_is_valid(".foobar"));
+        assert_se(!hostname_is_valid("foo..bar"));
+        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
 static void test_u64log2(void) {
-        assert(u64log2(0) == 0);
-        assert(u64log2(8) == 3);
-        assert(u64log2(9) == 3);
-        assert(u64log2(15) == 3);
-        assert(u64log2(16) == 4);
-        assert(u64log2(1024*1024) == 20);
-        assert(u64log2(1024*1024+5) == 20);
+        assert_se(u64log2(0) == 0);
+        assert_se(u64log2(8) == 3);
+        assert_se(u64log2(9) == 3);
+        assert_se(u64log2(15) == 3);
+        assert_se(u64log2(16) == 4);
+        assert_se(u64log2(1024*1024) == 20);
+        assert_se(u64log2(1024*1024+5) == 20);
 }
 
 static void test_get_process_comm(void) {
@@ -532,7 +532,7 @@ static void test_get_process_comm(void) {
         log_info("pid1 gid: "GID_FMT, g);
         assert_se(g == 0);
 
-        assert(get_ctty_devnr(1, &h) == -ENOENT);
+        assert_se(get_ctty_devnr(1, &h) == -ENOENT);
 
         getenv_for_pid(1, "PATH", &i);
         log_info("pid1 $PATH: '%s'", strna(i));
@@ -544,7 +544,7 @@ static void test_protect_errno(void) {
                 PROTECT_ERRNO;
                 errno = 11;
         }
-        assert(errno == 12);
+        assert_se(errno == 12);
 }
 
 static void test_parse_size(void) {
@@ -729,12 +729,12 @@ static void test_writing_tmpfile(void) {
         printf("tmpfile: %s", name);
 
         r = writev(fd, iov, 3);
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         r = read_full_file(name, &contents, &size);
-        assert(r == 0);
+        assert_se(r == 0);
         printf("contents: %s", contents);
-        assert(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
+        assert_se(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
 
         unlink(name);
 }

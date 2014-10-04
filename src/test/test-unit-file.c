@@ -45,7 +45,7 @@ static int test_unit_file_get_set(void) {
         UnitFileList *p;
 
         h = hashmap_new(&string_hash_ops);
-        assert(h);
+        assert_se(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
 
@@ -231,18 +231,18 @@ static void test_load_env_file_1(void) {
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
         r = load_env_file(NULL, name, NULL, &data);
-        assert(r == 0);
-        assert(streq(data[0], "a=a"));
-        assert(streq(data[1], "b=bc"));
-        assert(streq(data[2], "d=def"));
-        assert(streq(data[3], "g=g "));
-        assert(streq(data[4], "h=h"));
-        assert(streq(data[5], "i=i"));
-        assert(data[6] == NULL);
+        assert_se(r == 0);
+        assert_se(streq(data[0], "a=a"));
+        assert_se(streq(data[1], "b=bc"));
+        assert_se(streq(data[2], "d=def"));
+        assert_se(streq(data[3], "g=g "));
+        assert_se(streq(data[4], "h=h"));
+        assert_se(streq(data[5], "i=i"));
+        assert_se(data[6] == NULL);
         unlink(name);
 }
 
@@ -254,13 +254,13 @@ static void test_load_env_file_2(void) {
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
         r = load_env_file(NULL, name, NULL, &data);
-        assert(r == 0);
-        assert(streq(data[0], "a=a"));
-        assert(data[1] == NULL);
+        assert_se(r == 0);
+        assert_se(streq(data[0], "a=a"));
+        assert_se(data[1] == NULL);
         unlink(name);
 }
 
@@ -272,12 +272,12 @@ static void test_load_env_file_3(void) {
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
         r = load_env_file(NULL, name, NULL, &data);
-        assert(r == 0);
-        assert(data == NULL);
+        assert_se(r == 0);
+        assert_se(data == NULL);
         unlink(name);
 }
 
@@ -288,15 +288,15 @@ static void test_load_env_file_4(void) {
         int r;
 
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
         assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
 
         r = load_env_file(NULL, name, NULL, &data);
-        assert(r == 0);
-        assert(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
-        assert(streq(data[1], "MODULE_0=coretemp"));
-        assert(streq(data[2], "MODULE_1=f71882fg"));
-        assert(data[3] == NULL);
+        assert_se(r == 0);
+        assert_se(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
+        assert_se(streq(data[1], "MODULE_0=coretemp"));
+        assert_se(streq(data[2], "MODULE_1=f71882fg"));
+        assert_se(data[3] == NULL);
         unlink(name);
 }
 
@@ -329,11 +329,11 @@ static void test_install_printf(void) {
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 memzero(i.user, strlen(i.user));                        \
-                assert(d1 && d2 && d3);                                 \
+                assert_se(d1 && d2 && d3);                                 \
                 if (result) {                                           \
                         printf("%s\n", t);                              \
-                        assert(streq(t, result));                       \
-                } else assert(t == NULL);                               \
+                        assert_se(streq(t, result));                       \
+                } else assert_se(t == NULL);                               \
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
                 strcpy(i.user, d3);                                     \

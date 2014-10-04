@@ -236,7 +236,7 @@ static void *connect_thread(void *arg) {
         _cleanup_close_ int fd = -1;
 
         fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
 
         assert_se(connect(fd, &sa->sa, sizeof(sa->in)) == 0);
 
@@ -263,7 +263,7 @@ static void test_nameinfo_pretty(void) {
         assert_se(r < 0);
 
         sfd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        assert(sfd >= 0);
+        assert_se(sfd >= 0);
 
         assert_se(bind(sfd, &s.sa, sizeof(s.in)) == 0);
 
@@ -276,11 +276,11 @@ static void test_nameinfo_pretty(void) {
 
         log_debug("Accepting new connection on fd:%d", sfd);
         cfd = accept4(sfd, &c.sa, &clen, SOCK_CLOEXEC);
-        assert(cfd >= 0);
+        assert_se(cfd >= 0);
 
         r = getnameinfo_pretty(cfd, &localhost);
         log_info("Connection from %s", localhost);
-        assert(r == 0);
+        assert_se(r == 0);
 }
 
 static void test_sockaddr_equal(void) {

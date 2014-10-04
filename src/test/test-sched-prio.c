@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
-        assert(r >= 0);
+        assert_se(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* load idle ok */
