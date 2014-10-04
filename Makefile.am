@@ -250,6 +250,7 @@ SOCKETS_TARGET_WANTS =
 BUSNAMES_TARGET_WANTS =
 TIMERS_TARGET_WANTS =
 USER_SOCKETS_TARGET_WANTS =
+USER_DEFAULT_TARGET_WANTS =
 USER_BUSNAMES_TARGET_WANTS =
 
 SYSTEM_UNIT_ALIASES =
@@ -270,6 +271,7 @@ install-target-wants-hook:
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(USER_SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(userunitdir) && $(add-wants)
+	what="$(USER_DEFAULT_TARGET_WANTS)" && wants=default.target && dir=$(userunitdir) && $(add-wants)
 
 install-busnames-target-wants-hook:
 	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && dir=$(systemunitdir) && $(add-wants)
@@ -3034,6 +3036,15 @@ noinst_PROGRAMS += \
 
 dist_pkgdata_DATA += \
 	src/libsystemd-terminal/unifont-glyph-array.bin
+
+nodist_userunit_DATA += \
+	units/user/systemd-consoled.service
+
+USER_DEFAULT_TARGET_WANTS += \
+	systemd-consoled.service
+
+EXTRA_DIST += \
+	units/user/systemd-consoled.service.in
 
 tests += \
 	test-term-page \
