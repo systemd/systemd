@@ -126,7 +126,9 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                                 return r;
                         }
                 } else {
-                        assert_se(hashmap_move_one(a, b, path) == 0);
+                        r = hashmap_move_one(a, b, path);
+                        if (r < 0)
+                                return r;
                         g->cpu_valid = g->memory_valid = g->io_valid = g->n_tasks_valid = false;
                 }
         }

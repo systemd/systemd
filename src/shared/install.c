@@ -1395,18 +1395,24 @@ static int install_context_apply(
                 unsigned *n_changes) {
 
         InstallInfo *i;
-        int r = 0, q;
+        int r, q;
 
         assert(c);
         assert(paths);
         assert(config_path);
 
+        if (!ordered_hashmap_isempty(c->will_install)) {
+                r = ordered_hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_hashmap_reserve(c->have_installed, ordered_hashmap_size(c->will_install));
+                if (r < 0)
+                        return r;
+        }
+
+        r = 0;
         while ((i = ordered_hashmap_first(c->will_install))) {
-
-                q = ordered_hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
-                if (q < 0)
-                        return q;
-
                 assert_se(ordered_hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
                 q = unit_file_search(c, i, paths, root_dir, false, true);
@@ -1434,7 +1440,7 @@ static int install_context_mark_for_removal(
                 const char *root_dir) {
 
         InstallInfo *i;
-        int r = 0, q;
+        int r, q;
 
         assert(c);
         assert(paths);
@@ -1442,12 +1448,18 @@ static int install_context_mark_for_removal(
 
         /* Marks all items for removal */
 
+        if (!ordered_hashmap_isempty(c->will_install)) {
+                r = ordered_hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_hashmap_reserve(c->have_installed, ordered_hashmap_size(c->will_install));
+                if (r < 0)
+                        return r;
+        }
+
+        r = 0;
         while ((i = ordered_hashmap_first(c->will_install))) {
-
-                q = ordered_hashmap_ensure_allocated(&c->have_installed, &string_hash_ops);
-                if (q < 0)
-                        return q;
-
                 assert_se(ordered_hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
                 q = unit_file_search(c, i, paths, root_dir, false, true);
@@ -1544,11 +1556,17 @@ int unit_file_add_dependency(
                         return r;
         }
 
-        while ((info = ordered_hashmap_first(c.will_install))) {
+        if (!ordered_hashmap_isempty(c.will_install)) {
                 r = ordered_hashmap_ensure_allocated(&c.have_installed, &string_hash_ops);
                 if (r < 0)
                         return r;
 
+                r = ordered_hashmap_reserve(c.have_installed, ordered_hashmap_size(c.will_install));
+                if (r < 0)
+                        return r;
+        }
+
+        while ((info = ordered_hashmap_first(c.will_install))) {
                 assert_se(ordered_hashmap_move_one(c.have_installed, c.will_install, info->name) == 0);
 
                 r = unit_file_search(&c, info, &paths, root_dir, false, false);
