@@ -25,11 +25,15 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
+#ifdef HAVE_LINUX_MEMFD_H
+#  include <linux/memfd.h>
+#endif
+
 #include "util.h"
 #include "bus-label.h"
-#include "missing.h"
 #include "memfd.h"
 #include "utf8.h"
+#include "missing.h"
 
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;

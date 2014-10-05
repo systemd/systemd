@@ -283,6 +283,7 @@ AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 AC_CHECK_HEADERS([linux/btrfs.h], [], [])
+AC_CHECK_HEADERS([linux/memfd.h], [], [])
 
 # unconditionally pull-in librt with old glibc versions
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [])
@@ -300,6 +301,7 @@ AC_SUBST(RT_LIBS)
 LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark])
+AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
 AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],
                [], [], [[
