@@ -37,6 +37,7 @@ typedef struct term_page term_page;
 typedef struct term_history term_history;
 
 typedef uint32_t term_charset[96];
+typedef struct term_state term_state;
 
 /*
  * Miscellaneous
@@ -586,11 +587,9 @@ enum {
         TERM_FLAG_HIDE_CURSOR                   = (1U << 1),    /* hide cursor caret (default: off) */
         TERM_FLAG_INHIBIT_TPARM                 = (1U << 2),    /* do not send TPARM unrequested (default: off) */
         TERM_FLAG_NEWLINE_MODE                  = (1U << 3),    /* perform carriage-return on line-feeds (default: off) */
-        TERM_FLAG_ORIGIN_MODE                   = (1U << 4),    /* in origin mode, the cursor is bound by the margins (default: off) */
-        TERM_FLAG_PENDING_WRAP                  = (1U << 5),    /* wrap-around is pending */
-        TERM_FLAG_AUTO_WRAP                     = (1U << 6),    /* auto-wrap mode causes line-wraps at line-ends (default: off) */
-        TERM_FLAG_KEYPAD_MODE                   = (1U << 7),    /* application-keypad mode (default: off) */
-        TERM_FLAG_CURSOR_KEYS                   = (1U << 8),    /* enable application cursor-keys (default: off) */
+        TERM_FLAG_PENDING_WRAP                  = (1U << 4),    /* wrap-around is pending */
+        TERM_FLAG_KEYPAD_MODE                   = (1U << 5),    /* application-keypad mode (default: off) */
+        TERM_FLAG_CURSOR_KEYS                   = (1U << 6),    /* enable application cursor-keys (default: off) */
 };
 
 enum {
@@ -598,6 +597,19 @@ enum {
         TERM_CONFORMANCE_LEVEL_VT100,
         TERM_CONFORMANCE_LEVEL_VT400,
         TERM_CONFORMANCE_LEVEL_CNT,
+};
+
+struct term_state {
+        unsigned int cursor_x;
+        unsigned int cursor_y;
+        term_attr attr;
+        term_charset **gl;
+        term_charset **gr;
+        term_charset **glt;
+        term_charset **grt;
+
+        bool auto_wrap : 1;
+        bool origin_mode : 1;
 };
 
 struct term_screen {
@@ -623,15 +635,8 @@ struct term_screen {
 
         unsigned int flags;
         unsigned int conformance_level;
-        unsigned int cursor_x;
-        unsigned int cursor_y;
-        term_attr attr;
         term_attr default_attr;
 
-        term_charset **gl;
-        term_charset **gr;
-        term_charset **glt;
-        term_charset **grt;
         term_charset *g0;
         term_charset *g1;
         term_charset *g2;
@@ -639,14 +644,6 @@ struct term_screen {
 
         char *answerback;
 
-        struct {
-                unsigned int cursor_x;
-                unsigned int cursor_y;
-                term_attr attr;
-                term_charset **gl;
-                term_charset **gr;
-                term_charset **glt;
-                term_charset **grt;
-                unsigned int flags;
-        } saved;
+        term_state state;
+        term_state saved;
 };
