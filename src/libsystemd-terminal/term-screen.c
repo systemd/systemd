@@ -77,6 +77,7 @@ int term_screen_new(term_screen **out, term_screen_write_fn write_fn, void *writ
         screen->state.gl = &screen->g0;
         screen->state.gr = &screen->g1;
         screen->saved = screen->state;
+        screen->saved_alt = screen->saved;
 
         r = term_page_new(&screen->page_main);
         if (r < 0)
@@ -367,6 +368,23 @@ static void screen_restore_state(term_screen *screen, term_state *from) {
         screen->state = *from;
 }
 
+static void screen_reset_page(term_screen *screen, term_page *page) {
+        term_page_set_scroll_region(page, 0, page->height);
+        term_page_erase(page, 0, 0, page->width, page->height, &screen->state.attr, screen->age, false);
+}
+
+static void screen_change_alt(term_screen *screen, bool set) {
+        if (set) {
+                screen->page = screen->page_alt;
+                screen->history = NULL;
+        } else {
+                screen->page = screen->page_main;
+                screen->history = screen->history_main;
+        }
+
+        screen->page->age = screen->age;
+}
+
 static inline void set_reset(term_screen *screen, unsigned int flag, bool set) {
         if (set)
                 screen->flags |= flag;
@@ -424,6 +442,73 @@ static void screen_mode_change(term_screen *screen, unsigned int mode, bool dec,
                          */
                         set_reset(screen, TERM_FLAG_HIDE_CURSOR, !set);
                         screen_age_cursor(screen);
+                }
+
+                break;
+        case 47:
+                if (dec) {
+                        /*
+                         * XTERM-ASB: alternate-screen-buffer
+                         * This enables/disables the alternate screen-buffer.
+                         * It effectively saves the current page content and
+                         * allows you to restore it when changing to the
+                         * original screen-buffer again.
+                         */
+                        screen_change_alt(screen, set);
+                }
+
+                break;
+        case 1047:
+                if (dec) {
+                        /*
+                         * XTERM-ASBPE: alternate-screen-buffer-post-erase
+                         * This is the same as XTERM-ASB but erases the
+                         * alternate screen-buffer before switching back to the
+                         * original buffer. Use it to discard any data on the
+                         * alternate screen buffer when done.
+                         */
+                        if (!set)
+                                screen_reset_page(screen, screen->page_alt);
+
+                        screen_change_alt(screen, set);
+                }
+
+                break;
+        case 1048:
+                if (dec) {
+                        /*
+                         * XTERM-ASBCS: alternate-screen-buffer-cursor-state
+                         * This has the same effect as DECSC/DECRC, but uses a
+                         * separate state buffer. It is usually used in
+                         * combination with alternate screen buffers to provide
+                         * stacked state storage.
+                         */
+                        if (set)
+                                screen_save_state(screen, &screen->saved_alt);
+                        else
+                                screen_restore_state(screen, &screen->saved_alt);
+                }
+
+                break;
+        case 1049:
+                if (dec) {
+                        /*
+                         * XTERM-ASBX: alternate-screen-buffer-extended
+                         * This combines XTERM-ASBPE and XTERM-ASBCS somewhat.
+                         * When enabling, state is saved, alternate screen
+                         * buffer is activated and cleared.
+                         * When disabled, alternate screen buffer is cleared,
+                         * then normal screen buffer is enabled and state is
+                         * restored.
+                         */
+                        if (set)
+                                screen_save_state(screen, &screen->saved_alt);
+
+                        screen_reset_page(screen, screen->page_alt);
+                        screen_change_alt(screen, set);
+
+                        if (!set)
+                                screen_restore_state(screen, &screen->saved_alt);
                 }
 
                 break;
@@ -1966,8 +2051,7 @@ static int screen_DECSTBM(term_screen *screen, const term_seq *seq) {
                 bottom = screen->page->height;
         }
 
-        term_page_set_scroll_region(screen->page_main, top - 1, bottom - top + 1);
-        term_page_set_scroll_region(screen->page_alt, top - 1, bottom - top + 1);
+        term_page_set_scroll_region(screen->page, top - 1, bottom - top + 1);
         screen_cursor_clear_wrap(screen);
         screen_cursor_set(screen, 0, 0);
 
@@ -4143,6 +4227,7 @@ void term_screen_soft_reset(term_screen *screen) {
         screen->saved = screen->state;
         screen->saved.cursor_x = 0;
         screen->saved.cursor_y = 0;
+        screen->saved_alt = screen->saved;
 
         screen->page = screen->page_main;
         screen->history = screen->history_main;

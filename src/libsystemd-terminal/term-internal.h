@@ -646,4 +646,5 @@ struct term_screen {
 
         term_state state;
         term_state saved;
+        term_state saved_alt;
 };
