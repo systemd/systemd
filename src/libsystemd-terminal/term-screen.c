@@ -4131,7 +4131,7 @@ int term_screen_feed_keyboard(term_screen *screen,
                               unsigned int mods) {
         _cleanup_free_ char *dyn = NULL;
         static const size_t padding = 1;
-        char buf[128], *start, *p = buf;
+        char buf[128], *start, *p;
 
         assert_return(screen, -EINVAL);
 
