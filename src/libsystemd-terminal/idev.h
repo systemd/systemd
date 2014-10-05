@@ -123,7 +123,7 @@ static inline bool idev_kbdmatch(idev_data_keyboard *kdata,
                 return false;
 
         real = kdata->mods & ~kdata->consumed_mods & significant;
-        if (real != (mods & ~kdata->consumed_mods))
+        if (real != mods)
                 return false;
 
         return !memcmp(syms, kdata->keysyms, n_syms * sizeof(*syms));

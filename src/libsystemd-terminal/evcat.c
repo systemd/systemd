@@ -219,6 +219,13 @@ static void kdata_print(idev_data *data) {
         printf(" %-5s", (k->mods & IDEV_KBDMOD_LINUX) ? "LINUX" : "");
         printf(" %-4s", (k->mods & IDEV_KBDMOD_CAPS) ? "CAPS" : "");
 
+        /* Consumed modifiers */
+        printf(" | %-5s", (k->consumed_mods & IDEV_KBDMOD_SHIFT) ? "SHIFT" : "");
+        printf(" %-4s", (k->consumed_mods & IDEV_KBDMOD_CTRL) ? "CTRL" : "");
+        printf(" %-3s", (k->consumed_mods & IDEV_KBDMOD_ALT) ? "ALT" : "");
+        printf(" %-5s", (k->consumed_mods & IDEV_KBDMOD_LINUX) ? "LINUX" : "");
+        printf(" %-4s", (k->consumed_mods & IDEV_KBDMOD_CAPS) ? "CAPS" : "");
+
         /* Resolved symbols */
         printf(" |");
         for (i = 0; i < k->n_syms; ++i) {
