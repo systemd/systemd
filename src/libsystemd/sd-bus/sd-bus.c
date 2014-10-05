@@ -142,6 +142,7 @@ static void bus_free(sd_bus *b) {
         hashmap_free_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
 
+        assert(b->match_callbacks.type == BUS_MATCH_ROOT);
         bus_match_free(&b->match_callbacks);
 
         hashmap_free_free(b->vtable_methods);
