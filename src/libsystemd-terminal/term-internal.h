@@ -582,7 +582,7 @@ struct term_parser {
  */
 
 enum {
-        TERM_FLAG_7BIT_MODE                     = (1U << 0),    /* 7bit mode (default: off) */
+        TERM_FLAG_7BIT_MODE                     = (1U << 0),    /* 7bit mode (default: on) */
         TERM_FLAG_HIDE_CURSOR                   = (1U << 1),    /* hide cursor caret (default: off) */
         TERM_FLAG_INHIBIT_TPARM                 = (1U << 2),    /* do not send TPARM unrequested (default: off) */
         TERM_FLAG_NEWLINE_MODE                  = (1U << 3),    /* perform carriage-return on line-feeds (default: off) */
