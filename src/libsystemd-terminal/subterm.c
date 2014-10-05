@@ -482,7 +482,6 @@ static void output_draw_screen(Output *o, term_screen *s) {
 
         term_screen_draw(s, output_draw_cell_fn, o, NULL);
 
-        output_move_to(o, s->cursor_x + 1, s->cursor_y + 3);
         output_printf(o, "\e[m");
 }
 
