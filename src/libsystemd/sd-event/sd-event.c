@@ -598,6 +598,36 @@ static bool need_signal(sd_event *e, int signal) {
                 e->n_enabled_child_sources > 0);
 }
 
+static int event_update_signal_fd(sd_event *e) {
+        struct epoll_event ev = {};
+        bool add_to_epoll;
+        int r;
+
+        assert(e);
+
+        add_to_epoll = e->signal_fd < 0;
+
+        r = signalfd(e->signal_fd, &e->sigset, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (r < 0)
+                return -errno;
+
+        e->signal_fd = r;
+
+        if (!add_to_epoll)
+                return 0;
+
+        ev.events = EPOLLIN;
+        ev.data.ptr = INT_TO_PTR(SOURCE_SIGNAL);
+
+        r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->signal_fd, &ev);
+        if (r < 0) {
+                e->signal_fd = safe_close(e->signal_fd);
+                return -errno;
+        }
+
+        return 0;
+}
+
 static void source_disconnect(sd_event_source *s) {
         sd_event *event;
 
@@ -640,6 +670,10 @@ static void source_disconnect(sd_event_source *s) {
                         /* If the signal was on and now it is off... */
                         if (s->enabled != SD_EVENT_OFF && !need_signal(s->event, s->signal.sig)) {
                                 assert_se(sigdelset(&s->event->sigset, s->signal.sig) == 0);
+
+                                (void) event_update_signal_fd(s->event);
+                                /* If disabling failed, we might get a spurious event,
+                                 * but otherwise nothing bad should happen. */
                         }
                 }
 
@@ -654,6 +688,10 @@ static void source_disconnect(sd_event_source *s) {
                                 /* We know the signal was on, if it is off now... */
                                 if (!need_signal(s->event, SIGCHLD)) {
                                         assert_se(sigdelset(&s->event->sigset, SIGCHLD) == 0);
+
+                                        (void) event_update_signal_fd(s->event);
+                                        /* If disabling failed, we might get a spurious event,
+                                         * but otherwise nothing bad should happen. */
                                 }
                         }
 
@@ -927,36 +965,6 @@ _public_ int sd_event_add_time(
 fail:
         source_free(s);
         return r;
-}
-
-static int event_update_signal_fd(sd_event *e) {
-        struct epoll_event ev = {};
-        bool add_to_epoll;
-        int r;
-
-        assert(e);
-
-        add_to_epoll = e->signal_fd < 0;
-
-        r = signalfd(e->signal_fd, &e->sigset, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (r < 0)
-                return -errno;
-
-        e->signal_fd = r;
-
-        if (!add_to_epoll)
-                return 0;
-
-        ev.events = EPOLLIN;
-        ev.data.ptr = INT_TO_PTR(SOURCE_SIGNAL);
-
-        r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->signal_fd, &ev);
-        if (r < 0) {
-                e->signal_fd = safe_close(e->signal_fd);
-                return -errno;
-        }
-
-        return 0;
 }
 
 static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
