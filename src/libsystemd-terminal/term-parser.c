@@ -100,8 +100,8 @@ static uint32_t term_color_to_argb32(const term_color *color, const term_attr *a
         case TERM_CCODE_BLACK ... TERM_CCODE_LIGHT_WHITE:
                 t = color->ccode - TERM_CCODE_BLACK;
 
-                /* bold causes light colors */
-                if (t < 8 && attr->bold)
+                /* bold causes light colors (only for foreground colors) */
+                if (t < 8 && attr->bold && color == &attr->fg)
                         t += 8;
 
                 r = palette[t * 3 + 0];
