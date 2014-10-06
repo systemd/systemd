@@ -800,7 +800,6 @@ int bus_kernel_connect(sd_bus *b) {
 
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         struct kdbus_cmd_free cmd;
-        uint64_t off _alignas_(8);
         struct kdbus_item *d;
 
         assert(bus);
