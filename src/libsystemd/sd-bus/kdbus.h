@@ -444,6 +444,31 @@ struct kdbus_cmd_recv {
 } __attribute__((aligned(8)));
 
 /**
+ * struct kdbus_cmd_cancel - struct to cancel a synchronously pending message
+ * @cookie		The cookie of the pending message
+ * @flags		Flags for the free command. Currently unused.
+ *
+ * This struct is used with the KDBUS_CMD_CANCEL ioctl.
+ */
+struct kdbus_cmd_cancel {
+	__u64 cookie;
+	__u64 flags;
+} __attribute__((aligned(8)));
+
+/**
+ * struct kdbus_cmd_free - struct to free a slice of memory in the pool
+ * @offset		The offset of the memory slice, as returned by other
+ *			ioctls
+ * @flags		Flags for the free command. Currently unused.
+ *
+ * This struct is used with the KDBUS_CMD_FREE ioctl.
+ */
+struct kdbus_cmd_free {
+	__u64 offset;
+	__u64 flags;
+} __attribute__((aligned(8)));
+
+/**
  * enum kdbus_policy_access_type - permissions of a policy record
  * @_KDBUS_POLICY_ACCESS_NULL:	Uninitialized/invalid
  * @KDBUS_POLICY_ACCESS_USER:	Grant access to a uid
@@ -710,6 +735,7 @@ struct kdbus_conn_info {
  */
 struct kdbus_cmd_update {
 	__u64 size;
+	__u64 flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -807,8 +833,10 @@ enum kdbus_ioctl_type {
 					      struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOCTL_MAGIC, 0x41,
 					      struct kdbus_cmd_recv),
-	KDBUS_CMD_MSG_CANCEL =		_IOW(KDBUS_IOCTL_MAGIC, 0x42, __u64 *),
-	KDBUS_CMD_FREE =		_IOW(KDBUS_IOCTL_MAGIC, 0x43, __u64 *),
+	KDBUS_CMD_MSG_CANCEL =		_IOW(KDBUS_IOCTL_MAGIC, 0x42,
+					     struct kdbus_cmd_cancel),
+	KDBUS_CMD_FREE =		_IOW(KDBUS_IOCTL_MAGIC, 0x43,
+					     struct kdbus_cmd_free),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOCTL_MAGIC, 0x50,
 					      struct kdbus_cmd_name),

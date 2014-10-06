@@ -223,6 +223,23 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 return bus_release_name_dbus1(bus, name);
 }
 
+static int kernel_cmd_free(sd_bus *bus, uint64_t offset)
+{
+        struct kdbus_cmd_free cmd;
+        int r;
+
+        assert(bus);
+
+        cmd.flags = 0;
+        cmd.offset = offset;
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         struct kdbus_cmd_name_list cmd = {};
         struct kdbus_name_list *name_list;
@@ -269,9 +286,9 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                 }
         }
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd.offset);
+        r = kernel_cmd_free(bus, cmd.offset);
         if (r < 0)
-                return -errno;
+                return r;
 
         return 0;
 }
@@ -597,7 +614,7 @@ static int bus_get_owner_kdbus(
         r = 0;
 
 fail:
-        ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd->offset);
+        kernel_cmd_free(bus, cmd->offset);
         return r;
 }
 
