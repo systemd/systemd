@@ -1146,8 +1146,17 @@ int main(int argc, char *argv[]) {
                 sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         if (is_unix) {
-                getpeercred(in_fd, &ucred);
-                getpeersec(in_fd, &peersec);
+                r = getpeercred(in_fd, &ucred);
+                if (r < 0) {
+                        log_error("Failed to get peer creds: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = getpeersec(in_fd, &peersec);
+                if (r < 0) {
+                        log_error("Failed to get security creds: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         if (arg_drop_privileges) {
