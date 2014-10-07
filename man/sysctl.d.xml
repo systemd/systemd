@@ -158,7 +158,7 @@
                         <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
                         </para>
 
-                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
+                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
 </programlisting>
 
                         <para><filename>/etc/sysctl.d/bridge.conf</filename>:
