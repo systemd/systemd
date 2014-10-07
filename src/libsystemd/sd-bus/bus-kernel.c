@@ -808,8 +808,6 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         cmd.flags = 0;
         cmd.offset = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
 
-        ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
-
         KDBUS_ITEM_FOREACH(d, k, items) {
 
                 if (d->type == KDBUS_ITEM_FDS)
@@ -817,6 +815,8 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
                 else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
                         safe_close(d->memfd.fd);
         }
+
+        (void) ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
 }
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
