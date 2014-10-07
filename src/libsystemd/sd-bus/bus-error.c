@@ -194,8 +194,13 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
                 return -ENOMEM;
         }
 
-        if (format)
-                vasprintf((char**) &e->message, format, ap);
+        if (format) {
+                int r;
+
+                r = vasprintf((char**) &e->message, format, ap);
+                if (r < 0)
+                        return -ENOMEM;
+        }
 
         e->_need_free = 1;
 
