@@ -1094,7 +1094,7 @@ keyboard:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75
  KEYBOARD_KEY_13c=brightnessdown
  KEYBOARD_KEY_13d=brightnessup
  KEYBOARD_KEY_13e=switchvideomode
- KEYBOARD_KEY_13f=touchpad_toggle
+ KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
  KEYBOARD_KEY_9e=wlan
 
 ###########################################################
