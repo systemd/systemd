@@ -1516,6 +1516,19 @@ int unit_file_enable(
                 return r;
 
         STRV_FOREACH(i, files) {
+                UnitFileState state;
+
+                state = unit_file_get_state(scope, root_dir, *i);
+                if (state < 0) {
+                        log_error("Failed to get unit file state for %s: %s", *i, strerror(-state));
+                        return state;
+                }
+
+                if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
+                        log_error("Failed to enable unit: Unit %s is masked", *i);
+                        return -ENOTSUP;
+                }
+
                 r = install_info_add_auto(&c, *i);
                 if (r < 0)
                         return r;
