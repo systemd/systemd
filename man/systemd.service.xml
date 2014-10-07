@@ -352,125 +352,36 @@
                                 <term><varname>ExecStart=</varname></term>
                                 <listitem><para>Commands with their
                                 arguments that are executed when this
-                                service is started. For each of the
-                                specified commands, the first argument
-                                must be an absolute and literal path
-                                to an executable.</para>
+                                service is started. The value is split
+                                into zero or more command lines is
+                                according to the rules described below
+                                (see section "Command Lines" below).
+                                </para>
 
                                 <para>When <varname>Type</varname> is
                                 not <option>oneshot</option>, only one
                                 command may and must be given. When
                                 <varname>Type=oneshot</varname> is
-                                used, none or more than one command
-                                may be specified. Multiple command
-                                lines may be concatenated in a single
-                                directive by separating them with
-                                semicolons (these semicolons must be
-                                passed as separate
-                                words). Alternatively, this directive
-                                may be specified more than once with
-                                the same effect.  Lone semicolons may
-                                be escaped as
-                                <literal>\;</literal>. If the empty
-                                string is assigned to this option, the
-                                list of commands to start is reset,
-                                prior assignments of this option will
-                                have no effect. If no
+                                used, zero or more commands may be
+                                specified. This can be specified by
+                                providing multiple command lines in
+                                the same directive , or alternatively,
+                                this directive may be specified more
+                                than once with the same effect. If the
+                                empty string is assigned to this
+                                option, the list of commands to start
+                                is reset, prior assignments of this
+                                option will have no effect. If no
                                 <varname>ExecStart=</varname> is
                                 specified, then the service must have
                                 <varname>RemainAfterExit=yes</varname>
                                 set.</para>
 
-                                <para>Each command line is split on
-                                whitespace, with the first item being
-                                the command to execute, and the
-                                subsequent items being the arguments.
-                                Double quotes ("...") and single
-                                quotes ('...') may be used, in which
-                                case everything until the next
-                                matching quote becomes part of the
-                                same argument. Quotes themselves are
-                                removed after parsing. In addition, a
-                                trailing backslash
-                                (<literal>\</literal>) may be used to
-                                merge lines. This syntax is intended
-                                to be very similar to shell syntax,
-                                but only the meta-characters and
-                                expansions described in the following
-                                paragraphs are understood.
-                                Specifically, redirection using
-                                <literal>&lt;</literal>,
-                                <literal>&lt;&lt;</literal>,
-                                <literal>&gt;</literal>, and
-                                <literal>&gt;&gt;</literal>, pipes
-                                using <literal>|</literal>, and
-                                running programs in the background
-                                using <literal>&amp;</literal>
-                                and <emphasis>other elements of shell
-                                syntax are not supported</emphasis>.
-                                </para>
-
-                                <para>If more than one command is
-                                specified, the commands are invoked
-                                sequentially in the order they appear
-                                in the unit file. If one of the
-                                commands fails (and is not prefixed
-                                with <literal>-</literal>), other lines
-                                are not executed, and the unit is
-                                considered failed.</para>
-
-                                <para>Unless
-                                <varname>Type=forking</varname> is
-                                set, the process started via this
-                                command line will be considered the
-                                main process of the daemon.</para>
-
-                                <para>The command line accepts
-                                <literal>%</literal> specifiers as
-                                described in
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-                                Note that the first argument of the
-                                command line (i.e. the program to
-                                execute) may not include
-                                specifiers.</para>
-
-                                <para>Basic environment variable
-                                substitution is supported. Use
-                                <literal>${FOO}</literal> as part of a
-                                word, or as a word of its own, on the
-                                command line, in which case it will be
-                                replaced by the value of the
-                                environment variable including all
-                                whitespace it contains, resulting in a
-                                single argument. Use
-                                <literal>$FOO</literal> as a separate
-                                word on the command line, in which
-                                case it will be replaced by the value
-                                of the environment variable split at
-                                whitespace, resulting in zero or more
-                                arguments. To pass a literal dollar
-                                sign, use <literal>$$</literal>.
-                                Variables whose value is not known at
-                                expansion time are treated as empty
-                                strings. Note that the first argument
-                                (i.e. the program to execute) may not
-                                be a variable.</para>
-
-                                <para>Variables to be used in this
-                                fashion may be defined through
-                                <varname>Environment=</varname> and
-                                <varname>EnvironmentFile=</varname>.
-                                In addition, variables listed in the
-                                section "Environment variables in
-                                spawned processes" in
-                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                                which are considered "static
-                                configuration", may be used (this includes
-                                e.g. <varname>$USER</varname>, but not
-                                <varname>$TERM</varname>).</para>
-
-                                <para>Optionally, if the absolute file
-                                name is prefixed with
+                                <para>For each of the specified
+                                commands, the first argument must be
+                                an absolute and literal path to an
+                                executable. Optionally, if the
+                                absolute file name is prefixed with
                                 <literal>@</literal>, the second token
                                 will be passed as
                                 <literal>argv[0]</literal> to the
@@ -480,51 +391,27 @@
                                 <literal>-</literal>, an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or
-                                abnormal exit due to signal) is ignored
-                                and considered success. If both
-                                <literal>-</literal> and
+                                abnormal exit due to signal) is
+                                ignored and considered success. If
+                                both <literal>-</literal> and
                                 <literal>@</literal> are used, they
                                 can appear in either order.</para>
 
-                                <para>Note that this setting does not
-                                directly support shell command
-                                lines. If shell command lines are to
-                                be used, they need to be passed
-                                explicitly to a shell implementation
-                                of some kind. Example:</para>
-                                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
-                                <para>Example:</para>
-                                <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
-                                <para>This will execute
-                                <command>/bin/echo</command> two
-                                times, each time with one argument:
-                                <literal>one</literal> and
-                                <literal>two two</literal>,
-                                respectively. Because two commands are
-                                specified,
-                                <varname>Type=oneshot</varname> must
-                                be used.</para>
+                                <para>If more than one command is
+                                specified, the commands are invoked
+                                sequentially in the order they appear
+                                in the unit file. If one of the
+                                commands fails (and is not prefixed
+                                with <literal>-</literal>), other
+                                lines are not executed, and the unit
+                                is considered failed.</para>
 
-                                <para>Example:</para>
-                                <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
-/bin/ls</programlisting>
-                                <para>This will execute
-                                <command>/bin/echo</command> with five
-                                arguments: <literal>/</literal>,
-                                <literal>&gt;/dev/null</literal>,
-                                <literal>&amp;</literal>,
-                                <literal>;</literal>, and
-                                <literal>/bin/ls</literal>.</para>
+                                <para>Unless
+                                <varname>Type=forking</varname> is
+                                set, the process started via this
+                                command line will be considered the
+                                main process of the daemon.</para>
 
-                                <para>Example:</para>
-                                <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
-                                <para>This will execute
-                                <command>/bin/echo</command> with four
-                                arguments: <literal>one</literal>,
-                                <literal>two</literal>,
-                                <literal>two</literal>, and
-                                <literal>two two</literal>.</para>
                               </listitem>
                         </varlistentry>
 
@@ -1271,6 +1158,117 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 range 0-99.</para></listitem>
                         </varlistentry>
                 </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Command lines</title>
+
+                <para>This section describes command line parsing and
+                variable and specifier substitions for
+                <varname>ExecStart=</varname>,
+                <varname>ExecStartPre=</varname>,
+                <varname>ExecStartPost=</varname>,
+                <varname>ExecReload=</varname>,
+                <varname>ExecStop=</varname>, and
+                <varname>ExecStopPost=</varname> options.</para>
+
+                <para>Multiple command lines may be concatenated in a
+                single directive by separating them with semicolons
+                (these semicolons must be passed as separate words).
+                Lone semicolons may be escaped as
+                <literal>\;</literal>.</para>
+
+                <para>Each command line is split on whitespace, with
+                the first item being the command to execute, and the
+                subsequent items being the arguments.  Double quotes
+                ("...") and single quotes ('...') may be used, in
+                which case everything until the next matching quote
+                becomes part of the same argument. Quotes themselves
+                are removed after parsing. In addition, a trailing
+                backslash (<literal>\</literal>) may be used to merge
+                lines. </para>
+
+                <para>This syntax is intended to be very similar to
+                shell syntax, but only the meta-characters and
+                expansions described in the following paragraphs are
+                understood.  Specifically, redirection using
+                <literal>&lt;</literal>, <literal>&lt;&lt;</literal>,
+                <literal>&gt;</literal>, and
+                <literal>&gt;&gt;</literal>, pipes using
+                <literal>|</literal>, running programs in the
+                background using <literal>&amp;</literal>, and
+                <emphasis>other elements of shell syntax are not
+                supported</emphasis>.</para>
+
+                <para>The command line accepts <literal>%</literal>
+                specifiers as described in
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                Note that the first argument of the command line
+                (i.e. the program to execute) may not include
+                specifiers.</para>
+
+                <para>Basic environment variable substitution is
+                supported. Use <literal>${FOO}</literal> as part of a
+                word, or as a word of its own, on the command line, in
+                which case it will be replaced by the value of the
+                environment variable including all whitespace it
+                contains, resulting in a single argument. Use
+                <literal>$FOO</literal> as a separate word on the
+                command line, in which case it will be replaced by the
+                value of the environment variable split at whitespace,
+                resulting in zero or more arguments. To pass a literal
+                dollar sign, use <literal>$$</literal>.  Variables
+                whose value is not known at expansion time are treated
+                as empty strings. Note that the first argument
+                (i.e. the program to execute) may not be a
+                variable.</para>
+
+                <para>Variables to be used in this fashion may be
+                defined through <varname>Environment=</varname> and
+                <varname>EnvironmentFile=</varname>.  In addition,
+                variables listed in the section "Environment variables
+                in spawned processes" in
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                which are considered "static configuration", may be
+                used (this includes e.g. <varname>$USER</varname>, but
+                not <varname>$TERM</varname>).</para>
+
+                <para>Note that shell command lines are not directly
+                supported. If shell command lines are to be used, they
+                need to be passed explicitly to a shell implementation
+                of some kind. Example:</para>
+                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
+
+                <para>Example:</para>
+
+                <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
+
+                <para>This will execute <command>/bin/echo</command>
+                two times, each time with one argument:
+                <literal>one</literal> and <literal>two two</literal>,
+                respectively. Because two commands are specified,
+                <varname>Type=oneshot</varname> must be used.</para>
+
+                <para>Example:</para>
+
+                <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
+/bin/ls</programlisting>
+
+                <para>This will execute <command>/bin/echo</command>
+                with five arguments: <literal>/</literal>,
+                <literal>&gt;/dev/null</literal>,
+                <literal>&amp;</literal>, <literal>;</literal>, and
+                <literal>/bin/ls</literal>.</para>
+
+                <para>Example:</para>
+
+                <programlisting>Environment="ONE=one" 'TWO=two two'
+ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+
+                <para>This will execute <command>/bin/echo</command>
+                with four arguments: <literal>one</literal>,
+                <literal>two</literal>, <literal>two</literal>, and
+                <literal>two two</literal>.</para>
         </refsect1>
 
         <refsect1>
