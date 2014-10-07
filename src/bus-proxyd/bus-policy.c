@@ -604,7 +604,10 @@ struct policy_check_filter {
         int message_type;
         const char *interface;
         const char *path;
-        const char *member;
+        union {
+                const char *name;
+                const char *member;
+        };
         char **names_strv;
         Hashmap *names_hash;
 };
@@ -633,7 +636,7 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
                                 break;
                 }
 
-                if (i->message_type && (i->message_type != filter->message_type))
+                if ((i->message_type != _POLICY_ITEM_CLASS_UNSET) && (i->message_type != filter->message_type))
                         break;
 
                 if (i->path && !streq_ptr(i->path, filter->path))
@@ -650,14 +653,14 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
         case POLICY_ITEM_OWN:
                 assert(filter->member);
 
-                if (streq(i->name, filter->member))
+                if (streq(i->name, "*") || streq(i->name, filter->name))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_OWN_PREFIX:
                 assert(filter->member);
 
-                if (startswith(i->name, filter->member))
+                if (streq(i->name, "*") || startswith(i->name, filter->name))
                         return is_permissive(i);
                 break;
 
@@ -747,9 +750,9 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
 bool policy_check_own(Policy *p, const struct ucred *ucred, const char *name) {
 
         struct policy_check_filter filter = {
-                .class  = POLICY_ITEM_OWN,
-                .ucred  = ucred,
-                .member = name,
+                .class = POLICY_ITEM_OWN,
+                .ucred = ucred,
+                .name  = name,
         };
 
         return policy_check(p, &filter) == ALLOW;
@@ -758,21 +761,21 @@ bool policy_check_own(Policy *p, const struct ucred *ucred, const char *name) {
 bool policy_check_hello(Policy *p, const struct ucred *ucred) {
 
         struct policy_check_filter filter = {
-                .class  = POLICY_ITEM_USER,
                 .ucred  = ucred,
         };
         int user, group;
 
+        filter.class = POLICY_ITEM_USER;
         user = policy_check(p, &filter);
         if (user == DENY)
                 return false;
 
         filter.class = POLICY_ITEM_GROUP;
         group = policy_check(p, &filter);
-        if (user == DUNNO && group == DUNNO)
+        if (group == DENY)
                 return false;
 
-        return !(user == DENY || group == DENY);
+        return !(user == DUNNO && group == DUNNO);
 }
 
 bool policy_check_recv(Policy *p,
