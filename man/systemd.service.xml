@@ -1215,13 +1215,39 @@
                 contains, resulting in a single argument. Use
                 <literal>$FOO</literal> as a separate word on the
                 command line, in which case it will be replaced by the
-                value of the environment variable split at whitespace,
-                resulting in zero or more arguments. To pass a literal
-                dollar sign, use <literal>$$</literal>.  Variables
-                whose value is not known at expansion time are treated
-                as empty strings. Note that the first argument
-                (i.e. the program to execute) may not be a
-                variable.</para>
+                value of the environment variable split at whitespace
+                resulting in zero or more arguments. For this type of
+                expansion, quotes and respected when splitting into
+                words, and afterwards removed.</para>
+
+                <para>Example:</para>
+
+                <programlisting>Environment="ONE=one" 'TWO=two two'
+ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+
+                <para>This will execute <command>/bin/echo</command>
+                with four arguments: <literal>one</literal>,
+                <literal>two</literal>, <literal>two</literal>, and
+                <literal>two two</literal>.</para>
+
+                <para>Example:</para>
+                <programlisting>Environment=ONE='one' "TWO='two two' too" THREE=
+ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
+ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
+                <para>This results in <filename>echo</filename> being
+                called twice, the first time with arguments
+                <literal>'one'</literal>,
+                <literal>'two two' too</literal>, <literal></literal>,
+                and the second time with arguments
+                <literal>one</literal>, <literal>two two</literal>,
+                <literal>too</literal>.
+                </para>
+
+                <para>To pass a literal dollar sign, use
+                <literal>$$</literal>. Variables whose value is not
+                known at expansion time are treated as empty
+                strings. Note that the first argument (i.e. the
+                program to execute) may not be a variable.</para>
 
                 <para>Variables to be used in this fashion may be
                 defined through <varname>Environment=</varname> and
@@ -1259,16 +1285,6 @@
                 <literal>&gt;/dev/null</literal>,
                 <literal>&amp;</literal>, <literal>;</literal>, and
                 <literal>/bin/ls</literal>.</para>
-
-                <para>Example:</para>
-
-                <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
-
-                <para>This will execute <command>/bin/echo</command>
-                with four arguments: <literal>one</literal>,
-                <literal>two</literal>, <literal>two</literal>, and
-                <literal>two two</literal>.</para>
         </refsect1>
 
         <refsect1>
