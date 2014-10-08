@@ -11,12 +11,18 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 After killing 'systemd --user', systemctl restart user@... fails.
+/run/user/1000/systemd/notify has to be removed manually.
 
 ExecStart with unicode characters fails in strv_split_quoted:
 
           [Service]
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
+
+MEMORY return code is overloaded for syntax errors in the commandline.
+str_split_quoted() should return a real return code, so spawn_child can
+report the failure properly.
+
 
 External:
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
