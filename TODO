@@ -34,6 +34,10 @@ External:
 
 Features:
 
+* man: document that corrupted journal files is nothing to act on
+
+* systemctl isolate should use ".target" as completion suffix, not ".service"
+
 * bus-proxy: when passing messages from kdbus, make sure we properly
   handle the case where a large number of fds is appended that we
   cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
