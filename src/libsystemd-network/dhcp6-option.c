@@ -32,7 +32,6 @@
 #define DHCP6_OPTION_HDR_LEN                    4
 #define DHCP6_OPTION_IA_NA_LEN                  12
 #define DHCP6_OPTION_IA_TA_LEN                  4
-#define DHCP6_OPTION_IAADDR_LEN                 24
 
 static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
                              size_t optlen) {
@@ -111,16 +110,16 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
                 r = option_append_hdr(buf, buflen, DHCP6_OPTION_IAADDR,
-                                      DHCP6_OPTION_IAADDR_LEN);
+                                      sizeof(addr->iaaddr));
                 if (r < 0)
                         return r;
 
-                memcpy(*buf, &addr->address, DHCP6_OPTION_IAADDR_LEN);
+                memcpy(*buf, &addr->iaaddr, sizeof(addr->iaaddr));
 
-                *buf += DHCP6_OPTION_IAADDR_LEN;
-                *buflen -= DHCP6_OPTION_IAADDR_LEN;
+                *buf += sizeof(addr->iaaddr);
+                *buflen -= sizeof(addr->iaaddr);
 
-                ia_addrlen += DHCP6_OPTION_HDR_LEN + DHCP6_OPTION_IAADDR_LEN;
+                ia_addrlen += DHCP6_OPTION_HDR_LEN + sizeof(addr->iaaddr);
         }
 
         r = option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
@@ -192,7 +191,7 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
         case DHCP6_OPTION_IA_NA:
 
                 if (*buflen < DHCP6_OPTION_IA_NA_LEN + DHCP6_OPTION_HDR_LEN +
-                    DHCP6_OPTION_IAADDR_LEN) {
+                    sizeof(addr->iaaddr)) {
                         r = -ENOBUFS;
                         goto error;
                 }
@@ -214,7 +213,7 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
 
         case DHCP6_OPTION_IA_TA:
                 if (*buflen < DHCP6_OPTION_IA_TA_LEN + DHCP6_OPTION_HDR_LEN +
-                    DHCP6_OPTION_IAADDR_LEN) {
+                    sizeof(addr->iaaddr)) {
                         r = -ENOBUFS;
                         goto error;
                 }
@@ -250,10 +249,10 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
 
                         LIST_INIT(addresses, addr);
 
-                        memcpy(&addr->address, *buf, DHCP6_OPTION_IAADDR_LEN);
+                        memcpy(&addr->iaaddr, *buf, sizeof(addr->iaaddr));
 
-                        lt_valid = be32toh(addr->lifetime_valid);
-                        lt_pref = be32toh(addr->lifetime_valid);
+                        lt_valid = be32toh(addr->iaaddr.lifetime_valid);
+                        lt_pref = be32toh(addr->iaaddr.lifetime_valid);
 
                         if (!lt_valid || lt_pref > lt_valid) {
                                 log_dhcp6_client(client, "IA preferred %ds > valid %ds",

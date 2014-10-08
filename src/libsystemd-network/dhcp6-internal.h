@@ -38,7 +38,7 @@ struct DHCP6Address {
                 struct in6_addr address;
                 be32_t lifetime_preferred;
                 be32_t lifetime_valid;
-        } _packed_;
+        } iaaddr _packed_;
 };
 
 struct DHCP6IA {

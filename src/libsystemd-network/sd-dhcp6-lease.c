@@ -41,7 +41,7 @@ int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
         assert_return(expire, -EINVAL);
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
-                t = be32toh(addr->lifetime_valid);
+                t = be32toh(addr->iaaddr.lifetime_valid);
                 if (valid < t)
                         valid = t;
         }
@@ -156,9 +156,11 @@ int sd_dhcp6_lease_get_next_address(sd_dhcp6_lease *lease,
         if (!lease->addr_iter)
                 return -ENOMSG;
 
-        memcpy(addr, &lease->addr_iter->address, sizeof(struct in6_addr));
-        *lifetime_preferred = be32toh(lease->addr_iter->lifetime_preferred);
-        *lifetime_valid = be32toh(lease->addr_iter->lifetime_valid);
+        memcpy(addr, &lease->addr_iter->iaaddr.address,
+                sizeof(struct in6_addr));
+        *lifetime_preferred =
+                be32toh(lease->addr_iter->iaaddr.lifetime_preferred);
+        *lifetime_valid = be32toh(lease->addr_iter->iaaddr.lifetime_valid);
 
         lease->addr_iter = lease->addr_iter->addresses_next;
 
