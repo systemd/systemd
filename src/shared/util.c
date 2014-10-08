@@ -2074,7 +2074,7 @@ int acquire_terminal(
                  * ended our handle will be dead. It's important that
                  * we do this after sleeping, so that we don't enter
                  * an endless loop. */
-                safe_close(fd);
+                fd = safe_close(fd);
         }
 
         safe_close(notify);
