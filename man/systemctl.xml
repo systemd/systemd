@@ -924,6 +924,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             the system, or for all future logins of all users, or only this
             boot.  Note that in the last case, no systemd daemon
             configuration is reloaded.</para>
+
+            <para>Using <command>enable</command> on masked units
+            results in an error.</para>
           </listitem>
         </varlistentry>
 
@@ -1080,8 +1083,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <filename>/dev/null</filename>, making it impossible to
             start them. This is a stronger version of
             <command>disable</command>, since it prohibits all kinds of
-            activation of the unit, including manual activation. Use
-            this option with care. This honors the
+            activation of the unit, including enablement and manual
+            activation. Use this option with care. This honors the
             <option>--runtime</option> option to only mask temporarily
             until the next reboot of the system.</para>
           </listitem>
