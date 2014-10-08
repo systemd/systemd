@@ -66,7 +66,9 @@ static int test_client_basic(sd_event *e) {
         assert_se(sd_dhcp6_client_set_index(client, -1) == 0);
         assert_se(sd_dhcp6_client_set_index(client, 42) >= 0);
 
-        assert_se(sd_dhcp6_client_set_mac(client, &mac_addr) >= 0);
+        assert_se(sd_dhcp6_client_set_mac(client, (const uint8_t *) &mac_addr,
+                                          sizeof (mac_addr),
+                                          ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_CLIENTID) == -EINVAL);
         assert_se(sd_dhcp6_client_set_request_option(client, DHCP6_OPTION_DNS_SERVERS) == -EEXIST);
@@ -572,7 +574,9 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
 
         assert_se(sd_dhcp6_client_set_index(client, test_index) == 0);
-        assert_se(sd_dhcp6_client_set_mac(client, &mac_addr) >= 0);
+        assert_se(sd_dhcp6_client_set_mac(client, (const uint8_t *) &mac_addr,
+                                          sizeof (mac_addr),
+                                          ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_solicit_cb, e) >= 0);

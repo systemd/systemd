@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <linux/if_infiniband.h>
 
 #include "udev.h"
 #include "udev-util.h"
@@ -44,6 +45,8 @@
  */
 #define MAX_DUID_LEN 128
 
+#define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
+
 struct sd_dhcp6_client {
         RefCount n_ref;
 
@@ -51,7 +54,9 @@ struct sd_dhcp6_client {
         sd_event *event;
         int event_priority;
         int index;
-        struct ether_addr mac_addr;
+        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
+        size_t mac_addr_len;
+        uint16_t arp_type;
         DHCP6IA ia_na;
         be32_t transaction_id;
         usec_t transaction_start;
@@ -160,15 +165,28 @@ int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index)
         return 0;
 }
 
-int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
-                            const struct ether_addr *mac_addr)
+int sd_dhcp6_client_set_mac(sd_dhcp6_client *client, const uint8_t *addr,
+                            size_t addr_len, uint16_t arp_type)
 {
         assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
+        assert_return(arp_type > 0, -EINVAL);
 
-        if (mac_addr)
-                memcpy(&client->mac_addr, mac_addr, sizeof(client->mac_addr));
+        if (arp_type == ARPHRD_ETHER)
+                assert_return(addr_len == ETH_ALEN, -EINVAL);
+        else if (arp_type == ARPHRD_INFINIBAND)
+                assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
         else
-                memset(&client->mac_addr, 0x00, sizeof(client->mac_addr));
+                return -EINVAL;
+
+        if (client->mac_addr_len == addr_len &&
+            memcmp(&client->mac_addr, addr, addr_len) == 0)
+                return 0;
+
+        memcpy(&client->mac_addr, addr, addr_len);
+        client->mac_addr_len = addr_len;
+        client->arp_type = arp_type;
 
         return 0;
 }
@@ -646,8 +664,8 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
                 siphash24((uint8_t*)&id, name, strlen(name), HASH_KEY.bytes);
         else
                 /* fall back to mac address if no predictable name available */
-                siphash24((uint8_t*)&id, &client->mac_addr, ETH_ALEN,
-                          HASH_KEY.bytes);
+                siphash24((uint8_t*)&id, &client->mac_addr,
+                          client->mac_addr_len, HASH_KEY.bytes);
 
         /* fold into 32 bits */
         client->ia_na.id = (id & 0xffffffff) ^ (id >> 32);

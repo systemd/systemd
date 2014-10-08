@@ -92,7 +92,7 @@ static void test_message_init(void)
         message = malloc0(len);
 
         assert_se(dhcp_message_init(message, BOOTREQUEST, 0x12345678,
-                  DHCP_DISCOVER, optlen, &optoffset) >= 0);
+                  DHCP_DISCOVER, ARPHRD_ETHER, optlen, &optoffset) >= 0);
 
         assert_se(message->xid == htobe32(0x12345678));
         assert_se(message->op == BOOTREQUEST);

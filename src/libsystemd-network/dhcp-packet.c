@@ -38,15 +38,17 @@
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
 int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, size_t optlen, size_t *optoffset) {
+                      uint8_t type, uint16_t arp_type, size_t optlen,
+                      size_t *optoffset) {
         size_t offset = 0;
         int r;
 
         assert(op == BOOTREQUEST || op == BOOTREPLY);
+        assert(arp_type == ARPHRD_ETHER || arp_type == ARPHRD_INFINIBAND);
 
         message->op = op;
-        message->htype = ARPHRD_ETHER;
-        message->hlen = ETHER_ADDR_LEN;
+        message->htype = arp_type;
+        message->hlen = (arp_type == ARPHRD_ETHER) ? ETHER_ADDR_LEN : 0;
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 

@@ -196,7 +196,9 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         return 575;
 }
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t id, struct ether_addr mac)
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
+                                 uint32_t id, const uint8_t *addr,
+                                 size_t addr_len, uint16_t arp_type)
 {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
                 return -errno;
@@ -244,7 +246,10 @@ static void test_discover_message(sd_event *e)
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_index(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, &mac_addr) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client,
+                                         (const uint8_t *) &mac_addr,
+                                         sizeof (mac_addr),
+                                         ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
 
@@ -462,7 +467,10 @@ static void test_addr_acq(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_index(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, &mac_addr) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client,
+                                         (const uint8_t *) &mac_addr,
+                                         sizeof (mac_addr),
+                                         ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e)
                 >= 0);

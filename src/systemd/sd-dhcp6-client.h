@@ -43,8 +43,8 @@ int sd_dhcp6_client_set_callback(sd_dhcp6_client *client,
                                  sd_dhcp6_client_cb_t cb, void *userdata);
 
 int sd_dhcp6_client_set_index(sd_dhcp6_client *client, int interface_index);
-int sd_dhcp6_client_set_mac(sd_dhcp6_client *client,
-                            const struct ether_addr *mac_addr);
+int sd_dhcp6_client_set_mac(sd_dhcp6_client *client, const uint8_t *addr,
+                            size_t addr_len, uint16_t arp_type);
 int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *duid,
                              size_t duid_len);
 int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client,

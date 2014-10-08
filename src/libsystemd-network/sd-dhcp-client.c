@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
+#include <linux/if_infiniband.h>
 #include <netinet/ether.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
@@ -36,6 +37,8 @@
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
 #include "sd-dhcp-client.h"
+
+#define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
 struct sd_dhcp_client {
         RefCount n_ref;
@@ -57,6 +60,9 @@ struct sd_dhcp_client {
                 uint8_t type;
                 struct ether_addr mac_addr;
         } _packed_ client_id;
+        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
+        size_t mac_addr_len;
+        uint16_t arp_type;
         char *hostname;
         char *vendor_class_identifier;
         uint32_t mtu;
@@ -163,15 +169,25 @@ int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index) {
         return 0;
 }
 
-int sd_dhcp_client_set_mac(sd_dhcp_client *client,
-                           const struct ether_addr *addr) {
+int sd_dhcp_client_set_mac(sd_dhcp_client *client, const uint8_t *addr,
+                           size_t addr_len, uint16_t arp_type) {
         DHCP_CLIENT_DONT_DESTROY(client);
         bool need_restart = false;
 
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
+        assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
+        assert_return(arp_type > 0, -EINVAL);
 
-        if (memcmp(&client->client_id.mac_addr, addr, ETH_ALEN) == 0)
+        if (arp_type == ARPHRD_ETHER)
+                assert_return(addr_len == ETH_ALEN, -EINVAL);
+        else if (arp_type == ARPHRD_INFINIBAND)
+                assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
+        else
+                return -EINVAL;
+
+        if (client->mac_addr_len == addr_len &&
+            memcmp(&client->mac_addr, addr, addr_len) == 0)
                 return 0;
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
@@ -180,6 +196,10 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                 need_restart = true;
                 client_stop(client, DHCP_EVENT_STOP);
         }
+
+        memcpy(&client->mac_addr, addr, addr_len);
+        client->mac_addr_len = addr_len;
+        client->arp_type = arp_type;
 
         memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
         client->client_id.type = 0x01;
@@ -318,7 +338,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid, type,
-                              optlen, &optoffset);
+                              client->arp_type, optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -337,14 +357,17 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
            Note: some interfaces needs this to be enabled, but some networks
            needs this to be disabled as broadcasts are filteretd, so this
            needs to be configurable */
-        if (client->request_broadcast)
+        if (client->request_broadcast || client->arp_type != ARPHRD_ETHER)
                 packet->dhcp.flags = htobe16(0x8000);
 
         /* RFC2132 section 4.1.1:
            The client MUST include its hardware address in the ’chaddr’ field, if
-           necessary for delivery of DHCP reply messages.
+           necessary for delivery of DHCP reply messages.  Non-Ethernet
+           interfaces will leave 'chaddr' empty and use the client identifier
+           instead (eg, RFC 4390 section 2.1).
          */
-        memcpy(&packet->dhcp.chaddr, &client->client_id.mac_addr, ETH_ALEN);
+        if (client->arp_type == ARPHRD_ETHER)
+                memcpy(&packet->dhcp.chaddr, &client->mac_addr, ETH_ALEN);
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
@@ -843,7 +866,9 @@ static int client_start(sd_dhcp_client *client) {
 
         client->xid = random_u32();
 
-        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid, client->client_id.mac_addr);
+        r = dhcp_network_bind_raw_socket(client->index, &client->link,
+                                         client->xid, client->mac_addr,
+                                         client->mac_addr_len, client->arp_type);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -887,7 +912,9 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->state = DHCP_STATE_REBINDING;
         client->attempt = 1;
 
-        r = dhcp_network_bind_raw_socket(client->index, &client->link, client->xid, client->client_id.mac_addr);
+        r = dhcp_network_bind_raw_socket(client->index, &client->link,
+                                         client->xid, client->mac_addr,
+                                         client->mac_addr_len, client->arp_type);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;
@@ -1331,6 +1358,9 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
         int buflen = 0, len, r;
+        const struct ether_addr zero_mac = { { 0, 0, 0, 0, 0, 0 } };
+        const struct ether_addr *expected_chaddr = NULL;
+        uint8_t expected_hlen = 0;
 
         assert(s);
         assert(client);
@@ -1367,13 +1397,26 @@ static int client_receive_message_udp(sd_event_source *s, int fd,
                 return 0;
         }
 
-        if (message->htype != ARPHRD_ETHER || message->hlen != ETHER_ADDR_LEN) {
-                log_dhcp_client(client, "not an ethernet packet");
+        if (message->htype != client->arp_type) {
+                log_dhcp_client(client, "packet type does not match client type");
                 return 0;
         }
 
-        if (memcmp(&message->chaddr[0], &client->client_id.mac_addr,
-                   ETH_ALEN)) {
+        if (client->arp_type == ARPHRD_ETHER) {
+                expected_hlen = ETH_ALEN;
+                expected_chaddr = (const struct ether_addr *) &client->mac_addr;
+        } else {
+               /* Non-ethernet links expect zero chaddr */
+               expected_hlen = 0;
+               expected_chaddr = &zero_mac;
+        }
+
+        if (message->hlen != expected_hlen) {
+                log_dhcp_client(client, "unexpected packet hlen %d", message->hlen);
+                return 0;
+        }
+
+        if (memcmp(&message->chaddr[0], expected_chaddr, ETH_ALEN)) {
                 log_dhcp_client(client, "received chaddr does not match "
                                 "expected: ignoring");
                 return 0;
@@ -1455,7 +1498,6 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
 }
 
 int sd_dhcp_client_start(sd_dhcp_client *client) {
-        char buffer[ETHER_ADDR_TO_STRING_MAX];
         int r;
 
         assert_return(client, -EINVAL);
@@ -1469,9 +1511,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         r = client_start(client);
         if (r >= 0)
-                log_dhcp_client(client, "STARTED on ifindex %u with address %s",
-                                client->index,
-                                ether_addr_to_string(&client->client_id.mac_addr, buffer));
+                log_dhcp_client(client, "STARTED on ifindex %u", client->index);
 
         return r;
 }

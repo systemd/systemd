@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <linux/if_packet.h>
+#include <net/if_arp.h>
 #include <net/ethernet.h>
 
 #include "socket-util.h"
@@ -31,7 +32,9 @@
 #include "sd-dhcp-client.h"
 #include "dhcp-protocol.h"
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t xid, struct ether_addr mac_addr);
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
+                                 uint32_t xid, const uint8_t *mac_addr,
+                                 size_t mac_addr_len, uint16_t arp_type);
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port);
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len);
@@ -47,8 +50,9 @@ typedef int (*dhcp_option_cb_t)(uint8_t code, uint8_t len,
 int dhcp_option_parse(DHCPMessage *message, size_t len,
                       dhcp_option_cb_t cb, void *user_data);
 
-int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid, uint8_t type,
-                      size_t optlen, size_t *optoffset);
+int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
+                      uint8_t type, uint16_t arp_type, size_t optlen,
+                      size_t *optoffset);
 
 uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
 

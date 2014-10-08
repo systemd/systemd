@@ -392,8 +392,8 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid), type, req->max_optlen,
-                              &optoffset);
+                              be32toh(req->message->xid), type, ARPHRD_ETHER,
+                              req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -513,8 +513,8 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              DHCP_FORCERENEW, DHCP_MIN_OPTIONS_SIZE,
-                              &optoffset);
+                              DHCP_FORCERENEW, ARPHRD_ETHER,
+                              DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
 

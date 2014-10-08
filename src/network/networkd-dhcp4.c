@@ -599,7 +599,9 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_client_set_mac(link->dhcp_client, &link->mac);
+        r = sd_dhcp_client_set_mac(link->dhcp_client,
+                                   (const uint8_t *) &link->mac,
+                                   sizeof (link->mac), ARPHRD_ETHER);
         if (r < 0)
                 return r;
 

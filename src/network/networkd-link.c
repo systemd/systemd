@@ -909,7 +909,9 @@ static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
                 return;
         }
 
-        r = sd_dhcp6_client_set_mac(link->dhcp6_client, &link->mac);
+        r = sd_dhcp6_client_set_mac(link->dhcp6_client,
+                                    (const uint8_t *) &link->mac,
+                                    sizeof (link->mac), ARPHRD_ETHER);
         if (r < 0) {
                 link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
                 return;
@@ -1647,7 +1649,9 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
                         if (link->dhcp_client) {
                                 r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                                           &link->mac);
+                                                           (const uint8_t *) &link->mac,
+                                                           sizeof (link->mac),
+                                                           ARPHRD_ETHER);
                                 if (r < 0) {
                                         log_warning_link(link,
                                                          "Could not update MAC address in DHCP client: %s",
@@ -1658,7 +1662,9 @@ int link_update(Link *link, sd_rtnl_message *m) {
 
                         if (link->dhcp6_client) {
                                 r = sd_dhcp6_client_set_mac(link->dhcp6_client,
-                                                            &link->mac);
+                                                            (const uint8_t *) &link->mac,
+                                                            sizeof (link->mac),
+                                                            ARPHRD_ETHER);
                                 if (r < 0) {
                                         log_warning_link(link,
                                                          "Could not update MAC address in DHCPv6 client: %s",

@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <linux/if_packet.h>
+#include <linux/if_infiniband.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <stdio.h>
@@ -32,9 +33,12 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
-                                 uint32_t xid, struct ether_addr mac_addr) {
-
+static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
+                            uint32_t xid, const uint8_t *mac_addr,
+                            size_t mac_addr_len,
+                            const uint8_t *bcast_addr,
+                            const struct ether_addr *eth_mac,
+                            uint16_t arp_type, uint8_t dhcp_hlen) {
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
@@ -57,21 +61,21 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, BOOTREPLY, 1, 0),                  /* op == BOOTREPLY ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.htype)),  /* A <- DHCP header type */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPHRD_ETHER, 1, 0),               /* header type == ARPHRD_ETHER ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, arp_type, 1, 0),                   /* header type == arp_type ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.hlen)),   /* A <- mac address length */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHER_ADDR_LEN, 1, 0),             /* address length == ETHER_ADDR_LEN ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, dhcp_hlen, 1, 0),                  /* address length == dhcp_hlen ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((unsigned int *) &mac_addr))),                    /* A <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((unsigned int *) eth_mac))),                     /* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((unsigned short *) (((char *) &mac_addr) + 4)))), /* A <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((unsigned short *) (((char *) eth_mac) + 4)))),   /* A <- remainder of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
@@ -107,8 +111,9 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
         link->ll.sll_family = AF_PACKET;
         link->ll.sll_protocol = htons(ETH_P_IP);
         link->ll.sll_ifindex = ifindex;
-        link->ll.sll_halen = ETH_ALEN;
-        memset(link->ll.sll_addr, 0xff, ETH_ALEN);
+        link->ll.sll_hatype = htons(arp_type);
+        link->ll.sll_halen = mac_addr_len;
+        memcpy(link->ll.sll_addr, bcast_addr, mac_addr_len);
 
         r = bind(s, &link->sa, sizeof(link->ll));
         if (r < 0)
@@ -118,6 +123,37 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
         s = -1;
 
         return r;
+}
+
+int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
+                                 uint32_t xid, const uint8_t *mac_addr,
+                                 size_t mac_addr_len, uint16_t arp_type) {
+        static const uint8_t eth_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        /* Default broadcast address for IPoIB */
+        static const uint8_t ib_bcast[] = {
+                0x00, 0xff, 0xff, 0xff, 0xff, 0x12, 0x40, 0x1b,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0xff, 0xff, 0xff, 0xff
+          };
+        struct ether_addr eth_mac = { { 0, 0, 0, 0, 0, 0 } };
+        const uint8_t *bcast_addr = NULL;
+        uint8_t dhcp_hlen = 0;
+
+        assert_return(mac_addr_len > 0, -EINVAL);
+
+        if (arp_type == ARPHRD_ETHER) {
+                assert_return(mac_addr_len == ETH_ALEN, -EINVAL);
+                memcpy(&eth_mac, mac_addr, ETH_ALEN);
+                bcast_addr = eth_bcast;
+                dhcp_hlen = ETH_ALEN;
+        } else if (arp_type == ARPHRD_INFINIBAND) {
+                assert_return(mac_addr_len == INFINIBAND_ALEN, -EINVAL);
+                bcast_addr = ib_bcast;
+        } else
+                return -EINVAL;
+
+        return _bind_raw_socket(ifindex, link, xid, mac_addr, mac_addr_len,
+                                bcast_addr, &eth_mac, arp_type, dhcp_hlen);
 }
 
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
