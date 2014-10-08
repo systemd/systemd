@@ -90,11 +90,15 @@
                 files at the same
                 time. <filename>/usr/lib/os-release</filename> is the
                 recommended place to store OS release information as
-                part of vendor trees. Frequently,
-                <filename>/etc/os-release</filename> is simply a
-                symlink to <filename>/usr/lib/os-release</filename>,
+                part of vendor trees.
+                <filename>/etc/os-release</filename> should be a
+                relative symlink to
+                <filename>/usr/lib/os-release</filename>,
                 to provide compatibility with applications only
-                looking at <filename>/etc</filename>.</para>
+                looking at <filename>/etc</filename>. A relative
+                symlink instead of an absolute symlink is
+                necessary to avoid breaking the link in a chroot or
+                initrd environment such as dracut.</para>
 
                 <para><filename>os-release</filename> contains data
                 that is defined by the operating system vendor and
