@@ -1101,7 +1101,8 @@ static int copy_devnodes(const char *dest) {
                 "full\0"
                 "random\0"
                 "urandom\0"
-                "tty\0";
+                "tty\0"
+                "net/tun\0";
 
         const char *d;
         int r = 0;
@@ -1132,10 +1133,17 @@ static int copy_devnodes(const char *dest) {
                         log_error("%s is not a char or block device, cannot copy", from);
                         return -EIO;
 
-                } else if (mknod(to, st.st_mode, st.st_rdev) < 0) {
+                } else {
+                        r = mkdir_parents(to, 0775);
+                        if (r < 0) {
+                                log_error("Failed to create parent directory of %s: %s", to, strerror(-r));
+                                return -r;
+                        }
 
-                        log_error("mknod(%s) failed: %m", dest);
-                        return  -errno;
+                        if (mknod(to, st.st_mode, st.st_rdev) < 0) {
+                                log_error("mknod(%s) failed: %m", dest);
+                                return  -errno;
+                        }
                 }
         }
 
