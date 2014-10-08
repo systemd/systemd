@@ -1,5 +1,86 @@
 systemd System and Service Manager
 
+CHANGES WITH 217:
+
+        * journalctl gained option -t/--identifier to match on the
+          syslog identifier and --utc option to show timestamps in UTC
+          timezone. journalctl now also accepts -n/--lines=all to
+          disable line cap under a pager.
+
+        * Services can notify the manager before they start a reload
+          (by sending RELOADING=1) or shutdown (by sending
+          STOPPING=1). This allows the manager to show the
+          internal state of daemons and closes a race condition
+          when the process is still running but has closed its
+          d-bus connection.
+
+        * Services with Type=oneshot do not have to have any
+          ExecStart commands.
+
+        * User units are now loaded also from
+          $XDG_RUNTIME_DIR/systemd/user/. This is similar to the
+          /run/systemd/user directory that was already previously
+          supported, but is under the control of the user.
+
+        * A timeout for the start of the system can be configured. The
+          system can be configured to reboot or poweroff if the basic
+          system default target is not reached before the timeout (new
+          StartTimeoutSec=, StartTimeoutAction=,
+          StartTimeoutRebootArgument= options).
+
+        * systemd-logind can be configured to also handle lid switch
+          events even when the machine is docked or multiple displays
+          are attached (HandleLidSwitchDocked= option).
+
+        * A helper binary and a service have been added which can be
+          used to resume from hibernation in the initramfs. A
+          generator will parse the resume= option on the kernel
+          command-line to trigger resume.
+
+        * systemd-evcat input debugging tool has been added. It will
+          print keys read for the input system and show modifier
+          status.
+
+        * systemd-modeset graphics debugging tool will show undulating
+          rainbows on all connected displays.
+
+        * A user console daemon systemd-consoled has been added. It is
+          a preview, and will so far open a single terminal on each
+          session of the user marked as Desktop=SYSTEMD-CONSOLE.
+
+        * Route metrics can be specified for DHCP routes added by
+          systemd-networkd.
+
+        * SELinux context of socket-actived services can be set from
+          the information provided by the remote peer
+          (SELinuxContextFromNet= option).
+
+        * Userspace firmware loading support has been removed and
+          the minimum supported kernel version is thus bumped to 3.7.
+
+        * Timeout for udev workers has been increased from 1 to 3
+          minutes, but a warning will be printed after 1 minute to
+          help diagnose kernel modules that take a long time to load.
+
+        * Udev rules can now remove tags with TAG-="foobar".
+
+        * Readhead implementation has been removed. In many
+          circumstatances it didn't give expected benefits even for
+          rotational disk drives and was becoming less relevant in the
+          age of SSDs.
+
+        * Swap units can use Discard= to specify discard options.
+          Discard options specified for swaps in /etc/fstab are now
+          respected.
+
+        * Docker containers are now detected as a separate type of
+          virtualization.
+
+        * The Password Agent protocol gained support for queries where
+          the user input is shown, useful e.g. for usernames.
+          systemd-ask-password gained a new --echo option to turn
+          that on.
+
 CHANGES WITH 216:
 
         * timedated no longer reads NTP implementation unit names from
