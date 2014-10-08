@@ -5288,6 +5288,100 @@ finish:
         return r;
 }
 
+static int add_dependency(sd_bus *bus, char **args) {
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free_ char *target = NULL;
+        const char *verb = args[0];
+        UnitDependency dep;
+        int r = 0;
+
+        if (!args[1])
+                return 0;
+
+        target = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".target");
+        if (!target)
+                return log_oom();
+
+        r = mangle_names(args+2, &names);
+        if (r < 0)
+                return r;
+
+        if (streq(verb, "add-wants"))
+                dep = UNIT_WANTS;
+        else if (streq(verb, "add-requires"))
+                dep = UNIT_REQUIRES;
+        else
+                assert_not_reached("Unknown verb");
+
+        if (!bus || avoid_bus()) {
+                UnitFileChange *changes = NULL;
+                unsigned n_changes = 0;
+
+                r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
+
+                if (r < 0) {
+                        log_error("Can't add dependency: %s", strerror(-r));
+                        return r;
+                }
+
+                if (!arg_quiet)
+                        dump_unit_file_changes(changes, n_changes);
+
+                unit_file_changes_free(changes, n_changes);
+
+        } else {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "AddDependencyUnitFiles");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, names);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", target);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", unit_dependency_to_string(dep));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "b", arg_runtime);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "b", arg_force);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+                if (r < 0) {
+                        log_error("Failed to execute operation: %s", bus_error_message(&error, r));
+                        return r;
+                }
+
+                r = deserialize_and_dump_unit_file_changes(reply);
+                if (r < 0)
+                        return r;
+
+                if (!arg_no_reload)
+                        r = daemon_reload(bus, args);
+                else
+                        r = 0;
+        }
+
+        return r;
+}
+
 static int preset_all(sd_bus *bus, char **args) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
@@ -5533,6 +5627,10 @@ static void systemctl_help(void) {
                "  unmask NAME...                  Unmask one or more units\n"
                "  link PATH...                    Link one or more units files into\n"
                "                                  the search path\n"
+               "  add-wants TARGET NAME...        Add 'Wants' dependency for the target\n"
+               "                                  on specified one or more units\n"
+               "  add-requires TARGET NAME...     Add 'Requires' dependency for the target\n"
+               "                                  on specified one or more units\n"
                "  get-default                     Get the name of the default target\n"
                "  set-default NAME                Set the default target\n\n"
                "Machine Commands:\n"
@@ -6543,6 +6641,8 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "get-default",           EQUAL, 1, get_default,      NOBUS },
                 { "set-property",          MORE,  3, set_property      },
                 { "is-system-running",     EQUAL, 1, is_system_running },
+                { "add-wants",             MORE,  3, add_dependency,        NOBUS },
+                { "add-requires",          MORE,  3, add_dependency,        NOBUS },
                 {}
         }, *verb = verbs;
 

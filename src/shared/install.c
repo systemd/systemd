@@ -1042,7 +1042,8 @@ static int unit_file_load(
                 InstallInfo *info,
                 const char *path,
                 const char *root_dir,
-                bool allow_symlink) {
+                bool allow_symlink,
+                bool load) {
 
         const ConfigTableItem items[] = {
                 { "Install", "Alias",           config_parse_strv,             0, &info->aliases           },
@@ -1063,6 +1064,11 @@ static int unit_file_load(
 
         if (!isempty(root_dir))
                 path = strappenda(root_dir, "/", path);
+
+        if (!load) {
+                r = access(path, F_OK) ? -errno : 0;
+                return r;
+        }
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(allow_symlink ? 0 : O_NOFOLLOW));
         if (fd < 0)
@@ -1092,7 +1098,8 @@ static int unit_file_search(
                 InstallInfo *info,
                 LookupPaths *paths,
                 const char *root_dir,
-                bool allow_symlink) {
+                bool allow_symlink,
+                bool load) {
 
         char **p;
         int r;
@@ -1102,7 +1109,7 @@ static int unit_file_search(
         assert(paths);
 
         if (info->path)
-                return unit_file_load(c, info, info->path, root_dir, allow_symlink);
+                return unit_file_load(c, info, info->path, root_dir, allow_symlink, load);
 
         assert(info->name);
 
@@ -1113,7 +1120,7 @@ static int unit_file_search(
                 if (!path)
                         return -ENOMEM;
 
-                r = unit_file_load(c, info, path, root_dir, allow_symlink);
+                r = unit_file_load(c, info, path, root_dir, allow_symlink, load);
                 if (r >= 0) {
                         info->path = path;
                         path = NULL;
@@ -1142,7 +1149,7 @@ static int unit_file_search(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_load(c, info, path, root_dir, allow_symlink);
+                        r = unit_file_load(c, info, path, root_dir, allow_symlink, load);
                         if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
@@ -1175,7 +1182,7 @@ static int unit_file_can_install(
 
         assert_se(i = hashmap_first(c.will_install));
 
-        r = unit_file_search(&c, i, paths, root_dir, allow_symlink);
+        r = unit_file_search(&c, i, paths, root_dir, allow_symlink, true);
 
         if (r >= 0)
                 r =
@@ -1402,7 +1409,7 @@ static int install_context_apply(
 
                 assert_se(hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
-                q = unit_file_search(c, i, paths, root_dir, false);
+                q = unit_file_search(c, i, paths, root_dir, false, true);
                 if (q < 0) {
                         if (r >= 0)
                                 r = q;
@@ -1443,7 +1450,7 @@ static int install_context_mark_for_removal(
 
                 assert_se(hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
-                q = unit_file_search(c, i, paths, root_dir, false);
+                q = unit_file_search(c, i, paths, root_dir, false, true);
                 if (q == -ENOENT) {
                         /* do nothing */
                 } else if (q < 0) {
@@ -1487,6 +1494,83 @@ static int install_context_mark_for_removal(
         }
 
         return r;
+}
+
+int unit_file_add_dependency(
+                UnitFileScope scope,
+                bool runtime,
+                const char *root_dir,
+                char **files,
+                char *target,
+                UnitDependency dep,
+                bool force,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_(install_context_done) InstallContext c = {};
+        _cleanup_free_ char *config_path = NULL;
+        char **i;
+        int r;
+        InstallInfo *info;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        if (r < 0)
+                return r;
+
+        r = get_config_path(scope, runtime, root_dir, &config_path);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, files) {
+                UnitFileState state;
+
+                state = unit_file_get_state(scope, root_dir, *i);
+                if (state < 0) {
+                        log_error("Failed to get unit file state for %s: %s", *i, strerror(-state));
+                        return state;
+                }
+
+                if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
+                        log_error("Failed to enable unit: Unit %s is masked", *i);
+                        return -ENOTSUP;
+                }
+
+                r = install_info_add_auto(&c, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        while ((info = hashmap_first(c.will_install))) {
+                r = hashmap_ensure_allocated(&c.have_installed, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                assert_se(hashmap_move_one(c.have_installed, c.will_install, info->name) == 0);
+
+                r = unit_file_search(&c, info, &paths, root_dir, false, false);
+                if (r < 0)
+                        return r;
+
+                if (dep == UNIT_WANTS)
+                        r = strv_extend(&info->wanted_by, target);
+                else if (dep == UNIT_REQUIRES)
+                        r = strv_extend(&info->required_by, target);
+                else
+                        r = -EINVAL;
+
+                if (r < 0)
+                        return r;
+
+                r = install_info_apply(info, &paths, config_path, root_dir, force, changes, n_changes);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int unit_file_enable(
@@ -1638,7 +1722,7 @@ int unit_file_set_default(
 
         assert_se(i = hashmap_first(c.will_install));
 
-        r = unit_file_search(&c, i, &paths, root_dir, false);
+        r = unit_file_search(&c, i, &paths, root_dir, false, true);
         if (r < 0)
                 return r;
 

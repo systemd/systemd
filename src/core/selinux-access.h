@@ -24,10 +24,13 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "manager.h"
 
 void selinux_access_free(void);
 
 int selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
+
+int selinux_unit_access_check_strv(char **units, sd_bus_message *message, Manager *m, const char *permission, sd_bus_error *error);
 
 #ifdef HAVE_SELINUX
 

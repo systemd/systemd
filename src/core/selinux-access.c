@@ -250,6 +250,27 @@ finish:
         return r;
 }
 
+int selinux_unit_access_check_strv(char **units,
+                                sd_bus_message *message,
+                                Manager *m,
+                                const char *permission,
+                                sd_bus_error *error) {
+        char **i;
+        Unit *u;
+        int r;
+
+        STRV_FOREACH(i, units) {
+                u = manager_get_unit(m, *i);
+                if (u) {
+                        r = selinux_unit_access_check(u, message, permission, error);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 #else
 
 int selinux_generic_access_check(
@@ -262,6 +283,14 @@ int selinux_generic_access_check(
 }
 
 void selinux_access_free(void) {
+}
+
+int selinux_unit_access_check_strv(char **units,
+                                sd_bus_message *message,
+                                Manager *m,
+                                const char *permission,
+                                sd_bus_error *error) {
+        return 0;
 }
 
 #endif

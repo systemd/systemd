@@ -1098,6 +1098,25 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
+          <term><command>add-wants <replaceable>TARGET</replaceable>
+          <replaceable>NAME</replaceable>...</command></term>
+          <term><command>add-requires <replaceable>TARGET</replaceable>
+          <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Adds <literal>Wants=</literal> resp. <literal>Requires=</literal>
+            dependency to the specified <replaceable>TARGET</replaceable> for
+            one or more units. </para>
+
+            <para>This command honors <option>--system</option>,
+            <option>--user</option>, <option>--runtime</option> and
+            <option>--global</option> in a similar way as
+            <command>enable</command>.</para>
+
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>link <replaceable>FILENAME</replaceable>...</command></term>
 
           <listitem>

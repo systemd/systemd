@@ -461,7 +461,6 @@ Features:
   - "systemctl mask" should find all names by which a unit is accessible
     (i.e. by scanning for symlinks to it) and link them all to /dev/null
   - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
-  - systemctl: maybe add "systemctl add-wants" or so...
 
 * timer units:
   - timer units should get the ability to trigger when:

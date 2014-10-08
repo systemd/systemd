@@ -1562,9 +1562,6 @@ static int method_enable_unit_files_generic(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-#ifdef HAVE_SELINUX
-        char **i;
-#endif
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         UnitFileScope scope;
@@ -1588,18 +1585,9 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
-#ifdef HAVE_SELINUX
-        STRV_FOREACH(i, l) {
-                Unit *u;
-
-                u = manager_get_unit(m, *i);
-                if (u) {
-                        r = selinux_unit_access_check(u, message, verb, error);
-                        if (r < 0)
-                                return r;
-                }
-        }
-#endif
+        r = selinux_unit_access_check_strv(l, message, m, verb, error);
+        if (r < 0)
+                return r;
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
@@ -1637,9 +1625,6 @@ static int method_mask_unit_files(sd_bus *bus, sd_bus_message *message, void *us
 static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-#ifdef HAVE_SELINUX
-        char **i;
-#endif
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         Manager *m = userdata;
@@ -1674,18 +1659,9 @@ static int method_preset_unit_files_with_mode(sd_bus *bus, sd_bus_message *messa
                         return -EINVAL;
         }
 
-#ifdef HAVE_SELINUX
-        STRV_FOREACH(i, l) {
-                Unit *u;
-
-                u = manager_get_unit(m, *i);
-                if (u) {
-                        r = selinux_unit_access_check(u, message, "enable", error);
-                        if (r < 0)
-                                return r;
-                }
-        }
-#endif
+        r = selinux_unit_access_check_strv(l, message, m, "enable", error);
+        if (r < 0)
+                return r;
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
@@ -1828,6 +1804,52 @@ static int method_preset_all_unit_files(sd_bus *bus, sd_bus_message *message, vo
         return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
 }
 
+static int method_add_dependency_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        UnitFileScope scope;
+        int runtime, force, r;
+        char *target;
+        char *type;
+        UnitDependency dep;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = bus_verify_manage_unit_files_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_message_read_strv(message, &l);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "ssbb", &target, &type, &runtime, &force);
+        if (r < 0)
+                return r;
+
+        dep = unit_dependency_from_string(type);
+        if (dep < 0)
+                return -EINVAL;
+
+        r = selinux_unit_access_check_strv(l, message, m, "enable", error);
+        if (r < 0)
+                return r;
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = unit_file_add_dependency(scope, runtime, NULL, l, target, dep, force, &changes, &n_changes);
+        if (r < 0)
+                return r;
+
+        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -1918,6 +1940,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("SetDefaultTarget", "sb", "a(sss)", method_set_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("AddDependencyUnitFiles", "asssbb", "a(sss)", method_add_dependency_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("UnitNew", "so", 0),
         SD_BUS_SIGNAL("UnitRemoved", "so", 0),
