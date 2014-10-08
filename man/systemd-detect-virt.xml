@@ -74,7 +74,8 @@
                 <varname>uml</varname>,
                 <varname>openvz</varname>, <varname>lxc</varname>,
                 <varname>lxc-libvirt</varname>,
-                <varname>systemd-nspawn</varname>.</para>
+                <varname>systemd-nspawn</varname>,
+                <varname>docker</varname>.</para>
 
                 <para>If multiple virtualization solutions are used,
                 only the "innermost" is detected and identified. That
