@@ -34,6 +34,13 @@ External:
 
 Features:
 
+* bus-proxy: when passing messages from kdbus, make sure we properly
+  handle the case where a large number of fds is appended that we
+  cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
+  253 messages)
+
+* check for validity of ucred fields in bus-proxy, like we do in journald
+
 * busctl: add a pcap writer, using LINKTYPE_DBUS/231
 
 * man: maybe use the word "inspect" rather than "introspect"?
