@@ -447,7 +447,9 @@ static int output_verbose(
         }
 
         fprintf(f, "%s [%s]\n",
-                format_timestamp_us(ts, sizeof(ts), realtime, flags & OUTPUT_UTC),
+                flags & OUTPUT_UTC ?
+                format_timestamp_us_utc(ts, sizeof(ts), realtime) :
+                format_timestamp_us(ts, sizeof(ts), realtime),
                 cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {

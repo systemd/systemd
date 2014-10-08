@@ -152,7 +152,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) {
+static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
@@ -178,7 +178,11 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return format_timestamp_internal(buf, l, t, false);
 }
 
-char *format_timestamp_us(char *buf, size_t l, usec_t t, bool utc) {
+char *format_timestamp_utc(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal(buf, l, t, true);
+}
+
+static char *format_timestamp_internal_us(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
@@ -201,6 +205,14 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t, bool utc) {
                 return NULL;
 
         return buf;
+}
+
+char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal_us(buf, l, t, false);
+}
+
+char *format_timestamp_us_utc(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal_us(buf, l, t, true);
 }
 
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
