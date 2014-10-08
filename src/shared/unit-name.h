@@ -29,6 +29,7 @@
 
 typedef enum UnitType UnitType;
 typedef enum UnitLoadState UnitLoadState;
+typedef enum UnitDependency UnitDependency;
 
 enum UnitType {
         UNIT_SERVICE = 0,
@@ -57,6 +58,53 @@ enum UnitLoadState {
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
+};
+
+enum UnitDependency {
+        /* Positive dependencies */
+        UNIT_REQUIRES,
+        UNIT_REQUIRES_OVERRIDABLE,
+        UNIT_REQUISITE,
+        UNIT_REQUISITE_OVERRIDABLE,
+        UNIT_WANTS,
+        UNIT_BINDS_TO,
+        UNIT_PART_OF,
+
+        /* Inverse of the above */
+        UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
+        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
+        UNIT_WANTED_BY,               /* inverse of 'wants' */
+        UNIT_BOUND_BY,                /* inverse of 'binds_to' */
+        UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
+
+        /* Negative dependencies */
+        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
+        UNIT_CONFLICTED_BY,
+
+        /* Order */
+        UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
+        UNIT_AFTER,
+
+        /* On Failure */
+        UNIT_ON_FAILURE,
+
+        /* Triggers (i.e. a socket triggers a service) */
+        UNIT_TRIGGERS,
+        UNIT_TRIGGERED_BY,
+
+        /* Propagate reloads */
+        UNIT_PROPAGATES_RELOAD_TO,
+        UNIT_RELOAD_PROPAGATED_FROM,
+
+        /* Joins namespace of */
+        UNIT_JOINS_NAMESPACE_OF,
+
+        /* Reference information for GC logic */
+        UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
+        UNIT_REFERENCED_BY,
+
+        _UNIT_DEPENDENCY_MAX,
+        _UNIT_DEPENDENCY_INVALID = -1
 };
 
 const char *unit_type_to_string(UnitType i) _const_;
@@ -112,3 +160,6 @@ char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs);
 char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix);
 
 int build_subslice(const char *slice, const char*name, char **subslice);
+
+const char *unit_dependency_to_string(UnitDependency i) _const_;
+UnitDependency unit_dependency_from_string(const char *s) _pure_;

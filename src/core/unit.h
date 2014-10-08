@@ -28,7 +28,6 @@
 typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
 typedef enum UnitActiveState UnitActiveState;
-typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
@@ -69,53 +68,6 @@ static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
 static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
-
-enum UnitDependency {
-        /* Positive dependencies */
-        UNIT_REQUIRES,
-        UNIT_REQUIRES_OVERRIDABLE,
-        UNIT_REQUISITE,
-        UNIT_REQUISITE_OVERRIDABLE,
-        UNIT_WANTS,
-        UNIT_BINDS_TO,
-        UNIT_PART_OF,
-
-        /* Inverse of the above */
-        UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
-        UNIT_WANTED_BY,               /* inverse of 'wants' */
-        UNIT_BOUND_BY,                /* inverse of 'binds_to' */
-        UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
-
-        /* Negative dependencies */
-        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
-        UNIT_CONFLICTED_BY,
-
-        /* Order */
-        UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
-        UNIT_AFTER,
-
-        /* On Failure */
-        UNIT_ON_FAILURE,
-
-        /* Triggers (i.e. a socket triggers a service) */
-        UNIT_TRIGGERS,
-        UNIT_TRIGGERED_BY,
-
-        /* Propagate reloads */
-        UNIT_PROPAGATES_RELOAD_TO,
-        UNIT_RELOAD_PROPAGATED_FROM,
-
-        /* Joins namespace of */
-        UNIT_JOINS_NAMESPACE_OF,
-
-        /* Reference information for GC logic */
-        UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
-        UNIT_REFERENCED_BY,
-
-        _UNIT_DEPENDENCY_MAX,
-        _UNIT_DEPENDENCY_INVALID = -1
-};
 
 #include "manager.h"
 #include "job.h"
@@ -628,9 +580,6 @@ int unit_require_mounts_for(Unit *u, const char *path);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
-
-const char *unit_dependency_to_string(UnitDependency i) _const_;
-UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

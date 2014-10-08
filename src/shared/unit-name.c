@@ -592,3 +592,32 @@ int build_subslice(const char *slice, const char*name, char **subslice) {
         *subslice = ret;
         return 0;
 }
+
+static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
+        [UNIT_REQUIRES] = "Requires",
+        [UNIT_REQUIRES_OVERRIDABLE] = "RequiresOverridable",
+        [UNIT_REQUISITE] = "Requisite",
+        [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
+        [UNIT_WANTS] = "Wants",
+        [UNIT_BINDS_TO] = "BindsTo",
+        [UNIT_PART_OF] = "PartOf",
+        [UNIT_REQUIRED_BY] = "RequiredBy",
+        [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
+        [UNIT_WANTED_BY] = "WantedBy",
+        [UNIT_BOUND_BY] = "BoundBy",
+        [UNIT_CONSISTS_OF] = "ConsistsOf",
+        [UNIT_CONFLICTS] = "Conflicts",
+        [UNIT_CONFLICTED_BY] = "ConflictedBy",
+        [UNIT_BEFORE] = "Before",
+        [UNIT_AFTER] = "After",
+        [UNIT_ON_FAILURE] = "OnFailure",
+        [UNIT_TRIGGERS] = "Triggers",
+        [UNIT_TRIGGERED_BY] = "TriggeredBy",
+        [UNIT_PROPAGATES_RELOAD_TO] = "PropagatesReloadTo",
+        [UNIT_RELOAD_PROPAGATED_FROM] = "ReloadPropagatedFrom",
+        [UNIT_JOINS_NAMESPACE_OF] = "JoinsNamespaceOf",
+        [UNIT_REFERENCES] = "References",
+        [UNIT_REFERENCED_BY] = "ReferencedBy",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
