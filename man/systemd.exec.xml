@@ -572,15 +572,19 @@
                         <varlistentry>
                                 <term><varname>SyslogIdentifier=</varname></term>
                                 <listitem><para>Sets the process name
-                                to prefix log lines sent to syslog or
-                                the kernel log buffer with. If not set,
-                                defaults to the process name of the
-                                executed process. This option is only
-                                useful when
+                                to prefix log lines sent to the
+                                logging system or the kernel log
+                                buffer with. If not set, defaults to
+                                the process name of the executed
+                                process. This option is only useful
+                                when
                                 <varname>StandardOutput=</varname> or
                                 <varname>StandardError=</varname> are
-                                set to <option>syslog</option> or
-                                <option>kmsg</option>.</para></listitem>
+                                set to <option>syslog</option>,
+                                <option>journal</option> or
+                                <option>kmsg</option> (or to the same
+                                settings in combination with
+                                <option>+console</option>).</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>SyslogFacility=</varname></term>
