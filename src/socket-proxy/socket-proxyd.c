@@ -125,7 +125,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
                 return -errno;
         }
 
-        fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
+        (void) fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
 
         r = fcntl(buffer[0], F_GETPIPE_SZ);
         if (r < 0) {
