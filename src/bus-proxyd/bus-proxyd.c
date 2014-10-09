@@ -1152,11 +1152,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = getpeersec(in_fd, &peersec);
-                if (r < 0) {
-                        log_error("Failed to get security creds: %s", strerror(-r));
-                        goto finish;
-                }
+                (void) getpeersec(in_fd, &peersec);
         }
 
         if (arg_drop_privileges) {
