@@ -34,6 +34,8 @@ External:
 
 Features:
 
+* maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
+
 * man: document that corrupted journal files is nothing to act on
 
 * systemctl isolate should use ".target" as completion suffix, not ".service"
