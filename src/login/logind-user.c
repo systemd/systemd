@@ -37,6 +37,7 @@
 #include "conf-parser.h"
 #include "clean-ipc.h"
 #include "logind-user.h"
+#include "smack-util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -325,7 +326,12 @@ static int user_mkdir_runtime_path(User *u) {
 
                 mkdir(p, 0700);
 
-                if (asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size) < 0) {
+                if (use_smack())
+                        r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
+                else
+                        r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
+
+                if (r < 0) {
                         r = log_oom();
                         goto fail;
                 }
