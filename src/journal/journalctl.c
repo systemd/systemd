@@ -837,6 +837,8 @@ static int list_boots(sd_journal *j) {
         if (r < 0)
                 return r;
 
+        pager_open_if_enabled();
+
         SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
                 assert(startswith(data, "_BOOT_ID="));
 
