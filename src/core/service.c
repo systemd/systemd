@@ -1227,7 +1227,8 @@ static void service_enter_stop_by_notify(Service *s) {
         if (s->timeout_stop_usec > 0)
                 service_arm_timer(s, s->timeout_stop_usec);
 
-        service_set_state(s, SERVICE_STOP);
+        /* The service told us it's stopping, so it's as if we SIGTERM'd it. */
+        service_set_state(s, SERVICE_STOP_SIGTERM);
 }
 
 static void service_enter_stop(Service *s, ServiceResult f) {
