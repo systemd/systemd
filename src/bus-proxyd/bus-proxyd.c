@@ -475,18 +475,26 @@ static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         assert(b);
         assert(m);
 
-        if (a->is_kernel)
-                return 0;
+        if (b->is_kernel) {
 
-        r = sd_bus_creds_get_well_known_names(&m->creds, &names_strv);
-        if (r < 0)
-                return r;
+                /* The message came from the kernel, and is sent to our legacy client. */
+                r = sd_bus_creds_get_well_known_names(&m->creds, &names_strv);
+                if (r < 0)
+                        return r;
 
-        if (!policy_check_recv(policy, ucred, names_hash, m->header->type, m->path, m->interface, m->member))
-                return -EPERM;
+/*
+                if (!policy_check_recv(policy, ucred, names_hash, m->header->type, m->path, m->interface, m->member))
+                        return -EPERM;
 
-        if (!policy_check_send(policy, ucred, names_strv, m->header->type, m->path, m->interface, m->member))
-                return -EPERM;
+                if (!policy_check_send(policy, ucred, names_strv, m->header->type, m->path, m->interface, m->member))
+                        return -EPERM;
+*/
+        } else {
+
+
+
+
+        }
 
         return 0;
 }
