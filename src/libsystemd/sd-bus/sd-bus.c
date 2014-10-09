@@ -1163,7 +1163,11 @@ int bus_set_address_user(sd_bus *b) {
 #endif
         } else {
 #ifdef ENABLE_KDBUS
-                asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
+                int r;
+
+                r = asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
+                if (r < 0)
+                        return -ENOMEM;
 #else
                 return -ECONNREFUSED;
 #endif
