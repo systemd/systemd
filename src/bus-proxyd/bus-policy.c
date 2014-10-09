@@ -602,14 +602,10 @@ struct policy_check_filter {
         int class;
         const struct ucred *ucred;
         int message_type;
+        const char *name;
         const char *interface;
         const char *path;
-        union {
-                const char *name;
-                const char *member;
-        };
-        char **names_strv;
-        Hashmap *names_hash;
+        const char *member;
 };
 
 static int is_permissive(PolicyItem *i) {
@@ -628,13 +624,8 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
         case POLICY_ITEM_SEND:
         case POLICY_ITEM_RECV:
 
-                if (i->name) {
-                        if (filter->names_hash && !hashmap_contains(filter->names_hash, i->name))
-                                break;
-
-                        if (filter->names_strv && !strv_contains(filter->names_strv, i->name))
-                                break;
-                }
+                if (i->name && !streq_ptr(i->name, filter->name))
+                        break;
 
                 if ((i->message_type != _POLICY_ITEM_CLASS_UNSET) && (i->message_type != filter->message_type))
                         break;
@@ -651,14 +642,14 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
                 return is_permissive(i);
 
         case POLICY_ITEM_OWN:
-                assert(filter->member);
+                assert(filter->name);
 
                 if (streq(i->name, "*") || streq(i->name, filter->name))
                         return is_permissive(i);
                 break;
 
         case POLICY_ITEM_OWN_PREFIX:
-                assert(filter->member);
+                assert(filter->name);
 
                 if (streq(i->name, "*") || startswith(i->name, filter->name))
                         return is_permissive(i);
@@ -780,8 +771,8 @@ bool policy_check_hello(Policy *p, const struct ucred *ucred) {
 
 bool policy_check_recv(Policy *p,
                        const struct ucred *ucred,
-                       Hashmap *names,
                        int message_type,
+                       const char *name,
                        const char *path,
                        const char *interface,
                        const char *member) {
@@ -789,8 +780,8 @@ bool policy_check_recv(Policy *p,
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_RECV,
                 .ucred        = ucred,
-                .names_hash   = names,
                 .message_type = message_type,
+                .name         = name,
                 .interface    = interface,
                 .path         = path,
                 .member       = member,
@@ -801,8 +792,8 @@ bool policy_check_recv(Policy *p,
 
 bool policy_check_send(Policy *p,
                        const struct ucred *ucred,
-                       char **names,
                        int message_type,
+                       const char *name,
                        const char *path,
                        const char *interface,
                        const char *member) {
@@ -810,8 +801,8 @@ bool policy_check_send(Policy *p,
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_SEND,
                 .ucred        = ucred,
-                .names_strv   = names,
                 .message_type = message_type,
+                .name         = name,
                 .interface    = interface,
                 .path         = path,
                 .member       = member,

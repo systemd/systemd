@@ -63,8 +63,6 @@ int main(int argc, char *argv[]) {
 
         Policy p = {};
         struct ucred ucred = {};
-        char **names_strv;
-        Hashmap *names_hash;
 
         /* Ownership tests */
         assert_se(test_policy_load(&p, "ownerships.conf") == 0);
@@ -93,32 +91,27 @@ int main(int argc, char *argv[]) {
 
         /* Signaltest */
         assert_se(test_policy_load(&p, "signals.conf") == 0);
-        names_strv = STRV_MAKE("bli.bla.blubb");
 
         ucred.uid = 0;
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_SIGNAL, NULL, "/an/object/path", NULL) == true);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == true);
 
         ucred.uid = 1;
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_SIGNAL, NULL, "/an/object/path", NULL) == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == false);
 
         policy_free(&p);
 
         /* Method calls */
         assert_se(test_policy_load(&p, "methods.conf") == 0);
-        names_strv = STRV_MAKE("org.test.test1");
         policy_dump(&p);
 
         ucred.uid = 0;
 
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "bli.bla.blubb", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "bli.bla.blubb", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int1", "Member") == true);
-        assert_se(policy_check_send(&p, &ucred, names_strv, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int2", "Member") == true);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int1", "Member") == true);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == true);
 
-        names_hash = hashmap_new(&string_hash_ops);
-        assert(names_hash != NULL);
-        assert_se(hashmap_put(names_hash, "org.test.test3", NULL) >= 0);
-        assert_se(policy_check_recv(&p, &ucred, names_hash, SD_BUS_MESSAGE_METHOD_CALL, "/an/object/path", "org.test.int3", "Member111") == true);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test3", "/an/object/path", "org.test.int3", "Member111") == true);
 
         policy_free(&p);
 
