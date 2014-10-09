@@ -1125,17 +1125,19 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-b</varname></term>
                                 <term><varname>emergency</varname></term>
+                                <term><varname>-b</varname></term>
 
                                 <listitem><para>Boot into emergency
                                 mode. This is equivalent to
                                 <varname>systemd.unit=emergency.target</varname>
-                                and provided for compatibility
-                                reasons and to be easier to type.</para></listitem>
+                                and provided for compatibility reasons
+                                and to be easier to
+                                type.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>rescue</varname></term>
                                 <term><varname>single</varname></term>
                                 <term><varname>s</varname></term>
                                 <term><varname>S</varname></term>
