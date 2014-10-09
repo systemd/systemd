@@ -43,6 +43,9 @@ static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
+static char *arg_usr_what = NULL;
+static char *arg_usr_fstype = NULL;
+static char *arg_usr_options = NULL;
 
 
 static int mount_find_pri(struct mntent *me, int *ret) {
@@ -494,12 +497,64 @@ static int add_root_mount(void) {
                          "/proc/cmdline");
 }
 
+static int add_usr_mount(void) {
+        _cleanup_free_ char *what = NULL;
+        const char *opts;
+
+        if (!arg_usr_what && !arg_usr_fstype && !arg_usr_options)
+                return 0;
+
+        if (arg_root_what && !arg_usr_what) {
+                arg_usr_what = strdup(arg_root_what);
+
+                if (!arg_usr_what)
+                        return log_oom();
+        }
+
+        if (arg_root_fstype && !arg_usr_fstype) {
+                arg_usr_fstype = strdup(arg_root_fstype);
+
+                if (!arg_usr_fstype)
+                        return log_oom();
+        }
+
+        if (arg_root_options && !arg_usr_options) {
+                arg_usr_options = strdup(arg_root_options);
+
+                if (!arg_usr_options)
+                        return log_oom();
+        }
+
+        if (!arg_usr_what || !arg_usr_options)
+                return 0;
+
+        what = fstab_node_to_udev_node(arg_usr_what);
+        if (!path_is_absolute(what)) {
+                log_debug("Skipping entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
+                return -1;
+        }
+
+        opts = arg_usr_options;
+
+        log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
+        return add_mount(what,
+                         "/sysroot/usr",
+                         arg_usr_fstype,
+                         opts,
+                         1,
+                         false,
+                         false,
+                         false,
+                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         "/proc/cmdline");
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        /* root= and roofstype= may occur more than once, the last
-         * instance should take precedence.  In the case of multiple
-         * rootflags= the arguments should be concatenated */
+        /* root=, usr=, usrfstype= and roofstype= may occur more than once, the last
+         * instance should take precedence.  In the case of multiple rootflags=
+         * or usrflags= the arguments should be concatenated */
 
         if (STR_IN_SET(key, "fstab", "rd.fstab") && value) {
 
@@ -531,6 +586,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 free(arg_root_options);
                 arg_root_options = o;
 
+        } else if (streq(key, "mount.usr") && value) {
+
+                if (free_and_strdup(&arg_usr_what, value) < 0)
+                        return log_oom();
+
+        } else if (streq(key, "mount.usrfstype") && value) {
+
+                if (free_and_strdup(&arg_usr_fstype, value) < 0)
+                        return log_oom();
+
+        } else if (streq(key, "mount.usrflags") && value) {
+                char *o;
+
+                o = arg_usr_options ?
+                        strjoin(arg_usr_options, ",", value, NULL) :
+                        strdup(value);
+                if (!o)
+                        return log_oom();
+
+                free(arg_usr_options);
+                arg_usr_options = o;
+
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
@@ -559,9 +636,12 @@ int main(int argc, char *argv[]) {
         if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
-        /* Always honour root= in the kernel command line if we are in an initrd */
-        if (in_initrd())
+        /* Always honour root= and usr= in the kernel command line if we are in an initrd */
+        if (in_initrd()) {
                 r = add_root_mount();
+                if (r == 0)
+                        r = add_usr_mount();
+        }
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {

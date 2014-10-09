@@ -104,9 +104,83 @@
                                 (initrd) while
                                 <varname>fstab=</varname> is
                                 honored by both the main system and
-                                the initrd.  </para></listitem>
+                                the initrd.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><varname>root=</varname></term>
 
+                                <listitem><para>Takes the root filesystem to mount
+                                in the initrd.
+                                <varname>root=</varname> is
+                                honored by the initrd.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>rootfstype=</varname></term>
+
+                                <listitem><para>Takes the root filesystem type that
+                                will be passed to the mount command.
+                                <varname>rootfstype=</varname> is
+                                honored by the initrd.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>rootflags=</varname></term>
+
+                                <listitem><para>Takes the root filesystem mount options
+                                to use. <varname>rootflags=</varname> is
+                                honored by the initrd.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>mount.usr=</varname></term>
+
+                                <listitem><para>Takes the <filename>/usr</filename>
+                                filesystem to be mounted by the initrd. If
+                                <varname>mount.usrfstype=</varname> or
+                                <varname>mount.usrflags=</varname> is set, then
+                                <varname>mount.usr=</varname> will default to the value set in
+                                <varname>root=</varname>.</para>
+
+                                <para>Otherwise this parameter defaults to the
+                                <filename>/usr</filename> entry
+                                found in <filename>/etc/fstab</filename> on the root
+                                filesystem.</para>
+
+                                <para><varname>mount.usr=</varname> is honored by the initrd.
+                                </para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>mount.usrfstype=</varname></term>
+
+                                <listitem><para>Takes the <filename>/usr</filename>
+                                filesystem type that will be passed to the mount
+                                command. If <varname>mount.usr=</varname> or
+                                <varname>mount.usrflags=</varname> is set, then
+                                <varname>mount.usrfstype=</varname> will default to the value set in
+                                <varname>rootfstype=</varname>.</para>
+
+                                <para>Otherwise this value will be read from the
+                                <filename>/usr</filename> entry in
+                                <filename>/etc/fstab</filename> on the root filesystem.</para>
+
+                                <para><varname>mount.usrfstype=</varname> is
+                                honored by the initrd.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>mount.usrflags=</varname></term>
+
+                                <listitem><para>Takes the <filename>/usr</filename>
+                                filesystem mount options to use. If
+                                <varname>mount.usr=</varname> or
+                                <varname>mount.usrfstype=</varname> is set, then
+                                <varname>mount.usrflages=</varname> will default to the value set in
+                                <varname>rootflags=</varname>.</para>
+
+                                <para>Otherwise this value will be read from the
+                                <filename>/usr</filename> entry in
+                                <filename>/etc/fstab</filename> on the root filesystem.</para>
+
+                                <para><varname>mount.usrflags=</varname> is
+                                honored by the initrd.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
