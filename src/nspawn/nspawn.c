@@ -1558,6 +1558,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                           "/dev/random", "rwm",
                                           "/dev/urandom", "rwm",
                                           "/dev/tty", "rwm",
+                                          "/dev/net/tun", "rwm",
                                           /* Allow the container
                                            * access to ptys. However,
                                            * do not permit the
