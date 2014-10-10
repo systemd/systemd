@@ -2186,7 +2186,7 @@ static int cancel_job(sd_bus *bus, char **args) {
                                 NULL,
                                 "u", id);
                 if (r < 0) {
-                        log_error("Failed to cancel job %u: %s", (unsigned) id, bus_error_message(&error, r));
+                        log_error("Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, r));
                         return r;
                 }
         }
@@ -3409,7 +3409,7 @@ static void print_status_info(
 
         if (i->main_pid > 0 || i->control_pid > 0) {
                 if (i->main_pid > 0) {
-                        printf(" Main PID: %u", (unsigned) i->main_pid);
+                        printf(" Main PID: "PID_FMT, i->main_pid);
 
                         if (i->running) {
                                 _cleanup_free_ char *comm = NULL;
@@ -3440,7 +3440,7 @@ static void print_status_info(
                 if (i->control_pid > 0) {
                         _cleanup_free_ char *c = NULL;
 
-                        printf(" %8s: %u", i->main_pid ? "" : " Control", (unsigned) i->control_pid);
+                        printf(" %8s: "PID_FMT, i->main_pid ? "" : " Control", i->control_pid);
 
                         get_process_comm(i->control_pid, &c);
                         if (c)
@@ -3828,7 +3828,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                printf("%s=%u\n", name, (unsigned) u);
+                                printf("%s=%"PRIu32"\n", name, u);
                         else if (arg_all)
                                 printf("%s=\n", name);
 
@@ -3999,14 +3999,14 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                                 tt = strv_join(info.argv, " ");
 
-                                printf("%s={ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                printf("%s={ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }\n",
                                        name,
                                        strna(info.path),
                                        strna(tt),
                                        yes_no(info.ignore),
                                        strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
                                        strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
-                                       (unsigned) info. pid,
+                                       info.pid,
                                        sigchld_code_to_string(info.code),
                                        info.status,
                                        info.code == CLD_EXITED ? "" : "/",
