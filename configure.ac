@@ -183,7 +183,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-unused-parameter \
         -Wno-missing-field-initializers \
         -Wno-unused-result \
-        -Wno-typedef-redefinition \
         -Werror=overflow \
         -Wdate-time \
         -Wnested-externs \
@@ -198,6 +197,11 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fstack-protector-strong \
         -fPIE \
         --param=ssp-buffer-size=4])
+
+AS_CASE([$CC], [*clang*],
+        [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+               -Wno-typedef-redefinition])])
+
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -flto -ffat-lto-objects])],
