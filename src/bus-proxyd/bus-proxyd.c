@@ -733,6 +733,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 struct kdbus_cmd_free cmd_free;
                 struct kdbus_cmd_name *name;
                 _cleanup_strv_free_ char **owners = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
                 int err = 0;
 
@@ -742,6 +743,14 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
                 if (!service_name_is_valid(arg0))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_get_owner(a, arg0, 0, NULL);
+                if (r == -ESRCH || r == -ENXIO) {
+                        sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get owners of name '%s': no such name.", arg0);
+                        return synthetic_reply_method_errno(m, r, &error);
+                }
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
 
                 cmd.flags = KDBUS_NAME_LIST_QUEUED;
                 r = ioctl(a->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
