@@ -66,17 +66,102 @@
                 <para>When executed without <option>--quiet</option>
                 will print a short identifier for the detected
                 virtualization technology. The following technologies
-                are currently identified: <varname>qemu</varname>,
-                <varname>kvm</varname>, <varname>vmware</varname>,
-                <varname>microsoft</varname> (Hyper-V, also known as
-                Viridian or Windows Server Virtualization),
-                <varname>oracle</varname> (VirtualBox),
-                <varname>xen</varname>, <varname>bochs</varname>,
-                <varname>chroot</varname>, <varname>uml</varname>,
-                <varname>openvz</varname>, <varname>lxc</varname>,
-                <varname>lxc-libvirt</varname>,
-                <varname>systemd-nspawn</varname>,
-                <varname>docker</varname>.</para>
+                are currently identified:</para>
+
+                <table>
+                  <title>Known VM virtualization technologies</title>
+                  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="id" />
+                    <colspec colname="product" />
+                    <thead>
+                      <row>
+                        <entry>ID</entry>
+                        <entry>VM Product</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><varname>qemu</varname></entry>
+                        <entry>QEMU software virtualization</entry>
+                      </row>
+                      <row>
+                        <entry><varname>kvm</varname></entry>
+                        <entry>Linux KVM kernel virtual machine</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>vmware</varname></entry>
+                        <entry>VMware Workstation or Server, and related products</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>microsoft</varname></entry>
+                        <entry>Hyper-V, also known as Viridian or Windows Server Virtualization</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>oracle</varname></entry>
+                        <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems)</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>xen</varname></entry>
+                        <entry>Xen hypervisor</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>bochs</varname></entry>
+                        <entry>Bochs Emulator</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>uml</varname></entry>
+                        <entry>User-mode Linux</entry>
+                      </row>
+
+                    </tbody>
+                  </tgroup>
+                </table>
+
+                <table>
+                  <title>Known container virtualization technologies</title>
+                  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="id" />
+                    <colspec colname="product" />
+                    <thead>
+                      <row>
+                        <entry>ID</entry>
+                        <entry>Container Product</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><varname>openvz</varname></entry>
+                        <entry>OpenVZ/Virtuozzo</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>lxc</varname></entry>
+                        <entry>Linux container implementation by LXC</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>lxc-libvirt</varname></entry>
+                        <entry>Linux container implementation by libvirt</entry>
+                      </row>
+
+                      <row>
+                         <entry><varname>systemd-nspawn</varname></entry>
+                         <entry>systemd's minimal container implementation, see <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>docker</varname></entry>
+                        <entry>Docker container manager</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
 
                 <para>If multiple virtualization solutions are used,
                 only the "innermost" is detected and identified. That
@@ -135,7 +220,8 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
