@@ -398,7 +398,7 @@ static int bus_get_owner_kdbus(
         struct kdbus_cmd_conn_info *cmd;
         struct kdbus_conn_info *conn_info;
         struct kdbus_item *item;
-        size_t size;
+        size_t size, l;
         uint64_t m, id;
         int r;
 
@@ -410,13 +410,12 @@ static int bus_get_owner_kdbus(
                 cmd = alloca0_align(size, 8);
                 cmd->id = id;
         } else {
-                size_t item_size = KDBUS_ITEM_HEADER_SIZE + strlen(name) + 1;
-
-                size = offsetof(struct kdbus_cmd_conn_info, items) + item_size;
+                l = strlen(name) + 1;
+                size = offsetof(struct kdbus_cmd_conn_info, items) + KDBUS_ITEM_SIZE(l);
                 cmd = alloca0_align(size, 8);
-                cmd->items[0].size = item_size;
+                cmd->items[0].size = KDBUS_ITEM_HEADER_SIZE + l;
                 cmd->items[0].type = KDBUS_ITEM_NAME;
-                strcpy(cmd->items[0].str, name);
+                memcpy(cmd->items[0].str, name, l);
         }
 
         cmd->size = size;
