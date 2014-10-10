@@ -945,7 +945,6 @@ void *hashmap_next(Hashmap *h, const void *key) {
         unsigned hash;
         struct hashmap_entry *e;
 
-        assert(h);
         assert(key);
 
         if (!h)
