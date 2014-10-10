@@ -12,7 +12,7 @@ DefaultDependencies=no
 BindsTo=%i.device
 Wants=local-fs-pre.target
 After=%i.device
-Before=local-fs-pre.target systemd-remount-fs.service systemd-fsck-root.service
+Before=local-fs-pre.target
 ConditionPathExists=/etc/initrd-release
 
 [Service]
