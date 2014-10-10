@@ -68,10 +68,11 @@
                 virtualization technology. The following technologies
                 are currently identified: <varname>qemu</varname>,
                 <varname>kvm</varname>, <varname>vmware</varname>,
-                <varname>microsoft</varname>,
-                <varname>oracle</varname>, <varname>xen</varname>,
-                <varname>bochs</varname>, <varname>chroot</varname>,
-                <varname>uml</varname>,
+                <varname>microsoft</varname> (Hyper-V, also known as
+                Viridian or Windows Server Virtualization),
+                <varname>oracle</varname> (VirtualBox),
+                <varname>xen</varname>, <varname>bochs</varname>,
+                <varname>chroot</varname>, <varname>uml</varname>,
                 <varname>openvz</varname>, <varname>lxc</varname>,
                 <varname>lxc-libvirt</varname>,
                 <varname>systemd-nspawn</varname>,
