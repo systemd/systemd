@@ -200,7 +200,9 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
 
 AS_CASE([$CC], [*clang*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
-               -Wno-typedef-redefinition])])
+               -Wno-typedef-redefinition \
+               -Wno-gnu-variable-sized-type-not-at-end \
+        ])])
 
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
