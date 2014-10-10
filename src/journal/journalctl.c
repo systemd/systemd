@@ -838,8 +838,7 @@ static int list_boots(sd_journal *j) {
                 return r;
 
         SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
-                if (length < strlen("_BOOT_ID="))
-                        continue;
+                assert(startswith(data, "_BOOT_ID="));
 
                 if (!GREEDY_REALLOC(all_ids, allocated, count + 1))
                         return log_oom();
