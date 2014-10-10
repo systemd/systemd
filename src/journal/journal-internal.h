@@ -124,6 +124,10 @@ struct sd_journal {
 
         bool on_network;
         bool no_new_files;
+        bool unique_file_lost; /* File we were iterating over got
+                                  removed, and there were no more
+                                  files, so sd_j_enumerate_unique
+                                  will return a value equal to 0. */
 
         size_t data_threshold;
 
