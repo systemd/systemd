@@ -69,7 +69,7 @@
                 are currently identified:</para>
 
                 <table>
-                  <title>Known VM virtualization technologies</title>
+                  <title>Known VM virtualization technologies (i.e. full hardware virtualization)</title>
                   <tgroup cols='2' align='left' colsep='1' rowsep='1'>
                     <colspec colname="id" />
                     <colspec colname="product" />
@@ -84,9 +84,15 @@
                         <entry><varname>qemu</varname></entry>
                         <entry>QEMU software virtualization</entry>
                       </row>
+
                       <row>
                         <entry><varname>kvm</varname></entry>
                         <entry>Linux KVM kernel virtual machine</entry>
+                      </row>
+
+                      <row>
+                        <entry><varname>zvm</varname></entry>
+                        <entry>s390 z/VM</entry>
                       </row>
 
                       <row>
@@ -106,7 +112,7 @@
 
                       <row>
                         <entry><varname>xen</varname></entry>
-                        <entry>Xen hypervisor</entry>
+                        <entry>Xen hypervisor (only domU, not dom0)</entry>
                       </row>
 
                       <row>
@@ -124,7 +130,7 @@
                 </table>
 
                 <table>
-                  <title>Known container virtualization technologies</title>
+                  <title>Known container virtualization technologies (i.e. shared kernel virtualization)</title>
                   <tgroup cols='2' align='left' colsep='1' rowsep='1'>
                     <colspec colname="id" />
                     <colspec colname="product" />
