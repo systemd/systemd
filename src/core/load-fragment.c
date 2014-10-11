@@ -288,7 +288,8 @@ int config_parse_socket_listen(const char *unit,
                                void *data,
                                void *userdata) {
 
-        SocketPort *p, *tail;
+        _cleanup_free_ SocketPort *p = NULL;
+        SocketPort *tail;
         Socket *s;
         int r;
 
@@ -315,10 +316,9 @@ int config_parse_socket_listen(const char *unit,
                 r = unit_full_printf(UNIT(s), rvalue, &p->path);
                 if (r < 0) {
                         p->path = strdup(rvalue);
-                        if (!p->path) {
-                                free(p);
+                        if (!p->path)
                                 return log_oom();
-                        } else
+                        else
                                 log_syntax(unit, LOG_ERR, filename, line, -r,
                                            "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
                 }
@@ -334,11 +334,10 @@ int config_parse_socket_listen(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to resolve unit specifiers on %s, ignoring: %s", rvalue, strerror(-r));
 
-                r = socket_address_parse_netlink(&p->address, k ? k : rvalue);
+                r = socket_address_parse_netlink(&p->address, k ?: rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse address value, ignoring: %s", rvalue);
-                        free(p);
                         return 0;
                 }
 
@@ -355,7 +354,6 @@ int config_parse_socket_listen(const char *unit,
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Failed to parse address value, ignoring: %s", rvalue);
-                        free(p);
                         return 0;
                 }
 
@@ -371,7 +369,6 @@ int config_parse_socket_listen(const char *unit,
                 if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET) {
                         log_syntax(unit, LOG_ERR, filename, line, ENOTSUP,
                                    "Address family not supported, ignoring: %s", rvalue);
-                        free(p);
                         return 0;
                 }
         }
@@ -384,6 +381,7 @@ int config_parse_socket_listen(const char *unit,
                 LIST_INSERT_AFTER(port, s->ports, tail, p);
         } else
                 LIST_PREPEND(port, s->ports, p);
+        p = NULL;
 
         return 0;
 }

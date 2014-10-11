@@ -1475,9 +1475,8 @@ int server_init(Server *s) {
         server_parse_config_file(s);
         server_parse_proc_cmdline(s);
         if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
-                log_debug("Setting both rate limit interval and burst from %llu,%u to 0,0",
-                          (long long unsigned) s->rate_limit_interval,
-                          s->rate_limit_burst);
+                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
+                          s->rate_limit_interval, s->rate_limit_burst);
                 s->rate_limit_interval = s->rate_limit_burst = 0;
         }
 
