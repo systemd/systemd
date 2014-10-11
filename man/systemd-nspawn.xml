@@ -694,69 +694,70 @@
         </refsect1>
 
         <refsect1>
-                <title>Example 1</title>
+                <title>Examples</title>
+                <example>
+                        <title>Boot a minimal Fedora distribution in a container</title>
 
-                <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                        <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
-                <para>This installs a minimal Fedora distribution into
-                the directory <filename noindex='true'>/srv/mycontainer/</filename> and
-                then boots an OS in a namespace container in
-                it.</para>
-        </refsect1>
+                        <para>This installs a minimal Fedora distribution into
+                        the directory <filename noindex='true'>/srv/mycontainer/</filename> and
+                        then boots an OS in a namespace container in
+                        it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 2</title>
+                <example>
+                        <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
 
-                <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+                        <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</programlisting>
 
-                <para>This installs a minimal Debian unstable
-                distribution into the directory
-                <filename>~/debian-tree/</filename> and then spawns a
-                shell in a namespace container in it.</para>
-        </refsect1>
+                        <para>This installs a minimal Debian unstable
+                        distribution into the directory
+                        <filename>~/debian-tree/</filename> and then spawns a
+                        shell in a namespace container in it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 3</title>
+                <example>
+                        <title>Boot a minimal Arch Linux distribution in a container</title>
 
-                <programlisting># pacstrap -c -d ~/arch-tree/ base
+                        <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
-                <para>This installs a mimimal Arch Linux distribution into
-                the directory <filename>~/arch-tree/</filename> and then
-                boots an OS in a namespace container in it.</para>
-        </refsect1>
+                        <para>This installs a mimimal Arch Linux distribution into
+                        the directory <filename>~/arch-tree/</filename> and then
+                        boots an OS in a namespace container in it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 4</title>
+                <example>
+                        <title>Enable Arch Linux container on boot</title>
 
-                <programlisting># mv ~/arch-tree /var/lib/container/arch
+                        <programlisting># mv ~/arch-tree /var/lib/container/arch
 # systemctl enable systemd-nspawn@arch.service
 # systemctl start systemd-nspawn@arch.service</programlisting>
 
-                <para>This makes the Arch Linux container part of the
-                <filename>multi-user.target</filename> on the host.
-                </para>
-        </refsect1>
+                        <para>This makes the Arch Linux container part of the
+                        <filename>multi-user.target</filename> on the host.
+                        </para>
+                </example>
 
-        <refsect1>
-                <title>Example 5</title>
+                <example>
+                        <title>Boot into a btrfs snapshot of the host system</title>
 
-                <programlisting># btrfs subvolume snapshot / /.tmp
+                        <programlisting># btrfs subvolume snapshot / /.tmp
 # systemd-nspawn --private-network -D /.tmp -b</programlisting>
 
-                <para>This runs a copy of the host system in a
-                btrfs snapshot.</para>
+                        <para>This runs a copy of the host system in a
+                        btrfs snapshot.</para>
+                </example>
         </refsect1>
 
         <refsect1>
-                <title>Example 6</title>
+                <title>Run a container with SELinux sandbox security contexts</title>
 
                 <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
 # systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
-
-                <para>This runs a container with SELinux sandbox security contexts.</para>
         </refsect1>
 
         <refsect1>

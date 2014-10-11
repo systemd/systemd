@@ -144,20 +144,19 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
-    <title>Example 1</title>
+    <title>Examples</title>
 
-    <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 -a cat</programlisting>
+    <example>
+      <title>Run an echo server on port 2000</title>
 
-    <para>This runs an echo server on port 2000.</para>
-  </refsect1>
+      <programlisting>$ /usr/lib/systemd/systemd-activate -l 2000 -a cat</programlisting>
+    </example>
 
-  <refsect1>
-    <title>Example 2</title>
+    <example>
+      <title>Run a socket activated instance of <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
 
-    <programlisting>$ /usr/lib/systemd/systemd-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
-
-    <para>This runs a socket activated instance of
-    <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+      <programlisting>$ /usr/lib/systemd/systemd-activate -l 19531 /usr/lib/systemd/systemd-journal-gatewayd</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
