@@ -1158,8 +1158,21 @@ static int grdrm_crtc_commit_flip(grdrm_crtc *crtc, grdev_fb *basefb) {
         assert(basefb);
         assert(pipe);
 
-        if (!crtc->applied && !grdrm_modes_compatible(&crtc->kern.mode, &crtc->set.mode))
+        if (!crtc->applied) {
+                if (!grdrm_modes_compatible(&crtc->kern.mode, &crtc->set.mode))
+                        return 0;
+
+                /* TODO: Theoretically, we should be able to page-flip to our
+                 * framebuffer here. We didn't perform any deep modeset, but the
+                 * DRM driver is really supposed to reject our page-flip in case
+                 * the FB is not compatible. We then properly fall back to a
+                 * deep modeset.
+                 * As it turns out, drivers don't to this. Therefore, we need to
+                 * perform a full modeset on enter now. We might avoid this in
+                 * the future with fixed drivers.. */
+
                 return 0;
+        }
 
         fb = fb_from_base(basefb);
 
