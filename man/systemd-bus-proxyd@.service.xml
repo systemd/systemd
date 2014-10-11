@@ -72,9 +72,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>See Also</title>
 
     <para>
-      <citerefentry><refentrytitle>systemd-bus-proxyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      <citerefentry><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      <ulink url="http://freedesktop.org/wiki/Software/dbus">D-Bus</ulink>
+      <citerefentry><refentrytitle>systemd-bus-proxyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <ulink url="http://freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
       <ulink url="https://code.google.com/p/d-bus/">kdbus</ulink>
     </para>
   </refsect1>
