@@ -1698,7 +1698,7 @@ static int exec_child(ExecCommand *command,
                         err = aa_change_onexec(context->apparmor_profile);
                         if (err < 0 && !context->apparmor_profile_ignore) {
                                 *error = EXIT_APPARMOR_PROFILE;
-                                return err;
+                                return -errno;
                         }
                 }
 #endif
