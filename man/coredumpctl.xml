@@ -208,6 +208,34 @@
         </refsect1>
 
         <refsect1>
+                <title>Examples</title>
+
+                <example>
+                        <title>List all the coredumps of a program named foo</title>
+
+                        <programlisting># coredumpctl list foo</programlisting>
+                </example>
+
+                <example>
+                        <title>Invoke gdb on the last coredump</title>
+
+                        <programlisting># coredumpctl gdb</programlisting>
+                </example>
+
+                <example>
+                        <title>Show information about a process that dumped core</title>
+
+                        <programlisting># coredumpctl info 6654</programlisting>
+                </example>
+
+                <example>
+                        <title>Extract the last coredump of /usr/bin/bar to a file named bar.coredump</title>
+
+                        <programlisting># coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
+                </example>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
