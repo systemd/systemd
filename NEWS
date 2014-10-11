@@ -37,13 +37,6 @@ CHANGES WITH 217:
           generator will parse the resume= option on the kernel
           command-line to trigger resume.
 
-        * systemd-evcat input debugging tool has been added. It will
-          print keys read for the input system and show modifier
-          status.
-
-        * systemd-modeset graphics debugging tool will show undulating
-          rainbows on all connected displays.
-
         * A user console daemon systemd-consoled has been added. It is
           a preview, and will so far open a single terminal on each
           session of the user marked as Desktop=SYSTEMD-CONSOLE.
