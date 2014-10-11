@@ -167,8 +167,6 @@ Features:
 
 * journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
 
-* set NOTIFY_SOCKET also for control processes
-
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services

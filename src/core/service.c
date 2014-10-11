@@ -883,7 +883,6 @@ static int service_spawn(
                 bool apply_permissions,
                 bool apply_chroot,
                 bool apply_tty_stdin,
-                bool set_notify_socket,
                 bool is_control,
                 pid_t *_pid) {
 
@@ -948,7 +947,7 @@ static int service_spawn(
                 goto fail;
         }
 
-        if (set_notify_socket)
+        if (is_control ? s->notify_access == NOTIFY_ALL : s->notify_access != NOTIFY_NONE)
                 if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
@@ -1153,7 +1152,6 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
                                   true,
-                                  false,
                                   true,
                                   &s->control_pid);
                 if (r < 0)
@@ -1253,7 +1251,6 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
                                   false,
-                                  false,
                                   true,
                                   &s->control_pid);
                 if (r < 0)
@@ -1315,7 +1312,6 @@ static void service_enter_start_post(Service *s) {
                                   false,
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
-                                  false,
                                   false,
                                   true,
                                   &s->control_pid);
@@ -1383,7 +1379,6 @@ static void service_enter_start(Service *s) {
                           true,
                           true,
                           true,
-                          s->notify_access != NOTIFY_NONE,
                           false,
                           &pid);
         if (r < 0)
@@ -1449,7 +1444,6 @@ static void service_enter_start_pre(Service *s) {
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
                                   true,
-                                  false,
                                   true,
                                   &s->control_pid);
                 if (r < 0)
@@ -1530,7 +1524,6 @@ static void service_enter_reload(Service *s) {
                                   !s->permissions_start_only,
                                   !s->root_directory_start_only,
                                   false,
-                                  false,
                                   true,
                                   &s->control_pid);
                 if (r < 0)
@@ -1568,7 +1561,6 @@ static void service_run_next_control(Service *s) {
                           !s->root_directory_start_only,
                           s->control_command_id == SERVICE_EXEC_START_PRE ||
                           s->control_command_id == SERVICE_EXEC_STOP_POST,
-                          false,
                           true,
                           &s->control_pid);
         if (r < 0)
@@ -1611,7 +1603,6 @@ static void service_run_next_main(Service *s) {
                           true,
                           true,
                           true,
-                          s->notify_access != NOTIFY_NONE,
                           false,
                           &pid);
         if (r < 0)
