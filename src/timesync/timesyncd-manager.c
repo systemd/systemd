@@ -54,8 +54,7 @@
 #include "mkdir.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
-
-#define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
+#include "time-util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
