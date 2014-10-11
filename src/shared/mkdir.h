@@ -28,14 +28,12 @@
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
-int mkdir_p_prefix(const char *prefix, const char *path, mode_t mode);
 
 /* selinux versions */
 int mkdir_label(const char *path, mode_t mode);
 int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_parents_label(const char *path, mode_t mode);
 int mkdir_p_label(const char *path, mode_t mode);
-int mkdir_parents_prefix_label(const char *prefix, const char *path, mode_t mode);
 
 /* internally used */
 typedef int (*mkdir_func_t)(const char *pathname, mode_t mode);

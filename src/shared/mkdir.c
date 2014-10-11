@@ -144,7 +144,3 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, mkdir_fu
 int mkdir_p(const char *path, mode_t mode) {
         return mkdir_p_internal(NULL, path, mode, mkdir);
 }
-
-int mkdir_p_prefix(const char *prefix, const char *path, mode_t mode) {
-        return mkdir_p_internal(prefix, path, mode, mkdir);
-}

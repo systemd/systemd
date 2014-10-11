@@ -44,10 +44,6 @@ int mkdir_parents_label(const char *path, mode_t mode) {
         return mkdir_parents_internal(NULL, path, mode, label_mkdir);
 }
 
-int mkdir_parents_prefix_label(const char *prefix, const char *path, mode_t mode) {
-        return mkdir_parents_internal(prefix, path, mode, label_mkdir);
-}
-
 int mkdir_p_label(const char *path, mode_t mode) {
         return mkdir_p_internal(NULL, path, mode, label_mkdir);
 }
