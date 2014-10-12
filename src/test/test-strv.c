@@ -113,6 +113,22 @@ static void test_strv_find_prefix(void) {
         assert_se(!strv_find_prefix((char **)input_table_multiple, "onee"));
 }
 
+static void test_strv_find_startswith(void) {
+        char *r;
+
+        r = strv_find_startswith((char **)input_table_multiple, "o");
+        assert_se(r && streq(r, "ne"));
+
+        r = strv_find_startswith((char **)input_table_multiple, "one");
+        assert_se(r && streq(r, ""));
+
+        r = strv_find_startswith((char **)input_table_multiple, "");
+        assert_se(r && streq(r, "one"));
+
+        assert_se(!strv_find_startswith((char **)input_table_multiple, "xxx"));
+        assert_se(!strv_find_startswith((char **)input_table_multiple, "onee"));
+}
+
 static void test_strv_join(void) {
         _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL;
 
@@ -416,6 +432,27 @@ static void test_strv_from_stdarg_alloca(void) {
         test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
+static void test_strv_push_prepend(void) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        a = strv_new("foo", "bar", "three", NULL);
+
+        assert_se(strv_push_prepend(&a, strdup("first")) >= 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(streq(a[1], "foo"));
+        assert_se(streq(a[2], "bar"));
+        assert_se(streq(a[3], "three"));
+        assert_se(!a[4]);
+
+        assert_se(strv_consume_prepend(&a, strdup("first2")) >= 0);
+        assert_se(streq(a[0], "first2"));
+        assert_se(streq(a[1], "first"));
+        assert_se(streq(a[2], "foo"));
+        assert_se(streq(a[3], "bar"));
+        assert_se(streq(a[4], "three"));
+        assert_se(!a[5]);
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -423,6 +460,7 @@ int main(int argc, char *argv[]) {
         test_strv_foreach_pair();
         test_strv_find();
         test_strv_find_prefix();
+        test_strv_find_startswith();
         test_strv_join();
 
         test_strv_quote_unquote(input_table_multiple, "\"one\" \"two\" \"three\"");
@@ -462,6 +500,7 @@ int main(int argc, char *argv[]) {
         test_strv_extend();
         test_strv_extendf();
         test_strv_from_stdarg_alloca();
+        test_strv_push_prepend();
 
         return 0;
 }
