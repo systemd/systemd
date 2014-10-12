@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
         r = manager_new(SYSTEMD_USER, true, &m);
-        if (r == -EPERM || r == -EACCES || r == -EADDRINUSE || r == -EHOSTDOWN) {
+        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
