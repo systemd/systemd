@@ -1359,7 +1359,8 @@ tests += \
 	test-ratelimit \
 	test-condition-util \
 	test-uid-range \
-	test-bus-policy
+	test-bus-policy \
+	test-locale-util
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1501,6 +1502,12 @@ test_async_SOURCES = \
 	src/test/test-async.c
 
 test_async_LDADD = \
+	libsystemd-shared.la
+
+test_locale_util_SOURCES = \
+	src/test/test-locale-util.c
+
+test_locale_util_LDADD = \
 	libsystemd-shared.la
 
 test_condition_util_SOURCES = \
