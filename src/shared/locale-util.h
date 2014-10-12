@@ -21,6 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
+#include "macro.h"
+
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be
          * using LANG instead. */
