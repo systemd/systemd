@@ -61,7 +61,14 @@
                 execution in a virtualized environment. It identifies
                 the virtualization technology and can distinguish full
                 VM virtualization from container
-                virtualization.</para>
+                virtualization. <filename>systemd-detect-virt</filename>
+                exits with a return value of 0 (success) if a
+                virtualization technology is detected, and non-zero
+                (error) otherwise. By default any type of
+                virtualization is detected, and the options
+                <option>--container</option> and <option>--vm</option>
+                can be used to limit what types of virtualization are
+                detected.</para>
 
                 <para>When executed without <option>--quiet</option>
                 will print a short identifier for the detected
@@ -69,18 +76,23 @@
                 are currently identified:</para>
 
                 <table>
-                  <title>Known VM virtualization technologies (i.e. full hardware virtualization)</title>
-                  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                  <title>Known virtualization technologies (both
+                  VM, i.e. full hardware virtualization,
+                  and container, i.e. shared kernel virtualization)</title>
+                  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="type" />
                     <colspec colname="id" />
                     <colspec colname="product" />
                     <thead>
                       <row>
+                        <entry>Type</entry>
                         <entry>ID</entry>
-                        <entry>VM Product</entry>
+                        <entry>Product</entry>
                       </row>
                     </thead>
                     <tbody>
                       <row>
+                        <entry morerows="8">VM</entry>
                         <entry><varname>qemu</varname></entry>
                         <entry>QEMU software virtualization</entry>
                       </row>
@@ -125,23 +137,8 @@
                         <entry>User-mode Linux</entry>
                       </row>
 
-                    </tbody>
-                  </tgroup>
-                </table>
-
-                <table>
-                  <title>Known container virtualization technologies (i.e. shared kernel virtualization)</title>
-                  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
-                    <colspec colname="id" />
-                    <colspec colname="product" />
-                    <thead>
                       <row>
-                        <entry>ID</entry>
-                        <entry>Container Product</entry>
-                      </row>
-                    </thead>
-                    <tbody>
-                      <row>
+                        <entry morerows="5">container</entry>
                         <entry><varname>openvz</varname></entry>
                         <entry>OpenVZ/Virtuozzo</entry>
                       </row>
