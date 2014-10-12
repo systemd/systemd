@@ -259,7 +259,7 @@ static int dir_is_mount_point(DIR *d, const char *subdir) {
 
         /* got only one handle; assume different mount points if one
          * of both queries was not supported by the filesystem */
-        if (r_p == -ENOSYS || r_p == -ENOTSUP || r == -ENOSYS || r == -ENOTSUP)
+        if (r_p == -ENOSYS || r_p == -EOPNOTSUPP || r == -ENOSYS || r == -EOPNOTSUPP)
                 return true;
 
         /* return error */
