@@ -849,10 +849,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         int k;
 
                         k = compare_with_location(f, c, &j->current_location);
-                        if (direction == DIRECTION_DOWN)
-                                found = k > 0;
-                        else
-                                found = k < 0;
+
+                        found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
                         found = true;
 
