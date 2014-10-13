@@ -16,7 +16,6 @@ slovene			si	pc105		-		terminate:ctrl_alt_bksp
 hu101			hu	pc105		qwerty		terminate:ctrl_alt_bksp
 jp106			jp	jp106		-		terminate:ctrl_alt_bksp
 croat			hr	pc105		-		terminate:ctrl_alt_bksp
-fi-latin1		fi	pc105		-		terminate:ctrl_alt_bksp
 it2			it	pc105		-		terminate:ctrl_alt_bksp
 hu			hu	pc105		-		terminate:ctrl_alt_bksp
 sr-latin		rs	pc105		latin		terminate:ctrl_alt_bksp
