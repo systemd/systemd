@@ -849,6 +849,13 @@ _public_ int sd_bus_message_get_auto_start(sd_bus_message *m) {
         return !(m->header->flags & BUS_MESSAGE_NO_AUTO_START);
 }
 
+_public_ int sd_bus_message_get_allow_interactive_authorization(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+
+        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL &&
+                (m->header->flags & BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION);
+}
+
 _public_ const char *sd_bus_message_get_path(sd_bus_message *m) {
         assert_return(m, NULL);
 
@@ -995,6 +1002,18 @@ _public_ int sd_bus_message_set_auto_start(sd_bus_message *m, int b) {
                 m->header->flags &= ~BUS_MESSAGE_NO_AUTO_START;
         else
                 m->header->flags |= BUS_MESSAGE_NO_AUTO_START;
+
+        return 0;
+}
+
+_public_ int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *m, int b) {
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        if (b)
+                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+        else
+                m->header->flags &= ~BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
 
         return 0;
 }
