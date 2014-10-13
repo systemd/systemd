@@ -311,6 +311,8 @@ static int get_source_for_fd(RemoteServer *s,
         Writer *writer;
         int r;
 
+        /* This takes ownership of name, but only on success. */
+
         assert(fd >= 0);
         assert(source);
 
@@ -360,6 +362,8 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
         RemoteSource *source;
         int r;
 
+        /* This takes ownership of name, even on failure, if own_name is true. */
+
         assert(s);
         assert(fd >= 0);
         assert(name);
@@ -374,6 +378,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
         if (r < 0) {
                 log_error("Failed to create source for fd:%d (%s): %s",
                           fd, name, strerror(-r));
+                free(name);
                 return r;
         }
 
@@ -867,8 +872,6 @@ static int remoteserver_init(RemoteServer *s,
                         log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
 
                         r = add_source(s, fd, hostname, true);
-                        if (r < 0)
-                                free(hostname);
                 } else {
                         log_error("Unknown socket passed on fd:%d", fd);
 
@@ -1098,7 +1101,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
                                          uint32_t revents,
                                          void *userdata) {
         RemoteServer *s = userdata;
-        int fd2, r;
+        int fd2;
         SocketAddress addr = {
                 .size = sizeof(union sockaddr_union),
                 .type = SOCK_STREAM,
@@ -1109,10 +1112,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
         if (fd2 < 0)
                 return fd2;
 
-        r = add_source(s, fd2, hostname, true);
-        if (r < 0)
-                free(hostname);
-        return r;
+        return add_source(s, fd2, hostname, true);
 }
 
 /**********************************************************************
