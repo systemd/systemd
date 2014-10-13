@@ -334,7 +334,7 @@ int label_get_child_mls_label(int socket_fd, const char *exe, char **label) {
         }
 
         freecon(mycon);
-        mycon = context_str(bcon);
+        mycon = strdup(context_str(bcon));
         if (!mycon) {
                 r = -errno;
                 goto out;
@@ -348,6 +348,7 @@ int label_get_child_mls_label(int socket_fd, const char *exe, char **label) {
         }
 
         *label = ret;
+        ret = NULL;
         r = 0;
 
 out:
