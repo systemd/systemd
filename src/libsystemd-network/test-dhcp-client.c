@@ -485,12 +485,12 @@ static void test_addr_acq(sd_event *e) {
         res = sd_dhcp_client_start(client);
         assert_se(res == 0 || res == -EINPROGRESS);
 
-        sd_event_loop(e);
+        assert_se(sd_event_loop(e) >= 0);
 
         test_hangcheck = sd_event_source_unref(test_hangcheck);
 
-        sd_dhcp_client_set_callback(client, NULL, NULL);
-        sd_dhcp_client_stop(client);
+        assert_se(sd_dhcp_client_set_callback(client, NULL, NULL) >= 0);
+        assert_se(sd_dhcp_client_stop(client) >= 0);
         sd_dhcp_client_unref(client);
 
         test_fd[1] = safe_close(test_fd[1]);
