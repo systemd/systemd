@@ -27,17 +27,6 @@
                 <annotate key="org.freedesktop.policykit.exec.path">@rootlibexecdir@/systemd-reply-password</annotate>
         </action>
 
-        <action id="org.freedesktop.systemd1.bus-access">
-                <_description>Privileged system and service manager access</_description>
-                <_message>Authentication is required to access the system and service manager.</_message>
-                <defaults>
-                        <allow_any>no</allow_any>
-                        <allow_inactive>no</allow_inactive>
-                        <allow_active>auth_admin_keep</allow_active>
-                </defaults>
-                <annotate key="org.freedesktop.policykit.exec.path">@bindir@/systemd-stdio-bridge</annotate>
-        </action>
-
         <action id="org.freedesktop.systemd1.manage-units">
                 <_description>Manage system services or units</_description>
                 <_message>Authentication is required to manage system services or units.</_message>
