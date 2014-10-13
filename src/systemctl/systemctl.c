@@ -137,23 +137,6 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 
-static const struct {
-        const char *verb;
-        const char *method;
-} unit_actions[] = {
-        { "start",                 "StartUnit" },
-        { "stop",                  "StopUnit" },
-        { "condstop",              "StopUnit" },
-        { "reload",                "ReloadUnit" },
-        { "restart",               "RestartUnit" },
-        { "try-restart",           "TryRestartUnit" },
-        { "condrestart",           "TryRestartUnit" },
-        { "reload-or-restart",     "ReloadOrRestartUnit" },
-        { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
-        { "condreload",            "ReloadOrTryRestartUnit" },
-        { "force-reload",          "ReloadOrTryRestartUnit" }
-};
-
 static bool original_stdout_is_tty;
 
 static int daemon_reload(sd_bus *bus, char **args);
@@ -2538,6 +2521,23 @@ static int check_triggering_units(
 
         return 0;
 }
+
+static const struct {
+        const char *verb;
+        const char *method;
+} unit_actions[] = {
+        { "start",                 "StartUnit" },
+        { "stop",                  "StopUnit" },
+        { "condstop",              "StopUnit" },
+        { "reload",                "ReloadUnit" },
+        { "restart",               "RestartUnit" },
+        { "try-restart",           "TryRestartUnit" },
+        { "condrestart",           "TryRestartUnit" },
+        { "reload-or-restart",     "ReloadOrRestartUnit" },
+        { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
+        { "condreload",            "ReloadOrTryRestartUnit" },
+        { "force-reload",          "ReloadOrTryRestartUnit" }
+};
 
 static const char *verb_to_method(const char *verb) {
        uint i;
