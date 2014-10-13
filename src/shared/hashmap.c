@@ -886,14 +886,14 @@ int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key) {
         unsigned h_hash, other_hash;
         struct hashmap_entry *e;
 
-        if (!other)
-                return 0;
-
         assert(h);
 
         h_hash = bucket_hash(h, key);
         if (hash_scan(h, h_hash, key))
                 return -EEXIST;
+
+        if (!other)
+                return -ENOENT;
 
         other_hash = bucket_hash(other, key);
         e = hash_scan(other, other_hash, key);
