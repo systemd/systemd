@@ -212,12 +212,18 @@ int bus_verify_polkit(
 #ifdef ENABLE_POLKIT
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                int authorized = false, challenge = false;
+                int authorized = false, challenge = false, c;
                 const char *sender;
 
                 sender = sd_bus_message_get_sender(call);
                 if (!sender)
                         return -EBADMSG;
+
+                c = sd_bus_message_get_allow_interactive_authorization(call);
+                if (c < 0)
+                        return c;
+                if (c > 0)
+                        interactive = true;
 
                 r = sd_bus_call_method(
                                 call->bus,
@@ -231,7 +237,7 @@ int bus_verify_polkit(
                                 "system-bus-name", 1, "name", "s", sender,
                                 action,
                                 0,
-                                interactive ? 1 : 0,
+                                !!interactive,
                                 "");
 
                 if (r < 0) {
@@ -334,6 +340,7 @@ int bus_verify_polkit_async(
         const char *sender;
         sd_bus_message_handler_t callback;
         void *userdata;
+        int c;
 #endif
         int r;
 
@@ -399,6 +406,12 @@ int bus_verify_polkit_async(
         if (!sender)
                 return -EBADMSG;
 
+        c = sd_bus_message_get_allow_interactive_authorization(call);
+        if (c < 0)
+                return c;
+        if (c > 0)
+                interactive = true;
+
         r = hashmap_ensure_allocated(registry, NULL);
         if (r < 0)
                 return r;
@@ -419,7 +432,7 @@ int bus_verify_polkit_async(
                         "system-bus-name", 1, "name", "s", sender,
                         action,
                         0,
-                        interactive ? 1 : 0,
+                        !!interactive,
                         NULL);
         if (r < 0)
                 return r;
