@@ -2704,7 +2704,7 @@ static enum action verb_to_action(const char *verb) {
 static int start_unit(sd_bus *bus, char **args) {
         _cleanup_set_free_free_ Set *s = NULL;
         _cleanup_strv_free_ char **names = NULL;
-        const char *method, *mode, *one_name;
+        const char *method, *mode, *one_name, *suffix = NULL;
         char **name;
         int r = 0;
 
@@ -2717,8 +2717,11 @@ static int start_unit(sd_bus *bus, char **args) {
                 method = verb_to_method(args[0]);
                 action = verb_to_action(args[0]);
 
-                mode = streq(args[0], "isolate") ? "isolate" :
-                       action_table[action].mode ?: arg_job_mode;
+                if (streq(args[0], "isolate")) {
+                        mode = "isolate";
+                        suffix = ".target";
+                } else
+                        mode = action_table[action].mode ?: arg_job_mode;
 
                 one_name = action_table[action].target;
         } else {
@@ -2734,7 +2737,7 @@ static int start_unit(sd_bus *bus, char **args) {
         if (one_name)
                 names = strv_new(one_name, NULL);
         else {
-                r = expand_names(bus, args + 1, NULL, &names);
+                r = expand_names(bus, args + 1, suffix, &names);
                 if (r < 0)
                         log_error("Failed to expand names: %s", strerror(-r));
         }
