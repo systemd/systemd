@@ -585,6 +585,27 @@ static void merge_names(Unit *u, Unit *other) {
                 assert_se(hashmap_replace(u->manager->units, t, u) == 0);
 }
 
+static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
+        unsigned n_reserve;
+
+        assert(u);
+        assert(other);
+        assert(d < _UNIT_DEPENDENCY_MAX);
+
+        /*
+         * If u does not have this dependency set allocated, there is no need
+         * to reserve anything. In that case other's set will be transfered
+         * as a whole to u by complete_move().
+         */
+        if (!u->dependencies[d])
+                return 0;
+
+        /* merge_dependencies() will skip a u-on-u dependency */
+        n_reserve = set_size(other->dependencies[d]) - !!set_get(other->dependencies[d], u);
+
+        return set_reserve(u->dependencies[d], n_reserve);
+}
+
 static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitDependency d) {
         Iterator i;
         Unit *back;
@@ -627,6 +648,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
 int unit_merge(Unit *u, Unit *other) {
         UnitDependency d;
         const char *other_id = NULL;
+        int r;
 
         assert(u);
         assert(other);
@@ -659,6 +681,17 @@ int unit_merge(Unit *u, Unit *other) {
 
         if (other->id)
                 other_id = strdupa(other->id);
+
+        /* Make reservations to ensure merge_dependencies() won't fail */
+        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+                r = reserve_dependencies(u, other, d);
+                /*
+                 * We don't rollback reservations if we fail. We don't have
+                 * a way to undo reservations. A reservation is not a leak.
+                 */
+                if (r < 0)
+                        return r;
+        }
 
         /* Merge names */
         merge_names(u, other);
