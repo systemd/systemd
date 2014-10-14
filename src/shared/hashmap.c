@@ -369,18 +369,26 @@ static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *ke
         return NULL;
 }
 
-static int resize_buckets(Hashmap *h) {
+static int resize_buckets(Hashmap *h, unsigned entries_add) {
         struct hashmap_entry **n, *i;
-        unsigned m;
+        unsigned m, new_n_entries, new_n_buckets;
         uint8_t nkey[HASH_KEY_SIZE];
 
         assert(h);
 
-        if (_likely_(h->n_entries*4 < h->n_buckets*3))
+        new_n_entries = h->n_entries + entries_add;
+
+        /* overflow? */
+        if (_unlikely_(new_n_entries < entries_add || new_n_entries > UINT_MAX / 4))
+                return -ENOMEM;
+
+        new_n_buckets = new_n_entries * 4 / 3;
+
+        if (_likely_(new_n_buckets <= h->n_buckets))
                 return 0;
 
-        /* Increase by four */
-        m = (h->n_entries+1)*4-1;
+        /* Increase by four at least */
+        m = MAX((h->n_entries+1)*4-1, new_n_buckets);
 
         /* If we hit OOM we simply risk packed hashmaps... */
         n = new0(struct hashmap_entry*, m);
@@ -432,7 +440,7 @@ static int __hashmap_put(Hashmap *h, const void *key, void *value, unsigned hash
 
         struct hashmap_entry *e;
 
-        if (resize_buckets(h) > 0)
+        if (resize_buckets(h, 1) > 0)
                 hash = bucket_hash(h, key);
 
         if (h->from_pool)
@@ -791,6 +799,18 @@ int hashmap_merge(Hashmap *h, Hashmap *other) {
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
+
+        return 0;
+}
+
+int hashmap_reserve(Hashmap *h, unsigned entries_add) {
+        int r;
+
+        assert(h);
+
+        r = resize_buckets(h, entries_add);
+        if (r < 0)
+                return r;
 
         return 0;
 }
