@@ -1299,6 +1299,13 @@ AC_ARG_ENABLE(tests,
        enable_tests=$enableval, enable_tests=yes)
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
 
+AC_ARG_ENABLE(hashmap-debug,
+       [AC_HELP_STRING([--enable-hashmap-debug], [enable hashmap debugging])],
+       enable_hashmap_debug=$enableval, enable_hashmap_debug=no)
+AS_IF([test x$enable_hashmap_debug = xyes], [
+        AC_DEFINE(ENABLE_HASHMAP_DEBUG, 1, [Define if hashmap debugging is to be enabled])
+])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
