@@ -313,7 +313,7 @@ PyDoc_STRVAR(Reader___exit____doc__,
              "Part of the context manager protocol.\n"
              "Closes the journal.\n");
 static PyObject* Reader___exit__(Reader *self, PyObject *args) {
-        return Reader_close(self, args);
+        return Reader_close(self, NULL);
 }
 
 PyDoc_STRVAR(Reader_next__doc__,
