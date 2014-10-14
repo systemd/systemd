@@ -6247,3 +6247,6 @@ print-%:
 
 git-contrib:
 	@git shortlog -s `git describe --abbrev=0`.. | cut -c8- | awk '{ print $$0 "," }' | sort -u
+
+EXTRA_DIST += \
+        tools/gdb-sd_dump_hashmaps.py
