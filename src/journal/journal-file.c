@@ -136,7 +136,7 @@ void journal_file_close(JournalFile *f) {
         if (f->mmap)
                 mmap_cache_unref(f->mmap);
 
-        hashmap_free_free(f->chain_cache);
+        ordered_hashmap_free_free(f->chain_cache);
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         free(f->compress_buffer);
@@ -1366,7 +1366,7 @@ typedef struct ChainCacheItem {
 } ChainCacheItem;
 
 static void chain_cache_put(
-                Hashmap *h,
+                OrderedHashmap *h,
                 ChainCacheItem *ci,
                 uint64_t first,
                 uint64_t array,
@@ -1380,8 +1380,8 @@ static void chain_cache_put(
                 if (array == first)
                         return;
 
-                if (hashmap_size(h) >= CHAIN_CACHE_MAX)
-                        ci = hashmap_steal_first(h);
+                if (ordered_hashmap_size(h) >= CHAIN_CACHE_MAX)
+                        ci = ordered_hashmap_steal_first(h);
                 else {
                         ci = new(ChainCacheItem, 1);
                         if (!ci)
@@ -1390,7 +1390,7 @@ static void chain_cache_put(
 
                 ci->first = first;
 
-                if (hashmap_put(h, &ci->first, ci) < 0) {
+                if (ordered_hashmap_put(h, &ci->first, ci) < 0) {
                         free(ci);
                         return;
                 }
@@ -1419,7 +1419,7 @@ static int generic_array_get(
         a = first;
 
         /* Try the chain cache first */
-        ci = hashmap_get(f->chain_cache, &first);
+        ci = ordered_hashmap_get(f->chain_cache, &first);
         if (ci && i > ci->total) {
                 a = ci->array;
                 i -= ci->total;
@@ -1522,7 +1522,7 @@ static int generic_array_bisect(
         /* Start with the first array in the chain */
         a = first;
 
-        ci = hashmap_get(f->chain_cache, &first);
+        ci = ordered_hashmap_get(f->chain_cache, &first);
         if (ci && n > ci->total) {
                 /* Ah, we have iterated this bisection array chain
                  * previously! Let's see if we can skip ahead in the
@@ -2498,7 +2498,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        f->chain_cache = hashmap_new(&uint64_hash_ops);
+        f->chain_cache = ordered_hashmap_new(&uint64_hash_ops);
         if (!f->chain_cache) {
                 r = -ENOMEM;
                 goto fail;

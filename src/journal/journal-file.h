@@ -76,7 +76,7 @@ typedef struct JournalFile {
         JournalMetrics metrics;
         MMapCache *mmap;
 
-        Hashmap *chain_cache;
+        OrderedHashmap *chain_cache;
 
 #if defined(HAVE_XZ) || defined(HAVE_LZ4)
         void *compress_buffer;
