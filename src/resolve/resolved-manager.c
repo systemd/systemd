@@ -720,12 +720,44 @@ static void write_resolv_conf_search(const char *domain, FILE *f,
         (*count) ++;
 }
 
+static int write_resolv_conf_contents(FILE *f, Set *dns, Set *domains) {
+        Iterator i;
+
+        fputs("# This file is managed by systemd-resolved(8). Do not edit.\n#\n"
+              "# Third party programs must not access this file directly, but\n"
+              "# only through the symlink at /etc/resolv.conf. To manage\n"
+              "# resolv.conf(5) in a different way, replace the symlink by a\n"
+              "# static file or a different symlink.\n\n", f);
+
+        if (set_isempty(dns))
+                fputs("# No DNS servers known.\n", f);
+        else {
+                DnsServer *s;
+                unsigned count = 0;
+
+                SET_FOREACH(s, dns, i)
+                        write_resolv_conf_server(s, f, &count);
+        }
+
+        if (!set_isempty(domains)) {
+                unsigned length = 0, count = 0;
+                char *domain;
+
+                fputs("search", f);
+                SET_FOREACH(domain, domains, i)
+                        write_resolv_conf_search(domain, f, &count, &length);
+                fputs("\n", f);
+        }
+
+        return fflush_and_check(f);
+}
+
+
 int manager_write_resolv_conf(Manager *m) {
         static const char path[] = "/run/systemd/resolve/resolv.conf";
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_set_free_ Set *dns = NULL, *domains = NULL;
-        unsigned count = 0;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -795,32 +827,7 @@ int manager_write_resolv_conf(Manager *m) {
 
         fchmod(fileno(f), 0644);
 
-        fputs("# This file is managed by systemd-resolved(8). Do not edit.\n#\n"
-              "# Third party programs must not access this file directly, but\n"
-              "# only through the symlink at /etc/resolv.conf. To manage\n"
-              "# resolv.conf(5) in a different way, replace the symlink by a\n"
-              "# static file or a different symlink.\n\n", f);
-
-        if (set_isempty(dns))
-                fputs("# No DNS servers known.\n", f);
-        else {
-                SET_FOREACH(s, dns, i)
-                        write_resolv_conf_server(s, f, &count);
-        }
-
-        if (!set_isempty(domains)) {
-                unsigned length = 0;
-                char *domain;
-
-                count = 0;
-
-                fputs("search", f);
-                SET_FOREACH(domain, domains, i)
-                        write_resolv_conf_search(domain, f, &count, &length);
-                fputs("\n", f);
-        }
-
-        r = fflush_and_check(f);
+        r = write_resolv_conf_contents(f, dns, domains);
         if (r < 0)
                 goto fail;
 
