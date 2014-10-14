@@ -230,7 +230,7 @@ struct sd_bus {
 
         struct bus_match_node match_callbacks;
         Prioq *reply_callbacks_prioq;
-        Hashmap *reply_callbacks;
+        OrderedHashmap *reply_callbacks;
         LIST_HEAD(struct filter_callback, filter_callbacks);
 
         Hashmap *nodes;

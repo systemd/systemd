@@ -139,7 +139,7 @@ static void bus_free(sd_bus *b) {
 
         bus_reset_queues(b);
 
-        hashmap_free_free(b->reply_callbacks);
+        ordered_hashmap_free_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
 
         assert(b->match_callbacks.type == BUS_MATCH_ROOT);
@@ -1759,7 +1759,7 @@ _public_ int sd_bus_call_async(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
                 return r;
 
@@ -1782,7 +1782,7 @@ _public_ int sd_bus_call_async(
         s->reply_callback.callback = callback;
 
         s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
-        r = hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
+        r = ordered_hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
         if (r < 0) {
                 s->reply_callback.cookie = 0;
                 return r;
@@ -2096,7 +2096,7 @@ static int process_timeout(sd_bus *bus) {
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
         c->timeout = 0;
 
-        hashmap_remove(bus->reply_callbacks, &c->cookie);
+        ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
         c->cookie = 0;
 
         slot = container_of(c, sd_bus_slot, reply_callback);
@@ -2165,7 +2165,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (m->destination && bus->unique_name && !streq_ptr(m->destination, bus->unique_name))
                 return 0;
 
-        c = hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
+        c = ordered_hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
         if (!c)
                 return 0;
 
@@ -2499,7 +2499,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         assert(bus);
         assert(bus->state == BUS_CLOSING);
 
-        c = hashmap_first(bus->reply_callbacks);
+        c = ordered_hashmap_first(bus->reply_callbacks);
         if (c) {
                 _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
                 sd_bus_slot *slot;
@@ -2522,7 +2522,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                         c->timeout = 0;
                 }
 
-                hashmap_remove(bus->reply_callbacks, &c->cookie);
+                ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
                 c->cookie = 0;
 
                 slot = container_of(c, sd_bus_slot, reply_callback);
