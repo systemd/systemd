@@ -830,6 +830,21 @@ static inline int log2i(int x) {
         return __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1;
 }
 
+static inline unsigned log2u(unsigned x) {
+        assert(x > 0);
+
+        return sizeof(unsigned) * 8 - __builtin_clz(x) - 1;
+}
+
+static inline unsigned log2u_round_up(unsigned x) {
+        assert(x > 0);
+
+        if (x == 1)
+                return 0;
+
+        return log2u(x - 1) + 1;
+}
+
 static inline bool logind_running(void) {
         return access("/run/systemd/seats/", F_OK) >= 0;
 }
