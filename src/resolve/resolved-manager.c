@@ -34,6 +34,7 @@
 #include "socket-util.h"
 #include "af-list.h"
 #include "utf8.h"
+#include "fileio-label.h"
 
 #include "resolved-dns-domain.h"
 #include "resolved-conf.h"
@@ -821,7 +822,7 @@ int manager_write_resolv_conf(Manager *m) {
                 }
         }
 
-        r = fopen_temporary(path, &f, &temp_path);
+        r = fopen_temporary_label(path, path, &f, &temp_path);
         if (r < 0)
                 return r;
 
