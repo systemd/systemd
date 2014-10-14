@@ -553,29 +553,38 @@ const char* unit_sub_state_to_string(Unit *u) {
         return UNIT_VTABLE(u)->sub_state_to_string(u);
 }
 
-static void complete_move(Set **s, Set **other) {
+static int complete_move(Set **s, Set **other) {
+        int r;
+
         assert(s);
         assert(other);
 
         if (!*other)
-                return;
+                return 0;
 
-        if (*s)
-                set_move(*s, *other);
-        else {
+        if (*s) {
+                r = set_move(*s, *other);
+                if (r < 0)
+                        return r;
+        } else {
                 *s = *other;
                 *other = NULL;
         }
+
+        return 0;
 }
 
-static void merge_names(Unit *u, Unit *other) {
+static int merge_names(Unit *u, Unit *other) {
         char *t;
         Iterator i;
+        int r;
 
         assert(u);
         assert(other);
 
-        complete_move(&u->names, &other->names);
+        r = complete_move(&u->names, &other->names);
+        if (r < 0)
+                return r;
 
         set_free_free(other->names);
         other->names = NULL;
@@ -583,6 +592,8 @@ static void merge_names(Unit *u, Unit *other) {
 
         SET_FOREACH(t, u->names, i)
                 assert_se(hashmap_replace(u->manager->units, t, u) == 0);
+
+        return 0;
 }
 
 static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
@@ -639,7 +650,8 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         if (back)
                 maybe_warn_about_dependency(u->id, other_id, d);
 
-        complete_move(&u->dependencies[d], &other->dependencies[d]);
+        /* The move cannot fail. The caller must have performed a reservation. */
+        assert_se(complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
 
         set_free(other->dependencies[d]);
         other->dependencies[d] = NULL;
@@ -694,7 +706,9 @@ int unit_merge(Unit *u, Unit *other) {
         }
 
         /* Merge names */
-        merge_names(u, other);
+        r = merge_names(u, other);
+        if (r < 0)
+                return r;
 
         /* Redirect all references */
         while (other->refs)
