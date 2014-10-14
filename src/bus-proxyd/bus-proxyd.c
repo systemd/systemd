@@ -875,7 +875,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
                 const char *name;
-                uint32_t flags;
+                uint32_t flags, param;
 
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
@@ -886,7 +886,15 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
-                r = sd_bus_request_name(a, name, flags);
+                param = 0;
+                if (flags & BUS_NAME_ALLOW_REPLACEMENT)
+                        param |= SD_BUS_NAME_ALLOW_REPLACEMENT;
+                if (flags & BUS_NAME_REPLACE_EXISTING)
+                        param |= SD_BUS_NAME_REPLACE_EXISTING;
+                if (!(flags & BUS_NAME_DO_NOT_QUEUE))
+                        param |= SD_BUS_NAME_QUEUE;
+
+                r = sd_bus_request_name(a, name, param);
                 if (r < 0) {
                         if (r == -EEXIST)
                                 return synthetic_reply_method_return(m, "u", BUS_NAME_EXISTS);
