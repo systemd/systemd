@@ -815,16 +815,16 @@ int hashmap_reserve(Hashmap *h, unsigned entries_add) {
         return 0;
 }
 
-void hashmap_move(Hashmap *h, Hashmap *other) {
+int hashmap_move(Hashmap *h, Hashmap *other) {
         struct hashmap_entry *e, *n;
 
         assert(h);
 
         /* The same as hashmap_merge(), but every new item from other
-         * is moved to h. This function is guaranteed to succeed. */
+         * is moved to h. */
 
         if (!other)
-                return;
+                return 0;
 
         for (e = other->iterate_list_head; e; e = n) {
                 unsigned h_hash, other_hash;
@@ -839,6 +839,8 @@ void hashmap_move(Hashmap *h, Hashmap *other) {
                 unlink_entry(other, e, other_hash);
                 link_entry(h, e, h_hash);
         }
+
+        return 0;
 }
 
 int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key) {

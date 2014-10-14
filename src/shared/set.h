@@ -51,7 +51,7 @@ int set_remove_and_put(Set *s, void *old_value, void *new_value);
 
 int set_merge(Set *s, Set *other);
 int set_reserve(Set *s, unsigned entries_add);
-void set_move(Set *s, Set *other);
+int set_move(Set *s, Set *other);
 int set_move_one(Set *s, Set *other, void *value);
 
 unsigned set_size(Set *s);

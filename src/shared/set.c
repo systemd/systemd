@@ -141,7 +141,7 @@ int set_reserve(Set *s, unsigned entries_add) {
         return hashmap_reserve(MAKE_HASHMAP(s), entries_add);
 }
 
-void set_move(Set *s, Set *other) {
+int set_move(Set *s, Set *other) {
         return hashmap_move(MAKE_HASHMAP(s), MAKE_HASHMAP(other));
 }
 

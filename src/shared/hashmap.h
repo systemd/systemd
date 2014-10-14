@@ -160,9 +160,9 @@ int hashmap_reserve(Hashmap *h, unsigned entries_add);
 static inline int ordered_hashmap_reserve(OrderedHashmap *h, unsigned entries_add) {
         return hashmap_reserve((Hashmap*) h, entries_add);
 }
-void hashmap_move(Hashmap *h, Hashmap *other);
-static inline void ordered_hashmap_move(OrderedHashmap *h, OrderedHashmap *other) {
-        hashmap_move((Hashmap*) h, (Hashmap*) other);
+int hashmap_move(Hashmap *h, Hashmap *other);
+static inline int ordered_hashmap_move(OrderedHashmap *h, OrderedHashmap *other) {
+        return hashmap_move((Hashmap*) h, (Hashmap*) other);
 }
 int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key);
 static inline int ordered_hashmap_move_one(OrderedHashmap *h, OrderedHashmap *other, const void *key) {
