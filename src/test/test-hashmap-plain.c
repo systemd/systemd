@@ -795,6 +795,23 @@ static void test_hashmap_clear_free_free(void) {
         assert_se(hashmap_isempty(m));
 }
 
+static void test_hashmap_reserve(void) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+
+        m = hashmap_new(&string_hash_ops);
+
+        assert_se(hashmap_reserve(m, 1) == 0);
+        assert_se(hashmap_buckets(m) < 1000);
+        assert_se(hashmap_reserve(m, 1000) == 0);
+        assert_se(hashmap_buckets(m) >= 1000);
+        assert_se(hashmap_isempty(m));
+
+        assert_se(hashmap_put(m, "key 1", (void*) "val 1") == 1);
+
+        assert_se(hashmap_reserve(m, UINT_MAX) == -ENOMEM);
+        assert_se(hashmap_reserve(m, UINT_MAX - 1) == -ENOMEM);
+}
+
 void test_hashmap_funcs(void) {
         test_hashmap_copy();
         test_hashmap_get_strv();
@@ -823,4 +840,5 @@ void test_hashmap_funcs(void) {
         test_hashmap_steal_first_key();
         test_hashmap_steal_first();
         test_hashmap_clear_free_free();
+        test_hashmap_reserve();
 }
