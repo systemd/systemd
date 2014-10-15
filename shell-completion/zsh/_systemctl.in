@@ -139,6 +139,8 @@ _filter_units_by_property() {
 }
 
 _systemctl_all_units() { { __systemctl list-unit-files; __systemctl list-units --all; } | { while read -r a b; do echo -E - " $a"; done; } }
+_systemctl_get_template_names() { __systemctl list-unit-files | { while read -r a b; do  [[ $a =~ @\. ]] && echo -E - " ${a%%@.*}@"; done; } }
+
 
 _systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read -r a b; do echo -E - " $a"; done; }) )}
 _systemctl_startable_units(){_sys_startable_units=($(__systemctl list-units --state inactive,failed -- $(_systemctl_all_units) | { while read -r a b c d; do [[ $b == "loaded" ]] && echo -E - " $a"; done; }) )}
@@ -158,20 +160,24 @@ for fun in is-active is-failed is-enabled status show cat mask preset help list-
 done
 
 # Completion functions for ENABLED_UNITS
-for fun in disable reenable ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
+(( $+functions[_systemctl_disable] )) || _systemctl_disable()
+{
+    _systemctl_enabled_units
+    compadd "$@" -a - _sys_enabled_units
+}
+
+(( $+functions[_systemctl_reenable] )) || _systemctl_reenable()
+{
     _systemctl_enabled_units
     _systemctl_disabled_units
-    compadd "$@" -a - _sys_enabled_units _sys_disabled_units
-  }
-done
+    compadd "$@" -a - _sys_enabled_units _sys_disabled_units $(_systemctl_get_template_names)
+}
 
 # Completion functions for DISABLED_UNITS
 (( $+functions[_systemctl_enable] )) || _systemctl_enable()
 {
   _systemctl_disabled_units
-  compadd "$@" -a - _sys_disabled_units
+  compadd "$@" -a - _sys_disabled_units $(_systemctl_get_template_names)
 }
 
 # Completion functions for FAILED_UNITS

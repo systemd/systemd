@@ -53,6 +53,9 @@ __filter_units_by_property () {
 
 __get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
         | { while read -r a b; do echo " $a"; done; }; }
+__get_template_names () { __systemctl $1 list-unit-files \
+        | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
+
 __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
 __get_startable_units () {
@@ -169,22 +172,26 @@ _systemctl () {
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[DISABLED_UNITS]}; then
-                comps=$( __get_disabled_units $mode )
+                comps=$( __get_disabled_units $mode;
+                        __get_template_names $mode)
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[REENABLABLE_UNITS]}; then
                 comps=$( __get_disabled_units $mode;
-                         __get_enabled_units $mode )
+                         __get_enabled_units $mode;
+                         __get_template_names $mode)
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStart yes \
-                      $( __get_startable_units $mode))
+                        $( __get_startable_units $mode);
+                        __get_template_names $mode)
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStart yes \
-                      $( __get_restartable_units $mode))
+                        $( __get_restartable_units $mode); \
+                        __get_template_names $mode)
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
