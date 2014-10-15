@@ -1569,8 +1569,27 @@ test_namespace_SOURCES = \
 test_namespace_LDADD = \
 	libsystemd-core.la
 
+CLEANFILES += \
+	src/test/test-hashmap-ordered.c
+
+BUILT_SOURCES += \
+	src/test/test-hashmap-ordered.c
+
+src/test/test-hashmap-ordered.c: src/test/test-hashmap-plain.c
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN { print "/* GENERATED FILE */\n#define ORDERED" } \
+	                   { if (!match($$0, "^#include"))          \
+	                         gsub(/hashmap/, "ordered_hashmap"); \
+	                     gsub(/HASHMAP/, "ORDERED_HASHMAP");     \
+	                     gsub(/Hashmap/, "OrderedHashmap");      \
+	                     print }' <$< >$@
+
+nodist_test_hashmap_SOURCES = \
+	src/test/test-hashmap-ordered.c
+
 test_hashmap_SOURCES = \
-	src/test/test-hashmap.c
+	src/test/test-hashmap.c \
+	src/test/test-hashmap-plain.c
 
 test_hashmap_LDADD = \
 	libsystemd-core.la
