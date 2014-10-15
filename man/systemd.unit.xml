@@ -181,10 +181,10 @@
                 <filename>foo.service.wants/</filename> may exist. All
                 unit files symlinked from such a directory are
                 implicitly added as dependencies of type
-                <varname>Wanted=</varname> to the unit. This is useful
+                <varname>Wants=</varname> to the unit. This is useful
                 to hook units into the start-up of other units,
                 without having to modify their unit files. For details
-                about the semantics of <varname>Wanted=</varname>, see
+                about the semantics of <varname>Wants=</varname>, see
                 below. The preferred way to create symlinks in the
                 <filename>.wants/</filename> directory of a unit file
                 is with the <command>enable</command> command of the
