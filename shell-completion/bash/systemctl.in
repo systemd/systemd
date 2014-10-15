@@ -55,10 +55,14 @@ __get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-
         | { while read -r a b; do echo " $a"; done; }; }
 __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
-__get_startable_units () { {
-        __systemctl $1 list-units --all -t service,timer,socket,mount,automount,path,snapshot,swap
-        __systemctl $1 list-unit-files -t service,timer,socket,mount,automount,path,snapshot,swap; } \
-        | { while read -r a b c d; do [[ $c == "inactive" || $c == "failed" ]] && echo " $a"; done; }; }
+__get_startable_units () {
+        # find inactive or failed units, filter out masked and not-found
+        __systemctl $1 list-units --state inactive,failed -- $( __get_all_units ) | \
+                { while read -r a b c d; do [[ $b == "loaded" ]] && echo " $a"; done; }; }
+__get_restartable_units () {
+        # find !masked, filter out masked and not-found
+        __systemctl $1 list-units --state active,inactive,failed -- $( __get_all_units ) | \
+                { while read -r a b c d; do [[ $b == "loaded" ]] && echo " $a"; done; }; }
 __get_failed_units   () { __systemctl $1 list-units       \
         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
 __get_enabled_units  () { __systemctl $1 list-unit-files  \
@@ -180,10 +184,7 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property $mode CanStart yes \
-                      $( __get_all_units $mode \
-                        | while read -r line; do \
-                                [[ "$line" =~ @\.|\.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
-                        done ))
+                      $( __get_restartable_units $mode))
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then

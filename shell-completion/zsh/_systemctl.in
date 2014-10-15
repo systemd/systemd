@@ -138,8 +138,11 @@ _filter_units_by_property() {
   done
 }
 
+_systemctl_all_units() { { __systemctl list-unit-files; __systemctl list-units --all; } | { while read -r a b; do echo -E - " $a"; done; } }
+
 _systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read -r a b; do echo -E - " $a"; done; }) )}
-_systemctl_inactive_units(){_sys_inactive_units=($(__systemctl list-units --all    | { while read -r a b c d; do [[ $c == "inactive" || $c == "failed" ]] && echo -E - " $a"; done; }) )}
+_systemctl_startable_units(){_sys_startable_units=($(__systemctl list-units --state inactive,failed -- $(_systemctl_all_units) | { while read -r a b c d; do [[ $b == "loaded" ]] && echo -E - " $a"; done; }) )}
+_systemctl_restartable_units(){_sys_restartable_units=($(__systemctl list-units --state inactive,failed,active -- $(_systemctl_all_units) | { while read -r a b c d; do [[ $b == "loaded" ]] && echo -E - " $a"; done; }) )}
 _systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read -r a b; do echo -E - " $a"; done; }) )}
 _systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "enabled" ]] && echo -E - " $a"; done; }) )}
 _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "disabled" ]] && echo -E - " $a"; done; }) )}
@@ -181,8 +184,9 @@ done
 # Completion functions for STARTABLE_UNITS
 (( $+functions[_systemctl_start] )) || _systemctl_start()
 {
-  _systemctl_inactive_units
-  compadd "$@" -a - _sys_inactive_units
+   _systemctl_startable_units
+   compadd "$@" - $( _filter_units_by_property CanStart yes \
+      ${_sys_startable_units[*]} )
 }
 
 # Completion functions for STOPPABLE_UNITS
@@ -217,11 +221,9 @@ done
 for fun in restart reload-or-restart ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
-    _systemctl_all_units
+    _systemctl_restartable_units
     compadd "$@" - $( _filter_units_by_property CanStart yes \
-      ${_sys_all_units[*]} | while read -r line; do \
-      [[ "$line" =~ \.device$ ]] || echo -E - " $line"; \
-      done )
+      ${_sys_restartable_units[*]} )
   }
 done
 
