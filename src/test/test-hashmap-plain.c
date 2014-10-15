@@ -699,9 +699,9 @@ static void test_hashmap_many(void) {
                 for (i = 1; i < tests[j].n_entries*3; i++)
                         assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
 
-                log_info("%u <= %u * 0.75 = %g", hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.75);
+                log_info("%u <= %u * 0.8 = %g", hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
 
-                assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.75);
+                assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.8);
                 assert_se(hashmap_size(h) == tests[j].n_entries);
 
                 while (!hashmap_isempty(h)) {
