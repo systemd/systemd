@@ -365,7 +365,7 @@
                                 used, zero or more commands may be
                                 specified. This can be specified by
                                 providing multiple command lines in
-                                the same directive , or alternatively,
+                                the same directive, or alternatively,
                                 this directive may be specified more
                                 than once with the same effect. If the
                                 empty string is assigned to this
@@ -548,7 +548,7 @@
                                 when <varname>Type=oneshot</varname> is
                                 used, in which case the timeout
                                 is disabled by default
-                                (see <citerefentry><refentrytitle>systemd-systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                (see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 </para></listitem>
                         </varlistentry>
 
@@ -569,7 +569,7 @@
                                 the timeout logic. Defaults to
                                 <varname>DefaultTimeoutStopSec=</varname> from the
                                 manager configuration file
-                                (see <citerefentry><refentrytitle>systemd-systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                (see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 </para></listitem>
                         </varlistentry>
 
