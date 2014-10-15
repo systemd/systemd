@@ -155,7 +155,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
 
-          <para>Example: <varname>CPUShares=20%</varname> ensures that
+          <para>Example: <varname>CPUQuota=20%</varname> ensures that
           the executed processes will never get more than 20% CPU time
           on one CPU.</para>
 
