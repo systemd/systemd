@@ -402,6 +402,8 @@ static void screen_mode_change_ansi(term_screen *screen, unsigned mode, bool set
                 set_reset(screen, TERM_FLAG_NEWLINE_MODE, set);
 
                 break;
+        default:
+                log_debug("terminal: failed to %s unknown ANSI mode %u", set ? "set" : "unset", mode);
         }
 }
 
@@ -499,6 +501,8 @@ static void screen_mode_change_dec(term_screen *screen, unsigned int mode, bool 
                         screen_restore_state(screen, &screen->saved_alt);
 
                 break;
+        default:
+                log_debug("terminal: failed to %s unknown DEC mode %u", set ? "set" : "unset", mode);
         }
 }
 
