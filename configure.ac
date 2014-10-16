@@ -306,7 +306,6 @@ RT_LIBS="$LIBS"
 AC_SUBST(RT_LIBS)
 LIBS="$save_LIBS"
 
-AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
 AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],

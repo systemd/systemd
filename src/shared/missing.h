@@ -116,12 +116,6 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #endif
 
 #ifdef __x86_64__
-#  ifndef __NR_fanotify_init
-#    define __NR_fanotify_init 300
-#  endif
-#  ifndef __NR_fanotify_mark
-#    define __NR_fanotify_mark 301
-#  endif
 #  ifndef __NR_memfd_create
 #    define __NR_memfd_create 319
 #  endif
@@ -130,67 +124,14 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #    define __NR_memfd_create 385
 #  endif
 #elif defined _MIPS_SIM
-#  if _MIPS_SIM == _MIPS_SIM_ABI32
-#    ifndef __NR_fanotify_init
-#      define __NR_fanotify_init 4336
-#    endif
-#    ifndef __NR_fanotify_mark
-#      define __NR_fanotify_mark 4337
-#    endif
-#  elif _MIPS_SIM == _MIPS_SIM_NABI32
-#    ifndef __NR_fanotify_init
-#      define __NR_fanotify_init 6300
-#    endif
-#    ifndef __NR_fanotify_mark
-#      define __NR_fanotify_mark 6301
-#    endif
-#  elif _MIPS_SIM == _MIPS_SIM_ABI64
-#    ifndef __NR_fanotify_init
-#      define __NR_fanotify_init 5295
-#    endif
-#    ifndef __NR_fanotify_mark
-#      define __NR_fanotify_mark 5296
-#    endif
-#  endif
 #  ifndef __NR_memfd_create
 #    warning "__NR_memfd_create not yet defined for MIPS"
 #    define __NR_memfd_create 0xffffffff
 #  endif
 #else
-#  ifndef __NR_fanotify_init
-#    define __NR_fanotify_init 338
-#  endif
-#  ifndef __NR_fanotify_mark
-#    define __NR_fanotify_mark 339
-#  endif
 #  ifndef __NR_memfd_create
 #    define __NR_memfd_create 356
 #  endif
-#endif
-
-#ifndef HAVE_FANOTIFY_INIT
-static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) {
-        return syscall(__NR_fanotify_init, flags, event_f_flags);
-}
-#endif
-
-#ifndef HAVE_FANOTIFY_MARK
-static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
-                                int dfd, const char *pathname) {
-#if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32 || defined __powerpc__ && !defined __powerpc64__ \
-    || defined __arm__ && !defined __aarch64__
-        union {
-                uint64_t _64;
-                uint32_t _32[2];
-        } _mask;
-        _mask._64 = mask;
-
-        return syscall(__NR_fanotify_mark, fanotify_fd, flags,
-                       _mask._32[0], _mask._32[1], dfd, pathname);
-#else
-        return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
-#endif
-}
 #endif
 
 #ifndef HAVE_MEMFD_CREATE
