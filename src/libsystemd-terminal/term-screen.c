@@ -392,124 +392,111 @@ static inline void set_reset(term_screen *screen, unsigned int flag, bool set) {
                 screen->flags &= ~flag;
 }
 
-static void screen_mode_change(term_screen *screen, unsigned int mode, bool dec, bool set) {
+static void screen_mode_change_ansi(term_screen *screen, unsigned mode, bool set) {
+        switch (mode) {
+        case 20:
+                /*
+                 * LNM: line-feed/new-line mode
+                 * TODO
+                 */
+                set_reset(screen, TERM_FLAG_NEWLINE_MODE, set);
+
+                break;
+        }
+}
+
+static void screen_mode_change_dec(term_screen *screen, unsigned int mode, bool set) {
         switch (mode) {
         case 1:
-                if (dec) {
-                        /*
-                         * DECCKM: cursor-keys
-                         * TODO
-                         */
-                        set_reset(screen, TERM_FLAG_CURSOR_KEYS, set);
-                }
+                /*
+                 * DECCKM: cursor-keys
+                 * TODO
+                 */
+                set_reset(screen, TERM_FLAG_CURSOR_KEYS, set);
 
                 break;
         case 6:
-                if (dec) {
-                        /*
-                         * DECOM: origin-mode
-                         * TODO
-                         */
-                        screen->state.origin_mode = set;
-                }
+                /*
+                 * DECOM: origin-mode
+                 * TODO
+                 */
+                screen->state.origin_mode = set;
 
                 break;
         case 7:
-                if (dec) {
-                        /*
-                         * DECAWN: auto-wrap mode
-                         * TODO
-                         */
-                        screen->state.auto_wrap = set;
-                }
-
-                break;
-        case 20:
-                if (!dec) {
-                        /*
-                         * LNM: line-feed/new-line mode
-                         * TODO
-                         */
-                        set_reset(screen, TERM_FLAG_NEWLINE_MODE, set);
-                }
+                /*
+                 * DECAWN: auto-wrap mode
+                 * TODO
+                 */
+                screen->state.auto_wrap = set;
 
                 break;
         case 25:
-                if (dec) {
-                        /*
-                         * DECTCEM: text-cursor-enable
-                         * TODO
-                         */
-                        set_reset(screen, TERM_FLAG_HIDE_CURSOR, !set);
-                        screen_age_cursor(screen);
-                }
+                /*
+                 * DECTCEM: text-cursor-enable
+                 * TODO
+                 */
+                set_reset(screen, TERM_FLAG_HIDE_CURSOR, !set);
+                screen_age_cursor(screen);
 
                 break;
         case 47:
-                if (dec) {
-                        /*
-                         * XTERM-ASB: alternate-screen-buffer
-                         * This enables/disables the alternate screen-buffer.
-                         * It effectively saves the current page content and
-                         * allows you to restore it when changing to the
-                         * original screen-buffer again.
-                         */
-                        screen_change_alt(screen, set);
-                }
+                /*
+                 * XTERM-ASB: alternate-screen-buffer
+                 * This enables/disables the alternate screen-buffer.
+                 * It effectively saves the current page content and
+                 * allows you to restore it when changing to the
+                 * original screen-buffer again.
+                 */
+                screen_change_alt(screen, set);
 
                 break;
         case 1047:
-                if (dec) {
-                        /*
-                         * XTERM-ASBPE: alternate-screen-buffer-post-erase
-                         * This is the same as XTERM-ASB but erases the
-                         * alternate screen-buffer before switching back to the
-                         * original buffer. Use it to discard any data on the
-                         * alternate screen buffer when done.
-                         */
-                        if (!set)
-                                screen_reset_page(screen, screen->page_alt);
+                /*
+                 * XTERM-ASBPE: alternate-screen-buffer-post-erase
+                 * This is the same as XTERM-ASB but erases the
+                 * alternate screen-buffer before switching back to the
+                 * original buffer. Use it to discard any data on the
+                 * alternate screen buffer when done.
+                 */
+                if (!set)
+                        screen_reset_page(screen, screen->page_alt);
 
-                        screen_change_alt(screen, set);
-                }
+                screen_change_alt(screen, set);
 
                 break;
         case 1048:
-                if (dec) {
-                        /*
-                         * XTERM-ASBCS: alternate-screen-buffer-cursor-state
-                         * This has the same effect as DECSC/DECRC, but uses a
-                         * separate state buffer. It is usually used in
-                         * combination with alternate screen buffers to provide
-                         * stacked state storage.
-                         */
-                        if (set)
-                                screen_save_state(screen, &screen->saved_alt);
-                        else
-                                screen_restore_state(screen, &screen->saved_alt);
-                }
+                /*
+                 * XTERM-ASBCS: alternate-screen-buffer-cursor-state
+                 * This has the same effect as DECSC/DECRC, but uses a
+                 * separate state buffer. It is usually used in
+                 * combination with alternate screen buffers to provide
+                 * stacked state storage.
+                 */
+                if (set)
+                        screen_save_state(screen, &screen->saved_alt);
+                else
+                        screen_restore_state(screen, &screen->saved_alt);
 
                 break;
         case 1049:
-                if (dec) {
-                        /*
-                         * XTERM-ASBX: alternate-screen-buffer-extended
-                         * This combines XTERM-ASBPE and XTERM-ASBCS somewhat.
-                         * When enabling, state is saved, alternate screen
-                         * buffer is activated and cleared.
-                         * When disabled, alternate screen buffer is cleared,
-                         * then normal screen buffer is enabled and state is
-                         * restored.
-                         */
-                        if (set)
-                                screen_save_state(screen, &screen->saved_alt);
+                /*
+                 * XTERM-ASBX: alternate-screen-buffer-extended
+                 * This combines XTERM-ASBPE and XTERM-ASBCS somewhat.
+                 * When enabling, state is saved, alternate screen
+                 * buffer is activated and cleared.
+                 * When disabled, alternate screen buffer is cleared,
+                 * then normal screen buffer is enabled and state is
+                 * restored.
+                 */
+                if (set)
+                        screen_save_state(screen, &screen->saved_alt);
 
-                        screen_reset_page(screen, screen->page_alt);
-                        screen_change_alt(screen, set);
+                screen_reset_page(screen, screen->page_alt);
+                screen_change_alt(screen, set);
 
-                        if (!set)
-                                screen_restore_state(screen, &screen->saved_alt);
-                }
+                if (!set)
+                        screen_restore_state(screen, &screen->saved_alt);
 
                 break;
         }
@@ -2763,7 +2750,7 @@ static int screen_RM_ANSI(term_screen *screen, const term_seq *seq) {
         unsigned int i;
 
         for (i = 0; i < seq->n_args; ++i)
-                screen_mode_change(screen, seq->args[i], false, false);
+                screen_mode_change_ansi(screen, seq->args[i], false);
 
         return 0;
 }
@@ -2777,7 +2764,7 @@ static int screen_RM_DEC(term_screen *screen, const term_seq *seq) {
         unsigned int i;
 
         for (i = 0; i < seq->n_args; ++i)
-                screen_mode_change(screen, seq->args[i], true, false);
+                screen_mode_change_dec(screen, seq->args[i], false);
 
         return 0;
 }
@@ -3057,7 +3044,7 @@ static int screen_SM_ANSI(term_screen *screen, const term_seq *seq) {
         unsigned int i;
 
         for (i = 0; i < seq->n_args; ++i)
-                screen_mode_change(screen, seq->args[i], false, true);
+                screen_mode_change_ansi(screen, seq->args[i], true);
 
         return 0;
 }
@@ -3071,7 +3058,7 @@ static int screen_SM_DEC(term_screen *screen, const term_seq *seq) {
         unsigned int i;
 
         for (i = 0; i < seq->n_args; ++i)
-                screen_mode_change(screen, seq->args[i], true, true);
+                screen_mode_change_dec(screen, seq->args[i], true);
 
         return 0;
 }
