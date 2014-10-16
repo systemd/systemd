@@ -265,12 +265,14 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                 if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->owner_id != previous_id) {
                         char *n;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0)
-                                return -ENOMEM;
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
 
                         r = strv_consume(x, n);
                         if (r < 0)
-                                return r;
+                                goto fail;
 
                         previous_id = name->owner_id;
                 }
@@ -281,16 +283,18 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
                 if (entry_name && service_name_is_valid(entry_name)) {
                         r = strv_extend(x, entry_name);
-                        if (r < 0)
-                                return -ENOMEM;
+                        if (r < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
                 }
         }
 
-        r = kernel_cmd_free(bus, cmd.offset);
-        if (r < 0)
-                return r;
+        r = 0;
 
-        return 0;
+fail:
+        kernel_cmd_free(bus, cmd.offset);
+        return r;
 }
 
 static int bus_list_names_kernel(sd_bus *bus, char ***acquired, char ***activatable) {
@@ -428,16 +432,25 @@ static int bus_get_owner_kdbus(
         conn_info = (struct kdbus_conn_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
         /* Non-activated names are considered not available */
-        if (conn_info->flags & KDBUS_HELLO_ACTIVATOR)
-                return name[0] == ':' ? -ENXIO : -ESRCH;
+        if (conn_info->flags & KDBUS_HELLO_ACTIVATOR) {
+                if (name[0] == ':')
+                        r = -ENXIO;
+                else
+                        r = -ESRCH;
+                goto fail;
+        }
 
         c = bus_creds_new();
-        if (!c)
-                return -ENOMEM;
+        if (!c) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         if (mask & SD_BUS_CREDS_UNIQUE_NAME) {
-                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) conn_info->id) < 0)
-                        return -ENOMEM;
+                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) conn_info->id) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
