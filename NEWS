@@ -74,6 +74,18 @@ CHANGES WITH 217:
           systemd-ask-password gained a new --echo option to turn
           that on.
 
+        * The default sysctl.d/ snippets will now set:
+
+                net.core.default_qdisc = fq_codel
+
+          This selects Fair Queueing Controlled Delay as the default
+          queueing discipline for network interfaces. fq_codel helps
+          fight the network bufferbloat problem. It is believed to be
+          a good default with no tuning required for most workloads.
+          Downstream distributions may override this choice. On 10Gbit
+          servers that do not do forwarding, "fq" may perform better.
+          Systems without a good clocksource should use "pfifo_fast".
+
 CHANGES WITH 216:
 
         * timedated no longer reads NTP implementation unit names from
