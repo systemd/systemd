@@ -228,7 +228,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
          * which we want to avoid. */
 
         if (setresgid(gid, gid, gid) < 0) {
-                log_error("Failed change group ID: %m");
+                log_error("Failed to change group ID: %m");
                 return -errno;
         }
 
@@ -244,7 +244,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         r = setresuid(uid, uid, uid);
         if (r < 0) {
-                log_error("Failed change user ID: %m");
+                log_error("Failed to change user ID: %m");
                 return -errno;
         }
 
