@@ -1545,7 +1545,10 @@ static int exec_child(ExecCommand *command,
                                 context->protect_home,
                                 context->protect_system,
                                 context->mount_flags);
-                if (err < 0) {
+
+                if (err == -EPERM)
+                        log_error_unit(params->unit_id, "Failed to setup namespace, ignoring: %s", strerror(-err));
+                else if (err < 0) {
                         *error = EXIT_NAMESPACE;
                         return err;
                 }
