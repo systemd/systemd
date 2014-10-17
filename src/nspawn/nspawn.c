@@ -1545,7 +1545,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                         return r;
                 }
 
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 10,
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 11,
                                           /* Allow the container to
                                            * access and create the API
                                            * device nodes, so that
