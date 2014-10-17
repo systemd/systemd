@@ -1566,7 +1566,6 @@ int bus_kernel_make_starter(
 
         hello->size = size;
         hello->conn_flags =
-                KDBUS_HELLO_ACCEPT_MEMFD |
                 (activating ? KDBUS_HELLO_ACTIVATOR : KDBUS_HELLO_POLICY_HOLDER) |
                 (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;

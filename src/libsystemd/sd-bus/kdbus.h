@@ -500,8 +500,6 @@ enum kdbus_policy_type {
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
  * @KDBUS_HELLO_ACCEPT_FD:	The connection allows the reception of
  *				any passed file descriptors
- * @KDBUS_HELLO_ACCEPT_MEMFD:	The connection allows the reception of
- *				any passed memfd file descriptors
  * @KDBUS_HELLO_ACTIVATOR:	Special-purpose connection which registers
  *				a well-know name for a process to be started
  *				when traffic arrives
@@ -516,10 +514,9 @@ enum kdbus_policy_type {
  */
 enum kdbus_hello_flags {
 	KDBUS_HELLO_ACCEPT_FD		=  1ULL <<  0,
-	KDBUS_HELLO_ACCEPT_MEMFD	=  1ULL <<  1,
-	KDBUS_HELLO_ACTIVATOR		=  1ULL <<  2,
-	KDBUS_HELLO_POLICY_HOLDER	=  1ULL <<  3,
-	KDBUS_HELLO_MONITOR		=  1ULL <<  4,
+	KDBUS_HELLO_ACTIVATOR		=  1ULL <<  1,
+	KDBUS_HELLO_POLICY_HOLDER	=  1ULL <<  2,
+	KDBUS_HELLO_MONITOR		=  1ULL <<  3,
 };
 
 /**

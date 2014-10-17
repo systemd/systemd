@@ -171,7 +171,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
         r->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
-        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD | KDBUS_HELLO_ACCEPT_MEMFD;
+        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
         r->attach_flags |= KDBUS_ATTACH_NAMES;
         r->original_pid = getpid();
 
