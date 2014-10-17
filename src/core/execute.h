@@ -241,7 +241,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
 
-int exec_context_load_environment(const ExecContext *c, char ***l);
+int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
 

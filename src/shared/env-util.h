@@ -30,7 +30,7 @@ bool env_assignment_is_valid(const char *e);
 
 bool strv_env_is_valid(char **e);
 char **strv_env_clean(char **l);
-char **strv_env_clean_log(char **e, const char *message);
+char **strv_env_clean_log(char **e, const char *unit_id, const char *message);
 
 bool strv_env_name_or_assignment_is_valid(char **l);
 
