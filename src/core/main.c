@@ -1857,7 +1857,7 @@ finish:
                         /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                         r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
                         if (r < 0)
-                                log_error("Failed to switch root, ignoring: %s", strerror(-r));
+                                log_error("Failed to switch root, trying to continue: %s", strerror(-r));
                 }
 
                 args_size = MAX(6, argc+1);
