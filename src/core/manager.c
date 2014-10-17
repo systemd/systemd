@@ -565,7 +565,21 @@ static int manager_setup_notify(Manager *m) {
                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
                         log_error("bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
+                        if (errno == EADDRINUSE) {
+                                log_notice("Removing %s socket and trying again.", m->notify_socket);
+                                r = unlink(m->notify_socket);
+                                if (r < 0) {
+                                        log_error("Failed to remove %s: %m", m->notify_socket);
+                                        return -EADDRINUSE;
+                                }
+
+                                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+                                if (r < 0) {
+                                        log_error("bind(%s) failed: %m", sa.un.sun_path);
+                                        return -errno;
+                                }
+                        } else
+                                return -errno;
                 }
 
                 r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
