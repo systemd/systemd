@@ -766,7 +766,9 @@
 
       <para>The content of all hwdb files is read by
       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>.
+      and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
+      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
+      database in an immutable image.
       During runtime only the binary database is used.</para>
   </refsect1>
 
