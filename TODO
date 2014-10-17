@@ -1,4 +1,5 @@
 Bugfixes:
+
 * Re-enable "fsck -l" when it is ready:
    https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
 
@@ -39,6 +40,8 @@ External:
   compress coredumps in a way compatible with /usr/bin/lz4.
 
 Features:
+
+* PID 1 doesn't apply nspawns devices cgroup policy
 
 * rework journal-send.c to use memfds for large blobs if they are available instead of unlinked files in /tmp. Also, if we detect that the kernel knows memfds, refuse anything but sealed memfds.
 
@@ -94,8 +97,6 @@ Features:
   complete.
 
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
-
-* remove readahead in 217
 
 * journald: allows specification of UID range for splitting up journal files
 
