@@ -750,6 +750,7 @@ MANPAGES_ALIAS += \
 	man/sd_bus_creds_get_cgroup.3 \
 	man/sd_bus_creds_get_cmdline.3 \
 	man/sd_bus_creds_get_comm.3 \
+	man/sd_bus_creds_get_connection_name.3 \
 	man/sd_bus_creds_get_exe.3 \
 	man/sd_bus_creds_get_gid.3 \
 	man/sd_bus_creds_get_mask.3 \
@@ -818,6 +819,7 @@ man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cgroup.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_cmdline.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_comm.3: man/sd_bus_creds_get_pid.3
+man/sd_bus_creds_get_connection_name.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_exe.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_gid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_mask.3: man/sd_bus_creds_new_from_pid.3
@@ -894,6 +896,9 @@ man/sd_bus_creds_get_cmdline.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_comm.html: man/sd_bus_creds_get_pid.html
+	$(html-alias)
+
+man/sd_bus_creds_get_connection_name.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
 
 man/sd_bus_creds_get_exe.html: man/sd_bus_creds_get_pid.html

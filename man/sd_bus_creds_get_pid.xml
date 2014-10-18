@@ -67,6 +67,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <refname>sd_bus_creds_get_audit_login_uid</refname>
     <refname>sd_bus_creds_get_unique_name</refname>
     <refname>sd_bus_creds_get_well_known_names</refname>
+    <refname>sd_bus_creds_get_connection_name</refname>
 
     <refpurpose>Retrieve fields from a credentials object</refpurpose>
   </refnamediv>
@@ -219,6 +220,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <paramdef>char ***<parameter>name</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_connection_name</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>const char **<parameter>name</parameter></paramdef>
+      </funcprototype>
+
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -351,6 +358,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     retrieve the set of D-Bus well-known names. See <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
+
+    <para><function>sd_bus_creds_get_connection_name()</function> will
+    retrieve a descriptive name of the bus connection of the
+    peer. This name is useful to discern multiple bus connections by
+    the same peer, and may be altered by the peer with the
+    <citerefentry><refentrytitle>sd_bus_set_name()</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call.</para>
 
     <para>All functions that take a <parameter>const
     char**</parameter> parameter will store the answer there as an
