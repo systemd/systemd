@@ -46,6 +46,7 @@ MANPAGES += \
 	man/sd_journal_seek_head.3 \
 	man/sd_journal_stream_fd.3 \
 	man/sd_listen_fds.3 \
+	man/sd_machine_get_class.3 \
 	man/sd_notify.3 \
 	man/sd_watchdog_enabled.3 \
 	man/shutdown.8 \
@@ -192,6 +193,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_set_data_threshold.3 \
 	man/sd_journal_test_cursor.3 \
 	man/sd_journal_wait.3 \
+	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
@@ -297,6 +299,7 @@ man/sd_journal_sendv.3: man/sd_journal_print.3
 man/sd_journal_set_data_threshold.3: man/sd_journal_get_data.3
 man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
+man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
@@ -542,6 +545,9 @@ man/sd_journal_test_cursor.html: man/sd_journal_get_cursor.html
 	$(html-alias)
 
 man/sd_journal_wait.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html
 	$(html-alias)
 
 man/sd_notifyf.html: man/sd_notify.html
@@ -1605,6 +1611,7 @@ EXTRA_DIST += \
 	man/sd_journal_stream_fd.xml \
 	man/sd_listen_fds.xml \
 	man/sd_login_monitor_new.xml \
+	man/sd_machine_get_class.xml \
 	man/sd_notify.xml \
 	man/sd_pid_get_session.xml \
 	man/sd_seat_get_active.xml \
