@@ -220,8 +220,6 @@ int start_upload(Uploader *u,
                             LOG_WARNING, );
 
                 if (arg_key || startswith(u->url, "https://")) {
-                        assert(arg_cert);
-
                         easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE,
                                     LOG_ERR, return -EXFULL);
                         easy_setopt(curl, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE,

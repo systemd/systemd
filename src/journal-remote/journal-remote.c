@@ -796,16 +796,19 @@ static int setup_signals(RemoteServer *s) {
         return 0;
 }
 
-static int fd_fd(const char *spec) {
+static int negative_fd(const char *spec) {
+        /* Return a non-positive number as its inverse, -EINVAL otherwise. */
+
         int fd, r;
 
         r = safe_atoi(spec, &fd);
         if (r < 0)
                 return r;
-        if (fd < 0)
-                return -EINVAL;
 
-        return fd;
+        if (fd > 0)
+                return -EINVAL;
+        else
+                return -fd;
 }
 
 static int remoteserver_init(RemoteServer *s,
@@ -851,7 +854,7 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
+                if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
                         log_info("Received a listening socket (fd:%d)", fd);
 
                         if (fd == http_socket)
@@ -860,7 +863,7 @@ static int remoteserver_init(RemoteServer *s,
                                 r = setup_microhttpd_server(s, fd, key, cert, trust);
                         else
                                 r = add_raw_socket(s, fd);
-                } else if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
+                } else if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
                         char *hostname;
 
                         r = getnameinfo_pretty(fd, &hostname);
@@ -1256,7 +1259,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        r = fd_fd(optarg);
+                        r = negative_fd(optarg);
                         if (r >= 0)
                                 http_socket = r;
                         else
@@ -1269,7 +1272,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        r = fd_fd(optarg);
+                        r = negative_fd(optarg);
                         if (r >= 0)
                                 https_socket = r;
                         else
