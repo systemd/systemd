@@ -235,72 +235,72 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     of a connection.
     </para>
 
-    <para><function>sd_bus_creds_get_pid</function> will retrieve the
+    <para><function>sd_bus_creds_get_pid()</function> will retrieve the
     PID (process identifier).</para>
 
-    <para><function>sd_bus_creds_get_pid_starttime</function> will
+    <para><function>sd_bus_creds_get_pid_starttime()</function> will
     retrieve the time since the start of the epoch in microseconds
     since the process was started.</para>
 
-    <para><function>sd_bus_creds_get_tid</function> will retrieve the
+    <para><function>sd_bus_creds_get_tid()</function> will retrieve the
     TID (thread identifier).</para>
 
-    <para><function>sd_bus_creds_get_uid</function> will retrieve the
+    <para><function>sd_bus_creds_get_uid()</function> will retrieve the
     numeric UID (user identifier).</para>
 
-    <para><function>sd_bus_creds_get_gid</function> will retrieve the
+    <para><function>sd_bus_creds_get_gid()</function> will retrieve the
     numeric GID (group identifier).</para>
 
-    <para><function>sd_bus_creds_get_comm</function> will retrieve the
+    <para><function>sd_bus_creds_get_comm()</function> will retrieve the
     comm field (truncated name of the executable, as stored in
     <filename>/proc/<replaceable>pid</replaceable>/comm</filename>).
     </para>
 
-    <para><function>sd_bus_creds_get_tid_comm</function> will retrieve
+    <para><function>sd_bus_creds_get_tid_comm()</function> will retrieve
     the comm field of the thread (as stored in
     <filename>/proc/<replaceable>pid</replaceable>/task/<replaceable>tid</replaceable>/comm</filename>).
     </para>
 
-    <para><function>sd_bus_creds_get_exe</function> will retrieve the
+    <para><function>sd_bus_creds_get_exe()</function> will retrieve the
     path to the program (as stored in the
     <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
     link, but with <literal> (deleted)</literal> suffix removed).
     </para>
 
-    <para><function>sd_bus_creds_get_cmdline</function> will retrieve
+    <para><function>sd_bus_creds_get_cmdline()</function> will retrieve
     an array of command-line arguments (as stored in
     <filename>/proc/<replaceable>pid</replaceable>/cmdline</filename>).
     </para>
 
-    <para><function>sd_bus_creds_get_cgroup</function> will retrieve
+    <para><function>sd_bus_creds_get_cgroup()</function> will retrieve
     the cgroup path. See <ulink
     url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.
     </para>
 
-    <para><function>sd_bus_creds_get_unit</function> will retrieve the
+    <para><function>sd_bus_creds_get_unit()</function> will retrieve the
     systemd unit name (in the system instance of systemd) that the
     process is part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_get_user_unit</function> will
+    <para><function>sd_bus_creds_get_user_unit()</function> will
     retrieve the systemd unit name (in the user instance of systemd)
     that the process is part of. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_get_slice</function> will retrieve
+    <para><function>sd_bus_creds_get_slice()</function> will retrieve
     the systemd slice (a unit in the system instance of systemd) that
     the process is part of. See
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_get_session</function> will retrieve
+    <para><function>sd_bus_creds_get_session()</function> will retrieve
     the logind session that the process is part of. See
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_get_owner_uid</function> will retrieve
+    <para><function>sd_bus_creds_get_owner_uid()</function> will retrieve
     the numeric UID (user identifier) of the user who owns the slice
     that the process is part of. See
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -308,7 +308,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> -->.
     </para>
 
-    <para><function>sd_bus_creds_has_effective_cap</function> will
+    <para><function>sd_bus_creds_has_effective_cap()</function> will
     check whether the capability specified by
     <parameter>capability</parameter> was set in the effective
     capabilities mask. A positive return value means that is was
@@ -320,34 +320,34 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_creds_has_permitted_cap</function> is
-    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    <para><function>sd_bus_creds_has_permitted_cap()</function> is
+    similar to <function>sd_bus_creds_has_effective_cap()</function>,
     but will check the permitted capabilities mask.</para>
 
-    <para><function>sd_bus_creds_has_inheritable_cap</function> is
-    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    <para><function>sd_bus_creds_has_inheritable_cap()</function> is
+    similar to <function>sd_bus_creds_has_effective_cap()</function>,
     but will check the inheritable capabilities mask.</para>
 
-    <para><function>sd_bus_creds_has_bounding_cap</function> is
-    similar to <function>sd_bus_creds_has_effective_cap</function>,
+    <para><function>sd_bus_creds_has_bounding_cap()</function> is
+    similar to <function>sd_bus_creds_has_effective_cap()</function>,
     but will check the bounding capabilities mask.</para>
 
-    <para><function>sd_bus_creds_get_selinux_context</function> will
+    <para><function>sd_bus_creds_get_selinux_context()</function> will
     retrieve the SELinux security context (label) of the process.</para>
 
-    <para><function>sd_bus_creds_get_audit_session_id</function> will
+    <para><function>sd_bus_creds_get_audit_session_id()</function> will
     retrieve the audit session identifier of the process.</para>
 
-    <para><function>sd_bus_creds_get_audit_login_uid</function> will
+    <para><function>sd_bus_creds_get_audit_login_uid()</function> will
     retrieve the audit user login identifier (the identifier of the
     user who is "responsible" for the session).</para>
 
-    <para><function>sd_bus_creds_get_unique_name</function> will
+    <para><function>sd_bus_creds_get_unique_name()</function> will
     retrieve the D-Bus unique name. See <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
-    <para><function>sd_bus_creds_get_well_known_names</function> will
+    <para><function>sd_bus_creds_get_well_known_names()</function> will
     retrieve the set of D-Bus well-known names. See <ulink
     url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
@@ -392,11 +392,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><constant>-ENOENT</constant></term>
 
         <listitem><para>Given field is not specified for the sender.
-        This will be returned by <function>sd_bus_get_unit</function>,
-        <function>sd_bus_get_user_unit</function>,
-        <function>sd_bus_get_slice</function>,
-        <function>sd_bus_get_session</function>, and
-        <function>sd_bus_get_owner_uid</function> if the sender is not
+        This will be returned by <function>sd_bus_get_unit()</function>,
+        <function>sd_bus_get_user_unit()</function>,
+        <function>sd_bus_get_slice()</function>,
+        <function>sd_bus_get_session()</function>, and
+        <function>sd_bus_get_owner_uid()</function> if the sender is not
         part of a systemd system unit, systemd user unit, systemd
         slice, logind session, or a systemd user session.</para>
         </listitem>
