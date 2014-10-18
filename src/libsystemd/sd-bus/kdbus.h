@@ -26,6 +26,7 @@
 #define KDBUS_DST_ID_NAME		(0)
 #define KDBUS_MATCH_ID_ANY		(~0ULL)
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
+#define KDBUS_FLAG_KERNEL		(1ULL << 63)
 
 /**
  * struct kdbus_notify_id_change - name registry change message
@@ -554,7 +555,6 @@ enum kdbus_attach_flags {
 /**
  * struct kdbus_cmd_hello - struct to say hello to kdbus
  * @size:		The total size of the structure
- * @features:		Feature negotiation bitmask
  * @conn_flags:		Connection flags (KDBUS_HELLO_*).
  * @attach_flags:	Mask of metadata to attach to each message sent
  *			(KDBUS_ATTACH_*)
@@ -574,7 +574,6 @@ enum kdbus_attach_flags {
  */
 struct kdbus_cmd_hello {
 	__u64 size;
-	__u64 features;
 	__u64 conn_flags;
 	__u64 attach_flags;
 	__u64 bus_flags;
@@ -598,7 +597,6 @@ enum kdbus_make_flags {
 /**
  * struct kdbus_cmd_make - struct to make a bus, an endpoint or a domain
  * @size:		The total size of the struct
- * @features:		Feature negotiation bitmask
  * @flags:		Properties for the bus/ep/domain to create
  * @items:		Items describing details
  *
@@ -607,7 +605,6 @@ enum kdbus_make_flags {
  */
 struct kdbus_cmd_make {
 	__u64 size;
-	__u64 features;
 	__u64 flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));

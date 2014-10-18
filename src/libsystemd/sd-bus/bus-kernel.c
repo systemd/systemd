@@ -751,10 +751,9 @@ int bus_kernel_take_fd(sd_bus *b) {
                 }
         }
 
-        /* The higher 32bit of both flags fields are considered
+        /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello->bus_flags > 0xFFFFFFFFULL ||
-            hello->conn_flags > 0xFFFFFFFFULL)
+        if (hello->bus_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
         if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
@@ -821,6 +820,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
         int r;
+        uint64_t flags;
 
         assert(bus);
         assert(m);
@@ -843,7 +843,12 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
         if (hint_sync_call)
                 m->kdbus->flags |= KDBUS_MSG_FLAGS_EXPECT_REPLY|KDBUS_MSG_FLAGS_SYNC_REPLY;
 
+        /* The kernel will return the set of supported flags in m->kdbus->flags.
+         * Save the current message flags before issuing the ioctl, and restore them
+         * afterwards */
+        flags = m->kdbus->flags;
         r = ioctl(bus->output_fd, KDBUS_CMD_MSG_SEND, m->kdbus);
+        m->kdbus->flags = flags;
         if (r < 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_message *reply;
@@ -1307,13 +1312,6 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
                 return -errno;
         }
 
-        /* The features field are considered 'incompatible flags'.
-         * Refuse them all for now. */
-        if (make->features) {
-                safe_close(fd);
-                return -ENOTSUP;
-        }
-
         if (s) {
                 char *p;
 
@@ -1444,13 +1442,6 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
                 return -errno;
         }
 
-        /* The features field are considered 'incompatible flags'.
-         * Refuse them all for now. */
-        if (make->features) {
-                safe_close(fd);
-                return -ENOTSUP;
-        }
-
         if (ep_path) {
                 char *p;
 
@@ -1574,11 +1565,9 @@ int bus_kernel_make_starter(
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
                 return -errno;
 
-        /* The higher 32bit of both flags fields are considered
+        /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello->features ||
-            hello->bus_flags > 0xFFFFFFFFULL ||
-            hello->conn_flags > 0xFFFFFFFFULL)
+        if (hello->bus_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
         if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))

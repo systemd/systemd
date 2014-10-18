@@ -169,7 +169,7 @@ static int bus_release_name_kernel(sd_bus *bus, const char *name) {
         if (r < 0)
                 return -errno;
 
-        return n->flags;
+        return 0;
 }
 
 static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
