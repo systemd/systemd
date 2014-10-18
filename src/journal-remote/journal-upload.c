@@ -37,6 +37,7 @@
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
+#define DEFAULT_PORT  19532
 
 static const char* arg_url;
 
@@ -392,6 +393,7 @@ static int setup_signals(Uploader *u) {
 
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
+        const char *host, *proto = "";
 
         assert(u);
         assert(url);
@@ -399,10 +401,24 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         memzero(u, sizeof(Uploader));
         u->input = -1;
 
-        if (!startswith(url, "http://") && !startswith(url, "https://"))
-                url = strappenda("https://", url);
+        if (!(host = startswith(url, "http://")) && !(host = startswith(url, "https://"))) {
+                host = url;
+                proto = "https://";
+        }
 
-        u->url = strappend(url, "/upload");
+        if (strchr(host, ':'))
+                u->url = strjoin(proto, url, "/upload", NULL);
+        else {
+                char *t;
+                size_t x;
+
+                t = strdupa(url);
+                x = strlen(t);
+                while (x > 0 && t[x - 1] == '/')
+                        t[x - 1] = '\0';
+
+                u->url = strjoin(proto, t, ":" STRINGIFY(DEFAULT_PORT), "/upload", NULL);
+        }
         if (!u->url)
                 return log_oom();
 
@@ -505,7 +521,8 @@ static void help(void) {
                "Upload journal events to a remote server.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address\n"
+               "  -u --url=URL              Upload to this address (default port "
+                                            STRINGIFY(DEFAULT_PORT) ")\n"
                "     --key=FILENAME         Specify key in PEM format (default:\n"
                "                            \"" PRIV_KEY_FILE "\")\n"
                "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
