@@ -41,6 +41,8 @@ External:
 
 Features:
 
+* kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
+
 * PID 1 doesn't apply nspawns devices cgroup policy
 
 * rework journal-send.c to use memfds for large blobs if they are available instead of unlinked files in /tmp. Also, if we detect that the kernel knows memfds, refuse anything but sealed memfds.
