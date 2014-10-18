@@ -1173,7 +1173,7 @@ static void help(void) {
                "     --listen-raw=ADDR    Listen for connections at ADDR\n"
                "     --listen-http=ADDR   Listen for HTTP connections at ADDR\n"
                "     --listen-https=ADDR  Listen for HTTPS connections at ADDR\n"
-               "  -o --output=FILE|DIR Write output to FILE or DIR/external-*.journal\n"
+               "  -o --output=FILE|DIR    Write output to FILE or DIR/external-*.journal\n"
                "     --compress[=BOOL]    Use XZ-compression in the output journal (default: yes)\n"
                "     --seal[=BOOL]        Use Event sealing in the output journal (default: no)\n"
                "     --key=FILENAME       Specify key in PEM format (default:\n"

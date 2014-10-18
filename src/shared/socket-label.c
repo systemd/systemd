@@ -150,7 +150,8 @@ int make_socket_fd(int log_level, const char* address, int flags) {
 
         r = socket_address_parse(&a, address);
         if (r < 0) {
-                log_error("Failed to parse socket: %s", strerror(-r));
+                log_error("Failed to parse socket address \"%s\": %s",
+                          address, strerror(-r));
                 return r;
         }
 
