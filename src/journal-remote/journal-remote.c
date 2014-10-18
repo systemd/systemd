@@ -398,6 +398,12 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
                 goto error;
         }
 
+        r = sd_event_source_set_name(source->event, name);
+        if (r < 0) {
+                log_error("Failed to set source name for fd:%d: %s", fd, strerror(-r));
+                goto error;
+        }
+
         return 1; /* work to do */
 
  error:
@@ -407,15 +413,24 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
 static int add_raw_socket(RemoteServer *s, int fd) {
         int r;
+        _cleanup_close_ int fd_ = fd;
+        char name[strlen("raw-socket-") + DECIMAL_STR_MAX(int)];
+
+        assert(fd >= 0);
 
         r = sd_event_add_io(s->events, &s->listen_event,
                             fd, EPOLLIN,
                             dispatch_raw_connection_event, s);
-        if (r < 0) {
-                close(fd);
+        if (r < 0)
                 return r;
-        }
 
+        snprintf(name, sizeof(name), "raw-socket-%d", fd);
+
+        r = sd_event_source_set_name(s->listen_event, name);
+        if (r < 0)
+                return r;
+
+        fd_ = -1;
         s->active ++;
         return 0;
 }
@@ -703,6 +718,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
+        r = sd_event_source_set_name(d->event, "epoll-fd");
+        if (r < 0) {
+                log_error("Failed to set source name: %s", strerror(-r));
+                goto error;
+        }
+
         r = hashmap_ensure_allocated(&s->daemons, &uint64_hash_ops);
         if (r < 0) {
                 log_oom();
@@ -762,19 +783,6 @@ static int dispatch_http_event(sd_event_source *event,
  **********************************************************************
  **********************************************************************/
 
-static int dispatch_sigterm(sd_event_source *event,
-                            const struct signalfd_siginfo *si,
-                            void *userdata) {
-        RemoteServer *s = userdata;
-
-        assert(s);
-
-        log_received_signal(LOG_INFO, si);
-
-        sd_event_exit(s->events, 0);
-        return 0;
-}
-
 static int setup_signals(RemoteServer *s) {
         sigset_t mask;
         int r;
@@ -785,11 +793,19 @@ static int setup_signals(RemoteServer *s) {
         sigset_add_many(&mask, SIGINT, SIGTERM, -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-        r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, dispatch_sigterm, s);
+        r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, dispatch_sigterm, s);
+        r = sd_event_source_set_name(s->sigterm_event, "sigterm");
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, NULL, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_name(s->sigint_event, "sigint");
         if (r < 0)
                 return r;
 
