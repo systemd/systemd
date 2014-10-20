@@ -41,6 +41,8 @@ External:
 
 Features:
 
+* maybe provide an API to allow migration of foreign PIDs into existing scopes.
+
 * kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
 
 * PID 1 doesn't apply nspawns devices cgroup policy
