@@ -968,21 +968,24 @@
                                 <term><varname>Sockets=</varname></term>
                                 <listitem><para>Specifies the name of
                                 the socket units this service shall
-                                inherit the sockets from when the
-                                service is started. Normally it
-                                should not be necessary to use this
-                                setting as all sockets whose unit
+                                inherit socket file descriptors
+                                from when the service is
+                                started. Normally it should not be
+                                necessary to use this setting as all
+                                socket file descriptors whose unit
                                 shares the same name as the service
-                                (ignoring the different suffix of course)
-                                are passed to the spawned
-                                process.</para>
+                                (subject to the different unit name
+                                suffix of course) are passed to the
+                                spawned process.</para>
 
-                                <para>Note that the same socket may be
-                                passed to multiple processes at the
-                                same time. Also note that a different
-                                service may be activated on incoming
-                                traffic than that which inherits the
-                                sockets. Or in other words: the
+                                <para>Note that the same socket file
+                                descriptors may be passed to multiple
+                                processes simultaneously. Also note
+                                that a different service may be
+                                activated on incoming socket traffic
+                                than the one which is ultimately
+                                configured to inherit the socket file
+                                descriptors. Or in other words: the
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
                                 does not have to match the inverse of
