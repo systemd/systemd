@@ -526,7 +526,8 @@ enum kdbus_hello_flags {
  * @KDBUS_ATTACH_CREDS:		Credentials
  * @KDBUS_ATTACH_AUXGROUPS:	Auxiliary groups
  * @KDBUS_ATTACH_NAMES:		Well-known names
- * @KDBUS_ATTACH_COMM:		The "comm" process identifier
+ * @KDBUS_ATTACH_COMM_TID:	The "comm" process identifier of the TID
+ * @KDBUS_ATTACH_COMM_PID:	The "comm" process identifier of the PID
  * @KDBUS_ATTACH_EXE:		The path of the executable
  * @KDBUS_ATTACH_CMDLINE:	The process command line
  * @KDBUS_ATTACH_CGROUP:	The croup membership
@@ -541,15 +542,16 @@ enum kdbus_attach_flags {
 	KDBUS_ATTACH_CREDS		=  1ULL <<  1,
 	KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  2,
 	KDBUS_ATTACH_NAMES		=  1ULL <<  3,
-	KDBUS_ATTACH_COMM		=  1ULL <<  4,
-	KDBUS_ATTACH_EXE		=  1ULL <<  5,
-	KDBUS_ATTACH_CMDLINE		=  1ULL <<  6,
-	KDBUS_ATTACH_CGROUP		=  1ULL <<  7,
-	KDBUS_ATTACH_CAPS		=  1ULL <<  8,
-	KDBUS_ATTACH_SECLABEL		=  1ULL <<  9,
-	KDBUS_ATTACH_AUDIT		=  1ULL << 10,
-	KDBUS_ATTACH_CONN_NAME		=  1ULL << 11,
-	_KDBUS_ATTACH_ALL		=  (1ULL << 12) - 1,
+	KDBUS_ATTACH_TID_COMM		=  1ULL <<  4,
+	KDBUS_ATTACH_PID_COMM		=  1ULL <<  5,
+	KDBUS_ATTACH_EXE		=  1ULL <<  6,
+	KDBUS_ATTACH_CMDLINE		=  1ULL <<  7,
+	KDBUS_ATTACH_CGROUP		=  1ULL <<  8,
+	KDBUS_ATTACH_CAPS		=  1ULL <<  9,
+	KDBUS_ATTACH_SECLABEL		=  1ULL << 10,
+	KDBUS_ATTACH_AUDIT		=  1ULL << 11,
+	KDBUS_ATTACH_CONN_NAME		=  1ULL << 12,
+	_KDBUS_ATTACH_ALL		=  (1ULL << 13) - 1,
 };
 
 /**

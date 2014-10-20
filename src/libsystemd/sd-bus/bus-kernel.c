@@ -1235,8 +1235,11 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
                 m |= KDBUS_ATTACH_CREDS;
 
-        if (mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM))
-                m |= KDBUS_ATTACH_COMM;
+        if (mask & SD_BUS_CREDS_COMM)
+                m |= KDBUS_ATTACH_PID_COMM;
+
+        if (mask & SD_BUS_CREDS_TID_COMM)
+                m |= KDBUS_ATTACH_TID_COMM;
 
         if (mask & SD_BUS_CREDS_EXE)
                 m |= KDBUS_ATTACH_EXE;
