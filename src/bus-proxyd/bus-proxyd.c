@@ -643,57 +643,27 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 return synthetic_reply_method_return(m, NULL);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
-                const char *name;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = sd_bus_message_read(m, "s", &name);
-                if (r < 0)
-                        return r;
-
-                r = get_creds_by_name(a, name, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, NULL);
-                if (r == -ESRCH || r == -ENXIO) {
-                        sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get security context of name '%s': no such name.", name);
-                        return synthetic_reply_method_errno(m, r, &error);
-                }
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, NULL);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
                 return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
-                const char *name;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = sd_bus_message_read(m, "s", &name);
-                if (r < 0)
-                        return r;
-
-                r = get_creds_by_name(a, name, SD_BUS_CREDS_PID, &creds, NULL);
-                if (r == -ESRCH || r == -ENXIO) {
-                        sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get PID of name '%s': no such name.", name);
-                        return synthetic_reply_method_errno(m, r, &error);
-                }
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, NULL);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
-                const char *name;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = sd_bus_message_read(m, "s", &name);
-                if (r < 0)
-                        return r;
-
-                r = get_creds_by_name(a, name, SD_BUS_CREDS_UID, &creds, NULL);
-                if (r == -ESRCH || r == -ENXIO) {
-                        sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get UID of name '%s': no such name.", name);
-                        return synthetic_reply_method_errno(m, r, &error);
-                }
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, NULL);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
