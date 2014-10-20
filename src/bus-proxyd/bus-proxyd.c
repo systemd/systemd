@@ -644,28 +644,31 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->uid);
 
