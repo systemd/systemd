@@ -178,7 +178,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>set-x11-keymap LAYOUT [MODEL] [VARIANT] [OPTIONS]</command></term>
+                                <term><command>set-x11-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]</command></term>
 
                                 <listitem><para>Set the system default
                                 keyboard mapping for X11. This takes a
