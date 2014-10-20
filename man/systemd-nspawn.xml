@@ -751,13 +751,13 @@
                         <para>This runs a copy of the host system in a
                         btrfs snapshot.</para>
                 </example>
-        </refsect1>
 
-        <refsect1>
-                <title>Run a container with SELinux sandbox security contexts</title>
+                <example>
+                        <title>Run a container with SELinux sandbox security contexts</title>
 
-                <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+                        <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
 # systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+                </example>
         </refsect1>
 
         <refsect1>
