@@ -82,7 +82,7 @@ int hostname_setup(void) {
                 hn = "localhost";
         }
 
-        if (sethostname(hn, strlen(hn)) < 0) {
+        if (sethostname_idempotent(hn) < 0) {
                 log_warning("Failed to set hostname to <%s>: %m", hn);
                 return -errno;
         }

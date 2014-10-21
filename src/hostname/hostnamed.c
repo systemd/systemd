@@ -287,7 +287,7 @@ static int context_update_kernel_hostname(Context *c) {
         else
                 hn = "localhost";
 
-        if (sethostname(hn, strlen(hn)) < 0)
+        if (sethostname_idempotent(hn) < 0)
                 return -errno;
 
         return 0;

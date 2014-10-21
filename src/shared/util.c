@@ -7175,3 +7175,23 @@ int free_and_strdup(char **p, const char *s) {
 
         return 0;
 }
+
+int sethostname_idempotent(const char *s) {
+        int r;
+        char buf[HOST_NAME_MAX + 1] = {};
+
+        assert(s);
+
+        r = gethostname(buf, sizeof(buf));
+        if (r < 0)
+                return -errno;
+
+        if (streq(buf, s))
+                return 0;
+
+        r = sethostname(buf, strlen(buf));
+        if (r < 0)
+                return -errno;
+
+        return 1;
+}

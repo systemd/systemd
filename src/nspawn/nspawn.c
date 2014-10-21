@@ -1289,7 +1289,7 @@ static int setup_hostname(void) {
         if (arg_share_system)
                 return 0;
 
-        if (sethostname(arg_machine, strlen(arg_machine)) < 0)
+        if (sethostname_idempotent(arg_machine) < 0)
                 return -errno;
 
         return 0;
