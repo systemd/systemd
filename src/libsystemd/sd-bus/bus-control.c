@@ -243,7 +243,7 @@ static int kernel_cmd_free(sd_bus *bus, uint64_t offset)
 static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         struct kdbus_cmd_name_list cmd = {};
         struct kdbus_name_list *name_list;
-        struct kdbus_cmd_name *name;
+        struct kdbus_name_info *name;
         uint64_t previous_id = 0;
         int r;
 

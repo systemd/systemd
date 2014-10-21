@@ -714,7 +714,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         hello = alloca0_align(sz, 8);
         hello->size = sz;
-        hello->conn_flags = b->hello_flags;
+        hello->flags = b->hello_flags;
         hello->attach_flags = b->attach_flags;
         hello->pool_size = KDBUS_POOL_SIZE;
 
@@ -769,7 +769,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->is_kernel = true;
         b->bus_client = true;
-        b->can_fds = !!(hello->conn_flags & KDBUS_HELLO_ACCEPT_FD);
+        b->can_fds = !!(hello->flags & KDBUS_HELLO_ACCEPT_FD);
         b->message_version = 2;
         b->message_endian = BUS_NATIVE_ENDIAN;
 
@@ -820,7 +820,6 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
         int r;
-        uint64_t flags;
 
         assert(bus);
         assert(m);
@@ -843,12 +842,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
         if (hint_sync_call)
                 m->kdbus->flags |= KDBUS_MSG_FLAGS_EXPECT_REPLY|KDBUS_MSG_FLAGS_SYNC_REPLY;
 
-        /* The kernel will return the set of supported flags in m->kdbus->flags.
-         * Save the current message flags before issuing the ioctl, and restore them
-         * afterwards */
-        flags = m->kdbus->flags;
         r = ioctl(bus->output_fd, KDBUS_CMD_MSG_SEND, m->kdbus);
-        m->kdbus->flags = flags;
         if (r < 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_message *reply;
@@ -1559,7 +1553,7 @@ int bus_kernel_make_starter(
         }
 
         hello->size = size;
-        hello->conn_flags =
+        hello->flags =
                 (activating ? KDBUS_HELLO_ACTIVATOR : KDBUS_HELLO_POLICY_HOLDER) |
                 (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;

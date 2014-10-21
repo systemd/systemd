@@ -373,7 +373,8 @@ enum kdbus_payload_type {
 /**
  * struct kdbus_msg - the representation of a kdbus message
  * @size:		Total size of the message
- * @flags:		Message flags (KDBUS_MSG_FLAGS_*)
+ * @flags:		Message flags (KDBUS_MSG_FLAGS_*), userspace → kernel
+ * @kernel_flags:	Supported message flags, kernel → userspace
  * @priority:		Message queue priority value
  * @dst_id:		64-bit ID of the destination connection
  * @src_id:		64-bit ID of the source connection
@@ -395,6 +396,7 @@ enum kdbus_payload_type {
 struct kdbus_msg {
 	__u64 size;
 	__u64 flags;
+	__u64 kernel_flags;
 	__s64 priority;
 	__u64 dst_id;
 	__u64 src_id;
@@ -429,7 +431,8 @@ enum kdbus_recv_flags {
 
 /**
  * struct kdbus_cmd_recv - struct to de-queue a buffered message
- * @flags:		KDBUS_RECV_* flags
+ * @flags:		KDBUS_RECV_* flags, userspace → kernel
+ * @kernel_flags:	Supported KDBUS_RECV_* flags, kernel → userspace
  * @priority:		Minimum priority of the messages to de-queue. Lowest
  *			values have the highest priority.
  * @offset:		Returned offset in the pool where the message is
@@ -440,6 +443,7 @@ enum kdbus_recv_flags {
  */
 struct kdbus_cmd_recv {
 	__u64 flags;
+	__u64 kernel_flags;
 	__s64 priority;
 	__u64 offset;
 } __attribute__((aligned(8)));
@@ -458,15 +462,17 @@ struct kdbus_cmd_cancel {
 
 /**
  * struct kdbus_cmd_free - struct to free a slice of memory in the pool
- * @offset		The offset of the memory slice, as returned by other
+ * @offset:		The offset of the memory slice, as returned by other
  *			ioctls
- * @flags		Flags for the free command. Currently unused.
+ * @flags:		Flags for the free command, userspace → kernel
+ * @kernel_flags:	Supported flags of the free command, userspace → kernel
  *
  * This struct is used with the KDBUS_CMD_FREE ioctl.
  */
 struct kdbus_cmd_free {
 	__u64 offset;
 	__u64 flags;
+	__u64 kernel_flags;
 } __attribute__((aligned(8)));
 
 /**
@@ -557,7 +563,8 @@ enum kdbus_attach_flags {
 /**
  * struct kdbus_cmd_hello - struct to say hello to kdbus
  * @size:		The total size of the structure
- * @conn_flags:		Connection flags (KDBUS_HELLO_*).
+ * @flags:		Connection flags (KDBUS_HELLO_*), userspace → kernel
+ * @kernel_flags:	Supported connection flags, kernel → userspace
  * @attach_flags:	Mask of metadata to attach to each message sent
  *			(KDBUS_ATTACH_*)
  * @bus_flags:		The flags field copied verbatim from the original
@@ -576,7 +583,8 @@ enum kdbus_attach_flags {
  */
 struct kdbus_cmd_hello {
 	__u64 size;
-	__u64 conn_flags;
+	__u64 flags;
+	__u64 kernel_flags;
 	__u64 attach_flags;
 	__u64 bus_flags;
 	__u64 id;
@@ -599,7 +607,9 @@ enum kdbus_make_flags {
 /**
  * struct kdbus_cmd_make - struct to make a bus, an endpoint or a domain
  * @size:		The total size of the struct
- * @flags:		Properties for the bus/ep/domain to create
+ * @flags:		Properties for the bus/ep/domain to create,
+ *			userspace → kernel
+ * @kernel_flags:	Supported flags for the used command, kernel → userspace
  * @items:		Items describing details
  *
  * This structure is used with the KDBUS_CMD_BUS_MAKE, KDBUS_CMD_ENDPOINT_MAKE
@@ -608,6 +618,7 @@ enum kdbus_make_flags {
 struct kdbus_cmd_make {
 	__u64 size;
 	__u64 flags;
+	__u64 kernel_flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -630,9 +641,9 @@ enum kdbus_name_flags {
 /**
  * struct kdbus_cmd_name - struct to describe a well-known name
  * @size:		The total size of the struct
- * @flags:		Flags for a name entry (KDBUS_NAME_*)
- * @owner_id:		The current owner of the name
- * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
+ * @flags:		Flags for a name entry (KDBUS_NAME_*),
+ *			userspace → kernel, kernel → userspace
+ * @kernel_flags:	Supported flags for a name entry, kernel → userspace
  * @items:		Item list, containing the well-known name as
  *			KDBUS_ITEM_NAME
  *
@@ -641,8 +652,26 @@ enum kdbus_name_flags {
 struct kdbus_cmd_name {
 	__u64 size;
 	__u64 flags;
-	__u64 owner_id;
+	__u64 kernel_flags;
+	struct kdbus_item items[0];
+} __attribute__((aligned(8)));
+
+/**
+ * struct kdbus_name_info - struct to describe a well-known name
+ * @size:		The total size of the struct
+ * @flags:		Flags for a name entry (KDBUS_NAME_*),
+ * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
+ * @owner_id:		The current owner of the name
+ * @items:		Item list, containing the well-known name as
+ *			KDBUS_ITEM_NAME
+ *
+ * This structure is used as return struct for the KDBUS_CMD_NAME_LIST ioctl.
+ */
+struct kdbus_name_info {
+	__u64 size;
+	__u64 flags;
 	__u64 conn_flags;
+	__u64 owner_id;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -662,7 +691,9 @@ enum kdbus_name_list_flags {
 
 /**
  * struct kdbus_cmd_name_list - request a list of name entries
- * @flags:		Flags for the query (KDBUS_NAME_LIST_*)
+ * @flags:		Flags for the query (KDBUS_NAME_LIST_*),
+ * 			userspace → kernel
+ * @kernel_flags:	Supported flags for queries, kernel → userspace
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
  *			allocated memory.
@@ -671,6 +702,7 @@ enum kdbus_name_list_flags {
  */
 struct kdbus_cmd_name_list {
 	__u64 flags;
+	__u64 kernel_flags;
 	__u64 offset;
 } __attribute__((aligned(8)));
 
@@ -684,13 +716,14 @@ struct kdbus_cmd_name_list {
  */
 struct kdbus_name_list {
 	__u64 size;
-	struct kdbus_cmd_name names[0];
+	struct kdbus_name_info names[0];
 };
 
 /**
  * struct kdbus_cmd_conn_info - struct used for KDBUS_CMD_CONN_INFO ioctl
  * @size:		The total size of the struct
- * @flags:		KDBUS_ATTACH_* flags
+ * @flags:		KDBUS_ATTACH_* flags, userspace → kernel
+ * @kernel_flags:	Supported KDBUS_ATTACH_* flags, kernel → userspace
  * @id:			The 64-bit ID of the connection. If set to zero, passing
  *			@name is required. kdbus will look up the name to
  *			determine the ID in this case.
@@ -707,6 +740,7 @@ struct kdbus_name_list {
 struct kdbus_cmd_conn_info {
 	__u64 size;
 	__u64 flags;
+	__u64 kernel_flags;
 	__u64 id;
 	__u64 offset;
 	struct kdbus_item items[0];
@@ -732,6 +766,8 @@ struct kdbus_conn_info {
 /**
  * struct kdbus_cmd_update - update flags of a connection
  * @size:		The total size of the struct
+ * @flags:		Flags for the update command, userspace → kernel
+ * @kernel_flags:	Supported flags for this command, kernel → userspace
  * @items:		A list of struct kdbus_item
  *
  * This struct is used with the KDBUS_CMD_CONN_UPDATE ioctl.
@@ -739,6 +775,7 @@ struct kdbus_conn_info {
 struct kdbus_cmd_update {
 	__u64 size;
 	__u64 flags;
+	__u64 kernel_flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -757,6 +794,9 @@ enum kdbus_cmd_match_flags {
  * @size:		The total size of the struct
  * @cookie:		Userspace supplied cookie. When removing, the cookie
  *			identifies the match to remove
+ * @flags:		Flags for match command (KDBUS_MATCH_*),
+ *			userspace → kernel
+ * @kernel_flags:	Supported flags of the used command, kernel → userspace
  * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
@@ -766,6 +806,7 @@ struct kdbus_cmd_match {
 	__u64 size;
 	__u64 cookie;
 	__u64 flags;
+	__u64 kernel_flags;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 

@@ -734,7 +734,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 struct kdbus_cmd_name_list cmd = {};
                 struct kdbus_name_list *name_list;
                 struct kdbus_cmd_free cmd_free;
-                struct kdbus_cmd_name *name;
+                struct kdbus_name_info *name;
                 _cleanup_strv_free_ char **owners = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
