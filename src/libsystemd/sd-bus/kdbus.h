@@ -384,7 +384,8 @@ enum kdbus_payload_type {
  * @timeout_ns:		The time to wait for a message reply from the peer.
  *			If there is no reply, a kernel-generated message
  *			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
- *			is sent to @src_id.
+ *			is sent to @src_id. The timeout is expected in
+ *			nanoseconds and as absolute CLOCK_MONOTONIC value.
  * @cookie_reply:	A reply to the requesting message with the same
  *			cookie. The requesting connection can match its
  *			request and the reply with this value

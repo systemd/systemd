@@ -270,10 +270,20 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->cookie = (uint64_t) m->header->serial;
         m->kdbus->priority = m->priority;
 
-        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) {
                 m->kdbus->cookie_reply = m->reply_cookie;
-        else
-                m->kdbus->timeout_ns = m->timeout * NSEC_PER_USEC;
+        } else {
+                struct timespec now;
+
+                r = clock_gettime(CLOCK_MONOTONIC_COARSE, &now);
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                m->kdbus->timeout_ns = now.tv_sec * NSEC_PER_SEC + now.tv_nsec +
+                                       m->timeout * NSEC_PER_USEC;
+        }
 
         d = m->kdbus->items;
 
