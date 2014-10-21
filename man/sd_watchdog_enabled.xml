@@ -69,30 +69,37 @@
                 which the manager will act on the service if it did
                 not get such a notification.</para>
 
+                <para>If the <varname>$WATCHDOG_USEC</varname>
+                environment variable is set, and the
+                <varname>$WATCHDOG_PID</varname> variable is unset or
+                set to the PID of the current process, the service
+                manager expects notifications from this process. The
+                manager will usually terminate a service when it does
+                not get a notification message within the specified
+                time after startup and after each previous message. It
+                is recommended that a daemon sends a keep-alive
+                notification message to the service manager every half
+                of the time returned here. Notification messages may
+                be sent with
+                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                with a message string of
+                <literal>WATCHDOG=1</literal>.</para>
+
                 <para>If the <parameter>unset_environment</parameter>
                 parameter is non-zero,
                 <function>sd_watchdog_enabled()</function> will unset
                 the <varname>$WATCHDOG_USEC</varname> and
                 <varname>$WATCHDOG_PID</varname> environment variables
-                before returning (regardless of whether the function call
-                itself succeeded or not). Further calls to
-                <function>sd_watchdog_enabled()</function> will then
-                return with zero, but the variable is no longer
-                inherited by child processes.</para>
+                before returning (regardless of whether the function
+                call itself succeeded or not). Those variables are no
+                longer inherited by child processes. Further calls to
+                <function>sd_watchdog_enabled()</function> will also
+                return with zero.</para>
 
                 <para>If the <parameter>usec</parameter> parameter is
                 non-NULL, <function>sd_watchdog_enabled()</function>
-                will return the timeout in µs for the watchdog
-                logic. The service manager will usually terminate a
-                service when it did not get a notification message
-                within the specified time after startup and after each
-                previous message. It is recommended that a daemon
-                sends a keep-alive notification message to the service
-                manager every half of the time returned
-                here. Notification messages may be sent with
-                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                with a message string of
-                <literal>WATCHDOG=1</literal>.</para>
+                will write the timeout in µs for the watchdog
+                logic to it.</para>
 
                 <para>To enable service supervision with the watchdog
                 logic, use <varname>WatchdogSec=</varname> in service
@@ -126,7 +133,6 @@
                 of the current process, under the assumption that in
                 that case, the variables were set for a different
                 process further up the process tree.</para>
-
         </refsect1>
 
         <refsect1>
@@ -154,6 +160,19 @@
                                 details.</para></listitem>
                         </varlistentry>
                 </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <para>The watchdog functionality and the
+                <varname>$WATCHDOG_USEC</varname> variable were
+                added in systemd-41.</para>
+
+                <para><function>sd_watchdog_enabled()</function>
+                function was added in systemd-209. Since that version
+                the <varname>$WATCHDOG_PID</varname> variable is also
+                set.</para>
         </refsect1>
 
         <refsect1>
