@@ -242,6 +242,25 @@ static void test_strv_resolve(void) {
         assert_se(rm_rf_dangerous(tmp_dir, false, true, false) == 0);
 }
 
+static void test_path_startswith(void) {
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "////"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo//bar/////barfoo///"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo////"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar///barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo////bar/barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "////foo/bar/barfoo/"));
+        assert_se(path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo"));
+
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa/"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", ""));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/bar/foo"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
+}
+
 int main(int argc, char **argv) {
         test_path();
         test_find_binary(argv[0]);
@@ -250,5 +269,7 @@ int main(int argc, char **argv) {
         test_fsck_exists();
         test_make_relative();
         test_strv_resolve();
+        test_path_startswith();
+
         return 0;
 }
