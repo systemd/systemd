@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
 
         in_container = detect_container(NULL) > 0;
 
-        need_umount = true;
+        need_umount = !in_container;
         need_swapoff = !in_container;
         need_loop_detach = !in_container;
         need_dm_detach = !in_container;
