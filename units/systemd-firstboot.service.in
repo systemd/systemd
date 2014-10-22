@@ -10,8 +10,8 @@ Description=First Boot Wizard
 Documentation=man:systemd-firstboot(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-remount-fs.service systemd-sysusers.service
-Before=sysinit.target shutdown.target
+After=systemd-remount-fs.service
+Before=systemd-sysusers.service sysinit.target shutdown.target
 ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
 
