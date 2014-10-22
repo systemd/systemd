@@ -181,6 +181,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:pvr*
  KEYBOARD_KEY_9e=email
  KEYBOARD_KEY_9f=homepage
 
+keyboard:usb:v049Fp0051d*dc*dsc*dp*ic*isc*ip*in01*
+ KEYBOARD_KEY_0c0011=presentation
+ KEYBOARD_KEY_0c0012=addressbook
+ KEYBOARD_KEY_0c0013=info
+ KEYBOARD_KEY_0c0014=prog1
+ KEYBOARD_KEY_0c0015=messenger
+
 ###########################################################
 # Dell
 ###########################################################
