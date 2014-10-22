@@ -41,6 +41,10 @@ External:
 
 Features:
 
+* journald: allow per-priority and per-service retention times when rotating/vacuuming
+
+* introduce systemd-timesync-wait.service or so to sync on an NTP fix?
+
 * systemd --user should issue sd_notify() upon reaching basic.target, not on becoming idle
 
 * configure.ac pretends dbus was optional but actually hardcodes use of dbus' pkg-config file to determine various dbus dirs such as policy and activation dirs
