@@ -18,7 +18,7 @@
 - For robustness reasons, destructors should be able to destruct
   half-initialized objects, too
 
-- Error codes are returned as negative Exxx. i.e. return -EINVAL. There
+- Error codes are returned as negative Exxx. e.g. return -EINVAL. There
   are some exceptions: for constructors, it is OK to return NULL on
   OOM. For lookup functions, NULL is fine too for "not found".
 
@@ -57,7 +57,7 @@
   doing something wrong!
 
 - Stay uniform. For example, always use "usec_t" for time
-  values. Do not usec mix msec, and usec and whatnot.
+  values. Do not mix usec and msec, and usec and whatnot.
 
 - Make use of _cleanup_free_ and friends. It makes your code much
   nicer to read!
@@ -78,6 +78,17 @@
       }
 
   But it is OK if you do not.
+
+- Single-line "if" blocks should not be enclosed in {}. Use this:
+
+  if (foobar)
+          waldo();
+
+  instead of this:
+
+  if (foobar) {
+          waldo();
+  }
 
 - Do not write "foo ()", write "foo()".
 
