@@ -41,7 +41,7 @@ External:
 
 Features:
 
-* if the loopback is guaranteed to always have ifindex == 1, get rid of manager_is_loopback_ifindex() in resolved
+* what to do about udev db binary stability for apps?
 
 * add a system-wide shutdown timeout, similar to the startup timeout we already have (see fdo bz #84110)
 
