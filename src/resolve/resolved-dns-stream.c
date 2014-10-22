@@ -157,7 +157,7 @@ static int dns_stream_identify(DnsStream *s) {
          * device if the connection came from the local host since it
          * avoids the routing table in such a case. Let's unset the
          * interface index in such a case. */
-        if (s->ifindex > 0 && manager_ifindex_is_loopback(s->manager, s->ifindex) != 0)
+        if (s->ifindex == LOOPBACK_IFINDEX)
                 s->ifindex = 0;
 
         /* If we don't know the interface index still, we look for the

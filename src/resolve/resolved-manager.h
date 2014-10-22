@@ -139,7 +139,6 @@ int manager_llmnr_ipv6_udp_fd(Manager *m);
 int manager_llmnr_ipv4_tcp_fd(Manager *m);
 int manager_llmnr_ipv6_tcp_fd(Manager *m);
 
-int manager_ifindex_is_loopback(Manager *m, int ifindex);
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
 LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);
 

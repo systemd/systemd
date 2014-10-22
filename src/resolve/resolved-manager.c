@@ -960,7 +960,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
          * device if the packet came from the local host since it
          * avoids the routing table in such a case. Let's unset the
          * interface index in such a case. */
-        if (p->ifindex > 0 && manager_ifindex_is_loopback(m, p->ifindex) != 0)
+        if (p->ifindex == LOOPBACK_IFINDEX)
                 p->ifindex = 0;
 
         /* If we don't know the interface index still, we look for the
@@ -1693,26 +1693,6 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
 fail:
         m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
         return r;
-}
-
-/* lo having ifindex 1 is hardcoded in the kernel */
-#define LOOPBACK_IFINDEX 1
-
-int manager_ifindex_is_loopback(Manager *m, int ifindex) {
-        Link *l;
-        assert(m);
-
-        if (ifindex <= 0)
-                return -EINVAL;
-
-        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
-        if (!l)
-                /* in case we don't yet track the link, rely on the hardcoded value */
-                return ifindex == LOOPBACK_IFINDEX;
-        else if (l->flags & IFF_LOOPBACK)
-                return 1;
-
-        return 0;
 }
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr) {
