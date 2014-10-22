@@ -275,12 +275,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         } else {
                 struct timespec now;
 
-                r = clock_gettime(CLOCK_MONOTONIC_COARSE, &now);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
+                assert_se(clock_gettime(CLOCK_MONOTONIC_COARSE, &now) == 0);
                 m->kdbus->timeout_ns = now.tv_sec * NSEC_PER_SEC + now.tv_nsec +
                                        m->timeout * NSEC_PER_USEC;
         }
