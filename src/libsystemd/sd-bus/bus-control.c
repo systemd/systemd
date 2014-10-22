@@ -399,8 +399,8 @@ static int bus_get_owner_kdbus(
                 sd_bus_creds **creds) {
 
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        struct kdbus_cmd_conn_info *cmd;
-        struct kdbus_conn_info *conn_info;
+        struct kdbus_cmd_info *cmd;
+        struct kdbus_info *conn_info;
         struct kdbus_item *item;
         size_t size, l;
         uint64_t m, id;
@@ -410,12 +410,12 @@ static int bus_get_owner_kdbus(
         if (r < 0)
                 return r;
         if (r > 0) {
-                size = offsetof(struct kdbus_cmd_conn_info, items);
+                size = offsetof(struct kdbus_cmd_info, items);
                 cmd = alloca0_align(size, 8);
                 cmd->id = id;
         } else {
                 l = strlen(name) + 1;
-                size = offsetof(struct kdbus_cmd_conn_info, items) + KDBUS_ITEM_SIZE(l);
+                size = offsetof(struct kdbus_cmd_info, items) + KDBUS_ITEM_SIZE(l);
                 cmd = alloca0_align(size, 8);
                 cmd->items[0].size = KDBUS_ITEM_HEADER_SIZE + l;
                 cmd->items[0].type = KDBUS_ITEM_NAME;
@@ -429,7 +429,7 @@ static int bus_get_owner_kdbus(
         if (r < 0)
                 return -errno;
 
-        conn_info = (struct kdbus_conn_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
+        conn_info = (struct kdbus_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
         /* Non-activated names are considered not available */
         if (conn_info->flags & KDBUS_HELLO_ACTIVATOR) {
