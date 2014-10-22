@@ -633,20 +633,20 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
         r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0,
                         NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
         if (r != 0) {
-                _cleanup_free_ char *sockname = NULL;
                 int saved_errno = errno;
 
-                r = sockaddr_pretty(&sa->sa, salen, true, &sockname);
-                if (r < 0)
+                r = sockaddr_pretty(&sa->sa, salen, true, &ret);
+                if (r < 0) {
                         log_error("sockadd_pretty() failed: %s", strerror(-r));
-                else
-                        log_error("getnameinfo(%s) failed: %s", sockname, strerror(-r));
-                return -saved_errno;
-        }
+                        return r;
+                }
 
-        ret = strdup(host);
-        if (!ret)
-                return log_oom();
+                log_debug("getnameinfo(%s) failed: %s", ret, strerror(saved_errno));
+        } else {
+                ret = strdup(host);
+                if (!ret)
+                        return log_oom();
+        }
 
         *_ret = ret;
         return 0;
