@@ -3300,57 +3300,6 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
         return 1;
 }
 
-_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        sd_bus_creds *c;
-        pid_t pid = 0;
-        int r;
-
-        assert_return(bus, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
-        assert_return(ret, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (bus->is_kernel)
-                return -ENOTSUP;
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        if (!bus->ucred_valid && !isempty(bus->label))
-                return -ENODATA;
-
-        c = bus_creds_new();
-        if (!c)
-                return -ENOMEM;
-
-        if (bus->ucred_valid) {
-                pid = c->pid = bus->ucred.pid;
-                c->uid = bus->ucred.uid;
-                c->gid = bus->ucred.gid;
-
-                c->mask |= (SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID) & mask;
-        }
-
-        if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
-                c->label = strdup(bus->label);
-                if (!c->label) {
-                        sd_bus_creds_unref(c);
-                        return -ENOMEM;
-                }
-
-                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
-        }
-
-        r = bus_creds_add_more(c, mask, pid, 0);
-        if (r < 0) {
-                sd_bus_creds_unref(c);
-                return r;
-        }
-
-        *ret = c;
-        return 0;
-}
-
 _public_ int sd_bus_try_close(sd_bus *bus) {
         int r;
 
