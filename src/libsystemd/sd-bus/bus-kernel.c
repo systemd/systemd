@@ -204,6 +204,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
 static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         struct bus_body_part *part;
         struct kdbus_item *d;
+        const char *destination;
         bool well_known;
         uint64_t unique;
         size_t sz, dl;
@@ -219,8 +220,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->kdbus)
                 return 0;
 
-        if (m->destination) {
-                r = bus_kernel_parse_unique_name(m->destination, &unique);
+        destination = m->destination ?: m->destination_ptr;
+
+        if (destination) {
+                r = bus_kernel_parse_unique_name(destination, &unique);
                 if (r < 0)
                         return r;
 
@@ -244,7 +247,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         /* Add in well-known destination header */
         if (well_known) {
-                dl = strlen(m->destination);
+                dl = strlen(destination);
                 sz += ALIGN8(offsetof(struct kdbus_item, str) + dl + 1);
         }
 
@@ -264,9 +267,17 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->flags =
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
                 ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
-        m->kdbus->dst_id =
-                well_known ? 0 :
-                m->destination ? unique : KDBUS_DST_ID_BROADCAST;
+
+        if (well_known) {
+                /* verify_destination_id will usually be 0, which makes the kernel driver only look
+                 * at the provided well-known name. Otherwise, the kernel will make sure the provided
+                 * destination id matches the owner of the provided weel-known-name, and fail if they
+                 * differ. Currently, this is only needed for bus-proxyd. */
+                m->kdbus->dst_id = m->verify_destination_id;
+        } else {
+                m->kdbus->dst_id = destination ? unique : KDBUS_DST_ID_BROADCAST;
+        }
+
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = (uint64_t) m->header->serial;
         m->kdbus->priority = m->priority;
@@ -284,7 +295,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         d = m->kdbus->items;
 
         if (well_known)
-                append_destination(&d, m->destination, dl);
+                append_destination(&d, destination, dl);
 
         append_payload_vec(&d, m->header, BUS_MESSAGE_BODY_BEGIN(m));
 
@@ -299,7 +310,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                         continue;
                 }
 
-                if (part->memfd >= 0 && part->sealed && m->destination) {
+                if (part->memfd >= 0 && part->sealed && destination) {
                         /* Try to send a memfd, if the part is
                          * sealed and this is not a broadcast. Since we can only  */
 

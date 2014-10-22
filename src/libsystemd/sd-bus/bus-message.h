@@ -100,6 +100,7 @@ struct sd_bus_message {
         usec_t realtime;
         uint64_t seqnum;
         int64_t priority;
+        uint64_t verify_destination_id;
 
         bool sealed:1;
         bool dont_send:1;
@@ -143,6 +144,7 @@ struct sd_bus_message {
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
+        char *destination_ptr;
 
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
         unsigned n_header_offsets;
