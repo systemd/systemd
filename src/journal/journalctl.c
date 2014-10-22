@@ -62,6 +62,12 @@
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
+enum {
+        /* Special values for arg_lines */
+        ARG_LINES_DEFAULT = -2,
+        ARG_LINES_ALL = -1,
+};
+
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_utc = false;
 static bool arg_pager_end = false;
@@ -69,7 +75,7 @@ static bool arg_follow = false;
 static bool arg_full = true;
 static bool arg_all = false;
 static bool arg_no_pager = false;
-static int arg_lines = -2;
+static int arg_lines = ARG_LINES_DEFAULT;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
@@ -339,7 +345,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'e':
                         arg_pager_end = true;
 
-                        if (arg_lines < -1)
+                        if (arg_lines == ARG_LINES_DEFAULT)
                                 arg_lines = 1000;
 
                         break;
@@ -379,7 +385,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'n':
                         if (optarg) {
                                 if (streq(optarg, "all"))
-                                        arg_lines = -1;
+                                        arg_lines = ARG_LINES_ALL;
                                 else {
                                         r = safe_atoi(optarg, &arg_lines);
                                         if (r < 0 || arg_lines < 0) {
@@ -398,7 +404,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (optind < argc) {
                                         int n;
                                         if (streq(argv[optind], "all")) {
-                                                arg_lines = -1;
+                                                arg_lines = ARG_LINES_ALL;
                                                 optind++;
                                         } else if (safe_atoi(argv[optind], &n) >= 0 && n >= 0) {
                                                 arg_lines = n;
@@ -662,7 +668,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_follow && !arg_no_tail && arg_lines < -1)
+        if (arg_follow && !arg_no_tail && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
         if (!!arg_directory + !!arg_file + !!arg_machine > 1) {
