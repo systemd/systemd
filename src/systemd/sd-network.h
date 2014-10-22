@@ -61,7 +61,7 @@ int sd_network_get_operational_state(char **state);
 int sd_network_get_dns(char ***dns);
 
 /* Get NTP entries for all links. These are domain names or string
- * reperesentations of IP addresses */
+ * representations of IP addresses */
 int sd_network_get_ntp(char ***ntp);
 
 /* Get the search/routing domains for all links. */
@@ -80,7 +80,7 @@ int sd_network_get_domains(char ***domains);
  */
 int sd_network_link_get_setup_state(int ifindex, char **state);
 
-/* Get operatinal state from ifindex.
+/* Get operational state from ifindex.
  * Possible states:
  *   off: the device is powered down
  *   no-carrier: the device is powered up, but it does not yet have a carrier
@@ -101,13 +101,14 @@ int sd_network_link_get_network_file(int ifindex, char **filename);
 int sd_network_link_get_dns(int ifindex, char ***addr);
 
 /* Get NTP entries for a given link. These are domain names or string
- * reperesentations of IP addresses */
+ * representations of IP addresses */
 int sd_network_link_get_ntp(int ifindex, char ***addr);
 
 /* Indicates whether or not LLMNR should be enabled for the link
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
- *   -ENODATA: networkd is not aware of the link*/
+ *   -ENODATA: networkd is not aware of the link
+ */
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
 
 /* Get the DNS domain names for a given link. */
