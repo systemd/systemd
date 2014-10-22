@@ -878,6 +878,20 @@
                                 operation.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--flush</option></term>
+
+                                <listitem><para>Asks the Journal
+                                daemon to flush any log data stored in
+                                <filename>/run/systemd/log</filename>
+                                into
+                                <filename>/var/systemd/log</filename>,
+                                if persistent storage is enabled. This
+                                call does not return until the
+                                operation is
+                                complete.</para></listitem>
+                        </varlistentry>
+
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
                         <xi:include href="standard-options.xml" xpointer="no-pager" />

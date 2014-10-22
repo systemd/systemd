@@ -1221,10 +1221,11 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 
         log_info("Received request to flush runtime journal from PID %"PRIu32, si->ssi_pid);
 
-        touch("/run/systemd/journal/flushed");
         server_flush_to_var(s);
         server_sync(s);
         server_vacuum(s);
+
+        touch("/run/systemd/journal/flushed");
 
         return 0;
 }
