@@ -41,6 +41,8 @@ External:
 
 Features:
 
+* add a system-wide shutdown timeout, similar to the startup timeout we already have (see fdo bz #84110)
+
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
 
 * kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
