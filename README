@@ -129,12 +129,8 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.19 required for agetty -s
-                      v2.21 required for tests in test/
-                      v2.25 required for fsck -l
+        util-linux >= v2.25 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
-        sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended,
-                 required for tests in test/)
         dracut (optional)
         PolicyKit (optional)
 
