@@ -63,7 +63,7 @@ static const char *arg_save_state = NULL;
 #define STATE_FILE "/var/lib/systemd/journal-upload/state"
 
 #define easy_setopt(curl, opt, value, level, cmd)                       \
-        {                                                               \
+        do {                                                            \
                 code = curl_easy_setopt(curl, opt, value);              \
                 if (code) {                                             \
                         log_full(level,                                 \
@@ -71,7 +71,7 @@ static const char *arg_save_state = NULL;
                                   curl_easy_strerror(code));            \
                         cmd;                                            \
                 }                                                       \
-        }
+        } while(0)
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -254,7 +254,10 @@ int start_upload(Uploader *u,
                                     LOG_ERR, return -EXFULL);
                 }
 
-                if (arg_trust || startswith(u->url, "https://"))
+                if (streq_ptr(arg_trust, "all"))
+                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0,
+                                    LOG_ERR, return -EUCLEAN);
+                else if (arg_trust || startswith(u->url, "https://"))
                         easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
                                     LOG_ERR, return -EXFULL);
 
