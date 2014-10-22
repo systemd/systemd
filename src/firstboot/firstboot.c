@@ -451,9 +451,6 @@ static int process_machine_id(void) {
         if (faccessat(AT_FDCWD, etc_machine_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                 return 0;
 
-        if (!arg_root)
-                return 0;
-
         if (sd_id128_equal(arg_machine_id, SD_ID128_NULL))
                 return 0;
 
