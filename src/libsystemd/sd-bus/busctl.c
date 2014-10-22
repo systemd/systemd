@@ -142,7 +142,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner(bus, *i,
+                r = sd_bus_get_name_creds(bus, *i,
                                      SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                      SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
                                      SD_BUS_CREDS_CONNECTION_NAME, &creds);
@@ -210,7 +210,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         printf("          - -               -                -             -                         -          -                  ");
 
                 if (arg_show_machine) {
-                        r = sd_bus_get_owner_machine_id(bus, *i, &mid);
+                        r = sd_bus_get_name_machine_id(bus, *i, &mid);
                         if (r >= 0) {
                                 char m[SD_ID128_STRING_MAX];
                                 printf(" %s\n", sd_id128_to_string(mid, m));
@@ -306,7 +306,7 @@ static int status(sd_bus *bus, char *argv[]) {
 
         r = parse_pid(argv[1], &pid);
         if (r < 0)
-                r = sd_bus_get_owner(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
+                r = sd_bus_get_name_creds(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
         else
                 r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
 

@@ -237,7 +237,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     in which case it will describe the specified process, or it may be
     created by
-    <citerefentry><refentrytitle>sd_bus_get_peer_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     in which case it will describe the process at the other endpoint
     of a connection.
     </para>
@@ -410,7 +410,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <function>sd_bus_get_user_unit()</function>,
         <function>sd_bus_get_slice()</function>,
         <function>sd_bus_get_session()</function>, and
-        <function>sd_bus_get_owner_uid()</function> if the sender is not
+        <function>sd_bus_get_name_creds_uid()</function> if the sender is not
         part of a systemd system unit, systemd user unit, systemd
         slice, logind session, or a systemd user session.</para>
         </listitem>

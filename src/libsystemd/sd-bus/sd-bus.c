@@ -3300,7 +3300,7 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
         return 1;
 }
 
-_public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
+_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         sd_bus_creds *c;
         pid_t pid = 0;
         int r;

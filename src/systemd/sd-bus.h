@@ -131,7 +131,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
-int sd_bus_get_peer_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
+int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_name(sd_bus *bus, const char **name);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
@@ -260,8 +260,8 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
-int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
-int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
+int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
+int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 
 /* Convenience calls */
 

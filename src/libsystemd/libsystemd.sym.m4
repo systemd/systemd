@@ -191,7 +191,7 @@ global:
         sd_bus_is_open;
         sd_bus_can_send;
         sd_bus_get_server_id;
-        sd_bus_get_peer_creds;
+        sd_bus_get_owner_creds;
         sd_bus_get_name;
         sd_bus_send;
         sd_bus_send_to;
@@ -287,8 +287,8 @@ global:
         sd_bus_request_name;
         sd_bus_release_name;
         sd_bus_list_names;
-        sd_bus_get_owner;
-        sd_bus_get_owner_machine_id;
+        sd_bus_get_name_creds;
+        sd_bus_get_name_machine_id;
         sd_bus_call_method;
         sd_bus_get_property;
         sd_bus_get_property_trivial;

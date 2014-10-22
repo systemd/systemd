@@ -188,7 +188,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         /* Second, check if it is currently existing, or maybe
          * doesn't, or maybe disappeared already. */
-        r = sd_bus_get_owner(track->bus, n, 0, NULL);
+        r = sd_bus_get_name_creds(track->bus, n, 0, NULL);
         if (r < 0) {
                 hashmap_remove(track->names, n);
                 return r;

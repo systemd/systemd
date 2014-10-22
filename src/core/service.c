@@ -2729,7 +2729,7 @@ static void service_bus_name_owner_change(
 
                 /* Try to acquire PID from bus service */
 
-                r = sd_bus_get_owner(u->manager->api_bus, name, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_get_name_creds(u->manager->api_bus, name, SD_BUS_CREDS_PID, &creds);
                 if (r >= 0)
                         r = sd_bus_creds_get_pid(creds, &pid);
                 if (r >= 0) {

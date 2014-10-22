@@ -549,7 +549,7 @@ static int bus_populate_creds_from_items(sd_bus *bus,
         return 0;
 }
 
-static int bus_get_owner_kdbus(
+static int bus_get_name_creds_kdbus(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -627,7 +627,7 @@ fail:
         return r;
 }
 
-static int bus_get_owner_dbus1(
+static int bus_get_name_creds_dbus1(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -773,7 +773,7 @@ static int bus_get_owner_dbus1(
         return 0;
 }
 
-_public_ int sd_bus_get_owner(
+_public_ int sd_bus_get_name_creds(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -791,9 +791,9 @@ _public_ int sd_bus_get_owner(
                 return -ENOTCONN;
 
         if (bus->is_kernel)
-                return bus_get_owner_kdbus(bus, name, mask, creds);
+                return bus_get_name_creds_kdbus(bus, name, mask, creds);
         else
-                return bus_get_owner_dbus1(bus, name, mask, creds);
+                return bus_get_name_creds_dbus1(bus, name, mask, creds);
 }
 
 static int add_name_change_match(sd_bus *bus,
@@ -1245,7 +1245,7 @@ int bus_remove_match_internal(
                 return bus_remove_match_internal_dbus1(bus, match);
 }
 
-_public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
+_public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;

@@ -465,9 +465,9 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
                  * to get it from the sender or peer */
 
                 if (call->sender)
-                        return sd_bus_get_owner(call->bus, call->sender, mask, creds);
+                        return sd_bus_get_name_creds(call->bus, call->sender, mask, creds);
                 else
-                        return sd_bus_get_peer_creds(call->bus, mask, creds);
+                        return sd_bus_get_owner_creds(call->bus, mask, creds);
         }
 
         return bus_creds_extend_by_pid(c, mask, creds);

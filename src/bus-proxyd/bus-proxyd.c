@@ -186,7 +186,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
         assert(a);
         assert(b);
 
-        r = sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
+        r = sd_bus_get_owner_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
         if (r < 0)
                 return r;
 
@@ -454,7 +454,7 @@ static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bu
 
         assert_return(service_name_is_valid(name), -EINVAL);
 
-        r = sd_bus_get_owner(bus, name, mask, &c);
+        r = sd_bus_get_name_creds(bus, name, mask, &c);
         if (r == -ESRCH || r == -ENXIO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
         if (r < 0)
@@ -747,7 +747,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (!service_name_is_valid(arg0))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
-                r = sd_bus_get_owner(a, arg0, 0, NULL);
+                r = sd_bus_get_name_creds(a, arg0, 0, NULL);
                 if (r == -ESRCH || r == -ENXIO) {
                         sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get owners of name '%s': no such name.", arg0);
                         return synthetic_reply_method_errno(m, r, &error);
@@ -811,7 +811,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (streq(name, "org.freedesktop.DBus"))
                         return synthetic_reply_method_return(m, "b", true);
 
-                r = sd_bus_get_owner(a, name, 0, NULL);
+                r = sd_bus_get_name_creds(a, name, 0, NULL);
                 if (r < 0 && r != -ESRCH && r != -ENXIO)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -895,7 +895,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (flags != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
-                r = sd_bus_get_owner(a, name, 0, NULL);
+                r = sd_bus_get_name_creds(a, name, 0, NULL);
                 if (r >= 0 || streq(name, "org.freedesktop.DBus"))
                         return synthetic_reply_method_return(m, "u", BUS_START_REPLY_ALREADY_RUNNING);
                 if (r != -ESRCH)
