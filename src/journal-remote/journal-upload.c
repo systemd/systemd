@@ -31,6 +31,7 @@
 #include "util.h"
 #include "build.h"
 #include "fileio.h"
+#include "mkdir.h"
 #include "conf-parser.h"
 #include "journal-upload.h"
 
@@ -91,6 +92,32 @@ static size_t output_callback(char *buf,
         }
 
         return size * nmemb;
+}
+
+static int check_cursor_updating(Uploader *u) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        if (!u->state_file)
+                return 0;
+
+        r = mkdir_parents(u->state_file, 0755);
+        if (r < 0) {
+                log_error("Cannot create parent directory of state file %s: %s",
+                          u->state_file, strerror(-r));
+                return r;
+        }
+
+        r = fopen_temporary(u->state_file, &f, &temp_path);
+        if (r < 0) {
+                log_error("Cannot save state to %s: %s",
+                          u->state_file, strerror(-r));
+                return r;
+        }
+        unlink(temp_path);
+
+        return 0;
 }
 
 static int update_cursor_state(Uploader *u) {
@@ -778,6 +805,10 @@ int main(int argc, char **argv) {
                 goto cleanup;
 
         sd_event_set_watchdog(u.events, true);
+
+        r = check_cursor_updating(&u);
+        if (r < 0)
+                goto cleanup;
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid());
