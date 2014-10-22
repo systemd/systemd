@@ -826,10 +826,8 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
         if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
                 c->label = strdup(bus->label);
-                if (!c->label) {
-                        sd_bus_creds_unref(c);
+                if (!c->label)
                         return -ENOMEM;
-                }
 
                 c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
@@ -852,13 +850,12 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                         return r;
         } else {
                 r = bus_creds_add_more(c, mask, pid, 0);
-                if (r < 0) {
-                        sd_bus_creds_unref(c);
+                if (r < 0)
                         return r;
-                }
         }
 
         *ret = c;
+        c = NULL;
         return 0;
 }
 
