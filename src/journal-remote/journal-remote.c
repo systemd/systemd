@@ -1172,24 +1172,25 @@ static int parse_config(void) {
 static void help(void) {
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to journal file(s).\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --url=URL            Read events from systemd-journal-gatewayd at URL\n"
-               "     --getter=COMMAND     Read events from the output of COMMAND\n"
-               "     --listen-raw=ADDR    Listen for connections at ADDR\n"
-               "     --listen-http=ADDR   Listen for HTTP connections at ADDR\n"
-               "     --listen-https=ADDR  Listen for HTTPS connections at ADDR\n"
-               "  -o --output=FILE|DIR    Write output to FILE or DIR/external-*.journal\n"
-               "     --compress[=BOOL]    Use XZ-compression in the output journal (default: yes)\n"
-               "     --seal[=BOOL]        Use Event sealing in the output journal (default: no)\n"
-               "     --key=FILENAME       Specify key in PEM format (default:\n"
-               "                          \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME      Specify certificate in PEM format (default:\n"
-               "                          \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all Specify CA certificate or disable checking (default:\n"
-               "                          \"" TRUST_FILE "\")\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "     --url=URL              Read events from systemd-journal-gatewayd at URL\n"
+               "     --getter=COMMAND       Read events from the output of COMMAND\n"
+               "     --listen-raw=ADDR      Listen for connections at ADDR\n"
+               "     --listen-http=ADDR     Listen for HTTP connections at ADDR\n"
+               "     --listen-https=ADDR    Listen for HTTPS connections at ADDR\n"
+               "  -o --output=FILE|DIR      Write output to FILE or DIR/external-*.journal\n"
+               "     --compress[=BOOL]      XZ-compress the output journal (default: yes)\n"
+               "     --seal[=BOOL]          Use event sealing (default: no)\n"
+               "     --key=FILENAME         SSL key in PEM format (default:\n"
+               "                            \"" PRIV_KEY_FILE "\")\n"
+               "     --cert=FILENAME        SSL certificate in PEM format (default:\n"
+               "                            \"" CERT_FILE "\")\n"
+               "     --trust=FILENAME|all   SSL CA certificate or disable checking (default:\n"
+               "                            \"" TRUST_FILE "\")\n"
                "     --gnutls-log=CATEGORY...\n"
-               "                          Specify a list of gnutls logging categories\n"
+               "                            Specify a list of gnutls logging categories\n"
+               "     --split-mode=none|host How many output files to create\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be consumed, too.\n"
                , program_invocation_short_name);
@@ -1547,7 +1548,11 @@ int main(int argc, char **argv) {
         if (remoteserver_init(&s, key, cert, trust) < 0)
                 return EXIT_FAILURE;
 
-        sd_event_set_watchdog(s.events, true);
+        r = sd_event_set_watchdog(s.events, true);
+        if (r < 0)
+                log_error("Failed to enable watchdog: %s", strerror(-r));
+        else
+                log_debug("Watchdog is %s.", r > 0 ? "enabled" : "disabled");
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid());
