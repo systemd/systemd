@@ -1735,7 +1735,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return((flags & ~(SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM)) == 0, -EINVAL);
-        assert_return(filename_is_safe(machine), -EINVAL);
+        assert_return(machine_name_is_valid(machine), -EINVAL);
 
         p = strappenda("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
