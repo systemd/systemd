@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
                                 if (k == 2 && streq(proc_uuid, device + 5)) {
                                         free(options);
                                         options = strdup(p);
-                                        if (!proc_options) {
+                                        if (!options) {
                                                 log_oom();
                                                 goto cleanup;
                                         }
