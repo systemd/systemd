@@ -41,6 +41,19 @@ External:
 
 Features:
 
+* configure.ac pretends dbus was optional but actually hardcodes use of dbus' pkg-config file to determine various dbus dirs such as policy and activation dirs
+
+* consider showing the unit names during boot up in the status output, not just the unit descriptions
+
+* send SIGABRT when a service watchdog is triggered, by default, so that we acquire a backtrace of the hang.
+
+* shouldn't RouteMetric= in networkd's [DHCP] section move to [Network]?
+
+* dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
+
+* maybe allow timer units with an empty Units= setting, so that they
+  can be used for resuming the system but nothing else.
+
 * what to do about udev db binary stability for apps?
 
 * add a system-wide shutdown timeout, similar to the startup timeout we already have (see fdo bz #84110)
