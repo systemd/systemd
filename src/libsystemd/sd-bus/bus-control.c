@@ -392,6 +392,163 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 return bus_list_names_dbus1(bus, acquired, activatable);
 }
 
+static int bus_populate_creds_from_items(sd_bus *bus,
+                                         struct kdbus_info *info,
+                                         uint64_t mask,
+                                         sd_bus_creds *c) {
+
+        struct kdbus_item *item;
+        uint64_t m;
+        int r;
+
+        KDBUS_ITEM_FOREACH(item, info, items) {
+
+                switch (item->type) {
+
+                case KDBUS_ITEM_CREDS:
+                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID) & mask;
+
+                        if (m) {
+                                c->uid = (uid_t) item->creds.uid;
+                                c->pid = (pid_t) item->creds.pid;
+                                c->gid = (gid_t) item->creds.gid;
+                                c->mask |= m;
+                        }
+
+                        if (mask & SD_BUS_CREDS_TID && item->creds.tid > 0) {
+                                c->tid = (pid_t) item->creds.tid;
+                                c->mask |= SD_BUS_CREDS_TID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->creds.starttime > 0) {
+                                c->pid_starttime = item->creds.starttime;
+                                c->mask |= SD_BUS_CREDS_PID_STARTTIME;
+                        }
+
+                        break;
+
+                case KDBUS_ITEM_PID_COMM:
+                        if (mask & SD_BUS_CREDS_COMM) {
+                                c->comm = strdup(item->str);
+                                if (!c->comm)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_COMM;
+                        }
+                        break;
+
+                case KDBUS_ITEM_TID_COMM:
+                        if (mask & SD_BUS_CREDS_TID_COMM) {
+                                c->tid_comm = strdup(item->str);
+                                if (!c->tid_comm)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_TID_COMM;
+                        }
+                        break;
+
+                case KDBUS_ITEM_EXE:
+                        if (mask & SD_BUS_CREDS_EXE) {
+                                c->exe = strdup(item->str);
+                                if (!c->exe)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_EXE;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CMDLINE:
+                        if (mask & SD_BUS_CREDS_CMDLINE) {
+                                c->cmdline_size = item->size - KDBUS_ITEM_HEADER_SIZE;
+                                c->cmdline = memdup(item->data, c->cmdline_size);
+                                if (!c->cmdline)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_CMDLINE;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CGROUP:
+                        m = (SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT |
+                             SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE |
+                             SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID) & mask;
+
+                        if (m) {
+                                c->cgroup = strdup(item->str);
+                                if (!c->cgroup)
+                                        return -ENOMEM;
+
+                                r = bus_get_root_path(bus);
+                                if (r < 0)
+                                        return r;
+
+                                c->cgroup_root = strdup(bus->cgroup_root);
+                                if (!c->cgroup_root)
+                                        return -ENOMEM;
+
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CAPS:
+                        m = (SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_PERMITTED_CAPS |
+                             SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
+
+                        if (m) {
+                                c->capability_size = item->size - KDBUS_ITEM_HEADER_SIZE;
+                                c->capability = memdup(item->data, c->capability_size);
+                                if (!c->capability)
+                                        return -ENOMEM;
+
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_SECLABEL:
+                        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                                c->label = strdup(item->str);
+                                if (!c->label)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+                        }
+                        break;
+
+                case KDBUS_ITEM_AUDIT:
+                        m = (SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID) & mask;
+
+                        if (m) {
+                                c->audit_session_id = item->audit.sessionid;
+                                c->audit_login_uid = item->audit.loginuid;
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_NAME:
+                        if ((mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) && service_name_is_valid(item->name.name)) {
+                                r = strv_extend(&c->well_known_names, item->name.name);
+                                if (r < 0)
+                                        return r;
+
+                                c->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CONN_NAME:
+                        if ((mask & SD_BUS_CREDS_CONNECTION_NAME)) {
+                                c->conn_name = strdup(item->str);
+                                if (!c->conn_name)
+                                        return -ENOMEM;
+
+                                c->mask |= SD_BUS_CREDS_CONNECTION_NAME;
+                        }
+                        break;
+                }
+        }
+
+        return 0;
+}
+
 static int bus_get_owner_kdbus(
                 sd_bus *bus,
                 const char *name,
@@ -401,9 +558,8 @@ static int bus_get_owner_kdbus(
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         struct kdbus_cmd_info *cmd;
         struct kdbus_info *conn_info;
-        struct kdbus_item *item;
         size_t size, l;
-        uint64_t m, id;
+        uint64_t id;
         int r;
 
         r = bus_kernel_parse_unique_name(name, &id);
@@ -455,168 +611,9 @@ static int bus_get_owner_kdbus(
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
 
-        KDBUS_ITEM_FOREACH(item, conn_info, items) {
-
-                switch (item->type) {
-
-                case KDBUS_ITEM_CREDS:
-                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID) & mask;
-
-                        if (m) {
-                                c->uid = (uid_t) item->creds.uid;
-                                c->pid = (pid_t) item->creds.pid;
-                                c->gid = (gid_t) item->creds.gid;
-                                c->mask |= m;
-                        }
-
-                        if (mask & SD_BUS_CREDS_TID && item->creds.tid > 0) {
-                                c->tid = (pid_t) item->creds.tid;
-                                c->mask |= SD_BUS_CREDS_TID;
-                        }
-
-                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->creds.starttime > 0) {
-                                c->pid_starttime = item->creds.starttime;
-                                c->mask |= SD_BUS_CREDS_PID_STARTTIME;
-                        }
-
-                        break;
-
-                case KDBUS_ITEM_PID_COMM:
-                        if (mask & SD_BUS_CREDS_COMM) {
-                                c->comm = strdup(item->str);
-                                if (!c->comm) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_COMM;
-                        }
-                        break;
-
-                case KDBUS_ITEM_TID_COMM:
-                        if (mask & SD_BUS_CREDS_TID_COMM) {
-                                c->tid_comm = strdup(item->str);
-                                if (!c->tid_comm) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_TID_COMM;
-                        }
-                        break;
-
-                case KDBUS_ITEM_EXE:
-                        if (mask & SD_BUS_CREDS_EXE) {
-                                c->exe = strdup(item->str);
-                                if (!c->exe) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_EXE;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CMDLINE:
-                        if (mask & SD_BUS_CREDS_CMDLINE) {
-                                c->cmdline_size = item->size - KDBUS_ITEM_HEADER_SIZE;
-                                c->cmdline = memdup(item->data, c->cmdline_size);
-                                if (!c->cmdline) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_CMDLINE;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CGROUP:
-                        m = (SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT |
-                             SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE |
-                             SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID) & mask;
-
-                        if (m) {
-                                c->cgroup = strdup(item->str);
-                                if (!c->cgroup) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                r = bus_get_root_path(bus);
-                                if (r < 0)
-                                        goto fail;
-
-                                c->cgroup_root = strdup(bus->cgroup_root);
-                                if (!c->cgroup_root) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CAPS:
-                        m = (SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_PERMITTED_CAPS |
-                             SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
-
-                        if (m) {
-                                c->capability_size = item->size - KDBUS_ITEM_HEADER_SIZE;
-                                c->capability = memdup(item->data, c->capability_size);
-                                if (!c->capability) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_SECLABEL:
-                        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                                c->label = strdup(item->str);
-                                if (!c->label) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
-                        }
-                        break;
-
-                case KDBUS_ITEM_AUDIT:
-                        m = (SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID) & mask;
-
-                        if (m) {
-                                c->audit_session_id = item->audit.sessionid;
-                                c->audit_login_uid = item->audit.loginuid;
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_NAME:
-                        if ((mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) && service_name_is_valid(item->name.name)) {
-                                r = strv_extend(&c->well_known_names, item->name.name);
-                                if (r < 0)
-                                        goto fail;
-
-                                c->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CONN_NAME:
-                        if ((mask & SD_BUS_CREDS_CONNECTION_NAME)) {
-                                c->conn_name = strdup(item->str);
-                                if (!c->conn_name) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                c->mask |= SD_BUS_CREDS_CONNECTION_NAME;
-                        }
-                        break;
-                }
-        }
+        r = bus_populate_creds_from_items(bus, conn_info, mask, c);
+        if (r < 0)
+                goto fail;
 
         if (creds) {
                 *creds = c;
