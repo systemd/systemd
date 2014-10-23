@@ -1150,7 +1150,7 @@ static int socket_open_fds(Socket *s) {
                                         /* Get it from the network label */
 
                                         r = mac_selinux_get_our_label(&label);
-                                        if (r < 0 && r != EOPNOTSUPP)
+                                        if (r < 0 && r != -EOPNOTSUPP)
                                                 goto rollback;
 
                                 } else {
@@ -1163,7 +1163,7 @@ static int socket_open_fds(Socket *s) {
                                         if (UNIT_ISSET(s->service) &&
                                             SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
                                                 r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-                                                if (r < 0 && r != -EPERM && r != EOPNOTSUPP)
+                                                if (r < 0 && r != -EPERM && r != -EOPNOTSUPP)
                                                         goto rollback;
                                         }
                                 }
