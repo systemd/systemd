@@ -35,24 +35,19 @@
 static int label_mkdir(const char *path, mode_t mode) {
         int r;
 
-        if (mac_selinux_use()) {
-                r = mac_selinux_mkdir(path, mode);
-                if (r < 0)
-                        return r;
-        }
+        if (mac_selinux_use())
+                return mac_selinux_mkdir(path, mode);
 
         if (mac_smack_use()) {
                 r = mkdir(path, mode);
-                if (r < 0 && errno != EEXIST)
+                if (r < 0)
                         return -errno;
 
-                r = mac_smack_fix(path, false, false);
-                if (r < 0)
-                        return r;
+                return mac_smack_fix(path, false, false);
         }
 
         r = mkdir(path, mode);
-        if (r < 0 && errno != EEXIST)
+        if (r < 0)
                 return -errno;
 
         return 0;
