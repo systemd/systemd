@@ -32,6 +32,32 @@
 #include "path-util.h"
 #include "mkdir.h"
 
+static int label_mkdir(const char *path, mode_t mode) {
+        int r;
+
+        if (use_selinux()) {
+                r = label_mkdir_selinux(path, mode);
+                if (r < 0)
+                        return r;
+        }
+
+        if (use_smack()) {
+                r = mkdir(path, mode);
+                if (r < 0 && errno != EEXIST)
+                        return -errno;
+
+                r = smack_relabel_in_dev(path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = mkdir(path, mode);
+        if (r < 0 && errno != EEXIST)
+                return -errno;
+
+        return 0;
+}
+
 int mkdir_label(const char *path, mode_t mode) {
         return label_mkdir(path, mode);
 }

@@ -21,7 +21,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
+#include <stdio.h>
 #include <stdbool.h>
 
 bool use_selinux(void);
 void retest_selinux(void);
+
+int label_init(const char *prefix);
+int label_fix_selinux(const char *path, bool ignore_enoent, bool ignore_erofs);
+void label_finish(void);
+
+int label_socket_set(const char *label);
+void label_socket_clear(void);
+
+int label_context_set(const char *path, mode_t mode);
+void label_context_clear(void);
+
+void label_free(const char *label);
+int label_mkdir_selinux(const char *path, mode_t mode);
+
+int label_get_create_label_from_exe(const char *exe, char **label);
+int label_get_our_label(char **label);
+int label_get_child_mls_label(int socket_fd, const char *exec, char **label);
+
+int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
+
+int label_apply(const char *path, const char *label);
+
+int label_write_one_line_file_atomic(const char *fn, const char *line);
+int label_write_env_file(const char *fname, char **l);
+int label_fopen_temporary(const char *path, FILE **_f, char **_temp_path);
