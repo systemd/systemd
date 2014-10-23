@@ -147,6 +147,8 @@ Features:
     to clients. It should also pass on its own timezone information.
   - provide a way to define a per-network interface default metric value
     for all routes to it. possibly a second default for DHCP routes.
+  - allow Name= to be specified repeatedly in the [Match] section. Maybe also
+    support Name=foo*|bar*|baz ?
 
 * resolved:
   - put networkd events and rtnl events at a higher priority, so that
