@@ -6933,10 +6933,21 @@ int is_symlink(const char *path) {
         if (lstat(path, &info) < 0)
                 return -errno;
 
-        if (S_ISLNK(info.st_mode))
-                return 1;
+        return !!S_ISLNK(info.st_mode);
+}
 
-        return 0;
+int is_dir(const char* path, bool follow) {
+        struct stat st;
+
+        if (follow) {
+                if (stat(path, &st) < 0)
+                        return -errno;
+        } else {
+                if (lstat(path, &st) < 0)
+                        return -errno;
+        }
+
+        return !!S_ISDIR(st.st_mode);
 }
 
 int unquote_first_word(const char **p, char **ret) {

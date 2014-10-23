@@ -991,6 +991,7 @@ bool is_localhost(const char *hostname);
 int take_password_lock(const char *root);
 
 int is_symlink(const char *path);
+int is_dir(const char *path, bool follow);
 
 int unquote_first_word(const char **p, char **ret);
 int unquote_many_words(const char **p, ...) _sentinel_;
