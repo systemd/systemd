@@ -25,9 +25,6 @@
 
 #include <stdbool.h>
 
-#define SMACK_FLOOR_LABEL "_"
-#define SMACK_STAR_LABEL  "*"
-
 bool mac_smack_use(void);
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs);

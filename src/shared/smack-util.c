@@ -27,6 +27,9 @@
 #include "path-util.h"
 #include "smack-util.h"
 
+#define SMACK_FLOOR_LABEL "_"
+#define SMACK_STAR_LABEL  "*"
+
 bool mac_smack_use(void) {
 #ifdef HAVE_SMACK
         static int cached_use = -1;
