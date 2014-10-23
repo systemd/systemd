@@ -50,7 +50,7 @@ int mac_smack_apply(const char *path, const char *label) {
                 return 0;
 
         if (label)
-                r = setxattr(path, "security.SMACK64", label, strlen(label), 0);
+                r = lsetxattr(path, "security.SMACK64", label, strlen(label), 0);
         else
                 r = lremovexattr(path, "security.SMACK64");
         if (r < 0)
