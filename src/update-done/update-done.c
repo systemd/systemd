@@ -61,7 +61,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
                 /* The timestamp file doesn't exist yet? Then let's create it. */
 
-                r = mac_selinux_context_set(path, S_IFREG);
+                r = mac_selinux_create_file_prepare(path, S_IFREG);
                 if (r < 0) {
                         log_error("Failed to set SELinux context for %s: %s",
                                   path, strerror(-r));
@@ -69,7 +69,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 }
 
                 fd = open(path, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
-                mac_selinux_context_clear();
+                mac_selinux_create_file_clear();
 
                 if (fd < 0) {
 

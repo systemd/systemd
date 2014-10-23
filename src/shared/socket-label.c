@@ -64,7 +64,7 @@ int socket_address_listen(
                 return -EAFNOSUPPORT;
 
         if (label) {
-                r = mac_selinux_socket_set(label);
+                r = mac_selinux_create_socket_prepare(label);
                 if (r < 0)
                         return r;
         }
@@ -73,7 +73,7 @@ int socket_address_listen(
         r = fd < 0 ? -errno : 0;
 
         if (label)
-                mac_selinux_socket_clear();
+                mac_selinux_create_socket_clear();
 
         if (r < 0)
                 return r;

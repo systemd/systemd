@@ -225,9 +225,9 @@ static int mount_dev(BindMount *m) {
                         goto fail;
                 }
 
-                mac_selinux_context_set(d, st.st_mode);
+                mac_selinux_create_file_prepare(d, st.st_mode);
                 r = mknod(dn, st.st_mode, st.st_rdev);
-                mac_selinux_context_clear();
+                mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         r = -errno;

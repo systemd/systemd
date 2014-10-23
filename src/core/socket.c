@@ -967,7 +967,7 @@ static int fifo_address_create(
 
         mkdir_parents_label(path, directory_mode);
 
-        r = mac_selinux_context_set(path, S_IFIFO);
+        r = mac_selinux_create_file_prepare(path, S_IFIFO);
         if (r < 0)
                 goto fail;
 
@@ -990,7 +990,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        mac_selinux_context_clear();
+        mac_selinux_create_file_clear();
 
         if (fstat(fd, &st) < 0) {
                 r = -errno;
@@ -1010,7 +1010,7 @@ static int fifo_address_create(
         return 0;
 
 fail:
-        mac_selinux_context_clear();
+        mac_selinux_create_file_clear();
         safe_close(fd);
 
         return r;

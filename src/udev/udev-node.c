@@ -88,11 +88,11 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         err = mkdir_parents_label(slink, 0755);
                         if (err != 0 && err != -ENOENT)
                                 break;
-                        mac_selinux_context_set(slink, S_IFLNK);
+                        mac_selinux_create_file_prepare(slink, S_IFLNK);
                         err = symlink(target, slink);
                         if (err != 0)
                                 err = -errno;
-                        mac_selinux_context_clear();
+                        mac_selinux_create_file_clear();
                 } while (err == -ENOENT);
                 if (err == 0)
                         goto exit;
@@ -105,11 +105,11 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                 err = mkdir_parents_label(slink_tmp, 0755);
                 if (err != 0 && err != -ENOENT)
                         break;
-                mac_selinux_context_set(slink_tmp, S_IFLNK);
+                mac_selinux_create_file_prepare(slink_tmp, S_IFLNK);
                 err = symlink(target, slink_tmp);
                 if (err != 0)
                         err = -errno;
-                mac_selinux_context_clear();
+                mac_selinux_create_file_clear();
         } while (err == -ENOENT);
         if (err != 0) {
                 log_error("symlink '%s' '%s' failed: %m", target, slink_tmp);
@@ -302,7 +302,8 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                         if (streq(name, "selinux")) {
                                 selinux = true;
 
-                                if (mac_selinux_apply(devnode, label) < 0)
+                                r = mac_selinux_apply(devnode, label);
+                                if (r < 0)
                                         log_error("SECLABEL: failed to set SELinux label '%s': %s", label, strerror(-r));
                                 else
                                         log_debug("SECLABEL: set SELinux label '%s'", label);

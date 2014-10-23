@@ -32,20 +32,18 @@ int mac_selinux_init(const char *prefix);
 void mac_selinux_finish(void);
 
 int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
-
-int mac_selinux_socket_set(const char *label);
-void mac_selinux_socket_clear(void);
-
-int mac_selinux_context_set(const char *path, mode_t mode);
-void mac_selinux_context_clear(void);
-
-int mac_selinux_mkdir(const char *path, mode_t mode);
+int mac_selinux_apply(const char *path, const char *label);
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **label);
 int mac_selinux_get_our_label(char **label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exec, char **label);
-void mac_selinux_free(const char *label);
+void mac_selinux_free(char *label);
 
+int mac_selinux_create_file_prepare(const char *path, mode_t mode);
+void mac_selinux_create_file_clear(void);
+
+int mac_selinux_create_socket_prepare(const char *label);
+void mac_selinux_create_socket_clear(void);
+
+int mac_selinux_mkdir(const char *path, mode_t mode);
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
-
-int mac_selinux_apply(const char *path, const char *label);
