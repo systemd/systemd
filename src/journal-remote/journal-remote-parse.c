@@ -330,7 +330,7 @@ int process_data(RemoteSource *source) {
                 assert(line[n-1] == '\n');
 
                 if (n == 1) {
-                        log_debug("Received empty line, event is ready");
+                        log_trace("Received empty line, event is ready");
                         return 1;
                 }
 
@@ -350,7 +350,7 @@ int process_data(RemoteSource *source) {
                 else
                         /* replace \n with = */
                         line[n-1] = '=';
-                log_debug("Received: %.*s", (int) n, line);
+                log_trace("Received: %.*s", (int) n, line);
 
                 r = iovw_put(&source->iovw, line, n);
                 if (r < 0) {
@@ -438,7 +438,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 return r;
 
         /* We have a full event */
-        log_debug("Received a full event from source@%p fd:%d (%s)",
+        log_trace("Received a full event from source@%p fd:%d (%s)",
                   source, source->fd, source->name);
 
         if (!source->iovw.count) {

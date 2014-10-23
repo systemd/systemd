@@ -157,6 +157,12 @@ do { \
 #define log_warning(...) log_full(LOG_WARNING, __VA_ARGS__)
 #define log_error(...)   log_full(LOG_ERR,     __VA_ARGS__)
 
+#ifdef LOG_TRACE
+#  define log_trace(...) log_debug(__VA_ARGS__)
+#else
+#  define log_trace(...) do {} while(0)
+#endif
+
 #define log_struct(level, ...) log_struct_internal(level, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #define log_oom() log_oom_internal(__FILE__, __LINE__, __func__)

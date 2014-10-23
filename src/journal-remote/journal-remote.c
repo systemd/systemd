@@ -505,11 +505,11 @@ static int process_http_upload(
 
         assert(source);
 
-        log_debug("request_handler_upload: connection %p, %zu bytes",
-                  connection, *upload_data_size);
+        log_trace("%s: connection %p, %zu bytes",
+                  __func__, connection, *upload_data_size);
 
         if (*upload_data_size) {
-                log_debug("Received %zu bytes", *upload_data_size);
+                log_trace("Received %zu bytes", *upload_data_size);
 
                 r = push_data(source, upload_data, *upload_data_size);
                 if (r < 0)
@@ -572,7 +572,7 @@ static int request_handler(
         assert(url);
         assert(method);
 
-        log_debug("Handling a connection %s %s %s", method, url, version);
+        log_trace("Handling a connection %s %s %s", method, url, version);
 
         if (*connection_cls)
                 return process_http_upload(connection,
