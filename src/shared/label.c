@@ -23,19 +23,15 @@
 #include "util.h"
 
 int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
-        int r = 0;
+        int r, q;
 
-        if (mac_selinux_use()) {
-                r = mac_selinux_fix(path, ignore_enoent, ignore_erofs);
-                if (r < 0)
-                        return r;
-        }
+        r = mac_selinux_fix(path, ignore_enoent, ignore_erofs);
+        q = mac_smack_fix(path, ignore_enoent, ignore_erofs);
 
-        if (mac_smack_use()) {
-                r = mac_smack_fix(path);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
+        if (q < 0)
+                return q;
 
-        return r;
+        return 0;
 }

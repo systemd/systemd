@@ -120,17 +120,14 @@ int mac_smack_apply_ip_in_fd(int fd, const char *label) {
         return r;
 }
 
-int mac_smack_fix(const char *path) {
+int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         int r = 0;
 
 #ifdef HAVE_SMACK
-        struct stat sb;
-        const char *label;
-#endif
+        struct stat st;
 
         assert(path);
 
-#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
@@ -140,28 +137,42 @@ int mac_smack_fix(const char *path) {
         if (!path_startswith(path, "/dev"))
                 return 0;
 
-        r = lstat(path, &sb);
-        if (r < 0)
-                return -errno;
+        r = lstat(path, &st);
+        if (r >= 0) {
+                const char *label;
 
-        /*
-         * Label directories and character devices "*".
-         * Label symlinks "_".
-         * Don't change anything else.
-         */
-        if (S_ISDIR(sb.st_mode))
-                label = SMACK_STAR_LABEL;
-        else if (S_ISLNK(sb.st_mode))
-                label = SMACK_FLOOR_LABEL;
-        else if (S_ISCHR(sb.st_mode))
-                label = SMACK_STAR_LABEL;
-        else
-                return 0;
+                /*
+                 * Label directories and character devices "*".
+                 * Label symlinks "_".
+                 * Don't change anything else.
+                 */
 
-        r = setxattr(path, "security.SMACK64", label, strlen(label), 0);
+                if (S_ISDIR(st.st_mode))
+                        label = SMACK_STAR_LABEL;
+                else if (S_ISLNK(st.st_mode))
+                        label = SMACK_FLOOR_LABEL;
+                else if (S_ISCHR(st.st_mode))
+                        label = SMACK_STAR_LABEL;
+                else
+                        return 0;
+
+                r = lsetxattr(path, "security.SMACK64", label, strlen(label), 0);
+
+                /* If the FS doesn't support labels, then exit without warning */
+                if (r < 0 && errno == ENOTSUP)
+                        return 0;
+        }
+
         if (r < 0) {
-                log_error("Smack relabeling \"%s\" %m", path);
-                return -errno;
+                /* Ignore ENOENT in some cases */
+                if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
+                if (ignore_erofs && errno == EROFS)
+                        return 0;
+
+                log_debug("Unable to fix SMACK label of %s: %m", path);
+                r = -errno;
         }
 #endif
 

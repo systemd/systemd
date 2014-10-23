@@ -113,22 +113,25 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
 #ifdef HAVE_SELINUX
         struct stat st;
-        security_context_t fcon;
 
+        assert(path);
+
+        /* if mac_selinux_init() wasn't called before we are a NOOP */
         if (!label_hnd)
                 return 0;
 
         r = lstat(path, &st);
-        if (r == 0) {
+        if (r >= 0) {
+                _cleanup_security_context_free_ security_context_t fcon = NULL;
+
                 r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
 
                 /* If there's no label to set, then exit without warning */
                 if (r < 0 && errno == ENOENT)
                         return 0;
 
-                if (r == 0) {
+                if (r >= 0) {
                         r = lsetfilecon(path, fcon);
-                        freecon(fcon);
 
                         /* If the FS doesn't support labels, then exit without warning */
                         if (r < 0 && errno == ENOTSUP)
@@ -144,8 +147,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 if (ignore_erofs && errno == EROFS)
                         return 0;
 
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Unable to fix label of %s: %m", path);
+                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, "Unable to fix SELinux label of %s: %m", path);
                 r = security_getenforce() == 1 ? -errno : 0;
         }
 #endif
@@ -156,11 +158,10 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 void mac_selinux_finish(void) {
 
 #ifdef HAVE_SELINUX
-        if (!mac_selinux_use())
+        if (!label_hnd)
                 return;
 
-        if (label_hnd)
-                selabel_close(label_hnd);
+        selabel_close(label_hnd);
 #endif
 }
 
