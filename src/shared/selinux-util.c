@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <malloc.h>
 #include <sys/un.h>
+
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #include <selinux/label.h>
@@ -328,7 +329,7 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
                 if (!newpath)
                         return -ENOMEM;
 
-                r = selabel_lookup_raw(label_hnd, &filecon, newpath, S_IFDIR);
+                r = selabel_lookup_raw(label_hnd, &filecon, newpath, mode);
         }
 
         if (r < 0 && errno != ENOENT)
