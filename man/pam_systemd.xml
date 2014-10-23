@@ -72,11 +72,11 @@
                         <varname>$XDG_SESSION_ID</varname> environment
                         variable is initialized. If auditing is
                         available and
-                        <command>pam_loginuid.so</command> run before
+                        <command>pam_loginuid.so</command> was run before
                         this module (which is highly recommended), the
                         variable is initialized from the auditing
                         session id
-                        (<filename>/proc/self/sessionid</filename>). Otherwise
+                        (<filename>/proc/self/sessionid</filename>). Otherwise,
                         an independent session counter is
                         used.</para></listitem>
 
@@ -84,19 +84,21 @@
                         created for the session. If this is the first
                         concurrent session of the user, an implicit
                         slice below <filename>user.slice</filename> is
-                        automatically created and the scope placed in
-                        it. In instance of the system service
-                        <filename>user@.service</filename> which runs
-                        the systemd user manager
-                        instance.</para></listitem>
+                        automatically created and the scope placed into
+                        it. An instance of the system service
+                        <filename>user@.service</filename>, which runs
+                        the systemd user manager instance, is started.
+                        </para></listitem>
                 </orderedlist>
 
                 <para>On logout, this module ensures the following:</para>
 
                 <orderedlist>
-                        <listitem><para>If this is enabled, all
-                        processes of the session are terminated. If
-                        the last concurrent session of a user ends, his
+                        <listitem><para>If enabled in
+                        <citerefentry><refentrytitle>logind.conf</refentrytitle>
+                        <manvolnum>5</manvolnum></citerefentry>,
+                        all processes of the session are terminated. If
+                        the last concurrent session of a user ends, their
                         user systemd instance will be terminated too,
                         and so will the user's slice
                         unit.</para></listitem>
@@ -200,7 +202,7 @@
                                 to the user login time on the
                                 machine. It is automatically created
                                 the first time a user logs in and
-                                removed on his final logout. If a user
+                                removed on their final logout. If a user
                                 logs in twice at the same time, both
                                 sessions will see the same
                                 <varname>$XDG_RUNTIME_DIR</varname>
