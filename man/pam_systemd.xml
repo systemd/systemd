@@ -98,7 +98,7 @@
                         <citerefentry><refentrytitle>logind.conf</refentrytitle>
                         <manvolnum>5</manvolnum></citerefentry>,
                         all processes of the session are terminated. If
-                        the last concurrent session of a user ends, their
+                        the last concurrent session of a user ends, his
                         user systemd instance will be terminated too,
                         and so will the user's slice
                         unit.</para></listitem>
@@ -202,7 +202,7 @@
                                 to the user login time on the
                                 machine. It is automatically created
                                 the first time a user logs in and
-                                removed on their final logout. If a user
+                                removed on his final logout. If a user
                                 logs in twice at the same time, both
                                 sessions will see the same
                                 <varname>$XDG_RUNTIME_DIR</varname>
