@@ -449,33 +449,32 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
  **********************************************************************
  **********************************************************************/
 
-static RemoteSource *request_meta(void **connection_cls, int fd, char *hostname) {
+static int request_meta(void **connection_cls, int fd, char *hostname) {
         RemoteSource *source;
         Writer *writer;
         int r;
 
         assert(connection_cls);
         if (*connection_cls)
-                return *connection_cls;
+                return 0;
 
         r = get_writer(server, hostname, &writer);
         if (r < 0) {
                 log_warning("Failed to get writer for source %s: %s",
                             hostname, strerror(-r));
-                return NULL;
+                return r;
         }
 
         source = source_new(fd, true, hostname, writer);
         if (!source) {
-                log_oom();
                 writer_unref(writer);
-                return NULL;
+                return log_oom();
         }
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
         *connection_cls = source;
-        return source;
+        return 0;
 }
 
 static void request_meta_free(void *cls,
@@ -487,9 +486,11 @@ static void request_meta_free(void *cls,
         assert(connection_cls);
         s = *connection_cls;
 
-        log_debug("Cleaning up connection metadata %p", s);
-        source_free(s);
-        *connection_cls = NULL;
+        if (s) {
+                log_debug("Cleaning up connection metadata %p", s);
+                source_free(s);
+                *connection_cls = NULL;
+        }
 }
 
 static int process_http_upload(
@@ -622,8 +623,13 @@ static int request_handler(
 
         assert(hostname);
 
-        if (!request_meta(connection_cls, fd, hostname))
+        r = request_meta(connection_cls, fd, hostname);
+        if (r == -ENOMEM)
                 return respond_oom(connection);
+        else if (r < 0)
+                return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
+                                   strerror(-r));
+
         hostname = NULL;
         return MHD_YES;
 }
