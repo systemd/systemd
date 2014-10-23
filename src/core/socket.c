@@ -1139,22 +1139,33 @@ static int socket_open_fds(Socket *s) {
                         continue;
 
                 if (p->type == SOCKET_SOCKET) {
-                        if (!know_label && s->selinux_context_from_net) {
-                                r = mac_selinux_get_our_label(&label);
-                                if (r < 0)
-                                        return r;
-                                know_label = true;
-                        } else if (!know_label) {
 
-                                r = socket_instantiate_service(s);
-                                if (r < 0)
-                                        return r;
+                        if (!know_label) {
+                                /* Figure out label, if we don't it know
+                                 * yet. We do it once, for the first
+                                 * socket where we need this and
+                                 * remember it for the rest. */
 
-                                if (UNIT_ISSET(s->service) &&
-                                    SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
-                                        r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-                                        if (r < 0 && r != -EPERM)
-                                                return r;
+                                if (s->selinux_context_from_net) {
+                                        /* Get it from the network label */
+
+                                        r = mac_selinux_get_our_label(&label);
+                                        if (r < 0 && r != EOPNOTSUPP)
+                                                goto rollback;
+
+                                } else {
+                                        /* Get it from the executable we are about to start */
+
+                                        r = socket_instantiate_service(s);
+                                        if (r < 0)
+                                                goto rollback;
+
+                                        if (UNIT_ISSET(s->service) &&
+                                            SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
+                                                r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
+                                                if (r < 0 && r != -EPERM && r != EOPNOTSUPP)
+                                                        goto rollback;
+                                        }
                                 }
 
                                 know_label = true;
@@ -1219,6 +1230,7 @@ static int socket_open_fds(Socket *s) {
 rollback:
         socket_close_fds(s);
         mac_selinux_free(label);
+
         return r;
 }
 

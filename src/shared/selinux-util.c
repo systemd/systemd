@@ -166,34 +166,30 @@ void mac_selinux_finish(void) {
 }
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
-
-        int r = 0;
+        int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
         _cleanup_security_context_free_ security_context_t mycon = NULL, fcon = NULL;
         security_class_t sclass;
 
-        if (!mac_selinux_use()) {
-                *label = NULL;
-                return 0;
-        }
+        assert(exe);
+        assert(label);
+
+        if (!mac_selinux_use())
+                return -EOPNOTSUPP;
 
         r = getcon(&mycon);
         if (r < 0)
-                goto fail;
+                return -errno;
 
         r = getfilecon(exe, &fcon);
         if (r < 0)
-                goto fail;
+                return -errno;
 
         sclass = string_to_security_class("process");
         r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
-        if (r == 0)
-                log_debug("SELinux Socket context for %s will be set to %s", exe, *label);
-
-fail:
-        if (r < 0 && security_getenforce() == 1)
-                r = -errno;
+        if (r < 0)
+                return -errno;
 #endif
 
         return r;
@@ -202,14 +198,15 @@ fail:
 int mac_selinux_get_our_label(char **label) {
         int r = -EOPNOTSUPP;
 
+        assert(label);
+
 #ifdef HAVE_SELINUX
-        char *l = NULL;
+        if (!mac_selinux_use())
+                return -EOPNOTSUPP;
 
-        r = getcon(&l);
+        r = getcon(label);
         if (r < 0)
-                return r;
-
-        *label = l;
+                return -errno;
 #endif
 
         return r;
@@ -219,91 +216,65 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label
         int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
-
-        _cleanup_security_context_free_ security_context_t mycon = NULL, peercon = NULL, fcon = NULL, ret = NULL;
+        _cleanup_security_context_free_ security_context_t mycon = NULL, peercon = NULL, fcon = NULL;
         _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
         security_class_t sclass;
-
         const char *range = NULL;
 
         assert(socket_fd >= 0);
         assert(exe);
         assert(label);
 
+        if (!mac_selinux_use())
+                return -EOPNOTSUPP;
+
         r = getcon(&mycon);
-        if (r < 0) {
-                r = -EINVAL;
-                goto out;
-        }
+        if (r < 0)
+                return -errno;
 
         r = getpeercon(socket_fd, &peercon);
-        if (r < 0) {
-                r = -EINVAL;
-                goto out;
-        }
+        if (r < 0)
+                return -errno;
 
         r = getexeccon(&fcon);
-        if (r < 0) {
-                r = -EINVAL;
-                goto out;
-        }
+        if (r < 0)
+                return -errno;
 
         if (!fcon) {
                 /* If there is no context set for next exec let's use context
                    of target executable */
                 r = getfilecon(exe, &fcon);
-                if (r < 0) {
-                        r = -errno;
-                        goto out;
-                }
+                if (r < 0)
+                        return -errno;
         }
 
         bcon = context_new(mycon);
-        if (!bcon) {
-                r = -ENOMEM;
-                goto out;
-        }
+        if (!bcon)
+                return -ENOMEM;
 
         pcon = context_new(peercon);
-        if (!pcon) {
-                r = -ENOMEM;
-                goto out;
-        }
+        if (!pcon)
+                return -ENOMEM;
 
         range = context_range_get(pcon);
-        if (!range) {
-                r = -errno;
-                goto out;
-        }
+        if (!range)
+                return -errno;
 
         r = context_range_set(bcon, range);
-        if (r) {
-                r = -errno;
-                goto out;
-        }
+        if (r)
+                return -errno;
 
         freecon(mycon);
         mycon = strdup(context_str(bcon));
-        if (!mycon) {
-                r = -errno;
-                goto out;
-        }
+        if (!mycon)
+                return -ENOMEM;
 
         sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, &ret);
-        if (r < 0) {
-                r = -EINVAL;
-                goto out;
-        }
-
-        *label = ret;
-        ret = NULL;
-        r = 0;
-
-out:
-        if (r < 0 && security_getenforce() == 1)
-                return r;
+        r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
+        if (r < 0)
+                return -errno;
 #endif
+
         return r;
 }
 
