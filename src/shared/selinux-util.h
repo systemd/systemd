@@ -39,17 +39,13 @@ void mac_selinux_socket_clear(void);
 int mac_selinux_context_set(const char *path, mode_t mode);
 void mac_selinux_context_clear(void);
 
-void mac_selinux_free(const char *label);
 int mac_selinux_mkdir(const char *path, mode_t mode);
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **label);
 int mac_selinux_get_our_label(char **label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exec, char **label);
+void mac_selinux_free(const char *label);
 
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 
 int mac_selinux_apply(const char *path, const char *label);
-
-int mac_selinux_write_one_line_file_atomic(const char *fn, const char *line);
-int mac_selinux_write_env_file(const char *fname, char **l);
-int mac_selinux_label_fopen_temporary(const char *path, FILE **_f, char **_temp_path);
