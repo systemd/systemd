@@ -496,10 +496,12 @@ static int perform_upload(Uploader *u) {
 
         code = curl_easy_perform(u->easy);
         if (code) {
-                log_error("Upload to %s failed: %.*s",
-                          u->url,
-                          u->error[0] ? (int) sizeof(u->error) : INT_MAX,
-                          u->error[0] ? u->error : curl_easy_strerror(code));
+                if (u->error[0])
+                        log_error("Upload to %s failed: %.*s",
+                                  u->url, (int) sizeof(u->error), u->error);
+                else
+                        log_error("Upload to %s failed: %s",
+                                  u->url, curl_easy_strerror(code));
                 return -EIO;
         }
 
