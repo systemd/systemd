@@ -58,10 +58,11 @@
     <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
     </citerefentry>.</para>
 
-    <para>The behavior of the running daemon can be changed
-    dynamically with <command>udevadm control</command>, or
-    configured using
-    <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <para>The behavior of the daemon can be configured using
+    <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    its command-line options, environment variables, and on the kernel
+    command-line, or changed dynamically with <command>udevadm
+    control</command>.
     </para>
   </refsect1>
 

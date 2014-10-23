@@ -255,6 +255,8 @@
                                 <term><varname>rd.udev.children-max=</varname></term>
                                 <term><varname>udev.exec-delay=</varname></term>
                                 <term><varname>rd.udev.exec-delay=</varname></term>
+                                <term><varname>udev.event-timeout=</varname></term>
+                                <term><varname>rd.udev.event-timeout=</varname></term>
                                 <term><varname>net.ifnames=</varname></term>
 
                                 <listitem>
