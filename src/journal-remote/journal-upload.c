@@ -162,11 +162,14 @@ static int load_cursor_state(Uploader *u) {
                            "LAST_CURSOR",  &u->last_cursor,
                            NULL);
 
-        if (r < 0 && r != -ENOENT) {
+        if (r == -ENOENT)
+                log_debug("State file %s is not present.", u->state_file);
+        else if (r < 0) {
                 log_error("Failed to read state file %s: %s",
                           u->state_file, strerror(-r));
                 return r;
-        }
+        } else
+                log_debug("Last cursor was %s", u->last_cursor);
 
         return 0;
 }
@@ -837,6 +840,12 @@ int main(int argc, char **argv) {
                   "STATUS=Processing input...");
 
         while (true) {
+                r = sd_event_get_state(u.events);
+                if (r < 0)
+                        break;
+                if (r == SD_EVENT_FINISHED)
+                        break;
+
                 if (use_journal) {
                         if (!u.journal)
                                 break;
@@ -851,12 +860,6 @@ int main(int argc, char **argv) {
                 }
                 if (r < 0)
                         goto cleanup;
-
-                r = sd_event_get_state(u.events);
-                if (r < 0)
-                        break;
-                if (r == SD_EVENT_FINISHED)
-                        break;
 
                 if (u.uploading) {
                         r = perform_upload(&u);
@@ -879,5 +882,5 @@ cleanup:
         destroy_uploader(&u);
 
 finish:
-        return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
