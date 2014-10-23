@@ -921,12 +921,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->smack_ip_in)
-                if (mac_smack_set_ip_in_fd(fd, s->smack_ip_in) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_set_ip_in_fd: %m");
+                if (mac_smack_apply_ip_in_fd(fd, s->smack_ip_in) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %m");
 
         if (s->smack_ip_out)
-                if (mac_smack_set_ip_out_fd(fd, s->smack_ip_out) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_set_ip_out_fd: %m");
+                if (mac_smack_apply_ip_out_fd(fd, s->smack_ip_out) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -939,8 +939,8 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                                          "F_SETPIPE_SZ: %m");
 
         if (s->smack)
-                if (mac_smack_set_fd(fd, s->smack) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_set_fd: %m");
+                if (mac_smack_apply_fd(fd, s->smack) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_fd: %m");
 }
 
 static int fifo_address_create(

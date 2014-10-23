@@ -41,7 +41,7 @@ bool mac_smack_use(void) {
 
 }
 
-int mac_smack_set_path(const char *path, const char *label) {
+int mac_smack_apply(const char *path, const char *label) {
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
@@ -55,7 +55,7 @@ int mac_smack_set_path(const char *path, const char *label) {
 #endif
 }
 
-int mac_smack_set_fd(int fd, const char *label) {
+int mac_smack_apply_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
@@ -66,7 +66,7 @@ int mac_smack_set_fd(int fd, const char *label) {
 #endif
 }
 
-int mac_smack_set_ip_out_fd(int fd, const char *label) {
+int mac_smack_apply_ip_out_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
@@ -77,7 +77,7 @@ int mac_smack_set_ip_out_fd(int fd, const char *label) {
 #endif
 }
 
-int mac_smack_set_ip_in_fd(int fd, const char *label) {
+int mac_smack_apply_ip_in_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
@@ -88,7 +88,7 @@ int mac_smack_set_ip_in_fd(int fd, const char *label) {
 #endif
 }
 
-int mac_smack_relabel_in_dev(const char *path) {
+int mac_smack_fix(const char *path) {
         int r = 0;
 
 #ifdef HAVE_SMACK

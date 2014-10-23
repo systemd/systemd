@@ -307,7 +307,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                         } else if (streq(name, "smack")) {
                                 smack = true;
-                                if (mac_smack_set_path(devnode, label) < 0)
+                                if (mac_smack_apply(devnode, label) < 0)
                                         log_error("SECLABEL: failed to set SMACK label '%s'", label);
                                 else
                                         log_debug("SECLABEL: set SMACK label '%s'", label);
@@ -320,7 +320,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 if (!selinux)
                         label_fix(devnode, true, false);
                 if (!smack)
-                        mac_smack_set_path(devnode, NULL);
+                        mac_smack_apply(devnode, NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */

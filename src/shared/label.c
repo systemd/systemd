@@ -32,7 +32,7 @@ int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         }
 
         if (mac_smack_use()) {
-                r = mac_smack_relabel_in_dev(path);
+                r = mac_smack_fix(path);
                 if (r < 0)
                         return r;
         }

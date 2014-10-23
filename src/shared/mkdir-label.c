@@ -46,7 +46,7 @@ static int label_mkdir(const char *path, mode_t mode) {
                 if (r < 0 && errno != EEXIST)
                         return -errno;
 
-                r = mac_smack_relabel_in_dev(path);
+                r = mac_smack_fix(path);
                 if (r < 0)
                         return r;
         }
