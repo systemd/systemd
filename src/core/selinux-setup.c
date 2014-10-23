@@ -84,7 +84,7 @@ int selinux_setup(bool *loaded_policy) {
                 char timespan[FORMAT_TIMESPAN_MAX];
                 char *label;
 
-                retest_selinux();
+                mac_selinux_retest();
 
                 /* Transition to the new context */
                 r = mac_selinux_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);

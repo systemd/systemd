@@ -457,7 +457,7 @@ int server_open_syslog_socket(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 one = 1;
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)

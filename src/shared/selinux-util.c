@@ -40,24 +40,24 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 #define _cleanup_security_context_free_ _cleanup_(freeconp)
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
-static int use_selinux_cached = -1;
+static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
 #endif
 
-bool use_selinux(void) {
+bool mac_selinux_use(void) {
 #ifdef HAVE_SELINUX
-        if (use_selinux_cached < 0)
-                use_selinux_cached = is_selinux_enabled() > 0;
+        if (cached_use < 0)
+                cached_use = is_selinux_enabled() > 0;
 
-        return use_selinux_cached;
+        return cached_use;
 #else
         return false;
 #endif
 }
 
-void retest_selinux(void) {
+void mac_selinux_retest(void) {
 #ifdef HAVE_SELINUX
-        use_selinux_cached = -1;
+        cached_use = -1;
 #endif
 }
 
@@ -68,7 +68,7 @@ int mac_selinux_init(const char *prefix) {
         usec_t before_timestamp, after_timestamp;
         struct mallinfo before_mallinfo, after_mallinfo;
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         if (label_hnd)
@@ -156,7 +156,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 void mac_selinux_finish(void) {
 
 #ifdef HAVE_SELINUX
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return;
 
         if (label_hnd)
@@ -172,7 +172,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         security_context_t mycon = NULL, fcon = NULL;
         security_class_t sclass;
 
-        if (!use_selinux()) {
+        if (!mac_selinux_use()) {
                 *label = NULL;
                 return 0;
         }
@@ -315,7 +315,7 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
 #ifdef HAVE_SELINUX
         security_context_t filecon = NULL;
 
-        if (!use_selinux() || !label_hnd)
+        if (!mac_selinux_use() || !label_hnd)
                 return 0;
 
         r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
@@ -341,7 +341,7 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
 int mac_selinux_socket_set(const char *label) {
 
 #ifdef HAVE_SELINUX
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         if (setsockcreatecon((security_context_t) label) < 0) {
@@ -361,7 +361,7 @@ void mac_selinux_context_clear(void) {
 #ifdef HAVE_SELINUX
         PROTECT_ERRNO;
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return;
 
         setfscreatecon(NULL);
@@ -373,7 +373,7 @@ void mac_selinux_socket_clear(void) {
 #ifdef HAVE_SELINUX
         PROTECT_ERRNO;
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return;
 
         setsockcreatecon(NULL);
@@ -383,7 +383,7 @@ void mac_selinux_socket_clear(void) {
 void mac_selinux_free(const char *label) {
 
 #ifdef HAVE_SELINUX
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return;
 
         freecon((security_context_t) label);
@@ -450,7 +450,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         assert(addr);
         assert(addrlen >= sizeof(sa_family_t));
 
-        if (!use_selinux() || !label_hnd)
+        if (!mac_selinux_use() || !label_hnd)
                 goto skipped;
 
         /* Filter out non-local sockets */
@@ -511,7 +511,7 @@ int mac_selinux_apply(const char *path, const char *label) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         r = setfilecon(path, (char *)label);

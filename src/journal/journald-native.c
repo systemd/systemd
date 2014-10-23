@@ -417,7 +417,7 @@ int server_open_native_socket(Server*s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 one = 1;
                 r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)

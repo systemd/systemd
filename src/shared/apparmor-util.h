@@ -23,4 +23,4 @@
 
 #include <stdbool.h>
 
-bool use_apparmor(void);
+bool mac_apparmor_use(void);

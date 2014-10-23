@@ -25,12 +25,13 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-bool use_selinux(void);
-void retest_selinux(void);
+bool mac_selinux_use(void);
+void mac_selinux_retest(void);
 
 int mac_selinux_init(const char *prefix);
-int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
 void mac_selinux_finish(void);
+
+int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
 
 int mac_selinux_socket_set(const char *label);
 void mac_selinux_socket_clear(void);

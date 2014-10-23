@@ -27,14 +27,14 @@
 #include "path-util.h"
 #include "smack-util.h"
 
-bool use_smack(void) {
+bool mac_smack_use(void) {
 #ifdef HAVE_SMACK
-        static int use_smack_cached = -1;
+        static int cached_use = -1;
 
-        if (use_smack_cached < 0)
-                use_smack_cached = access("/sys/fs/smackfs/", F_OK) >= 0;
+        if (cached_use < 0)
+                cached_use = access("/sys/fs/smackfs/", F_OK) >= 0;
 
-        return use_smack_cached;
+        return cached_use;
 #else
         return false;
 #endif
@@ -43,7 +43,7 @@ bool use_smack(void) {
 
 int mac_smack_set_path(const char *path, const char *label) {
 #ifdef HAVE_SMACK
-        if (!use_smack())
+        if (!mac_smack_use())
                 return 0;
 
         if (label)
@@ -57,7 +57,7 @@ int mac_smack_set_path(const char *path, const char *label) {
 
 int mac_smack_set_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
-        if (!use_smack())
+        if (!mac_smack_use())
                 return 0;
 
         return fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
@@ -68,7 +68,7 @@ int mac_smack_set_fd(int fd, const char *label) {
 
 int mac_smack_set_ip_out_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
-        if (!use_smack())
+        if (!mac_smack_use())
                 return 0;
 
         return fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
@@ -79,7 +79,7 @@ int mac_smack_set_ip_out_fd(int fd, const char *label) {
 
 int mac_smack_set_ip_in_fd(int fd, const char *label) {
 #ifdef HAVE_SMACK
-        if (!use_smack())
+        if (!mac_smack_use())
                 return 0;
 
         return fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);

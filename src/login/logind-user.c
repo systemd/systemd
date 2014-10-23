@@ -326,7 +326,7 @@ static int user_mkdir_runtime_path(User *u) {
 
                 mkdir(p, 0700);
 
-                if (use_smack())
+                if (mac_smack_use())
                         r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
                 else
                         r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);

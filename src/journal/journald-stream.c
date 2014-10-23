@@ -395,7 +395,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
                         log_error("Failed to determine peer security context: %m");
         }

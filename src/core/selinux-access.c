@@ -142,7 +142,7 @@ static int selinux_access_init(sd_bus_error *error) {
         if (initialized)
                 return 0;
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         r = access_init();
@@ -186,7 +186,7 @@ int selinux_generic_access_check(
         assert(permission);
         assert(error);
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         r = selinux_access_init(error);

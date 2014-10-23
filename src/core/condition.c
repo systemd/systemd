@@ -45,13 +45,13 @@ static bool condition_test_security(Condition *c) {
         assert(c->type == CONDITION_SECURITY);
 
         if (streq(c->parameter, "selinux"))
-                return use_selinux() == !c->negate;
+                return mac_selinux_use() == !c->negate;
+        if (streq(c->parameter, "smack"))
+                return mac_smack_use() == !c->negate;
         if (streq(c->parameter, "apparmor"))
-                return use_apparmor() == !c->negate;
+                return mac_apparmor_use() == !c->negate;
         if (streq(c->parameter, "ima"))
                 return use_ima() == !c->negate;
-        if (streq(c->parameter, "smack"))
-                return use_smack() == !c->negate;
 
         return c->negate;
 }

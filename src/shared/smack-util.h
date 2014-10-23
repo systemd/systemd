@@ -28,7 +28,7 @@
 #define SMACK_FLOOR_LABEL "_"
 #define SMACK_STAR_LABEL  "*"
 
-bool use_smack(void);
+bool mac_smack_use(void);
 
 int mac_smack_set_path(const char *path, const char *label);
 int mac_smack_set_fd(int fd, const char *label);

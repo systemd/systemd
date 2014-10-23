@@ -1669,7 +1669,7 @@ static int exec_child(ExecCommand *command,
 #endif
 
 #ifdef HAVE_SELINUX
-                if (use_selinux()) {
+                if (mac_selinux_use()) {
                         if (context->selinux_context) {
                                 err = setexeccon(context->selinux_context);
                                 if (err < 0 && !context->selinux_context_ignore) {
@@ -1697,7 +1697,7 @@ static int exec_child(ExecCommand *command,
 #endif
 
 #ifdef HAVE_APPARMOR
-                if (context->apparmor_profile && use_apparmor()) {
+                if (context->apparmor_profile && mac_apparmor_use()) {
                         err = aa_change_onexec(context->apparmor_profile);
                         if (err < 0 && !context->apparmor_profile_ignore) {
                                 *error = EXIT_APPARMOR_PROFILE;

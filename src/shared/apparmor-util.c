@@ -25,17 +25,16 @@
 #include "fileio.h"
 #include "apparmor-util.h"
 
-static int use_apparmor_cached = -1;
+bool mac_apparmor_use(void) {
+        static int cached_use = -1;
 
-bool use_apparmor(void) {
-
-        if (use_apparmor_cached < 0) {
+        if (cached_use < 0) {
                 _cleanup_free_ char *p = NULL;
 
-                use_apparmor_cached =
+                cached_use =
                         read_one_line_file("/sys/module/apparmor/parameters/enabled", &p) >= 0 &&
                         parse_boolean(p) > 0;
         }
 
-        return use_apparmor_cached;
+        return cached_use;
 }
