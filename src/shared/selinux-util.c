@@ -42,6 +42,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 
 static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
+
+#define log_enforcing(...) log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, __VA_ARGS__)
 #endif
 
 bool mac_selinux_use(void) {
@@ -87,8 +89,7 @@ int mac_selinux_init(const char *prefix) {
                 label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
 
         if (!label_hnd) {
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Failed to initialize SELinux context: %m");
+                log_enforcing("Failed to initialize SELinux context: %m");
                 r = security_getenforce() == 1 ? -errno : 0;
         } else  {
                 char timespan[FORMAT_TIMESPAN_MAX];
@@ -147,7 +148,7 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 if (ignore_erofs && errno == EROFS)
                         return 0;
 
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, "Unable to fix SELinux label of %s: %m", path);
+                log_enforcing("Unable to fix SELinux label of %s: %m", path);
                 r = security_getenforce() == 1 ? -errno : 0;
         }
 #endif
@@ -284,7 +285,7 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
 #ifdef HAVE_SELINUX
         _cleanup_security_context_free_ security_context_t filecon = NULL;
 
-        if (!mac_selinux_use() || !label_hnd)
+        if (!label_hnd)
                 return 0;
 
         r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
@@ -293,7 +294,7 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
         else if (r == 0) {
                 r = setfscreatecon(filecon);
                 if (r < 0) {
-                        log_error("Failed to set SELinux file context on %s: %m", path);
+                        log_enforcing("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
         }
@@ -312,8 +313,7 @@ int mac_selinux_socket_set(const char *label) {
                 return 0;
 
         if (setsockcreatecon((security_context_t) label) < 0) {
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Failed to set SELinux context (%s) on socket: %m", label);
+                log_enforcing("Failed to set SELinux context (%s) on socket: %m", label);
 
                 if (security_getenforce() == 1)
                         return -errno;
@@ -383,7 +383,7 @@ int mac_selinux_mkdir(const char *path, mode_t mode) {
                 r = setfscreatecon(fcon);
 
         if (r < 0 && errno != ENOENT) {
-                log_error("Failed to set security context %s for %s: %m", fcon, path);
+                log_enforcing("Failed to set security context %s for %s: %m", fcon, path);
 
                 if (security_getenforce() == 1) {
                         r = -errno;
@@ -450,7 +450,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 r = setfscreatecon(fcon);
 
         if (r < 0 && errno != ENOENT) {
-                log_error("Failed to set security context %s for %s: %m", fcon, path);
+                log_enforcing("Failed to set security context %s for %s: %m", fcon, path);
 
                 if (security_getenforce() == 1) {
                         r = -errno;
