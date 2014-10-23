@@ -1120,7 +1120,7 @@ static int socket_symlink(Socket *s) {
                 return 0;
 
         STRV_FOREACH(i, s->symlinks)
-                symlink(p, *i);
+                symlink_label(p, *i);
 
         return 0;
 }
