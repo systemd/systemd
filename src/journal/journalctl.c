@@ -844,28 +844,32 @@ static int boot_id_cmp(const void *a, const void *b) {
         return _a < _b ? -1 : (_a > _b ? 1 : 0);
 }
 
-static int list_boots(sd_journal *j) {
+static int get_boots(sd_journal *j,
+                     boot_id_t **boots,
+                     unsigned int *count,
+                     boot_id_t *query_ref_boot) {
         int r;
         const void *data;
-        unsigned int count = 0;
-        int w, i;
         size_t length, allocated = 0;
-        boot_id_t *id;
-        _cleanup_free_ boot_id_t *all_ids = NULL;
+
+        assert(j);
+        assert(boots);
+        assert(count);
 
         r = sd_journal_query_unique(j, "_BOOT_ID");
         if (r < 0)
                 return r;
 
-        pager_open_if_enabled();
-
+        *count = 0;
         SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
+                boot_id_t *id;
+
                 assert(startswith(data, "_BOOT_ID="));
 
-                if (!GREEDY_REALLOC(all_ids, allocated, count + 1))
+                if (!GREEDY_REALLOC(*boots, allocated, *count + 1))
                         return log_oom();
 
-                id = &all_ids[count];
+                id = *boots + *count;
 
                 r = sd_id128_from_string(((const char *)data) + strlen("_BOOT_ID="), &id->id);
                 if (r < 0)
@@ -889,26 +893,48 @@ static int list_boots(sd_journal *j) {
                 if (r < 0)
                         return r;
 
-                r = sd_journal_seek_tail(j);
-                if (r < 0)
-                        return r;
+                if (query_ref_boot) {
+                        id->last = 0;
+                        if (sd_id128_equal(id->id, query_ref_boot->id))
+                                *query_ref_boot = *id;
+                } else {
+                        r = sd_journal_seek_tail(j);
+                        if (r < 0)
+                                return r;
 
-                r = sd_journal_previous(j);
-                if (r < 0)
-                        return r;
-                else if (r == 0)
-                        goto flush;
+                        r = sd_journal_previous(j);
+                        if (r < 0)
+                                return r;
+                        else if (r == 0)
+                                goto flush;
 
-                r = sd_journal_get_realtime_usec(j, &id->last);
-                if (r < 0)
-                        return r;
+                        r = sd_journal_get_realtime_usec(j, &id->last);
+                        if (r < 0)
+                                return r;
+                }
 
-                count++;
+                (*count)++;
         flush:
                 sd_journal_flush_matches(j);
         }
 
-        qsort_safe(all_ids, count, sizeof(boot_id_t), boot_id_cmp);
+        qsort_safe(*boots, *count, sizeof(boot_id_t), boot_id_cmp);
+        return 0;
+}
+
+static int list_boots(sd_journal *j) {
+        int r, w, i;
+        unsigned int count;
+        boot_id_t *id;
+        _cleanup_free_ boot_id_t *all_ids = NULL;
+
+        assert(j);
+
+        r = get_boots(j, &all_ids, &count, NULL);
+        if (r < 0)
+                return r;
+
+        pager_open_if_enabled();
 
         /* numbers are one less, but we need an extra char for the sign */
         w = DECIMAL_STR_WIDTH(count - 1) + 1;
@@ -926,76 +952,34 @@ static int list_boots(sd_journal *j) {
         return 0;
 }
 
-static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative) {
+static int get_boot_id_by_offset(sd_journal *j, sd_id128_t *boot_id, int offset) {
         int r;
-        const void *data;
-        unsigned int count = 0;
-        size_t length, allocated = 0;
-        boot_id_t ref_boot_id = {SD_ID128_NULL}, *id;
+        unsigned int count;
+        boot_id_t ref_boot_id = {}, *id;
         _cleanup_free_ boot_id_t *all_ids = NULL;
 
         assert(j);
         assert(boot_id);
 
-        r = sd_journal_query_unique(j, "_BOOT_ID");
+        ref_boot_id.id = *boot_id;
+        r = get_boots(j, &all_ids, &count, &ref_boot_id);
         if (r < 0)
                 return r;
 
-        SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
-                if (length < strlen("_BOOT_ID="))
-                        continue;
-
-                if (!GREEDY_REALLOC(all_ids, allocated, count + 1))
-                        return log_oom();
-
-                id = &all_ids[count];
-
-                r = sd_id128_from_string(((const char *)data) + strlen("_BOOT_ID="), &id->id);
-                if (r < 0)
-                        continue;
-
-                r = sd_journal_add_match(j, data, length);
-                if (r < 0)
-                        return r;
-
-                r = sd_journal_seek_head(j);
-                if (r < 0)
-                        return r;
-
-                r = sd_journal_next(j);
-                if (r < 0)
-                        return r;
-                else if (r == 0)
-                        goto flush;
-
-                r = sd_journal_get_realtime_usec(j, &id->first);
-                if (r < 0)
-                        return r;
-
-                if (sd_id128_equal(id->id, *boot_id))
-                        ref_boot_id = *id;
-
-                count++;
-        flush:
-                sd_journal_flush_matches(j);
-        }
-
-        qsort_safe(all_ids, count, sizeof(boot_id_t), boot_id_cmp);
-
         if (sd_id128_equal(*boot_id, SD_ID128_NULL)) {
-                if (relative > (int) count || relative <= -(int)count)
+                if (offset > (int) count || offset <= -(int)count)
                         return -EADDRNOTAVAIL;
 
-                *boot_id = all_ids[(relative <= 0)*count + relative - 1].id;
+                *boot_id = all_ids[(offset <= 0)*count + offset - 1].id;
         } else {
                 id = bsearch(&ref_boot_id, all_ids, count, sizeof(boot_id_t), boot_id_cmp);
 
                 if (!id ||
-                    relative <= 0 ? (id - all_ids) + relative < 0 :
-                                    (id - all_ids) + relative >= (int) count)
+                    offset <= 0 ? (id - all_ids) + offset < 0 :
+                                    (id - all_ids) + offset >= (int) count)
                         return -EADDRNOTAVAIL;
 
-                *boot_id = (id + relative)->id;
+                *boot_id = (id + offset)->id;
         }
 
         return 0;
@@ -1013,7 +997,7 @@ static int add_boot(sd_journal *j) {
         if (arg_boot_offset == 0 && sd_id128_equal(arg_boot_id, SD_ID128_NULL))
                 return add_match_this_boot(j, arg_machine);
 
-        r = get_relative_boot_id(j, &arg_boot_id, arg_boot_offset);
+        r = get_boot_id_by_offset(j, &arg_boot_id, arg_boot_offset);
         if (r < 0) {
                 if (sd_id128_equal(arg_boot_id, SD_ID128_NULL))
                         log_error("Failed to look up boot %+i: %s", arg_boot_offset, strerror(-r));
