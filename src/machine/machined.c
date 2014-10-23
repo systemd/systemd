@@ -35,6 +35,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "machined.h"
+#include "label.h"
 
 Manager *manager_new(void) {
         Manager *m;

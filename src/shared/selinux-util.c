@@ -319,7 +319,18 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
         if (!label_hnd)
                 return 0;
 
-        r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
+        if (path_is_absolute(path))
+                r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
+        else {
+                _cleanup_free_ char *newpath;
+
+                newpath = path_make_absolute_cwd(path);
+                if (!newpath)
+                        return -ENOMEM;
+
+                r = selabel_lookup_raw(label_hnd, &filecon, newpath, S_IFDIR);
+        }
+
         if (r < 0 && errno != ENOENT)
                 r = -errno;
         else if (r == 0) {
@@ -378,56 +389,6 @@ void mac_selinux_create_socket_clear(void) {
 
         setsockcreatecon(NULL);
 #endif
-}
-
-int mac_selinux_mkdir(const char *path, mode_t mode) {
-
-        /* Creates a directory and labels it according to the SELinux policy */
-
-#ifdef HAVE_SELINUX
-        _cleanup_security_context_free_ security_context_t fcon = NULL;
-        int r;
-
-        assert(path);
-
-        if (!label_hnd)
-                goto skipped;
-
-        if (path_is_absolute(path))
-                r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFDIR);
-        else {
-                _cleanup_free_ char *newpath;
-
-                newpath = path_make_absolute_cwd(path);
-                if (!newpath)
-                        return -ENOMEM;
-
-                r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFDIR);
-        }
-
-        if (r == 0)
-                r = setfscreatecon(fcon);
-
-        if (r < 0 && errno != ENOENT) {
-                log_enforcing("Failed to set SELinux security context %s for %s: %m", fcon, path);
-
-                if (security_getenforce() == 1) {
-                        r = -errno;
-                        goto finish;
-                }
-        }
-
-        r = mkdir(path, mode);
-        if (r < 0)
-                r = -errno;
-
-finish:
-        setfscreatecon(NULL);
-        return r;
-
-skipped:
-#endif
-        return mkdir(path, mode) < 0 ? -errno : 0;
 }
 
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {

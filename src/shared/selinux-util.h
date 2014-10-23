@@ -45,5 +45,4 @@ void mac_selinux_create_file_clear(void);
 int mac_selinux_create_socket_prepare(const char *label);
 void mac_selinux_create_socket_clear(void);
 
-int mac_selinux_mkdir(const char *path, mode_t mode);
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);

@@ -35,3 +35,44 @@ int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
 
         return 0;
 }
+
+int mkdir_label(const char *path, mode_t mode) {
+        int r;
+
+        assert(path);
+
+        r = mac_selinux_create_file_prepare(path, S_IFDIR);
+        if (r < 0)
+                return r;
+
+        if (mkdir(path, mode) < 0)
+                r = -errno;
+
+        mac_selinux_create_file_clear();
+
+        if (r < 0)
+                return r;
+
+        return mac_smack_fix(path, false, false);
+}
+
+int symlink_label(const char *old_path, const char *new_path) {
+        int r;
+
+        assert(old_path);
+        assert(new_path);
+
+        r = mac_selinux_create_file_prepare(new_path, S_IFLNK);
+        if (r < 0)
+                return r;
+
+        if (symlink(old_path, new_path) < 0)
+                r = -errno;
+
+        mac_selinux_create_file_clear();
+
+        if (r < 0)
+                return r;
+
+        return mac_smack_fix(new_path, false, false);
+}

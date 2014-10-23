@@ -25,3 +25,6 @@
 #include "smack-util.h"
 
 int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
+
+int mkdir_label(const char *path, mode_t mode);
+int symlink_label(const char *old_path, const char *new_path);

@@ -32,24 +32,6 @@
 #include "util.h"
 #include "label.h"
 
-static int symlink_and_label(const char *old_path, const char *new_path) {
-        int r;
-
-        assert(old_path);
-        assert(new_path);
-
-        r = mac_selinux_create_file_prepare(new_path, S_IFLNK);
-        if (r < 0)
-                return r;
-
-        if (symlink(old_path, new_path) < 0)
-                r = -errno;
-
-        mac_selinux_create_file_clear();
-
-        return r;
-}
-
 int dev_setup(const char *prefix) {
         const char *j, *k;
 
@@ -75,9 +57,9 @@ int dev_setup(const char *prefix) {
                         if (!link_name)
                                 return -ENOMEM;
 
-                        symlink_and_label(j, link_name);
+                        symlink_label(j, link_name);
                 } else
-                        symlink_and_label(j, k);
+                        symlink_label(j, k);
         }
 
         return 0;
