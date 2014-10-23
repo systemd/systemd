@@ -921,12 +921,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->smack_ip_in)
-                if (smack_label_ip_in_fd(fd, s->smack_ip_in) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_ip_in_fd: %m");
+                if (mac_smack_set_ip_in_fd(fd, s->smack_ip_in) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_set_ip_in_fd: %m");
 
         if (s->smack_ip_out)
-                if (smack_label_ip_out_fd(fd, s->smack_ip_out) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_ip_out_fd: %m");
+                if (mac_smack_set_ip_out_fd(fd, s->smack_ip_out) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_set_ip_out_fd: %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -939,8 +939,8 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                                          "F_SETPIPE_SZ: %m");
 
         if (s->smack)
-                if (smack_label_fd(fd, s->smack) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_fd: %m");
+                if (mac_smack_set_fd(fd, s->smack) < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_set_fd: %m");
 }
 
 static int fifo_address_create(
@@ -958,7 +958,7 @@ static int fifo_address_create(
 
         mkdir_parents_label(path, directory_mode);
 
-        r = label_context_set(path, S_IFIFO);
+        r = mac_selinux_context_set(path, S_IFIFO);
         if (r < 0)
                 goto fail;
 
@@ -981,7 +981,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        label_context_clear();
+        mac_selinux_context_clear();
 
         if (fstat(fd, &st) < 0) {
                 r = -errno;
@@ -1001,7 +1001,7 @@ static int fifo_address_create(
         return 0;
 
 fail:
-        label_context_clear();
+        mac_selinux_context_clear();
         safe_close(fd);
 
         return r;
@@ -1131,7 +1131,7 @@ static int socket_open_fds(Socket *s) {
 
                 if (p->type == SOCKET_SOCKET) {
                         if (!know_label && s->selinux_context_from_net) {
-                                r = label_get_our_label(&label);
+                                r = mac_selinux_get_our_label(&label);
                                 if (r < 0)
                                         return r;
                                 know_label = true;
@@ -1143,7 +1143,7 @@ static int socket_open_fds(Socket *s) {
 
                                 if (UNIT_ISSET(s->service) &&
                                     SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
-                                        r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
+                                        r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
                                         if (r < 0 && r != -EPERM)
                                                 return r;
                                 }
@@ -1204,12 +1204,12 @@ static int socket_open_fds(Socket *s) {
                         assert_not_reached("Unknown port type");
         }
 
-        label_free(label);
+        mac_selinux_free(label);
         return 0;
 
 rollback:
         socket_close_fds(s);
-        label_free(label);
+        mac_selinux_free(label);
         return r;
 }
 

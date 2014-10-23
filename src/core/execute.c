@@ -1681,7 +1681,7 @@ static int exec_child(ExecCommand *command,
                         if (params->selinux_context_net && socket_fd >= 0) {
                                 _cleanup_free_ char *label = NULL;
 
-                                err = label_get_child_mls_label(socket_fd, command->path, &label);
+                                err = mac_selinux_get_child_mls_label(socket_fd, command->path, &label);
                                 if (err < 0) {
                                         *error = EXIT_SELINUX_CONTEXT;
                                         return err;

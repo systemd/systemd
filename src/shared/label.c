@@ -26,13 +26,13 @@ int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         int r = 0;
 
         if (use_selinux()) {
-                r = label_fix_selinux(path, ignore_enoent, ignore_erofs);
+                r = mac_selinux_fix(path, ignore_enoent, ignore_erofs);
                 if (r < 0)
                         return r;
         }
 
         if (use_smack()) {
-                r = smack_relabel_in_dev(path);
+                r = mac_smack_relabel_in_dev(path);
                 if (r < 0)
                         return r;
         }

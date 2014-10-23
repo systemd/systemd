@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
 
         log_debug("version %s", VERSION);
-        label_init("/dev");
+        mac_selinux_init("/dev");
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);
-        label_finish();
+        mac_selinux_finish();
 
         return err ? EXIT_FAILURE : EXIT_SUCCESS;
 }

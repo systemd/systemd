@@ -88,11 +88,11 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         err = mkdir_parents_label(slink, 0755);
                         if (err != 0 && err != -ENOENT)
                                 break;
-                        label_context_set(slink, S_IFLNK);
+                        mac_selinux_context_set(slink, S_IFLNK);
                         err = symlink(target, slink);
                         if (err != 0)
                                 err = -errno;
-                        label_context_clear();
+                        mac_selinux_context_clear();
                 } while (err == -ENOENT);
                 if (err == 0)
                         goto exit;
@@ -105,11 +105,11 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                 err = mkdir_parents_label(slink_tmp, 0755);
                 if (err != 0 && err != -ENOENT)
                         break;
-                label_context_set(slink_tmp, S_IFLNK);
+                mac_selinux_context_set(slink_tmp, S_IFLNK);
                 err = symlink(target, slink_tmp);
                 if (err != 0)
                         err = -errno;
-                label_context_clear();
+                mac_selinux_context_clear();
         } while (err == -ENOENT);
         if (err != 0) {
                 log_error("symlink '%s' '%s' failed: %m", target, slink_tmp);
@@ -300,14 +300,14 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                         if (streq(name, "selinux")) {
                                 selinux = true;
-                                if (label_apply(devnode, label) < 0)
+                                if (mac_selinux_apply(devnode, label) < 0)
                                         log_error("SECLABEL: failed to set SELinux label '%s'", label);
                                 else
                                         log_debug("SECLABEL: set SELinux label '%s'", label);
 
                         } else if (streq(name, "smack")) {
                                 smack = true;
-                                if (smack_label_path(devnode, label) < 0)
+                                if (mac_smack_set_path(devnode, label) < 0)
                                         log_error("SECLABEL: failed to set SMACK label '%s'", label);
                                 else
                                         log_debug("SECLABEL: set SMACK label '%s'", label);
@@ -320,7 +320,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 if (!selinux)
                         label_fix(devnode, true, false);
                 if (!smack)
-                        smack_label_path(devnode, NULL);
+                        mac_smack_set_path(devnode, NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */

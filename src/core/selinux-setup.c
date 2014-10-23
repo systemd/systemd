@@ -87,7 +87,7 @@ int selinux_setup(bool *loaded_policy) {
                 retest_selinux();
 
                 /* Transition to the new context */
-                r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
+                r = mac_selinux_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
                 if (r < 0 || label == NULL) {
                         log_open();
                         log_error("Failed to compute init label, ignoring.");
@@ -98,7 +98,7 @@ int selinux_setup(bool *loaded_policy) {
                         if (r < 0)
                                 log_error("Failed to transition into init label '%s', ignoring.", label);
 
-                        label_free(label);
+                        mac_selinux_free(label);
                 }
 
                 after_load = now(CLOCK_MONOTONIC);

@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
         udev_set_log_fn(udev, udev_main_log);
-        label_init("/dev");
+        mac_selinux_init("/dev");
 
         while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
                 switch (c) {
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "%s: missing or unknown command\n", program_invocation_short_name);
         rc = 2;
 out:
-        label_finish();
+        mac_selinux_finish();
         udev_unref(udev);
         log_close();
         return rc;

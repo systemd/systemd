@@ -30,13 +30,13 @@
 int write_string_file_atomic_label(const char *fn, const char *line) {
         int r;
 
-        r = label_context_set(fn, S_IFREG);
+        r = mac_selinux_context_set(fn, S_IFREG);
         if (r < 0)
                 return r;
 
         r = write_string_file_atomic(fn, line);
 
-        label_context_clear();
+        mac_selinux_context_clear();
 
         return r;
 }
@@ -44,13 +44,13 @@ int write_string_file_atomic_label(const char *fn, const char *line) {
 int write_env_file_label(const char *fname, char **l) {
         int r;
 
-        r = label_context_set(fname, S_IFREG);
+        r = mac_selinux_context_set(fname, S_IFREG);
         if (r < 0)
                 return r;
 
         r = write_env_file(fname, l);
 
-        label_context_clear();
+        mac_selinux_context_clear();
 
         return r;
 }
@@ -59,13 +59,13 @@ int fopen_temporary_label(const char *target,
                           const char *path, FILE **f, char **temp_path) {
         int r;
 
-        r = label_context_set(target, S_IFREG);
+        r = mac_selinux_context_set(target, S_IFREG);
         if (r < 0)
                 return r;
 
         r = fopen_temporary(path, f, temp_path);
 
-        label_context_clear();
+        mac_selinux_context_clear();
 
         return r;
 }

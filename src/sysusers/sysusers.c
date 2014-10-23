@@ -1835,7 +1835,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = label_init(NULL);
+        r = mac_selinux_init(NULL);
         if (r < 0) {
                 log_error("SELinux setup failed: %s", strerror(-r));
                 goto finish;

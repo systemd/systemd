@@ -1143,7 +1143,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 return -ENOMEM;
 
         mkdir_p_label("/etc/udev/rules.d", 0755);
-        label_init("/etc");
+        mac_selinux_init("/etc");
         r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 return r;

@@ -1141,7 +1141,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
-        label_init("/etc");
+        mac_selinux_init("/etc");
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

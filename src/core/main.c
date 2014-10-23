@@ -1308,7 +1308,7 @@ int main(int argc, char *argv[]) {
                         dual_timestamp_get(&security_finish_timestamp);
                 }
 
-                if (label_init(NULL) < 0)
+                if (mac_selinux_init(NULL) < 0)
                         goto finish;
 
                 if (!skip_setup) {
@@ -1830,7 +1830,7 @@ finish:
         free(arg_start_timeout_reboot_arg);
         arg_start_timeout_reboot_arg = NULL;
 
-        label_finish();
+        mac_selinux_finish();
 
         if (reexecute) {
                 const char **args;

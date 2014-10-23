@@ -61,7 +61,7 @@ void retest_selinux(void) {
 #endif
 }
 
-int label_init(const char *prefix) {
+int mac_selinux_init(const char *prefix) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -108,7 +108,7 @@ int label_init(const char *prefix) {
         return r;
 }
 
-int label_fix_selinux(const char *path, bool ignore_enoent, bool ignore_erofs) {
+int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -153,7 +153,7 @@ int label_fix_selinux(const char *path, bool ignore_enoent, bool ignore_erofs) {
         return r;
 }
 
-void label_finish(void) {
+void mac_selinux_finish(void) {
 
 #ifdef HAVE_SELINUX
         if (!use_selinux())
@@ -164,7 +164,7 @@ void label_finish(void) {
 #endif
 }
 
-int label_get_create_label_from_exe(const char *exe, char **label) {
+int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 
         int r = 0;
 
@@ -201,7 +201,7 @@ fail:
         return r;
 }
 
-int label_get_our_label(char **label) {
+int mac_selinux_get_our_label(char **label) {
         int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
@@ -217,7 +217,7 @@ int label_get_our_label(char **label) {
         return r;
 }
 
-int label_get_child_mls_label(int socket_fd, const char *exe, char **label) {
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label) {
         int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
@@ -309,7 +309,7 @@ out:
         return r;
 }
 
-int label_context_set(const char *path, mode_t mode) {
+int mac_selinux_context_set(const char *path, mode_t mode) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -338,7 +338,7 @@ int label_context_set(const char *path, mode_t mode) {
         return r;
 }
 
-int label_socket_set(const char *label) {
+int mac_selinux_socket_set(const char *label) {
 
 #ifdef HAVE_SELINUX
         if (!use_selinux())
@@ -356,7 +356,7 @@ int label_socket_set(const char *label) {
         return 0;
 }
 
-void label_context_clear(void) {
+void mac_selinux_context_clear(void) {
 
 #ifdef HAVE_SELINUX
         PROTECT_ERRNO;
@@ -368,7 +368,7 @@ void label_context_clear(void) {
 #endif
 }
 
-void label_socket_clear(void) {
+void mac_selinux_socket_clear(void) {
 
 #ifdef HAVE_SELINUX
         PROTECT_ERRNO;
@@ -380,7 +380,7 @@ void label_socket_clear(void) {
 #endif
 }
 
-void label_free(const char *label) {
+void mac_selinux_free(const char *label) {
 
 #ifdef HAVE_SELINUX
         if (!use_selinux())
@@ -390,7 +390,7 @@ void label_free(const char *label) {
 #endif
 }
 
-int label_mkdir_selinux(const char *path, mode_t mode) {
+int mac_selinux_mkdir(const char *path, mode_t mode) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -436,7 +436,7 @@ finish:
         return r;
 }
 
-int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
+int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
         /* Binds a socket and label its file system object according to the SELinux policy */
 
@@ -507,7 +507,7 @@ skipped:
         return bind(fd, addr, addrlen) < 0 ? -errno : 0;
 }
 
-int label_apply(const char *path, const char *label) {
+int mac_selinux_apply(const char *path, const char *label) {
         int r = 0;
 
 #ifdef HAVE_SELINUX

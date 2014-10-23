@@ -1139,7 +1139,7 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = label_init("/dev");
+        r = mac_selinux_init("/dev");
         if (r < 0) {
                 log_error("could not initialize labelling: %s", strerror(-r));
                 goto exit;
@@ -1542,7 +1542,7 @@ exit_daemonize:
         udev_monitor_unref(monitor);
         udev_ctrl_connection_unref(ctrl_conn);
         udev_ctrl_unref(udev_ctrl);
-        label_finish();
+        mac_selinux_finish();
         udev_unref(udev);
         log_close();
         return rc;

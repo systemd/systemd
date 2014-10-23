@@ -509,9 +509,9 @@ static int write_one_file(Item *i, const char *path) {
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
 
         RUN_WITH_UMASK(0000) {
-                label_context_set(path, S_IFREG);
+                mac_selinux_context_set(path, S_IFREG);
                 fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
-                label_context_clear();
+                mac_selinux_context_clear();
         }
 
         if (fd < 0) {
@@ -743,9 +743,9 @@ static int create_item(Item *i) {
         case CREATE_FIFO:
 
                 RUN_WITH_UMASK(0000) {
-                        label_context_set(i->path, S_IFIFO);
+                        mac_selinux_context_set(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
-                        label_context_clear();
+                        mac_selinux_context_clear();
                 }
 
                 if (r < 0) {
@@ -764,9 +764,9 @@ static int create_item(Item *i) {
                                 if (i->force) {
 
                                         RUN_WITH_UMASK(0000) {
-                                                label_context_set(i->path, S_IFIFO);
+                                                mac_selinux_context_set(i->path, S_IFIFO);
                                                 r = mkfifo_atomic(i->path, i->mode);
-                                                label_context_clear();
+                                                mac_selinux_context_clear();
                                         }
 
                                         if (r < 0) {
@@ -788,9 +788,9 @@ static int create_item(Item *i) {
 
         case CREATE_SYMLINK:
 
-                label_context_set(i->path, S_IFLNK);
+                mac_selinux_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
-                label_context_clear();
+                mac_selinux_context_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
@@ -804,9 +804,9 @@ static int create_item(Item *i) {
                         if (r < 0 || !streq(i->argument, x)) {
 
                                 if (i->force) {
-                                        label_context_set(i->path, S_IFLNK);
+                                        mac_selinux_context_set(i->path, S_IFLNK);
                                         r = symlink_atomic(i->argument, i->path);
-                                        label_context_clear();
+                                        mac_selinux_context_clear();
 
                                         if (r < 0) {
                                                 log_error("symlink(%s, %s) failed: %s", i->argument, i->path, strerror(-r));
@@ -838,9 +838,9 @@ static int create_item(Item *i) {
                 file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
                 RUN_WITH_UMASK(0000) {
-                        label_context_set(i->path, file_type);
+                        mac_selinux_context_set(i->path, file_type);
                         r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        label_context_clear();
+                        mac_selinux_context_clear();
                 }
 
                 if (r < 0) {
@@ -865,9 +865,9 @@ static int create_item(Item *i) {
                                 if (i->force) {
 
                                         RUN_WITH_UMASK(0000) {
-                                                label_context_set(i->path, file_type);
+                                                mac_selinux_context_set(i->path, file_type);
                                                 r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                                label_context_clear();
+                                                mac_selinux_context_clear();
                                         }
 
                                         if (r < 0) {
@@ -1610,7 +1610,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        label_init(NULL);
+        mac_selinux_init(NULL);
 
         items = hashmap_new(&string_hash_ops);
         globs = hashmap_new(&string_hash_ops);
@@ -1670,7 +1670,7 @@ finish:
 
         set_free_free(unix_sockets);
 
-        label_finish();
+        mac_selinux_finish();
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -64,7 +64,7 @@ int socket_address_listen(
                 return -EAFNOSUPPORT;
 
         if (label) {
-                r = label_socket_set(label);
+                r = mac_selinux_socket_set(label);
                 if (r < 0)
                         return r;
         }
@@ -73,7 +73,7 @@ int socket_address_listen(
         r = fd < 0 ? -errno : 0;
 
         if (label)
-                label_socket_clear();
+                mac_selinux_socket_clear();
 
         if (r < 0)
                 return r;
@@ -119,7 +119,7 @@ int socket_address_listen(
                 /* Include the original umask in our mask */
                 umask(~socket_mode | old_mask);
 
-                r = label_bind(fd, &a->sockaddr.sa, a->size);
+                r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
 
                 if (r < 0 && errno == EADDRINUSE) {
                         /* Unlink and try again */

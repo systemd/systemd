@@ -176,7 +176,7 @@ static int context_write_data_local_rtc(Context *c) {
                 }
         }
 
-        label_init("/etc");
+        mac_selinux_init("/etc");
         return write_string_file_atomic_label("/etc/adjtime", w);
 }
 
