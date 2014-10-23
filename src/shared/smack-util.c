@@ -38,54 +38,86 @@ bool mac_smack_use(void) {
 #else
         return false;
 #endif
-
 }
 
 int mac_smack_apply(const char *path, const char *label) {
+        int r = 0;
+
+        assert(path);
+
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
         if (label)
-                return setxattr(path, "security.SMACK64", label, strlen(label), 0);
+                r = setxattr(path, "security.SMACK64", label, strlen(label), 0);
         else
-                return lremovexattr(path, "security.SMACK64");
-#else
-        return 0;
+                r = lremovexattr(path, "security.SMACK64");
+        if (r < 0)
+                return -errno;
 #endif
+
+        return r;
 }
 
 int mac_smack_apply_fd(int fd, const char *label) {
+        int r = 0;
+
+        assert(fd >= 0);
+
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
-        return fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
-#else
-        return 0;
+        if (label)
+                r = fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
+        else
+                r = fremovexattr(fd, "security.SMACK64");
+        if (r < 0)
+                return -errno;
 #endif
+
+        return r;
 }
 
 int mac_smack_apply_ip_out_fd(int fd, const char *label) {
+        int r = 0;
+
+        assert(fd >= 0);
+
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
-        return fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
-#else
-        return 0;
+        if (label)
+                r = fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
+        else
+                r = fremovexattr(fd, "security.SMACK64IPOUT");
+        if (r < 0)
+                return -errno;
 #endif
+
+        return r;
 }
 
 int mac_smack_apply_ip_in_fd(int fd, const char *label) {
+        int r = 0;
+
+        assert(fd >= 0);
+
 #ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
-        return fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);
-#else
-        return 0;
+        if (label)
+                r = fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);
+        else
+                r = fremovexattr(fd, "security.SMACK64IPIN");
+        if (r < 0)
+                return -errno;
 #endif
+
+        return r;
 }
 
 int mac_smack_fix(const char *path) {
@@ -94,6 +126,13 @@ int mac_smack_fix(const char *path) {
 #ifdef HAVE_SMACK
         struct stat sb;
         const char *label;
+#endif
+
+        assert(path);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
 
         /*
          * Path must be in /dev and must exist

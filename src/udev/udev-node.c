@@ -294,21 +294,25 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 /* apply SECLABEL{$module}=$label */
                 udev_list_entry_foreach(entry, udev_list_get_entry(seclabel_list)) {
                         const char *name, *label;
+                        int r;
 
                         name = udev_list_entry_get_name(entry);
                         label = udev_list_entry_get_value(entry);
 
                         if (streq(name, "selinux")) {
                                 selinux = true;
+
                                 if (mac_selinux_apply(devnode, label) < 0)
-                                        log_error("SECLABEL: failed to set SELinux label '%s'", label);
+                                        log_error("SECLABEL: failed to set SELinux label '%s': %s", label, strerror(-r));
                                 else
                                         log_debug("SECLABEL: set SELinux label '%s'", label);
 
                         } else if (streq(name, "smack")) {
                                 smack = true;
-                                if (mac_smack_apply(devnode, label) < 0)
-                                        log_error("SECLABEL: failed to set SMACK label '%s'", label);
+
+                                r = mac_smack_apply(devnode, label);
+                                if (r < 0)
+                                        log_error("SECLABEL: failed to set SMACK label '%s': %s", label, strerror(-r));
                                 else
                                         log_debug("SECLABEL: set SMACK label '%s'", label);
 

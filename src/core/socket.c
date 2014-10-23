@@ -807,6 +807,8 @@ static void socket_close_fds(Socket *s) {
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
+        int r;
+
         assert(s);
         assert(fd >= 0);
 
@@ -894,7 +896,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id, "IP_TOS failed: %m");
 
         if (s->ip_ttl >= 0) {
-                int r, x;
+                int x;
 
                 r = setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl));
 
@@ -920,27 +922,34 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
         }
 
-        if (s->smack_ip_in)
-                if (mac_smack_apply_ip_in_fd(fd, s->smack_ip_in) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %m");
+        if (s->smack_ip_in) {
+                r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %s", strerror(-r));
+        }
 
-        if (s->smack_ip_out)
-                if (mac_smack_apply_ip_out_fd(fd, s->smack_ip_out) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %m");
+        if (s->smack_ip_out) {
+                r = mac_smack_apply_ip_out_fd(fd, s->smack_ip_out);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %s", strerror(-r));
+        }
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
+        int r;
+
         assert(s);
         assert(fd >= 0);
 
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
-                        log_warning_unit(UNIT(s)->id,
-                                         "F_SETPIPE_SZ: %m");
+                        log_warning_unit(UNIT(s)->id, "F_SETPIPE_SZ: %m");
 
-        if (s->smack)
-                if (mac_smack_apply_fd(fd, s->smack) < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_fd: %m");
+        if (s->smack) {
+                r = mac_smack_apply_fd(fd, s->smack);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_fd: %s", strerror(-r));
+        }
 }
 
 static int fifo_address_create(
