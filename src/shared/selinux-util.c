@@ -169,7 +169,7 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
-        security_context_t mycon = NULL, fcon = NULL;
+        _cleanup_security_context_free_ security_context_t mycon = NULL, fcon = NULL;
         security_class_t sclass;
 
         if (!mac_selinux_use()) {
@@ -193,9 +193,6 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 fail:
         if (r < 0 && security_getenforce() == 1)
                 r = -errno;
-
-        freecon(mycon);
-        freecon(fcon);
 #endif
 
         return r;
@@ -313,7 +310,7 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
-        security_context_t filecon = NULL;
+        _cleanup_security_context_free_ security_context_t filecon = NULL;
 
         if (!mac_selinux_use() || !label_hnd)
                 return 0;
@@ -327,8 +324,6 @@ int mac_selinux_context_set(const char *path, mode_t mode) {
                         log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
-
-                freecon(filecon);
         }
 
         if (r < 0 && security_getenforce() == 0)
@@ -395,7 +390,7 @@ int mac_selinux_mkdir(const char *path, mode_t mode) {
 
 #ifdef HAVE_SELINUX
         /* Creates a directory and labels it according to the SELinux policy */
-        security_context_t fcon = NULL;
+        _cleanup_security_context_free_ security_context_t fcon = NULL;
 
         if (!label_hnd)
                 return 0;
@@ -430,7 +425,6 @@ int mac_selinux_mkdir(const char *path, mode_t mode) {
 
 finish:
         setfscreatecon(NULL);
-        freecon(fcon);
 #endif
 
         return r;
@@ -441,7 +435,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         /* Binds a socket and label its file system object according to the SELinux policy */
 
 #ifdef HAVE_SELINUX
-        security_context_t fcon = NULL;
+        _cleanup_security_context_free_ security_context_t fcon = NULL;
         const struct sockaddr_un *un;
         char *path;
         int r;
@@ -498,8 +492,6 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 finish:
         setfscreatecon(NULL);
-        freecon(fcon);
-
         return r;
 
 skipped:
