@@ -182,6 +182,76 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Setting up certificates for authentication</title>
+
+      <para>Certificates signed by a trusted authority are used to
+      verify that the server to which messages are uploaded is
+      legitimate, and vice versa, that the client is trusted.</para>
+
+      <para>A suitable set of certificates can be generated with
+      <command>openssl</command>:</para>
+
+      <programlisting>openssl req -newkey rsa:2048 -days 3650 -x509 -nodes \
+      -out ca.pem -keyout ca.key -subj '/CN=Certificate authority/'
+
+cat >ca.conf &lt;&lt;EOF
+[ ca ]
+default_ca = this
+
+[ this ]
+new_certs_dir = .
+certificate = ca.pem
+database = ./index
+private_key = ca.key
+serial = ./serial
+default_days = 3650
+default_md = default
+policy = policy_anything
+
+[ policy_anything ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+EOF
+
+touch index
+echo 0001 > serial
+
+SERVER=server
+CLIENT=client
+
+openssl req -newkey rsa:1024 -nodes -out $SERVER.csr -keyout $SERVER.key -subj "/CN=$SERVER/"
+openssl ca -batch -config ca.conf -notext -in $SERVER.csr -out $SERVER.pem
+
+openssl req -newkey rsa:1024 -nodes -out $CLIENT.csr -keyout $CLIENT.key -subj "/CN=$CLIENT/"
+openssl ca -batch -config ca.conf -notext -in $CLIENT.csr -out $CLIENT.pem
+</programlisting>
+
+      <para>Generated files <filename>ca.pem</filename>,
+      <filename>server.pem</filename>, and
+      <filename>server.key</filename> should be installed on server,
+      and <filename>ca.pem</filename>,
+      <filename>client.pem</filename>, and
+      <filename>client.key</filename> on the client. The location of
+      those files can be specified using
+      <varname>TrustedCertificateFile=</varname>,
+      <varname>ServerCertificateFile=</varname>,
+      <varname>ServerKeyFile=</varname>, in
+      <filename>/etc/systemd/journal-remote.conf</filename> and
+      <filename>/etc/systemd/journal-upload.conf</filename>
+      respectively. The default locations can be queried by using
+      <command>systemd-journal-remote --help</command> and
+      <command>systemd-journal-upload --help</command>.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
