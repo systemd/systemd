@@ -99,7 +99,7 @@
                         <manvolnum>5</manvolnum></citerefentry>, all
                         processes of the session are terminated. If
                         the last concurrent session of a user ends,
-                        ther user's systemd instance will be
+                        the user's systemd instance will be
                         terminated too, and so will the user's slice
                         unit.</para></listitem>
 
