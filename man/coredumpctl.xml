@@ -223,7 +223,7 @@
                 </example>
 
                 <example>
-                        <title>Show information about a process that dumped core</title>
+                        <title>Show information about a process that dumped core, matching by its PID 6654</title>
 
                         <programlisting># coredumpctl info 6654</programlisting>
                 </example>
