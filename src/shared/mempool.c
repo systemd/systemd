@@ -74,6 +74,15 @@ void* mempool_alloc_tile(struct mempool *mp) {
         return ((uint8_t*) mp->first_pool) + ALIGN(sizeof(struct pool)) + i*mp->tile_size;
 }
 
+void* mempool_alloc0_tile(struct mempool *mp) {
+        void *p;
+
+        p = mempool_alloc_tile(mp);
+        if (p)
+                memzero(p, mp->tile_size);
+        return p;
+}
+
 void mempool_free_tile(struct mempool *mp, void *p) {
         * (void**) p = mp->freelist;
         mp->freelist = p;
