@@ -35,7 +35,9 @@ static void free_chain(CalendarComponent *c) {
 }
 
 void calendar_spec_free(CalendarSpec *c) {
-        assert(c);
+
+        if (!c)
+                return;
 
         free_chain(c->year);
         free_chain(c->month);
