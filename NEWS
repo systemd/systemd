@@ -9,13 +9,13 @@ CHANGES WITH 217:
 
         * Services can notify the manager before they start a reload
           (by sending RELOADING=1) or shutdown (by sending
-          STOPPING=1). This allows the manager to show the
-          internal state of daemons and closes a race condition
-          when the process is still running but has closed its
-          d-bus connection.
+          STOPPING=1). This allows the manager to track and show the
+          internal state of daemons and closes a race condition when
+          the process is still running but has closed its d-bus
+          connection.
 
         * Services with Type=oneshot do not have to have any
-          ExecStart commands.
+          ExecStart commands anymore.
 
         * User units are now loaded also from
           $XDG_RUNTIME_DIR/systemd/user/. This is similar to the
@@ -57,7 +57,7 @@ CHANGES WITH 217:
 
         * Udev rules can now remove tags with TAG-="foobar".
 
-        * Readhead implementation has been removed. In many
+        * systemd's readahead implementation has been removed. In many
           circumstatances it didn't give expected benefits even for
           rotational disk drives and was becoming less relevant in the
           age of SSDs.
@@ -85,6 +85,22 @@ CHANGES WITH 217:
           Downstream distributions may override this choice. On 10Gbit
           servers that do not do forwarding, "fq" may perform better.
           Systems without a good clocksource should use "pfifo_fast".
+
+        * If kdbus is enabled during build a new option BusPolicy= is
+          available for service units, that allows locking all service
+          processes into a stricter bus policy, in order to limit
+          access to various bus services, or even hide most of them
+          from the service's view entirely.
+
+        * networkctl will now show the .network and .link file
+          networkd has applied to a specific interface.
+
+        * sd-login gained a new API call sd_session_get_desktop() to
+          query which desktop environment has been selected for a
+          session.
+
+        * UNIX utmp support is now compile-time optional to support
+          legacy-free systems.
 
 CHANGES WITH 216:
 
