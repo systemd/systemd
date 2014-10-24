@@ -720,9 +720,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(m->server_socket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
-        if (r < 0)
-                return -errno;
+        (void) setsockopt(m->server_socket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
