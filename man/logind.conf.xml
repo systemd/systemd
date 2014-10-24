@@ -332,7 +332,7 @@
                                 when the user fully logs out. Takes a
                                 boolean argument. If enabled, the user
                                 may not consume IPC resources after
-                                the last of his sessions
+                                the last of the user's sessions
                                 terminated. This covers System V
                                 semaphores, shared memory and message
                                 queues, as well as POSIX shared memory
