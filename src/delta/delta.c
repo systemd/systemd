@@ -159,7 +159,7 @@ static int notify_override_unchanged(const char *f) {
 
 static int found_override(const char *top, const char *bottom) {
         _cleanup_free_ char *dest = NULL;
-        int k, r;
+        int k;
         pid_t pid;
 
         assert(top);
@@ -194,10 +194,7 @@ static int found_override(const char *top, const char *bottom) {
                 _exit(1);
         }
 
-        r = wait_for_terminate(pid, NULL);
-        if (r < 0)
-                log_warning("Failed to wait for diff: %s", strerror(-r));
-
+        wait_for_terminate_and_warn("diff", pid);
         putchar('\n');
 
         return k;
