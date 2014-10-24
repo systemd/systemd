@@ -1166,12 +1166,7 @@ int main(int argc, char *argv[]) {
                 sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         if (is_unix) {
-                r = getpeercred(in_fd, &ucred);
-                if (r < 0) {
-                        log_error("Failed to get peer creds: %s", strerror(-r));
-                        goto finish;
-                }
-
+                (void) getpeercred(in_fd, &ucred);
                 (void) getpeersec(in_fd, &peersec);
         }
 
