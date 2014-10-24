@@ -673,9 +673,9 @@ int main(int argc, char* argv[]) {
 
         /* Now, let's drop privileges to become the user who owns the
          * segfaulted process and allocate the coredump memory under
-         * his uid. This also ensures that the credentials journald
-         * will see are the ones of the coredumping user, thus making
-         * sure the user himself gets access to the core dump. */
+         * the user's uid. This also ensures that the credentials
+         * journald will see are the ones of the coredumping user,
+         * thus making sure the user gets access to the core dump. */
         if (setresgid(gid, gid, gid) < 0 ||
             setresuid(uid, uid, uid) < 0) {
                 log_error("Failed to drop privileges: %m");
