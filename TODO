@@ -1,13 +1,14 @@
 Fixes needed before 217:
 
+* sd_session_get_desktop() yells at me?
+
 * change startup timeout to not cover the full bootup, but only sysinit part (see below)
 
 * remove Discard= in .mount units and replace it by Options=, to prepare for later swapon fix
 
-Bugfixes:
+* verify that both resolved and timesyncd work OK without networkd around
 
-* Re-enable "fsck -l" when it is ready:
-   https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
+Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
 
@@ -17,19 +18,15 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-After killing 'systemd --user', systemctl restart user@... fails.
-/run/user/1000/systemd/notify has to be removed manually.
-
-ExecStart with unicode characters fails in strv_split_quoted:
+* ExecStart with unicode characters fails in strv_split_quoted:
 
           [Service]
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-MEMORY return code is overloaded for syntax errors in the commandline.
-str_split_quoted() should return a real return code, so spawn_child can
-report the failure properly.
-
+* MEMORY return code is overloaded for syntax errors in the commandline.
+  str_split_quoted() should return a real return code, so spawn_child can
+  report the failure properly.
 
 External:
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
