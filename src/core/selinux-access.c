@@ -142,7 +142,7 @@ static int access_init(void) {
         return r;
 }
 
-static int selinux_access_init(sd_bus_error *error) {
+static int mac_selinux_access_init(sd_bus_error *error) {
         int r;
 
         if (initialized)
@@ -158,14 +158,17 @@ static int selinux_access_init(sd_bus_error *error) {
         initialized = true;
         return 0;
 }
+#endif
 
-void selinux_access_free(void) {
+void mac_selinux_access_free(void) {
 
+#ifdef HAVE_SELINUX
         if (!initialized)
                 return;
 
         avc_destroy();
         initialized = false;
+#endif
 }
 
 /*
@@ -174,12 +177,13 @@ void selinux_access_free(void) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int selinux_generic_access_check(
+int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
                 sd_bus_error *error) {
 
+#ifdef HAVE_SELINUX
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
         struct audit_info audit_info = {};
@@ -195,7 +199,7 @@ int selinux_generic_access_check(
         if (!mac_selinux_use())
                 return 0;
 
-        r = selinux_access_init(error);
+        r = mac_selinux_access_init(error);
         if (r < 0)
                 return r;
 
@@ -254,13 +258,17 @@ finish:
         }
 
         return r;
+#else
+        return 0;
+#endif
 }
 
-int selinux_unit_access_check_strv(char **units,
+int mac_selinux_unit_access_check_strv(char **units,
                                 sd_bus_message *message,
                                 Manager *m,
                                 const char *permission,
                                 sd_bus_error *error) {
+#ifdef HAVE_SELINUX
         char **i;
         Unit *u;
         int r;
@@ -268,35 +276,11 @@ int selinux_unit_access_check_strv(char **units,
         STRV_FOREACH(i, units) {
                 u = manager_get_unit(m, *i);
                 if (u) {
-                        r = selinux_unit_access_check(u, message, permission, error);
+                        r = mac_selinux_unit_access_check(u, message, permission, error);
                         if (r < 0)
                                 return r;
                 }
         }
-
-        return 0;
-}
-
-#else
-
-int selinux_generic_access_check(
-                sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
-
-        return 0;
-}
-
-void selinux_access_free(void) {
-}
-
-int selinux_unit_access_check_strv(char **units,
-                                sd_bus_message *message,
-                                Manager *m,
-                                const char *permission,
-                                sd_bus_error *error) {
-        return 0;
-}
-
 #endif
+        return 0;
+}

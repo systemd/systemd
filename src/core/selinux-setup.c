@@ -43,7 +43,7 @@ static int null_log(int type, const char *fmt, ...) {
 }
 #endif
 
-int selinux_setup(bool *loaded_policy) {
+int mac_selinux_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SELINUX
         int enforce = 0;

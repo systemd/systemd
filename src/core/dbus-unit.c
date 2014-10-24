@@ -443,7 +443,7 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
                 return r;
 
@@ -468,7 +468,7 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = selinux_unit_access_check(u, message, "reload", error);
+        r = mac_selinux_unit_access_check(u, message, "reload", error);
         if (r < 0)
                 return r;
 
@@ -495,7 +495,7 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
         if (r < 0)
                 return r;
 
-        r = selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
 
@@ -757,7 +757,7 @@ int bus_unit_queue_job(
                         type = JOB_RELOAD;
         }
 
-        r = selinux_unit_access_check(
+        r = mac_selinux_unit_access_check(
                         u, message,
                         (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
                         type == JOB_STOP ? "stop" : "reload", error);

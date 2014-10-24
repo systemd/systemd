@@ -33,7 +33,7 @@ int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userd
         assert(message);
         assert(s);
 
-        r = selinux_unit_access_check(UNIT(s), message, "stop", error);
+        r = mac_selinux_unit_access_check(UNIT(s), message, "stop", error);
         if (r < 0)
                 return r;
 

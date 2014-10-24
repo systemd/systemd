@@ -116,7 +116,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
 
 #endif
 
-int smack_setup(bool *loaded_policy) {
+int mac_smack_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SMACK
 

@@ -211,7 +211,7 @@ failed:
 }
 
 #ifdef HAVE_SELINUX
-static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int mac_selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *verb, *path;
         Unit *u = NULL;
@@ -239,7 +239,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
 
-                r = selinux_access_check(message, verb, error);
+                r = mac_selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
 
@@ -270,7 +270,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (!u)
                 return 0;
 
-        r = selinux_unit_access_check(u, message, verb, error);
+        r = mac_selinux_unit_access_check(u, message, verb, error);
         if (r < 0)
                 return r;
 
@@ -536,7 +536,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         assert(bus);
 
 #ifdef HAVE_SELINUX
-        r = sd_bus_add_filter(bus, NULL, selinux_filter, m);
+        r = sd_bus_add_filter(bus, NULL, mac_selinux_filter, m);
         if (r < 0) {
                 log_error("Failed to add SELinux access filter: %s", strerror(-r));
                 return r;

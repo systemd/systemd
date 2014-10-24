@@ -1293,11 +1293,11 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup) {
                         mount_setup_early();
                         dual_timestamp_get(&security_start_timestamp);
-                        if (selinux_setup(&loaded_policy) < 0)
+                        if (mac_selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)
                                 goto finish;
-                        if (smack_setup(&loaded_policy) < 0)
+                        if (mac_smack_setup(&loaded_policy) < 0)
                                 goto finish;
                         dual_timestamp_get(&security_finish_timestamp);
                 }

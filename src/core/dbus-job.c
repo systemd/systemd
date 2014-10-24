@@ -80,7 +80,7 @@ int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = selinux_unit_access_check(j->unit, message, "stop", error);
+        r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
         if (r < 0)
                 return r;
 
