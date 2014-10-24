@@ -1,3 +1,9 @@
+Fixes needed before 217:
+
+* change startup timeout to not cover the full bootup, but only sysinit part (see below)
+
+* remove Discard= in .mount units and replace it by Options=, to prepare for later swapon fix
+
 Bugfixes:
 
 * Re-enable "fsck -l" when it is ready:
