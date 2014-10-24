@@ -296,8 +296,14 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         assert(buf);
         assert(l > 0);
 
-        if (t == USEC_INFINITY || t <= 0) {
-                strncpy(p, t == USEC_INFINITY ? "infinity" : "0", l);
+        if (t == USEC_INFINITY) {
+                strncpy(p, "infinity", l-1);
+                p[l-1] = 0;
+                return p;
+        }
+
+        if (t <= 0) {
+                strncpy(p, "0", l-1);
                 p[l-1] = 0;
                 return p;
         }
