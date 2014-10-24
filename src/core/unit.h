@@ -127,12 +127,6 @@ struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
-        /* Counterparts in the cgroup filesystem */
-        char *cgroup_path;
-        CGroupControllerMask cgroup_realized_mask;
-        CGroupControllerMask cgroup_subtree_mask;
-        CGroupControllerMask cgroup_members_mask;
-
         UnitRef slice;
 
         /* Per type list */
@@ -176,6 +170,15 @@ struct Unit {
         /* Cached unit file state */
         UnitFileState unit_file_state;
 
+        /* Counterparts in the cgroup filesystem */
+        char *cgroup_path;
+        CGroupControllerMask cgroup_realized_mask;
+        CGroupControllerMask cgroup_subtree_mask;
+        CGroupControllerMask cgroup_members_mask;
+
+        /* How to start OnFailure units */
+        JobMode on_failure_job_mode;
+
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
@@ -190,9 +193,6 @@ struct Unit {
 
         /* Allow isolation requests */
         bool allow_isolate;
-
-        /* How to start OnFailure units */
-        JobMode on_failure_job_mode;
 
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
