@@ -323,7 +323,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                 /* set the defaults */
                 if (!selinux)
-                        label_fix(devnode, true, false);
+                        mac_selinux_fix(devnode, true, false);
                 if (!smack)
                         mac_smack_apply(devnode, NULL);
         }
