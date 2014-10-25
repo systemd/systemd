@@ -1063,14 +1063,6 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
-have_multi_seat_x=no
-AC_ARG_ENABLE(multi_seat_x, AS_HELP_STRING([--disable-multi-seat-x], [do not build multi-seat-x]))
-if test "x$enable_multi_seat_x" != "xno"; then
-        have_multi_seat_x=yes
-fi
-AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_terminal=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
@@ -1378,7 +1370,6 @@ AC_MSG_RESULT([
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
-        multi-seat-x:            ${have_multi_seat_x}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}

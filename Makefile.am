@@ -5400,20 +5400,6 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.login1.busname
 
-if ENABLE_MULTI_SEAT_X
-
-systemd_multi_seat_x_SOURCES = \
-	src/login/multi-seat-x.c
-
-systemd_multi_seat_x_LDADD = \
-	libsystemd-label.la \
-	libsystemd-shared.la
-
-rootlibexec_PROGRAMS += \
-	systemd-multi-seat-x
-
-endif
-
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules \
 	src/login/70-power-switch.rules

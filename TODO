@@ -98,8 +98,6 @@ Features:
 
 * maybe introduce AssertXYZ= similar to ConditionXYZ= that causes a unit to fail (instead of skipping it) if some condition is not true...
 
-* remove multi-seat-x now
-
 * refcounting in sd-resolve is borked
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server

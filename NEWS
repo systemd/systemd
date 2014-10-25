@@ -142,6 +142,12 @@ CHANGES WITH 217:
           occur. Again: you need to update util-linux to at least
           v2.25 when updating systemd to v217.
 
+        * The "multi-seat-x" tool has been removed from systemd, as
+          its functionality has been integrated into X servers 1.16,
+          and the tool is hence redundant. It is recommended to update
+          display managers invoking this tool to simply invoke X
+          directly from now on, again.
+
 CHANGES WITH 216:
 
         * timedated no longer reads NTP implementation unit names from
