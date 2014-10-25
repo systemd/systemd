@@ -1679,7 +1679,7 @@ int unit_file_disable(
         r = install_context_mark_for_removal(&c, &paths, &remove_symlinks_to, config_path, root_dir);
 
         q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
-        if (r == 0)
+        if (r >= 0)
                 r = q;
 
         return r;
