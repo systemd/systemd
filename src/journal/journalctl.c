@@ -194,7 +194,7 @@ static void help(void) {
                "     --user                Show the user journal for the current user\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --since=DATE          Start showing entries on or newer than the specified date\n"
-               "     --until=DATE          Stop showing entries on or older than the specified date\n"
+               "     --until=DATE          Stop showing entries on or newer than the specified date\n"
                "  -c --cursor=CURSOR       Start showing entries from the specified cursor\n"
                "     --after-cursor=CURSOR Start showing entries from after the specified cursor\n"
                "     --show-cursor         Print the cursor after all the entries\n"
