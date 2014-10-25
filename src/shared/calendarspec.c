@@ -688,7 +688,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-        } else if (strcaseeq(p, "anually") || strcaseeq(p, "yearly")) {
+        } else if (strcaseeq(p, "annually") || strcaseeq(p, "yearly")
+                   || strcaseeq(p, "anually") /* backwards compatibility */ ) {
                 r = const_chain(1, &c->month);
                 if (r < 0)
                         goto fail;
