@@ -344,15 +344,6 @@ static int link_stop_clients(Link *link) {
                 }
         }
 
-        if (link->dhcp_server) {
-                k = sd_dhcp_server_stop(link->dhcp_server);
-                if (k < 0) {
-                        log_warning_link(link, "Could not stop DHCPv4 server: %s",
-                                         strerror(-r));
-                        r = k;
-                }
-        }
-
         if(link->icmp6_router_discovery) {
 
                 if (link->dhcp6_client) {
