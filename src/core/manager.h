@@ -265,6 +265,11 @@ struct Manager {
         unsigned n_on_console;
         unsigned jobs_in_progress_iteration;
 
+        /* Do we have any outstanding password prompts? */
+        int have_ask_password;
+        int ask_password_inotify_fd;
+        sd_event_source *ask_password_event_source;
+
         /* Type=idle pipes */
         int idle_pipe[4];
         sd_event_source *idle_pipe_event_source;
