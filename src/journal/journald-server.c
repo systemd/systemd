@@ -919,7 +919,7 @@ finish:
 }
 
 
-static int system_journal_open(Server *s) {
+static int system_journal_open(Server *s, bool flush_requested) {
         int r;
         char *fn;
         sd_id128_t machine;
@@ -935,7 +935,8 @@ static int system_journal_open(Server *s) {
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
-            access("/run/systemd/journal/flushed", F_OK) >= 0) {
+            (flush_requested
+             || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
@@ -1029,7 +1030,7 @@ int server_flush_to_var(Server *s) {
         if (!s->runtime_journal)
                 return 0;
 
-        system_journal_open(s);
+        system_journal_open(s, true);
 
         if (!s->system_journal)
                 return 0;
@@ -1586,7 +1587,7 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        r = system_journal_open(s);
+        r = system_journal_open(s, false);
         if (r < 0)
                 return r;
 
