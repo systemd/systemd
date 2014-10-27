@@ -210,7 +210,12 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         device node is to be created,
                                         it will be removed and be
                                         replaced by the device
-                                        node.</para></listitem>
+                                        node. It is recommended to suffix this
+                                        entry with an exclamation mark to only
+                                        create static device nodes at boot,
+                                        as udev will not manage static device
+                                        nodes that are created at runtime.
+                                        </para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -224,7 +229,12 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         device node is to be created,
                                         it will be removed and be
                                         replaced by the device
-                                        node.</para></listitem>
+                                        node. It is recommended to suffix this
+                                        entry with an exclamation mark to only
+                                        create static device nodes at boot,
+                                        as udev will not manage static device
+                                        nodes that are created at runtime.
+                                        </para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
