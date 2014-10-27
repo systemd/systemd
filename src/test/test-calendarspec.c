@@ -77,6 +77,10 @@ int main(int argc, char* argv[]) {
         test_one("daily", "*-*-* 00:00:00");
         test_one("monthly", "*-*-01 00:00:00");
         test_one("weekly", "Mon *-*-* 00:00:00");
+        test_one("minutely", "*-*-* *:*:00");
+        test_one("quarterly", "*-01,04,07,10-01 00:00:00");
+        test_one("semi-annually", "*-01,07-01 00:00:00");
+        test_one("annually", "*-01-01 00:00:00");
         test_one("*:2/3", "*-*-* *:02/3:00");
 
         assert_se(calendar_spec_from_string("test", &c) < 0);

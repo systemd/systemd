@@ -474,7 +474,7 @@ static int const_chain(int value, CalendarComponent **c) {
 
         cc->value = value;
         cc->repeat = 0;
-        cc->next = NULL;
+        cc->next = *c;
 
         *c = cc;
 
@@ -693,8 +693,10 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-        } else if (strcaseeq(p, "annually") || strcaseeq(p, "yearly")
-                   || strcaseeq(p, "anually") /* backwards compatibility */ ) {
+        } else if (strcaseeq(p, "annually") ||
+                   strcaseeq(p, "yearly") ||
+                   strcaseeq(p, "anually") /* backwards compatibility */ ) {
+
                 r = const_chain(1, &c->month);
                 if (r < 0)
                         goto fail;
@@ -715,6 +717,57 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
 
                 c->weekdays_bits = 1;
 
+                r = const_chain(0, &c->hour);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->minute);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->second);
+                if (r < 0)
+                        goto fail;
+
+        } else if (strcaseeq(p, "quarterly")) {
+
+                r = const_chain(1, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(4, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(7, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(10, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(1, &c->day);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->hour);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->minute);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->second);
+                if (r < 0)
+                        goto fail;
+
+        } else if (strcaseeq(p, "biannually") ||
+                   strcaseeq(p, "bi-annually") ||
+                   strcaseeq(p, "semiannually") ||
+                   strcaseeq(p, "semi-annually")) {
+
+                r = const_chain(1, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(7, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(1, &c->day);
+                if (r < 0)
+                        goto fail;
                 r = const_chain(0, &c->hour);
                 if (r < 0)
                         goto fail;
