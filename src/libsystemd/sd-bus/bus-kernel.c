@@ -575,8 +575,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_CAPS:
-                        m->creds.capability = d->data;
-                        m->creds.capability_size = l;
+                        m->creds.capability = (uint8_t *) d->caps.caps;
+                        m->creds.capability_size = d->size - offsetof(struct kdbus_item, caps.caps);
                         m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
                         break;
 

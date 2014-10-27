@@ -495,8 +495,8 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                              SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
 
                         if (m) {
-                                c->capability_size = item->size - KDBUS_ITEM_HEADER_SIZE;
-                                c->capability = memdup(item->data, c->capability_size);
+                                c->capability_size = item->size - offsetof(struct kdbus_item, caps.caps);
+                                c->capability = memdup(item->caps.caps, c->capability_size);
                                 if (!c->capability)
                                         return -ENOMEM;
 

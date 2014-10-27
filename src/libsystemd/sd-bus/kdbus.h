@@ -1,18 +1,8 @@
 /*
- * Copyright (C) 2013-2014 Kay Sievers
- * Copyright (C) 2013-2014 Greg Kroah-Hartman <gregkh@linuxfoundation.org>
- * Copyright (C) 2013-2014 Linux Foundation
- * Copyright (C) 2013-2014 Lennart Poettering
- * Copyright (C) 2013-2014 Daniel Mack <daniel@zonque.org>
- * Copyright (C) 2013-2014 David Herrmann <dh.herrmann@gmail.com>
- *
  * kdbus is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the
  * Free Software Foundation; either version 2.1 of the License, or (at
  * your option) any later version.
- *
- * "Everything should be made as simple as possible, but not simpler."
- *   -- Albert Einstein
  */
 
 #ifndef _KDBUS_UAPI_H_
@@ -87,6 +77,21 @@ struct kdbus_creds {
 	__u64 pid;
 	__u64 tid;
 	__u64 starttime;
+};
+
+/**
+ * struct kdbus_caps - process capabilities
+ * @last_cap:	Highest currently known capability bit
+ * @caps:	Variable number of 32-bit capabilities flags
+ *
+ * Contains a variable number of 32-bit capabilities flags.
+ *
+ * Attached to:
+ *   KDBUS_ITEM_CAPS
+ */
+struct kdbus_caps {
+	__u32 last_cap;
+	__u32 caps[0];
 };
 
 /**
@@ -322,6 +327,7 @@ struct kdbus_item {
 		struct kdbus_vec vec;
 		struct kdbus_creds creds;
 		struct kdbus_audit audit;
+		struct kdbus_caps caps;
 		struct kdbus_timestamp timestamp;
 		struct kdbus_name name;
 		struct kdbus_bloom_parameter bloom_parameter;
@@ -731,8 +737,9 @@ struct kdbus_name_list {
  * @offset:		Returned offset in the caller's pool buffer where the
  *			kdbus_info struct result is stored. The user must
  *			use KDBUS_CMD_FREE to free the allocated memory.
- * @name:		The optional well-known name to look up. Only needed in
- *			case @id is zero.
+ * @items:		The optional item list, containing the
+ *			well-known name to look up as a KDBUS_ITEM_NAME.
+ *			Only needed in case @id is zero.
  *
  * On success, the KDBUS_CMD_CONN_INFO ioctl will return 0 and @offset will
  * tell the user the offset in the connection pool buffer at which to find the
@@ -748,10 +755,10 @@ struct kdbus_cmd_info {
 } __attribute__((aligned(8)));
 
 /**
- * struct kdbus_info - information returned by KDBUS_CMD_CONN_INFO
+ * struct kdbus_info - information returned by KDBUS_CMD_*_INFO
  * @size:		The total size of the struct
- * @id:			The connection's 64-bit ID
- * @flags:		The connection's flags
+ * @id:			The connection's or bus' 64-bit ID
+ * @flags:		The connection's or bus' flags
  * @items:		A list of struct kdbus_item
  *
  * Note that the user is responsible for freeing the allocated memory with
@@ -800,8 +807,8 @@ enum kdbus_cmd_match_flags {
  * @kernel_flags:	Supported flags of the used command, kernel → userspace
  * @items:		A list of items for additional information
  *
- * This structure is used with the KDBUS_CMD_ADD_MATCH and
- * KDBUS_CMD_REMOVE_MATCH ioctl.
+ * This structure is used with the KDBUS_CMD_MATCH_ADD and
+ * KDBUS_CMD_MATCH_REMOVE ioctl.
  */
 struct kdbus_cmd_match {
 	__u64 size;
