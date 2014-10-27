@@ -1380,9 +1380,10 @@ static void chain_cache_put(
                 if (array == first)
                         return;
 
-                if (ordered_hashmap_size(h) >= CHAIN_CACHE_MAX)
+                if (ordered_hashmap_size(h) >= CHAIN_CACHE_MAX) {
                         ci = ordered_hashmap_steal_first(h);
-                else {
+                        assert(ci);
+                } else {
                         ci = new(ChainCacheItem, 1);
                         if (!ci)
                                 return;
