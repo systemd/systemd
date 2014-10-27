@@ -7189,7 +7189,7 @@ int sethostname_idempotent(const char *s) {
         if (streq(buf, s))
                 return 0;
 
-        r = sethostname(buf, strlen(buf));
+        r = sethostname(s, strlen(s));
         if (r < 0)
                 return -errno;
 
