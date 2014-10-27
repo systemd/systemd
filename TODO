@@ -8,6 +8,8 @@ Fixes needed before 217:
 
 * verify that both resolved and timesyncd work OK without networkd around
 
+* push out allow-interactive-auth flag into dbus spec
+
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
