@@ -2,31 +2,31 @@ systemd System and Service Manager
 
 CHANGES WITH 217:
 
-        * journalctl gained option -t/--identifier to match on the
-          syslog identifier and --utc option to show timestamps in UTC
-          timezone. journalctl now also accepts -n/--lines=all to
-          disable line cap under a pager.
+        * journalctl gained the new options -t/--identifier= to match
+          on the syslog identifier (aka "tag"), as well as --utc to
+          show log timestamps in the UTC timezone. journalctl now also
+          accepts -n/--lines=all to disable line capping in a pager.
 
         * Services can notify the manager before they start a reload
           (by sending RELOADING=1) or shutdown (by sending
           STOPPING=1). This allows the manager to track and show the
           internal state of daemons and closes a race condition when
-          the process is still running but has closed its d-bus
+          the process is still running but has closed its D-Bus
           connection.
 
-        * Services with Type=oneshot do not have to have any
-          ExecStart commands anymore.
+        * Services with Type=oneshot do not have to have any ExecStart
+          commands anymore.
 
         * User units are now loaded also from
           $XDG_RUNTIME_DIR/systemd/user/. This is similar to the
           /run/systemd/user directory that was already previously
           supported, but is under the control of the user.
 
-        * A timeout for the start of the system can be configured. The
-          system can be configured to reboot or poweroff if the basic
-          system default target is not reached before the timeout (new
-          StartTimeoutSec=, StartTimeoutAction=,
-          StartTimeoutRebootArgument= options).
+        * A timeout for the bootup of the whole system can now be
+          configured. The system can be configured to reboot or
+          poweroff if the basic system default target is not reached
+          before the timeout (new StartTimeoutSec=,
+          StartTimeoutAction=, StartTimeoutRebootArgument= options).
 
         * systemd-logind can be configured to also handle lid switch
           events even when the machine is docked or multiple displays
@@ -37,15 +37,16 @@ CHANGES WITH 217:
           generator will parse the resume= option on the kernel
           command-line to trigger resume.
 
-        * A user console daemon systemd-consoled has been added. It is
-          a preview, and will so far open a single terminal on each
-          session of the user marked as Desktop=SYSTEMD-CONSOLE.
+        * A user console daemon systemd-consoled has been
+          added. Currently, it is a preview, and will so far open a
+          single terminal on each session of the user marked as
+          Desktop=SYSTEMD-CONSOLE.
 
         * Route metrics can be specified for DHCP routes added by
           systemd-networkd.
 
-        * SELinux context of socket-actived services can be set from
-          the information provided by the remote peer
+        * The SELinux context of socket-actived services can be set
+          from the information provided by the networking stack
           (SELinuxContextFromNet= option).
 
         * Userspace firmware loading support has been removed and
@@ -55,12 +56,14 @@ CHANGES WITH 217:
           minutes, but a warning will be printed after 1 minute to
           help diagnose kernel modules that take a long time to load.
 
-        * Udev rules can now remove tags with TAG-="foobar".
+        * Udev rules can now remove tags on devices with TAG-="foobar".
 
         * systemd's readahead implementation has been removed. In many
           circumstatances it didn't give expected benefits even for
           rotational disk drives and was becoming less relevant in the
-          age of SSDs.
+          age of SSDs. As none of the developers has been using
+          rotating media anymore, and nobody stepped up to actively
+          maintain this component of systemd it has now been removed.
 
         * Swap units can use Discard= to specify discard options.
           Discard options specified for swaps in /etc/fstab are now
@@ -71,8 +74,8 @@ CHANGES WITH 217:
 
         * The Password Agent protocol gained support for queries where
           the user input is shown, useful e.g. for usernames.
-          systemd-ask-password gained a new --echo option to turn
-          that on.
+          systemd-ask-password gained a new --echo option to turn that
+          on.
 
         * The default sysctl.d/ snippets will now set:
 
@@ -101,6 +104,32 @@ CHANGES WITH 217:
 
         * UNIX utmp support is now compile-time optional to support
           legacy-free systems.
+
+        * systemctl gained two new commands "add-wants" and
+          "add-requires" for pulling in units from specific targets
+          easily.
+
+        * If the word "rescue" is specified on the kernel command line
+          the system will now boot into rescue mode (aka
+          rescue.target), which was previously available only by
+          specifying "1" or "systemd.unit=rescue.target" on the kernel
+          command line. This new kernel command line option nicely
+          mirrors the already existing "emergency" kernel command line
+          option.
+
+        * New kernel command line options mount.usr=, mount.usrflags=,
+          usrfstype= have been added that match root=, rootflags=,
+          rootfstype= but allow mounting a specific file system to
+          /usr.
+
+        * The $NOTIFY_SOCKET is now also passed to control processesof
+          services, not only the main process.
+
+        * This version reenables support for fsck's -l switch. This
+          means at least version v2.25 of util-linux is required for
+          operation, otherwise dead-locks on device nodes may
+          occur. Again: you need to update util-linux to at least
+          v2.25 when updating systemd to v217.
 
 CHANGES WITH 216:
 
