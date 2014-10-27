@@ -30,6 +30,7 @@
 #include "list.h"
 #include "mkdir.h"
 #include "fileio.h"
+#include "in-addr-util.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -803,27 +804,20 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
 }
 
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
-        uint32_t address;
+        struct in_addr address;
+        struct in_addr mask;
+        int r;
 
         assert(lease);
-        assert(lease->address != INADDR_ANY);
 
-        address = be32toh(lease->address);
+        address.s_addr = lease->address;
 
         /* fall back to the default subnet masks based on address class */
+        r = in_addr_default_subnet_mask(&address, &mask);
+        if (r < 0)
+                return r;
 
-        if ((address >> 31) == 0x0)
-                /* class A, leading bits: 0 */
-                lease->subnet_mask = htobe32(0xff000000);
-        else if ((address >> 30) == 0x2)
-                /* class B, leading bits 10 */
-                lease->subnet_mask = htobe32(0xffff0000);
-        else if ((address >> 29) == 0x6)
-                /* class C, leading bits 110 */
-                lease->subnet_mask = htobe32(0xffffff00);
-        else
-                /* class D or E, no default mask. give up */
-                return -ERANGE;
+        lease->subnet_mask = mask.s_addr;
 
         return 0;
 }

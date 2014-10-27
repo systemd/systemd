@@ -40,6 +40,8 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
 int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *ret);
 unsigned in_addr_netmask_to_prefixlen(const struct in_addr *addr);
+int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
+int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
 
 static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         assert(family == AF_INET || family == AF_INET6);

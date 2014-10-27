@@ -248,3 +248,46 @@ unsigned in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
 
         return 32 - u32ctz(be32toh(addr->s_addr));
 }
+
+int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
+        uint32_t address;
+
+        assert(addr);
+        assert(addr->s_addr != INADDR_ANY);
+        assert(prefixlen);
+
+        address = be32toh(addr->s_addr);
+
+        if ((address >> 31) == 0x0)
+                /* class A, leading bits: 0 */
+                *prefixlen = 8;
+        else if ((address >> 30) == 0x2)
+                /* class B, leading bits 10 */
+                *prefixlen = 16;
+        else if ((address >> 29) == 0x6)
+                /* class C, leading bits 110 */
+                *prefixlen = 24;
+        else
+                /* class D or E, no default prefixlen */
+                return -ERANGE;
+
+        return 0;
+}
+
+int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask) {
+        unsigned char prefixlen;
+        int r;
+
+        assert(addr);
+        assert(mask);
+
+        r = in_addr_default_prefixlen(addr, &prefixlen);
+        if (r < 0)
+                return r;
+
+        assert(prefixlen > 0 && prefixlen < 32);
+
+        mask->s_addr = htobe32((0xffffffff << (32 - prefixlen)) & 0xffffffff);
+
+        return 0;
+}
