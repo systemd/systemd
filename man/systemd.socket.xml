@@ -678,7 +678,7 @@
                         <varlistentry>
                           <term><varname>SELinuxContextFromNet=</varname></term>
                                  <listitem><para>Takes a boolean
-                                 argument. When true systemd will attempt
+                                 argument. When true, systemd will attempt
                                  to figure out the SELinux label used
                                  for the instantiated service from the
                                  information handed by the peer over the
@@ -688,9 +688,9 @@
                                  the resulting SELinux context originate
                                  from either the target binary that is
                                  effectively triggered by socket unit
-                                 are taken from the value of the
+                                 or from the value of the
                                  <varname>SELinuxContext=</varname>
-                                 option.This configuration option only
+                                 option. This configuration option only
                                  affects sockets with
                                  <varname>Accept=</varname> mode set to
                                  <literal>true</literal>. Also note that
