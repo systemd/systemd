@@ -58,8 +58,6 @@ Features:
 
 * send SIGABRT when a service watchdog is triggered, by default, so that we acquire a backtrace of the hang.
 
-* shouldn't RouteMetric= in networkd's [DHCP] section move to [Network]?
-
 * dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
 
 * maybe allow timer units with an empty Units= setting, so that they
