@@ -482,7 +482,7 @@ int config_parse_address(const char *unit,
                 r = safe_atou(e + 1, &i);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Interface prefix length is invalid, ignoring assignment: %s", e + 1);
+                                   "Prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
 
@@ -497,6 +497,15 @@ int config_parse_address(const char *unit,
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Address is invalid, ignoring assignment: %s", address);
                 return 0;
+        }
+
+        if (!e && f == AF_INET) {
+                r = in_addr_default_prefixlen(&buffer.in, &n->prefixlen);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Prefix length not specified, and a default one can not be deduced for '%s', ignoring assignment", address);
+                        return 0;
+                }
         }
 
         if (n->family != AF_UNSPEC && f != n->family) {
