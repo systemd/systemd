@@ -655,7 +655,12 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!c)
                 return -ENOMEM;
 
-        if (strcaseeq(p, "hourly")) {
+        if (strcaseeq(p, "minutely")) {
+                r = const_chain(0, &c->second);
+                if (r < 0)
+                        goto fail;
+
+        } else if (strcaseeq(p, "hourly")) {
                 r = const_chain(0, &c->minute);
                 if (r < 0)
                         goto fail;
