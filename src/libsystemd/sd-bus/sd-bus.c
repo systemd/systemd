@@ -1157,13 +1157,13 @@ int bus_set_address_user(sd_bus *b) {
                         return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-                asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, getuid(), ee);
+                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, getuid(), ee);
 #else
-                asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
+                (void) asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
 #endif
         } else {
 #ifdef ENABLE_KDBUS
-                asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
+                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
 #else
                 return -ECONNREFUSED;
 #endif
