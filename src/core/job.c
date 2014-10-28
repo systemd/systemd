@@ -858,14 +858,18 @@ finish:
 
 static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *userdata) {
         Job *j = userdata;
+        Unit *u;
 
         assert(j);
         assert(s == j->timer_event_source);
 
-        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
-                         j->unit->id, job_type_to_string(j->type));
+        log_warning_unit(j->unit->id, "Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
 
+        u = j->unit;
         job_finish_and_invalidate(j, JOB_TIMEOUT, true);
+
+        failure_action(u->manager, u->job_timeout_action, u->job_timeout_reboot_arg);
+
         return 0;
 }
 

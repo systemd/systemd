@@ -520,6 +520,8 @@ void unit_free(Unit *u) {
         strv_free(u->dropin_paths);
         free(u->instance);
 
+        free(u->job_timeout_reboot_arg);
+
         set_free_free(u->names);
 
         unit_unwatch_all_pids(u);
@@ -920,6 +922,12 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->job_timeout > 0)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
+
+        if (u->job_timeout_action != FAILURE_ACTION_NONE)
+                fprintf(f, "%s\tJob Timeout Action: %s\n", prefix, failure_action_to_string(u->job_timeout_action));
+
+        if (u->job_timeout_reboot_arg)
+                fprintf(f, "%s\tJob Timeout Reboot Argument: %s\n", prefix, u->job_timeout_reboot_arg);
 
         condition_dump_list(u->conditions, f, prefix);
 

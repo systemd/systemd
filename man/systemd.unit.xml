@@ -888,20 +888,22 @@
 
                         <varlistentry>
                                 <term><varname>JobTimeoutSec=</varname></term>
+                                <term><varname>JobTimeoutAction=</varname></term>
+                                <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-                                <listitem><para>When clients are
-                                waiting for a job of this unit to
-                                complete, time out after the specified
-                                time. If this time limit is reached,
-                                the job will be cancelled, the unit
-                                however will not change state or even
-                                enter the <literal>failed</literal>
-                                mode. This value defaults to 0 (job
-                                timeouts disabled), except for device
+                                <listitem><para>When a job for this
+                                unit is queued a time-out may be
+                                configured. If this time limit is
+                                reached, the job will be cancelled,
+                                the unit however will not change state
+                                or even enter the
+                                <literal>failed</literal> mode. This
+                                value defaults to 0 (job timeouts
+                                disabled), except for device
                                 units. NB: this timeout is independent
                                 from any unit-specific timeout (for
                                 example, the timeout set with
-                                <varname>Timeout=</varname> in service
+                                <varname>StartTimeoutSec=</varname> in service
                                 units) as the job timeout has no
                                 effect on the unit itself, only on the
                                 job that might be pending for it. Or
@@ -911,7 +913,22 @@
                                 timeout set with this option however
                                 is useful to abort only the job
                                 waiting for the unit state to
-                                change.</para></listitem>
+                                change.</para>
+
+                                <para><varname>JobTimeoutAction=</varname>
+                                optionally configures an additional
+                                action to take when the time-out is
+                                hit. It takes the same values as the
+                                per-service
+                                <varname>StartLimitAction=</varname>
+                                setting, see
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. Defaults to
+                                <option>none</option>. <varname>JobTimeoutRebootArgument=</varname>
+                                configures an optional reboot string
+                                to pass to the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

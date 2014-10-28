@@ -41,6 +41,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
+#include "failure-action.h"
 
 enum UnitActiveState {
         UNIT_ACTIVE,
@@ -112,7 +113,10 @@ struct Unit {
         /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
         Job *nop_job;
 
+        /* Job timeout and action to take */
         usec_t job_timeout;
+        FailureAction job_timeout_action;
+        char *job_timeout_reboot_arg;
 
         /* References to this */
         LIST_HEAD(UnitRef, refs);
