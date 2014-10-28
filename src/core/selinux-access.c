@@ -53,7 +53,7 @@ struct audit_info {
 
 /*
    Any time an access gets denied this callback will be called
-   with the aduit data.  We then need to just copy the audit data into the msgbuf.
+   with the audit data.  We then need to just copy the audit data into the msgbuf.
 */
 static int audit_callback(
                 void *auditdata,
@@ -64,14 +64,20 @@ static int audit_callback(
         const struct audit_info *audit = auditdata;
         uid_t uid = 0, login_uid = 0;
         gid_t gid = 0;
+        char login_uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
+        char uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
+        char gid_buf[DECIMAL_STR_MAX(gid_t)] = "n/a";
 
-        sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid);
-        sd_bus_creds_get_uid(audit->creds, &uid);
-        sd_bus_creds_get_gid(audit->creds, &gid);
+        if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
+                snprintf(login_uid_buf, sizeof(login_uid_buf), UID_FMT, login_uid);
+        if (sd_bus_creds_get_uid(audit->creds, &uid) >= 0)
+                snprintf(uid_buf, sizeof(uid_buf), UID_FMT, uid);
+        if (sd_bus_creds_get_gid(audit->creds, &gid) >= 0)
+                snprintf(gid_buf, sizeof(gid_buf), GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%d uid=%d gid=%d%s%s%s%s%s%s",
-                 login_uid, uid, gid,
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
                  audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
 
