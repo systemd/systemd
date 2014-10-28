@@ -1,7 +1,5 @@
 Fixes needed before 217:
 
-* sd_session_get_desktop() yells at me?
-
 * remove Discard= in .mount units and replace it by Options=, to prepare for later swapon fix
 
 * verify that both resolved and timesyncd work OK without networkd around
