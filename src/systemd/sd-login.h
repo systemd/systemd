@@ -147,7 +147,7 @@ int sd_session_get_type(const char *session, char **type);
 /* Determine the class of this session, i.e. one of "user", "greeter" or "lock-screen". */
 int sd_session_get_class(const char *session, char **clazz);
 
-/* Determine the desktop brand of this session, i.e. something like "GNOME", "KDE" or "SYSTEMD-CONSOLE". */
+/* Determine the desktop brand of this session, i.e. something like "GNOME", "KDE" or "systemd-console". */
 int sd_session_get_desktop(const char *session, char **desktop);
 
 /* Determine the X11 display of this session. */

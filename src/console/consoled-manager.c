@@ -132,7 +132,7 @@ static int manager_sysview_session_filter(Manager *m, sysview_event *event) {
         if (r < 0)
                 return 0;
 
-        return streq(desktop, "SYSTEMD-CONSOLE");
+        return streq(desktop, "systemd-console");
 }
 
 static int manager_sysview_session_add(Manager *m, sysview_event *event) {

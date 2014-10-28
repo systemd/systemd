@@ -51,7 +51,7 @@ CHANGES WITH 217:
         * A user console daemon systemd-consoled has been
           added. Currently, it is a preview, and will so far open a
           single terminal on each session of the user marked as
-          Desktop=SYSTEMD-CONSOLE.
+          Desktop=systemd-console.
 
         * Route metrics can be specified for DHCP routes added by
           systemd-networkd.
