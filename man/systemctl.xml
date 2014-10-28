@@ -1350,15 +1350,15 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   <row>
                     <entry><varname>initializing</varname></entry>
                     <entry><para>Early bootup, before
-                    <filename>sysinit.target</filename> is reached
-                    or <varname>maintenance</varname> state entered.
+                    <filename>basic.target</filename> is reached
+                    or the <varname>maintenance</varname> state entered.
                     </para></entry>
                   </row>
                   <row>
                     <entry><varname>starting</varname></entry>
-                    <entry><para>Late bootup, before the default
-                    target or one of the rescue targets are
-                    reached.</para></entry>
+                    <entry><para>Late bootup, before the job queue
+                    becomes idle for the first time, or one of the
+                    rescue targets are reached.</para></entry>
                   </row>
                   <row>
                     <entry><varname>running</varname></entry>
@@ -1372,7 +1372,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                   </row>
                   <row>
                     <entry><varname>maintenance</varname></entry>
-                    <entry><para>One of the rescue targets is
+                    <entry><para>The rescue or emergency target is
                     active.</para></entry>
                   </row>
                   <row>
