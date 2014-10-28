@@ -155,6 +155,14 @@ CHANGES WITH 217:
           PolicyKit for many of PID1's priviliged operations such as
           unit file enabling and disabling.
 
+        * "udevadm hwdb --update" learnt a new switch "--usr" for
+          placing the rebuilt hardware database in /usr instead of
+          /etc. When used only hardware database entries stored in
+          /usr will be used, and any user database entries in /etc are
+          ignored. This functionality is useful for vendors to ship a
+          pre-built database on systems where local configuration is
+          unnecessary or unlikely.
+
         Contributions from: Andreas Henriksson, Andrei Borzenkov,
         Angus Gibson, Ansgar Burchardt, Ben Wolsieffer, Brandon L.
         Black, Christian Hesse, Cristian Rodríguez, Daniel Buch,
