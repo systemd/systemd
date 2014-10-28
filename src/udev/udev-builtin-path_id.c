@@ -332,7 +332,7 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         return parent;
 }
 
-static struct udev_device *handle_scsi(struct udev_device *parent, char **path) {
+static struct udev_device *handle_scsi(struct udev_device *parent, char **path, bool *supported_parent) {
         const char *devtype;
         const char *name;
         const char *id;
@@ -346,6 +346,7 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path) 
         if (id != NULL) {
                 parent = skip_subsystem(parent, "scsi");
                 path_prepend(path, "ieee1394-0x%s", id);
+                *supported_parent = true;
                 goto out;
         }
 
@@ -354,16 +355,19 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path) 
 
         if (strstr(name, "/rport-") != NULL) {
                 parent = handle_scsi_fibre_channel(parent, path);
+                *supported_parent = true;
                 goto out;
         }
 
         if (strstr(name, "/end_device-") != NULL) {
                 parent = handle_scsi_sas(parent, path);
+                *supported_parent = true;
                 goto out;
         }
 
         if (strstr(name, "/session") != NULL) {
                 parent = handle_scsi_iscsi(parent, path);
+                *supported_parent = true;
                 goto out;
         }
 
@@ -502,7 +506,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                 } else if (streq(subsys, "scsi_tape")) {
                         handle_scsi_tape(parent, &path);
                 } else if (streq(subsys, "scsi")) {
-                        parent = handle_scsi(parent, &path);
+                        parent = handle_scsi(parent, &path, &supported_parent);
                         supported_transport = true;
                 } else if (streq(subsys, "cciss")) {
                         parent = handle_cciss(parent, &path);
