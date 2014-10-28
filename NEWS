@@ -163,6 +163,11 @@ CHANGES WITH 217:
           pre-built database on systems where local configuration is
           unnecessary or unlikely.
 
+        * Calendar time specifications in .timer units now also
+          understand the strings "semi-annually", "quarterly" and
+          "minutely" as shortcuts (in addition to the pre-existing
+          "anually", "hourly", ...).
+
         Contributions from: Andreas Henriksson, Andrei Borzenkov,
         Angus Gibson, Ansgar Burchardt, Ben Wolsieffer, Brandon L.
         Black, Christian Hesse, Cristian Rodríguez, Daniel Buch,
