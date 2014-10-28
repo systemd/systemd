@@ -792,8 +792,10 @@ External:
 
 * register catalog database signature as file magic
 
-* zsh shell completion: <command> <verb> -<TAB> should complete options, but currently
-  does not
+* zsh shell completion:
+  - <command> <verb> -<TAB> should complete options, but currently does not
+  - systemctl add-wants,add-requires
+
 
 Regularly:
 

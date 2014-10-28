@@ -31,6 +31,9 @@
     "disable:Disable one or more unit files"
     "reenable:Reenable one or more unit files"
     "preset:Enable/disable one or more unit files based on preset configuration"
+    "set-default:Set the default target"
+    "get-default:Query the default target"
+    "is-system-running:Query overall status of the system"
     "help:Show documentation for specified units"
     "list-dependencies:Show unit dependency tree"
     "mask:Mask one or more units"
@@ -237,21 +240,28 @@ done
 (( $+functions[_systemctl_unmask] )) || _systemctl_unmask()
 {
   _systemctl_masked_units
-  compadd "$@" -a - _sys_masked_units || _message "no masked unit found"
+  compadd "$@" -a - _sys_masked_units || _message "no masked units found"
 }
 
 # Completion functions for JOBS
 (( $+functions[_systemctl_cancel] )) || _systemctl_cancel()
 {
   compadd "$@" - $(__systemctl list-jobs \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no job found"
+    | cut -d' ' -f1  2>/dev/null ) || _message "no jobs found"
 }
 
 # Completion functions for SNAPSHOTS
 (( $+functions[_systemctl_delete] )) || _systemctl_delete()
 {
   compadd "$@" - $(__systemctl list-units --type snapshot --all \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no snapshot found"
+    | cut -d' ' -f1  2>/dev/null ) || _message "no snapshots found"
+}
+
+# Completion functions for TARGETS
+(( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
+{
+  compadd "$@" - $(__systemctl list-unit-files --type target --all \
+    | cut -d' ' -f1  2>/dev/null ) || _message "no targets found"
 }
 
 # Completion functions for ENVS

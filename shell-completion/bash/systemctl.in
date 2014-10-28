@@ -148,7 +148,8 @@ _systemctl () {
                [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-sockets list-timers list-units list-unit-files poweroff
-                             reboot rescue show-environment suspend get-default'
+                             reboot rescue show-environment suspend get-default
+                             is-system-running'
                      [NAME]='snapshot'
                      [FILE]='link'
                   [TARGETS]='set-default'
