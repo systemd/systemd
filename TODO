@@ -2,8 +2,6 @@ Fixes needed before 217:
 
 * sd_session_get_desktop() yells at me?
 
-* change startup timeout to not cover the full bootup, but only sysinit part (see below)
-
 * remove Discard= in .mount units and replace it by Options=, to prepare for later swapon fix
 
 * verify that both resolved and timesyncd work OK without networkd around
@@ -65,8 +63,6 @@ Features:
 
 * what to do about udev db binary stability for apps?
 
-* add a system-wide shutdown timeout, similar to the startup timeout we already have (see fdo bz #84110)
-
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
 
 * kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
@@ -107,10 +103,6 @@ Features:
 * refcounting in sd-resolve is borked
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
-
-* apply start timeout during the "initializing" manager state only,
-  instead of both "initializing" and "starting". maybe rename the
-  timeout to "initialization-timeout" then or so?
 
 * journald: make use of uid-range.h to managed uid ranges to split
   journals in.
