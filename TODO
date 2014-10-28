@@ -309,7 +309,6 @@ Features:
        - kdbus mapping
        - NameLost/NameAcquired obsolete
        - GVariant
-       - "const" properties (posted)
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
