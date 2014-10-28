@@ -606,7 +606,7 @@ static int cd_profiles(struct udev *udev, int fd)
                 switch (feature) {
                 case 0x00:
                         log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
-                        feature_profiles(udev, &features[i]+4, features[i+3]);
+                        feature_profiles(udev, &features[i]+4, MIN(features[i+3], len - i - 4));
                         break;
                 default:
                         log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
