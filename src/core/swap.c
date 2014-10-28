@@ -687,7 +687,8 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        state != SWAP_ACTIVATING_SIGTERM && state != SWAP_DEACTIVATING_SIGTERM,
+                        (state != SWAP_ACTIVATING_SIGTERM && state != SWAP_DEACTIVATING_SIGTERM) ?
+                        KILL_KILL : KILL_TERMINATE,
                         -1,
                         s->control_pid,
                         false);

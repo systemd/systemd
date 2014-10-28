@@ -1578,7 +1578,8 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM,
+                        (state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM) ?
+                        KILL_KILL : KILL_TERMINATE,
                         -1,
                         s->control_pid,
                         false);

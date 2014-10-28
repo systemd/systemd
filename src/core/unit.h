@@ -54,6 +54,12 @@ enum UnitActiveState {
         _UNIT_ACTIVE_STATE_INVALID = -1
 };
 
+typedef enum KillOperation {
+        KILL_TERMINATE,
+        KILL_KILL,
+        KILL_ABORT,
+} KillOperation;
+
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return t == UNIT_ACTIVE || t == UNIT_RELOADING;
 }
@@ -576,7 +582,7 @@ int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const
 
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
-int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
 

@@ -243,7 +243,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                 r = unit_kill_context(
                                 UNIT(s),
                                 &s->kill_context,
-                                state != SCOPE_STOP_SIGTERM,
+                                state != SCOPE_STOP_SIGTERM ? KILL_KILL : KILL_TERMINATE,
                                 -1, -1, false);
                 if (r < 0)
                         goto fail;

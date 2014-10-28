@@ -446,7 +446,7 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
 
         r = unit_kill_context(UNIT(n),
                               &kill_context,
-                              state != BUSNAME_SIGTERM,
+                              state != BUSNAME_SIGTERM ? KILL_KILL : KILL_TERMINATE,
                               -1,
                               n->control_pid,
                               false);
