@@ -171,14 +171,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>Discard=</varname></term>
+                                <term><varname>Options=</varname></term>
 
-                                <listitem><para>Enable discards, if the swap
-                                backing device supports the discard or trim
-                                operation. Can be one of <literal>none</literal>,
-                                <literal>once</literal>, <literal>pages</literal>
-                                or <literal>all</literal>.  Defaults to
-                                <literal>none</literal>. (See
+                                <listitem><para>May contain an option
+                                string for the swap device. This may
+                                be used for controlling discard
+                                options among other functionality, if
+                                the swap backing device supports the
+                                discard or trim operation. (See
                                 <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for more information.)
                                 </para></listitem>

@@ -47,7 +47,6 @@ static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 
-
 static int mount_find_pri(struct mntent *me, int *ret) {
         char *end, *opt;
         unsigned long r;
@@ -60,7 +59,6 @@ static int mount_find_pri(struct mntent *me, int *ret) {
                 return 0;
 
         opt += strlen("pri");
-
         if (*opt != '=')
                 return -EINVAL;
 
@@ -76,43 +74,9 @@ static int mount_find_pri(struct mntent *me, int *ret) {
         return 1;
 }
 
-static int mount_find_discard(struct mntent *me, char **ret) {
-        char *opt, *ans;
-        size_t len;
-
-        assert(me);
-        assert(ret);
-
-        opt = hasmntopt(me, "discard");
-        if (!opt)
-                return 0;
-
-        opt += strlen("discard");
-
-        if (*opt == ',' || *opt == '\0')
-                ans = strdup("all");
-        else {
-                if (*opt != '=')
-                        return -EINVAL;
-
-                len = strcspn(opt + 1, ",");
-                if (len == 0)
-                        return -EINVAL;
-
-                ans = strndup(opt + 1, len);
-        }
-
-        if (!ans)
-                return -ENOMEM;
-
-        *ret = ans;
-        return 1;
-}
-
 static int add_swap(const char *what, struct mntent *me) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *discard = NULL;
 
         bool noauto;
         int r, pri = -1;
@@ -128,12 +92,6 @@ static int add_swap(const char *what, struct mntent *me) {
         r = mount_find_pri(me, &pri);
         if (r < 0) {
                 log_error("Failed to parse priority");
-                return r;
-        }
-
-        r = mount_find_discard(me, &discard);
-        if (r < 0) {
-                log_error("Failed to parse discard");
                 return r;
         }
 
@@ -165,16 +123,18 @@ static int add_swap(const char *what, struct mntent *me) {
                 "What=%s\n",
                 what);
 
+        /* Note that we currently pass the priority field twice, once
+         * in Priority=, and once in Options= */
         if (pri >= 0)
                 fprintf(f, "Priority=%i\n", pri);
 
-        if (discard)
-                fprintf(f, "Discard=%s\n", discard);
+        if (!isempty(me->mnt_opts) && !streq(me->mnt_opts, "defaults"))
+                fprintf(f, "Options=%s\n", me->mnt_opts);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", unit);
-                return -errno;
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error("Failed to write unit file %s: %s", unit, strerror(-r));
+                return r;
         }
 
         /* use what as where, to have a nicer error message */

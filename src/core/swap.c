@@ -152,8 +152,8 @@ static void swap_done(Unit *u) {
         free(s->parameters_fragment.what);
         s->parameters_fragment.what = NULL;
 
-        free(s->parameters_fragment.discard);
-        s->parameters_fragment.discard = NULL;
+        free(s->parameters_fragment.options);
+        s->parameters_fragment.options = NULL;
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
@@ -608,11 +608,11 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sPriority: %i\n"
                         "%sNoAuto: %s\n"
                         "%sNoFail: %s\n"
-                        "%sDiscard: %s\n",
+                        "%sOptions: %s\n",
                         prefix, p->priority,
                         prefix, yes_no(p->noauto),
                         prefix, yes_no(p->nofail),
-                        prefix, p->discard ?: "none");
+                        prefix, strempty(p->options));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -739,9 +739,74 @@ fail:
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
+static int mount_find_pri(const char *options, int *ret) {
+        const char *opt;
+        char *end;
+        unsigned long r;
+
+        assert(ret);
+
+        if (!options)
+                return 0;
+
+        opt = mount_test_option(options, "pri");
+        if (!opt)
+                return 0;
+
+        opt += strlen("pri");
+        if (*opt != '=')
+                return -EINVAL;
+
+        errno = 0;
+        r = strtoul(opt + 1, &end, 10);
+        if (errno > 0)
+                return -errno;
+
+        if (end == opt + 1 || (*end != ',' && *end != 0))
+                return -EINVAL;
+
+        *ret = (int) r;
+        return 1;
+}
+
+static int mount_find_discard(const char *options, char **ret) {
+        const char *opt;
+        char *ans;
+        size_t len;
+
+        assert(ret);
+
+        if (!options)
+                return 0;
+
+        opt = mount_test_option(options, "discard");
+        if (!opt)
+                return 0;
+
+        opt += strlen("discard");
+        if (*opt == ',' || *opt == '\0')
+                ans = strdup("all");
+        else {
+                if (*opt != '=')
+                        return -EINVAL;
+
+                len = strcspn(opt + 1, ",");
+                if (len == 0)
+                        return -EINVAL;
+
+                ans = strndup(opt + 1, len);
+        }
+
+        if (!ans)
+                return -ENOMEM;
+
+        *ret = ans;
+        return 1;
+}
+
 static void swap_enter_activating(Swap *s) {
-        int r, priority;
-        char *discard;
+        _cleanup_free_ char *discard = NULL;
+        int r, priority = -1;
 
         assert(s);
 
@@ -749,11 +814,11 @@ static void swap_enter_activating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
         if (s->from_fragment) {
+                mount_find_discard(s->parameters_fragment.options, &discard);
+
                 priority = s->parameters_fragment.priority;
-                discard = s->parameters_fragment.discard;
-        } else {
-                priority = -1;
-                discard = NULL;
+                if (priority < 0)
+                        mount_find_pri(s->parameters_fragment.options, &priority);
         }
 
         r = exec_command_set(s->control_command, "/sbin/swapon", NULL);
@@ -770,9 +835,11 @@ static void swap_enter_activating(Swap *s) {
         }
 
         if (discard && !streq(discard, "none")) {
-                const char *discard_arg = "--discard";
+                const char *discard_arg;
 
-                if (!streq(discard, "all"))
+                if (streq(discard, "all"))
+                        discard_arg = "--discard";
+                else
                         discard_arg = strappenda("--discard=", discard);
 
                 r = exec_command_append(s->control_command, discard_arg, NULL);

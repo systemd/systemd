@@ -63,7 +63,7 @@ typedef enum SwapResult {
 
 typedef struct SwapParameters {
         char *what;
-        char *discard;
+        char *options;
         int priority;
         bool noauto:1;
         bool nofail:1;
