@@ -191,20 +191,13 @@ static int swap_arm_timer(Swap *s) {
 }
 
 static int swap_add_device_links(Swap *s) {
-        SwapParameters *p;
-
         assert(s);
 
         if (!s->what)
                 return 0;
 
-        if (s->from_fragment)
-                p = &s->parameters_fragment;
-        else
-                return 0;
-
         if (is_device_path(s->what))
-                return unit_add_node_link(UNIT(s), s->what, !p->noauto && UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
+                return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
         else
                 /* File based swap devices need to be ordered after
                  * systemd-remount-fs.service, since they might need a
@@ -213,7 +206,6 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
-        bool nofail, noauto;
         int r;
 
         assert(s);
@@ -236,17 +228,7 @@ static int swap_add_default_dependencies(Swap *s) {
                  * manually, and should not become a dependency of swap.target. */
                 return 0;
 
-        nofail = s->parameters_fragment.nofail;
-        noauto = s->parameters_fragment.noauto;
-
-        if (!noauto) {
-                if (nofail)
-                        r = unit_add_dependency_by_name_inverse(UNIT(s), UNIT_WANTS, SPECIAL_SWAP_TARGET, NULL, true);
-                else
-                        r = unit_add_two_dependencies_by_name_inverse(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SWAP_TARGET, NULL, true);
-        }
-
-        return r < 0 ? r : 0;
+        return unit_add_two_dependencies_by_name_inverse(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SWAP_TARGET, NULL, true);
 }
 
 static int swap_verify(Swap *s) {
@@ -371,8 +353,6 @@ static int swap_add_one(
                 const char *what,
                 const char *what_proc_swaps,
                 int priority,
-                bool noauto,
-                bool nofail,
                 bool set_flags) {
 
         _cleanup_free_ char *e = NULL;
@@ -435,8 +415,6 @@ static int swap_add_one(
         SWAP(u)->from_proc_swaps = true;
 
         p->priority = priority;
-        p->noauto = noauto;
-        p->nofail = nofail;
 
         unit_add_to_dbus_queue(u);
 
@@ -460,7 +438,7 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
 
         assert(m);
 
-        r = swap_add_one(m, device, device, prio, false, false, set_flags);
+        r = swap_add_one(m, device, device, prio, set_flags);
         if (r < 0)
                 return r;
 
@@ -476,7 +454,7 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
         /* Add the main device node */
         dn = udev_device_get_devnode(d);
         if (dn && !streq(dn, device))
-                swap_add_one(m, dn, device, prio, false, false, set_flags);
+                swap_add_one(m, dn, device, prio, set_flags);
 
         /* Add additional units for all symlinks */
         first = udev_device_get_devlinks_list_entry(d);
@@ -497,7 +475,7 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
                             st.st_rdev != udev_device_get_devnum(d))
                                 continue;
 
-                swap_add_one(m, p, device, prio, false, false, set_flags);
+                swap_add_one(m, p, device, prio, set_flags);
         }
 
         return r;
@@ -606,12 +584,8 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
         if (p)
                 fprintf(f,
                         "%sPriority: %i\n"
-                        "%sNoAuto: %s\n"
-                        "%sNoFail: %s\n"
                         "%sOptions: %s\n",
                         prefix, p->priority,
-                        prefix, yes_no(p->noauto),
-                        prefix, yes_no(p->nofail),
                         prefix, strempty(p->options));
 
         if (s->control_pid > 0)
