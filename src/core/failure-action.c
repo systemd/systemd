@@ -29,6 +29,13 @@
 #include "special.h"
 #include "failure-action.h"
 
+static void log_and_status(Manager *m, const char *message) {
+        log_warning("%s", message);
+        manager_status_printf(m, STATUS_TYPE_EMERGENCY,
+                              ANSI_HIGHLIGHT_RED_ON " !!  " ANSI_HIGHLIGHT_OFF,
+                              "%s", message);
+}
+
 int failure_action(
                 Manager *m,
                 FailureAction action,
@@ -57,7 +64,7 @@ int failure_action(
         case FAILURE_ACTION_REBOOT: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                log_warning("Rebooting as result of failure.");
+                log_and_status(m, "Rebooting as result of failure.");
 
                 update_reboot_param_file(reboot_arg);
                 r = manager_add_job_by_name(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
@@ -68,13 +75,14 @@ int failure_action(
         }
 
         case FAILURE_ACTION_REBOOT_FORCE:
-                log_warning("Forcibly rebooting as result of failure.");
+                log_and_status(m, "Forcibly rebooting as result of failure.");
+
                 update_reboot_param_file(reboot_arg);
                 m->exit_code = MANAGER_REBOOT;
                 break;
 
         case FAILURE_ACTION_REBOOT_IMMEDIATE:
-                log_warning("Rebooting immediately as result of failure.");
+                log_and_status(m, "Rebooting immediately as result of failure.");
 
                 sync();
 
@@ -90,7 +98,7 @@ int failure_action(
         case FAILURE_ACTION_POWEROFF: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                log_warning("Powering off as result of failure.");
+                log_and_status(m, "Powering off as result of failure.");
 
                 r = manager_add_job_by_name(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE, true, &error, NULL);
                 if (r < 0)
@@ -100,12 +108,12 @@ int failure_action(
         }
 
         case FAILURE_ACTION_POWEROFF_FORCE:
-                log_warning("Forcibly powering off as result of failure.");
+                log_and_status(m, "Forcibly powering off as result of failure.");
                 m->exit_code = MANAGER_POWEROFF;
                 break;
 
         case FAILURE_ACTION_POWEROFF_IMMEDIATE:
-                log_warning("Powering off immediately as result of failure.");
+                log_and_status(m, "Powering off immediately as result of failure.");
 
                 sync();
 

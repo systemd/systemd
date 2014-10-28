@@ -63,6 +63,7 @@ typedef enum ManagerExitCode {
 typedef enum StatusType {
         STATUS_TYPE_EPHEMERAL,
         STATUS_TYPE_NORMAL,
+        STATUS_TYPE_EMERGENCY,
 } StatusType;
 
 #include "unit.h"
