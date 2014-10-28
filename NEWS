@@ -56,7 +56,7 @@ CHANGES WITH 217:
         * Route metrics can be specified for DHCP routes added by
           systemd-networkd.
 
-        * The SELinux context of socket-actived services can be set
+        * The SELinux context of socket-activated services can be set
           from the information provided by the networking stack
           (SELinuxContextFromNet= option).
 
@@ -84,7 +84,7 @@ CHANGES WITH 217:
           virtualization.
 
         * The Password Agent protocol gained support for queries where
-          the user input is shown, useful e.g. for usernames.
+          the user input is shown, useful e.g. for user names.
           systemd-ask-password gained a new --echo option to turn that
           on.
 
@@ -92,8 +92,8 @@ CHANGES WITH 217:
 
                 net.core.default_qdisc = fq_codel
 
-          This selects Fair Queueing Controlled Delay as the default
-          queueing discipline for network interfaces. fq_codel helps
+          This selects Fair Queuing Controlled Delay as the default
+          queuing discipline for network interfaces. fq_codel helps
           fight the network bufferbloat problem. It is believed to be
           a good default with no tuning required for most workloads.
           Downstream distributions may override this choice. On 10Gbit
@@ -152,7 +152,7 @@ CHANGES WITH 217:
           message flag has been added for all of systemd's PolicyKit
           authenticated method calls has been added. In particular
           this now allows optional interactive authorization via
-          PolicyKit for many of PID1's priviliged operations such as
+          PolicyKit for many of PID1's privileged operations such as
           unit file enabling and disabling.
 
         * "udevadm hwdb --update" learnt a new switch "--usr" for
@@ -165,7 +165,7 @@ CHANGES WITH 217:
 
         * Calendar time specifications in .timer units now also
           understand the strings "semi-annually", "quarterly" and
-          "minutely" as shortcuts (in addition to the pre-existing
+          "minutely" as shortcuts (in addition to the preexisting
           "anually", "hourly", ...).
 
         * systemd-tmpfiles will now correctly create files in /dev
