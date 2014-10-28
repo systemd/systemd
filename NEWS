@@ -70,7 +70,7 @@ CHANGES WITH 217:
         * Udev rules can now remove tags on devices with TAG-="foobar".
 
         * systemd's readahead implementation has been removed. In many
-          circumstatances it didn't give expected benefits even for
+          circumstances it didn't give expected benefits even for
           rotational disk drives and was becoming less relevant in the
           age of SSDs. As none of the developers has been using
           rotating media anymore, and nobody stepped up to actively
@@ -133,7 +133,7 @@ CHANGES WITH 217:
           rootfstype= but allow mounting a specific file system to
           /usr.
 
-        * The $NOTIFY_SOCKET is now also passed to control processesof
+        * The $NOTIFY_SOCKET is now also passed to control processes of
           services, not only the main process.
 
         * This version reenables support for fsck's -l switch. This
