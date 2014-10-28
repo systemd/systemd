@@ -196,6 +196,9 @@ static int swap_add_device_links(Swap *s) {
         if (!s->what)
                 return 0;
 
+        if (!s->from_fragment)
+                return 0;
+
         if (is_device_path(s->what))
                 return unit_add_node_link(UNIT(s), s->what, UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
         else
