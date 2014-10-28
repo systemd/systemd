@@ -382,6 +382,9 @@ int bus_verify_polkit_async(
                 if (authorized)
                         return 1;
 
+                if (challenge)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+
                 return -EACCES;
         }
 #endif
