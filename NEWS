@@ -22,6 +22,23 @@ CHANGES WITH 217:
           /run/systemd/user directory that was already previously
           supported, but is under the control of the user.
 
+        * Job timeouts (i.e. time-outs on the time a job that is
+          queued stays in the run queue) can now optionally result in
+          immediate reboot or power-off actions (JobTimeoutAction= and
+          JobTimeoutRebootArgument=). This is useful on ".target"
+          units, to limit the maximum time a target remains
+          undispatched in the run queue, and to trigger an emergency
+          operation in such a case. This is now used by default to
+          turn off the system if boot-up (as defined by everything in
+          basic.target) hangs and does not complete for at least
+          15min. Also, if power-off or reboot hang for at least 30min
+          an immediate power-off/reboot operation is triggered. This
+          functionality is particularly useful to increase reliability
+          on embedded devices, but also on laptops which might
+          accidentally get powered on when carried in a backpack and
+          whose boot stays stuck in a hard disk encryption passphrase
+          question.
+
         * systemd-logind can be configured to also handle lid switch
           events even when the machine is docked or multiple displays
           are attached (HandleLidSwitchDocked= option).
