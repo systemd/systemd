@@ -148,6 +148,13 @@ CHANGES WITH 217:
           display managers invoking this tool to simply invoke X
           directly from now on, again.
 
+        * Support for the new ALLOW_INTERACTIVE_AUTHORIZATION D-Bus
+          message flag has been added for all of systemd's PolicyKit
+          authenticated method calls has been added. In particular
+          this now allows optional interactive authorization via
+          PolicyKit for many of PID1's priviliged operations such as
+          unit file enabling and disabling.
+
 CHANGES WITH 216:
 
         * timedated no longer reads NTP implementation unit names from
