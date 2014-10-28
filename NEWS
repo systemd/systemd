@@ -76,7 +76,7 @@ CHANGES WITH 217:
           rotating media anymore, and nobody stepped up to actively
           maintain this component of systemd it has now been removed.
 
-        * Swap units can use Discard= to specify discard options.
+        * Swap units can use Options= to specify discard options.
           Discard options specified for swaps in /etc/fstab are now
           respected.
 
