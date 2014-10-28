@@ -1327,13 +1327,62 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>is-system-running</command></term>
 
           <listitem>
-            <para>Checks whether the system is running. This returns
-            success when the system is fully up and running, meaning
-            not in startup, shutdown or maintenance mode. Failure is
-            returned otherwise. In addition, the current state is
-            printed in a short string to standard output. Use
-            <option>--quiet</option> to suppress output of this state
-            string.</para>
+            <para>Checks whether the system is operational. This
+            returns success when the system is fully up and running,
+            meaning not in startup, shutdown or maintenance
+            mode. Failure is returned otherwise. In addition, the
+            current state is printed in a short string to standard
+            output, see table below. Use <option>--quiet</option> to
+            suppress this output.</para>
+
+            <table>
+              <title>Manager Operational States</title>
+              <tgroup cols='2'>
+                <colspec colname='name' />
+                <colspec colname='description' />
+                <thead>
+                  <row>
+                    <entry>Name</entry>
+                    <entry>Description</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><varname>initializing</varname></entry>
+                    <entry><para>Early bootup, before
+                    <filename>sysinit.target</filename> is reached
+                    or <varname>maintenance</varname> state entered.
+                    </para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>starting</varname></entry>
+                    <entry><para>Late bootup, before the default
+                    target or one of the rescue targets are
+                    reached.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>running</varname></entry>
+                    <entry><para>The system is fully
+                    operational.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>degraded</varname></entry>
+                    <entry><para>The system is operational but one or more
+                    units failed.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>maintenance</varname></entry>
+                    <entry><para>One of the rescue targets is
+                    active.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>stopping</varname></entry>
+                    <entry><para>The manager is shutting
+                    down.</para></entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
           </listitem>
         </varlistentry>
 
