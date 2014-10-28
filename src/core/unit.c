@@ -2768,7 +2768,8 @@ int unit_coldplug(Unit *u) {
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, false, status, unit_status_msg_format, unit_description(u));
+        manager_status_printf(u->manager, STATUS_TYPE_NORMAL,
+                              status, unit_status_msg_format, unit_description(u));
         REENABLE_WARNING;
 }
 

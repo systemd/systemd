@@ -194,7 +194,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (job_get_timeout(j, &x) > 0)
                 format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
 
-        manager_status_printf(m, true, cylon,
+        manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
@@ -2931,7 +2931,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
                 unlink("/run/systemd/show-status");
 }
 
-static bool manager_get_show_status(Manager *m) {
+static bool manager_get_show_status(Manager *m, StatusType type) {
         assert(m);
 
         if (m->running_as != SYSTEMD_SYSTEM)
@@ -2969,19 +2969,19 @@ void manager_set_first_boot(Manager *m, bool b) {
                 unlink("/run/systemd/first-boot");
 }
 
-void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) {
+void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {
         va_list ap;
 
-        if (!manager_get_show_status(m))
+        if (!manager_get_show_status(m, type))
                 return;
 
         /* XXX We should totally drop the check for ephemeral here
          * and thus effectively make 'Type=idle' pointless. */
-        if (ephemeral && m->n_on_console > 0)
+        if (type == STATUS_TYPE_EPHEMERAL && m->n_on_console > 0)
                 return;
 
         va_start(ap, format);
-        status_vprintf(status, true, ephemeral, format, ap);
+        status_vprintf(status, true, type == STATUS_TYPE_EPHEMERAL, format, ap);
         va_end(ap);
 }
 

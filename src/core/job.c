@@ -639,7 +639,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
                         manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
-                        manager_status_printf(u->manager, false, NULL,
+                        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
                                               "See \"systemctl status %s%s%s\" for details.",
                                               quotes ? "'" : "", u->id, quotes ? "'" : "");
                         break;

@@ -60,6 +60,11 @@ typedef enum ManagerExitCode {
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
 
+typedef enum StatusType {
+        STATUS_TYPE_EPHEMERAL,
+        STATUS_TYPE_NORMAL,
+} StatusType;
+
 #include "unit.h"
 #include "job.h"
 #include "hashmap.h"
@@ -349,7 +354,7 @@ void manager_recheck_journal(Manager *m);
 void manager_set_show_status(Manager *m, ShowStatus mode);
 void manager_set_first_boot(Manager *m, bool b);
 
-void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_(4,5);
+void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
