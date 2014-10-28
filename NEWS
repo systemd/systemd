@@ -22,12 +22,6 @@ CHANGES WITH 217:
           /run/systemd/user directory that was already previously
           supported, but is under the control of the user.
 
-        * A timeout for the bootup of the whole system can now be
-          configured. The system can be configured to reboot or
-          poweroff if the basic system default target is not reached
-          before the timeout (new StartTimeoutSec=,
-          StartTimeoutAction=, StartTimeoutRebootArgument= options).
-
         * systemd-logind can be configured to also handle lid switch
           events even when the machine is docked or multiple displays
           are attached (HandleLidSwitchDocked= option).

@@ -459,8 +459,6 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
         m->running_as = running_as;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
-        m->start_timeout_usec = DEFAULT_MANAGER_START_TIMEOUT_USEC;
-        m->start_timeout_action = FAILURE_ACTION_POWEROFF_FORCE;
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
@@ -863,9 +861,6 @@ void manager_free(Manager *m) {
 
         manager_close_idle_pipe(m);
 
-        sd_event_source_unref(m->start_timeout_event_source);
-        free(m->start_timeout_reboot_arg);
-
         udev_unref(m->udev);
         sd_event_unref(m->event);
 
@@ -1013,20 +1008,6 @@ static int manager_distribute_fds(Manager *m, FDSet *fds) {
         return 0;
 }
 
-static int on_start_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-
-        assert(s);
-        assert(m);
-
-        m->start_timeout_event_source = sd_event_source_unref(m->start_timeout_event_source);
-
-        log_error("Startup timed out.");
-
-        failure_action(m, m->start_timeout_action, m->start_timeout_reboot_arg);
-        return 0;
-}
-
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r, q;
 
@@ -1097,22 +1078,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                  * sent, before we notify that the reload is
                  * finished */
                 m->send_reloading_done = true;
-        }
-
-        /* Possibly set up a start timeout */
-        if (!dual_timestamp_is_set(&m->finish_timestamp)) {
-                m->start_timeout_event_source = sd_event_source_unref(m->start_timeout_event_source);
-
-                if (m->start_timeout_usec) {
-                        r = sd_event_add_time(
-                                        m->event,
-                                        &m->start_timeout_event_source,
-                                        CLOCK_MONOTONIC,
-                                        now(CLOCK_MONOTONIC) + m->start_timeout_usec, 0,
-                                        on_start_timeout, m);
-                        if (r < 0)
-                                log_error("Failed to add start timeout event: %s", strerror(-r));
-                }
         }
 
         return r;
@@ -2557,8 +2522,6 @@ void manager_check_finished(Manager *m) {
                 return;
 
         dual_timestamp_get(&m->finish_timestamp);
-
-        m->start_timeout_event_source = sd_event_source_unref(m->start_timeout_event_source);
 
         if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0) {
 
