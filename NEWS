@@ -129,7 +129,7 @@ CHANGES WITH 217:
           option.
 
         * New kernel command line options mount.usr=, mount.usrflags=,
-          usrfstype= have been added that match root=, rootflags=,
+          mount.usrfstype= have been added that match root=, rootflags=,
           rootfstype= but allow mounting a specific file system to
           /usr.
 
@@ -167,6 +167,12 @@ CHANGES WITH 217:
           understand the strings "semi-annually", "quarterly" and
           "minutely" as shortcuts (in addition to the pre-existing
           "anually", "hourly", ...).
+
+        * systemd-tmpfiles will now correctly create files in /dev
+          at boot which are marked for creation only at boot. It is
+          recommended to always create static device nodes with 'c!'
+          and 'b!', so that they are created only at boot and not
+          overwritten at runtime.
 
         Contributions from: Andreas Henriksson, Andrei Borzenkov,
         Angus Gibson, Ansgar Burchardt, Ben Wolsieffer, Brandon L.
