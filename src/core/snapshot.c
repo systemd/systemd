@@ -208,7 +208,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e,
                         return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s lacks snapshot suffix.", name);
 
                 if (manager_get_unit(m, name))
-                        sd_bus_error_setf(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
+                        return sd_bus_error_setf(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
 
         } else {
 
