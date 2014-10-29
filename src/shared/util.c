@@ -2466,14 +2466,37 @@ char* dirname_malloc(const char *path) {
 }
 
 int dev_urandom(void *p, size_t n) {
-        _cleanup_close_ int fd;
+        static int have_syscall = -1;
+        int r, fd;
         ssize_t k;
+
+        /* Use the syscall unless we know we don't have it, or when
+         * the requested size is too large for it. */
+        if (have_syscall != 0 || (size_t) (int) n != n) {
+                r = getrandom(p, n, 0);
+                if (r == (int) n) {
+                        have_syscall = true;
+                        return 0;
+                }
+
+                if (r < 0) {
+                        if (errno == ENOSYS)
+                                /* we lack the syscall, continue with reading from /dev/urandom */
+                                have_syscall = false;
+                        else
+                                return -errno;
+                } else
+                        /* too short read? */
+                        return -EIO;
+        }
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return errno == ENOENT ? -ENOSYS : -errno;
 
         k = loop_read(fd, p, n, true);
+        safe_close(fd);
+
         if (k < 0)
                 return (int) k;
         if ((size_t) k != n)

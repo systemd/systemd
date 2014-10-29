@@ -140,6 +140,21 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 }
 #endif
 
+#ifndef __NR_getrandom
+#  if defined __x86_64__
+#    define __NR_getrandom 278
+#  else
+#    warning "__NR_getrandom unknown for your architecture"
+#    define __NR_getrandom 0xffffffff
+#  endif
+#endif
+
+#if !HAVE_DECL_GETRANDOM
+static inline int getrandom(void *buffer, size_t count, unsigned flags) {
+        return syscall(__NR_getrandom, buffer, count, flags);
+}
+#endif
+
 #ifndef BTRFS_IOCTL_MAGIC
 #define BTRFS_IOCTL_MAGIC 0x94
 #endif
