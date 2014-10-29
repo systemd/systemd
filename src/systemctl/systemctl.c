@@ -73,6 +73,8 @@
 #include "bus-message.h"
 #include "bus-error.h"
 #include "bus-errors.h"
+#include "copy.h"
+#include "mkdir.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -5707,6 +5709,517 @@ static int is_system_running(sd_bus *bus, char **args) {
         return streq(state, "running") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **unit_path) {
+        char **p;
+
+        assert(lp);
+        assert(unit_name);
+        assert(unit_path);
+
+        STRV_FOREACH(p, lp->unit_path) {
+                char *path;
+
+                path = path_join(arg_root, *p, unit_name);
+                if (!path)
+                        return log_oom();
+
+                if (access(path, F_OK) == 0) {
+                        *unit_path = path;
+                        return 1;
+                }
+
+                free(path);
+        }
+
+        return 0;
+}
+
+static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
+        _cleanup_close_ int fd = -1;
+        int r;
+        char *t;
+
+        assert(new_path);
+        assert(original_path);
+        assert(ret_tmp_fn);
+
+        t = tempfn_random(new_path);
+        if (!t)
+                return log_oom();
+
+        r = mkdir_parents(new_path, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directories for %s: %m", new_path);
+
+        r = copy_file(original_path, t, 0, 0644);
+        if (r == -ENOENT) {
+                r = touch(t);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file %s: %m", t);
+                        free(t);
+                        return r;
+                }
+        } else if (r < 0) {
+                log_error_errno(r, "Failed to copy %s to %s: %m", original_path, t);
+                free(t);
+                return r;
+        }
+
+        *ret_tmp_fn = t;
+
+        return 0;
+}
+
+static int get_drop_in_to_edit(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_path) {
+        char *tmp_new_path;
+        char *tmp;
+
+        assert(unit_name);
+        assert(ret_path);
+
+        switch (arg_scope) {
+                case UNIT_FILE_SYSTEM:
+                        tmp = strappenda(arg_runtime ? "/run/systemd/system/" : SYSTEM_CONFIG_UNIT_PATH "/", unit_name, ".d/override.conf");
+                        break;
+                case UNIT_FILE_GLOBAL:
+                        tmp = strappenda(arg_runtime ? "/run/systemd/user/" : USER_CONFIG_UNIT_PATH "/", unit_name, ".d/override.conf");
+                        break;
+                case UNIT_FILE_USER:
+                        assert(user_home);
+                        assert(user_runtime);
+
+                        tmp = strappenda(arg_runtime ? user_runtime : user_home, "/", unit_name, ".d/override.conf");
+                        break;
+                default:
+                        assert_not_reached("Invalid scope");
+        }
+
+        tmp_new_path = path_join(arg_root, tmp, NULL);
+        if (!tmp_new_path)
+                return log_oom();
+
+        *ret_path = tmp_new_path;
+
+        return 0;
+}
+
+static int unit_file_create_drop_in(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
+        char *tmp_new_path;
+        char *tmp_tmp_path;
+        int r;
+
+        assert(unit_name);
+        assert(ret_new_path);
+        assert(ret_tmp_path);
+
+        r = get_drop_in_to_edit(unit_name, user_home, user_runtime, &tmp_new_path);
+        if (r < 0)
+                return r;
+
+        r = create_edit_temp_file(tmp_new_path, tmp_new_path, &tmp_tmp_path);
+        if (r < 0) {
+                free(tmp_new_path);
+                return r;
+        }
+
+        *ret_new_path = tmp_new_path;
+        *ret_tmp_path = tmp_tmp_path;
+
+        return 0;
+}
+
+static bool unit_is_editable(const char *unit_name, const char *fragment_path, const char *user_home) {
+        bool editable = true;
+        const char *invalid_path;
+
+        assert(unit_name);
+
+        if (!arg_runtime)
+                return true;
+
+        switch (arg_scope) {
+                case UNIT_FILE_SYSTEM:
+                        if (path_startswith(fragment_path, "/etc/systemd/system")) {
+                                editable = false;
+                                invalid_path = "/etc/systemd/system";
+                        } else if (path_startswith(fragment_path, SYSTEM_CONFIG_UNIT_PATH)) {
+                                editable = false;
+                                invalid_path = SYSTEM_CONFIG_UNIT_PATH;
+                        }
+                        break;
+                case UNIT_FILE_GLOBAL:
+                        if (path_startswith(fragment_path, "/etc/systemd/user")) {
+                                editable = false;
+                                invalid_path = "/etc/systemd/user";
+                        } else if (path_startswith(fragment_path, USER_CONFIG_UNIT_PATH)) {
+                                editable = false;
+                                invalid_path = USER_CONFIG_UNIT_PATH;
+                        }
+                        break;
+                case UNIT_FILE_USER:
+                        assert(user_home);
+
+                        if (path_startswith(fragment_path, "/etc/systemd/user")) {
+                                editable = false;
+                                invalid_path = "/etc/systemd/user";
+                        } else if (path_startswith(fragment_path, USER_CONFIG_UNIT_PATH)) {
+                                editable = false;
+                                invalid_path = USER_CONFIG_UNIT_PATH;
+                        } else if (path_startswith(fragment_path, user_home)) {
+                                editable = false;
+                                invalid_path = user_home;
+                        }
+                        break;
+                default:
+                        assert_not_reached("Invalid scope");
+        }
+
+        if (!editable)
+                log_error("%s ignored: cannot temporarily edit units from %s", unit_name, invalid_path);
+
+        return editable;
+}
+
+static int get_copy_to_edit(const char *unit_name, const char *fragment_path, const char *user_home, const char *user_runtime, char **ret_path) {
+        char *tmp_new_path;
+
+        assert(unit_name);
+        assert(ret_path);
+
+        if (!unit_is_editable(unit_name, fragment_path, user_home))
+                return -EINVAL;
+
+        switch (arg_scope) {
+                case UNIT_FILE_SYSTEM:
+                        tmp_new_path = path_join(arg_root, arg_runtime ? "/run/systemd/system/" : SYSTEM_CONFIG_UNIT_PATH, unit_name);
+                        break;
+                case UNIT_FILE_GLOBAL:
+                        tmp_new_path = path_join(arg_root, arg_runtime ? "/run/systemd/user/" : USER_CONFIG_UNIT_PATH, unit_name);
+                        break;
+                case UNIT_FILE_USER:
+                        assert(user_home);
+                        assert(user_runtime);
+
+                        tmp_new_path = path_join(arg_root, arg_runtime ? user_runtime : user_home, unit_name);
+                        break;
+                default:
+                        assert_not_reached("Invalid scope");
+        }
+        if (!tmp_new_path)
+                return log_oom();
+
+        *ret_path = tmp_new_path;
+
+        return 0;
+}
+
+static int unit_file_create_copy(const char *unit_name,
+                                 const char *fragment_path,
+                                 const char *user_home,
+                                 const char *user_runtime,
+                                 char **ret_new_path,
+                                 char **ret_tmp_path) {
+        char *tmp_new_path;
+        char *tmp_tmp_path;
+        int r;
+
+        assert(fragment_path);
+        assert(unit_name);
+        assert(ret_new_path);
+        assert(ret_tmp_path);
+
+        r = get_copy_to_edit(unit_name, fragment_path, user_home, user_runtime, &tmp_new_path);
+        if (r < 0)
+                return r;
+
+        if (!path_equal(fragment_path, tmp_new_path) && access(tmp_new_path, F_OK) == 0) {
+                char response;
+
+                r = ask_char(&response, "yn", "%s already exists, are you sure to overwrite it with %s? [(y)es, (n)o] ", tmp_new_path, fragment_path);
+                if (r < 0) {
+                        free(tmp_new_path);
+                        return r;
+                }
+                if (response != 'y') {
+                        log_warning("%s ignored", unit_name);
+                        free(tmp_new_path);
+                        return -1;
+                }
+        }
+
+        r = create_edit_temp_file(tmp_new_path, fragment_path, &tmp_tmp_path);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create temporary file for %s: %m", tmp_new_path);
+                free(tmp_new_path);
+                return r;
+        }
+
+        *ret_new_path = tmp_new_path;
+        *ret_tmp_path = tmp_tmp_path;
+
+        return 0;
+}
+
+static int run_editor(char **paths) {
+        pid_t pid;
+        int r;
+
+        assert(paths);
+
+        pid = fork();
+        if (pid < 0) {
+                log_error_errno(errno, "Failed to fork: %m");
+                return -errno;
+        }
+
+        if (pid == 0) {
+                const char **args;
+                char **backup_editors = STRV_MAKE("nano", "vim", "vi");
+                char *editor;
+                char **tmp_path, **original_path, **p;
+                unsigned i = 1;
+                size_t argc;
+
+                argc = strv_length(paths)/2 + 1;
+                args = newa(const char*, argc + 1);
+
+                args[0] = NULL;
+                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
+                        args[i] = *tmp_path;
+                        i++;
+                }
+                args[argc] = NULL;
+
+                /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL
+                 * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present,
+                 * we try to execute well known editors
+                 */
+                editor = getenv("SYSTEMD_EDITOR");
+                if (!editor)
+                        editor = getenv("EDITOR");
+                if (!editor)
+                        editor = getenv("VISUAL");
+
+                if (!isempty(editor)) {
+                        args[0] = editor;
+                        execvp(editor, (char* const*) args);
+                }
+
+                STRV_FOREACH(p, backup_editors) {
+                        args[0] = *p;
+                        execvp(*p, (char* const*) args);
+                        /* We do not fail if the editor doesn't exist
+                         * because we want to try each one of them before
+                         * failing.
+                         */
+                        if (errno != ENOENT) {
+                                log_error("Failed to execute %s: %m", editor);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                log_error("Cannot edit unit(s): No editor available. Please set either SYSTEMD_EDITOR or EDITOR or VISUAL environment variable");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = wait_for_terminate_and_warn("editor", pid, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for child: %m");
+
+        return r;
+}
+
+static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
+        _cleanup_free_ char *user_home = NULL;
+        _cleanup_free_ char *user_runtime = NULL;
+        char **name;
+        int r;
+
+        assert(names);
+        assert(paths);
+
+        if (arg_scope == UNIT_FILE_USER) {
+                r = user_config_home(&user_home);
+                if (r < 0)
+                        return log_oom();
+                else if (r == 0) {
+                        log_error("Cannot edit units for the user instance: home directory unknown");
+                        return -1;
+                }
+
+                r = user_runtime_dir(&user_runtime);
+                if (r < 0)
+                        return log_oom();
+                else if (r == 0) {
+                        log_error("Cannot edit units for the user instance: runtime directory unknown");
+                        return -1;
+                }
+        }
+
+        if (!bus || avoid_bus()) {
+                _cleanup_lookup_paths_free_ LookupPaths lp = {};
+
+                /* If there is no bus, we try to find the units by testing each available directory
+                 * according to the scope.
+                 */
+                r = lookup_paths_init(&lp,
+                                arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                                arg_scope == UNIT_FILE_USER,
+                                arg_root,
+                                NULL, NULL, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed get lookup paths: %m");
+                        return r;
+                }
+
+                STRV_FOREACH(name, names) {
+                        _cleanup_free_ char *path = NULL;
+                        char *new_path, *tmp_path;
+
+                        r = unit_file_find_path(&lp, *name, &path);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_warning("%s ignored: not found", *name);
+                                continue;
+                        }
+
+                        if (arg_full)
+                                r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
+                        else
+                                r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
+
+                        if (r < 0)
+                                continue;
+
+                        r = strv_push(paths, new_path);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_push(paths, tmp_path);
+                        if (r < 0)
+                                return log_oom();
+                }
+        } else {
+                STRV_FOREACH(name, names) {
+                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_free_ char *fragment_path = NULL;
+                        _cleanup_free_ char *unit = NULL;
+                        char *new_path, *tmp_path;
+
+                        unit = unit_dbus_path_from_name(*name);
+                        if (!unit)
+                                return log_oom();
+
+                        if (need_daemon_reload(bus, *name) > 0) {
+                                log_warning("%s ignored: unit file changed on disk. Run 'systemctl%s daemon-reload'.",
+                                        *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                                continue;
+                        }
+
+                        r = sd_bus_get_property_string(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        unit,
+                                        "org.freedesktop.systemd1.Unit",
+                                        "FragmentPath",
+                                        &error,
+                                        &fragment_path);
+                        if (r < 0) {
+                                log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
+                                continue;
+                        }
+
+                        if (isempty(fragment_path)) {
+                                log_warning("%s ignored: not found", *name);
+                                continue;
+                        }
+
+                        if (arg_full)
+                                r = unit_file_create_copy(*name, fragment_path, user_home, user_runtime, &new_path, &tmp_path);
+                        else
+                                r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
+                        if (r < 0)
+                                continue;
+
+                        r = strv_push(paths, new_path);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_push(paths, tmp_path);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        return 0;
+}
+
+static int edit(sd_bus *bus, char **args) {
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
+        char **original, **tmp;
+        int r;
+
+        assert(args);
+
+        if (!on_tty()) {
+                log_error("Cannot edit units if we are not on a tty");
+                return -EINVAL;
+        }
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Cannot remotely edit units");
+                return -EINVAL;
+        }
+
+        r = expand_names(bus, args + 1, NULL, &names);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
+
+        if (!names) {
+                log_error("No unit name found by expanding names");
+                return -ENOENT;
+        }
+
+        r = find_paths_to_edit(bus, names, &paths);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(paths)) {
+                log_error("Cannot find any units to edit");
+                return -ENOENT;
+        }
+
+        r = run_editor(paths);
+        if (r < 0)
+                goto end;
+
+        STRV_FOREACH_PAIR(original, tmp, paths) {
+                /* If the temporary file is empty we ignore it.
+                 * It's useful if the user wants to cancel its modification
+                 */
+                if (null_or_empty_path(*tmp)) {
+                        log_warning("Edition of %s canceled: temporary file empty", *original);
+                        continue;
+                }
+                r = rename(*tmp, *original);
+                if (r < 0) {
+                        r = log_error_errno(errno, "Failed to rename %s to %s: %m", *tmp, *original);
+                        goto end;
+                }
+        }
+
+        if (!arg_no_reload && bus && !avoid_bus())
+                r = daemon_reload(bus, args);
+
+end:
+        STRV_FOREACH_PAIR(original, tmp, paths)
+                unlink_noerrno(*tmp);
+
+        return r;
+}
+
 static void systemctl_help(void) {
 
         pager_open_if_enabled();
@@ -5804,7 +6317,9 @@ static void systemctl_help(void) {
                "  add-requires TARGET NAME...     Add 'Requires' dependency for the target\n"
                "                                  on specified one or more units\n"
                "  get-default                     Get the name of the default target\n"
-               "  set-default NAME                Set the default target\n\n"
+               "  set-default NAME                Set the default target\n"
+               "  edit NAME...                    Edit one or more unit files\n"
+               "\n"
                "Machine Commands:\n"
                "  list-machines [PATTERN...]      List local containers and host\n\n"
                "Job Commands:\n"
@@ -6813,8 +7328,9 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "get-default",           EQUAL, 1, get_default,      NOBUS },
                 { "set-property",          MORE,  3, set_property      },
                 { "is-system-running",     EQUAL, 1, is_system_running },
-                { "add-wants",             MORE,  3, add_dependency,        NOBUS },
-                { "add-requires",          MORE,  3, add_dependency,        NOBUS },
+                { "add-wants",             MORE,  3, add_dependency,   NOBUS },
+                { "add-requires",          MORE,  3, add_dependency,   NOBUS },
+                { "edit",                  MORE,  2, edit,             NOBUS },
                 {}
         }, *verb = verbs;
 

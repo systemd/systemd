@@ -482,7 +482,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>When used with <command>enable</command>,
-          <command>disable</command>,
+          <command>disable</command>, <command>edit</command>,
           (and related commands), make changes only temporarily, so
           that they are lost on the next reboot. This will have the
           effect that changes are not made in subdirectories of
@@ -1189,6 +1189,43 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <filename>default.target</filename> to the given unit.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>edit <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Edit a drop-in snippet or a whole replacement file if
+            <option>--full</option> is specified, to extend or override the
+            specified unit.</para>
+
+            <para>Depending on whether <option>--system</option> (the default),
+            <option>--user</option>, or <option>--global</option> is specified,
+            this creates a drop-in file for each unit either for the system,
+            for the calling user or for all futures logins of all users. Then,
+            the editor (see the "Environment" section below) is invoked on
+            temporary files which will be written to the real location if the
+            editor exits successfully.</para>
+
+            <para>If <option>--full</option> is specified, this will copy the
+            original units instead of creating drop-in files.</para>
+
+            <para>If <option>--runtime</option> is specified, the changes will
+            be made temporarily in <filename>/run</filename> and they will be
+            lost on the next reboot.</para>
+
+            <para>If the temporary file is empty upon exit the modification of
+            the related unit is canceled</para>
+
+            <para>After the units have been edited, systemd configuration is
+            reloaded (in a way that is equivalent to <command>daemon-reload</command>).
+            </para>
+
+            <para>Note that this command cannot be used to remotely edit units
+            and that you cannot temporarily edit units which are in
+            <filename>/etc</filename> since they take precedence over
+            <filename>/run</filename>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -1647,7 +1684,28 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
     code otherwise.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_EDITOR</varname></term>
+
+        <listitem><para>Editor to use when editing units; overrides
+        <varname>$EDITOR</varname> and <varname>$VISUAL</varname>. If neither
+        <varname>$SYSTEMD_EDITOR</varname> nor <varname>$EDITOR</varname> nor
+        <varname>$VISUAL</varname> are present or if it is set to an empty
+        string or if their execution failed, systemctl will try to execute well
+        known editors in this order:
+        <citerefentry><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <xi:include href="less-variables.xml" xpointer="pager"/>
+    <xi:include href="less-variables.xml" xpointer="less"/>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>
@@ -1660,7 +1718,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry><refentrytitle>systemd.resource-management</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

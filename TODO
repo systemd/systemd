@@ -85,7 +85,7 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
+* systemctl edit: add commented help text to the end, like git commit
 
 * refcounting in sd-resolve is borked
 
@@ -766,7 +766,7 @@ External:
 
 * zsh shell completion:
   - <command> <verb> -<TAB> should complete options, but currently does not
-  - systemctl add-wants,add-requires
+  - systemctl add-wants,add-requires, edit
 
 
 Regularly:

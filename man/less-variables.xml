@@ -6,7 +6,7 @@
         <title>Environment</title>
 
         <variablelist class='environment-variables'>
-                <varlistentry>
+                <varlistentry id='pager'>
                         <term><varname>$SYSTEMD_PAGER</varname></term>
 
                         <listitem><para>Pager to use when
@@ -17,7 +17,7 @@
                         <option>--no-pager</option>.</para></listitem>
                 </varlistentry>
 
-                <varlistentry>
+                <varlistentry id='less'>
                         <term><varname>$SYSTEMD_LESS</varname></term>
 
                         <listitem><para>Override the default
