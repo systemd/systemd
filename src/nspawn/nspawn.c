@@ -758,7 +758,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                  * and char devices. */
                 if (S_ISDIR(source_st.st_mode)) {
                         r = mkdir_label(where, 0755);
-                        if (r < 0) {
+                        if (r < 0 && errno != EEXIST) {
                                 log_error("Failed to create mount point %s: %s", where, strerror(-r));
 
                                 return r;
