@@ -1360,7 +1360,8 @@ tests += \
 	test-condition-util \
 	test-uid-range \
 	test-bus-policy \
-	test-locale-util
+	test-locale-util \
+	test-copy
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1508,6 +1509,12 @@ test_locale_util_SOURCES = \
 	src/test/test-locale-util.c
 
 test_locale_util_LDADD = \
+	libsystemd-shared.la
+
+test_copy_SOURCES = \
+	src/test/test-copy.c
+
+test_copy_LDADD = \
 	libsystemd-shared.la
 
 test_condition_util_SOURCES = \
