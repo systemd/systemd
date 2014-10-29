@@ -36,6 +36,8 @@
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->container_offsets[i]) : NULL)
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers ++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
 
+#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
+
 static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         sd_rtnl_message *m;
 
@@ -1066,7 +1068,7 @@ int rtnl_message_parse(sd_rtnl_message *m,
         *rta_tb_size = max + 1;
 
         for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
-                type = rta->rta_type;
+                type = RTA_TYPE(rta);
 
                 /* if the kernel is newer than the headers we used
                    when building, we ignore out-of-range attributes
