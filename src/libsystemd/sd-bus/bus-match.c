@@ -537,7 +537,7 @@ static int bus_match_find_compare_value(
         else if (BUS_MATCH_CAN_HASH(t))
                 n = hashmap_get(c->compare.children, value_str);
         else {
-                for (n = c->child; !value_node_same(n, t, value_u8, value_str); n = n->next)
+                for (n = c->child; n && !value_node_same(n, t, value_u8, value_str); n = n->next)
                         ;
         }
 
