@@ -725,7 +725,7 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, type, NULL, size);
+        r = add_rtattr(m, type | NLA_F_NESTED, NULL, size);
         if (r < 0)
                 return r;
 
