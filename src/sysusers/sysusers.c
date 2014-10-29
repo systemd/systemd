@@ -358,6 +358,7 @@ static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
+        struct stat st;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
@@ -372,14 +373,16 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(group), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(group_path, "re");
                 if (original) {
                         struct group *gr;
+
+                        if (fstat(fileno(original), &st) < 0 ||
+                            fchmod(fileno(group), st.st_mode & 07777) < 0 ||
+                            fchown(fileno(group), st.st_uid, st.st_gid) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
                         errno = 0;
                         while ((gr = fgetgrent(original))) {
@@ -418,6 +421,9 @@ static int write_files(void) {
                 } else if (errno != ENOENT) {
                         r = -errno;
                         goto finish;
+                } else if (fchmod(fileno(group), 0644) < 0) {
+                        r = -errno;
+                        goto finish;
                 }
 
                 HASHMAP_FOREACH(i, todo_gids, iterator) {
@@ -449,14 +455,16 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(gshadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(gshadow_path, "re");
                 if (original) {
                         struct sgrp *sg;
+
+                        if (fstat(fileno(original), &st) < 0 ||
+                            fchmod(fileno(gshadow), st.st_mode & 07777) < 0 ||
+                            fchown(fileno(gshadow), st.st_uid, st.st_gid) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
                         errno = 0;
                         while ((sg = fgetsgent(original))) {
@@ -481,6 +489,9 @@ static int write_files(void) {
                         }
 
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(gshadow), 0000) < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -513,14 +524,16 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(passwd), 0644) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(passwd_path, "re");
                 if (original) {
                         struct passwd *pw;
+
+                        if (fstat(fileno(original), &st) < 0 ||
+                            fchmod(fileno(passwd), st.st_mode & 07777) < 0 ||
+                            fchown(fileno(passwd), st.st_uid, st.st_gid) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
                         errno = 0;
                         while ((pw = fgetpwent(original))) {
@@ -550,6 +563,9 @@ static int write_files(void) {
                         }
 
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(passwd), 0644) < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -596,14 +612,16 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
-                if (fchmod(fileno(shadow), 0000) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
                 original = fopen(shadow_path, "re");
                 if (original) {
                         struct spwd *sp;
+
+                        if (fstat(fileno(original), &st) < 0 ||
+                            fchmod(fileno(shadow), st.st_mode & 07777) < 0 ||
+                            fchown(fileno(shadow), st.st_uid, st.st_gid) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
 
                         errno = 0;
                         while ((sp = fgetspent(original))) {
@@ -627,6 +645,9 @@ static int write_files(void) {
                                 goto finish;
                         }
                 } else if (errno != ENOENT) {
+                        r = -errno;
+                        goto finish;
+                } else if (fchmod(fileno(shadow), 0000) < 0) {
                         r = -errno;
                         goto finish;
                 }
