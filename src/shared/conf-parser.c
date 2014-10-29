@@ -27,6 +27,7 @@
 #include <netinet/ether.h>
 
 #include "conf-parser.h"
+#include "conf-files.h"
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
@@ -425,6 +426,37 @@ int config_parse(const char *unit,
                                             filename, strerror(-r));
                         return r;
                 }
+        }
+
+        return 0;
+}
+
+/* Parse each config file in the specified directories. */
+int config_parse_many(const char *conf_file,
+                      const char *conf_file_dirs,
+                      const char *sections,
+                      ConfigItemLookup lookup,
+                      const void *table,
+                      bool relaxed,
+                      void *userdata) {
+        _cleanup_strv_free_ char **files = NULL;
+        char **fn;
+        int r;
+
+        r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+        if (r < 0)
+                return r;
+
+        if (conf_file) {
+                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(fn, files) {
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, relaxed, false, true, userdata);
+                if (r < 0)
+                        return r;
         }
 
         return 0;

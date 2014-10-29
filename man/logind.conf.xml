@@ -44,18 +44,41 @@
 
         <refnamediv>
                 <refname>logind.conf</refname>
-                <refpurpose>Login manager configuration file</refpurpose>
+                <refpurpose>Login manager configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/logind.conf</filename></para>
+                <para><filename>/etc/systemd/logind.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/logind.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>This file configures various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                <para>These files configure various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
+                <para>Each configuration file shall be named in the style of
+                <filename><replaceable>filename</replaceable>.conf</filename>.
+                Files in <filename>/etc/</filename> override files with the
+                same name in <filename>/usr/lib/</filename> and
+                <filename>/run/</filename>.  Files in
+                <filename>/run/</filename> override files with the same name in
+                <filename>/usr/lib/</filename>. Packages should install their
+                configuration files in <filename>/usr/lib/</filename>. Files in
+                <filename>/etc/</filename> are reserved for the local
+                administrator, who may use this logic to override the
+                configuration files installed by vendor packages. All
+                configuration files are sorted by their filename in
+                lexicographic order, regardless of which of the directories
+                they reside in. If multiple files specify the same option, the
+                entry in the file with the lexicographically latest name will
+                be applied; entries in any <filename>logind.conf.d</filename>
+                file override entries in
+                <filename>/etc/systemd/logind.conf</filename>. It is
+                recommended to prefix all filenames with a two-digit number and
+                a dash, to simplify the ordering of the files.</para>
         </refsect1>
 
         <refsect1>

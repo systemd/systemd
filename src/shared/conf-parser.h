@@ -92,6 +92,14 @@ int config_parse(const char *unit,
                  bool warn,
                  void *userdata);
 
+int config_parse_many(const char *conf_file,      /* possibly NULL */
+                      const char *conf_file_dirs, /* nulstr */
+                      const char *sections,       /* nulstr */
+                      ConfigItemLookup lookup,
+                      const void *table,
+                      bool relaxed,
+                      void *userdata);
+
 /* Generic parsers */
 int config_parse_int(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_unsigned(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
