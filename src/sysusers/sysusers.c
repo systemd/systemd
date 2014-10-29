@@ -67,15 +67,7 @@ typedef struct Item {
 
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/sysusers.d\0"
-        "/run/sysusers.d\0"
-        "/usr/local/lib/sysusers.d\0"
-        "/usr/lib/sysusers.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/sysusers.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysusers");
 
 static Hashmap *users = NULL, *groups = NULL;
 static Hashmap *todo_uids = NULL, *todo_gids = NULL;

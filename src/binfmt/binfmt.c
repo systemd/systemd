@@ -36,15 +36,7 @@
 #include "fileio.h"
 #include "build.h"
 
-static const char conf_file_dirs[] =
-        "/etc/binfmt.d\0"
-        "/run/binfmt.d\0"
-        "/usr/local/lib/binfmt.d\0"
-        "/usr/lib/binfmt.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/binfmt.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("binfmt");
 
 static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;

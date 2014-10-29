@@ -38,15 +38,7 @@
 
 static char **arg_proc_cmdline_modules = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/modules-load.d\0"
-        "/run/modules-load.d\0"
-        "/usr/local/lib/modules-load.d\0"
-        "/usr/lib/modules-load.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/modules-load.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("modules-load");
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {

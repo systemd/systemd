@@ -38,15 +38,7 @@
 
 static char **arg_prefixes = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/sysctl.d\0"
-        "/run/sysctl.d\0"
-        "/usr/local/lib/sysctl.d\0"
-        "/usr/lib/sysctl.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/sysctl.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysctl");
 
 static char* normalize_sysctl(char *s) {
         char *n;

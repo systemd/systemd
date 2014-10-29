@@ -117,15 +117,7 @@ static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 
-static const char conf_file_dirs[] =
-        "/etc/tmpfiles.d\0"
-        "/run/tmpfiles.d\0"
-        "/usr/local/lib/tmpfiles.d\0"
-        "/usr/lib/tmpfiles.d\0"
-#ifdef HAVE_SPLIT_USR
-        "/lib/tmpfiles.d\0"
-#endif
-        ;
+static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
 
 #define MAX_DEPTH 256
 
