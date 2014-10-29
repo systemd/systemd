@@ -47,7 +47,7 @@ if [[ -f /etc/kernel/cmdline ]]; then
 fi
 
 if ! [[ ${BOOT_OPTIONS[*]} ]]; then
-    read -ar line < /proc/cmdline
+    read -a line -r < /proc/cmdline
     for i in "${line[@]}"; do
         [[ "${i#initrd=*}" != "$i" ]] && continue
         BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
