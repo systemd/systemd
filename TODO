@@ -1,7 +1,3 @@
-Fixes needed before 217:
-
-* verify that both resolved and timesyncd work OK without networkd around
-
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
@@ -23,6 +19,7 @@ Bugfixes:
   report the failure properly.
 
 External:
+
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
@@ -37,6 +34,8 @@ External:
   compress coredumps in a way compatible with /usr/bin/lz4.
 
 Features:
+
+* optionally support running journald from the command line for testing purposes in external projects
 
 * journald: allow per-priority and per-service retention times when rotating/vacuuming
 
