@@ -420,7 +420,7 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_BOND_AD_INFO 23
 #define __IFLA_BOND_MAX 24
 
-#define IFLA_BOND_MAX	(__IFLA_BOND_MAX - 1)
+#define IFLA_BOND_MAX   (__IFLA_BOND_MAX - 1)
 #endif
 
 #if !HAVE_DECL_IFLA_VLAN_PROTOCOL
