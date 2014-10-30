@@ -32,6 +32,7 @@
 #include "sd-journal.h"
 #include "util.h"
 #include "socket-util.h"
+#include "memfd.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 
@@ -313,16 +314,16 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
          * here, since we want this to be a tmpfs, and one that is
          * available from early boot on and where unprivileged users
          * can create files. */
-        buffer_fd = memfd_create("journal-message", MFD_ALLOW_SEALING | MFD_CLOEXEC);
+        buffer_fd = memfd_new(NULL);
         if (buffer_fd < 0) {
-                if (errno == ENOSYS) {
+                if (buffer_fd == -ENOSYS) {
                         buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
                         if (buffer_fd < 0)
                                 return buffer_fd;
 
                         seal = false;
                 } else
-                        return -errno;
+                        return buffer_fd;
         }
 
         n = writev(buffer_fd, w, j);
@@ -330,9 +331,9 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                 return -errno;
 
         if (seal) {
-                r = fcntl(buffer_fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
+                r = memfd_set_sealed(buffer_fd);
                 if (r < 0)
-                        return -errno;
+                        return r;
         }
 
         mh.msg_iov = NULL;

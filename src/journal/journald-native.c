@@ -33,6 +33,7 @@
 #include "journald-console.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
+#include "memfd.h"
 
 bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;
@@ -319,9 +320,7 @@ void server_process_native_file(
         /* If it's a memfd, check if it is sealed. If so, we can just
          * use map it and use it, and do not need to copy the data
          * out. */
-        r = fcntl(fd, F_GET_SEALS);
-        sealed = r >= 0 &&
-                (r & (F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE|F_SEAL_SEAL)) == (F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE|F_SEAL_SEAL);
+        sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
                 _cleanup_free_ char *sl = NULL, *k = NULL;

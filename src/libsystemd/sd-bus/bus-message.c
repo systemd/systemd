@@ -1097,10 +1097,10 @@ static int part_make_space(
                         uint64_t new_allocated;
 
                         new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
-                        r = ftruncate(part->memfd, new_allocated);
+                        r = memfd_set_size(part->memfd, new_allocated);
                         if (r < 0) {
                                 m->poisoned = true;
-                                return -errno;
+                                return r;
                         }
 
                         part->allocated = new_allocated;
@@ -2820,11 +2820,12 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
                                 /* Then, sync up real memfd size */
                                 sz = part->size;
-                                if (ftruncate(part->memfd, sz) < 0)
-                                        return -errno;
+                                r = memfd_set_size(part->memfd, sz);
+                                if (r < 0)
+                                        return r;
 
                                 /* Finally, try to seal */
-                                if (fcntl(part->memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) >= 0)
+                                if (memfd_set_sealed(part->memfd) >= 0)
                                         part->sealed = true;
                         }
         }

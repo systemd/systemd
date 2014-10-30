@@ -1118,20 +1118,13 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache <= 0) {
-                _cleanup_free_ char *g = NULL;
                 int r;
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
-                assert(bus->connection_name);
-
-                g = bus_label_escape(bus->connection_name);
-                if (!g)
-                        return -ENOMEM;
-
-                r = memfd_create(g, MFD_ALLOW_SEALING|MFD_CLOEXEC);
+                r = memfd_new(bus->connection_name);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
                 *address = NULL;
                 *mapped = 0;
@@ -1188,7 +1181,7 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, si
 
         /* If overly long, let's return a bit to the OS */
         if (mapped > max_mapped) {
-                assert_se(ftruncate(fd, max_mapped) >= 0);
+                assert_se(memfd_set_size(fd, max_mapped) >= 0);
                 assert_se(munmap((uint8_t*) address + max_mapped, PAGE_ALIGN(mapped - max_mapped)) >= 0);
                 c->mapped = c->allocated = max_mapped;
         } else {
