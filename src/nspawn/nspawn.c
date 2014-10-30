@@ -2931,33 +2931,30 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         }
 
         switch (status.si_code) {
+
         case CLD_EXITED:
                 r = status.si_status;
                 if (r == 0) {
                         if (!arg_quiet)
-                                log_debug("Container %s exited successfully.",
-                                          arg_machine);
+                                log_debug("Container %s exited successfully.", arg_machine);
 
                         *container = CONTAINER_TERMINATED;
-                } else {
-                        log_error("Container %s failed with error code %i.",
-                                  arg_machine, status.si_status);
-                }
+                } else
+                        log_error("Container %s failed with error code %i.", arg_machine, status.si_status);
+
                 break;
 
         case CLD_KILLED:
                 if (status.si_status == SIGINT) {
                         if (!arg_quiet)
-                                log_info("Container %s has been shut down.",
-                                         arg_machine);
+                                log_info("Container %s has been shut down.", arg_machine);
 
                         *container = CONTAINER_TERMINATED;
                         r = 0;
                         break;
                 } else if (status.si_status == SIGHUP) {
                         if (!arg_quiet)
-                                log_info("Container %s is being rebooted.",
-                                         arg_machine);
+                                log_info("Container %s is being rebooted.", arg_machine);
 
                         *container = CONTAINER_REBOOTED;
                         r = 0;
@@ -2966,15 +2963,13 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                 /* CLD_KILLED fallthrough */
 
         case CLD_DUMPED:
-                log_error("Container %s terminated by signal %s.",
-                          arg_machine, signal_to_string(status.si_status));
-                r = -1;
+                log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
+                r = -EIO;
                 break;
 
         default:
-                log_error("Container %s failed due to unknown reason.",
-                          arg_machine);
-                r = -1;
+                log_error("Container %s failed due to unknown reason.", arg_machine);
+                r = -EIO;
                 break;
         }
 
