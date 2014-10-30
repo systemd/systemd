@@ -2958,6 +2958,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-icmp6-nd.h \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
+	src/systemd/sd-pppoe.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/sd-dhcp-server.c \
 	src/libsystemd-network/dhcp-network.c \
@@ -2972,6 +2973,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/ipv4ll-network.c \
 	src/libsystemd-network/ipv4ll-packet.c \
 	src/libsystemd-network/ipv4ll-internal.h \
+	src/libsystemd-network/sd-pppoe.c \
 	src/libsystemd-network/network-internal.c \
 	src/libsystemd-network/network-internal.h \
 	src/libsystemd-network/sd-icmp6-nd.c \
@@ -3031,6 +3033,14 @@ test_ipv4ll_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_pppoe_SOURCES = \
+	src/systemd/sd-pppoe.h \
+	src/libsystemd-network/test-pppoe.c
+
+test_pppoe_LDADD = \
+	libsystemd-network.la \
+	libsystemd-shared.la
+
 test_icmp6_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-icmp6-nd.h \
@@ -3059,6 +3069,9 @@ tests += \
 	test-ipv4ll \
 	test-icmp6-rs \
 	test-dhcp6-client
+
+manual_tests += \
+	test-pppoe
 
 # ------------------------------------------------------------------------------
 if ENABLE_TERMINAL
