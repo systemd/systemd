@@ -1269,6 +1269,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                 if (r >= 0) {
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
+                        client->receive_message =
+                                sd_event_source_unref(client->receive_message);
+                        client->fd = asynchronous_close(client->fd);
 
                         if (IN_SET(client->state, DHCP_STATE_REQUESTING,
                                    DHCP_STATE_REBOOTING))
