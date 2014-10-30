@@ -60,8 +60,6 @@ Features:
 
 * PID 1 doesn't apply nspawns devices cgroup policy
 
-* rework journal-send.c to use memfds for large blobs if they are available instead of unlinked files in /tmp. Also, if we detect that the kernel knows memfds, refuse anything but sealed memfds.
-
 * maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
 
 * man: document that corrupted journal files is nothing to act on
@@ -70,8 +68,6 @@ Features:
   handle the case where a large number of fds is appended that we
   cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
   253 messages)
-
-* busctl: add a pcap writer, using LINKTYPE_DBUS/231
 
 * man: maybe use the word "inspect" rather than "introspect"?
 
