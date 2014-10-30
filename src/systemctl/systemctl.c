@@ -1268,6 +1268,11 @@ next:
                         return false;
         }
 
+        if (!strv_isempty(arg_states)) {
+                if (!strv_find(arg_states, unit_file_state_to_string(u->state)))
+                        return false;
+        }
+
         return true;
 }
 
