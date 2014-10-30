@@ -230,6 +230,11 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1110:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1210:pvr*
  KEYBOARD_KEY_84=wlan
 
+# Dell Inspiron 1520
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:pvr*
+ KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
+
 # Latitude XT2
 keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
  KEYBOARD_KEY_9b=up                                     # tablet rocker up
