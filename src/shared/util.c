@@ -2470,10 +2470,17 @@ int dev_urandom(void *p, size_t n) {
         int r, fd;
         ssize_t k;
 
-        /* Use the syscall unless we know we don't have it, or when
-         * the requested size is too large for it. */
+        /* Gathers some randomness from the kernel. This call will
+         * never block, and will always return some data from the
+         * kernel, regardless if the random pool is fully initialized
+         * or not. It thus makes no guarantee for the quality of the
+         * returned entropy, but is good enough for or usual usecases
+         * of seeding the hash functions for hashtable */
+
+        /* Use the getrandom() syscall unless we know we don't have
+         * it, or when the requested size is too large for it. */
         if (have_syscall != 0 || (size_t) (int) n != n) {
-                r = getrandom(p, n, 0);
+                r = getrandom(p, n, GRND_NONBLOCK);
                 if (r == (int) n) {
                         have_syscall = true;
                         return 0;
@@ -2481,8 +2488,17 @@ int dev_urandom(void *p, size_t n) {
 
                 if (r < 0) {
                         if (errno == ENOSYS)
-                                /* we lack the syscall, continue with reading from /dev/urandom */
+                                /* we lack the syscall, continue with
+                                 * reading from /dev/urandom */
                                 have_syscall = false;
+                        else if (errno == EAGAIN)
+                                /* not enough entropy for now. Let's
+                                 * remember to use the syscall the
+                                 * next time, again, but also read
+                                 * from /dev/urandom for now, which
+                                 * doesn't care about the current
+                                 * amount of entropy.  */
+                                have_syscall = true;
                         else
                                 return -errno;
                 } else
