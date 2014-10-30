@@ -548,9 +548,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
         }
 
         /*
-         * Do return devices with have an unknown type of parent device, they
-         * might produce conflicting IDs below multiple independent parent
-         * devices.
+         * Do not return devices with an unknown parent device type. They
+         * might produce conflicting IDs if the parent does not provide a
+         * unique and predictable name.
          */
         if (!supported_parent) {
                 free(path);
@@ -558,9 +558,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
         }
 
         /*
-         * Do not return a have-only a single-parent block devices, some
-         * have entire hidden buses behind it, and not create predictable
-         * IDs that way.
+         * Do not return block devices without a well-known transport. Some
+         * devices do not expose their buses and do not provide a unique
+         * and predictable name that way.
          */
         if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport) {
                 free(path);
