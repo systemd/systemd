@@ -198,7 +198,7 @@ finish:
 
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         PROTECT_ERRNO;
-        int fd;
+        int fd, r;
         _cleanup_close_ int buffer_fd = -1;
         struct iovec *w;
         uint64_t *l;
@@ -218,6 +218,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         } control;
         struct cmsghdr *cmsg;
         bool have_syslog_identifier = false;
+        bool seal = true;
 
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
@@ -304,20 +305,35 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno != EMSGSIZE && errno != ENOBUFS)
                 return -errno;
 
-        /* Message doesn't fit... Let's dump the data in a temporary
-         * file and just pass a file descriptor of it to the other
-         * side.
+        /* Message doesn't fit... Let's dump the data in a memfd or
+         * temporary file and just pass a file descriptor of it to the
+         * other side.
          *
-         * We use /dev/shm instead of /tmp here, since we want this to
-         * be a tmpfs, and one that is available from early boot on
-         * and where unprivileged users can create files. */
-        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
-        if (buffer_fd < 0)
-                return buffer_fd;
+         * For the temporary files we use /dev/shm instead of /tmp
+         * here, since we want this to be a tmpfs, and one that is
+         * available from early boot on and where unprivileged users
+         * can create files. */
+        buffer_fd = memfd_create("journal-message", MFD_ALLOW_SEALING | MFD_CLOEXEC);
+        if (buffer_fd < 0) {
+                if (errno == ENOSYS) {
+                        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
+                        if (buffer_fd < 0)
+                                return buffer_fd;
+
+                        seal = false;
+                } else
+                        return -errno;
+        }
 
         n = writev(buffer_fd, w, j);
         if (n < 0)
                 return -errno;
+
+        if (seal) {
+                r = fcntl(buffer_fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
+                if (r < 0)
+                        return -errno;
+        }
 
         mh.msg_iov = NULL;
         mh.msg_iovlen = 0;

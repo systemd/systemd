@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <sys/epoll.h>
+#include <sys/mman.h>
 
 #include "socket-util.h"
 #include "path-util.h"
@@ -306,16 +307,28 @@ void server_process_native_file(
                 const char *label, size_t label_len) {
 
         struct stat st;
-        _cleanup_free_ void *p = NULL;
-        ssize_t n;
+        bool sealed;
         int r;
+
+        /* Data is in the passed fd, since it didn't fit in a
+         * datagram. */
 
         assert(s);
         assert(fd >= 0);
 
-        if (!ucred || ucred->uid != 0) {
+        /* If it's a memfd, check if it is sealed. If so, we can just
+         * use map it and use it, and do not need to copy the data
+         * out. */
+        r = fcntl(fd, F_GET_SEALS);
+        sealed = r >= 0 &&
+                (r & (F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE|F_SEAL_SEAL)) == (F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE|F_SEAL_SEAL);
+
+        if (!sealed && (!ucred || ucred->uid != 0)) {
                 _cleanup_free_ char *sl = NULL, *k = NULL;
                 const char *e;
+
+                /* If this is not a sealed memfd, and the peer is unknown or
+                 * unprivileged, then verify the path. */
 
                 if (asprintf(&sl, "/proc/self/fd/%i", fd) < 0) {
                         log_oom();
@@ -344,11 +357,6 @@ void server_process_native_file(
                 }
         }
 
-        /* Data is in the passed file, since it didn't fit in a
-         * datagram. We can't map the file here, since clients might
-         * then truncate it and trigger a SIGBUS for us. So let's
-         * stupidly read it */
-
         if (fstat(fd, &st) < 0) {
                 log_error("Failed to stat passed file, ignoring: %m");
                 return;
@@ -367,17 +375,41 @@ void server_process_native_file(
                 return;
         }
 
-        p = malloc(st.st_size);
-        if (!p) {
-                log_oom();
-                return;
-        }
+        if (sealed) {
+                void *p;
+                size_t ps;
 
-        n = pread(fd, p, st.st_size, 0);
-        if (n < 0)
-                log_error("Failed to read file, ignoring: %s", strerror(-n));
-        else if (n > 0)
-                server_process_native_message(s, p, n, ucred, tv, label, label_len);
+                /* The file is sealed, we can just map it and use it. */
+
+                ps = PAGE_ALIGN(st.st_size);
+                p = mmap(NULL, ps, PROT_READ, MAP_PRIVATE, fd, 0);
+                if (p == MAP_FAILED) {
+                        log_error("Failed to map memfd, ignoring: %m");
+                        return;
+                }
+
+                server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
+                assert_se(munmap(p, ps) >= 0);
+        } else {
+                _cleanup_free_ void *p = NULL;
+                ssize_t n;
+
+                /* The file is not sealed, we can't map the file here, since
+                 * clients might then truncate it and trigger a SIGBUS for
+                 * us. So let's stupidly read it */
+
+                p = malloc(st.st_size);
+                if (!p) {
+                        log_oom();
+                        return;
+                }
+
+                n = pread(fd, p, st.st_size, 0);
+                if (n < 0)
+                        log_error("Failed to read file, ignoring: %s", strerror(-n));
+                else if (n > 0)
+                        server_process_native_message(s, p, n, ucred, tv, label, label_len);
+        }
 }
 
 int server_open_native_socket(Server*s) {
