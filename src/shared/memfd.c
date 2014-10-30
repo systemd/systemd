@@ -65,7 +65,7 @@ int memfd_new(const char *name) {
                 }
         }
 
-        fd = memfd_create(name, MFD_ALLOW_SEALING);
+        fd = memfd_create(name, MFD_ALLOW_SEALING | MFD_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
