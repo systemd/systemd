@@ -24,6 +24,8 @@
 
 #include "calendarspec.h"
 
+#define BITS_WEEKDAYS	127
+
 static void free_chain(CalendarComponent *c) {
         CalendarComponent *n;
 
@@ -120,7 +122,7 @@ static void fix_year(CalendarComponent *c) {
 int calendar_spec_normalize(CalendarSpec *c) {
         assert(c);
 
-        if (c->weekdays_bits <= 0 || c->weekdays_bits >= 127)
+        if (c->weekdays_bits <= 0 || c->weekdays_bits >= BITS_WEEKDAYS)
                 c->weekdays_bits = -1;
 
         fix_year(c->year);
@@ -154,7 +156,7 @@ _pure_ static bool chain_valid(CalendarComponent *c, int from, int to) {
 _pure_ bool calendar_spec_valid(CalendarSpec *c) {
         assert(c);
 
-        if (c->weekdays_bits > 127)
+        if (c->weekdays_bits > BITS_WEEKDAYS)
                 return false;
 
         if (!chain_valid(c->year, 1970, 2199))
@@ -194,7 +196,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
         assert(f);
         assert(c);
-        assert(c->weekdays_bits > 0 && c->weekdays_bits <= 127);
+        assert(c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS);
 
         for (x = 0, l = -1; x < (int) ELEMENTSOF(days); x++) {
 
@@ -259,7 +261,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         if (!f)
                 return -ENOMEM;
 
-        if (c->weekdays_bits > 0 && c->weekdays_bits <= 127) {
+        if (c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS) {
                 format_weekdays(f, c);
                 fputc(' ', f);
         }
@@ -880,7 +882,7 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm) {
         struct tm t;
         int k;
 
-        if (weekdays_bits < 0 || weekdays_bits >= 127)
+        if (weekdays_bits < 0 || weekdays_bits >= BITS_WEEKDAYS)
                 return true;
 
         t = *tm;
