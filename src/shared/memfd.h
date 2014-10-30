@@ -38,5 +38,3 @@ int memfd_get_sealed(int fd);
 
 int memfd_get_size(int fd, uint64_t *sz);
 int memfd_set_size(int fd, uint64_t sz);
-
-int memfd_get_name(int fd, char **name);
