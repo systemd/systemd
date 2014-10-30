@@ -31,7 +31,7 @@
 
 #include "util.h"
 #include "bus-label.h"
-#include "memfd.h"
+#include "memfd-util.h"
 #include "utf8.h"
 #include "missing.h"
 

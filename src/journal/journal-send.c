@@ -32,7 +32,7 @@
 #include "sd-journal.h"
 #include "util.h"
 #include "socket-util.h"
-#include "memfd.h"
+#include "memfd-util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

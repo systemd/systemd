@@ -24,7 +24,7 @@
 
 #include "util.h"
 #include "log.h"
-#include "memfd.h"
+#include "memfd-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"

@@ -33,7 +33,7 @@
 #include "journald-console.h"
 #include "journald-syslog.h"
 #include "journald-wall.h"
-#include "memfd.h"
+#include "memfd-util.h"
 
 bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;

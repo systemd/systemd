@@ -881,8 +881,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/copy.h \
 	src/shared/base-filesystem.c \
 	src/shared/base-filesystem.h \
-	src/shared/memfd.c \
-	src/shared/memfd.h \
+	src/shared/memfd-util.c \
+	src/shared/memfd-util.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
 	src/shared/nss-util.h
