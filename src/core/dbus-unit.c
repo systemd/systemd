@@ -859,20 +859,16 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
-
-        } else if (streq(name, "Requires") ||
-                   streq(name, "RequiresOverridable") ||
-                   streq(name, "Requisite") ||
-                   streq(name, "RequisiteOverridable") ||
-                   streq(name, "Wants") ||
-                   streq(name, "BindsTo") ||
-                   streq(name, "Conflicts") ||
-                   streq(name, "Before") ||
-                   streq(name, "After") ||
-                   streq(name, "OnFailure") ||
-                   streq(name, "PropagatesReloadTo") ||
-                   streq(name, "ReloadPropagatedFrom") ||
-                   streq(name, "PartOf")) {
+        } else if (STR_IN_SET(name,
+                              "Requires", "RequiresOverridable",
+                              "Requisite", "RequisiteOverridable",
+                              "Wants",
+                              "BindsTo",
+                              "Conflicts",
+                              "Before", "After",
+                              "OnFailure",
+                              "PropagatesReloadTo", "ReloadPropagatedFrom",
+                              "PartOf")) {
 
                 UnitDependency d;
                 const char *other;
