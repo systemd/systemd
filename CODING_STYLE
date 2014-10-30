@@ -190,3 +190,8 @@
 - Do not write functions that clobber call-by-reference variables on
   failure. Use temporary variables for these cases and change the
   passed in variables only on success.
+
+- When you allocate a file descriptor, it should be made O_CLOEXEC
+  right from the beginning, as none of our files should leak to forked
+  binaries by default. Hence, whenever you open a file, O_CLOEXEC must
+  be specified, right from the beginning.
