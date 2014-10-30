@@ -301,21 +301,37 @@ static int compare_unit_info(const void *a, const void *b) {
 }
 
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
-        const char *dot;
-
         if (!strv_isempty(patterns)) {
                 char **pattern;
 
                 STRV_FOREACH(pattern, patterns)
                         if (fnmatch(*pattern, u->id, FNM_NOESCAPE) == 0)
-                                return true;
+                                goto next;
                 return false;
         }
 
-        return (!arg_types || ((dot = strrchr(u->id, '.')) &&
-                               strv_find(arg_types, dot+1))) &&
-                (arg_all || !(streq(u->active_state, "inactive")
-                              || u->following[0]) || u->job_id > 0);
+next:
+        if (arg_types) {
+                const char *dot;
+
+                dot = strrchr(u->id, '.');
+                if (!dot)
+                        return false;
+
+                if (!strv_find(arg_types, dot+1))
+                        return false;
+        }
+
+        if (arg_all)
+                return true;
+
+        if (u->job_id > 0)
+                return true;
+
+        if (streq(u->active_state, "inactive") || u->following[0])
+                return false;
+
+        return true;
 }
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
@@ -1231,18 +1247,28 @@ static int compare_unit_file_list(const void *a, const void *b) {
 }
 
 static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
-        const char *dot;
-
         if (!strv_isempty(patterns)) {
                 char **pattern;
 
                 STRV_FOREACH(pattern, patterns)
                         if (fnmatch(*pattern, basename(u->path), FNM_NOESCAPE) == 0)
-                                return true;
+                                goto next;
                 return false;
         }
 
-        return !arg_types || ((dot = strrchr(u->path, '.')) && strv_find(arg_types, dot+1));
+next:
+        if (!strv_isempty(arg_types)) {
+                const char *dot;
+
+                dot = strrchr(u->path, '.');
+                if (!dot)
+                        return false;
+
+                if (!strv_find(arg_types, dot+1))
+                        return false;
+        }
+
+        return true;
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
