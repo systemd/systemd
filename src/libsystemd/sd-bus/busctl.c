@@ -44,6 +44,7 @@ static char **arg_matches = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_user = false;
+static size_t arg_snaplen = 4096;
 
 static void pager_open_if_enabled(void) {
 
@@ -223,7 +224,15 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         return 0;
 }
 
-static int monitor(sd_bus *bus, char *argv[]) {
+static int message_dump(sd_bus_message *m, FILE *f) {
+        return bus_message_dump(m, f, true);
+}
+
+static int message_pcap(sd_bus_message *m, FILE *f) {
+        return bus_message_pcap_frame(m, arg_snaplen, f);
+}
+
+static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FILE *f)) {
         bool added_something = false;
         char **i;
         int r;
@@ -277,7 +286,7 @@ static int monitor(sd_bus *bus, char *argv[]) {
                 }
 
                 if (m) {
-                        bus_message_dump(m, stdout, true);
+                        dump(m, stdout);
                         continue;
                 }
 
@@ -290,6 +299,28 @@ static int monitor(sd_bus *bus, char *argv[]) {
                         return r;
                 }
         }
+}
+
+static int capture(sd_bus *bus, char *argv[]) {
+        int r;
+
+        if (isatty(fileno(stdout)) > 0) {
+                log_error("Refusing to write message data to console, please redirect output to a file.");
+                return -EINVAL;
+        }
+
+        bus_pcap_header(arg_snaplen, stdout);
+
+        r = monitor(bus, argv, message_pcap);
+        if (r < 0)
+                return r;
+
+        if (ferror(stdout)) {
+                log_error("Couldn't write capture file.");
+                return -EIO;
+        }
+
+        return r;
 }
 
 static int status(sd_bus *bus, char *argv[]) {
@@ -339,6 +370,7 @@ static int help(void) {
                "Commands:\n"
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
+               "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  status NAME             Show name status\n"
                "  help                    Show this help\n"
                , program_invocation_short_name);
@@ -359,7 +391,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_MACHINE,
                 ARG_UNIQUE,
                 ARG_ACQUIRED,
-                ARG_ACTIVATABLE
+                ARG_ACTIVATABLE,
+                ARG_SIZE,
         };
 
         static const struct option options[] = {
@@ -377,10 +410,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "match",        required_argument, NULL, ARG_MATCH        },
                 { "host",         required_argument, NULL, 'H'              },
                 { "machine",      required_argument, NULL, 'M'              },
+                { "size",         required_argument, NULL, ARG_SIZE         },
                 {},
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -438,6 +472,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case ARG_SIZE: {
+                        off_t o;
+
+                        r = parse_size(optarg, 0, &o);
+                        if (r < 0) {
+                                log_error("Failed to parse size: %s", optarg);
+                                return r;
+                        }
+
+                        if ((off_t) (size_t) o !=  o) {
+                                log_error("Size out of range.");
+                                return -E2BIG;
+                        }
+
+                        arg_snaplen = (size_t) o;
+                        break;
+                }
+
                 case 'H':
                         arg_transport = BUS_TRANSPORT_REMOTE;
                         arg_host = optarg;
@@ -469,7 +521,10 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
                 return list_bus_names(bus, argv + optind);
 
         if (streq(argv[optind], "monitor"))
-                return monitor(bus, argv + optind);
+                return monitor(bus, argv + optind, message_dump);
+
+        if (streq(argv[optind], "capture"))
+                return capture(bus, argv + optind);
 
         if (streq(argv[optind], "status"))
                 return status(bus, argv + optind);
@@ -498,7 +553,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (streq_ptr(argv[optind], "monitor")) {
+        if (streq_ptr(argv[optind], "monitor") ||
+            streq_ptr(argv[optind], "capture")) {
 
                 r = sd_bus_set_monitor(bus, true);
                 if (r < 0) {

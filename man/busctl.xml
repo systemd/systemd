@@ -133,6 +133,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--size=</option></term>
+
+        <listitem>
+          <para>When used with the <command>capture</command> command
+          specifies the maximum bus message size to capture
+          ("snaplen"). Defaults to 4096 bytes.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
@@ -167,6 +177,19 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><command>capture</command>  <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg></term>
+
+        <listitem><para>Similar to <command>monitor</command> but
+        writes the output in pcap format (for details see the <ulink
+        url="http://wiki.wireshark.org/Development/LibpcapFileFormat">Libpcap
+        File Format</ulink> description. Make sure to redirect the
+        output to STDOUT to a file. Tools like
+        <citerefentry><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        may be used to dissect and view the generated
+        files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>status</command>  <arg choice="plain"><replaceable>NAME</replaceable></arg></term>
 
         <listitem><para>Show process information and credentials of a
@@ -191,7 +214,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-bus-proxyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

@@ -23,6 +23,7 @@
 #include "capability.h"
 #include "strv.h"
 #include "audit.h"
+#include "macro.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"
@@ -421,6 +422,101 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
         dump_capabilities(c, f, "PermittedCapabilities", sd_bus_creds_has_permitted_cap);
         dump_capabilities(c, f, "InheritableCapabilities", sd_bus_creds_has_inheritable_cap);
         dump_capabilities(c, f, "BoundingCapabilities", sd_bus_creds_has_bounding_cap);
+
+        return 0;
+}
+
+/*
+ * For details about the file format, see:
+ *
+ * http://wiki.wireshark.org/Development/LibpcapFileFormat
+ */
+
+typedef struct _packed_ pcap_hdr_s {
+        uint32_t magic_number;   /* magic number */
+        uint16_t version_major;  /* major version number */
+        uint16_t version_minor;  /* minor version number */
+        int32_t  thiszone;       /* GMT to local correction */
+        uint32_t sigfigs;        /* accuracy of timestamps */
+        uint32_t snaplen;        /* max length of captured packets, in octets */
+        uint32_t network;        /* data link type */
+} pcap_hdr_t ;
+
+typedef struct  _packed_ pcaprec_hdr_s {
+        uint32_t ts_sec;         /* timestamp seconds */
+        uint32_t ts_usec;        /* timestamp microseconds */
+        uint32_t incl_len;       /* number of octets of packet saved in file */
+        uint32_t orig_len;       /* actual length of packet */
+} pcaprec_hdr_t;
+
+int bus_pcap_header(size_t snaplen, FILE *f) {
+
+        pcap_hdr_t hdr = {
+                .magic_number = 0xa1b2c3d4U,
+                .version_major = 2,
+                .version_minor = 4,
+                .thiszone = 0, /* UTC */
+                .sigfigs = 0,
+                .network = 231, /* D-Bus */
+        };
+
+        if (!f)
+                f = stdout;
+
+        assert(snaplen > 0);
+        assert((size_t) (uint32_t) snaplen == snaplen);
+
+        hdr.snaplen = (uint32_t) snaplen;
+
+        fwrite(&hdr, 1, sizeof(hdr), f);
+        fflush(f);
+
+        return 0;
+}
+
+int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
+        struct bus_body_part *part;
+        pcaprec_hdr_t hdr = {};
+        struct timeval tv;
+        unsigned i;
+        size_t w;
+
+        if (!f)
+                f = stdout;
+
+        assert(m);
+        assert(snaplen > 0);
+        assert((size_t) (uint32_t) snaplen == snaplen);
+
+        if (m->realtime != 0)
+                timeval_store(&tv, m->realtime);
+        else
+                assert_se(gettimeofday(&tv, NULL) >= 0);
+
+        hdr.ts_sec = tv.tv_sec;
+        hdr.ts_usec = tv.tv_usec;
+        hdr.orig_len = BUS_MESSAGE_SIZE(m);
+        hdr.incl_len = MIN(hdr.orig_len, snaplen);
+
+        /* write the pcap header */
+        fwrite(&hdr, 1, sizeof(hdr), f);
+
+        /* write the dbus header */
+        w = MIN(BUS_MESSAGE_BODY_BEGIN(m), snaplen);
+        fwrite(m->header, 1, w, f);
+        snaplen -= w;
+
+        /* write the dbus body */
+        MESSAGE_FOREACH_PART(part, i, m) {
+                if (snaplen <= 0)
+                        break;
+
+                w = MIN(part->size, snaplen);
+                fwrite(part->data, 1, w, f);
+                snaplen -= w;
+        }
+
+        fflush(f);
 
         return 0;
 }
