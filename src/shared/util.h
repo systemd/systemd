@@ -321,6 +321,7 @@ int make_console_stdio(void);
 
 int dev_urandom(void *p, size_t n);
 void random_bytes(void *p, size_t n);
+void initialize_srand(void);
 
 static inline uint64_t random_u64(void) {
         uint64_t u;

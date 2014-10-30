@@ -861,7 +861,7 @@ int scsi_get_serial(struct udev *udev,
         int retval;
 
         memzero(dev_scsi->serial, len);
-        srand((unsigned int)getpid());
+        initialize_srand();
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 

@@ -2521,8 +2521,36 @@ int dev_urandom(void *p, size_t n) {
         return 0;
 }
 
-void random_bytes(void *p, size_t n) {
+void initialize_srand(void) {
         static bool srand_called = false;
+        unsigned x;
+#ifdef HAVE_SYS_AUXV_H
+        void *auxv;
+#endif
+
+        if (srand_called)
+                return;
+
+        x = 0;
+
+#ifdef HAVE_SYS_AUXV_H
+        /* The kernel provides us with a bit of entropy in auxv, so
+         * let's try to make use of that to seed the pseudo-random
+         * generator. It's better than nothing... */
+
+        auxv = (void*) getauxval(AT_RANDOM);
+        if (auxv)
+                x ^= *(unsigned*) auxv;
+#endif
+
+        x ^= (unsigned) now(CLOCK_REALTIME);
+        x ^= (unsigned) gettid();
+
+        srand(x);
+        srand_called = true;
+}
+
+void random_bytes(void *p, size_t n) {
         uint8_t *q;
         int r;
 
@@ -2533,28 +2561,7 @@ void random_bytes(void *p, size_t n) {
         /* If some idiot made /dev/urandom unavailable to us, he'll
          * get a PRNG instead. */
 
-        if (!srand_called) {
-                unsigned x = 0;
-
-#ifdef HAVE_SYS_AUXV_H
-                /* The kernel provides us with a bit of entropy in
-                 * auxv, so let's try to make use of that to seed the
-                 * pseudo-random generator. It's better than
-                 * nothing... */
-
-                void *auxv;
-
-                auxv = (void*) getauxval(AT_RANDOM);
-                if (auxv)
-                        x ^= *(unsigned*) auxv;
-#endif
-
-                x ^= (unsigned) now(CLOCK_REALTIME);
-                x ^= (unsigned) gettid();
-
-                srand(x);
-                srand_called = true;
-        }
+        initialize_srand();
 
         for (q = p; q < (uint8_t*) p + n; q ++)
                 *q = rand();

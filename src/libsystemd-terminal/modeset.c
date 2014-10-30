@@ -480,7 +480,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        srand(time(NULL));
+        initialize_srand();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

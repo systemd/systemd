@@ -922,7 +922,7 @@ int main(int argc, char *argv[])
                 goto exit;
         }
 
-        srand((unsigned int)getpid());
+        initialize_srand();
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
