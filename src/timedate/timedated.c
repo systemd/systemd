@@ -44,7 +44,7 @@
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
-SD_BUS_ERROR_MAPPING = {
+SD_BUS_ERROR_MAPPING(timedated) = {
         {"org.freedesktop.timedate1.NoNTPSupport", ENOTSUP},
 };
 

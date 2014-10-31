@@ -130,7 +130,7 @@ static void test_errno_mapping_standard(void) {
         assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
 }
 
-SD_BUS_ERROR_MAPPING = {
+SD_BUS_ERROR_MAPPING(test) = {
         {"org.freedesktop.custom-dbus-error", 5},
         {"org.freedesktop.custom-dbus-error-2", 52},
 };

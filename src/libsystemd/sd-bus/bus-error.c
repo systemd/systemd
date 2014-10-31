@@ -35,7 +35,7 @@
 #define BUS_ERROR_OOM SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_MEMORY, "Out of memory")
 #define BUS_ERROR_FAILED SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed")
 
-SD_BUS_ERROR_MAPPING = {
+SD_BUS_ERROR_MAPPING(sd_bus_standard) = {
         {"org.freedesktop.DBus.Error.Failed",                           EACCES},
         {"org.freedesktop.DBus.Error.NoMemory",                         ENOMEM},
         {"org.freedesktop.DBus.Error.ServiceUnknown",                   EHOSTUNREACH},

@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-bus.h"
+
 #define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
 #define BUS_ERROR_NO_UNIT_FOR_PID "org.freedesktop.systemd1.NoUnitForPID"
 #define BUS_ERROR_UNIT_EXISTS "org.freedesktop.systemd1.UnitExists"
@@ -67,3 +69,5 @@
 #define BUS_ERROR_CNAME_LOOP "org.freedesktop.resolve1.CNameLoop"
 #define BUS_ERROR_ABORTED "org.freedesktop.resolve1.Aborted"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
+
+SD_BUS_ERROR_MAPPING_USE(systemd_shared);

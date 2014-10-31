@@ -24,7 +24,7 @@
 #include "sd-bus.h"
 #include "bus-errors.h"
 
-SD_BUS_ERROR_MAPPING = {
+SD_BUS_ERROR_MAPPING(systemd_shared) = {
         {BUS_ERROR_NO_SUCH_UNIT,                 ENOENT},
         {BUS_ERROR_NO_UNIT_FOR_PID,              ESRCH},
         {BUS_ERROR_UNIT_EXISTS,                  EEXIST},
