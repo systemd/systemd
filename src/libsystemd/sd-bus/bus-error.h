@@ -32,8 +32,6 @@ struct name_error_mapping {
 };
 typedef struct name_error_mapping name_error_mapping;
 
-const name_error_mapping* bus_error_mapping_lookup(const char *str, unsigned int len);
-
 bool bus_error_is_dirty(sd_bus_error *e);
 
 const char *bus_error_message(const sd_bus_error *e, int error);

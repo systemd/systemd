@@ -326,8 +326,21 @@ int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **name);
 
 /* Error structures */
 
+struct sd_bus_name_error_mapping {
+        const char* name;
+        int code;
+};
+typedef struct sd_bus_name_error_mapping sd_bus_name_error_mapping;
+
 #define SD_BUS_ERROR_MAKE_CONST(name, message) ((const sd_bus_error) {(name), (message), 0})
 #define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE_CONST(NULL, NULL)
+#ifndef SD_BUS_ERROR_MAPPING
+#  define _SD_BUS_ERROR_XCONCAT(x, y) x ## y
+#  define _SD_BUS_ERROR_CONCAT(x, y) _SD_BUS_ERROR_XCONCAT(x, y)
+#  define SD_BUS_ERROR_MAPPING \
+        __attribute((__section__("sd_bus_errnomap"))) __attribute((__used__)) \
+        static const sd_bus_name_error_mapping _SD_BUS_ERROR_CONCAT(_sd_bus_errno_mapping_, __COUNTER__)[]
+#endif
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);

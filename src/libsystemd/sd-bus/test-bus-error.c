@@ -23,8 +23,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 
-int main(int argc, char *argv[]) {
-
+static void test_error(void) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
         const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
         const sd_bus_error temporarily_const_error = {
@@ -110,6 +109,31 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_IO_ERROR));
         assert_se(sd_bus_error_get_errno(&error) == EIO);
         assert_se(sd_bus_error_is_set(&error));
+}
+
+static void test_errno_mapping_standard(void) {
+        assert_se(sd_bus_error_set(NULL, "System.Error.EUCLEAN", NULL) == -EUCLEAN);
+        assert_se(sd_bus_error_set(NULL, "System.Error.EBUSY", NULL) == -EBUSY);
+        assert_se(sd_bus_error_set(NULL, "System.Error.EINVAL", NULL) == -EINVAL);
+        assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
+}
+
+SD_BUS_ERROR_MAPPING = {
+        {"org.freedesktop.custom-dbus-error", 5},
+        {"org.freedesktop.custom-dbus-error-2", 52},
+};
+
+static void test_errno_mapping_custom(void) {
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", NULL) == -5);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", NULL) == -52);
+        assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-x", NULL) == -EIO);
+}
+
+int main(int argc, char *argv[]) {
+
+        test_error();
+        test_errno_mapping_standard();
+        test_errno_mapping_custom();
 
         return 0;
 }

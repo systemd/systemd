@@ -2592,8 +2592,7 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-network/network-util.c
 
 nodist_libsystemd_internal_la_SOURCES = \
-	src/libsystemd/libsystemd.sym \
-	src/libsystemd/sd-bus/bus-error-mapping.c
+	src/libsystemd/libsystemd.sym
 
 libsystemd_internal_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2631,13 +2630,11 @@ noinst_LTLIBRARIES += \
 EXTRA_DIST += \
 	src/libsystemd/libsystemd.sym.m4 \
 	src/libsystemd/libsystemd.pc.in \
-	src/libsystemd/sd-bus/bus-error-mapping.gperf \
 	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
 
 CLEANFILES += \
-	src/libsystemd/libsystemd.sym \
-	src/libsystemd/sd-bus/bus-error-mapping.c
+	src/libsystemd/libsystemd.sym
 
 BUILT_SOURCES += \
 	src/libsystemd/libsystemd.sym
