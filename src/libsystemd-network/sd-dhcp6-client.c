@@ -200,19 +200,19 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
 
         switch (type) {
         case DHCP6_DUID_LLT:
-                if (duid_len <= sizeof(client->duid.llt))
+                if (duid_len <= sizeof(client->duid.llt) - 2)
                         return -EINVAL;
                 break;
         case DHCP6_DUID_EN:
-                if (duid_len != sizeof(client->duid.en))
+                if (duid_len != sizeof(client->duid.en) - 2)
                         return -EINVAL;
                 break;
         case DHCP6_DUID_LL:
-                if (duid_len <= sizeof(client->duid.ll))
+                if (duid_len <= sizeof(client->duid.ll) - 2)
                         return -EINVAL;
                 break;
         case DHCP6_DUID_UUID:
-                if (duid_len != sizeof(client->duid.uuid))
+                if (duid_len != sizeof(client->duid.uuid) - 2)
                         return -EINVAL;
                 break;
         default:
@@ -222,7 +222,7 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
 
         client->duid.raw.type = htobe16(type);
         memcpy(&client->duid.raw.data, duid, duid_len);
-        client->duid_len = duid_len;
+        client->duid_len = duid_len + 2;  /* +2 for sizeof(type) */
 
         return 0;
 }
