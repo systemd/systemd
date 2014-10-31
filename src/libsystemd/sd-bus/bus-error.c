@@ -80,7 +80,7 @@ static int bus_error_mapping_lookup(const char *name, size_t len) {
         const sd_bus_name_error_mapping *m;
 
         for (m = __start_sd_bus_errnomap; m < __stop_sd_bus_errnomap; m++)
-                if (strneq(m->name, name, len))
+                if (m->name && strneq(m->name, name, len))
                         return m->code;
 
         return EIO;

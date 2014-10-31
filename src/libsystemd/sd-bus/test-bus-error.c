@@ -111,6 +111,18 @@ static void test_error(void) {
         assert_se(sd_bus_error_is_set(&error));
 }
 
+extern const sd_bus_name_error_mapping __start_sd_bus_errnomap[];
+extern const sd_bus_name_error_mapping __stop_sd_bus_errnomap[];
+
+static void dump_mapping_table(void) {
+        const sd_bus_name_error_mapping *m;
+
+        printf("----- errno mappings ------\n");
+        for (m = __start_sd_bus_errnomap; m < __stop_sd_bus_errnomap; m++)
+                printf("%s -> %d\n", m->name, m->code);
+        printf("---------------------------\n");
+}
+
 static void test_errno_mapping_standard(void) {
         assert_se(sd_bus_error_set(NULL, "System.Error.EUCLEAN", NULL) == -EUCLEAN);
         assert_se(sd_bus_error_set(NULL, "System.Error.EBUSY", NULL) == -EBUSY);
@@ -130,6 +142,7 @@ static void test_errno_mapping_custom(void) {
 }
 
 int main(int argc, char *argv[]) {
+        dump_mapping_table();
 
         test_error();
         test_errno_mapping_standard();
