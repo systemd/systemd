@@ -1189,15 +1189,11 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
-        if (mode == JOB_ISOLATE && type != JOB_START) {
-                sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
-                return -EINVAL;
-        }
+        if (mode == JOB_ISOLATE && type != JOB_START)
+                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
-        if (mode == JOB_ISOLATE && !unit->allow_isolate) {
-                sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
-                return -EPERM;
-        }
+        if (mode == JOB_ISOLATE && !unit->allow_isolate)
+                return sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
         log_debug_unit(unit->id,
                        "Trying to enqueue job %s/%s/%s", unit->id,

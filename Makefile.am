@@ -752,6 +752,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/refcnt.h \
 	src/shared/udev-util.h \
 	src/shared/bus-errors.h \
+	src/shared/bus-errors.c \
 	src/shared/device-nodes.c \
 	src/shared/device-nodes.h \
 	src/shared/util.c \
