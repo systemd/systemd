@@ -162,7 +162,7 @@ static int generate(char id[34], const char *root) {
 int machine_id_setup(const char *root) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
-        bool writable = false;
+        bool writable = true;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
         int r;
@@ -186,12 +186,19 @@ int machine_id_setup(const char *root) {
 
                 mkdir_parents(etc_machine_id, 0755);
                 fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-                if (fd >= 0)
-                        writable = true;
-                else {
+                if (fd < 0) {
+                        int old_errno = errno;
+
                         fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
-                                log_error("Cannot open %s: %m", etc_machine_id);
+                                if (old_errno == EROFS && errno == ENOENT)
+                                        log_error("System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
+                                                  "Booting up is supported only when:\n"
+                                                  "1) /etc/machine-id exists and is populated.\n"
+                                                  "2) /etc/machine-id exists and is empty.\n"
+                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
+                                else
+                                        log_error("Cannot open %s: %m", etc_machine_id);
                                 return -errno;
                         }
 
