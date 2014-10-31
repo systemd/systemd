@@ -31,6 +31,7 @@
 
 #include "util.h"
 #include "strv.h"
+#include "memfd-util.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"
