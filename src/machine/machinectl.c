@@ -44,6 +44,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "ptyfwd.h"
+#include "event-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -662,12 +663,14 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
         const char *path, *pty, *p;
         uint32_t leader;
         sigset_t mask;
-        int r;
+        int r, ret = 0;
 
         assert(bus);
         assert(args);
@@ -675,6 +678,18 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Login only supported on local machines.");
                 return -ENOTSUP;
+        }
+
+        r = sd_event_default(&event);
+        if (r < 0) {
+                log_error("Failed to get event loop: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_attach_event(bus, event, 0);
+        if (r < 0) {
+                log_error("Failed to attach bus to event loop: %s", strerror(-r));
+                return r;
         }
 
         r = sd_bus_call_method(
@@ -766,17 +781,29 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         log_info("Connected to container %s. Press ^] three times within 1s to exit session.", args[1]);
 
-        r = process_pty(master, &mask, 0, 0);
+        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+
+        r = pty_forward_new(event, master, &forward);
         if (r < 0) {
-                log_error("Failed to process pseudo tty: %s", strerror(-r));
+                log_error("Failed to create PTY forwarder: %s", strerror(-r));
                 return r;
         }
+
+        r = sd_event_loop(event);
+        if (r < 0) {
+                log_error("Failed to run event loop: %s", strerror(-r));
+                return r;
+        }
+
+        forward = pty_forward_free(forward);
 
         fputc('\n', stdout);
 
         log_info("Connection to container %s terminated.", args[1]);
 
-        return 0;
+        sd_event_get_exit_code(event, &ret);
+        return ret;
 }
 
 static void help(void) {

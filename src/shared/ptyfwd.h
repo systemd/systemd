@@ -24,4 +24,11 @@
 #include <sys/types.h>
 #include <signal.h>
 
-int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo);
+#include "sd-event.h"
+
+typedef struct PTYForward PTYForward;
+
+int pty_forward_new(sd_event *event, int master, PTYForward **f);
+PTYForward *pty_forward_free(PTYForward *f);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

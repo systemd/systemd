@@ -89,6 +89,7 @@
 #include "copy.h"
 #include "base-filesystem.h"
 #include "barrier.h"
+#include "event-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -2972,6 +2973,22 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
 
 static void nop_handler(int sig) {}
 
+static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        pid_t pid;
+
+        pid = PTR_TO_UINT32(userdata);
+        if (pid > 0) {
+                if (kill(pid, SIGRTMIN+3) >= 0) {
+                        log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
+                        sd_event_source_set_userdata(s, NULL);
+                        return 0;
+                }
+        }
+
+        sd_event_exit(sd_event_source_get_event(s), 0);
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
@@ -3153,10 +3170,11 @@ int main(int argc, char *argv[]) {
                   "STATUS=Container running.");
 
         assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigemptyset(&mask_chld) == 0);
-        sigaddset(&mask_chld, SIGCHLD);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+
+        assert_se(sigemptyset(&mask_chld) == 0);
+        assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
         for (;;) {
                 ContainerStatus container_status;
@@ -3494,6 +3512,8 @@ int main(int argc, char *argv[]) {
 
                 /* wait for child-setup to be done */
                 if (barrier_place_and_sync(&barrier)) {
+                        _cleanup_event_unref_ sd_event *event = NULL;
+                        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
                         int ifi = 0;
 
                         r = move_network_interfaces(pid);
@@ -3532,11 +3552,38 @@ int main(int argc, char *argv[]) {
                          * control to the code to run inside the container. */
                         barrier_place(&barrier);
 
-                        k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
-                        if (k < 0) {
-                                r = EXIT_FAILURE;
-                                break;
+                        r = sd_event_new(&event);
+                        if (r < 0) {
+                                log_error("Failed to get default event source: %s", strerror(-r));
+                                goto finish;
                         }
+
+                        if (arg_boot) {
+                                /* Try to kill the init system on SIGINT or SIGTERM */
+                                sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                                sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                        } else {
+                                /* Immediately exit */
+                                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+                        }
+
+                        /* simply exit on sigchld */
+                        sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
+
+                        r = pty_forward_new(event, master, &forward);
+                        if (r < 0) {
+                                log_error("Failed to create PTY forwarder: %s", strerror(-r));
+                                goto finish;
+                        }
+
+                        r = sd_event_loop(event);
+                        if (r < 0) {
+                                log_error("Failed to run event loop: %s", strerror(-r));
+                                return r;
+                        }
+
+                        forward = pty_forward_free(forward);
 
                         if (!arg_quiet)
                                 putc('\n', stdout);

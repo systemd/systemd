@@ -28,13 +28,44 @@
 #include "util.h"
 #include "ptyfwd.h"
 
-#define ESCAPE_USEC USEC_PER_SEC
+struct PTYForward {
+        sd_event *event;
 
-static bool look_for_escape(usec_t *timestamp, unsigned *counter, const char *buffer, size_t n) {
+        int master;
+
+        sd_event_source *stdin_event_source;
+        sd_event_source *stdout_event_source;
+        sd_event_source *master_event_source;
+
+        sd_event_source *sigwinch_event_source;
+
+        struct termios saved_stdin_attr;
+        struct termios saved_stdout_attr;
+
+        bool saved_stdin:1;
+        bool saved_stdout:1;
+
+        bool stdin_readable:1;
+        bool stdin_hangup:1;
+        bool stdout_writable:1;
+        bool stdout_hangup:1;
+        bool master_readable:1;
+        bool master_writable:1;
+        bool master_hangup:1;
+
+        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
+        size_t in_buffer_full, out_buffer_full;
+
+        usec_t escape_timestamp;
+        unsigned escape_counter;
+};
+
+#define ESCAPE_USEC (1*USEC_PER_SEC)
+
+static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
         const char *p;
 
-        assert(timestamp);
-        assert(counter);
+        assert(f);
         assert(buffer);
         assert(n > 0);
 
@@ -44,343 +75,316 @@ static bool look_for_escape(usec_t *timestamp, unsigned *counter, const char *bu
                 if (*p == 0x1D) {
                         usec_t nw = now(CLOCK_MONOTONIC);
 
-                        if (*counter == 0 || nw > *timestamp + USEC_PER_SEC)  {
-                                *timestamp = nw;
-                                *counter = 1;
+                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC)  {
+                                f->escape_timestamp = nw;
+                                f->escape_counter = 1;
                         } else {
-                                (*counter)++;
+                                (f->escape_counter)++;
 
-                                if (*counter >= 3)
+                                if (f->escape_counter >= 3)
                                         return true;
                         }
                 } else {
-                        *timestamp = 0;
-                        *counter = 0;
+                        f->escape_timestamp = 0;
+                        f->escape_counter = 0;
                 }
         }
 
         return false;
 }
 
-static int process_pty_loop(int master, sigset_t *mask, pid_t kill_pid, int signo) {
-        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
-        size_t in_buffer_full = 0, out_buffer_full = 0;
-        struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
-        bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
-        bool stdin_hangup = false, stdout_hangup = false, master_hangup = false;
-        bool tried_orderly_shutdown = false, process_signalfd = false, quit = false;
-        usec_t escape_timestamp = 0;
-        unsigned escape_counter = 0;
-        _cleanup_close_ int ep = -1, signal_fd = -1;
+static int shovel(PTYForward *f) {
+        ssize_t k;
 
-        assert(master >= 0);
-        assert(mask);
-        assert(kill_pid == 0 || kill_pid > 1);
-        assert(signo >= 0 && signo < _NSIG);
+        assert(f);
 
-        fd_nonblock(STDIN_FILENO, true);
-        fd_nonblock(STDOUT_FILENO, true);
-        fd_nonblock(master, true);
+        while ((f->stdin_readable && f->in_buffer_full <= 0) ||
+               (f->master_writable && f->in_buffer_full > 0) ||
+               (f->master_readable && f->out_buffer_full <= 0) ||
+               (f->stdout_writable && f->out_buffer_full > 0)) {
 
-        signal_fd = signalfd(-1, mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (signal_fd < 0) {
-                log_error("signalfd(): %m");
-                return -errno;
-        }
+                if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
-        ep = epoll_create1(EPOLL_CLOEXEC);
-        if (ep < 0) {
-                log_error("Failed to create epoll: %m");
-                return -errno;
-        }
+                        k = read(STDIN_FILENO, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
+                        if (k < 0) {
 
-        /* We read from STDIN only if this is actually a TTY,
-         * otherwise we assume non-interactivity. */
-        if (isatty(STDIN_FILENO)) {
-                zero(stdin_ev);
-                stdin_ev.events = EPOLLIN|EPOLLET;
-                stdin_ev.data.fd = STDIN_FILENO;
+                                if (errno == EAGAIN)
+                                        f->stdin_readable = false;
+                                else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
+                                        f->stdin_readable = false;
+                                        f->stdin_hangup = true;
 
-                if (epoll_ctl(ep, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_ev) < 0) {
-                        log_error("Failed to register STDIN in epoll: %m");
-                        return -errno;
-                }
-        }
-
-        zero(stdout_ev);
-        stdout_ev.events = EPOLLOUT|EPOLLET;
-        stdout_ev.data.fd = STDOUT_FILENO;
-
-        zero(master_ev);
-        master_ev.events = EPOLLIN|EPOLLOUT|EPOLLET;
-        master_ev.data.fd = master;
-
-        zero(signal_ev);
-        signal_ev.events = EPOLLIN;
-        signal_ev.data.fd = signal_fd;
-
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0) {
-                if (errno != EPERM) {
-                        log_error("Failed to register stdout in epoll: %m");
-                        return -errno;
-                }
-
-                /* stdout without epoll support. Likely redirected to regular file. */
-                stdout_writable = true;
-        }
-
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, master, &master_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, signal_fd, &signal_ev) < 0) {
-                log_error("Failed to register fds in epoll: %m");
-                return -errno;
-        }
-
-        for (;;) {
-                struct epoll_event ev[16];
-                ssize_t k;
-                int i, nfds;
-
-                nfds = epoll_wait(ep, ev, ELEMENTSOF(ev), quit ? 0 : -1);
-                if (nfds < 0) {
-
-                        if (errno == EINTR || errno == EAGAIN)
-                                continue;
-
-                        log_error("epoll_wait(): %m");
-                        return -errno;
-                }
-
-                if (nfds == 0)
-                        return 0;
-
-                for (i = 0; i < nfds; i++) {
-                        if (ev[i].data.fd == STDIN_FILENO) {
-
-                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
-                                        stdin_readable = true;
-
-                        } else if (ev[i].data.fd == STDOUT_FILENO) {
-
-                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
-                                        stdout_writable = true;
-
-                        } else if (ev[i].data.fd == master) {
-
-                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
-                                        master_readable = true;
-
-                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
-                                        master_writable = true;
-
-                        } else if (ev[i].data.fd == signal_fd)
-                                process_signalfd = true;
-                }
-
-                while ((stdin_readable && in_buffer_full <= 0) ||
-                       (master_writable && in_buffer_full > 0) ||
-                       (master_readable && out_buffer_full <= 0) ||
-                       (stdout_writable && out_buffer_full > 0)) {
-
-                        if (stdin_readable && in_buffer_full < LINE_MAX) {
-
-                                k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN)
-                                                stdin_readable = false;
-                                        else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
-                                                stdin_readable = false;
-                                                stdin_hangup = true;
-                                                epoll_ctl(ep, EPOLL_CTL_DEL, STDIN_FILENO, NULL);
-                                        } else {
-                                                log_error("read(): %m");
-                                                return -errno;
-                                        }
+                                        f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                                 } else {
-                                        /* Check if ^] has been
-                                         * pressed three times within
-                                         * one second. If we get this
-                                         * we quite immediately. */
-                                        if (look_for_escape(&escape_timestamp, &escape_counter, in_buffer + in_buffer_full, k))
-                                                return !quit;
-
-                                        in_buffer_full += (size_t) k;
+                                        log_error("read(): %m");
+                                        return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
+                        } else if (k == 0) {
+                                /* EOF on stdin */
+                                f->stdin_readable = false;
+                                f->stdin_hangup = true;
+
+                                f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
+                        } else  {
+                                /* Check if ^] has been
+                                 * pressed three times within
+                                 * one second. If we get this
+                                 * we quite immediately. */
+                                if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
+                                        return sd_event_exit(f->event, EXIT_FAILURE);
+
+                                f->in_buffer_full += (size_t) k;
                         }
-
-                        if (master_writable && in_buffer_full > 0) {
-
-                                k = write(master, in_buffer, in_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN || errno == EIO)
-                                                master_writable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET) {
-                                                master_writable = master_readable = false;
-                                                master_hangup = true;
-                                                epoll_ctl(ep, EPOLL_CTL_DEL, master, NULL);
-                                        } else {
-                                                log_error("write(): %m");
-                                                return -errno;
-                                        }
-
-                                } else {
-                                        assert(in_buffer_full >= (size_t) k);
-                                        memmove(in_buffer, in_buffer + k, in_buffer_full - k);
-                                        in_buffer_full -= k;
-                                }
-                        }
-
-                        if (master_readable && out_buffer_full < LINE_MAX) {
-
-                                k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full);
-                                if (k < 0) {
-
-                                        /* Note that EIO on the master
-                                         * device might be cause by
-                                         * vhangup() or temporary
-                                         * closing of everything on
-                                         * the other side, we treat it
-                                         * like EAGAIN here and try
-                                         * again. */
-
-                                        if (errno == EAGAIN || errno == EIO)
-                                                master_readable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET) {
-                                                master_readable = master_writable = false;
-                                                master_hangup = true;
-                                                epoll_ctl(ep, EPOLL_CTL_DEL, master, NULL);
-                                        } else {
-                                                log_error("read(): %m");
-                                                return -errno;
-                                        }
-                                }  else
-                                        out_buffer_full += (size_t) k;
-                        }
-
-                        if (stdout_writable && out_buffer_full > 0) {
-
-                                k = write(STDOUT_FILENO, out_buffer, out_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN)
-                                                stdout_writable = false;
-                                        else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
-                                                stdout_writable = false;
-                                                stdout_hangup = true;
-                                                epoll_ctl(ep, EPOLL_CTL_DEL, STDOUT_FILENO, NULL);
-                                        } else {
-                                                log_error("write(): %m");
-                                                return -errno;
-                                        }
-
-                                } else {
-                                        assert(out_buffer_full >= (size_t) k);
-                                        memmove(out_buffer, out_buffer + k, out_buffer_full - k);
-                                        out_buffer_full -= k;
-                                }
-                        }
-
                 }
 
-                if (process_signalfd) {
-                        struct signalfd_siginfo sfsi;
-                        ssize_t n;
+                if (f->master_writable && f->in_buffer_full > 0) {
 
-                        n = read(signal_fd, &sfsi, sizeof(sfsi));
-                        if (n != sizeof(sfsi)) {
+                        k = write(f->master, f->in_buffer, f->in_buffer_full);
+                        if (k < 0) {
 
-                                if (n >= 0) {
-                                        log_error("Failed to read from signalfd: invalid block size");
-                                        return -EIO;
-                                }
+                                if (errno == EAGAIN || errno == EIO)
+                                        f->master_writable = false;
+                                else if (errno == EPIPE || errno == ECONNRESET) {
+                                        f->master_writable = f->master_readable = false;
+                                        f->master_hangup = true;
 
-                                if (errno != EINTR && errno != EAGAIN) {
-                                        log_error("Failed to read from signalfd: %m");
-                                        return -errno;
+                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
+                                } else {
+                                        log_error("write(): %m");
+                                        return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
                         } else {
-
-                                if (sfsi.ssi_signo == SIGWINCH) {
-                                        struct winsize ws;
-
-                                        /* The window size changed, let's forward that. */
-                                        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                                                ioctl(master, TIOCSWINSZ, &ws);
-
-                                } else if (sfsi.ssi_signo == SIGTERM && kill_pid > 0 && signo > 0 && !tried_orderly_shutdown) {
-
-                                        if (kill(kill_pid, signo) < 0)
-                                                quit = true;
-                                        else {
-                                                log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
-
-                                                /* This only works for systemd... */
-                                                tried_orderly_shutdown = true;
-                                        }
-
-                                } else
-                                        /* Signals that where
-                                         * delivered via signalfd that
-                                         * we didn't know are a reason
-                                         * for us to quit */
-                                        quit = true;
+                                assert(f->in_buffer_full >= (size_t) k);
+                                memmove(f->in_buffer, f->in_buffer + k, f->in_buffer_full - k);
+                                f->in_buffer_full -= k;
                         }
                 }
 
-                if (stdin_hangup || stdout_hangup || master_hangup) {
-                        /* Exit the loop if any side hung up and if
-                         * there's nothing more to write or nothing we
-                         * could write. */
+                if (f->master_readable && f->out_buffer_full < LINE_MAX) {
 
-                        if ((out_buffer_full <= 0 || stdout_hangup) &&
-                            (in_buffer_full <= 0 || master_hangup))
-                                return !quit;
+                        k = read(f->master, f->out_buffer + f->out_buffer_full, LINE_MAX - f->out_buffer_full);
+                        if (k < 0) {
+
+                                /* Note that EIO on the master device
+                                 * might be cause by vhangup() or
+                                 * temporary closing of everything on
+                                 * the other side, we treat it like
+                                 * EAGAIN here and try again. */
+
+                                if (errno == EAGAIN || errno == EIO)
+                                        f->master_readable = false;
+                                else if (errno == EPIPE || errno == ECONNRESET) {
+                                        f->master_readable = f->master_writable = false;
+                                        f->master_hangup = true;
+
+                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
+                                } else {
+                                        log_error("read(): %m");
+                                        return sd_event_exit(f->event, EXIT_FAILURE);
+                                }
+                        }  else
+                                f->out_buffer_full += (size_t) k;
+                }
+
+                if (f->stdout_writable && f->out_buffer_full > 0) {
+
+                        k = write(STDOUT_FILENO, f->out_buffer, f->out_buffer_full);
+                        if (k < 0) {
+
+                                if (errno == EAGAIN)
+                                        f->stdout_writable = false;
+                                else if (errno == EIO || errno == EPIPE || errno == ECONNRESET) {
+                                        f->stdout_writable = false;
+                                        f->stdout_hangup = true;
+                                        f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
+                                } else {
+                                        log_error("write(): %m");
+                                        return sd_event_exit(f->event, EXIT_FAILURE);
+                                }
+
+                        } else {
+                                assert(f->out_buffer_full >= (size_t) k);
+                                memmove(f->out_buffer, f->out_buffer + k, f->out_buffer_full - k);
+                                f->out_buffer_full -= k;
+                        }
                 }
         }
+
+        if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
+                /* Exit the loop if any side hung up and if there's
+                 * nothing more to write or nothing we could write. */
+
+                if ((f->out_buffer_full <= 0 || f->stdout_hangup) &&
+                    (f->in_buffer_full <= 0 || f->master_hangup))
+                        return sd_event_exit(f->event, EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
-int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
-        struct termios saved_stdin_attr, raw_stdin_attr;
-        struct termios saved_stdout_attr, raw_stdout_attr;
-        bool saved_stdin = false;
-        bool saved_stdout = false;
+static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
+        PTYForward *f = userdata;
+
+        assert(f);
+        assert(e);
+        assert(e == f->master_event_source);
+        assert(fd >= 0);
+        assert(fd == f->master);
+
+        if (revents & (EPOLLIN|EPOLLHUP))
+                f->master_readable = true;
+
+        if (revents & (EPOLLOUT|EPOLLHUP))
+                f->master_writable = true;
+
+        return shovel(f);
+}
+
+static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
+        PTYForward *f = userdata;
+
+        assert(f);
+        assert(e);
+        assert(e == f->stdin_event_source);
+        assert(fd >= 0);
+        assert(fd == STDIN_FILENO);
+
+        if (revents & (EPOLLIN|EPOLLHUP))
+                f->stdin_readable = true;
+
+        return shovel(f);
+}
+
+static int on_stdout_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
+        PTYForward *f = userdata;
+
+        assert(f);
+        assert(e);
+        assert(e == f->stdout_event_source);
+        assert(fd >= 0);
+        assert(fd == STDOUT_FILENO);
+
+        if (revents & (EPOLLOUT|EPOLLHUP))
+                f->stdout_writable = true;
+
+        return shovel(f);
+}
+
+static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *si, void *userdata) {
+        PTYForward *f = userdata;
+        struct winsize ws;
+
+        assert(f);
+        assert(e);
+        assert(e == f->sigwinch_event_source);
+
+        /* The window size changed, let's forward that. */
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
+                ioctl(f->master, TIOCSWINSZ, &ws);
+
+        return 0;
+}
+
+int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
+        _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
+
+        f = new0(PTYForward, 1);
+        if (!f)
+                return -ENOMEM;
+
+        if (event)
+                f->event = sd_event_ref(event);
+        else {
+                r = sd_event_default(&f->event);
+                if (r < 0)
+                        return r;
+        }
+
+        r = fd_nonblock(STDIN_FILENO, true);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(STDOUT_FILENO, true);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(master, true);
+        if (r < 0)
+                return r;
+
+        f->master = master;
 
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                 ioctl(master, TIOCSWINSZ, &ws);
 
-        if (tcgetattr(STDIN_FILENO, &saved_stdin_attr) >= 0) {
-                saved_stdin = true;
+        if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
+                struct termios raw_stdin_attr;
 
-                raw_stdin_attr = saved_stdin_attr;
+                f->saved_stdin = true;
+
+                raw_stdin_attr = f->saved_stdin_attr;
                 cfmakeraw(&raw_stdin_attr);
-                raw_stdin_attr.c_oflag = saved_stdin_attr.c_oflag;
+                raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
                 tcsetattr(STDIN_FILENO, TCSANOW, &raw_stdin_attr);
         }
-        if (tcgetattr(STDOUT_FILENO, &saved_stdout_attr) >= 0) {
-                saved_stdout = true;
 
-                raw_stdout_attr = saved_stdout_attr;
+        if (tcgetattr(STDOUT_FILENO, &f->saved_stdout_attr) >= 0) {
+                struct termios raw_stdout_attr;
+
+                f->saved_stdout = true;
+
+                raw_stdout_attr = f->saved_stdout_attr;
                 cfmakeraw(&raw_stdout_attr);
-                raw_stdout_attr.c_iflag = saved_stdout_attr.c_iflag;
-                raw_stdout_attr.c_lflag = saved_stdout_attr.c_lflag;
+                raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
+                raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
                 tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
         }
 
-        r = process_pty_loop(master, mask, kill_pid, signo);
+        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
+        if (r < 0)
+                return r;
 
-        if (saved_stdout)
-                tcsetattr(STDOUT_FILENO, TCSANOW, &saved_stdout_attr);
-        if (saved_stdin)
-                tcsetattr(STDIN_FILENO, TCSANOW, &saved_stdin_attr);
+        r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
+        if (r < 0 && r != -EPERM)
+                return r;
+
+        r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
+        if (r == -EPERM)
+                /* stdout without epoll support. Likely redirected to regular file. */
+                f->stdout_writable = true;
+        else if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
+
+        *ret = f;
+        f = NULL;
+
+        return 0;
+}
+
+PTYForward *pty_forward_free(PTYForward *f) {
+
+        if (f) {
+                sd_event_source_unref(f->stdin_event_source);
+                sd_event_source_unref(f->stdout_event_source);
+                sd_event_source_unref(f->master_event_source);
+                sd_event_unref(f->event);
+
+                if (f->saved_stdout)
+                        tcsetattr(STDOUT_FILENO, TCSANOW, &f->saved_stdout_attr);
+                if (f->saved_stdin)
+                        tcsetattr(STDIN_FILENO, TCSANOW, &f->saved_stdin_attr);
+
+                free(f);
+        }
 
         /* STDIN/STDOUT should not be nonblocking normally, so let's
          * unconditionally reset it */
         fd_nonblock(STDIN_FILENO, false);
         fd_nonblock(STDOUT_FILENO, false);
 
-        return r;
-
+        return NULL;
 }
