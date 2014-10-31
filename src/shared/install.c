@@ -1620,12 +1620,10 @@ int unit_file_enable(
         STRV_FOREACH(i, files) {
                 UnitFileState state;
 
+                /* We only want to know if this unit is masked, so we ignore
+                 * errors from unit_file_get_state, deferring other checks.
+                 * This allows templated units to be enabled on the fly. */
                 state = unit_file_get_state(scope, root_dir, *i);
-                if (state < 0) {
-                        log_error("Failed to get unit file state for %s: %s", *i, strerror(-state));
-                        return state;
-                }
-
                 if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
                         log_error("Failed to enable unit: Unit %s is masked", *i);
                         return -ENOTSUP;
