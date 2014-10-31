@@ -2911,8 +2911,8 @@ static int change_uid_gid(char **_home) {
  *       container argument.
  * > 0 : The program executed in the container terminated with an
  *       error.  The exit code of the program executed in the
- *       container is returned.  No change is made to the container
- *       argument.
+ *       container is returned.  The container argument has been set
+ *       to CONTAINER_TERMINATED.
  *   0 : The container is being rebooted, has been shut down or exited
  *       successfully.  The container argument has been set to either
  *       CONTAINER_TERMINATED or CONTAINER_REBOOTED.
@@ -2921,8 +2921,8 @@ static int change_uid_gid(char **_home) {
  * error is indicated by a non-zero value.
  */
 static int wait_for_container(pid_t pid, ContainerStatus *container) {
-        int r;
         siginfo_t status;
+        int r;
 
         r = wait_for_terminate(pid, &status);
         if (r < 0) {
@@ -2933,44 +2933,38 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         switch (status.si_code) {
 
         case CLD_EXITED:
-                r = status.si_status;
-                if (r == 0) {
-                        if (!arg_quiet)
-                                log_debug("Container %s exited successfully.", arg_machine);
+                if (status.si_status == 0) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s exited successfully.", arg_machine);
 
-                        *container = CONTAINER_TERMINATED;
                 } else
-                        log_error("Container %s failed with error code %i.", arg_machine, status.si_status);
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s failed with error code %i.", arg_machine, status.si_status);
 
-                break;
+                *container = CONTAINER_TERMINATED;
+                return status.si_status;
 
         case CLD_KILLED:
                 if (status.si_status == SIGINT) {
-                        if (!arg_quiet)
-                                log_info("Container %s has been shut down.", arg_machine);
 
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s has been shut down.", arg_machine);
                         *container = CONTAINER_TERMINATED;
-                        r = 0;
-                        break;
-                } else if (status.si_status == SIGHUP) {
-                        if (!arg_quiet)
-                                log_info("Container %s is being rebooted.", arg_machine);
+                        return 0;
 
+                } else if (status.si_status == SIGHUP) {
+
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s is being rebooted.", arg_machine);
                         *container = CONTAINER_REBOOTED;
-                        r = 0;
-                        break;
+                        return 0;
                 }
+
                 /* CLD_KILLED fallthrough */
 
         case CLD_DUMPED:
                 log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
-                r = -EIO;
-                break;
+                return -EIO;
 
         default:
                 log_error("Container %s failed due to unknown reason.", arg_machine);
-                r = -EIO;
-                break;
+                return -EIO;
         }
 
         return r;
