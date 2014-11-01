@@ -7,9 +7,10 @@ CHANGES WITH 217:
           show log timestamps in the UTC timezone. journalctl now also
           accepts -n/--lines=all to disable line capping in a pager.
 
-        * journalctl gained a new switch, --flush, that flushes
-          logs from /run/log/journal to /var/log/journal if
-          persistent storage is enabled.
+        * journalctl gained a new switch, --flush, that synchronously
+          flushes logs from /run/log/journal to /var/log/journal if
+          persistent storage is enabled. systemd-journal-flush.service
+          now waits until the operation is complete.
 
         * Services can notify the manager before they start a reload
           (by sending RELOADING=1) or shutdown (by sending
