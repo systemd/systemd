@@ -368,9 +368,14 @@
           <term><option>-l</option></term>
           <term><option>--log-priority=<replaceable>value</replaceable></option></term>
           <listitem>
-            <para>Set the internal log level of systemd-udevd. Valid values are the numerical
-            syslog priorities or their textual representations: <option>err</option>,
-            <option>info</option> and <option>debug</option>.</para>
+            <para>Set the internal log level of
+            <filename>systemd-udevd</filename>. Valid values are the
+            numerical syslog priorities or their textual
+            representations: <option>emerg</option>,
+            <option>alert</option>, <option>crit</option>,
+            <option>err</option>, <option>warning</option>,
+            <option>notice</option>, <option>info</option>, and
+            <option>debug</option>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
