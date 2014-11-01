@@ -22,6 +22,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "resolved-dns-domain.h"
 #include "resolved-dns-packet.h"
 
@@ -311,8 +312,7 @@ int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start) {
         if (r < 0)
                 return r;
 
-        ((uint8_t*) d)[0] = (uint8_t) (v >> 8);
-        ((uint8_t*) d)[1] = (uint8_t) v;
+        unaligned_write_be16(d, v);
 
         return 0;
 }
@@ -327,10 +327,7 @@ int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start) {
         if (r < 0)
                 return r;
 
-        ((uint8_t*) d)[0] = (uint8_t) (v >> 24);
-        ((uint8_t*) d)[1] = (uint8_t) (v >> 16);
-        ((uint8_t*) d)[2] = (uint8_t) (v >> 8);
-        ((uint8_t*) d)[3] = (uint8_t) v;
+        unaligned_write_be32(d, v);
 
         return 0;
 }
@@ -793,8 +790,8 @@ int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = (((uint16_t) ((uint8_t*) d)[0]) << 8) |
-                ((uint16_t) ((uint8_t*) d)[1]);
+        *ret = unaligned_read_be16(d);
+
         return 0;
 }
 
@@ -808,10 +805,7 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = (((uint32_t) ((uint8_t*) d)[0]) << 24) |
-               (((uint32_t) ((uint8_t*) d)[1]) << 16) |
-               (((uint32_t) ((uint8_t*) d)[2]) << 8) |
-                ((uint32_t) ((uint8_t*) d)[3]);
+        *ret = unaligned_read_be32(d);
 
         return 0;
 }
