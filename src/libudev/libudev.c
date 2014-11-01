@@ -193,7 +193,13 @@ _public_ struct udev *udev_new(void)
                         }
 
                         if (streq(key, "udev_log")) {
-                                udev_set_log_priority(udev, util_log_priority(val));
+                                int prio;
+
+                                prio = util_log_priority(val);
+                                if (prio < 0)
+                                        udev_err(udev, "/etc/udev/udev.conf:%u: invalid logging level '%s', ignoring.\n", line_nr, val);
+                                else
+                                        udev_set_log_priority(udev, prio);
                                 continue;
                         }
                 }
@@ -201,8 +207,15 @@ _public_ struct udev *udev_new(void)
 
         /* environment overrides config */
         env = secure_getenv("UDEV_LOG");
-        if (env != NULL)
-                udev_set_log_priority(udev, util_log_priority(env));
+        if (env != NULL) {
+                int prio;
+
+                prio = util_log_priority(env);
+                if (prio < 0)
+                        udev_err(udev, "$UDEV_LOG specifies invalid logging level '%s', ignoring.\n", env);
+                else
+                        udev_set_log_priority(udev, prio);
+        }
 
         return udev;
 }
