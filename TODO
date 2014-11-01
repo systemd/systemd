@@ -18,6 +18,8 @@ Bugfixes:
   str_split_quoted() should return a real return code, so spawn_child can
   report the failure properly.
 
+* udev_set_log_priority should verify the value before saving it.
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
