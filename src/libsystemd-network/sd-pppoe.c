@@ -216,6 +216,8 @@ sd_pppoe *sd_pppoe_ref(sd_pppoe *ppp) {
 sd_pppoe *sd_pppoe_unref(sd_pppoe *ppp) {
         if (ppp && REFCNT_DEC(ppp->n_ref) <= 0) {
                 pppoe_tags_clear(&ppp->tags);
+                free(ppp->ifname);
+                free(ppp->service_name);
                 sd_pppoe_stop(ppp);
                 sd_pppoe_detach_event(ppp);
 
