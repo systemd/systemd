@@ -119,7 +119,7 @@ _public_ struct udev *udev_new(void)
 {
         struct udev *udev;
         const char *env;
-        _cleanup_free_ FILE *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
 
         udev = new0(struct udev, 1);
         if (udev == NULL)
