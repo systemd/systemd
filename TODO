@@ -364,8 +364,6 @@ Features:
 
 * think about window-manager-run-as-user-service problem: exit 0 → activate shutdown.target; exit != 0 → restart service
 
-* use "log level" rather than "log priority" everywhere
-
 * merge unit_kill_common() and unit_kill_context()
 
 * introduce ExecCondition= in services

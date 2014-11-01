@@ -328,14 +328,14 @@
                                 to simply log to standard error via
                                 <function>fprintf()</function>, which
                                 is then forwarded to syslog by the
-                                init system. If log priorities are
+                                init system. If log levels are
                                 necessary, these can be encoded by
                                 prefixing individual log lines with
                                 strings like <literal>&lt;4&gt;</literal> (for log
-                                priority 4 "WARNING" in the syslog
+                                level 4 "WARNING" in the syslog
                                 priority scheme), following a similar
                                 style as the Linux kernel's
-                                <function>printk()</function> priority
+                                <function>printk()</function> level
                                 system. For details, see
                                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 and

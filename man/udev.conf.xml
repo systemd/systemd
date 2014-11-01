@@ -69,7 +69,7 @@
         <term><varname>udev_log</varname></term>
 
         <listitem>
-          <para>The logging priority. Valid values are the numerical
+          <para>The log level. Valid values are the numerical
           syslog priorities or their textual representations:
           <option>err</option>, <option>info</option> and
           <option>debug</option>.</para>

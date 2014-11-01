@@ -134,7 +134,7 @@
       <varlistentry>
         <term><varname>$UDEV_LOG=</varname></term>
         <listitem>
-          <para>Set the logging priority.</para>
+          <para>Set the log level.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -148,7 +148,7 @@
         <term><varname>udev.log-priority=</varname></term>
         <term><varname>rd.udev.log-priority=</varname></term>
         <listitem>
-          <para>Set the logging priority.</para>
+          <para>Set the log level.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

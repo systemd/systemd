@@ -90,7 +90,7 @@
                 <filename>syslog.h</filename>, see
                 <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details. The third argument is a boolean: if true
-                kernel-style log priority level prefixes (such as
+                kernel-style log level prefixes (such as
                 <constant>SD_WARNING</constant>) are interpreted, see
                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information.</para>

@@ -1971,8 +1971,8 @@ CHANGES WITH 207:
           certain paths from operation.
 
         * journald will now automatically flush all messages to disk
-          as soon as a message of the log priorities CRIT, ALERT or
-          EMERG is received.
+          as soon as a message at the log level CRIT, ALERT or EMERG
+          is received.
 
         Contributions from: Andrew Cook, Brandon Philips, Christian
         Hesse, Christoph Junghans, Colin Walters, Daniel Schaal,

@@ -79,7 +79,7 @@ static void log_stderr(struct udev *udev,
  * @udev: udev library context
  *
  * Retrieve stored data pointer from library context. This might be useful
- * to access from callbacks like a custom logging function.
+ * to access from callbacks like a custom log function.
  *
  * Returns: stored userdata
  **/
@@ -197,7 +197,7 @@ _public_ struct udev *udev_new(void)
 
                                 prio = util_log_priority(val);
                                 if (prio < 0)
-                                        udev_err(udev, "/etc/udev/udev.conf:%u: invalid logging level '%s', ignoring.\n", line_nr, val);
+                                        udev_err(udev, "/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
                                 else
                                         udev_set_log_priority(udev, prio);
                                 continue;
@@ -212,7 +212,7 @@ _public_ struct udev *udev_new(void)
 
                 prio = util_log_priority(env);
                 if (prio < 0)
-                        udev_err(udev, "$UDEV_LOG specifies invalid logging level '%s', ignoring.\n", env);
+                        udev_err(udev, "$UDEV_LOG specifies invalid log level '%s', ignoring.\n", env);
                 else
                         udev_set_log_priority(udev, prio);
         }
@@ -260,11 +260,11 @@ _public_ struct udev *udev_unref(struct udev *udev)
 /**
  * udev_set_log_fn:
  * @udev: udev library context
- * @log_fn: function to be called for logging messages
+ * @log_fn: function to be called for log messages
  *
  * The built-in logging writes to stderr. It can be
  * overridden by a custom function, to plug log messages
- * into the users' logging functionality.
+ * into the users' log functionality.
  *
  **/
 _public_ void udev_set_log_fn(struct udev *udev,
@@ -273,17 +273,16 @@ _public_ void udev_set_log_fn(struct udev *udev,
                                     const char *format, va_list args))
 {
         udev->log_fn = log_fn;
-        udev_dbg(udev, "custom logging function %p registered\n", log_fn);
+        udev_dbg(udev, "custom log function %p registered\n", log_fn);
 }
 
 /**
  * udev_get_log_priority:
  * @udev: udev library context
  *
- * The initial logging priority is read from the udev config file
- * at startup.
+ * The initial log level is read from the udev config file at startup.
  *
- * Returns: the current logging priority
+ * Returns: the current log level
  **/
 _public_ int udev_get_log_priority(struct udev *udev)
 {
@@ -293,10 +292,9 @@ _public_ int udev_get_log_priority(struct udev *udev)
 /**
  * udev_set_log_priority:
  * @udev: udev library context
- * @priority: the new logging priority
+ * @priority: the new log priority
  *
- * Set the current logging priority. The value controls which messages
- * are logged.
+ * Set the log level. This value controls which messages are logged.
  **/
 _public_ void udev_set_log_priority(struct udev *udev, int priority)
 {
