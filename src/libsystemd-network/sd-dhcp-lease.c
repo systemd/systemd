@@ -310,23 +310,6 @@ static int lease_parse_in_addrs_pairs(const uint8_t *option, size_t len, struct 
         return lease_parse_in_addrs_aux(option, len, ret, ret_size, 2);
 }
 
-static int class_prefixlen(uint8_t msb_octet, uint8_t *ret) {
-        if (msb_octet < 128)
-                /* Class A */
-                *ret = 8;
-        else if (msb_octet < 192)
-                /* Class B */
-                *ret = 16;
-        else if (msb_octet < 224)
-                /* Class C */
-                *ret = 24;
-        else
-                /* Class D or E -- no subnet mask */
-                return -ERANGE;
-
-        return 0;
-}
-
 static int lease_parse_routes(const uint8_t *option, size_t len, struct sd_dhcp_route **routes,
         size_t *routes_size, size_t *routes_allocated) {
 
@@ -348,8 +331,10 @@ static int lease_parse_routes(const uint8_t *option, size_t len, struct sd_dhcp_
 
         while (len >= 8) {
                 struct sd_dhcp_route *route = *routes + *routes_size;
+                int r;
 
-                if (class_prefixlen(*option, &route->dst_prefixlen) < 0) {
+                r = in_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
+                if (r < 0) {
                         log_error("Failed to determine destination prefix length from class based IP, ignoring");
                         continue;
                 }

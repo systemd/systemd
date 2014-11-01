@@ -250,21 +250,20 @@ unsigned in_addr_netmask_to_prefixlen(const struct in_addr *addr) {
 }
 
 int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
-        uint32_t address;
+        uint8_t msb_octet = *(uint8_t*) addr;
+
+        /* addr may not be aligned, so make sure we only access it byte-wise */
 
         assert(addr);
-        assert(addr->s_addr != INADDR_ANY);
         assert(prefixlen);
 
-        address = be32toh(addr->s_addr);
-
-        if ((address >> 31) == 0x0)
+        if (msb_octet < 128)
                 /* class A, leading bits: 0 */
                 *prefixlen = 8;
-        else if ((address >> 30) == 0x2)
+        else if (msb_octet < 192)
                 /* class B, leading bits 10 */
                 *prefixlen = 16;
-        else if ((address >> 29) == 0x6)
+        else if (msb_octet < 224)
                 /* class C, leading bits 110 */
                 *prefixlen = 24;
         else

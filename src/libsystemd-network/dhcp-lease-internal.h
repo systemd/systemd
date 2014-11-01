@@ -35,7 +35,7 @@
 struct sd_dhcp_route {
         struct in_addr dst_addr;
         struct in_addr gw_addr;
-        uint8_t dst_prefixlen;
+        unsigned char dst_prefixlen;
 };
 
 struct sd_dhcp_lease {
