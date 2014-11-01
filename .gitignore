@@ -199,6 +199,7 @@
 /test-libudev
 /test-libudev-sym*
 /test-list
+/test-unaligned
 /test-locale-util
 /test-log
 /test-login

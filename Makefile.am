@@ -746,6 +746,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/securebits.h \
 	src/shared/special.h \
 	src/shared/list.h \
+	src/shared/unaligned.h \
 	src/shared/macro.h \
 	src/shared/def.h \
 	src/shared/sparse-endian.h \
@@ -1347,6 +1348,7 @@ tests += \
 	test-hashmap \
 	test-set \
 	test-list \
+	test-unaligned \
 	test-tables \
 	test-device-nodes \
 	test-xml \
@@ -1624,6 +1626,12 @@ test_xml_LDADD = \
 
 test_list_SOURCES = \
 	src/test/test-list.c
+
+test_unaligned_LDADD = \
+	libsystemd-core.la
+
+test_unaligned_SOURCES = \
+	src/test/test-unaligned.c
 
 test_list_LDADD = \
 	libsystemd-core.la
