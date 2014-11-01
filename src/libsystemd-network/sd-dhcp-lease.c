@@ -30,6 +30,7 @@
 #include "list.h"
 #include "mkdir.h"
 #include "fileio.h"
+#include "unaligned.h"
 #include "in-addr-util.h"
 
 #include "dhcp-protocol.h"
@@ -205,14 +206,11 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
 }
 
 static void lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uint32_t min) {
-        be32_t val;
-
         assert(option);
         assert(ret);
 
         if (len == 4) {
-                memcpy(&val, option, 4);
-                *ret = be32toh(val);
+                *ret = unaligned_read_be32((be32_t*) option);
 
                 if (*ret < min)
                         *ret = min;
@@ -224,14 +222,11 @@ static void lease_parse_s32(const uint8_t *option, size_t len, int32_t *ret) {
 }
 
 static void lease_parse_u16(const uint8_t *option, size_t len, uint16_t *ret, uint16_t min) {
-        be16_t val;
-
         assert(option);
         assert(ret);
 
         if (len == 2) {
-                memcpy(&val, option, 2);
-                *ret = be16toh(val);
+                *ret = unaligned_read_be16((be16_t*) option);
 
                 if (*ret < min)
                         *ret = min;
