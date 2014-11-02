@@ -662,9 +662,11 @@ static int manager_setup_notify(Manager *m) {
                         return -errno;
                 }
 
-                if (m->running_as == SYSTEMD_SYSTEM)
+                if (m->running_as == SYSTEMD_SYSTEM) {
                         m->notify_socket = strdup("/run/systemd/notify");
-                else {
+                        if (!m->notify_socket)
+                                return log_oom();
+                } else {
                         const char *e;
 
                         e = getenv("XDG_RUNTIME_DIR");
@@ -674,9 +676,11 @@ static int manager_setup_notify(Manager *m) {
                         }
 
                         m->notify_socket = strappend(e, "/systemd/notify");
+                        if (!m->notify_socket)
+                                return log_oom();
+
+                        mkdir_parents_label(m->notify_socket, 0755);
                 }
-                if (!m->notify_socket)
-                        return log_oom();
 
                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
