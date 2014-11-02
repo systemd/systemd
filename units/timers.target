@@ -8,3 +8,6 @@
 [Unit]
 Description=Timers
 Documentation=man:systemd.special(7)
+
+DefaultDependencies=no
+Conflicts=shutdown.target
