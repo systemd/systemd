@@ -48,7 +48,7 @@ void server_forward_console(
                 int priority,
                 const char *identifier,
                 const char *message,
-                struct ucred *ucred) {
+                const struct ucred *ucred) {
 
         struct iovec iovec[5];
         char header_pid[16];

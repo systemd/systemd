@@ -37,7 +37,7 @@ void server_forward_kmsg(
         int priority,
         const char *identifier,
         const char *message,
-        struct ucred *ucred) {
+        const struct ucred *ucred) {
 
         struct iovec iovec[5];
         char header_priority[6], header_pid[16];
@@ -104,7 +104,7 @@ static bool is_us(const char *pid) {
         return t == getpid();
 }
 
-static void dev_kmsg_record(Server *s, char *p, size_t l) {
+static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
         int priority, r;

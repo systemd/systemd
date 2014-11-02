@@ -28,9 +28,9 @@ int syslog_fixup_facility(int priority) _const_;
 void syslog_parse_priority(const char **p, int *priority, bool with_facility);
 size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);
 
-void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv);
+void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv);
 
-void server_process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len);
+void server_process_syslog_message(Server *s, const char *buf, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len);
 int server_open_syslog_socket(Server *s);
 
 void server_maybe_warn_forward_syslog_missed(Server *s);

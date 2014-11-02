@@ -23,4 +23,4 @@
 
 #include "journald-server.h"
 
-void server_forward_wall(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred);
+void server_forward_wall(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred);

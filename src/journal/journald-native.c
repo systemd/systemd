@@ -70,15 +70,15 @@ bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         return true;
 }
 
-static bool allow_object_pid(struct ucred *ucred) {
+static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
 }
 
 void server_process_native_message(
                 Server *s,
                 const void *buffer, size_t buffer_size,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len) {
 
         struct iovec *iovec = NULL;
@@ -303,8 +303,8 @@ finish:
 void server_process_native_file(
                 Server *s,
                 int fd,
-                struct ucred *ucred,
-                struct timeval *tv,
+                const struct ucred *ucred,
+                const struct timeval *tv,
                 const char *label, size_t label_len) {
 
         struct stat st;
@@ -412,7 +412,8 @@ void server_process_native_file(
 }
 
 int server_open_native_socket(Server*s) {
-        int one, r;
+        static const int one = 1;
+        int r;
 
         assert(s);
 
@@ -440,7 +441,6 @@ int server_open_native_socket(Server*s) {
         } else
                 fd_nonblock(s->native_fd, 1);
 
-        one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_PASSCRED failed: %m");
@@ -449,14 +449,12 @@ int server_open_native_socket(Server*s) {
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
-                one = 1;
                 r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
                         log_warning("SO_PASSSEC failed: %m");
         }
 #endif
 
-        one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_TIMESTAMP failed: %m");

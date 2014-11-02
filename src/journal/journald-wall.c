@@ -28,7 +28,7 @@ void server_forward_wall(
                 int priority,
                 const char *identifier,
                 const char *message,
-                struct ucred *ucred) {
+                const struct ucred *ucred) {
 
         _cleanup_free_ char *ident_buf = NULL, *l_buf = NULL;
         const char *l;

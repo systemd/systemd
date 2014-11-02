@@ -35,7 +35,7 @@
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
 
-static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -109,7 +109,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 log_debug("Failed to forward syslog message: %m");
 }
 
-static void forward_syslog_raw(Server *s, int priority, const char *buffer, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog_raw(Server *s, int priority, const char *buffer, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec;
 
         assert(s);
@@ -122,7 +122,7 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, stru
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
 
-void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv) {
+void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
         char header_priority[6], header_time[64], header_pid[16];
         int n = 0;
@@ -351,8 +351,8 @@ static void syslog_skip_date(char **buf) {
 void server_process_syslog_message(
         Server *s,
         const char *buf,
-        struct ucred *ucred,
-        struct timeval *tv,
+        const struct ucred *ucred,
+        const struct timeval *tv,
         const char *label,
         size_t label_len) {
 
@@ -421,7 +421,8 @@ void server_process_syslog_message(
 }
 
 int server_open_syslog_socket(Server *s) {
-        int one, r;
+        static const int one = 1;
+        int r;
 
         assert(s);
 
@@ -449,7 +450,6 @@ int server_open_syslog_socket(Server *s) {
         } else
                 fd_nonblock(s->syslog_fd, 1);
 
-        one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_PASSCRED failed: %m");
@@ -458,14 +458,12 @@ int server_open_syslog_socket(Server *s) {
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
-                one = 1;
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
                         log_warning("SO_PASSSEC failed: %m");
         }
 #endif
 
-        one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_TIMESTAMP failed: %m");
