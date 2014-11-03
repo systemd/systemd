@@ -67,7 +67,7 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         return 1;
 }
 
-static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+static int map_string_field_internal(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov, bool filter_printable) {
         _cleanup_free_ char *c = NULL;
         const char *s, *e;
         size_t l;
@@ -108,6 +108,7 @@ static int map_string_field(const char *field, const char **p, struct iovec **io
                 memcpy(c, field, l);
                 for (e = *p; *e != ' ' && *e != 0; e += 2) {
                         int a, b;
+                        uint8_t x;
 
                         a = unhexchar(e[0]);
                         if (a < 0)
@@ -117,10 +118,15 @@ static int map_string_field(const char *field, const char **p, struct iovec **io
                         if (b < 0)
                                 return 0;
 
+                        x = ((uint8_t) a << 4 | (uint8_t) b);
+
+                        if (filter_printable && x < (uint8_t) ' ')
+                                x = (uint8_t) ' ';
+
                         if (!GREEDY_REALLOC(c, allocated, l+2))
                                 return -ENOMEM;
 
-                        c[l++] = (char) ((uint8_t) a << 4 | (uint8_t) b);
+                        c[l++] = (char) x;
                 }
 
                 c[l] = 0;
@@ -138,6 +144,14 @@ static int map_string_field(const char *field, const char **p, struct iovec **io
         c = NULL;
 
         return 1;
+}
+
+static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+        return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, false);
+}
+
+static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
+        return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, true);
 }
 
 static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, unsigned *n_iov) {
@@ -204,7 +218,7 @@ static const MapField map_fields_kernel[] = {
         { "subj=",      "_SELINUX_CONTEXT=",       map_simple_field },
         { "comm=",      "_COMM=",                  map_string_field },
         { "exe=",       "_EXE=",                   map_string_field },
-        { "proctitle=", "_CMDLINE=",               map_string_field },
+        { "proctitle=", "_CMDLINE=",               map_string_field_printable },
 
         /* Some fields don't map to native well-known fields. However,
          * we know that they are string fields, hence let's undo
