@@ -22,6 +22,7 @@
 /* See RFC 2516 */
 
 #include <sys/ioctl.h>
+#include <linux/ppp_defs.h>
 #include <linux/ppp-ioctl.h>
 #include <net/if.h>
 #include <netinet/in.h>
