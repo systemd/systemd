@@ -63,13 +63,31 @@
                 <para><filename>systemd-journald</filename> is a
                 system service that collects and stores logging data.
                 It creates and maintains structured, indexed journals
-                based on logging information that is received from the
-                kernel, from user processes via the libc
-                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                call, from standard input and standard error of system
-                services or via its native API. It will implicitly
-                collect numerous metadata fields for each log
-                messages in a secure and unfakeable way. See
+                based on logging information that is received from a
+                variety of sources:</para>
+
+                <itemizedlist>
+                        <listitem><para>Kernel log messages, via kmsg</para></listitem>
+
+                        <listitem><para>Simple system log messages, via the
+                        libc <citerefentry
+                        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        call</para></listitem>
+
+                        <listitem><para>Structured system log messages via the
+                        native Journal API, see
+                        <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry></para></listitem>
+
+                        <listitem><para>Standard output and
+                        standard error of system
+                        services</para></listitem>
+
+                        <listitem><para>Audit records, via the audit subsystem</para></listitem>
+                </itemizedlist>
+
+                <para>The daemon will implicitly collect numerous
+                metadata fields for each log messages in a secure and
+                unfakeable way. See
                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for more information about the collected metadata.
                 </para>
@@ -89,8 +107,7 @@
                 the data.</para>
 
                 <para><filename>systemd-journald</filename> will
-                forward all received log messages to the <constant>AF_UNIX</constant>
-                <constant>SOCK_DGRAM</constant> socket
+                forward all received log messages to the <constant>AF_UNIX</constant>/<constant>SOCK_DGRAM</constant> socket
                 <filename>/run/systemd/journal/syslog</filename>, if it exists, which
                 may be used by Unix syslog daemons to process the data
                 further.</para>
@@ -250,6 +267,7 @@
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
                         <command>pydoc systemd.journal</command>.
                 </para>
         </refsect1>
