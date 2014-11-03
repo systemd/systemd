@@ -505,7 +505,7 @@ static void help(void) {
                "  list-locales             Show known locales\n"
                "  set-keymap MAP [MAP]     Set virtual console keyboard mapping\n"
                "  list-keymaps             Show known virtual console keyboard mappings\n"
-               "  set-x11-keymap LAYOUT [MODEL] [VARIANT] [OPTIONS]\n"
+               "  set-x11-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]\n"
                "                           Set X11 keyboard mapping\n"
                "  list-x11-keymap-models   Show known X11 keyboard mapping models\n"
                "  list-x11-keymap-layouts  Show known X11 keyboard mapping layouts\n"
