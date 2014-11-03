@@ -365,7 +365,7 @@ static int output_short(
                 fprintf(f, " %.*s", (int) comm_len, comm);
                 n += comm_len + 1;
         } else
-                fputc(' ', f);
+                fputs(" unknown", f);
 
         if (pid && shall_print(pid, pid_len, flags)) {
                 fprintf(f, "[%.*s]", (int) pid_len, pid);
