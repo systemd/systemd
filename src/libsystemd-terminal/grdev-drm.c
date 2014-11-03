@@ -1393,7 +1393,7 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_dumb);
         if (r < 0) {
-                r = -errno;
+                r = negative_errno();
                 log_debug("grdrm: %s: cannot create dumb buffer %" PRIu32 "x%" PRIu32": %m",
                           card->base.name, fb->base.width, fb->base.height);
                 return r;
@@ -1407,7 +1407,7 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_dumb);
         if (r < 0) {
-                r = -errno;
+                r = negative_errno();
                 log_debug("grdrm: %s: cannot map dumb buffer %" PRIu32 "x%" PRIu32": %m",
                           card->base.name, fb->base.width, fb->base.height);
                 return r;
@@ -1415,7 +1415,7 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         fb->base.maps[0] = mmap(0, fb->sizes[0], PROT_WRITE, MAP_SHARED, card->fd, map_dumb.offset);
         if (fb->base.maps[0] == MAP_FAILED) {
-                r = -errno;
+                r = negative_errno();
                 log_debug("grdrm: %s: cannot memory-map dumb buffer %" PRIu32 "x%" PRIu32": %m",
                           card->base.name, fb->base.width, fb->base.height);
                 return r;
@@ -1433,7 +1433,7 @@ static int grdrm_fb_new(grdrm_fb **out, grdrm_card *card, const struct drm_mode_
 
         r = ioctl(card->fd, DRM_IOCTL_MODE_ADDFB2, &add_fb);
         if (r < 0) {
-                r = -errno;
+                r = negative_errno();
                 log_debug("grdrm: %s: cannot add framebuffer %" PRIu32 "x%" PRIu32": %m",
                           card->base.name, fb->base.width, fb->base.height);
                 return r;
