@@ -80,3 +80,21 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         *uid = (uid_t) u;
         return 0;
 }
+
+bool use_audit(void) {
+        static int cached_use = -1;
+
+        if (cached_use < 0) {
+                int fd;
+
+                fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
+                if (fd < 0)
+                        cached_use = errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT;
+                else {
+                        cached_use = true;
+                        safe_close(fd);
+                }
+        }
+
+        return cached_use;
+}

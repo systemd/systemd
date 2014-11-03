@@ -38,6 +38,7 @@
 #include "apparmor-util.h"
 #include "ima-util.h"
 #include "selinux-util.h"
+#include "audit.h"
 
 static bool condition_test_security(Condition *c) {
         assert(c);
@@ -50,6 +51,8 @@ static bool condition_test_security(Condition *c) {
                 return mac_smack_use() == !c->negate;
         if (streq(c->parameter, "apparmor"))
                 return mac_apparmor_use() == !c->negate;
+        if (streq(c->parameter, "audit"))
+                return use_audit() == !c->negate;
         if (streq(c->parameter, "ima"))
                 return use_ima() == !c->negate;
 

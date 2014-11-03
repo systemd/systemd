@@ -27,3 +27,5 @@
 
 int audit_session_from_pid(pid_t pid, uint32_t *id);
 int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
+
+bool use_audit(void);
