@@ -172,7 +172,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
                 if (!((*e >= 'a' && *e <= 'z') ||
                       (*e >= 'A' && *e <= 'Z') ||
                       (*e >= '0' && *e <= '9') ||
-                      (*e == '_')))
+                      *e == '_' || *e == '-'))
                         return 0;
         }
 
@@ -182,8 +182,18 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         c = alloca(strlen(prefix) + (e - *p) + 2);
 
         t = stpcpy(c, prefix);
-        for (f = *p; f < e; f++)
-                *(t++) = *f >= 'a' && *f <= 'z' ? ((*f - 'a') + 'A') : *f;
+        for (f = *p; f < e; f++) {
+                char x;
+
+                if (*f >= 'a' && *f <= 'z')
+                        x = (*f - 'a') + 'A'; /* uppercase */
+                else if (*f == '-')
+                        x = '_'; /* dashes → underscores */
+                else
+                        x = *f;
+
+                *(t++) = x;
+        }
         strcpy(t, "=");
 
         e ++;
