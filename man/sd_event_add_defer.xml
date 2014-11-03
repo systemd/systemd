@@ -104,7 +104,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     default, the handler will be called once
     (<constant>SD_EVENT_ONESHOT</constant>).</para>
 
-    <para><function>sd_event_add_defer()</function> adds a new event
+    <para><function>sd_event_add_post()</function> adds a new event
     source that will "fire" if any event handlers are invoked whenever
     the event loop is run. By default, the source is enabled
     permanently (<constant>SD_EVENT_ON</constant>).</para>
