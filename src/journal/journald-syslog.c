@@ -356,11 +356,13 @@ void server_process_syslog_message(
         const char *label,
         size_t label_len) {
 
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
+        char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
+             syslog_facility[sizeof("SYSLOG_FACILITY") + DECIMAL_STR_MAX(int)];
+        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
-        char *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *identifier = NULL, *pid = NULL;
         const char *orig;
 
         assert(s);
@@ -386,38 +388,31 @@ void server_process_syslog_message(
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
+        sprintf(syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK);
+        IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        if (priority & LOG_FACMASK)
-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        if (priority & LOG_FACMASK) {
+                sprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        }
 
         if (identifier) {
-                syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
+                syslog_identifier = strappenda("SYSLOG_IDENTIFIER=", identifier);
                 if (syslog_identifier)
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         if (pid) {
-                syslog_pid = strappend("SYSLOG_PID=", pid);
+                syslog_pid = strappenda("SYSLOG_PID=", pid);
                 if (syslog_pid)
                         IOVEC_SET_STRING(iovec[n++], syslog_pid);
         }
 
-        message = strappend("MESSAGE=", buf);
+        message = strappenda("MESSAGE=", buf);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
         server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority, 0);
-
-        free(message);
-        free(identifier);
-        free(pid);
-        free(syslog_priority);
-        free(syslog_facility);
-        free(syslog_identifier);
-        free(syslog_pid);
 }
 
 int server_open_syslog_socket(Server *s) {
