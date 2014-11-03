@@ -438,6 +438,51 @@ void server_process_audit_message(
         process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)), tv);
 }
 
+static int enable_audit(int fd, bool b) {
+        struct {
+                union {
+                        struct nlmsghdr header;
+                        uint8_t header_space[NLMSG_HDRLEN];
+                };
+                struct audit_status body;
+        } _packed_ request = {
+                .header.nlmsg_len = NLMSG_LENGTH(sizeof(struct audit_status)),
+                .header.nlmsg_type = AUDIT_SET,
+                .header.nlmsg_flags = NLM_F_REQUEST,
+                .header.nlmsg_seq = 1,
+                .header.nlmsg_pid = 0,
+                .body.mask = AUDIT_STATUS_ENABLED,
+                .body.enabled = b,
+        };
+        union sockaddr_union sa = {
+                .nl.nl_family = AF_NETLINK,
+                .nl.nl_pid = 0,
+        };
+        struct iovec iovec = {
+                .iov_base = &request,
+                .iov_len = NLMSG_LENGTH(sizeof(struct audit_status)),
+        };
+        struct msghdr mh = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.nl),
+        };
+
+        ssize_t n;
+
+        n = sendmsg(fd, &mh, MSG_NOSIGNAL);
+        if (n < 0)
+                return -errno;
+        if (n != NLMSG_LENGTH(sizeof(struct audit_status)))
+                return -EIO;
+
+        /* We don't wait for the result here, we can't do anything
+         * about it anyway */
+
+        return 0;
+}
+
 int server_open_audit(Server *s) {
         static const int one = 1;
         int r;
@@ -478,6 +523,11 @@ int server_open_audit(Server *s) {
                 log_error("Failed to add audit fd to event loop: %s", strerror(-r));
                 return r;
         }
+
+        /* We are listening now, try to enable audit */
+        r = enable_audit(s->audit_fd, true);
+        if (r < 0)
+                log_warning("Failed to issue audit enable call: %s", strerror(-r));
 
         return 0;
 }
