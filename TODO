@@ -405,6 +405,7 @@ Features:
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
 * journal:
+  - consider introducing implicit _TTY= field
   - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
@@ -426,7 +427,6 @@ Features:
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - journald: check whether it is OK if the client can still modify delivered journal entries
   - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
   - refuse taking lower-case variable names in sd_journal_send() and friends.
@@ -436,7 +436,6 @@ Features:
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
   - journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
-  - tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
   - when a kernel driver logs in a tight loop, we should ratelimit that too.
   - journald: optionally, log debug messages to /run but everything else to /var
   - journald: when we drop syslog messages because the syslog socket is
