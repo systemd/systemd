@@ -2066,6 +2066,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
 #ifdef HAVE_AUDIT
         _cleanup_free_ char *p = NULL;
+        const char *msg;
         int audit_fd;
 
         audit_fd = get_audit_fd();
@@ -2085,17 +2086,18 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
         p = unit_name_to_prefix_and_instance(u->id);
         if (!p) {
-                log_error_unit(u->id,
-                               "Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
+                log_oom();
                 return;
         }
 
-        if (audit_log_user_comm_message(audit_fd, type, "", p, NULL, NULL, NULL, success) < 0) {
-                if (errno == EPERM) {
+        msg = strappenda("unit=", p);
+
+        if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
+                if (errno == EPERM)
                         /* We aren't allowed to send audit messages?
                          * Then let's not retry again. */
                         close_audit_fd();
-                } else
+                else
                         log_warning("Failed to send audit message: %m");
         }
 #endif
