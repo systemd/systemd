@@ -126,8 +126,15 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #  elif defined __arm__
 #    define __NR_memfd_create 385
 #  elif defined _MIPS_SIM
-#    warning "__NR_memfd_create not yet defined for MIPS"
-#    define __NR_memfd_create 0xffffffff
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define __NR_memfd_create 4354
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_NABI32
+#      define __NR_memfd_create 6318
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_ABI64
+#      define __NR_memfd_create 5314
+#    endif
 #  else
 #    define __NR_memfd_create 356
 #  endif
