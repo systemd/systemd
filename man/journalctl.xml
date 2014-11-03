@@ -761,8 +761,37 @@
                                 <term><option>--disk-usage</option></term>
 
                                 <listitem><para>Shows the current disk
-                                usage of all
-                                journal files.</para></listitem>
+                                usage of all journal files. This shows
+                                the sum of the disk usage of all
+                                archived and active journal
+                                files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--vacuum-size=</option></term>
+                                <term><option>--vacuum-time=</option></term>
+
+                                <listitem><para>Removes archived
+                                journal files until the disk space
+                                they use falls below the specified
+                                size (specified with the usual K, M,
+                                G, T suffixes), or all journal files
+                                contain no data older than the
+                                specified timespan (specified with the
+                                usual s, min, h, days, months, weeks,
+                                years suffixes). Note that running
+                                <option>--vacuum-size=</option> has
+                                only indirect effect on the output
+                                shown by <option>--disk-usage</option>
+                                as the latter includes active journal
+                                files, while the former only operates
+                                on archived journal
+                                files. <option>--vacuum-size=</option>
+                                and <option>--vacuum-time=</option>
+                                may be combined in a single invocation
+                                to enforce both a size and time limit
+                                on the archived journal
+                                files.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

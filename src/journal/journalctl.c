@@ -59,6 +59,7 @@
 #include "journal-verify.h"
 #include "journal-authenticate.h"
 #include "journal-qrcode.h"
+#include "journal-vacuum.h"
 #include "fsprg.h"
 #include "unit-name.h"
 #include "catalog.h"
@@ -111,6 +112,8 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static const char *arg_root = NULL;
 static const char *arg_machine = NULL;
+static off_t arg_vacuum_size = (off_t) -1;
+static usec_t arg_vacuum_time = USEC_INFINITY;
 
 static enum {
         ACTION_SHOW,
@@ -124,6 +127,7 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_VACUUM,
 } arg_action = ACTION_SHOW;
 
 typedef struct boot_id_t {
@@ -231,14 +235,16 @@ static void help(void) {
                "\nCommands:\n"
                "  -h --help                Show this help text\n"
                "     --version             Show package version\n"
-               "     --new-id128           Generate a new 128-bit ID\n"
-               "     --header              Show journal header information\n"
-               "     --disk-usage          Show total disk usage of all journal files\n"
                "  -F --field=FIELD         List all values that a specified field takes\n"
+               "     --new-id128           Generate a new 128-bit ID\n"
+               "     --disk-usage          Show total disk usage of all journal files\n"
+               "     --vacuum-size=BYTES   Remove old journals until disk space drops below size\n"
+               "     --vacuum-time=TIME    Remove old journals until none left older than\n"
+               "     --flush               Flush all journal data from /run into /var\n"
+               "     --header              Show journal header information\n"
                "     --list-catalog        Show message IDs of all entries in the message catalog\n"
                "     --dump-catalog        Show entries in the message catalog\n"
                "     --update-catalog      Update the message catalog database\n"
-               "     --flush               Flush all journal data from /run into /var\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys          Generate a new FSS key pair\n"
                "     --verify              Verify journal file consistency\n"
@@ -276,6 +282,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_UTC,
                 ARG_FLUSH,
+                ARG_VACUUM_SIZE,
+                ARG_VACUUM_TIME,
         };
 
         static const struct option options[] = {
@@ -327,6 +335,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",        required_argument, NULL, 'M'                },
                 { "utc",            no_argument,       NULL, ARG_UTC            },
                 { "flush",          no_argument,       NULL, ARG_FLUSH          },
+                { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
+                { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
                 {}
         };
 
@@ -523,6 +533,26 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DISK_USAGE:
                         arg_action = ACTION_DISK_USAGE;
+                        break;
+
+                case ARG_VACUUM_SIZE:
+                        r = parse_size(optarg, 1024, &arg_vacuum_size);
+                        if (r < 0) {
+                                log_error("Failed to parse vacuum size: %s", optarg);
+                                return r;
+                        }
+
+                        arg_action = ACTION_VACUUM;
+                        break;
+
+                case ARG_VACUUM_TIME:
+                        r = parse_sec(optarg, &arg_vacuum_time);
+                        if (r < 0) {
+                                log_error("Failed to parse vacuum time: %s", optarg);
+                                return r;
+                        }
+
+                        arg_action = ACTION_VACUUM;
                         break;
 
 #ifdef HAVE_GCRYPT
@@ -1812,9 +1842,29 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         return EXIT_FAILURE;
 
-                printf("Journals take up %s on disk.\n",
+                printf("Archived and active journals take up %s on disk.\n",
                        format_bytes(sbytes, sizeof(sbytes), bytes));
                 return EXIT_SUCCESS;
+        }
+
+        if (arg_action == ACTION_VACUUM) {
+                Directory *d;
+                Iterator i;
+
+                HASHMAP_FOREACH(d, j->directories_by_path, i) {
+                        int q;
+
+                        if (d->is_root)
+                                continue;
+
+                        q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_time, NULL, true);
+                        if (q < 0) {
+                                log_error("Failed to vacuum: %s", strerror(-q));
+                                r = q;
+                        }
+                }
+
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
         }
 
         if (arg_action == ACTION_LIST_BOOTS) {

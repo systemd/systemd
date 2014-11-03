@@ -143,7 +143,8 @@ int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
                 usec_t max_retention_usec,
-                usec_t *oldest_usec) {
+                usec_t *oldest_usec,
+                bool verbose) {
 
         _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
@@ -152,6 +153,7 @@ int journal_directory_vacuum(
         size_t n_allocated = 0;
         uint64_t sum = 0, freed = 0;
         usec_t retention_limit = 0;
+        char sbytes[FORMAT_BYTES_MAX];
 
         assert(directory);
 
@@ -262,14 +264,12 @@ int journal_directory_vacuum(
                         uint64_t size = 512UL * (uint64_t) st.st_blocks;
 
                         if (unlinkat(dirfd(d), p, 0) >= 0) {
-                                log_info("Deleted empty journal %s/%s (%"PRIu64" bytes).",
-                                         directory, p, size);
+                                log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
                                 freed += size;
                         } else if (errno != ENOENT)
-                                log_warning("Failed to delete %s/%s: %m", directory, p);
+                                log_warning("Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         free(p);
-
                         continue;
                 }
 
@@ -297,8 +297,7 @@ int journal_directory_vacuum(
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_debug("Deleted archived journal %s/%s (%"PRIu64" bytes).",
-                                  directory, list[i].filename, list[i].usage);
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
                         if (list[i].usage < sum)
@@ -307,7 +306,7 @@ int journal_directory_vacuum(
                                 sum = 0;
 
                 } else if (errno != ENOENT)
-                        log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
+                        log_warning("Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))
@@ -318,7 +317,7 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_debug("Vacuuming done, freed %"PRIu64" bytes", freed);
+        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals on disk.", format_bytes(sbytes, sizeof(sbytes), freed));
 
         return r;
 }

@@ -375,7 +375,7 @@ static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
                 return;
 
         p = strappenda(path, ids);
-        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec);
+        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
                 log_error("Failed to vacuum %s: %s", p, strerror(-r));
 }
