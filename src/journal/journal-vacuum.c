@@ -121,22 +121,30 @@ static void patch_realtime(
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
-        int r;
-        le64_t n_entries;
         _cleanup_close_ int fd;
+        struct stat st;
+        le64_t n_entries;
+        ssize_t n;
 
         fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
-        if (lseek(fd, offsetof(Header, n_entries), SEEK_SET) < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
-        r = read(fd, &n_entries, sizeof(n_entries));
-        if (r != sizeof(n_entries))
-                return r == 0 ? -EINVAL : -errno;
+        /* If an offline file doesn't even have a header we consider it empty */
+        if (st.st_size < (off_t) sizeof(Header))
+                return 1;
 
-        return le64toh(n_entries) == 0;
+        /* If the number of entries is empty, we consider it empty, too */
+        n = pread(fd, &n_entries, sizeof(n_entries), offsetof(Header, n_entries));
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(n_entries))
+                return -EIO;
+
+        return le64toh(n_entries) <= 0;
 }
 
 int journal_directory_vacuum(
