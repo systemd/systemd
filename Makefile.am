@@ -4073,6 +4073,8 @@ libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-wall.h \
 	src/journal/journald-native.c \
 	src/journal/journald-native.h \
+	src/journal/journald-audit.c \
+	src/journal/journald-audit.h \
 	src/journal/journald-rate-limit.c \
 	src/journal/journald-rate-limit.h \
 	src/journal/journal-internal.h
@@ -4224,7 +4226,8 @@ bin_PROGRAMS += \
 
 dist_systemunit_DATA += \
 	units/systemd-journald.socket \
-	units/systemd-journald-dev-log.socket
+	units/systemd-journald-dev-log.socket \
+	units/systemd-journald-audit.socket
 
 nodist_systemunit_DATA += \
 	units/systemd-journald.service \
@@ -4243,7 +4246,8 @@ dist_catalog_DATA = \
 
 SOCKETS_TARGET_WANTS += \
 	systemd-journald.socket \
-	systemd-journald-dev-log.socket
+	systemd-journald-dev-log.socket \
+	systemd-journald-audit.socket
 
 SYSINIT_TARGET_WANTS += \
 	systemd-journald.service \

@@ -33,6 +33,7 @@
 #include <linux/input.h>
 #include <linux/if_link.h>
 #include <linux/loop.h>
+#include <linux/audit.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -556,4 +557,12 @@ static inline int setns(int fd, int nstype) {
  * is compatible with the kernel's internal definition. */
 #ifndef LOOPBACK_IFINDEX
 #define LOOPBACK_IFINDEX 1
+#endif
+
+#ifndef MAX_AUDIT_MESSAGE_LENGTH
+#define MAX_AUDIT_MESSAGE_LENGTH 8970
+#endif
+
+#ifndef AUDIT_NLGRP_MAX
+#define AUDIT_NLGRP_READLOG 1
 #endif

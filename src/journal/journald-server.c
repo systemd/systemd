@@ -50,6 +50,7 @@
 #include "journald-stream.h"
 #include "journald-console.h"
 #include "journald-native.h"
+#include "journald-audit.h"
 #include "journald-server.h"
 
 #ifdef HAVE_ACL
@@ -1112,7 +1113,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
         Server *s = userdata;
 
         assert(s);
-        assert(fd == s->native_fd || fd == s->syslog_fd);
+        assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
         if (revents != EPOLLIN) {
                 log_error("Got invalid event from epoll for datagram fd: %"PRIx32, revents);
@@ -1142,28 +1143,37 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                                     CMSG_SPACE(sizeof(int)) + /* fd */
                                     CMSG_SPACE(NAME_MAX)]; /* selinux label */
                 } control = {};
+                union sockaddr_union sa = {};
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
+                        .msg_name = &sa,
+                        .msg_namelen = sizeof(sa),
                 };
 
                 ssize_t n;
-                int v;
                 int *fds = NULL;
                 unsigned n_fds = 0;
+                int v = 0;
+                size_t m;
 
-                if (ioctl(fd, SIOCINQ, &v) < 0) {
-                        log_error("SIOCINQ failed: %m");
-                        return -errno;
-                }
+                /* Try to get the right size, if we can. (Not all
+                 * sockets support SIOCINQ, hence we just try, but
+                 * don't rely on it. */
+                (void) ioctl(fd, SIOCINQ, &v);
 
-                if (!GREEDY_REALLOC(s->buffer, s->buffer_size, LINE_MAX + (size_t) v))
+                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful!*/
+                m = PAGE_ALIGN(MAX3((size_t) v + 1,
+                                    (size_t) LINE_MAX,
+                                    ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
+
+                if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
                         return log_oom();
 
                 iovec.iov_base = s->buffer;
-                iovec.iov_len = s->buffer_size;
+                iovec.iov_len = s->buffer_size - 1; /* Leave room for trailing NUL we add later */
 
                 n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (n < 0) {
@@ -1195,20 +1205,30 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                         }
                 }
 
+                /* And a trailing NUL, just in case */
+                s->buffer[n] = 0;
+
                 if (fd == s->syslog_fd) {
-                        if (n > 0 && n_fds == 0) {
-                                s->buffer[n] = 0;
+                        if (n > 0 && n_fds == 0)
                                 server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
-                        } else if (n_fds > 0)
+                        else if (n_fds > 0)
                                 log_warning("Got file descriptors via syslog socket. Ignoring.");
 
-                } else {
+                } else if (fd == s->native_fd) {
                         if (n > 0 && n_fds == 0)
                                 server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
                         else if (n == 0 && n_fds == 1)
                                 server_process_native_file(s, fds[0], ucred, tv, label, label_len);
                         else if (n_fds > 0)
                                 log_warning("Got too many file descriptors via native socket. Ignoring.");
+
+                } else {
+                        assert(fd == s->audit_fd);
+
+                        if (n > 0 && n_fds == 0)
+                                server_process_audit_message(s, s->buffer, n, ucred, tv, &sa, msghdr.msg_namelen);
+                        else if (n_fds > 0)
+                                log_warning("Got file descriptors via audit socket. Ignoring.");
                 }
 
                 close_many(fds, n_fds);
@@ -1452,7 +1472,7 @@ int server_init(Server *s) {
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->hostname_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = -1;
         s->compress = true;
         s->seal = true;
 
@@ -1537,6 +1557,15 @@ int server_init(Server *s) {
 
                         s->syslog_fd = fd;
 
+                } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+
+                        if (s->audit_fd >= 0) {
+                                log_error("Too many audit sockets passed.");
+                                return -EINVAL;
+                        }
+
+                        s->audit_fd = fd;
+
                 } else {
                         log_error("Unknown socket passed.");
                         return -EINVAL;
@@ -1556,6 +1585,10 @@ int server_init(Server *s) {
                 return r;
 
         r = server_open_dev_kmsg(s);
+        if (r < 0)
+                return r;
+
+        r = server_open_audit(s);
         if (r < 0)
                 return r;
 
@@ -1632,6 +1665,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->native_event_source);
         sd_event_source_unref(s->stdout_event_source);
         sd_event_source_unref(s->dev_kmsg_event_source);
+        sd_event_source_unref(s->audit_event_source);
         sd_event_source_unref(s->sync_event_source);
         sd_event_source_unref(s->sigusr1_event_source);
         sd_event_source_unref(s->sigusr2_event_source);
@@ -1644,6 +1678,7 @@ void server_done(Server *s) {
         safe_close(s->native_fd);
         safe_close(s->stdout_fd);
         safe_close(s->dev_kmsg_fd);
+        safe_close(s->audit_fd);
         safe_close(s->hostname_fd);
 
         if (s->rate_limit)

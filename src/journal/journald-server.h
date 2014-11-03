@@ -59,6 +59,7 @@ typedef struct Server {
         int native_fd;
         int stdout_fd;
         int dev_kmsg_fd;
+        int audit_fd;
         int hostname_fd;
 
         sd_event *event;
@@ -67,6 +68,7 @@ typedef struct Server {
         sd_event_source *native_event_source;
         sd_event_source *stdout_event_source;
         sd_event_source *dev_kmsg_event_source;
+        sd_event_source *audit_event_source;
         sd_event_source *sync_event_source;
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
