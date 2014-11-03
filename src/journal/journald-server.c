@@ -1226,7 +1226,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                         assert(fd == s->audit_fd);
 
                         if (n > 0 && n_fds == 0)
-                                server_process_audit_message(s, s->buffer, n, ucred, tv, &sa, msghdr.msg_namelen);
+                                server_process_audit_message(s, s->buffer, n, ucred, &sa, msghdr.msg_namelen);
                         else if (n_fds > 0)
                                 log_warning("Got file descriptors via audit socket. Ignoring.");
                 }

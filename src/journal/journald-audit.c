@@ -325,7 +325,7 @@ static int map_all_fields(
         }
 }
 
-static void process_audit_string(Server *s, int type, const char *data, size_t size, const struct timeval *tv) {
+static void process_audit_string(Server *s, int type, const char *data, size_t size) {
         _cleanup_free_ struct iovec *iov = NULL;
         size_t n_iov_allocated = 0;
         unsigned n_iov = 0, k;
@@ -398,7 +398,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
                 goto finish;
         }
 
-        server_dispatch_message(s, iov, n_iov, n_iov_allocated, NULL, tv, NULL, 0, NULL, LOG_NOTICE, 0);
+        server_dispatch_message(s, iov, n_iov, n_iov_allocated, NULL, NULL, NULL, 0, NULL, LOG_NOTICE, 0);
 
 finish:
         /* free() all entries that map_all_fields() added. All others
@@ -413,7 +413,6 @@ void server_process_audit_message(
                 const void *buffer,
                 size_t buffer_size,
                 const struct ucred *ucred,
-                const struct timeval *tv,
                 const union sockaddr_union *sa,
                 socklen_t salen) {
 
@@ -453,7 +452,7 @@ void server_process_audit_message(
         if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG)
                 return;
 
-        process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)), tv);
+        process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
 }
 
 static int enable_audit(int fd, bool b) {
