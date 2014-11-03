@@ -473,12 +473,6 @@ int server_open_audit(Server *s) {
                 return -errno;
         }
 
-        r = setsockopt(s->audit_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
-        if (r < 0) {
-                log_error("Failed to set SO_TIMESTAMP on audit socket: %m");
-                return -errno;
-        }
-
         r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, process_datagram, s);
         if (r < 0) {
                 log_error("Failed to add audit fd to event loop: %s", strerror(-r));
