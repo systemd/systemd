@@ -354,7 +354,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (!p)
                 return;
 
-        if (sscanf(p, "(%" PRIi64 ".%" PRIi64 ":%" PRIi64 "): %n",
+        if (sscanf(p, "(%" PRIi64 ".%" PRIi64 ":%" PRIi64 "):%n",
                    &seconds,
                    &msec,
                    &id,
@@ -362,6 +362,10 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
                 return;
 
         p += k;
+        p += strspn(p, WHITESPACE);
+
+        if (isempty(p))
+                return;
 
         n_iov_allocated = N_IOVEC_META_FIELDS + 5;
         iov = new(struct iovec, n_iov_allocated);
@@ -382,7 +386,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
 
-        m = strappenda("MESSAGE=", data);
+        m = strappenda("MESSAGE=audit: ", p);
         IOVEC_SET_STRING(iov[n_iov++], m);
 
         z = n_iov;
