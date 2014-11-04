@@ -324,21 +324,12 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
 }
 
 _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
-        char *n;
-
         assert_return(bus, -EINVAL);
         assert_return(description, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        n = strdup(description);
-        if (!n)
-                return -ENOMEM;
-
-        free(bus->description);
-        bus->description = n;
-
-        return 0;
+        return free_and_strdup(&bus->description, description);
 }
 
 static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
