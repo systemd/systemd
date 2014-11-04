@@ -803,15 +803,7 @@ static int setup_signals(RemoteServer *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_description(s->sigterm_event, "sigterm");
-        if (r < 0)
-                return r;
-
         r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, NULL, s);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_description(s->sigint_event, "sigint");
         if (r < 0)
                 return r;
 

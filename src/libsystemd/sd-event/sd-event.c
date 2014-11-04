@@ -1031,6 +1031,9 @@ _public_ int sd_event_add_signal(
                 }
         }
 
+        /* Use the signal name as description for the event source by default */
+        (void) sd_event_source_set_description(s, signal_to_string(sig));
+
         if (ret)
                 *ret = s;
 
