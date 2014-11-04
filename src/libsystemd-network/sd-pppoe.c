@@ -698,8 +698,7 @@ static int pppoe_handle_message(sd_pppoe *ppp, struct pppoe_hdr *packet, struct 
         return 0;
 }
 
-static int pppoe_receive_message(sd_event_source *s, int fd,
-                                 uint32_t revents, void *userdata) {
+static int pppoe_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_pppoe *ppp = userdata;
         _cleanup_free_ struct pppoe_hdr *packet = NULL;
         union sockaddr_union link = {};
@@ -721,11 +720,9 @@ static int pppoe_receive_message(sd_event_source *s, int fd,
         if (!packet)
                 return -ENOMEM;
 
-        len = recvfrom(fd, packet, buflen, 0,
-                       &link.sa, &addrlen);
+        len = recvfrom(fd, packet, buflen, 0, &link.sa, &addrlen);
         if (len < 0) {
-                log_warning("PPPoE: colud not receive message from raw socket: %s",
-                          strerror(-r));
+                log_warning("PPPoE: colud not receive message from raw socket: %s", strerror(-r));
                 return 0;
         } else if ((size_t)len < sizeof(struct pppoe_hdr))
                 return 0;
