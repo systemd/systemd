@@ -194,8 +194,8 @@ static void test_hashmap_move(void) {
         hashmap_put(m, "key 3", val3);
         hashmap_put(m, "key 4", val4);
 
-        assert(hashmap_move(n, NULL) == 0);
-        assert(hashmap_move(n, m) == 0);
+        assert_se(hashmap_move(n, NULL) == 0);
+        assert_se(hashmap_move(n, m) == 0);
 
         assert_se(hashmap_size(m) == 1);
         r = hashmap_get(m, "key 1");
