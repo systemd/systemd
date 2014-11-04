@@ -768,8 +768,8 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         char *n;
 
                         KDBUS_ITEM_FOREACH(item, name, items)
-                                if (item->type == KDBUS_ITEM_NAME)
-                                        entry_name = item->str;
+                                if (item->type == KDBUS_ITEM_OWNED_NAME)
+                                        entry_name = item->name.name;
 
                         if (!streq_ptr(entry_name, arg0))
                                 continue;

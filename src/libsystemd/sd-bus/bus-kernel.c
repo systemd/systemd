@@ -588,7 +588,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         destination = d->str;
                         break;
 
-                case KDBUS_ITEM_NAME:
+                case KDBUS_ITEM_OWNED_NAME:
                         if (!service_name_is_valid(d->name.name))
                                 return -EBADMSG;
 
@@ -597,7 +597,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 goto fail;
                         break;
 
-                case KDBUS_ITEM_CONN_NAME:
+                case KDBUS_ITEM_CONN_DESCRIPTION:
                         m->creds.conn_name = d->str;
                         m->creds.mask |= SD_BUS_CREDS_CONNECTION_NAME & bus->creds_mask;
                         break;
@@ -727,7 +727,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         item = hello->items;
 
         item->size = offsetof(struct kdbus_item, str) + m + 1;
-        item->type = KDBUS_ITEM_CONN_NAME;
+        item->type = KDBUS_ITEM_CONN_DESCRIPTION;
         memcpy(item->str, name, m + 1);
         item = KDBUS_ITEM_NEXT(item);
 
@@ -1256,7 +1256,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
                 m |= KDBUS_ATTACH_NAMES;
 
         if (mask & SD_BUS_CREDS_CONNECTION_NAME)
-                m |= KDBUS_ATTACH_CONN_NAME;
+                m |= KDBUS_ATTACH_CONN_DESCRIPTION;
 
         *kdbus_mask = m;
         return 0;

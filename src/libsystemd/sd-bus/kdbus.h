@@ -181,7 +181,7 @@ struct kdbus_memfd {
  * @name:		Well-known name
  *
  * Attached to:
- *   KDBUS_ITEM_NAME
+ *   KDBUS_ITEM_OWNED_NAME
  */
 struct kdbus_name {
 	__u64 flags;
@@ -221,21 +221,22 @@ struct kdbus_policy_access {
  * @KDBUS_ITEM_MAKE_NAME:	Name of domain, bus, endpoint
  * @KDBUS_ITEM_ATTACH_FLAGS:	Attach-flags, used for updating which metadata
  *				a connection subscribes to
- * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
- * @KDBUS_ITEM_NAME:		Well-know name with flags
  * @KDBUS_ITEM_ID:		Connection ID
+ * @KDBUS_ITEM_NAME:		Well-know name with flags
+ * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
  * @KDBUS_ITEM_TIMESTAMP:	Timestamp
  * @KDBUS_ITEM_CREDS:		Process credential
  * @KDBUS_ITEM_AUXGROUPS:	Auxiliary process groups
- * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
+ * @KDBUS_ITEM_OWNED_NAME:	A name owned by the associated connection
  * @KDBUS_ITEM_TID_COMM:	Thread ID "comm" identifier
+ * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
  * @KDBUS_ITEM_EXE:		The path of the executable
  * @KDBUS_ITEM_CMDLINE:		The process command line
  * @KDBUS_ITEM_CGROUP:		The croup membership
  * @KDBUS_ITEM_CAPS:		The process capabilities
  * @KDBUS_ITEM_SECLABEL:	The security label
  * @KDBUS_ITEM_AUDIT:		The audit IDs
- * @KDBUS_ITEM_CONN_NAME:	The connection's human-readable name (debugging)
+ * @KDBUS_ITEM_CONN_DESCRIPTION:The connection's human-readable name (debugging)
  * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
  * @KDBUS_ITEM_POLICY_ACCESS:	Policy access block
  * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
@@ -260,22 +261,24 @@ enum kdbus_item_type {
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_MAKE_NAME,
 	KDBUS_ITEM_ATTACH_FLAGS,
-
-	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
-	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_ID,
-	KDBUS_ITEM_TIMESTAMP,
+	KDBUS_ITEM_NAME,
+
+	/* keep these item types in sync with KDBUS_ATTACH_* flags */
+	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
+	KDBUS_ITEM_TIMESTAMP	= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_CREDS,
 	KDBUS_ITEM_AUXGROUPS,
-	KDBUS_ITEM_PID_COMM,
+	KDBUS_ITEM_OWNED_NAME,
 	KDBUS_ITEM_TID_COMM,
+	KDBUS_ITEM_PID_COMM,
 	KDBUS_ITEM_EXE,
 	KDBUS_ITEM_CMDLINE,
 	KDBUS_ITEM_CGROUP,
 	KDBUS_ITEM_CAPS,
 	KDBUS_ITEM_SECLABEL,
 	KDBUS_ITEM_AUDIT,
-	KDBUS_ITEM_CONN_NAME,
+	KDBUS_ITEM_CONN_DESCRIPTION,
 
 	_KDBUS_ITEM_POLICY_BASE	= 0x2000,
 	KDBUS_ITEM_POLICY_ACCESS = _KDBUS_ITEM_POLICY_BASE,
@@ -457,8 +460,8 @@ struct kdbus_cmd_recv {
 
 /**
  * struct kdbus_cmd_cancel - struct to cancel a synchronously pending message
- * @cookie		The cookie of the pending message
- * @flags		Flags for the free command. Currently unused.
+ * @cookie:		The cookie of the pending message
+ * @flags:		Flags for the free command. Currently unused.
  *
  * This struct is used with the KDBUS_CMD_CANCEL ioctl.
  */
@@ -535,20 +538,20 @@ enum kdbus_hello_flags {
 
 /**
  * enum kdbus_attach_flags - flags for metadata attachments
- * @KDBUS_ATTACH_TIMESTAMP:	Timestamp
- * @KDBUS_ATTACH_CREDS:		Credentials
- * @KDBUS_ATTACH_AUXGROUPS:	Auxiliary groups
- * @KDBUS_ATTACH_NAMES:		Well-known names
- * @KDBUS_ATTACH_COMM_TID:	The "comm" process identifier of the TID
- * @KDBUS_ATTACH_COMM_PID:	The "comm" process identifier of the PID
- * @KDBUS_ATTACH_EXE:		The path of the executable
- * @KDBUS_ATTACH_CMDLINE:	The process command line
- * @KDBUS_ATTACH_CGROUP:	The croup membership
- * @KDBUS_ATTACH_CAPS:		The process capabilities
- * @KDBUS_ATTACH_SECLABEL:	The security label
- * @KDBUS_ATTACH_AUDIT:		The audit IDs
- * @KDBUS_ATTACH_CONN_NAME:	The human-readable connection name
- * @_KDBUS_ATTACH_ALL:		All of the above
+ * @KDBUS_ATTACH_TIMESTAMP:		Timestamp
+ * @KDBUS_ATTACH_CREDS:			Credentials
+ * @KDBUS_ATTACH_AUXGROUPS:		Auxiliary groups
+ * @KDBUS_ATTACH_NAMES:			Well-known names
+ * @KDBUS_ATTACH_TID_COMM:		The "comm" process identifier of the TID
+ * @KDBUS_ATTACH_PID_COMM:		The "comm" process identifier of the PID
+ * @KDBUS_ATTACH_EXE:			The path of the executable
+ * @KDBUS_ATTACH_CMDLINE:		The process command line
+ * @KDBUS_ATTACH_CGROUP:		The croup membership
+ * @KDBUS_ATTACH_CAPS:			The process capabilities
+ * @KDBUS_ATTACH_SECLABEL:		The security label
+ * @KDBUS_ATTACH_AUDIT:			The audit IDs
+ * @KDBUS_ATTACH_CONN_DESCRIPTION:	The human-readable connection name
+ * @_KDBUS_ATTACH_ALL:			All of the above
  */
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1ULL <<  0,
@@ -563,7 +566,7 @@ enum kdbus_attach_flags {
 	KDBUS_ATTACH_CAPS		=  1ULL <<  9,
 	KDBUS_ATTACH_SECLABEL		=  1ULL << 10,
 	KDBUS_ATTACH_AUDIT		=  1ULL << 11,
-	KDBUS_ATTACH_CONN_NAME		=  1ULL << 12,
+	KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 12,
 	_KDBUS_ATTACH_ALL		=  (1ULL << 13) - 1,
 };
 
@@ -666,17 +669,15 @@ struct kdbus_cmd_name {
 /**
  * struct kdbus_name_info - struct to describe a well-known name
  * @size:		The total size of the struct
- * @flags:		Flags for a name entry (KDBUS_NAME_*),
  * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @owner_id:		The current owner of the name
  * @items:		Item list, containing the well-known name as
- *			KDBUS_ITEM_NAME
+ *			KDBUS_ITEM_OWNED_NAME
  *
  * This structure is used as return struct for the KDBUS_CMD_NAME_LIST ioctl.
  */
 struct kdbus_name_info {
 	__u64 size;
-	__u64 flags;
 	__u64 conn_flags;
 	__u64 owner_id;
 	struct kdbus_item items[0];
@@ -819,100 +820,98 @@ struct kdbus_cmd_match {
 } __attribute__((aligned(8)));
 
 /**
- * enum kdbus_ioctl_type - Ioctl API
- * @KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
+ * Ioctl API
+ * KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
  *				command creates a new bus with the specified
  *				name. The bus is immediately shut down and
  *				cleaned up when the opened "control" device node
  *				is closed.
- * @KDBUS_CMD_DOMAIN_MAKE:	Similar to KDBUS_CMD_BUS_MAKE, but it creates a
+ * KDBUS_CMD_DOMAIN_MAKE:	Similar to KDBUS_CMD_BUS_MAKE, but it creates a
  *				new kdbus domain.
- * @KDBUS_CMD_ENDPOINT_MAKE:	Creates a new named special endpoint to talk to
+ * KDBUS_CMD_ENDPOINT_MAKE:	Creates a new named special endpoint to talk to
  *				the bus. Such endpoints usually carry a more
  *				restrictive policy and grant restricted access
  *				to specific applications.
- * @KDBUS_CMD_HELLO:		By opening the bus device node a connection is
+ * KDBUS_CMD_HELLO:		By opening the bus device node a connection is
  *				created. After a HELLO the opened connection
  *				becomes an active peer on the bus.
- * @KDBUS_CMD_BYEBYE:		Disconnect a connection. If there are no
+ * KDBUS_CMD_BYEBYE:		Disconnect a connection. If there are no
  *				messages queued up in the connection's pool,
  *				the call succeeds, and the handle is rendered
  *				unusable. Otherwise, -EBUSY is returned without
  *				any further side-effects.
- * @KDBUS_CMD_MSG_SEND:		Send a message and pass data from userspace to
+ * KDBUS_CMD_MSG_SEND:		Send a message and pass data from userspace to
  *				the kernel.
- * @KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
+ * KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
  *				placed in the receiver's pool.
- * @KDBUS_CMD_MSG_CANCEL:	Cancel a pending request of a message that
+ * KDBUS_CMD_MSG_CANCEL:	Cancel a pending request of a message that
  *				blocks while waiting for a reply. The parameter
  *				denotes the cookie of the message in flight.
- * @KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
+ * KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
  *				pool.
- * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
+ * KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
  *				the connection. Well-known names are used to
  *				address a peer on the bus.
- * @KDBUS_CMD_NAME_RELEASE:	Release a well-known name the connection
+ * KDBUS_CMD_NAME_RELEASE:	Release a well-known name the connection
  *				currently owns.
- * @KDBUS_CMD_NAME_LIST:	Retrieve the list of all currently registered
+ * KDBUS_CMD_NAME_LIST:		Retrieve the list of all currently registered
  *				well-known and unique names.
- * @KDBUS_CMD_CONN_INFO:	Retrieve credentials and properties of the
+ * KDBUS_CMD_CONN_INFO:		Retrieve credentials and properties of the
  *				initial creator of the connection. The data was
  *				stored at registration time and does not
  *				necessarily represent the connected process or
  *				the actual state of the process.
- * @KDBUS_CMD_CONN_UPDATE:	Update the properties of a connection. Used to
+ * KDBUS_CMD_CONN_UPDATE:	Update the properties of a connection. Used to
  *				update the metadata subscription mask and
  *				policy.
- * @KDBUS_CMD_BUS_CREATOR_INFO:	Retrieve information of the creator of the bus
+ * KDBUS_CMD_BUS_CREATOR_INFO:	Retrieve information of the creator of the bus
  *				a connection is attached to.
- * @KDBUS_CMD_ENDPOINT_UPDATE:	Update the properties of a custom enpoint. Used
+ * KDBUS_CMD_ENDPOINT_UPDATE:	Update the properties of a custom enpoint. Used
  *				to update the policy.
- * @KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
+ * KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
  *				be delivered to the connection.
- * @KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
+ * KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
  */
-enum kdbus_ioctl_type {
-	KDBUS_CMD_BUS_MAKE =		_IOW(KDBUS_IOCTL_MAGIC, 0x00,
-					     struct kdbus_cmd_make),
-	KDBUS_CMD_DOMAIN_MAKE =		_IOW(KDBUS_IOCTL_MAGIC, 0x10,
-					     struct kdbus_cmd_make),
-	KDBUS_CMD_ENDPOINT_MAKE =	_IOW(KDBUS_IOCTL_MAGIC, 0x20,
-					     struct kdbus_cmd_make),
+#define KDBUS_CMD_BUS_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x00,	\
+					     struct kdbus_cmd_make)
+#define KDBUS_CMD_DOMAIN_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x10,	\
+					     struct kdbus_cmd_make)
+#define KDBUS_CMD_ENDPOINT_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x20,	\
+					     struct kdbus_cmd_make)
 
-	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOCTL_MAGIC, 0x30,
-					      struct kdbus_cmd_hello),
-	KDBUS_CMD_BYEBYE =		_IO(KDBUS_IOCTL_MAGIC, 0x31),
+#define KDBUS_CMD_HELLO			_IOWR(KDBUS_IOCTL_MAGIC, 0x30,	\
+					      struct kdbus_cmd_hello)
+#define KDBUS_CMD_BYEBYE		_IO(KDBUS_IOCTL_MAGIC, 0x31)	\
 
-	KDBUS_CMD_MSG_SEND =		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,
-					      struct kdbus_msg),
-	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOCTL_MAGIC, 0x41,
-					      struct kdbus_cmd_recv),
-	KDBUS_CMD_MSG_CANCEL =		_IOW(KDBUS_IOCTL_MAGIC, 0x42,
-					     struct kdbus_cmd_cancel),
-	KDBUS_CMD_FREE =		_IOW(KDBUS_IOCTL_MAGIC, 0x43,
-					     struct kdbus_cmd_free),
+#define KDBUS_CMD_MSG_SEND		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,	\
+					      struct kdbus_msg)
+#define KDBUS_CMD_MSG_RECV		_IOWR(KDBUS_IOCTL_MAGIC, 0x41,	\
+					      struct kdbus_cmd_recv)
+#define KDBUS_CMD_MSG_CANCEL		_IOW(KDBUS_IOCTL_MAGIC, 0x42,	\
+					     struct kdbus_cmd_cancel)
+#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x43,	\
+					     struct kdbus_cmd_free)
 
-	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOCTL_MAGIC, 0x50,
-					      struct kdbus_cmd_name),
-	KDBUS_CMD_NAME_RELEASE =	_IOW(KDBUS_IOCTL_MAGIC, 0x51,
-					     struct kdbus_cmd_name),
-	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOCTL_MAGIC, 0x52,
-					      struct kdbus_cmd_name_list),
+#define KDBUS_CMD_NAME_ACQUIRE		_IOWR(KDBUS_IOCTL_MAGIC, 0x50,	\
+					      struct kdbus_cmd_name)
+#define KDBUS_CMD_NAME_RELEASE		_IOW(KDBUS_IOCTL_MAGIC, 0x51,	\
+					     struct kdbus_cmd_name)
+#define KDBUS_CMD_NAME_LIST		_IOWR(KDBUS_IOCTL_MAGIC, 0x52,	\
+					      struct kdbus_cmd_name_list)
 
-	KDBUS_CMD_CONN_INFO =		_IOWR(KDBUS_IOCTL_MAGIC, 0x60,
-					      struct kdbus_cmd_info),
-	KDBUS_CMD_CONN_UPDATE =		_IOW(KDBUS_IOCTL_MAGIC, 0x61,
-					     struct kdbus_cmd_update),
-	KDBUS_CMD_BUS_CREATOR_INFO =	_IOWR(KDBUS_IOCTL_MAGIC, 0x62,
-					      struct kdbus_cmd_info),
+#define KDBUS_CMD_CONN_INFO		_IOWR(KDBUS_IOCTL_MAGIC, 0x60,	\
+					      struct kdbus_cmd_info)
+#define KDBUS_CMD_CONN_UPDATE		_IOW(KDBUS_IOCTL_MAGIC, 0x61,	\
+					     struct kdbus_cmd_update)
+#define KDBUS_CMD_BUS_CREATOR_INFO	_IOWR(KDBUS_IOCTL_MAGIC, 0x62,	\
+					      struct kdbus_cmd_info)
 
-	KDBUS_CMD_ENDPOINT_UPDATE =	_IOW(KDBUS_IOCTL_MAGIC, 0x71,
-					     struct kdbus_cmd_update),
+#define KDBUS_CMD_ENDPOINT_UPDATE	_IOW(KDBUS_IOCTL_MAGIC, 0x71,	\
+					     struct kdbus_cmd_update)
 
-	KDBUS_CMD_MATCH_ADD =		_IOW(KDBUS_IOCTL_MAGIC, 0x80,
-					     struct kdbus_cmd_match),
-	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOCTL_MAGIC, 0x81,
-					     struct kdbus_cmd_match),
-};
+#define KDBUS_CMD_MATCH_ADD		_IOW(KDBUS_IOCTL_MAGIC, 0x80,	\
+					     struct kdbus_cmd_match)
+#define KDBUS_CMD_MATCH_REMOVE		_IOW(KDBUS_IOCTL_MAGIC, 0x81,	\
+					     struct kdbus_cmd_match)
 
 #endif /* _KDBUS_UAPI_H_ */

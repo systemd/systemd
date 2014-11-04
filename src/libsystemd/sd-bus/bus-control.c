@@ -278,8 +278,8 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                 }
 
                 KDBUS_ITEM_FOREACH(item, name, items)
-                        if (item->type == KDBUS_ITEM_NAME)
-                                entry_name = item->str;
+                        if (item->type == KDBUS_ITEM_OWNED_NAME)
+                                entry_name = item->name.name;
 
                 if (entry_name && service_name_is_valid(entry_name)) {
                         r = strv_extend(x, entry_name);
@@ -524,7 +524,7 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                         }
                         break;
 
-                case KDBUS_ITEM_NAME:
+                case KDBUS_ITEM_OWNED_NAME:
                         if ((mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) && service_name_is_valid(item->name.name)) {
                                 r = strv_extend(&c->well_known_names, item->name.name);
                                 if (r < 0)
@@ -534,7 +534,7 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                         }
                         break;
 
-                case KDBUS_ITEM_CONN_NAME:
+                case KDBUS_ITEM_CONN_DESCRIPTION:
                         if ((mask & SD_BUS_CREDS_CONNECTION_NAME)) {
                                 c->conn_name = strdup(item->str);
                                 if (!c->conn_name)
