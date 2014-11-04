@@ -101,7 +101,7 @@ int memfd_set_sealed(int fd) {
 
         assert(fd >= 0);
 
-        r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
+        r = fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
         if (r < 0)
                 return -errno;
 
@@ -117,8 +117,7 @@ int memfd_get_sealed(int fd) {
         if (r < 0)
                 return -errno;
 
-        return (r & (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE)) ==
-                    (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
+        return r == (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
 }
 
 int memfd_get_size(int fd, uint64_t *sz) {
