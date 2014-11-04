@@ -326,8 +326,6 @@ Features:
 
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
-* timedatectl: print a nicer message when enabling ntp fails because ntpd/chrony are not installed
-
 * cgtop: make cgtop useful in a container
 
 * test/:
@@ -493,8 +491,6 @@ Features:
   - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
   - when parsing calendar timestamps support the UTC timezone (even if we will not support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
-
-* update the kernel's TZ (sys_tz) when DST changes
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
 
