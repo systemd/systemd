@@ -23,34 +23,44 @@
 
 #include <stdint.h>
 
-#include "sparse-endian.h"
+static inline uint16_t unaligned_read_be16(const void *_u) {
+        const uint8_t *u = _u;
 
-static inline uint16_t unaligned_read_be16(const be16_t *u) {
-        return (((uint16_t) ((uint8_t*) u)[0]) << 8) |
-                ((uint16_t) ((uint8_t*) u)[1]);
+        return (((uint16_t) u[0]) << 8) |
+                ((uint16_t) u[1]);
 }
 
-static inline uint32_t unaligned_read_be32(const be32_t *u) {
-        return (((uint32_t) unaligned_read_be16((be16_t*) u)) << 16) |
-                ((uint32_t) unaligned_read_be16((be16_t*) u + 1));
+static inline uint32_t unaligned_read_be32(const void *_u) {
+        const uint8_t *u = _u;
+
+        return (((uint32_t) unaligned_read_be16(u)) << 16) |
+                ((uint32_t) unaligned_read_be16(u + 2));
 }
 
-static inline uint64_t unaligned_read_be64(const be64_t *u) {
-        return (((uint64_t) unaligned_read_be32((be32_t*) u)) << 32) |
-                ((uint64_t) unaligned_read_be32((be32_t*) u + 1));
+static inline uint64_t unaligned_read_be64(const void *_u) {
+        const uint8_t *u = _u;
+
+        return (((uint64_t) unaligned_read_be32(u)) << 32) |
+                ((uint64_t) unaligned_read_be32(u + 4));
 }
 
-static inline void unaligned_write_be16(be16_t *u, uint16_t a) {
-        ((uint8_t*) u)[0] = (uint8_t) (a >> 8);
-        ((uint8_t*) u)[1] = (uint8_t) a;
+static inline void unaligned_write_be16(void *_u, uint16_t a) {
+        uint8_t *u = _u;
+
+        u[0] = (uint8_t) (a >> 8);
+        u[1] = (uint8_t) a;
 }
 
-static inline void unaligned_write_be32(be32_t *u, uint32_t a) {
-        unaligned_write_be16((be16_t*) u, (uint16_t) (a >> 16));
-        unaligned_write_be16((be16_t*) u + 1, (uint16_t) a);
+static inline void unaligned_write_be32(void *_u, uint32_t a) {
+        uint8_t *u = _u;
+
+        unaligned_write_be16(u, (uint16_t) (a >> 16));
+        unaligned_write_be16(u + 2, (uint16_t) a);
 }
 
-static inline void unaligned_write_be64(be64_t *u, uint64_t a) {
-        unaligned_write_be32((be32_t*) u, (uint32_t) (a >> 32));
-        unaligned_write_be32((be32_t*) u + 1, (uint32_t) a);
+static inline void unaligned_write_be64(void *_u, uint64_t a) {
+        uint8_t *u = _u;
+
+        unaligned_write_be32(u, (uint32_t) (a >> 32));
+        unaligned_write_be32(u + 4, (uint32_t) a);
 }
