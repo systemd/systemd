@@ -280,7 +280,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
 
         /* The window size changed, let's forward that. */
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                ioctl(f->master, TIOCSWINSZ, &ws);
+                (void)ioctl(f->master, TIOCSWINSZ, &ws);
 
         return 0;
 }
@@ -317,7 +317,7 @@ int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
         f->master = master;
 
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                ioctl(master, TIOCSWINSZ, &ws);
+                (void)ioctl(master, TIOCSWINSZ, &ws);
 
         if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
                 struct termios raw_stdin_attr;
