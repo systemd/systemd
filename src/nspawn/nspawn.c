@@ -3371,7 +3371,7 @@ int main(int argc, char *argv[]) {
                         /* Tell the parent that we are ready, and that
                          * it can cgroupify us to that we lack access
                          * to certain devices and resources. */
-                        barrier_place(&barrier);
+                        (void)barrier_place(&barrier);
 
                         if (chdir(arg_directory) < 0) {
                                 log_error("chdir(%s) failed: %m", arg_directory);
@@ -3550,7 +3550,7 @@ int main(int argc, char *argv[]) {
                         /* Notify the child that the parent is ready with all
                          * its setup, and that the child can now hand over
                          * control to the code to run inside the container. */
-                        barrier_place(&barrier);
+                        (void)barrier_place(&barrier);
 
                         r = sd_event_new(&event);
                         if (r < 0) {
