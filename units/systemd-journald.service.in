@@ -14,6 +14,7 @@ After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-a
 Before=sysinit.target
 
 [Service]
+Type=notify
 Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
 ExecStart=@rootlibexecdir@/systemd-journald
 Restart=always
