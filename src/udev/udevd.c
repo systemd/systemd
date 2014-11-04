@@ -994,9 +994,9 @@ static void kernel_cmdline_options(struct udev *udev) {
                         if (r < 0)
                                 log_warning("Invalid udev.exec-delay ignored: %s", opt + 16);
                 } else if (startswith(opt, "udev.event-timeout=")) {
-                        r = safe_atou64(opt + 16, &arg_event_timeout_usec);
+                        r = safe_atou64(opt + 19, &arg_event_timeout_usec);
                         if (r < 0) {
-                                log_warning("Invalid udev.event-timeout ignored: %s", opt + 16);
+                                log_warning("Invalid udev.event-timeout ignored: %s", opt + 19);
                                 break;
                         }
                         arg_event_timeout_usec *= USEC_PER_SEC;
