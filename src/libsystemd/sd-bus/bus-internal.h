@@ -142,6 +142,7 @@ struct sd_bus_slot {
         void *userdata;
         BusSlotType type:5;
         bool floating:1;
+        char *description;
 
         LIST_FIELDS(sd_bus_slot, slots);
 

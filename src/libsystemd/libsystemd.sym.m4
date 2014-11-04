@@ -223,6 +223,8 @@ global:
         sd_bus_slot_get_bus;
         sd_bus_slot_get_userdata;
         sd_bus_slot_set_userdata;
+        sd_bus_slot_get_description;
+        sd_bus_slot_set_description;
         sd_bus_slot_get_current_message;
         sd_bus_message_new_signal;
         sd_bus_message_new_method_call;

@@ -208,6 +208,7 @@ _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
         }
 
         bus_slot_disconnect(slot);
+        free(slot->description);
         free(slot);
 
         return NULL;
@@ -264,4 +265,19 @@ _public_ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
                 return NULL;
 
         return slot->bus->current_userdata;
+}
+
+_public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description) {
+        assert_return(slot, -EINVAL);
+
+        return free_and_strdup(&slot->description, description);
+}
+
+_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, char **description) {
+        assert_return(slot, -EINVAL);
+        assert_return(description, -EINVAL);
+        assert_return(slot->description, -ENXIO);
+
+        *description = slot->description;
+        return 0;
 }
