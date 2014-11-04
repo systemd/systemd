@@ -325,7 +325,6 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
 
 _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
         assert_return(bus, -EINVAL);
-        assert_return(description, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -3316,6 +3315,7 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
 _public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
         assert_return(bus, -EINVAL);
         assert_return(description, -EINVAL);
+        assert_return(bus->description, -ENXIO);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         *description = bus->description;

@@ -1258,6 +1258,7 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
 
 _public_ int sd_event_source_set_description(sd_event_source *s, const char *description) {
         assert_return(s, -EINVAL);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return free_and_strdup(&s->description, description);
 }
@@ -1265,6 +1266,8 @@ _public_ int sd_event_source_set_description(sd_event_source *s, const char *des
 _public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
         assert_return(s, -EINVAL);
         assert_return(description, -EINVAL);
+        assert_return(s->description, -ENXIO);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         *description = s->description;
         return 0;
