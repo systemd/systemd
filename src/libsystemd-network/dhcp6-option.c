@@ -37,11 +37,11 @@ typedef struct DHCP6Option {
         be16_t code;
         be16_t len;
         uint8_t data[];
-} DHCP6Option;
+} _packed_ DHCP6Option;
 
 static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
                              size_t optlen) {
-        DHCP6Option *option = (DHCP6Option*) *buf; /* unaligned! */
+        DHCP6Option *option = (DHCP6Option*) *buf;
 
         assert_return(buf, -EINVAL);
         assert_return(*buf, -EINVAL);
@@ -50,8 +50,8 @@ static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
         if (optlen > 0xffff || *buflen < optlen + sizeof(DHCP6Option))
                 return -ENOBUFS;
 
-        unaligned_write_be16(&option->code, optcode);
-        unaligned_write_be16(&option->len, (uint16_t) optlen);
+        option->code = htobe16(optcode);
+        option->len = htobe16(optlen);
 
         *buf += sizeof(DHCP6Option);
         *buflen -= sizeof(DHCP6Option);
@@ -136,9 +136,8 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
 }
 
 
-static int option_parse_hdr(uint8_t **buf, size_t *buflen, uint16_t *optcode,
-                            size_t *optlen) {
-        DHCP6Option *option = (DHCP6Option*) *buf; /* unaligned! */
+static int option_parse_hdr(uint8_t **buf, size_t *buflen, uint16_t *optcode, size_t *optlen) {
+        DHCP6Option *option = (DHCP6Option*) *buf;
         uint16_t len;
 
         assert_return(buf, -EINVAL);
@@ -148,12 +147,12 @@ static int option_parse_hdr(uint8_t **buf, size_t *buflen, uint16_t *optcode,
         if (*buflen < sizeof(DHCP6Option))
                 return -ENOMSG;
 
-        len = unaligned_read_be16(&option->len);
+        len = be16toh(option->len);
 
         if (len > *buflen)
                 return -ENOMSG;
 
-        *optcode = unaligned_read_be16(&option->code);
+        *optcode = be16toh(option->code);
         *optlen = len;
 
         *buf += 4;

@@ -100,19 +100,13 @@ struct sd_pppoe {
         be16toh((header)->length)
 
 #define PPPOE_PACKET_TAIL(packet)                                                                               \
-        (struct pppoe_tag *)((uint8_t*)(packet) + sizeof(struct pppoe_hdr) + PPPOE_PACKET_LENGTH(packet))
+        (struct pppoe_tag*)((uint8_t*)(packet) + sizeof(struct pppoe_hdr) + PPPOE_PACKET_LENGTH(packet))
 
-#define PPPOE_TAG_LENGTH(tag)                   \
-        unaligned_read_be16(&(tag)->tag_len)
+#define PPPOE_TAG_LENGTH(tag)  \
+        be16toh((tag)->tag_len)
 
-#define PPPOE_TAG_TYPE(tag)                     \
-        htobe16(unaligned_read_be16(&(tag)->tag_type))
-
-#define PPPOE_TAG_SET_LENGTH(tag, len) \
-        unaligned_write_be16(&(tag)->tag_len, len)
-
-#define PPPOE_TAG_SET_TYPE(tag, len) \
-        unaligned_write_be16(&(tag)->tag_type, be16toh(len))
+#define PPPOE_TAG_TYPE(tag) \
+        (tag)->tag_type
 
 #define PPPOE_TAG_NEXT(tag)                                                                      \
         (struct pppoe_tag *)((uint8_t *)(tag) + sizeof(struct pppoe_tag) + PPPOE_TAG_LENGTH(tag))
@@ -278,8 +272,8 @@ static void pppoe_tag_append(struct pppoe_hdr *packet, size_t packet_size, be16_
 
         tag = PPPOE_PACKET_TAIL(packet);
 
-        PPPOE_TAG_SET_LENGTH(tag, tag_len);
-        PPPOE_TAG_SET_TYPE(tag, tag_type);
+        tag->tag_len = htobe16(tag_len);
+        tag->tag_type = tag_type;
         if (tag_data)
                 memcpy(tag->tag_data, tag_data, tag_len);
 
