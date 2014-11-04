@@ -37,6 +37,8 @@ External:
 
 Features:
 
+* logind: when the power button is pressed short, just popup a logout dialog. If it is pressed for 1s, do the usual shutdown. Inspiration are Macs here.
+
 * optionally support running journald from the command line for testing purposes in external projects
 
 * journald: allow per-priority and per-service retention times when rotating/vacuuming
@@ -161,7 +163,6 @@ Features:
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
   - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
-  - fstab-generator: add support for usr= in addition to root= on the kernel cmdline
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
@@ -285,6 +286,8 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - kdbus: maybe add euid, egid, fsuid, fsgid, controlling tty and ppid metadata fields
+  - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
   - allow updating attach flags during runtime
@@ -405,7 +408,7 @@ Features:
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
 * journal:
-  - consider introducing implicit _TTY= field
+  - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
   - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
@@ -432,7 +435,6 @@ Features:
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
   - journal: deal nicely with byte-by-byte copied files, especially regards header
-  - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
   - journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
@@ -676,8 +678,6 @@ Features:
 * dot output for --test showing the 'initial transaction'
 
 * fingerprint.target, wireless.target, gps.target, netdevice.target
-
-* drop cap bounding set in readahead and other services
 
 * systemd-python:
    - figure out a simple way to wait for journal events in a way that
