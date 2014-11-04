@@ -68,7 +68,6 @@ struct sd_dhcp_client {
         uint32_t mtu;
         uint32_t xid;
         usec_t start_time;
-        uint16_t secs;
         unsigned int attempt;
         usec_t request_sent;
         sd_event_source *timeout_t1;
@@ -321,10 +320,12 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
         _cleanup_free_ DHCPPacket *packet;
         size_t optlen, optoffset, size;
         be16_t max_size;
+        usec_t time_now;
+        uint16_t secs;
         int r;
 
         assert(client);
-        assert(client->secs);
+        assert(client->start_time);
         assert(ret);
         assert(_optlen);
         assert(_optoffset);
@@ -344,7 +345,15 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
 
         /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
            refuse to issue an DHCP lease if 'secs' is set to zero */
-        packet->dhcp.secs = htobe16(client->secs);
+        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+        assert(time_now >= client->start_time);
+
+        /* seconds between sending first and last DISCOVER
+         * must always be strictly positive to deal with broken servers */
+        secs = ((time_now - client->start_time) / USEC_PER_SEC) ? : 1;
+        packet->dhcp.secs = htobe16(secs);
 
         /* RFC2132 section 4.1
            A client that cannot receive unicast IP datagrams until its protocol
@@ -441,23 +450,11 @@ static int dhcp_client_send_raw(sd_dhcp_client *client, DHCPPacket *packet,
 static int client_send_discover(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *discover = NULL;
         size_t optoffset, optlen;
-        usec_t time_now;
         int r;
 
         assert(client);
         assert(client->state == DHCP_STATE_INIT ||
                client->state == DHCP_STATE_SELECTING);
-
-        /* See RFC2131 section 4.4.1 */
-
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
-        if (r < 0)
-                return r;
-        assert(time_now >= client->start_time);
-
-        /* seconds between sending first and last DISCOVER
-         * must always be strictly positive to deal with broken servers */
-        client->secs = ((time_now - client->start_time) / USEC_PER_SEC) ? : 1;
 
         r = client_message_init(client, &discover, DHCP_DISCOVER,
                                 &optlen, &optoffset);
@@ -872,10 +869,8 @@ static int client_start(sd_dhcp_client *client) {
         }
         client->fd = r;
 
-        if (client->state == DHCP_STATE_INIT) {
+        if (client->state == DHCP_STATE_INIT || client->state == DHCP_STATE_INIT_REBOOT)
                 client->start_time = now(clock_boottime_or_monotonic());
-                client->secs = 0;
-        }
 
         return client_initialize_events(client, client_receive_message_raw);
 }
