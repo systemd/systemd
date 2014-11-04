@@ -342,7 +342,7 @@ static void test_write_string_file_no_create(void) {
         assert_se(write_string_file_no_create("/a/file/which/does/not/exists/i/guess", "boohoo") < 0);
         assert_se(write_string_file_no_create(fn, "boohoo") == 0);
 
-        assert_se(read(fd, buf, sizeof(buf)));
+        assert_se(read(fd, buf, sizeof(buf)) == strlen("boohoo\n"));
         assert_se(streq(buf, "boohoo\n"));
 
         unlink(fn);
