@@ -590,8 +590,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         if (r < 0)
                 goto error;
 
-        r = sd_event_source_set_name(client->timeout_resend,
-                                     "dhcp6-resend-timer");
+        r = sd_event_source_set_description(client->timeout_resend, "dhcp6-resend-timer");
         if (r < 0)
                 goto error;
 
@@ -614,8 +613,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (r < 0)
                         goto error;
 
-                r = sd_event_source_set_name(client->timeout_resend_expire,
-                                             "dhcp6-resend-expire-timer");
+                r = sd_event_source_set_description(client->timeout_resend_expire, "dhcp6-resend-expire-timer");
                 if (r < 0)
                         goto error;
         }
@@ -1010,8 +1008,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_name(client->receive_message,
-                                             "dhcp6-receive-message");
+                r = sd_event_source_set_description(client->receive_message, "dhcp6-receive-message");
                 if (r < 0)
                         return r;
 
@@ -1059,8 +1056,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_name(client->lease->ia.timeout_t1,
-                                             "dhcp6-t1-timeout");
+                r = sd_event_source_set_description(client->lease->ia.timeout_t1, "dhcp6-t1-timeout");
                 if (r < 0)
                         return r;
 
@@ -1084,8 +1080,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_name(client->lease->ia.timeout_t2,
-                                             "dhcp6-t2-timeout");
+                r = sd_event_source_set_description(client->lease->ia.timeout_t2, "dhcp6-t2-timeout");
                 if (r < 0)
                         return r;
 
@@ -1108,8 +1103,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_name(client->timeout_resend,
-                                     "dhcp6-resend-timeout");
+        r = sd_event_source_set_description(client->timeout_resend, "dhcp6-resend-timeout");
         if (r < 0)
                 return r;
 

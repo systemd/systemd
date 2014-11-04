@@ -859,7 +859,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_name(rtnl->io_event_source, "rtnl-receive-message");
+        r = sd_event_source_set_description(rtnl->io_event_source, "rtnl-receive-message");
         if (r < 0)
                 goto fail;
 
@@ -875,7 +875,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_name(rtnl->time_event_source, "rtnl-timer");
+        r = sd_event_source_set_description(rtnl->time_event_source, "rtnl-timer");
         if (r < 0)
                 goto fail;
 
@@ -883,7 +883,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_source_set_name(rtnl->exit_event_source, "rtnl-exit");
+        r = sd_event_source_set_description(rtnl->exit_event_source, "rtnl-exit");
         if (r < 0)
                 goto fail;
 

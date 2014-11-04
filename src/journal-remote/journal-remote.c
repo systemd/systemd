@@ -398,7 +398,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
                 goto error;
         }
 
-        r = sd_event_source_set_name(source->event, name);
+        r = sd_event_source_set_description(source->event, name);
         if (r < 0) {
                 log_error("Failed to set source name for fd:%d: %s", fd, strerror(-r));
                 goto error;
@@ -426,7 +426,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
 
         snprintf(name, sizeof(name), "raw-socket-%d", fd);
 
-        r = sd_event_source_set_name(s->listen_event, name);
+        r = sd_event_source_set_description(s->listen_event, name);
         if (r < 0)
                 return r;
 
@@ -724,7 +724,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_source_set_name(d->event, "epoll-fd");
+        r = sd_event_source_set_description(d->event, "epoll-fd");
         if (r < 0) {
                 log_error("Failed to set source name: %s", strerror(-r));
                 goto error;
@@ -803,7 +803,7 @@ static int setup_signals(RemoteServer *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_name(s->sigterm_event, "sigterm");
+        r = sd_event_source_set_description(s->sigterm_event, "sigterm");
         if (r < 0)
                 return r;
 
@@ -811,7 +811,7 @@ static int setup_signals(RemoteServer *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_name(s->sigint_event, "sigint");
+        r = sd_event_source_set_description(s->sigint_event, "sigint");
         if (r < 0)
                 return r;
 

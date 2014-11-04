@@ -278,7 +278,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec,
                         return 0;
                 }
 
-                r = sd_event_source_set_name(nd->timeout, "icmp6-timeout");
+                r = sd_event_source_set_description(nd->timeout, "icmp6-timeout");
                 if (r < 0) {
                         icmp6_nd_notify(nd, r);
                         return 0;
@@ -328,7 +328,7 @@ int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd) {
         if (r < 0)
                 goto error;
 
-        r = sd_event_source_set_name(nd->recv, "icmp6-receive-message");
+        r = sd_event_source_set_description(nd->recv, "icmp6-receive-message");
         if (r < 0)
                 goto error;
 
@@ -341,7 +341,7 @@ int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd) {
         if (r < 0)
                 goto error;
 
-        r = sd_event_source_set_name(nd->timeout, "icmp6-timeout");
+        r = sd_event_source_set_description(nd->timeout, "icmp6-timeout");
 error:
         if (r < 0)
                 icmp6_nd_init(nd);

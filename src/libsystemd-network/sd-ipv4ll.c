@@ -353,7 +353,7 @@ static void ipv4ll_run_state_machine(sd_ipv4ll *ll, IPv4LLTrigger trigger, void 
                 if (r < 0)
                         goto out;
 
-                r = sd_event_source_set_name(ll->timer, "ipv4ll-timer");
+                r = sd_event_source_set_description(ll->timer, "ipv4ll-timer");
                 if (r < 0)
                         goto out;
         }
@@ -564,7 +564,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         if (r < 0)
                 goto out;
 
-        r = sd_event_source_set_name(ll->receive_message, "ipv4ll-receive-message");
+        r = sd_event_source_set_description(ll->receive_message, "ipv4ll-receive-message");
         if (r < 0)
                 goto out;
 
@@ -581,7 +581,7 @@ int sd_ipv4ll_start (sd_ipv4ll *ll) {
         if (r < 0)
                 goto out;
 
-        r = sd_event_source_set_name(ll->timer, "ipv4ll-timer");
+        r = sd_event_source_set_description(ll->timer, "ipv4ll-timer");
 out:
         if (r < 0)
                 ipv4ll_stop(ll, IPV4LL_EVENT_STOP);
