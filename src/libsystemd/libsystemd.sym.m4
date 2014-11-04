@@ -179,7 +179,7 @@ global:
         sd_bus_set_anonymous;
         sd_bus_set_trusted;
         sd_bus_set_monitor;
-        sd_bus_set_name;
+        sd_bus_set_description;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_timestamp;
         sd_bus_negotiate_creds;
@@ -192,7 +192,7 @@ global:
         sd_bus_can_send;
         sd_bus_get_server_id;
         sd_bus_get_owner_creds;
-        sd_bus_get_name;
+        sd_bus_get_description;
         sd_bus_send;
         sd_bus_send_to;
         sd_bus_call;
@@ -336,7 +336,7 @@ global:
         sd_bus_creds_get_audit_login_uid;
         sd_bus_creds_get_unique_name;
         sd_bus_creds_get_well_known_names;
-        sd_bus_creds_get_connection_name;
+        sd_bus_creds_get_description;
         sd_bus_error_free;
         sd_bus_error_set;
         sd_bus_error_setf;

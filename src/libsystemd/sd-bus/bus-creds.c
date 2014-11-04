@@ -49,7 +49,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->unit);
         free(c->user_unit);
         free(c->slice);
-        free(c->unescaped_conn_name);
+        free(c->unescaped_description);
 
         strv_free(c->cmdline_array);
         strv_free(c->well_known_names);
@@ -94,7 +94,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->label);
                         free(c->unique_name);
                         free(c->cgroup_root);
-                        free(c->conn_name);
+                        free(c->description);
                         free(c);
                 }
         } else {
@@ -465,22 +465,22 @@ _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_kno
         return 0;
 }
 
-_public_ int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **ret) {
+_public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (!(c->mask & SD_BUS_CREDS_CONNECTION_NAME))
+        if (!(c->mask & SD_BUS_CREDS_DESCRIPTION))
                 return -ENODATA;
 
-        assert(c->conn_name);
+        assert(c->description);
 
-        if (!c->unescaped_conn_name) {
-                c->unescaped_conn_name = bus_label_unescape(c->conn_name);
-                if (!c->unescaped_conn_name)
+        if (!c->unescaped_description) {
+                c->unescaped_description = bus_label_unescape(c->description);
+                if (!c->unescaped_description)
                         return -ENOMEM;
         }
 
-        *ret = c->unescaped_conn_name;
+        *ret = c->unescaped_description;
         return 0;
 }
 

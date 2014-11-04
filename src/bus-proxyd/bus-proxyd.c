@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_name(a, "sd-proxy");
+        r = sd_bus_set_description(a, "sd-proxy");
         if (r < 0) {
                 log_error("Failed to set bus name: %s", strerror(-r));
                 goto finish;

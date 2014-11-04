@@ -598,8 +598,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_CONN_DESCRIPTION:
-                        m->creds.conn_name = d->str;
-                        m->creds.mask |= SD_BUS_CREDS_CONNECTION_NAME & bus->creds_mask;
+                        m->creds.description = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_DESCRIPTION & bus->creds_mask;
                         break;
 
                 case KDBUS_ITEM_FDS:
@@ -666,8 +666,8 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->use_memfd = 1;
 
-        if (b->connection_name) {
-                g = bus_label_escape(b->connection_name);
+        if (b->description) {
+                g = bus_label_escape(b->description);
                 if (!g)
                         return -ENOMEM;
 
@@ -700,8 +700,8 @@ int bus_kernel_take_fd(sd_bus *b) {
                         name = g;
                 }
 
-                b->connection_name = bus_label_unescape(name);
-                if (!b->connection_name)
+                b->description = bus_label_unescape(name);
+                if (!b->description)
                         return -ENOMEM;
         }
 
@@ -1123,7 +1123,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
 
                 assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
-                r = memfd_new(bus->connection_name);
+                r = memfd_new(bus->description);
                 if (r < 0)
                         return r;
 
@@ -1255,7 +1255,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES)
                 m |= KDBUS_ATTACH_NAMES;
 
-        if (mask & SD_BUS_CREDS_CONNECTION_NAME)
+        if (mask & SD_BUS_CREDS_DESCRIPTION)
                 m |= KDBUS_ATTACH_CONN_DESCRIPTION;
 
         *kdbus_mask = m;

@@ -535,12 +535,12 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                         break;
 
                 case KDBUS_ITEM_CONN_DESCRIPTION:
-                        if ((mask & SD_BUS_CREDS_CONNECTION_NAME)) {
-                                c->conn_name = strdup(item->str);
-                                if (!c->conn_name)
+                        if ((mask & SD_BUS_CREDS_DESCRIPTION)) {
+                                c->description = strdup(item->str);
+                                if (!c->description)
                                         return -ENOMEM;
 
-                                c->mask |= SD_BUS_CREDS_CONNECTION_NAME;
+                                c->mask |= SD_BUS_CREDS_DESCRIPTION;
                         }
                         break;
                 }

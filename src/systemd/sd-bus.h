@@ -73,7 +73,7 @@ enum {
         SD_BUS_CREDS_AUDIT_LOGIN_UID  = 1ULL << 21,
         SD_BUS_CREDS_UNIQUE_NAME      = 1ULL << 22,
         SD_BUS_CREDS_WELL_KNOWN_NAMES = 1ULL << 23,
-        SD_BUS_CREDS_CONNECTION_NAME  = 1ULL << 24,
+        SD_BUS_CREDS_DESCRIPTION      = 1ULL << 24,
         _SD_BUS_CREDS_ALL             = (1ULL << 25) -1,
 };
 
@@ -115,7 +115,7 @@ int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_set_trusted(sd_bus *bus, int b);
-int sd_bus_set_name(sd_bus *bus, const char *name);
+int sd_bus_set_description(sd_bus *bus, const char *description);
 int sd_bus_set_monitor(sd_bus *bus, int b);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
@@ -132,7 +132,7 @@ int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
-int sd_bus_get_name(sd_bus *bus, const char **name);
+int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
@@ -322,7 +322,7 @@ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
 int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
 int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
 int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
-int sd_bus_creds_get_connection_name(sd_bus_creds *c, const char **name);
+int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 
 /* Error structures */
 

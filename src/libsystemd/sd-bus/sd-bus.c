@@ -129,7 +129,7 @@ static void bus_free(sd_bus *b) {
         free(b->machine);
         free(b->fake_label);
         free(b->cgroup_root);
-        free(b->connection_name);
+        free(b->description);
 
         free(b->exec_path);
         strv_free(b->exec_argv);
@@ -323,20 +323,20 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
         return 0;
 }
 
-_public_ int sd_bus_set_name(sd_bus *bus, const char *name) {
+_public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
         char *n;
 
         assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert_return(description, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        n = strdup(name);
+        n = strdup(description);
         if (!n)
                 return -ENOMEM;
 
-        free(bus->connection_name);
-        bus->connection_name = n;
+        free(bus->description);
+        bus->description = n;
 
         return 0;
 }
@@ -3322,12 +3322,12 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
         return 0;
 }
 
-_public_ int sd_bus_get_name(sd_bus *bus, const char **name) {
+_public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
         assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert_return(description, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        *name = bus->connection_name;
+        *description = bus->description;
         return 0;
 }
 

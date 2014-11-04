@@ -65,7 +65,7 @@ struct sd_bus_creds {
 
         char *cgroup_root;
 
-        char *conn_name, *unescaped_conn_name;
+        char *description, *unescaped_description;
 };
 
 sd_bus_creds* bus_creds_new(void);

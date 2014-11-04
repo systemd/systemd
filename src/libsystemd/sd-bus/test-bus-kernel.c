@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_new(&b);
         assert_se(r >= 0);
 
-        r = sd_bus_set_name(a, "a");
+        r = sd_bus_set_description(a, "a");
         assert_se(r >= 0);
 
         r = sd_bus_set_address(a, address);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         printf("unique a: %s\n", ua);
 
-        r = sd_bus_get_name(a, &nn);
+        r = sd_bus_get_description(a, &nn);
         assert_se(r >= 0);
         printf("name of a: %s\n", nn);
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         printf("unique b: %s\n", ub);
 
-        r = sd_bus_get_name(b, &nn);
+        r = sd_bus_get_description(b, &nn);
         assert_se(r >= 0);
         printf("name of b: %s\n", nn);
 

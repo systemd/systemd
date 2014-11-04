@@ -309,7 +309,7 @@ struct sd_bus {
 
         char *cgroup_root;
 
-        char *connection_name;
+        char *description;
 
         size_t bloom_size;
         unsigned bloom_n_hash;

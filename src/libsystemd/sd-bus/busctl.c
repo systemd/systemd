@@ -110,7 +110,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         if (arg_legend) {
                 printf("%-*s %*s %-*s %-*s %-*s %-*s %-*s %-*s",
-                       (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "CONNECTION-NAME");
+                       (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 13, "CONNECTION", 25, "UNIT", 10, "SESSION", 19, "DESCRIPTION");
 
                 if (arg_show_machine)
                         puts(" MACHINE");
@@ -146,7 +146,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 r = sd_bus_get_name_creds(bus, *i,
                                      SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                      SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
-                                     SD_BUS_CREDS_CONNECTION_NAME, &creds);
+                                     SD_BUS_CREDS_DESCRIPTION, &creds);
                 if (r >= 0) {
                         const char *unique, *session, *unit, *cn;
                         pid_t pid;
@@ -201,7 +201,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         else
                                 fputs(" -         ", stdout);
 
-                        r = sd_bus_creds_get_connection_name(creds, &cn);
+                        r = sd_bus_creds_get_description(creds, &cn);
                         if (r >= 0)
                                 printf(" %-19s", cn);
                         else
