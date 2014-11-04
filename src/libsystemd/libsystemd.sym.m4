@@ -190,7 +190,7 @@ global:
         sd_bus_unref;
         sd_bus_is_open;
         sd_bus_can_send;
-        sd_bus_get_server_id;
+        sd_bus_get_owner_id;
         sd_bus_get_owner_creds;
         sd_bus_get_description;
         sd_bus_send;

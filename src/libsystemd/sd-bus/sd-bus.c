@@ -1412,18 +1412,18 @@ _public_ int sd_bus_can_send(sd_bus *bus, char type) {
         return bus_type_is_valid(type);
 }
 
-_public_ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
+_public_ int sd_bus_get_owner_id(sd_bus *bus, sd_id128_t *id) {
         int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(server_id, -EINVAL);
+        assert_return(id, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
 
-        *server_id = bus->server_id;
+        *id = bus->server_id;
         return 0;
 }
 

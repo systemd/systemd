@@ -676,7 +676,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 sd_id128_t server_id;
                 char buf[SD_ID128_STRING_MAX];
 
-                r = sd_bus_get_server_id(a, &server_id);
+                r = sd_bus_get_owner_id(a, &server_id);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -1230,7 +1230,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_get_server_id(a, &server_id);
+        r = sd_bus_get_owner_id(a, &server_id);
         if (r < 0) {
                 log_error("Failed to get server ID: %s", strerror(-r));
                 goto finish;

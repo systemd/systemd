@@ -112,7 +112,7 @@ int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t owner_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_set_trusted(sd_bus *bus, int b);
 int sd_bus_set_description(sd_bus *bus, const char *description);
@@ -130,7 +130,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
+int sd_bus_get_owner_id(sd_bus *bus, sd_id128_t *id);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
@@ -147,6 +147,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
+
 sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
 sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
 sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus);
@@ -171,10 +172,8 @@ sd_bus_slot* sd_bus_slot_ref(sd_bus_slot *slot);
 sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot);
 
 sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot);
-
 void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
-
 int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
 int sd_bus_slot_get_description(sd_bus_slot *slot, char **description);
 
