@@ -246,7 +246,7 @@ static void test_hashmap_put(void) {
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
 
-        hashmap_ensure_allocated(&m, &string_hash_ops);
+        assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) >= 0);
         assert_se(m);
 
         valid_hashmap_put = hashmap_put(m, "key 1", val1);
