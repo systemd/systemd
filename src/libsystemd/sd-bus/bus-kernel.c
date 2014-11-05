@@ -721,7 +721,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         hello = alloca0_align(sz, 8);
         hello->size = sz;
         hello->flags = b->hello_flags;
-        hello->attach_flags_send = _KDBUS_ATTACH_ALL;
+        hello->attach_flags_send = _KDBUS_ATTACH_ANY;
         hello->attach_flags_recv = b->attach_flags;
         hello->pool_size = KDBUS_POOL_SIZE;
 
@@ -1557,7 +1557,7 @@ int bus_kernel_make_starter(
                 (activating ? KDBUS_HELLO_ACTIVATOR : KDBUS_HELLO_POLICY_HOLDER) |
                 (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;
-        hello->attach_flags_send = _KDBUS_ATTACH_ALL;
+        hello->attach_flags_send = _KDBUS_ATTACH_ANY;
         hello->attach_flags_recv = _KDBUS_ATTACH_ALL;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
