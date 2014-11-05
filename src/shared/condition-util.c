@@ -74,12 +74,10 @@ void condition_free_list(Condition *first) {
 }
 
 bool condition_test_kernel_command_line(Condition *c) {
-        char *line, *word = NULL;
-        const char *w, *state;
+        _cleanup_free_ char *line = NULL;
+        const char *p;
         bool equal;
         int r;
-        size_t l, pl;
-        bool found = false;
 
         assert(c);
         assert(c->parameter);
@@ -92,35 +90,30 @@ bool condition_test_kernel_command_line(Condition *c) {
                 return c->negate;
 
         equal = !!strchr(c->parameter, '=');
-        pl = strlen(c->parameter);
+        p = line;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                bool found;
 
-                free(word);
-                word = strndup(w, l);
-                if (!word)
-                        break;
+                r = unquote_first_word(&p, &word);
+                if (r <= 0)
+                        return c->negate;
 
-                if (equal) {
-                        if (streq(word, c->parameter)) {
-                                found = true;
-                                break;
-                        }
-                } else {
-                        if (startswith(word, c->parameter) && (word[pl] == '=' || word[pl] == 0)) {
-                                found = true;
-                                break;
-                        }
+                if (equal)
+                        found = streq(word, c->parameter);
+                else {
+                        const char *f;
+
+                        f = startswith(word, c->parameter);
+                        found = f && (*f == '=' || *f == 0);
                 }
 
+                if (found)
+                        return !c->negate;
         }
-        if (!isempty(state))
-                log_warning("Trailing garbage and the end of kernel commandline, ignoring.");
 
-        free(word);
-        free(line);
-
-        return found == !c->negate;
+        return c->negate;
 }
 
 bool condition_test_virtualization(Condition *c) {

@@ -95,6 +95,18 @@ static void test_condition_test_architecture(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_kernel_command_line(void) {
+        Condition *condition;
+
+        condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
+        assert_se(!condition_test_kernel_command_line(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
+        assert_se(!condition_test_kernel_command_line(condition));
+        condition_free(condition);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -102,6 +114,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_ac_power();
         test_condition_test_host();
         test_condition_test_architecture();
+        test_condition_test_kernel_command_line();
 
         return 0;
 }
