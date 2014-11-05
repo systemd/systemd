@@ -12,8 +12,6 @@ DefaultDependencies=no
 Requires=systemd-reboot.service
 After=systemd-reboot.service
 AllowIsolate=yes
-JobTimeoutSec=30min
-JobTimeoutAction=reboot-force
 
 [Install]
 Alias=ctrl-alt-del.target

@@ -13,6 +13,3 @@ Requires=sysinit.target
 After=sysinit.target
 Wants=sockets.target timers.target paths.target slices.target
 After=sockets.target paths.target slices.target
-
-JobTimeoutSec=15min
-JobTimeoutAction=poweroff-force
