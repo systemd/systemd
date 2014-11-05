@@ -4439,6 +4439,9 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-vconsole-setup.service
 
+dist_udevrules_DATA += \
+	src/vconsole/90-vconsole.rules
+
 SYSINIT_TARGET_WANTS += \
 	systemd-vconsole-setup.service
 endif
