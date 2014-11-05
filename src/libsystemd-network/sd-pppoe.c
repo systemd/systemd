@@ -716,7 +716,7 @@ static int pppoe_receive_message(sd_event_source *s, int fd, uint32_t revents, v
 
         len = recvfrom(fd, packet, buflen, 0, &link.sa, &addrlen);
         if (len < 0) {
-                log_warning("PPPoE: colud not receive message from raw socket: %s", strerror(-r));
+                log_warning("PPPoE: could not receive message from raw socket: %s", strerror(-r));
                 return 0;
         } else if ((size_t)len < sizeof(struct pppoe_hdr))
                 return 0;
