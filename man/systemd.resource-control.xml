@@ -394,6 +394,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Delegate=</varname></term>
+
+        <listitem>
+          <para>Turns on delegation of further resource control
+          partitioning to processes of the unit. For unpriviliged
+          services (i.e. those using the <varname>User=</varname>
+          setting) this allows processes to create a subhierarchy
+          beneath its control group path. For priviliged services and
+          scopes this ensures the processes will have all control
+          group controllers enabled.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

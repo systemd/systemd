@@ -34,7 +34,8 @@ typedef enum CGroupControllerMask {
         CGROUP_CPUACCT = 2,
         CGROUP_BLKIO = 4,
         CGROUP_MEMORY = 8,
-        CGROUP_DEVICE = 16
+        CGROUP_DEVICE = 16,
+        _CGROUP_CONTROLLER_MASK_ALL = 31
 } CGroupControllerMask;
 
 /*

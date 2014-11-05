@@ -715,6 +715,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         exec_params.confirm_spawn = UNIT(m)->manager->confirm_spawn;
         exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
         exec_params.cgroup_path = UNIT(m)->cgroup_path;
+        exec_params.cgroup_delegate = m->cgroup_context.delegate;
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(m)->manager);
         exec_params.unit_id = UNIT(m)->id;
 

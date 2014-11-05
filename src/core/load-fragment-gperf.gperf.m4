@@ -119,7 +119,8 @@ $1.BlockIOWeight,                config_parse_blockio_weight,        0,         
 $1.StartupBlockIOWeight,         config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context.startup_blockio_weight)
 $1.BlockIODeviceWeight,          config_parse_blockio_device_weight, 0,                             offsetof($1, cgroup_context)
 $1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
-$1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)'
+$1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
+$1.Delegate,                     config_parse_bool,                  0,                             offsetof($1, cgroup_context.delegate)'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)

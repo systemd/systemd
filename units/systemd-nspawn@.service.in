@@ -15,6 +15,7 @@ KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
 SuccessExitStatus=133
+Delegate=yes
 
 [Install]
 WantedBy=multi-user.target

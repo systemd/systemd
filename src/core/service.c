@@ -1000,6 +1000,7 @@ static int service_spawn(
         exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
         exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
         exec_params.cgroup_path = path;
+        exec_params.cgroup_delegate = s->cgroup_context.delegate;
         exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
         exec_params.unit_id = UNIT(s)->id;
         exec_params.watchdog_usec = s->watchdog_usec;

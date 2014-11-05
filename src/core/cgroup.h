@@ -83,6 +83,8 @@ struct CGroupContext {
 
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
+
+        bool delegate;
 };
 
 #include "unit.h"

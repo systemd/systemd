@@ -1444,8 +1444,10 @@ static int exec_child(ExecCommand *command,
         }
 #endif
 
-#ifdef HAVE_PAM
-        if (params->cgroup_path && context->user && context->pam_name) {
+        /* If delegation is enabled we'll pass ownership of the cgroup
+         * (but only in systemd's own controller hierarchy!) to the
+         * user of the new process. */
+        if (params->cgroup_path && context->user && params->cgroup_delegate) {
                 err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, 0644, uid, gid);
                 if (err < 0) {
                         *error = EXIT_CGROUP;
@@ -1459,7 +1461,6 @@ static int exec_child(ExecCommand *command,
                         return err;
                 }
         }
-#endif
 
         if (!strv_isempty(context->runtime_directory) && params->runtime_prefix) {
                 char **rt;
@@ -2400,6 +2401,21 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sAppArmorProfile: %s%s\n",
                         prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
+}
+
+bool exec_context_maintains_privileges(ExecContext *c) {
+        assert(c);
+
+        /* Returns true if the process forked off would run run under
+         * an unchanged UID or as root. */
+
+        if (!c->user)
+                return true;
+
+        if (streq(c->user, "root") || streq(c->user, "0"))
+                return true;
+
+        return false;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

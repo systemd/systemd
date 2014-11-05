@@ -622,6 +622,10 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", 1);
+        if (r < 0)
+                return r;
+
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
                 if (r < 0)
