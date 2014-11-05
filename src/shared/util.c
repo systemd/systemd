@@ -3179,7 +3179,8 @@ char *replace_env(const char *format, char **env) {
 
                 case CURLY:
                         if (*e == '{') {
-                                if (!(k = strnappend(r, word, e-word-1)))
+                                k = strnappend(r, word, e-word-1);
+                                if (!k)
                                         goto fail;
 
                                 free(r);
@@ -3189,7 +3190,8 @@ char *replace_env(const char *format, char **env) {
                                 state = VARIABLE;
 
                         } else if (*e == '$') {
-                                if (!(k = strnappend(r, word, e-word)))
+                                k = strnappend(r, word, e-word);
+                                if (!k)
                                         goto fail;
 
                                 free(r);
@@ -3221,7 +3223,8 @@ char *replace_env(const char *format, char **env) {
                 }
         }
 
-        if (!(k = strnappend(r, word, e-word)))
+        k = strnappend(r, word, e-word);
+        if (!k)
                 goto fail;
 
         free(r);
