@@ -296,7 +296,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         }
 
         if (!hwdb->f) {
-                udev_err(udev, "hwdb.bin does not exist, please run udevadm hwdb --update");
+                udev_dbg(udev, "hwdb.bin does not exist, please run udevadm hwdb --update");
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
