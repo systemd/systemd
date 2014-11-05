@@ -1,0 +1,8 @@
+[Unit]
+Description=Test PathModified
+
+[Path]
+PathModified=/tmp/test-path_modified
+
+[Install]
+WantedBy=multi-user.target

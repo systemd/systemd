@@ -1,0 +1,8 @@
+[Unit]
+Description=Test PathExistsGlob
+
+[Path]
+PathExistsGlob=/tmp/test-path_existsglob*
+
+[Install]
+WantedBy=multi-user.target

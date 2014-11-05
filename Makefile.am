@@ -1321,6 +1321,7 @@ tests += \
 	test-env-replace \
 	test-strbuf \
 	test-strv \
+	test-path \
 	test-path-util \
 	test-strxcpyx \
 	test-unit-name \
@@ -1808,6 +1809,15 @@ test_path_util_SOURCES = \
 
 test_path_util_LDADD = \
 	libsystemd-shared.la
+
+test_path_SOURCES = \
+	src/test/test-path.c
+
+test_path_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_path_LDADD = \
+	libsystemd-core.la
 
 test_strxcpyx_SOURCES = \
 	src/test/test-strxcpyx.c

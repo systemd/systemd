@@ -1,0 +1,8 @@
+[Unit]
+Description=Test DirectoryNotEmpty
+
+[Path]
+DirectoryNotEmpty=/tmp/test-path_directorynotempty/
+
+[Install]
+WantedBy=multi-user.target

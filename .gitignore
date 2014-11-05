@@ -213,6 +213,7 @@
 /test-network
 /test-network-tables
 /test-ns
+/test-path
 /test-path-util
 /test-prioq
 /test-ratelimit

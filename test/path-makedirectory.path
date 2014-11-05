@@ -1,0 +1,10 @@
+[Unit]
+Description=Test MakeDirectory & DirectoryMode
+
+[Path]
+DirectoryNotEmpty=/tmp/test-path_makedirectory/
+MakeDirectory=yes
+DirectoryMode=0744
+
+[Install]
+WantedBy=multi-user.target
