@@ -203,50 +203,56 @@ struct kdbus_policy_access {
 
 /**
  * enum kdbus_item_type - item types to chain data in a list
- * @_KDBUS_ITEM_NULL:		Uninitialized/invalid
- * @_KDBUS_ITEM_USER_BASE:	Start of user items
- * @KDBUS_ITEM_PAYLOAD_VEC:	Vector to data
- * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset to message head
- * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
- * @KDBUS_ITEM_FDS:		Attached file descriptors
- * @KDBUS_ITEM_BLOOM_PARAMETER:	Bus-wide bloom parameters, used with
- *				KDBUS_CMD_BUS_MAKE, carries a
- *				struct kdbus_bloom_parameter
- * @KDBUS_ITEM_BLOOM_FILTER:	Bloom filter carried with a message, used to
- *				match against a bloom mask of a connection,
- *				carries a struct kdbus_bloom_filter
- * @KDBUS_ITEM_BLOOM_MASK:	Bloom mask used to match against a message's
- *				bloom filter
- * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
- * @KDBUS_ITEM_MAKE_NAME:	Name of domain, bus, endpoint
- * @KDBUS_ITEM_ATTACH_FLAGS:	Attach-flags, used for updating which metadata
- *				a connection subscribes to
- * @KDBUS_ITEM_ID:		Connection ID
- * @KDBUS_ITEM_NAME:		Well-know name with flags
- * @_KDBUS_ITEM_ATTACH_BASE:	Start of metadata attach items
- * @KDBUS_ITEM_TIMESTAMP:	Timestamp
- * @KDBUS_ITEM_CREDS:		Process credential
- * @KDBUS_ITEM_AUXGROUPS:	Auxiliary process groups
- * @KDBUS_ITEM_OWNED_NAME:	A name owned by the associated connection
- * @KDBUS_ITEM_TID_COMM:	Thread ID "comm" identifier
- * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
- * @KDBUS_ITEM_EXE:		The path of the executable
- * @KDBUS_ITEM_CMDLINE:		The process command line
- * @KDBUS_ITEM_CGROUP:		The croup membership
- * @KDBUS_ITEM_CAPS:		The process capabilities
- * @KDBUS_ITEM_SECLABEL:	The security label
- * @KDBUS_ITEM_AUDIT:		The audit IDs
- * @KDBUS_ITEM_CONN_DESCRIPTION:The connection's human-readable name (debugging)
- * @_KDBUS_ITEM_POLICY_BASE:	Start of policy items
- * @KDBUS_ITEM_POLICY_ACCESS:	Policy access block
- * @_KDBUS_ITEM_KERNEL_BASE:	Start of kernel-generated message items
- * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
- * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
- * @KDBUS_ITEM_NAME_CHANGE:	Notify in struct kdbus_notify_name_change
- * @KDBUS_ITEM_ID_ADD:		Notify in struct kdbus_notify_id_change
- * @KDBUS_ITEM_ID_REMOVE:	Notify in struct kdbus_notify_id_change
- * @KDBUS_ITEM_REPLY_TIMEOUT:	Timeout has been reached
- * @KDBUS_ITEM_REPLY_DEAD:	Destination died
+ * @_KDBUS_ITEM_NULL:			Uninitialized/invalid
+ * @_KDBUS_ITEM_USER_BASE:		Start of user items
+ * @KDBUS_ITEM_PAYLOAD_VEC:		Vector to data
+ * @KDBUS_ITEM_PAYLOAD_OFF:		Data at returned offset to message head
+ * @KDBUS_ITEM_PAYLOAD_MEMFD:		Data as sealed memfd
+ * @KDBUS_ITEM_FDS:			Attached file descriptors
+ * @KDBUS_ITEM_BLOOM_PARAMETER:		Bus-wide bloom parameters, used with
+ *					KDBUS_CMD_BUS_MAKE, carries a
+ *					struct kdbus_bloom_parameter
+ * @KDBUS_ITEM_BLOOM_FILTER:		Bloom filter carried with a message,
+ *					used to match against a bloom mask of a
+ *					connection, carries a struct
+ *					kdbus_bloom_filter
+ * @KDBUS_ITEM_BLOOM_MASK:		Bloom mask used to match against a
+ *					message'sbloom filter
+ * @KDBUS_ITEM_DST_NAME:		Destination's well-known name
+ * @KDBUS_ITEM_MAKE_NAME:		Name of domain, bus, endpoint
+ * @KDBUS_ITEM_ATTACH_FLAGS_SEND:	Attach-flags, used for updating which
+ *					metadata a connection opts in to send
+ * @KDBUS_ITEM_ATTACH_FLAGS_RECV:	Attach-flags, used for updating which
+ *					metadata a connection requests to
+ *					receive for each reeceived message
+ * @KDBUS_ITEM_ID:			Connection ID
+ * @KDBUS_ITEM_NAME:			Well-know name with flags
+ * @_KDBUS_ITEM_ATTACH_BASE:		Start of metadata attach items
+ * @KDBUS_ITEM_TIMESTAMP:		Timestamp
+ * @KDBUS_ITEM_CREDS:			Process credential
+ * @KDBUS_ITEM_AUXGROUPS:		Auxiliary process groups
+ * @KDBUS_ITEM_OWNED_NAME:		A name owned by the associated
+ *					connection
+ * @KDBUS_ITEM_TID_COMM:		Thread ID "comm" identifier
+ * @KDBUS_ITEM_PID_COMM:		Process ID "comm" identifier
+ * @KDBUS_ITEM_EXE:			The path of the executable
+ * @KDBUS_ITEM_CMDLINE:			The process command line
+ * @KDBUS_ITEM_CGROUP:			The croup membership
+ * @KDBUS_ITEM_CAPS:			The process capabilities
+ * @KDBUS_ITEM_SECLABEL:		The security label
+ * @KDBUS_ITEM_AUDIT:			The audit IDs
+ * @KDBUS_ITEM_CONN_DESCRIPTION:	The connection's human-readable name
+ *					(debugging)
+ * @_KDBUS_ITEM_POLICY_BASE:		Start of policy items
+ * @KDBUS_ITEM_POLICY_ACCESS:		Policy access block
+ * @_KDBUS_ITEM_KERNEL_BASE:		Start of kernel-generated message items
+ * @KDBUS_ITEM_NAME_ADD:		Notification in kdbus_notify_name_change
+ * @KDBUS_ITEM_NAME_REMOVE:		Notification in kdbus_notify_name_change
+ * @KDBUS_ITEM_NAME_CHANGE:		Notification in kdbus_notify_name_change
+ * @KDBUS_ITEM_ID_ADD:			Notification in kdbus_notify_id_change
+ * @KDBUS_ITEM_ID_REMOVE:		Notification in kdbus_notify_id_change
+ * @KDBUS_ITEM_REPLY_TIMEOUT:		Timeout has been reached
+ * @KDBUS_ITEM_REPLY_DEAD:		Destination died
  */
 enum kdbus_item_type {
 	_KDBUS_ITEM_NULL,
@@ -260,7 +266,8 @@ enum kdbus_item_type {
 	KDBUS_ITEM_BLOOM_MASK,
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_MAKE_NAME,
-	KDBUS_ITEM_ATTACH_FLAGS,
+	KDBUS_ITEM_ATTACH_FLAGS_SEND,
+	KDBUS_ITEM_ATTACH_FLAGS_RECV,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_NAME,
 
@@ -552,6 +559,8 @@ enum kdbus_hello_flags {
  * @KDBUS_ATTACH_AUDIT:			The audit IDs
  * @KDBUS_ATTACH_CONN_DESCRIPTION:	The human-readable connection name
  * @_KDBUS_ATTACH_ALL:			All of the above
+ * @_KDBUS_ATTACH_ANY:			Wildcard match to enable any kind of
+ *					metatdata.
  */
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1ULL <<  0,
@@ -568,6 +577,7 @@ enum kdbus_attach_flags {
 	KDBUS_ATTACH_AUDIT		=  1ULL << 11,
 	KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 12,
 	_KDBUS_ATTACH_ALL		=  (1ULL << 13) - 1,
+	_KDBUS_ATTACH_ANY		=  ~0ULL
 };
 
 /**
@@ -575,8 +585,10 @@ enum kdbus_attach_flags {
  * @size:		The total size of the structure
  * @flags:		Connection flags (KDBUS_HELLO_*), userspace → kernel
  * @kernel_flags:	Supported connection flags, kernel → userspace
- * @attach_flags:	Mask of metadata to attach to each message sent
- *			(KDBUS_ATTACH_*)
+ * @attach_flags_send:	Mask of metadata to attach to each message sent
+ *			off by this connection (KDBUS_ATTACH_*)
+ * @attach_flags_recv:	Mask of metadata to attach to each message receieved
+ *			by the new connection (KDBUS_ATTACH_*)
  * @bus_flags:		The flags field copied verbatim from the original
  *			KDBUS_CMD_BUS_MAKE ioctl. It's intended to be useful
  *			to do negotiation of features of the payload that is
@@ -595,7 +607,8 @@ struct kdbus_cmd_hello {
 	__u64 size;
 	__u64 flags;
 	__u64 kernel_flags;
-	__u64 attach_flags;
+	__u64 attach_flags_send;
+	__u64 attach_flags_recv;
 	__u64 bus_flags;
 	__u64 id;
 	__u64 pool_size;
