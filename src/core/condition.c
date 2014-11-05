@@ -40,7 +40,7 @@
 #include "selinux-util.h"
 #include "audit.h"
 
-static bool condition_test_security(Condition *c) {
+static int condition_test_security(Condition *c) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_SECURITY);
@@ -59,7 +59,7 @@ static bool condition_test_security(Condition *c) {
         return c->negate;
 }
 
-static bool condition_test_capability(Condition *c) {
+static int condition_test_capability(Condition *c) {
         _cleanup_fclose_ FILE *f = NULL;
         cap_value_t value;
         char line[LINE_MAX];
@@ -72,14 +72,14 @@ static bool condition_test_capability(Condition *c) {
         /* If it's an invalid capability, we don't have it */
 
         if (cap_from_name(c->parameter, &value) < 0)
-                return c->negate;
+                return -EINVAL;
 
         /* If it's a valid capability we default to assume
          * that we have it */
 
         f = fopen("/proc/self/status", "re");
         if (!f)
-                return !c->negate;
+                return -errno;
 
         while (fgets(line, sizeof(line), f)) {
                 truncate_nl(line);
@@ -132,12 +132,12 @@ static bool condition_test_first_boot(Condition *c) {
 
         r = parse_boolean(c->parameter);
         if (r < 0)
-                return c->negate;
+                return r;
 
         return ((access("/run/systemd/first-boot", F_OK) >= 0) == !!r) == !c->negate;
 }
 
-static bool condition_test(Condition *c) {
+static int condition_test(Condition *c) {
         assert(c);
 
         switch(c->type) {
@@ -242,25 +242,35 @@ bool condition_test_list(const char *unit, Condition *first) {
          * if any of the trigger conditions apply (unless there are
          * none) we return true */
         LIST_FOREACH(conditions, c, first) {
-                bool b;
+                int r;
 
-                b = condition_test(c);
-                if (unit)
+                r = condition_test(c);
+                if (r < 0)
+                        log_warning_unit(unit,
+                                         "Couldn't determine result for %s=%s%s%s for %s, assuming failed: %s",
+                                         condition_type_to_string(c->type),
+                                         c->trigger ? "|" : "",
+                                         c->negate ? "!" : "",
+                                         c->parameter,
+                                         unit,
+                                         strerror(-r));
+                else
                         log_debug_unit(unit,
                                        "%s=%s%s%s %s for %s.",
                                        condition_type_to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        c->parameter,
-                                       b ? "succeeded" : "failed",
+                                       r > 0 ? "succeeded" : "failed",
                                        unit);
-                c->state = b ? 1 : -1;
 
-                if (!c->trigger && !b)
+                c->state = r > 0 ? CONDITION_STATE_SUCCEEDED : CONDITION_STATE_FAILED;
+
+                if (!c->trigger && r <= 0)
                         return false;
 
                 if (c->trigger && triggered <= 0)
-                        triggered = b;
+                        triggered = r > 0;
         }
 
         return triggered != 0;

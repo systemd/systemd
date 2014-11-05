@@ -73,8 +73,8 @@ static void test_condition_test_host(void) {
 
 static void test_condition_test_architecture(void) {
         Condition *condition;
-        Architecture a;
         const char *sa;
+        int a;
 
         a = uname_architecture();
         assert_se(a >= 0);
@@ -87,7 +87,7 @@ static void test_condition_test_architecture(void) {
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, "garbage value", false, false);
-        assert_se(!condition_test_architecture(condition));
+        assert_se(condition_test_architecture(condition) < 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, true);

@@ -25,9 +25,8 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
-        Architecture a;
-        int v;
         const char *id = NULL;
+        int a, v;
 
         v = detect_virtualization(&id);
         if (v == -EPERM || v == -EACCES)

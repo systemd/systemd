@@ -73,7 +73,7 @@ void condition_free_list(Condition *first) {
                 condition_free(c);
 }
 
-bool condition_test_kernel_command_line(Condition *c) {
+int condition_test_kernel_command_line(Condition *c) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         bool equal;
@@ -85,8 +85,8 @@ bool condition_test_kernel_command_line(Condition *c) {
 
         r = proc_cmdline(&line);
         if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
+                return r;
+        if (r == 0)
                 return c->negate;
 
         equal = !!strchr(c->parameter, '=');
@@ -97,7 +97,9 @@ bool condition_test_kernel_command_line(Condition *c) {
                 bool found;
 
                 r = unquote_first_word(&p, &word);
-                if (r <= 0)
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return c->negate;
 
                 if (equal)
@@ -116,7 +118,7 @@ bool condition_test_kernel_command_line(Condition *c) {
         return c->negate;
 }
 
-bool condition_test_virtualization(Condition *c) {
+int condition_test_virtualization(Condition *c) {
         int b, v;
         const char *id;
 
@@ -125,10 +127,8 @@ bool condition_test_virtualization(Condition *c) {
         assert(c->type == CONDITION_VIRTUALIZATION);
 
         v = detect_virtualization(&id);
-        if (v < 0) {
-                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-v));
-                return c->negate;
-        }
+        if (v < 0)
+                return v;
 
         /* First, compare with yes/no */
         b = parse_boolean(c->parameter);
@@ -150,8 +150,8 @@ bool condition_test_virtualization(Condition *c) {
         return (v > 0 && streq(c->parameter, id)) == !c->negate;
 }
 
-bool condition_test_architecture(Condition *c) {
-        Architecture a, b;
+int condition_test_architecture(Condition *c) {
+        int a, b;
 
         assert(c);
         assert(c->parameter);
@@ -159,20 +159,19 @@ bool condition_test_architecture(Condition *c) {
 
         a = uname_architecture();
         if (a < 0)
-                return c->negate;
+                return a;
 
         if (streq(c->parameter, "native"))
                 b = native_architecture();
         else
                 b = architecture_from_string(c->parameter);
-
         if (b < 0)
-                return c->negate;
+                return b;
 
         return (a == b) == !c->negate;
 }
 
-bool condition_test_host(Condition *c) {
+int condition_test_host(Condition *c) {
         _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
         int r;
@@ -185,19 +184,19 @@ bool condition_test_host(Condition *c) {
 
                 r = sd_id128_get_machine(&y);
                 if (r < 0)
-                        return c->negate;
+                        return r;
 
                 return sd_id128_equal(x, y) == !c->negate;
         }
 
         h = gethostname_malloc();
         if (!h)
-                return c->negate;
+                return -ENOMEM;
 
         return (fnmatch(c->parameter, h, FNM_CASEFOLD) == 0) == !c->negate;
 }
 
-bool condition_test_ac_power(Condition *c) {
+int condition_test_ac_power(Condition *c) {
         int r;
 
         assert(c);
@@ -206,7 +205,7 @@ bool condition_test_ac_power(Condition *c) {
 
         r = parse_boolean(c->parameter);
         if (r < 0)
-                return !c->negate;
+                return r;
 
         return ((on_ac_power() != 0) == !!r) == !c->negate;
 }
@@ -225,7 +224,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 c->trigger ? "|" : "",
                 c->negate ? "!" : "",
                 c->parameter,
-                c->state < 0 ? "failed" : c->state > 0 ? "succeeded" : "untested");
+                CONDITION_STATE_IS_FAILED(c->state) ? "failed" : CONDITION_STATE_IS_SUCCEEDED(c->state) ? "succeeded" : "untested");
 }
 
 void condition_dump_list(Condition *first, FILE *f, const char *prefix) {

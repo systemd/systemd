@@ -23,7 +23,7 @@
 
 #include "architecture.h"
 
-Architecture uname_architecture(void) {
+int uname_architecture(void) {
 
         /* Return a sanitized enum identifying the architecture we are
          * running on. This is based on uname(), and the user may
@@ -41,7 +41,7 @@ Architecture uname_architecture(void) {
 
         static const struct {
                 const char *machine;
-                Architecture arch;
+                int arch;
         } arch_map[] = {
 #if defined(__x86_64__) || defined(__i386__)
                 { "x86_64",     ARCHITECTURE_X86_64   },
@@ -121,7 +121,7 @@ Architecture uname_architecture(void) {
 #endif
         };
 
-        static Architecture cached = _ARCHITECTURE_INVALID;
+        static int cached = _ARCHITECTURE_INVALID;
         struct utsname u;
         unsigned i;
 
@@ -168,4 +168,4 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_CRIS] = "cris",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(architecture, Architecture);
+DEFINE_STRING_TABLE_LOOKUP(architecture, int);
