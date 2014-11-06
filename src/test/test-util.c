@@ -1173,51 +1173,60 @@ static void test_unquote_first_word(void) {
         char *t;
 
         p = original = "foobar waldo";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 7);
 
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 12);
 
-        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(unquote_first_word(&p, &t, false) == 0);
         assert_se(!t);
         assert_se(p == original + 12);
 
         p = original = "\"foobar\" \'waldo\'";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 9);
 
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "waldo"));
         free(t);
         assert_se(p == original + 16);
 
-        assert_se(unquote_first_word(&p, &t) == 0);
+        assert_se(unquote_first_word(&p, &t, false) == 0);
         assert_se(!t);
         assert_se(p == original + 16);
 
         p = original = "\"";
-        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
         assert_se(p == original + 1);
 
         p = original = "\'";
-        assert_se(unquote_first_word(&p, &t) == -EINVAL);
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
         assert_se(p == original + 1);
 
+        p = original = "\'fooo";
+        assert_se(unquote_first_word(&p, &t, false) == -EINVAL);
+        assert_se(p == original + 5);
+
+        p = original = "\'fooo";
+        assert_se(unquote_first_word(&p, &t, true) > 0);
+        assert_se(streq(t, "fooo"));
+        assert_se(p == original + 5);
+
         p = original = "yay\'foo\'bar";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "yayfoobar"));
         free(t);
         assert_se(p == original + 11);
 
         p = original = "   foobar   ";
-        assert_se(unquote_first_word(&p, &t) > 0);
+        assert_se(unquote_first_word(&p, &t, false) > 0);
         assert_se(streq(t, "foobar"));
         free(t);
         assert_se(p == original + 12);
@@ -1275,6 +1284,17 @@ static void test_unquote_many_words(void) {
         assert_se(p == original+15);
         assert_se(streq_ptr(a, "foobar"));
         free(a);
+}
+
+static int parse_item(const char *key, const char *value) {
+        assert_se(key);
+
+        log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
+        return 0;
+}
+
+static void test_parse_proc_cmdline(void) {
+        assert_se(parse_proc_cmdline(parse_item) >= 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -1348,6 +1368,7 @@ int main(int argc, char *argv[]) {
         test_execute_directory();
         test_unquote_first_word();
         test_unquote_many_words();
+        test_parse_proc_cmdline();
 
         return 0;
 }

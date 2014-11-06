@@ -6146,8 +6146,7 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
 
 int shall_restore_state(void) {
         _cleanup_free_ char *line = NULL;
-        const char *word, *state;
-        size_t l;
+        const char *p;
         int r;
 
         r = proc_cmdline(&line);
@@ -6155,15 +6154,20 @@ int shall_restore_state(void) {
                 return r;
 
         r = 1;
-        FOREACH_WORD_QUOTED(word, l, line, state) {
+        p = line;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
                 const char *e;
-                char n[l+1];
                 int k;
 
-                memcpy(n, word, l);
-                n[l] = 0;
+                k = unquote_first_word(&p, &word, true);
+                if (k < 0)
+                        return k;
+                if (k == 0)
+                        break;
 
-                e = startswith(n, "systemd.restore_state=");
+                e = startswith(word, "systemd.restore_state=");
                 if (!e)
                         continue;
 
@@ -6186,8 +6190,7 @@ int proc_cmdline(char **ret) {
 
 int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         _cleanup_free_ char *line = NULL;
-        const char *w, *state;
-        size_t l;
+        const char *p;
         int r;
 
         assert(parse_item);
@@ -6196,11 +6199,16 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         if (r < 0)
                 return r;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                char word[l+1], *value;
+        p = line;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                char *value = NULL;
 
-                memcpy(word, w, l);
-                word[l] = 0;
+                r = unquote_first_word(&p, &word, true);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 /* Filter out arguments that are intended only for the
                  * initrd */
@@ -6976,7 +6984,7 @@ int is_dir(const char* path, bool follow) {
         return !!S_ISDIR(st.st_mode);
 }
 
-int unquote_first_word(const char **p, char **ret) {
+int unquote_first_word(const char **p, char **ret, bool relax) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
 
@@ -7035,8 +7043,11 @@ int unquote_first_word(const char **p, char **ret) {
                         break;
 
                 case VALUE_ESCAPE:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (relax)
+                                        goto finish;
                                 return -EINVAL;
+                        }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
@@ -7047,9 +7058,11 @@ int unquote_first_word(const char **p, char **ret) {
                         break;
 
                 case SINGLE_QUOTE:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (relax)
+                                        goto finish;
                                 return -EINVAL;
-                        else if (c == '\'')
+                        } else if (c == '\'')
                                 state = VALUE;
                         else if (c == '\\')
                                 state = SINGLE_QUOTE_ESCAPE;
@@ -7063,8 +7076,11 @@ int unquote_first_word(const char **p, char **ret) {
                         break;
 
                 case SINGLE_QUOTE_ESCAPE:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (relax)
+                                        goto finish;
                                 return -EINVAL;
+                        }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
@@ -7090,8 +7106,11 @@ int unquote_first_word(const char **p, char **ret) {
                         break;
 
                 case DOUBLE_QUOTE_ESCAPE:
-                        if (c == 0)
+                        if (c == 0) {
+                                if (relax)
+                                        goto finish;
                                 return -EINVAL;
+                        }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
@@ -7151,7 +7170,7 @@ int unquote_many_words(const char **p, ...) {
         l = newa0(char*, n);
         for (c = 0; c < n; c++) {
 
-                r = unquote_first_word(p, &l[c]);
+                r = unquote_first_word(p, &l[c], false);
                 if (r < 0) {
                         int j;
 
