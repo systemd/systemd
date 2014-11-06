@@ -244,3 +244,8 @@ WARNINGS:
         (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,
         false positives will be triggered by code which violates
         some rules but is actually safe.
+
+ENGINEERING AND CONSULTING SERVICES:
+        ENDOCODE <https://endocode.com/> offers professional
+        engineering and consulting services for systemd. Please
+        contact Chris Kühl <chris@endocode.com> for more information.
