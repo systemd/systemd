@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
         r = -errno;
 
   error:
-        log_error("Critical error while doing system shutdown: %s", strerror(-r));
+        log_emergency("Critical error while doing system shutdown: %s", strerror(-r));
 
         freeze();
 }

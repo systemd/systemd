@@ -131,7 +131,7 @@ noreturn static void crash(int sig) {
                 /* Pass this on immediately, if this is not PID 1 */
                 raise(sig);
         else if (!arg_dump_core)
-                log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
+                log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa = {
                         .sa_handler = nop_handler,
@@ -144,7 +144,7 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
+                        log_emergency("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
                 else if (pid == 0) {
                         struct rlimit rl = {};
@@ -175,11 +175,11 @@ noreturn static void crash(int sig) {
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
+                                log_emergency("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
                         else if (status.si_code != CLD_DUMPED)
-                                log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
+                                log_emergency("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
+                                log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
                 }
         }
 
@@ -201,19 +201,19 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Failed to fork off crash shell: %m");
+                        log_emergency("Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
                         execl("/bin/sh", "/bin/sh", NULL);
 
-                        log_error("execl() failed: %m");
+                        log_emergency("execl() failed: %m");
                         _exit(1);
                 }
 
                 log_info("Successfully spawned crash shell as pid "PID_FMT".", pid);
         }
 
-        log_info("Freezing execution.");
+        log_emergency("Freezing execution.");
         freeze();
 }
 
@@ -1376,7 +1376,7 @@ int main(int argc, char *argv[]) {
         /* Initialize default unit */
         r = set_default_unit(SPECIAL_DEFAULT_TARGET);
         if (r < 0) {
-                log_error("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
+                log_emergency("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
                 goto finish;
         }
 
@@ -1472,7 +1472,7 @@ int main(int argc, char *argv[]) {
         /* Remember open file descriptors for later deserialization */
         r = fdset_new_fill(&fds);
         if (r < 0) {
-                log_error("Failed to allocate fd set: %s", strerror(-r));
+                log_emergency("Failed to allocate fd set: %s", strerror(-r));
                 goto finish;
         } else
                 fdset_cloexec(fds, true);
@@ -1574,12 +1574,12 @@ int main(int argc, char *argv[]) {
         if (arg_capability_bounding_set_drop) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
                 if (r < 0) {
-                        log_error("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
+                        log_emergency("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
                         goto finish;
                 }
                 r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
                 if (r < 0) {
-                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
+                        log_emergency("Failed to drop capability bounding set: %s", strerror(-r));
                         goto finish;
                 }
         }
@@ -1613,7 +1613,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(arg_running_as, arg_action == ACTION_TEST, &m);
         if (r < 0) {
-                log_error("Failed to allocate manager object: %s", strerror(-r));
+                log_emergency("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }
 
@@ -1682,13 +1682,13 @@ int main(int argc, char *argv[]) {
 
                         r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
                         if (r < 0) {
-                                log_error("Failed to load rescue target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to load rescue target: %s", bus_error_message(&error, r));
                                 goto finish;
                         } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
-                                log_error("Failed to load rescue target: %s", strerror(-target->load_error));
+                                log_emergency("Failed to load rescue target: %s", strerror(-target->load_error));
                                 goto finish;
                         } else if (target->load_state == UNIT_MASKED) {
-                                log_error("Rescue target masked.");
+                                log_emergency("Rescue target masked.");
                                 goto finish;
                         }
                 }
@@ -1706,11 +1706,11 @@ int main(int argc, char *argv[]) {
 
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
                         if (r < 0) {
-                                log_error("Failed to start default target: %s", bus_error_message(&error, r));
+                                log_emergency("Failed to start default target: %s", bus_error_message(&error, r));
                                 goto finish;
                         }
                 } else if (r < 0) {
-                        log_error("Failed to isolate default target: %s", bus_error_message(&error, r));
+                        log_emergency("Failed to isolate default target: %s", bus_error_message(&error, r));
                         goto finish;
                 }
 
@@ -1732,7 +1732,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 r = manager_loop(m);
                 if (r < 0) {
-                        log_error("Failed to run mainloop: %s", strerror(-r));
+                        log_emergency("Failed to run main loop: %s", strerror(-r));
                         goto finish;
                 }
 

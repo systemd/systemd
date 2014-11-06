@@ -113,7 +113,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 
                 if (enforce > 0) {
                         if (!initialized) {
-                                log_error("Failed to load SELinux policy. Freezing.");
+                                log_emergency("Failed to load SELinux policy. Freezing.");
                                 return -EIO;
                         }
 

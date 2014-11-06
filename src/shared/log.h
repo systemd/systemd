@@ -25,6 +25,8 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <sys/signalfd.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include "macro.h"
@@ -151,11 +153,12 @@ do { \
                 log_meta((level), __FILE__, __LINE__, __func__, __VA_ARGS__); \
 } while (0)
 
-#define log_debug(...)   log_full(LOG_DEBUG,   __VA_ARGS__)
-#define log_info(...)    log_full(LOG_INFO,    __VA_ARGS__)
-#define log_notice(...)  log_full(LOG_NOTICE,  __VA_ARGS__)
-#define log_warning(...) log_full(LOG_WARNING, __VA_ARGS__)
-#define log_error(...)   log_full(LOG_ERR,     __VA_ARGS__)
+#define log_debug(...)     log_full(LOG_DEBUG,   __VA_ARGS__)
+#define log_info(...)      log_full(LOG_INFO,    __VA_ARGS__)
+#define log_notice(...)    log_full(LOG_NOTICE,  __VA_ARGS__)
+#define log_warning(...)   log_full(LOG_WARNING, __VA_ARGS__)
+#define log_error(...)     log_full(LOG_ERR,     __VA_ARGS__)
+#define log_emergency(...) log_full(getpid() == 1 ? LOG_EMERG : LOG_ERR, __VA_ARGS__)
 
 #ifdef LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)
