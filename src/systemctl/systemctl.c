@@ -7001,8 +7001,13 @@ done:
 
 static int halt_now(enum action a) {
 
-/* Make sure C-A-D is handled by the kernel from this
-         * point on... */
+        /* The kernel will automaticall flush ATA disks and suchlike
+         * on reboot(), but the file systems need to be synce'd
+         * explicitly in advance. */
+        sync();
+
+        /* Make sure C-A-D is handled by the kernel from this point
+         * on... */
         reboot(RB_ENABLE_CAD);
 
         switch (a) {
