@@ -211,6 +211,10 @@
                 template <literal>.d/</literal> subdirectory and reads
                 its <literal>.conf</literal> files.</para>
 
+                <!-- Note that we do not document .include here, as we
+                     consider it mostly obsolete, and want people to
+                     use .d/ drop-ins instead. -->
+
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
                 use this functionality only sparingly and instead rely
