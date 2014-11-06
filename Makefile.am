@@ -861,8 +861,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/audit.h \
 	src/shared/xml.c \
 	src/shared/xml.h \
-	src/shared/condition-util.c \
-	src/shared/condition-util.h \
+	src/shared/condition.c \
+	src/shared/condition.h \
 	src/shared/bus-label.c \
 	src/shared/bus-label.h \
 	src/shared/gpt.h \
@@ -1357,7 +1357,7 @@ tests += \
 	test-capability \
 	test-async \
 	test-ratelimit \
-	test-condition-util \
+	test-condition \
 	test-uid-range \
 	test-bus-policy \
 	test-locale-util \
@@ -1517,10 +1517,10 @@ test_copy_SOURCES = \
 test_copy_LDADD = \
 	libsystemd-shared.la
 
-test_condition_util_SOURCES = \
-	src/test/test-condition-util.c
+test_condition_SOURCES = \
+	src/test/test-condition.c
 
-test_condition_util_LDADD = \
+test_condition_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-internal.la \
 	libsystemd-capability.la \

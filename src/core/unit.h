@@ -38,7 +38,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "socket-util.h"
 #include "execute.h"
 #include "cgroup.h"
-#include "condition-util.h"
+#include "condition.h"
 #include "install.h"
 #include "unit-name.h"
 #include "failure-action.h"

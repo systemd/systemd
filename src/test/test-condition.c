@@ -17,7 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "condition-util.h"
+#include "condition.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"

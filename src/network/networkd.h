@@ -37,7 +37,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
-#include "condition-util.h"
+#include "condition.h"
 #include "in-addr-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU

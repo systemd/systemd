@@ -32,7 +32,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
-#include "condition-util.h"
+#include "condition.h"
 #include "network-internal.h"
 
 const char *net_get_name(struct udev_device *device) {

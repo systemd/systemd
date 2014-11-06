@@ -22,11 +22,10 @@
 #pragma once
 
 #include "ethtool-util.h"
-
-#include "condition-util.h"
-#include "libudev.h"
+#include "condition.h"
 #include "util.h"
 #include "list.h"
+#include "libudev.h"
 
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;

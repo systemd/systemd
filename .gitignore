@@ -157,7 +157,7 @@
 /test-cgroup-util
 /test-compress
 /test-compress-benchmark
-/test-condition-util
+/test-condition
 /test-conf-files
 /test-copy
 /test-coredump-vacuum

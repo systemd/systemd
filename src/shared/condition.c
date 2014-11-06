@@ -28,7 +28,6 @@
 
 #include "sd-id128.h"
 #include "util.h"
-#include "condition-util.h"
 #include "virt.h"
 #include "path-util.h"
 #include "fileio.h"
@@ -40,6 +39,7 @@
 #include "ima-util.h"
 #include "selinux-util.h"
 #include "audit.h"
+#include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
