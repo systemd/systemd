@@ -77,12 +77,6 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 void condition_free(Condition *c);
 void condition_free_list(Condition *c);
 
-int condition_test_kernel_command_line(Condition *c);
-int condition_test_virtualization(Condition *c);
-int condition_test_architecture(Condition *c);
-int condition_test_host(Condition *c);
-int condition_test_ac_power(Condition *c);
-
 int condition_test(Condition *c);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix);

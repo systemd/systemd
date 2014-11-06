@@ -78,7 +78,7 @@ void condition_free_list(Condition *first) {
                 condition_free(c);
 }
 
-int condition_test_kernel_command_line(Condition *c) {
+static int condition_test_kernel_command_line(Condition *c) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         bool equal;
@@ -92,7 +92,7 @@ int condition_test_kernel_command_line(Condition *c) {
         if (r < 0)
                 return r;
         if (r == 0)
-                return c->negate;
+                return false;
 
         equal = !!strchr(c->parameter, '=');
         p = line;
@@ -105,7 +105,7 @@ int condition_test_kernel_command_line(Condition *c) {
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return c->negate;
+                        break;
 
                 if (equal)
                         found = streq(word, c->parameter);
@@ -117,13 +117,13 @@ int condition_test_kernel_command_line(Condition *c) {
                 }
 
                 if (found)
-                        return !c->negate;
+                        return true;
         }
 
-        return c->negate;
+        return false;
 }
 
-int condition_test_virtualization(Condition *c) {
+static int condition_test_virtualization(Condition *c) {
         int b, v;
         const char *id;
 
@@ -139,23 +139,23 @@ int condition_test_virtualization(Condition *c) {
         b = parse_boolean(c->parameter);
 
         if (v > 0 && b > 0)
-                return !c->negate;
+                return true;
 
         if (v == 0 && b == 0)
-                return !c->negate;
+                return true;
 
         /* Then, compare categorization */
         if (v == VIRTUALIZATION_VM && streq(c->parameter, "vm"))
-                return !c->negate;
+                return true;
 
         if (v == VIRTUALIZATION_CONTAINER && streq(c->parameter, "container"))
-                return !c->negate;
+                return true;
 
         /* Finally compare id */
-        return (v > 0 && streq(c->parameter, id)) == !c->negate;
+        return v > 0 && streq(c->parameter, id);
 }
 
-int condition_test_architecture(Condition *c) {
+static int condition_test_architecture(Condition *c) {
         int a, b;
 
         assert(c);
@@ -173,10 +173,10 @@ int condition_test_architecture(Condition *c) {
         if (b < 0)
                 return b;
 
-        return (a == b) == !c->negate;
+        return a == b;
 }
 
-int condition_test_host(Condition *c) {
+static int condition_test_host(Condition *c) {
         _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
         int r;
@@ -191,17 +191,17 @@ int condition_test_host(Condition *c) {
                 if (r < 0)
                         return r;
 
-                return sd_id128_equal(x, y) == !c->negate;
+                return sd_id128_equal(x, y);
         }
 
         h = gethostname_malloc();
         if (!h)
                 return -ENOMEM;
 
-        return (fnmatch(c->parameter, h, FNM_CASEFOLD) == 0) == !c->negate;
+        return fnmatch(c->parameter, h, FNM_CASEFOLD) == 0;
 }
 
-int condition_test_ac_power(Condition *c) {
+static int condition_test_ac_power(Condition *c) {
         int r;
 
         assert(c);
@@ -212,7 +212,7 @@ int condition_test_ac_power(Condition *c) {
         if (r < 0)
                 return r;
 
-        return ((on_ac_power() != 0) == !!r) == !c->negate;
+        return (on_ac_power() != 0) == !!r;
 }
 
 static int condition_test_security(Condition *c) {
@@ -221,17 +221,17 @@ static int condition_test_security(Condition *c) {
         assert(c->type == CONDITION_SECURITY);
 
         if (streq(c->parameter, "selinux"))
-                return mac_selinux_use() == !c->negate;
+                return mac_selinux_use();
         if (streq(c->parameter, "smack"))
-                return mac_smack_use() == !c->negate;
+                return mac_smack_use();
         if (streq(c->parameter, "apparmor"))
-                return mac_apparmor_use() == !c->negate;
+                return mac_apparmor_use();
         if (streq(c->parameter, "audit"))
-                return use_audit() == !c->negate;
+                return use_audit();
         if (streq(c->parameter, "ima"))
-                return use_ima() == !c->negate;
+                return use_ima();
 
-        return c->negate;
+        return false;
 }
 
 static int condition_test_capability(Condition *c) {
@@ -265,7 +265,7 @@ static int condition_test_capability(Condition *c) {
                 }
         }
 
-        return !!(capabilities & (1ULL << value)) == !c->negate;
+        return !!(capabilities & (1ULL << value));
 }
 
 static int condition_test_needs_update(Condition *c) {
@@ -278,24 +278,24 @@ static int condition_test_needs_update(Condition *c) {
 
         /* If the file system is read-only we shouldn't suggest an update */
         if (path_is_read_only_fs(c->parameter) > 0)
-                return c->negate;
+                return false;
 
         /* Any other failure means we should allow the condition to be true,
          * so that we rather invoke too many update tools then too
          * few. */
 
         if (!path_is_absolute(c->parameter))
-                return !c->negate;
+                return true;
 
         p = strappenda(c->parameter, "/.updated");
         if (lstat(p, &other) < 0)
-                return !c->negate;
+                return true;
 
         if (lstat("/usr/", &usr) < 0)
-                return !c->negate;
+                return true;
 
-        return (usr.st_mtim.tv_sec > other.st_mtim.tv_sec ||
-                (usr.st_mtim.tv_sec == other.st_mtim.tv_sec && usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec)) == !c->negate;
+        return usr.st_mtim.tv_sec > other.st_mtim.tv_sec ||
+                (usr.st_mtim.tv_sec == other.st_mtim.tv_sec && usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec);
 }
 
 static int condition_test_first_boot(Condition *c) {
@@ -309,7 +309,7 @@ static int condition_test_first_boot(Condition *c) {
         if (r < 0)
                 return r;
 
-        return ((access("/run/systemd/first-boot", F_OK) >= 0) == !!r) == !c->negate;
+        return (access("/run/systemd/first-boot", F_OK) >= 0) == !!r;
 }
 
 static int condition_test_path_exists(Condition *c) {
@@ -317,7 +317,7 @@ static int condition_test_path_exists(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_EXISTS);
 
-        return (access(c->parameter, F_OK) >= 0) == !c->negate;
+        return access(c->parameter, F_OK) >= 0;
 }
 
 static int condition_test_path_exists_glob(Condition *c) {
@@ -325,7 +325,7 @@ static int condition_test_path_exists_glob(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_EXISTS_GLOB);
 
-        return (glob_exists(c->parameter) > 0) == !c->negate;
+        return glob_exists(c->parameter) > 0;
 }
 
 static int condition_test_path_is_directory(Condition *c) {
@@ -333,7 +333,7 @@ static int condition_test_path_is_directory(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_DIRECTORY);
 
-        return (is_dir(c->parameter, true) > 0) == !c->negate;
+        return is_dir(c->parameter, true) > 0;
 }
 
 static int condition_test_path_is_symbolic_link(Condition *c) {
@@ -341,7 +341,7 @@ static int condition_test_path_is_symbolic_link(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_SYMBOLIC_LINK);
 
-        return (is_symlink(c->parameter) > 0) == !c->negate;
+        return is_symlink(c->parameter) > 0;
 }
 
 static int condition_test_path_is_mount_point(Condition *c) {
@@ -349,7 +349,7 @@ static int condition_test_path_is_mount_point(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
 
-        return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
+        return path_is_mount_point(c->parameter, true) > 0;
 }
 
 static int condition_test_path_is_read_write(Condition *c) {
@@ -357,7 +357,7 @@ static int condition_test_path_is_read_write(Condition *c) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_READ_WRITE);
 
-        return (path_is_read_only_fs(c->parameter) > 0) == c->negate;
+        return path_is_read_only_fs(c->parameter) <= 0;
 }
 
 static int condition_test_directory_not_empty(Condition *c) {
@@ -368,7 +368,7 @@ static int condition_test_directory_not_empty(Condition *c) {
         assert(c->type == CONDITION_DIRECTORY_NOT_EMPTY);
 
         r = dir_is_empty(c->parameter);
-        return !(r == -ENOENT || r > 0) == !c->negate;
+        return r <= 0 && r != -ENOENT;
 }
 
 static int condition_test_file_not_empty(Condition *c) {
@@ -380,7 +380,7 @@ static int condition_test_file_not_empty(Condition *c) {
 
         return (stat(c->parameter, &st) >= 0 &&
                 S_ISREG(st.st_mode) &&
-                st.st_size > 0) == !c->negate;
+                st.st_size > 0);
 }
 
 static int condition_test_file_is_executable(Condition *c) {
@@ -392,7 +392,7 @@ static int condition_test_file_is_executable(Condition *c) {
 
         return (stat(c->parameter, &st) >= 0 &&
                 S_ISREG(st.st_mode) &&
-                (st.st_mode & 0111)) == !c->negate;
+                (st.st_mode & 0111));
 }
 
 static int condition_test_null(Condition *c) {
@@ -402,7 +402,7 @@ static int condition_test_null(Condition *c) {
 
         /* Note that during parsing we already evaluate the string and
          * store it in c->negate */
-        return !c->negate;
+        return true;
 }
 
 int condition_test(Condition *c) {
@@ -428,12 +428,17 @@ int condition_test(Condition *c) {
                 [CONDITION_FIRST_BOOT] = condition_test_first_boot,
                 [CONDITION_NULL] = condition_test_null,
         };
+        int r;
 
         assert(c);
         assert(c->type >= 0);
         assert(c->type < _CONDITION_TYPE_MAX);
 
-        return condition_tests[c->type](c);
+        r = condition_tests[c->type](c);
+        if (r < 0)
+                return r;
+
+        return (r > 0) == !c->negate;
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix) {

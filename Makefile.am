@@ -3488,7 +3488,8 @@ systemd_udevd_SOURCES = \
 	src/udev/udevd.c
 
 systemd_udevd_LDADD = \
-	libudev-core.la
+	libudev-core.la \
+	libsystemd-capability.la
 
 udevadm_SOURCES = \
 	src/udev/udevadm.c \
@@ -3502,7 +3503,8 @@ udevadm_SOURCES = \
 	src/udev/udevadm-test-builtin.c
 
 udevadm_LDADD = \
-	libudev-core.la
+	libudev-core.la \
+	libsystemd-capability.la
 
 # Update hwdb on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
@@ -3536,7 +3538,8 @@ test_udev_SOURCES = \
 	src/test/test-udev.c
 
 test_udev_LDADD = \
-	libudev-core.la \
+	libudev-core.la  \
+	libsystemd-capability.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS) \
 	$(SELINUX_LIBS)
@@ -5210,11 +5213,9 @@ networkctl_LDADD = \
 test_network_SOURCES = \
 	src/network/test-network.c
 
-test_network_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_network_LDADD = \
-	libsystemd-networkd-core.la
+	libsystemd-networkd-core.la \
+	libsystemd-capability.la
 
 test_network_tables_SOURCES = \
 	src/network/test-network-tables.c \
