@@ -66,7 +66,7 @@ int write_string_file_no_create(const char *fn, const char *line) {
         assert(line);
 
         /* We manually build our own version of fopen(..., "we") that
-         * without O_CREAT */
+         * works without O_CREAT */
         fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return -errno;
@@ -94,20 +94,10 @@ int write_string_file_atomic(const char *fn, const char *line) {
 
         fchmod_umask(fileno(f), 0644);
 
-        errno = 0;
-        fputs(line, f);
-        if (!endswith(line, "\n"))
-                fputc('\n', f);
-
-        fflush(f);
-
-        if (ferror(f))
-                r = errno ? -errno : -EIO;
-        else {
+        r = write_string_stream(f, line);
+        if (r >= 0) {
                 if (rename(p, fn) < 0)
                         r = -errno;
-                else
-                        r = 0;
         }
 
         if (r < 0)
