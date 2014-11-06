@@ -138,7 +138,8 @@ static bool valid_chassis(const char *chassis) {
                         "server\0"
                         "tablet\0"
                         "handset\0"
-                        "watch\0",
+                        "watch\0"
+                        "embedded\0",
                         chassis);
 }
 

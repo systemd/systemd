@@ -18,7 +18,7 @@ _hostnamectl_set-icon-name() {
 
 _hostnamectl_set-chassis() {
     if (( CURRENT <= 3 )); then
-        _chassis=( desktop laptop server tablet handset watch vm container )
+        _chassis=( desktop laptop server tablet handset watch embedded vm container )
         _describe chassis _chassis
     else
         _message "no more options"
