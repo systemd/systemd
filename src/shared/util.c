@@ -695,7 +695,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         }
 
         /* Kernel threads have no argv[] */
-        if (r == NULL || r[0] == 0) {
+        if (isempty(r)) {
                 _cleanup_free_ char *t = NULL;
                 int h;
 
