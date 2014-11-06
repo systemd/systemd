@@ -102,6 +102,11 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 }
         }
 
+        /* Do not fail, if base_filesystem_create() fails. Not all
+         * switch roots are like base_filesystem_create() wants them
+         * to look like. They might even boot, if they are RO and
+         * don't have the FS layout. Just ignore the error and
+         * switch_root() nevertheless. */
         (void) base_filesystem_create(new_root);
 
         if (chdir(new_root) < 0) {
