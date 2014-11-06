@@ -129,8 +129,10 @@ struct Unit {
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
+        LIST_HEAD(Condition, asserts);
 
         dual_timestamp condition_timestamp;
+        dual_timestamp assert_timestamp;
 
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;
@@ -212,6 +214,7 @@ struct Unit {
 
         /* Did the last condition check succeed? */
         bool condition_result;
+        bool assert_result;
 
         /* Is this a transient unit? */
         bool transient;

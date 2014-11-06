@@ -3271,7 +3271,14 @@ typedef struct UnitStatusInfo {
         bool failed_condition_trigger;
         bool failed_condition_negate;
         const char *failed_condition;
-        const char *failed_condition_param;
+        const char *failed_condition_parameter;
+
+        usec_t assert_timestamp;
+        bool assert_result;
+        bool failed_assert_trigger;
+        bool failed_assert_negate;
+        const char *failed_assert;
+        const char *failed_assert_parameter;
 
         /* Socket */
         unsigned n_accepted;
@@ -3415,7 +3422,8 @@ static void print_status_info(
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
-                printf("           start condition failed at %s%s%s\n",
+                printf("Condition: start %scondition failed%s at %s%s%s\n",
+                       ansi_highlight_yellow(), ansi_highlight_off(),
                        s2, s1 ? "; " : "", s1 ? s1 : "");
                 if (i->failed_condition_trigger)
                         printf("           none of the trigger conditions were met\n");
@@ -3423,7 +3431,23 @@ static void print_status_info(
                         printf("           %s=%s%s was not met\n",
                                i->failed_condition,
                                i->failed_condition_negate ? "!" : "",
-                               i->failed_condition_param);
+                               i->failed_condition_parameter);
+        }
+
+        if (!i->assert_result && i->assert_timestamp > 0) {
+                s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
+                s2 = format_timestamp(since2, sizeof(since2), i->assert_timestamp);
+
+                printf("   Assert: start %sassertion failed%s at %s%s%s\n",
+                       ansi_highlight_red(), ansi_highlight_off(),
+                       s2, s1 ? "; " : "", s1 ? s1 : "");
+                if (i->failed_assert_trigger)
+                        printf("           none of the trigger assertions were met\n");
+                else if (i->failed_assert)
+                        printf("           %s=%s%s was not met\n",
+                               i->failed_assert,
+                               i->failed_assert_negate ? "!" : "",
+                               i->failed_assert_parameter);
         }
 
         if (i->sysfs_path)
@@ -3674,6 +3698,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->need_daemon_reload = b;
                 else if (streq(name, "ConditionResult"))
                         i->condition_result = b;
+                else if (streq(name, "AssertResult"))
+                        i->assert_result = b;
 
                 break;
         }
@@ -3743,6 +3769,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->active_exit_timestamp = (usec_t) u;
                 else if (streq(name, "ConditionTimestamp"))
                         i->condition_timestamp = (usec_t) u;
+                else if (streq(name, "AssertTimestamp"))
+                        i->assert_timestamp = (usec_t) u;
 
                 break;
         }
@@ -3835,7 +3863,32 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                         i->failed_condition = cond;
                                         i->failed_condition_trigger = trigger;
                                         i->failed_condition_negate = negate;
-                                        i->failed_condition_param = param;
+                                        i->failed_condition_parameter = param;
+                                }
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Asserts")) {
+                        const char *cond, *param;
+                        int trigger, negate;
+                        int32_t state;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                                log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
+                                if (state < 0 && (!trigger || !i->failed_assert)) {
+                                        i->failed_assert = cond;
+                                        i->failed_assert_trigger = trigger;
+                                        i->failed_assert_negate = negate;
+                                        i->failed_assert_parameter = param;
                                 }
                         }
                         if (r < 0)

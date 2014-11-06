@@ -28,6 +28,8 @@
 #include "macro.h"
 
 typedef enum ConditionType {
+        CONDITION_NULL,
+
         CONDITION_PATH_EXISTS,
         CONDITION_PATH_EXISTS_GLOB,
         CONDITION_PATH_IS_DIRECTORY,
@@ -37,16 +39,18 @@ typedef enum ConditionType {
         CONDITION_DIRECTORY_NOT_EMPTY,
         CONDITION_FILE_NOT_EMPTY,
         CONDITION_FILE_IS_EXECUTABLE,
+
         CONDITION_KERNEL_COMMAND_LINE,
         CONDITION_VIRTUALIZATION,
+        CONDITION_ARCHITECTURE,
         CONDITION_SECURITY,
         CONDITION_CAPABILITY,
         CONDITION_HOST,
         CONDITION_AC_POWER,
-        CONDITION_ARCHITECTURE,
+
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
-        CONDITION_NULL,
+
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
 } ConditionType;
@@ -61,13 +65,14 @@ typedef enum ConditionResult {
 } ConditionResult;
 
 typedef struct Condition {
-        ConditionType type;
+        ConditionType type:8;
 
         bool trigger:1;
         bool negate:1;
 
+        ConditionResult result:6;
+
         char *parameter;
-        ConditionResult result;
 
         LIST_FIELDS(struct Condition, conditions);
 } Condition;
@@ -78,11 +83,14 @@ void condition_free_list(Condition *c);
 
 int condition_test(Condition *c);
 
-void condition_dump(Condition *c, FILE *f, const char *prefix);
-void condition_dump_list(Condition *c, FILE *f, const char *prefix);
+void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
+void condition_dump_list(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
 
 const char* condition_type_to_string(ConditionType t) _const_;
-int condition_type_from_string(const char *s) _pure_;
+ConditionType condition_type_from_string(const char *s) _pure_;
+
+const char* assert_type_to_string(ConditionType t) _const_;
+ConditionType assert_type_from_string(const char *s) _pure_;
 
 const char* condition_result_to_string(ConditionResult r) _const_;
 ConditionResult condition_result_from_string(const char *s) _pure_;

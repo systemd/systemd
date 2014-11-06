@@ -542,6 +542,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
                 else if (r == -ENOEXEC)
                         r = job_finish_and_invalidate(j, JOB_INVALID, true);
+                else if (r == -EPROTO)
+                        r = job_finish_and_invalidate(j, JOB_ASSERT, true);
                 else if (r == -EAGAIN) {
                         j->state = JOB_WAITING;
                         m->n_running_jobs--;
@@ -653,6 +655,11 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 case JOB_TIMEOUT:
                         manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
+                        break;
+
+                case JOB_ASSERT:
+                        manager_flip_auto_status(u->manager, true);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "ASSERT" ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 default:
@@ -1189,6 +1196,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_DEPENDENCY] = "dependency",
         [JOB_SKIPPED] = "skipped",
         [JOB_INVALID] = "invalid",
+        [JOB_ASSERT] = "assert",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

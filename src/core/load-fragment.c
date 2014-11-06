@@ -1955,22 +1955,23 @@ int config_parse_ip_tos(const char *unit,
         return 0;
 }
 
-int config_parse_unit_condition_path(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_unit_condition_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        ConditionType cond = ltype;
-        Unit *u = data;
-        bool trigger, negate;
-        Condition *c;
         _cleanup_free_ char *p = NULL;
+        Condition **list = data, *c;
+        ConditionType t = ltype;
+        bool trigger, negate;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -1980,8 +1981,8 @@ int config_parse_unit_condition_path(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -1994,45 +1995,41 @@ int config_parse_unit_condition_path(const char *unit,
                 rvalue++;
 
         r = unit_full_printf(u, rvalue, &p);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve specifiers, ignoring: %s", rvalue);
-        if (!p) {
-                p = strdup(rvalue);
-                if (!p)
-                        return log_oom();
-        }
-
-        if (!path_is_absolute(p)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Path in condition not absolute, ignoring: %s", p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
                 return 0;
         }
 
-        c = condition_new(cond, p, trigger, negate);
+        if (!path_is_absolute(p)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Path in condition not absolute, ignoring: %s", p);
+                return 0;
+        }
+
+        c = condition_new(t, p, trigger, negate);
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
-int config_parse_unit_condition_string(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_unit_condition_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        ConditionType cond = ltype;
-        Unit *u = data;
-        bool trigger, negate;
-        Condition *c;
         _cleanup_free_ char *s = NULL;
+        Condition **list = data, *c;
+        ConditionType t = ltype;
+        bool trigger, negate;
+        Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -2042,8 +2039,8 @@ int config_parse_unit_condition_string(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -2056,36 +2053,32 @@ int config_parse_unit_condition_string(const char *unit,
                 rvalue++;
 
         r = unit_full_printf(u, rvalue, &s);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve specifiers, ignoring: %s", rvalue);
-        if (!s) {
-                s = strdup(rvalue);
-                if (!s)
-                        return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
+                return 0;
         }
 
-        c = condition_new(cond, s, trigger, negate);
+        c = condition_new(t, s, trigger, negate);
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 
-int config_parse_unit_condition_null(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_unit_condition_null(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        Unit *u = data;
-        Condition *c;
+        Condition **list = data, *c;
         bool trigger, negate;
         int b;
 
@@ -2096,8 +2089,8 @@ int config_parse_unit_condition_null(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(u->conditions);
-                u->conditions = NULL;
+                condition_free_list(*list);
+                *list = NULL;
                 return 0;
         }
 
@@ -2111,9 +2104,7 @@ int config_parse_unit_condition_null(const char *unit,
 
         b = parse_boolean(rvalue);
         if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -b,
-                           "Failed to parse boolean value in condition, ignoring: %s",
-                           rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -b, "Failed to parse boolean value in condition, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -2124,7 +2115,7 @@ int config_parse_unit_condition_null(const char *unit,
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(conditions, u->conditions, c);
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 

@@ -99,6 +99,7 @@ enum JobResult {
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
         JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
         JOB_INVALID,             /* JOB_RELOAD of inactive unit */
+        JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };

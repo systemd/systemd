@@ -1265,6 +1265,39 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>AssertArchitecture=</varname></term>
+                                <term><varname>AssertVirtualization=</varname></term>
+                                <term><varname>AssertHost=</varname></term>
+                                <term><varname>AssertKernelCommandLine=</varname></term>
+                                <term><varname>AssertSecurity=</varname></term>
+                                <term><varname>AssertCapability=</varname></term>
+                                <term><varname>AssertACPower=</varname></term>
+                                <term><varname>AssertNeedsUpdate=</varname></term>
+                                <term><varname>AssertFirstBoot=</varname></term>
+                                <term><varname>AssertPathExists=</varname></term>
+                                <term><varname>AssertPathExistsGlob=</varname></term>
+                                <term><varname>AssertPathIsDirectory=</varname></term>
+                                <term><varname>AssertPathIsSymbolicLink=</varname></term>
+                                <term><varname>AssertPathIsMountPoint=</varname></term>
+                                <term><varname>AssertPathIsReadWrite=</varname></term>
+                                <term><varname>AssertDirectoryNotEmpty=</varname></term>
+                                <term><varname>AssertFileNotEmpty=</varname></term>
+                                <term><varname>AssertFileIsExecutable=</varname></term>
+                                <term><varname>AssertNull=</varname></term>
+
+                                <listitem><para>Similar to the
+                                <varname>ConditionArchitecture=</varname>,
+                                <varname>ConditionVirtualization=</varname>,
+                                ... condition settings described above
+                                these settings add assertion checks to
+                                the start-up of the unit. However,
+                                unlike the conditions settings any
+                                assertion setting that is not met
+                                results in failure of the start
+                                job it was triggered by.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>SourcePath=</varname></term>
                                 <listitem><para>A path to a
                                 configuration file this unit has been

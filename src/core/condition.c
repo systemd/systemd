@@ -22,7 +22,7 @@
 #include "condition.h"
 #include "unit.h"
 
-bool condition_test_list(const char *unit, Condition *first) {
+bool condition_test_list(const char *unit, Condition *first, const char *(*to_string)(ConditionType t)) {
         Condition *c;
         int triggered = -1;
 
@@ -40,7 +40,7 @@ bool condition_test_list(const char *unit, Condition *first) {
                 if (r < 0)
                         log_warning_unit(unit,
                                          "Couldn't determine result for %s=%s%s%s for %s, assuming failed: %s",
-                                         condition_type_to_string(c->type),
+                                         to_string(c->type),
                                          c->trigger ? "|" : "",
                                          c->negate ? "!" : "",
                                          c->parameter,
@@ -49,7 +49,7 @@ bool condition_test_list(const char *unit, Condition *first) {
                 else
                         log_debug_unit(unit,
                                        "%s=%s%s%s %s for %s.",
-                                       condition_type_to_string(c->type),
+                                       to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        c->parameter,

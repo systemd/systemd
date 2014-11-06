@@ -155,25 +155,44 @@ Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,         
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
 Unit.JobTimeoutAction,           config_parse_failure_action,        0,                             offsetof(Unit, job_timeout_action)
 Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)
-Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
-Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
-Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0
-Unit.ConditionPathIsSymbolicLink,config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK,0
-Unit.ConditionPathIsMountPoint,  config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT, 0
-Unit.ConditionPathIsReadWrite,   config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE,  0
-Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, 0
-Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
-Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
-Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        0
-Unit.ConditionFirstBoot,         config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          0
-Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
-Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        0
-Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
-Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            0
-Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          0
-Unit.ConditionHost,              config_parse_unit_condition_string, CONDITION_HOST,                0
-Unit.ConditionACPower,           config_parse_unit_condition_string, CONDITION_AC_POWER,            0
-Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             0
+Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, conditions)
+Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, conditions)
+Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   offsetof(Unit, conditions)
+Unit.ConditionPathIsSymbolicLink,config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK,offsetof(Unit, conditions)
+Unit.ConditionPathIsMountPoint,  config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT, offsetof(Unit, conditions)
+Unit.ConditionPathIsReadWrite,   config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE,  offsetof(Unit, conditions)
+Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, offsetof(Unit, conditions)
+Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      offsetof(Unit, conditions)
+Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  offsetof(Unit, conditions)
+Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        offsetof(Unit, conditions)
+Unit.ConditionFirstBoot,         config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          offsetof(Unit, conditions)
+Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, offsetof(Unit, conditions)
+Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        offsetof(Unit, conditions)
+Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      offsetof(Unit, conditions)
+Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            offsetof(Unit, conditions)
+Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          offsetof(Unit, conditions)
+Unit.ConditionHost,              config_parse_unit_condition_string, CONDITION_HOST,                offsetof(Unit, conditions)
+Unit.ConditionACPower,           config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, conditions)
+Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             offsetof(Unit, conditions)
+Unit.AssertPathExists,           config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, asserts)
+Unit.AssertPathExistsGlob,       config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, asserts)
+Unit.AssertPathIsDirectory,      config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   offsetof(Unit, asserts)
+Unit.AssertPathIsSymbolicLink,   config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK,offsetof(Unit, asserts)
+Unit.AssertPathIsMountPoint,     config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT, offsetof(Unit, asserts)
+Unit.AssertPathIsReadWrite,      config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE,  offsetof(Unit, asserts)
+Unit.AssertDirectoryNotEmpty,    config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, offsetof(Unit, asserts)
+Unit.AssertFileNotEmpty,         config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      offsetof(Unit, asserts)
+Unit.AssertFileIsExecutable,     config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  offsetof(Unit, asserts)
+Unit.AssertNeedsUpdate,          config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        offsetof(Unit, asserts)
+Unit.AssertFirstBoot,            config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          offsetof(Unit, asserts)
+Unit.AssertKernelCommandLine,    config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, offsetof(Unit, asserts)
+Unit.AssertArchitecture,         config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        offsetof(Unit, asserts)
+Unit.AssertVirtualization,       config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      offsetof(Unit, asserts)
+Unit.AssertSecurity,             config_parse_unit_condition_string, CONDITION_SECURITY,            offsetof(Unit, asserts)
+Unit.AssertCapability,           config_parse_unit_condition_string, CONDITION_CAPABILITY,          offsetof(Unit, asserts)
+Unit.AssertHost,                 config_parse_unit_condition_string, CONDITION_HOST,                offsetof(Unit, asserts)
+Unit.AssertACPower,              config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, asserts)
+Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 m4_dnl
 Service.PIDFile,                 config_parse_unit_path_printf,      0,                             offsetof(Service, pid_file)
 Service.ExecStartPre,            config_parse_exec,                  SERVICE_EXEC_START_PRE,        offsetof(Service, exec_command)

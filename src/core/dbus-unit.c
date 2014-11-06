@@ -315,19 +315,21 @@ static int property_get_conditions(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
-        Condition *c;
+        const char *(*to_string)(ConditionType type) = NULL;
+        Condition **list = userdata, *c;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
+        assert(list);
+
+        to_string = streq(property, "Asserts") ? assert_type_to_string : condition_type_to_string;
 
         r = sd_bus_message_open_container(reply, 'a', "(sbbsi)");
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(conditions, c, u->conditions) {
+        LIST_FOREACH(conditions, c, *list) {
                 int tristate;
 
                 tristate =
@@ -335,7 +337,7 @@ static int property_get_conditions(
                         c->result == CONDITION_SUCCEEDED ? 1 : -1;
 
                 r = sd_bus_message_append(reply, "(sbbsi)",
-                                          condition_type_to_string(c->type),
+                                          to_string(c->type),
                                           c->trigger, c->negate,
                                           c->parameter, tristate);
                 if (r < 0)
@@ -572,8 +574,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_failure_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutRebootArgument", "s", NULL, offsetof(Unit, job_timeout_reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConditionResult", "b", bus_property_get_bool, offsetof(Unit, condition_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("AssertResult", "b", bus_property_get_bool, offsetof(Unit, assert_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ConditionTimestamp", offsetof(Unit, condition_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, 0, 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("AssertTimestamp", offsetof(Unit, assert_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, offsetof(Unit, conditions), 0),
+        SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
 

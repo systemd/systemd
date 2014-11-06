@@ -527,6 +527,7 @@ void unit_free(Unit *u) {
         unit_unwatch_all_pids(u);
 
         condition_free_list(u->conditions);
+        condition_free_list(u->asserts);
 
         unit_ref_unset(&u->slice);
 
@@ -929,7 +930,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->job_timeout_reboot_arg)
                 fprintf(f, "%s\tJob Timeout Reboot Argument: %s\n", prefix, u->job_timeout_reboot_arg);
 
-        condition_dump_list(u->conditions, f, prefix);
+        condition_dump_list(u->conditions, f, prefix, condition_type_to_string);
+        condition_dump_list(u->asserts, f, prefix, assert_type_to_string);
 
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 fprintf(f,
@@ -937,6 +939,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tCondition Result: %s\n",
                         prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->condition_timestamp.realtime)),
                         prefix, yes_no(u->condition_result));
+
+        if (dual_timestamp_is_set(&u->assert_timestamp))
+                fprintf(f,
+                        "%s\tAssert Timestamp: %s\n"
+                        "%s\tAssert Result: %s\n",
+                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->assert_timestamp.realtime)),
+                        prefix, yes_no(u->assert_result));
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
@@ -1240,9 +1249,18 @@ static bool unit_condition_test(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = condition_test_list(u->id, u->conditions);
+        u->condition_result = condition_test_list(u->id, u->conditions, condition_type_to_string);
 
         return u->condition_result;
+}
+
+static bool unit_assert_test(Unit *u) {
+        assert(u);
+
+        dual_timestamp_get(&u->assert_timestamp);
+        u->assert_result = condition_test_list(u->id, u->asserts, assert_type_to_string);
+
+        return u->assert_result;
 }
 
 _pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
@@ -1341,6 +1359,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
  *         -EALREADY:  Unit is already started.
  *         -EAGAIN:    An operation is already in progress. Retry later.
  *         -ECANCELED: Too many requests for now.
+ *         -EPROTO:    Assert failed
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -1365,15 +1384,21 @@ int unit_start(Unit *u) {
          * but we don't want to recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
-                log_debug_unit(u->id, "Starting of %s requested but condition failed. Ignoring.", u->id);
+                log_debug_unit(u->id, "Starting of %s requested but condition failed. Not starting unit.", u->id);
                 return -EALREADY;
+        }
+
+        /* If the asserts failed, fail the entire job */
+        if (state != UNIT_ACTIVATING &&
+            !unit_assert_test(u)) {
+                log_debug_unit(u->id, "Starting of %s requested but asserts failed.", u->id);
+                return -EPROTO;
         }
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
         if (following) {
-                log_debug_unit(u->id, "Redirecting start request from %s to %s.",
-                               u->id, following->id);
+                log_debug_unit(u->id, "Redirecting start request from %s to %s.", u->id, following->id);
                 return unit_start(following);
         }
 
@@ -2502,9 +2527,13 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         dual_timestamp_serialize(f, "active-exit-timestamp", &u->active_exit_timestamp);
         dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->inactive_enter_timestamp);
         dual_timestamp_serialize(f, "condition-timestamp", &u->condition_timestamp);
+        dual_timestamp_serialize(f, "assert-timestamp", &u->assert_timestamp);
 
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 unit_serialize_item(u, f, "condition-result", yes_no(u->condition_result));
+
+        if (dual_timestamp_is_set(&u->assert_timestamp))
+                unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
 
@@ -2645,6 +2674,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "condition-timestamp")) {
                         dual_timestamp_deserialize(v, &u->condition_timestamp);
                         continue;
+                } else if (streq(l, "assert-timestamp")) {
+                        dual_timestamp_deserialize(v, &u->assert_timestamp);
+                        continue;
                 } else if (streq(l, "condition-result")) {
                         int b;
 
@@ -2653,6 +2685,17 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse condition result value %s", v);
                         else
                                 u->condition_result = b;
+
+                        continue;
+
+                } else if (streq(l, "assert-result")) {
+                        int b;
+
+                        b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse assert result value %s", v);
+                        else
+                                u->assert_result = b;
 
                         continue;
 

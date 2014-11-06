@@ -23,4 +23,4 @@
 
 #include "condition-util.h"
 
-bool condition_test_list(const char *unit, Condition *c);
+bool condition_test_list(const char *unit, Condition *c, const char *(*to_string)(ConditionType t));
