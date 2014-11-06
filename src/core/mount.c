@@ -814,19 +814,26 @@ fail:
 }
 
 void warn_if_dir_nonempty(const char *unit, const char* where) {
+        int r;
+
         assert(unit);
         assert(where);
 
-        if (dir_is_empty(where) > 0)
+        r = dir_is_empty(where);
+        if (r > 0)
                 return;
-
-        log_struct_unit(LOG_NOTICE,
-                   unit,
-                   "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
-                   unit, where,
-                   "WHERE=%s", where,
-                   MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
-                   NULL);
+        else if (r == 0)
+                log_struct_unit(LOG_NOTICE,
+                                unit,
+                                "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
+                                unit, where,
+                                "WHERE=%s", where,
+                                MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                                NULL);
+        else
+                log_warning_unit(unit,
+                                 "MESSAGE=Failed to check directory %s: %s",
+                                 where, strerror(-r));
 }
 
 static int fail_if_symlink(const char *unit, const char* where) {
