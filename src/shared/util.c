@@ -6987,14 +6987,14 @@ int is_symlink(const char *path) {
 
 int is_dir(const char* path, bool follow) {
         struct stat st;
+        int r;
 
-        if (follow) {
-                if (stat(path, &st) < 0)
-                        return -errno;
-        } else {
-                if (lstat(path, &st) < 0)
-                        return -errno;
-        }
+        if (follow)
+                r = stat(path, &st);
+        else
+                r = lstat(path, &st);
+        if (r < 0)
+                return -errno;
 
         return !!S_ISDIR(st.st_mode);
 }

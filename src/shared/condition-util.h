@@ -83,6 +83,8 @@ int condition_test_architecture(Condition *c);
 int condition_test_host(Condition *c);
 int condition_test_ac_power(Condition *c);
 
+int condition_test(Condition *c);
+
 void condition_dump(Condition *c, FILE *f, const char *prefix);
 void condition_dump_list(Condition *c, FILE *f, const char *prefix);
 

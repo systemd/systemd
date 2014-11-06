@@ -26,7 +26,7 @@
 #include <sys/statvfs.h>
 #include <fnmatch.h>
 
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 #include "util.h"
 #include "condition-util.h"
 #include "virt.h"
@@ -34,9 +34,16 @@
 #include "fileio.h"
 #include "unit.h"
 #include "architecture.h"
+#include "virt.h"
+#include "smack-util.h"
+#include "apparmor-util.h"
+#include "ima-util.h"
+#include "selinux-util.h"
+#include "audit.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
+        int r;
 
         assert(type < _CONDITION_TYPE_MAX);
 
@@ -48,12 +55,10 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
         c->trigger = trigger;
         c->negate = negate;
 
-        if (parameter) {
-                c->parameter = strdup(parameter);
-                if (!c->parameter) {
-                        free(c);
-                        return NULL;
-                }
+        r = free_and_strdup(&c->parameter, parameter);
+        if (r < 0) {
+                free(c);
+                return NULL;
         }
 
         return c;
@@ -208,6 +213,227 @@ int condition_test_ac_power(Condition *c) {
                 return r;
 
         return ((on_ac_power() != 0) == !!r) == !c->negate;
+}
+
+static int condition_test_security(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_SECURITY);
+
+        if (streq(c->parameter, "selinux"))
+                return mac_selinux_use() == !c->negate;
+        if (streq(c->parameter, "smack"))
+                return mac_smack_use() == !c->negate;
+        if (streq(c->parameter, "apparmor"))
+                return mac_apparmor_use() == !c->negate;
+        if (streq(c->parameter, "audit"))
+                return use_audit() == !c->negate;
+        if (streq(c->parameter, "ima"))
+                return use_ima() == !c->negate;
+
+        return c->negate;
+}
+
+static int condition_test_capability(Condition *c) {
+        _cleanup_fclose_ FILE *f = NULL;
+        cap_value_t value;
+        char line[LINE_MAX];
+        unsigned long long capabilities = -1;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CAPABILITY);
+
+        /* If it's an invalid capability, we don't have it */
+
+        if (cap_from_name(c->parameter, &value) < 0)
+                return -EINVAL;
+
+        /* If it's a valid capability we default to assume
+         * that we have it */
+
+        f = fopen("/proc/self/status", "re");
+        if (!f)
+                return -errno;
+
+        while (fgets(line, sizeof(line), f)) {
+                truncate_nl(line);
+
+                if (startswith(line, "CapBnd:")) {
+                        (void) sscanf(line+7, "%llx", &capabilities);
+                        break;
+                }
+        }
+
+        return !!(capabilities & (1ULL << value)) == !c->negate;
+}
+
+static int condition_test_needs_update(Condition *c) {
+        const char *p;
+        struct stat usr, other;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_NEEDS_UPDATE);
+
+        /* If the file system is read-only we shouldn't suggest an update */
+        if (path_is_read_only_fs(c->parameter) > 0)
+                return c->negate;
+
+        /* Any other failure means we should allow the condition to be true,
+         * so that we rather invoke too many update tools then too
+         * few. */
+
+        if (!path_is_absolute(c->parameter))
+                return !c->negate;
+
+        p = strappenda(c->parameter, "/.updated");
+        if (lstat(p, &other) < 0)
+                return !c->negate;
+
+        if (lstat("/usr/", &usr) < 0)
+                return !c->negate;
+
+        return (usr.st_mtim.tv_sec > other.st_mtim.tv_sec ||
+                (usr.st_mtim.tv_sec == other.st_mtim.tv_sec && usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec)) == !c->negate;
+}
+
+static int condition_test_first_boot(Condition *c) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FIRST_BOOT);
+
+        r = parse_boolean(c->parameter);
+        if (r < 0)
+                return r;
+
+        return ((access("/run/systemd/first-boot", F_OK) >= 0) == !!r) == !c->negate;
+}
+
+static int condition_test_path_exists(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_EXISTS);
+
+        return (access(c->parameter, F_OK) >= 0) == !c->negate;
+}
+
+static int condition_test_path_exists_glob(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_EXISTS_GLOB);
+
+        return (glob_exists(c->parameter) > 0) == !c->negate;
+}
+
+static int condition_test_path_is_directory(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_DIRECTORY);
+
+        return (is_dir(c->parameter, true) > 0) == !c->negate;
+}
+
+static int condition_test_path_is_symbolic_link(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_SYMBOLIC_LINK);
+
+        return (is_symlink(c->parameter) > 0) == !c->negate;
+}
+
+static int condition_test_path_is_mount_point(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
+
+        return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
+}
+
+static int condition_test_path_is_read_write(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_READ_WRITE);
+
+        return (path_is_read_only_fs(c->parameter) > 0) == c->negate;
+}
+
+static int condition_test_directory_not_empty(Condition *c) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_DIRECTORY_NOT_EMPTY);
+
+        r = dir_is_empty(c->parameter);
+        return !(r == -ENOENT || r > 0) == !c->negate;
+}
+
+static int condition_test_file_not_empty(Condition *c) {
+        struct stat st;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FILE_NOT_EMPTY);
+
+        return (stat(c->parameter, &st) >= 0 &&
+                S_ISREG(st.st_mode) &&
+                st.st_size > 0) == !c->negate;
+}
+
+static int condition_test_file_is_executable(Condition *c) {
+        struct stat st;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FILE_IS_EXECUTABLE);
+
+        return (stat(c->parameter, &st) >= 0 &&
+                S_ISREG(st.st_mode) &&
+                (st.st_mode & 0111)) == !c->negate;
+}
+
+static int condition_test_null(Condition *c) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_NULL);
+
+        /* Note that during parsing we already evaluate the string and
+         * store it in c->negate */
+        return !c->negate;
+}
+
+int condition_test(Condition *c) {
+
+        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c) = {
+                [CONDITION_PATH_EXISTS] = condition_test_path_exists,
+                [CONDITION_PATH_EXISTS_GLOB] = condition_test_path_exists_glob,
+                [CONDITION_PATH_IS_DIRECTORY] = condition_test_path_is_directory,
+                [CONDITION_PATH_IS_SYMBOLIC_LINK] = condition_test_path_is_symbolic_link,
+                [CONDITION_PATH_IS_MOUNT_POINT] = condition_test_path_is_mount_point,
+                [CONDITION_PATH_IS_READ_WRITE] = condition_test_path_is_read_write,
+                [CONDITION_DIRECTORY_NOT_EMPTY] = condition_test_directory_not_empty,
+                [CONDITION_FILE_NOT_EMPTY] = condition_test_file_not_empty,
+                [CONDITION_FILE_IS_EXECUTABLE] = condition_test_file_is_executable,
+                [CONDITION_KERNEL_COMMAND_LINE] = condition_test_kernel_command_line,
+                [CONDITION_VIRTUALIZATION] = condition_test_virtualization,
+                [CONDITION_SECURITY] = condition_test_security,
+                [CONDITION_CAPABILITY] = condition_test_capability,
+                [CONDITION_HOST] = condition_test_host,
+                [CONDITION_AC_POWER] = condition_test_ac_power,
+                [CONDITION_ARCHITECTURE] = condition_test_architecture,
+                [CONDITION_NEEDS_UPDATE] = condition_test_needs_update,
+                [CONDITION_FIRST_BOOT] = condition_test_first_boot,
+                [CONDITION_NULL] = condition_test_null,
+        };
+
+        assert(c);
+        assert(c->type >= 0);
+        assert(c->type < _CONDITION_TYPE_MAX);
+
+        return condition_tests[c->type](c);
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix) {

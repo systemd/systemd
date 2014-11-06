@@ -1524,8 +1524,9 @@ test_condition_util_SOURCES = \
 
 test_condition_util_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-internal.la
-
+	libsystemd-internal.la \
+	libsystemd-capability.la \
+	libsystemd-label.la
 
 test_fdset_SOURCES = \
 	src/test/test-fdset.c
