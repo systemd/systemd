@@ -53,10 +53,8 @@ bool condition_test_list(const char *unit, Condition *first) {
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        c->parameter,
-                                       r > 0 ? "succeeded" : "failed",
+                                       condition_result_to_string(c->result),
                                        unit);
-
-                c->state = r > 0 ? CONDITION_STATE_SUCCEEDED : CONDITION_STATE_FAILED;
 
                 if (!c->trigger && r <= 0)
                         return false;

@@ -51,15 +51,14 @@ typedef enum ConditionType {
         _CONDITION_TYPE_INVALID = -1
 } ConditionType;
 
-#define CONDITION_STATE_IS_SUCCEEDED(state) ((state) > 0)
-#define CONDITION_STATE_IS_UNKNOWN(state) ((state) == 0)
-#define CONDITION_STATE_IS_FAILED(state) ((state) < 0)
-
-enum {
-        CONDITION_STATE_SUCCEEDED = -1,
-        CONDITION_STATE_UNKNOWN = 0,
-        CONDITION_STATE_FAILED = 1
-};
+typedef enum ConditionResult {
+        CONDITION_UNTESTED,
+        CONDITION_SUCCEEDED,
+        CONDITION_FAILED,
+        CONDITION_ERROR,
+        _CONDITION_RESULT_MAX,
+        _CONDITION_RESULT_INVALID = -1
+} ConditionResult;
 
 typedef struct Condition {
         ConditionType type;
@@ -68,7 +67,7 @@ typedef struct Condition {
         bool negate:1;
 
         char *parameter;
-        int state;
+        ConditionResult result;
 
         LIST_FIELDS(struct Condition, conditions);
 } Condition;
@@ -84,3 +83,6 @@ void condition_dump_list(Condition *c, FILE *f, const char *prefix);
 
 const char* condition_type_to_string(ConditionType t) _const_;
 int condition_type_from_string(const char *s) _pure_;
+
+const char* condition_result_to_string(ConditionResult r) _const_;
+ConditionResult condition_result_from_string(const char *s) _pure_;

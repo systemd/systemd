@@ -429,17 +429,22 @@ int condition_test(Condition *c) {
                 [CONDITION_FIRST_BOOT] = condition_test_first_boot,
                 [CONDITION_NULL] = condition_test_null,
         };
-        int r;
+
+        int r, b;
 
         assert(c);
         assert(c->type >= 0);
         assert(c->type < _CONDITION_TYPE_MAX);
 
         r = condition_tests[c->type](c);
-        if (r < 0)
+        if (r < 0) {
+                c->result = CONDITION_ERROR;
                 return r;
+        }
 
-        return (r > 0) == !c->negate;
+        b = (r > 0) == !c->negate;
+        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
+        return b;
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix) {
@@ -456,7 +461,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 c->trigger ? "|" : "",
                 c->negate ? "!" : "",
                 c->parameter,
-                CONDITION_STATE_IS_FAILED(c->state) ? "failed" : CONDITION_STATE_IS_SUCCEEDED(c->state) ? "succeeded" : "untested");
+                condition_result_to_string(c->result));
 }
 
 void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
@@ -489,3 +494,12 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
+
+static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {
+        [CONDITION_UNTESTED] = "untested",
+        [CONDITION_SUCCEEDED] = "succeeded",
+        [CONDITION_FAILED] = "failed",
+        [CONDITION_ERROR] = "error",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(condition_result, ConditionResult);

@@ -328,10 +328,16 @@ static int property_get_conditions(
                 return r;
 
         LIST_FOREACH(conditions, c, u->conditions) {
+                int tristate;
+
+                tristate =
+                        c->result == CONDITION_UNTESTED ? 0 :
+                        c->result == CONDITION_SUCCEEDED ? 1 : -1;
+
                 r = sd_bus_message_append(reply, "(sbbsi)",
                                           condition_type_to_string(c->type),
                                           c->trigger, c->negate,
-                                          c->parameter, c->state);
+                                          c->parameter, tristate);
                 if (r < 0)
                         return r;
 
