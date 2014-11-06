@@ -521,6 +521,7 @@ fail:
 
 static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
+        TimerValue *v;
 
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
@@ -529,6 +530,11 @@ static int timer_start(Unit *u) {
                 return -ENOENT;
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
+
+        /* Reenable all timers that depend on unit activation time */
+        LIST_FOREACH(value, v, t->values)
+                if (v->base == TIMER_ACTIVE)
+                        v->disabled = false;
 
         if (t->stamp_path) {
                 struct stat st;
