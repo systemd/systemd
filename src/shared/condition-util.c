@@ -45,7 +45,9 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
         Condition *c;
         int r;
 
+        assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
+        assert(!parameter == (type == CONDITION_NULL));
 
         c = new0(Condition, 1);
         if (!c)
@@ -397,7 +399,6 @@ static int condition_test_file_is_executable(Condition *c) {
 
 static int condition_test_null(Condition *c) {
         assert(c);
-        assert(c->parameter);
         assert(c->type == CONDITION_NULL);
 
         /* Note that during parsing we already evaluate the string and

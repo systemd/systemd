@@ -31,12 +31,56 @@ static void test_condition_test_path_exists(void) {
         assert_se(condition_test(condition));
         condition_free(condition);
 
+        condition = condition_new(CONDITION_PATH_EXISTS, "/bin/s?", false, false);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, true);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
         condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false);
         assert_se(!condition_test(condition));
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, true);
         assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_DIRECTORY, "/bin", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DIRECTORY_NOT_EMPTY, "/bin", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FILE_NOT_EMPTY, "/bin/sh", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/bin/sh", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/etc/passwd", false, false);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/proc", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/bin", false, false);
+        assert_se(!condition_test(condition));
         condition_free(condition);
 }
 
@@ -123,6 +167,18 @@ static void test_condition_test_kernel_command_line(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_null(void) {
+        Condition *condition;
+
+        condition = condition_new(CONDITION_NULL, NULL, false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_NULL, NULL, false, true);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -132,6 +188,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_host();
         test_condition_test_architecture();
         test_condition_test_kernel_command_line();
+        test_condition_test_null();
 
         return 0;
 }
