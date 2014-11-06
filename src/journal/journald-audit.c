@@ -396,8 +396,8 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
 
-        m = alloca(strlen("MESSAGE=audit-") + DECIMAL_STR_MAX(int) + strlen(": ") + strlen(p) + 1);
-        sprintf(m, "MESSAGE=audit-%i: %s", type, p);
+        m = alloca(strlen("MESSAGE=<audit-") + DECIMAL_STR_MAX(int) + strlen("> ") + strlen(p) + 1);
+        sprintf(m, "MESSAGE=<audit-%i> %s", type, p);
         IOVEC_SET_STRING(iov[n_iov++], m);
 
         z = n_iov;
