@@ -12,6 +12,8 @@ DefaultDependencies=no
 Requires=systemd-poweroff.service
 After=systemd-poweroff.service
 AllowIsolate=yes
+JobTimeoutSec=30min
+JobTimeoutAction=poweroff-force
 
 [Install]
 Alias=ctrl-alt-del.target
