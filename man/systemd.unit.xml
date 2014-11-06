@@ -950,7 +950,11 @@
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
-                                <term><varname>ConditionNull=</varname></term>
+
+                                <!-- We don't document ConditionNull=
+                                     here as it is not particularly
+                                     useful and probably just
+                                     confusing. -->
 
                                 <listitem><para>Before starting a unit
                                 verify that the specified condition is
@@ -1230,15 +1234,6 @@
                                 exists, is a regular file and marked
                                 executable.</para>
 
-                                <para>Finally,
-                                <varname>ConditionNull=</varname> may
-                                be used to add a constant condition
-                                check value to the unit. It takes a
-                                boolean argument. If set to
-                                <varname>false</varname>, the condition
-                                will always fail, otherwise
-                                succeed.</para>
-
                                 <para>If multiple conditions are
                                 specified, the unit will be executed if
                                 all of them apply (i.e. a logical AND
@@ -1283,7 +1278,6 @@
                                 <term><varname>AssertDirectoryNotEmpty=</varname></term>
                                 <term><varname>AssertFileNotEmpty=</varname></term>
                                 <term><varname>AssertFileIsExecutable=</varname></term>
-                                <term><varname>AssertNull=</varname></term>
 
                                 <listitem><para>Similar to the
                                 <varname>ConditionArchitecture=</varname>,
