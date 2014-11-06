@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **disks_done = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
-        int r = EXIT_FAILURE, r2 = EXIT_FAILURE;
+        int r = EXIT_FAILURE, r2 = EXIT_FAILURE, z;
         char **i;
 
         if (argc > 1 && argc != 4) {
@@ -325,8 +325,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                goto cleanup;
+        z = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (z < 0)
+                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-z));
 
         if (!arg_enabled) {
                 r = r2 = EXIT_SUCCESS;

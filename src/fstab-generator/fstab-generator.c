@@ -593,8 +593,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                return EXIT_FAILURE;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {

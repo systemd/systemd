@@ -1402,9 +1402,11 @@ int main(int argc, char *argv[]) {
         if (parse_config_file() < 0)
                 goto finish;
 
-        if (arg_running_as == SYSTEMD_SYSTEM)
-                if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                        goto finish;
+        if (arg_running_as == SYSTEMD_SYSTEM) {
+                r = parse_proc_cmdline(parse_proc_cmdline_item);
+                if (r < 0)
+                        log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
+        }
 
         /* Note that this also parses bits from the kernel command
          * line, including "debug". */

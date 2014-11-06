@@ -93,8 +93,6 @@ static int condition_test_kernel_command_line(Condition *c) {
         r = proc_cmdline(&line);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return false;
 
         equal = !!strchr(c->parameter, '=');
         p = line;

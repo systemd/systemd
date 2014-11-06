@@ -236,7 +236,10 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline(parse_proc_cmdline_item);
+        q = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (q < 0)
+                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-q));
+
         test_files();
 
         if (!arg_force && arg_skip)

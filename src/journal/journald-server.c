@@ -1310,10 +1310,10 @@ static int server_parse_proc_cmdline(Server *s) {
         int r;
 
         r = proc_cmdline(&line);
-        if (r < 0)
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
                 return 0;
+        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 _cleanup_free_ char *word;

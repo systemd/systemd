@@ -6153,11 +6153,8 @@ int shall_restore_state(void) {
         r = proc_cmdline(&line);
         if (r < 0)
                 return r;
-        if (r == 0) /* Container ... */
-                return 1;
 
         r = 1;
-
         FOREACH_WORD_QUOTED(word, l, line, state) {
                 const char *e;
                 char n[l+1];
@@ -6179,30 +6176,12 @@ int shall_restore_state(void) {
 }
 
 int proc_cmdline(char **ret) {
-        int r;
+        assert(ret);
 
-        if (detect_container(NULL) > 0) {
-                char *buf = NULL, *p;
-                size_t sz = 0;
-
-                r = read_full_file("/proc/1/cmdline", &buf, &sz);
-                if (r < 0)
-                        return r;
-
-                for (p = buf; p + 1 < buf + sz; p++)
-                        if (*p == 0)
-                                *p = ' ';
-
-                *p = 0;
-                *ret = buf;
-                return 1;
-        }
-
-        r = read_one_line_file("/proc/cmdline", ret);
-        if (r < 0)
-                return r;
-
-        return 1;
+        if (detect_container(NULL) > 0)
+                return get_process_cmdline(1, 0, false, ret);
+        else
+                return read_one_line_file("/proc/cmdline", ret);
 }
 
 int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
@@ -6215,9 +6194,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
 
         r = proc_cmdline(&line);
         if (r < 0)
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-        if (r <= 0)
-                return 0;
+                return r;
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 char word[l+1], *value;

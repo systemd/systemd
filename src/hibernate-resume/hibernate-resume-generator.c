@@ -45,6 +45,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 static int process_resume(void) {
         _cleanup_free_ char *name = NULL, *lnk = NULL;
 
+        if (!arg_resume_dev)
+                return 0;
+
         name = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_dev, ".service");
         if (!name)
                 return log_oom();
@@ -83,12 +86,11 @@ int main(int argc, char *argv[]) {
         if (!in_initrd())
                 return EXIT_SUCCESS;
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                return EXIT_FAILURE;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
 
-        if (arg_resume_dev != NULL)
-                r = process_resume();
-
+        r = process_resume();
         free(arg_resume_dev);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

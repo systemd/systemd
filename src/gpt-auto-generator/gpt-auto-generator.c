@@ -772,8 +772,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
-                return EXIT_FAILURE;
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
 
         if (!arg_enabled) {
                 log_debug("Disabled, exiting.");

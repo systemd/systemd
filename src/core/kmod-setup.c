@@ -47,7 +47,7 @@ static void systemd_kmod_log(
 static bool cmdline_check_kdbus(void) {
         _cleanup_free_ char *line = NULL;
 
-        if (proc_cmdline(&line) <= 0)
+        if (proc_cmdline(&line) < 0)
                 return false;
 
         return strstr(line, "kdbus") != NULL;
