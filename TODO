@@ -85,8 +85,6 @@ Features:
 
 * maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
 
-* maybe introduce AssertXYZ= similar to ConditionXYZ= that causes a unit to fail (instead of skipping it) if some condition is not true...
-
 * refcounting in sd-resolve is borked
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
