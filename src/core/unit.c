@@ -1245,11 +1245,58 @@ fail:
         return r;
 }
 
+static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to_string)(ConditionType t)) {
+        Condition *c;
+        int triggered = -1;
+
+        assert(u);
+        assert(to_string);
+
+        /* If the condition list is empty, then it is true */
+        if (!first)
+                return true;
+
+        /* Otherwise, if all of the non-trigger conditions apply and
+         * if any of the trigger conditions apply (unless there are
+         * none) we return true */
+        LIST_FOREACH(conditions, c, first) {
+                int r;
+
+                r = condition_test(c);
+                if (r < 0)
+                        log_warning_unit(u->id,
+                                         "Couldn't determine result for %s=%s%s%s for %s, assuming failed: %s",
+                                         to_string(c->type),
+                                         c->trigger ? "|" : "",
+                                         c->negate ? "!" : "",
+                                         c->parameter,
+                                         u->id,
+                                         strerror(-r));
+                else
+                        log_debug_unit(u->id,
+                                       "%s=%s%s%s %s for %s.",
+                                       to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter,
+                                       condition_result_to_string(c->result),
+                                       u->id);
+
+                if (!c->trigger && r <= 0)
+                        return false;
+
+                if (c->trigger && triggered <= 0)
+                        triggered = r > 0;
+        }
+
+        return triggered != 0;
+}
+
 static bool unit_condition_test(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = condition_test_list(u->id, u->conditions, condition_type_to_string);
+        u->condition_result = unit_condition_test_list(u, u->conditions, condition_type_to_string);
 
         return u->condition_result;
 }
@@ -1258,7 +1305,7 @@ static bool unit_assert_test(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
-        u->assert_result = condition_test_list(u->id, u->asserts, assert_type_to_string);
+        u->assert_result = unit_condition_test_list(u, u->asserts, assert_type_to_string);
 
         return u->assert_result;
 }

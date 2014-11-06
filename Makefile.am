@@ -1132,8 +1132,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.h \
 	src/core/loopback-setup.c \
-	src/core/condition.c \
-	src/core/condition.h \
 	src/core/namespace.c \
 	src/core/namespace.h \
 	src/core/build.h \

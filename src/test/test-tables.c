@@ -20,7 +20,7 @@
 #include "automount.h"
 #include "cgroup.h"
 #include "compress.h"
-#include "condition.h"
+#include "condition-util.h"
 #include "device.h"
 #include "execute.h"
 #include "exit-status.h"
