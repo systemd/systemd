@@ -20,12 +20,12 @@
 ***/
 
 #include <unistd.h>
-#include <sys/sendfile.h>
-#include "fileio.h"
+
 #include "util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "ctype.h"
+#include "fileio.h"
 
 int write_string_stream(FILE *f, const char *line) {
         assert(f);
@@ -142,77 +142,6 @@ int read_one_line_file(const char *fn, char **line) {
 
         *line = c;
         return 0;
-}
-
-ssize_t sendfile_full(int out_fd, const char *fn) {
-        _cleanup_fclose_ FILE *f;
-        struct stat st;
-        int r;
-        ssize_t s;
-
-        size_t n, l;
-        _cleanup_free_ char *buf = NULL;
-
-        assert(out_fd > 0);
-        assert(fn);
-
-        f = fopen(fn, "re");
-        if (!f)
-                return -errno;
-
-        r = fstat(fileno(f), &st);
-        if (r < 0)
-                return -errno;
-
-        s = sendfile(out_fd, fileno(f), NULL, st.st_size);
-        if (s < 0)
-                if (errno == EINVAL || errno == ENOSYS) {
-                        /* continue below */
-                } else
-                        return -errno;
-        else
-                return s;
-
-        /* sendfile() failed, fall back to read/write */
-
-        /* Safety check */
-        if (st.st_size > 4*1024*1024)
-                return -E2BIG;
-
-        n = st.st_size > 0 ? st.st_size : LINE_MAX;
-        l = 0;
-
-        while (true) {
-                char *t;
-                size_t k;
-
-                t = realloc(buf, n);
-                if (!t)
-                        return -ENOMEM;
-
-                buf = t;
-                k = fread(buf + l, 1, n - l, f);
-
-                if (k <= 0) {
-                        if (ferror(f))
-                                return -errno;
-
-                        break;
-                }
-
-                l += k;
-                n *= 2;
-
-                /* Safety check */
-                if (n > 4*1024*1024)
-                        return -E2BIG;
-        }
-
-        r = write(out_fd, buf, l);
-        if (r < 0)
-                return -errno;
-
-        return (ssize_t) l;
 }
 
 int read_full_stream(FILE *f, char **contents, size_t *size) {

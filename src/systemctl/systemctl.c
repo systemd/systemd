@@ -67,6 +67,7 @@
 #include "logs-show.h"
 #include "socket-util.h"
 #include "fileio.h"
+#include "copy.h"
 #include "env-util.h"
 #include "bus-util.h"
 #include "bus-message.h"
@@ -4647,7 +4648,7 @@ static int cat(sd_bus *bus, char **args) {
                                ansi_highlight_off());
                         fflush(stdout);
 
-                        r = sendfile_full(STDOUT_FILENO, fragment_path);
+                        r = copy_file_fd(fragment_path, STDOUT_FILENO);
                         if (r < 0) {
                                 log_warning("Failed to cat %s: %s", fragment_path, strerror(-r));
                                 continue;
@@ -4662,7 +4663,7 @@ static int cat(sd_bus *bus, char **args) {
                                ansi_highlight_off());
                         fflush(stdout);
 
-                        r = sendfile_full(STDOUT_FILENO, *path);
+                        r = copy_file_fd(*path, STDOUT_FILENO);
                         if (r < 0) {
                                 log_warning("Failed to cat %s: %s", *path, strerror(-r));
                                 continue;

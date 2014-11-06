@@ -48,9 +48,34 @@ static void test_copy_file(void) {
 
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
+        assert_se(sz == 20);
 
         unlink(fn);
         unlink(fn_copy);
+}
+
+static void test_copy_file_fd(void) {
+        char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
+        char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
+        _cleanup_close_ int in_fd = -1, out_fd = -1;
+        char text[] = "boohoo\nfoo\n\tbar\n";
+        char buf[64] = {0};
+
+        in_fd = mkostemp_safe(in_fn, O_RDWR);
+        assert_se(in_fd >= 0);
+        out_fd = mkostemp_safe(out_fn, O_RDWR);
+        assert_se(out_fd >= 0);
+
+        assert_se(write_string_file(in_fn, text) == 0);
+        assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd) < 0);
+        assert_se(copy_file_fd(in_fn, out_fd) >= 0);
+        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
+
+        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
+        assert_se(streq(buf, text));
+
+        unlink(in_fn);
+        unlink(out_fn);
 }
 
 static void test_copy_tree(void) {
@@ -109,6 +134,7 @@ static void test_copy_tree(void) {
 
 int main(int argc, char *argv[]) {
         test_copy_file();
+        test_copy_file_fd();
         test_copy_tree();
 
         return 0;

@@ -348,30 +348,6 @@ static void test_write_string_file_no_create(void) {
         unlink(fn);
 }
 
-static void test_sendfile_full(void) {
-        char in_fn[] = "/tmp/test-sendfile_full-XXXXXX";
-        char out_fn[] = "/tmp/test-sendfile_full-XXXXXX";
-        _cleanup_close_ int in_fd, out_fd;
-        char text[] = "boohoo\nfoo\n\tbar\n";
-        char buf[64] = {0};
-
-        in_fd = mkostemp_safe(in_fn, O_RDWR);
-        assert_se(in_fd >= 0);
-        out_fd = mkostemp_safe(out_fn, O_RDWR);
-        assert_se(out_fd >= 0);
-
-        assert_se(write_string_file(in_fn, text) == 0);
-        assert_se(sendfile_full(out_fd, "/a/file/which/does/not/exist/i/guess") < 0);
-        assert_se(sendfile_full(out_fd, in_fn) == sizeof(text) - 1);
-        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
-
-        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
-        assert_se(streq(buf, text));
-
-        unlink(in_fn);
-        unlink(out_fn);
-}
-
 static void test_load_env_file_pairs(void) {
         char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
         int fd;
@@ -428,7 +404,6 @@ int main(int argc, char *argv[]) {
         test_write_string_stream();
         test_write_string_file();
         test_write_string_file_no_create();
-        test_sendfile_full();
         test_load_env_file_pairs();
 
         return 0;

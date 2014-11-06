@@ -19,17 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/sendfile.h>
+
 #include "util.h"
 #include "copy.h"
 
 int copy_bytes(int fdf, int fdt, off_t max_bytes) {
+        bool try_sendfile = true;
+
         assert(fdf >= 0);
         assert(fdt >= 0);
 
         for (;;) {
-                char buf[PIPE_BUF];
-                ssize_t n, k;
-                size_t m = sizeof(buf);
+                size_t m = PIPE_BUF;
+                ssize_t n;
 
                 if (max_bytes != (off_t) -1) {
 
@@ -40,19 +43,44 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                                 m = (size_t) max_bytes;
                 }
 
-                n = read(fdf, buf, m);
-                if (n < 0)
-                        return -errno;
-                if (n == 0)
-                        break;
+                /* First try sendfile(), unless we already tried */
+                if (try_sendfile) {
 
-                errno = 0;
-                k = loop_write(fdt, buf, n, false);
-                if (k < 0)
-                        return k;
-                if (k != n)
-                        return errno ? -errno : -EIO;
+                        n = sendfile(fdt, fdf, NULL, m);
+                        if (n < 0) {
+                                if (errno != EINVAL && errno != ENOSYS)
+                                        return -errno;
 
+                                try_sendfile = false;
+                                /* use fallback below */
+                        } else if (n == 0) /* EOF */
+                                break;
+                        else if (n > 0)
+                                /* Succcess! */
+                                goto next;
+                }
+
+                /* As a fallback just copy bits by hand */
+                {
+                        char buf[m];
+                        ssize_t k;
+
+                        n = read(fdf, buf, m);
+                        if (n < 0)
+                                return -errno;
+                        if (n == 0) /* EOF */
+                                break;
+
+                        errno = 0;
+                        k = loop_write(fdt, buf, n, false);
+                        if (k < 0)
+                                return k;
+                        if (k != n)
+                                return errno ? -errno : -EIO;
+
+                }
+
+        next:
                 if (max_bytes != (off_t) -1) {
                         assert(max_bytes >= n);
                         max_bytes -= n;
@@ -262,34 +290,39 @@ int copy_tree(const char *from, const char *to, bool merge) {
                 return -ENOTSUP;
 }
 
-int copy_file(const char *from, const char *to, int flags, mode_t mode) {
-        _cleanup_close_ int fdf = -1, fdt = -1;
-        int r;
+int copy_file_fd(const char *from, int fdt) {
+        _cleanup_close_ int fdf = -1;
 
         assert(from);
-        assert(to);
+        assert(fdt >= 0);
 
         fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fdf < 0)
                 return -errno;
 
+        return copy_bytes(fdf, fdt, (off_t) -1);
+}
+
+int copy_file(const char *from, const char *to, int flags, mode_t mode) {
+        int fdt, r;
+
+        assert(from);
+        assert(to);
+
         fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (off_t) -1);
+        r = copy_file_fd(from, fdt);
         if (r < 0) {
+                close(fdt);
                 unlink(to);
                 return r;
         }
 
-        r = close(fdt);
-        fdt = -1;
-
-        if (r < 0) {
-                r = -errno;
-                unlink(to);
-                return r;
+        if (close(fdt) < 0) {
+                unlink_noerrno(to);
+                return -errno;
         }
 
         return 0;
