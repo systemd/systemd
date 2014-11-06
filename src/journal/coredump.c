@@ -521,7 +521,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (get_process_comm(pid, &comm) < 0) {
-                log_warning("Failed to get COMM, falling back to the commandline.");
+                log_warning("Failed to get COMM, falling back to the command line.");
                 comm = strv_join(argv + INFO_COMM + 1, " ");
         }
 

@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
                 goto error;
 
         /* journald will die if not gone yet. The log target defaults
-         * to console, but may have been changed by commandline options. */
+         * to console, but may have been changed by command line options. */
 
         log_close_console(); /* force reopen of /dev/console */
         log_open();

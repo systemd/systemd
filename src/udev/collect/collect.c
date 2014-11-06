@@ -254,7 +254,7 @@ static void reject(char *us)
  * kickout
  *
  * Remove all IDs in the internal list which are not part
- * of the list passed via the commandline.
+ * of the list passed via the command line.
  */
 static void kickout(void)
 {

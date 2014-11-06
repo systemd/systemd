@@ -97,7 +97,7 @@
                 only configuration files in this subdirectory (across
                 all configuration paths) will be analyzed. Otherwise,
                 all configuration files will be analyzed. If the
-                commandline argument is not given at all, all
+                command line argument is not given at all, all
                 configuration files will be analyzed. See below for
                 some examples.</para>
         </refsect1>

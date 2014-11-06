@@ -64,7 +64,7 @@
                         as an SVG graph. Normally, systemd-bootchart
                         is invoked by the kernel by passing
                         <option>init=<filename>/usr/lib/systemd/systemd-bootchart</filename></option>
-                        on the kernel commandline. systemd-bootchart will then
+                        on the kernel command line. systemd-bootchart will then
                         fork the real init off to resume normal system
                         startup, while monitoring and logging startup
                         information in the background.
@@ -125,7 +125,7 @@
                                 <listitem><para>One can execute
                                 <command>systemd-bootchart</command>
                                 as normal application from the
-                                commandline. In this mode it is highly
+                                command line. In this mode it is highly
                                 recommended to pass the
                                 <option>-r</option> flag in order to
                                 not graph the time elapsed since boot

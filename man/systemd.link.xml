@@ -231,7 +231,7 @@
                                         be set. <literal>NamePolicy</literal> may be
                                         disabled by specifying
                                         <literal>net.ifnames=0</literal> on the kernel
-                                        commandline. Each of the policies may fail, and
+                                        command line. Each of the policies may fail, and
                                         the first successful one is used. The name is
                                         not set directly, but is exported to udev as
                                         the property <literal>ID_NET_NAME</literal>,

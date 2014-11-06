@@ -425,7 +425,7 @@ static int add_root_mount(void) {
         const char *opts;
 
         if (isempty(arg_root_what)) {
-                log_debug("Could not find a root= entry on the kernel commandline.");
+                log_debug("Could not find a root= entry on the kernel command line.");
                 return 0;
         }
 

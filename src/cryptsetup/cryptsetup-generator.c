@@ -381,7 +381,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         /*
-                          If options are specified on the kernel commandline, let them override
+                          If options are specified on the kernel command line, let them override
                           the ones from crypttab.
                         */
                         STRV_FOREACH(i, arg_options) {
@@ -463,7 +463,7 @@ next:
 
                 if (arg_options) {
                         /*
-                          If options are specified on the kernel commandline, use them.
+                          If options are specified on the kernel command line, use them.
                         */
                         char **j;
 

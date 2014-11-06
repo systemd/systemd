@@ -14,7 +14,7 @@ Bugfixes:
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-* MEMORY return code is overloaded for syntax errors in the commandline.
+* MEMORY return code is overloaded for syntax errors in the command line.
   str_split_quoted() should return a real return code, so spawn_child can
   report the failure properly.
 

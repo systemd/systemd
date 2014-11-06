@@ -949,7 +949,7 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
 }
 
 /*
- * read the kernel commandline, in case we need to get into debug mode
+ * read the kernel command line, in case we need to get into debug mode
  *   udev.log-priority=<level>              syslog priority
  *   udev.children-max=<number of workers>  events are fully serialized if set to 1
  *   udev.exec-delay=<number of seconds>    delay execution of every executed program

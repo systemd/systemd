@@ -89,7 +89,7 @@ AC_DEFUN([CC_NOUNDEFINED], [
      *-freebsd* | *-openbsd*) ;;
      *)
         dnl First of all check for the --no-undefined variant of GNU ld. This allows
-        dnl for a much more readable commandline, so that people can understand what
+        dnl for a much more readable command line, so that people can understand what
         dnl it does without going to look for what the heck -z defs does.
         for possible_flags in "-Wl,--no-undefined" "-Wl,-z,defs"; do
            CC_CHECK_LDFLAGS([$possible_flags], [LDFLAGS_NOUNDEFINED="$possible_flags"])
