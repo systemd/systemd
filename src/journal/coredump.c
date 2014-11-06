@@ -329,7 +329,7 @@ static int save_external_coredump(
         }
 
         r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
-        if (r == -E2BIG) {
+        if (r == -EFBIG) {
                 log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (IN_SET(r, -EDQUOT, -ENOSPC)) {

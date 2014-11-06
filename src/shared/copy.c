@@ -37,7 +37,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                 if (max_bytes != (off_t) -1) {
 
                         if (max_bytes <= 0)
-                                return -E2BIG;
+                                return -EFBIG;
 
                         if ((off_t) m > max_bytes)
                                 m = (size_t) max_bytes;
