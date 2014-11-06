@@ -51,7 +51,7 @@ CHANGES WITH 217:
         * A helper binary and a service have been added which can be
           used to resume from hibernation in the initramfs. A
           generator will parse the resume= option on the kernel
-          command-line to trigger resume.
+          command line to trigger resume.
 
         * A user console daemon systemd-consoled has been
           added. Currently, it is a preview, and will so far open a
@@ -1627,7 +1627,7 @@ CHANGES WITH 209:
           one of the next releases, at the same time that we will
           declare the APIs stable.
 
-        * When the kernel command-line argument "kdbus" is specified,
+        * When the kernel command line argument "kdbus" is specified,
           systemd will automatically load the kdbus.ko kernel module. At
           this stage of development, it is only useful for testing kdbus
           and should not be used in production. Note: if "--enable-kdbus"

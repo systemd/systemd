@@ -79,7 +79,7 @@
 
                 <para><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
                 <option>--new-id</option> option may be used as a
-                command-line front-end for
+                command line front-end for
                 <function>sd_id128_randomize()</function>.</para>
         </refsect1>
 

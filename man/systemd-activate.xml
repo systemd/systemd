@@ -61,7 +61,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para><command>systemd-activate</command> can be used to
-    launch a socket activated daemon from the command-line for
+    launch a socket activated daemon from the command line for
     testing purposes. It can also be used to launch single instances
     of the daemon per connection (inetd-style).
     </para>

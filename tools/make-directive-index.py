@@ -141,7 +141,7 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>command-line options</title>
+                <title>command line options</title>
 
                 <para>Command-line options accepted by programs in the
                 systemd suite.</para>

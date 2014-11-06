@@ -79,7 +79,7 @@
 
     <para>
       In addition, <filename>systemd-udevd</filename> can be configured
-      by command-line options and the kernel command line (see
+      by command line options and the kernel command line (see
       <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
     </para>
   </refsect1>
