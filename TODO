@@ -37,6 +37,8 @@ External:
 
 Features:
 
+* code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
+
 * logind: when the power button is pressed short, just popup a logout dialog. If it is pressed for 1s, do the usual shutdown. Inspiration are Macs here.
 
 * optionally support running journald from the command line for testing purposes in external projects
@@ -59,8 +61,6 @@ Features:
 * what to do about udev db binary stability for apps?
 
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
-
-* kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
 
 * PID 1 doesn't apply nspawns devices cgroup policy
 
