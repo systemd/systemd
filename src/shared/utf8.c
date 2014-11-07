@@ -150,10 +150,12 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
                 int encoded_len, val;
 
                 encoded_len = utf8_encoded_valid_unichar((const char *) p);
-                val = utf8_encoded_to_unichar((const char*) p);
-
                 if (encoded_len < 0 ||
-                    val < 0 ||
+                    (size_t) encoded_len > length)
+                        return false;
+
+                val = utf8_encoded_to_unichar((const char*) p);
+                if (val < 0 ||
                     is_unicode_control(val) ||
                     (!newline && val == '\n'))
                         return false;
