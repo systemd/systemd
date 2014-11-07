@@ -974,11 +974,10 @@ static int bus_init_private(Manager *m) {
                 left = strpcpy(&p, left, "/systemd/private");
 
                 salen = sizeof(sa.un) - left;
-
-                mkdir_parents_label(sa.un.sun_path, 0755);
         }
 
-        unlink(sa.un.sun_path);
+        (void) mkdir_parents_label(sa.un.sun_path, 0755);
+        (void) unlink(sa.un.sun_path);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
