@@ -2783,7 +2783,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         if (k < 0)
                 return k;
 
-        snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
+        sprintf(fn, "/dev/char/%u:%u", major(devnr), minor(devnr));
 
         k = readlink_malloc(fn, &s);
         if (k < 0) {
@@ -3591,41 +3591,33 @@ char *unquote(const char *s, const char* quotes) {
 }
 
 char *normalize_env_assignment(const char *s) {
-        _cleanup_free_ char *name = NULL, *value = NULL, *p = NULL;
-        char *eq, *r;
+        _cleanup_free_ char *value = NULL;
+        const char *eq;
+        char *p, *name;
 
         eq = strchr(s, '=');
         if (!eq) {
-                char *t;
+                char *r, *t;
 
                 r = strdup(s);
                 if (!r)
                         return NULL;
 
                 t = strstrip(r);
-                if (t == r)
-                        return r;
+                if (t != r)
+                        memmove(r, t, strlen(t) + 1);
 
-                memmove(r, t, strlen(t) + 1);
                 return r;
         }
 
-        name = strndup(s, eq - s);
-        if (!name)
-                return NULL;
-
-        p = strdup(eq + 1);
-        if (!p)
-                return NULL;
+        name = strndupa(s, eq - s);
+        p = strdupa(eq + 1);
 
         value = unquote(strstrip(p), QUOTES);
         if (!value)
                 return NULL;
 
-        if (asprintf(&r, "%s=%s", strstrip(name), value) < 0)
-                r = NULL;
-
-        return r;
+        return strjoin(strstrip(name), "=", value, NULL);
 }
 
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
