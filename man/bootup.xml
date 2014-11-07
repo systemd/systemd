@@ -145,7 +145,7 @@
          v                  v                  |                    v              <emphasis>rescue.target</emphasis>
    timers.target      paths.target             |             sockets.target
          |                  |                  |                    |
-         \__________________|_________________ | ___________________/
+         v                  |_________________ | ___________________/
                                               \|/
                                                v
                                          basic.target
@@ -174,6 +174,11 @@
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
                 or by symlinking <filename>default.target</filename>
                 to them.</para>
+
+                <para><filename>timers.target</filename> is pulled-in
+                by <filename>basic.target</filename> asynchronously.
+                This allows timers units to depend on services which
+                become only available later in boot.</para>
         </refsect1>
 
         <refsect1>
