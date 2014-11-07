@@ -322,6 +322,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <xi:include href="user-system-options.xml" xpointer="system" />
 
       <varlistentry>
+        <term><option>--failed</option></term>
+
+        <listitem>
+          <para>List units in failed state. This is equivalent to
+          <option>--state=failed</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--no-wall</option></term>
 
         <listitem>
