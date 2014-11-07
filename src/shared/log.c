@@ -910,7 +910,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 void log_parse_environment(void) {
         const char *e;
 
-        parse_proc_cmdline(parse_proc_cmdline_item);
+        (void) parse_proc_cmdline(parse_proc_cmdline_item);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
