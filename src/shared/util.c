@@ -2941,6 +2941,19 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         return rm_rf_children_dangerous(fd, only_dirs, honour_sticky, root_dev);
 }
 
+static int file_is_priv_sticky(const char *p) {
+        struct stat st;
+
+        assert(p);
+
+        if (lstat(p, &st) < 0)
+                return -errno;
+
+        return
+                (st.st_uid == 0 || st.st_uid == getuid()) &&
+                (st.st_mode & S_ISVTX);
+}
+
 static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bool honour_sticky, bool dangerous) {
         int fd, r;
         struct statfs s;
@@ -4827,19 +4840,6 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         }
 
         return -ENOENT;
-}
-
-int file_is_priv_sticky(const char *p) {
-        struct stat st;
-
-        assert(p);
-
-        if (lstat(p, &st) < 0)
-                return -errno;
-
-        return
-                (st.st_uid == 0 || st.st_uid == getuid()) &&
-                (st.st_mode & S_ISVTX);
 }
 
 static const char *const ioprio_class_table[] = {
