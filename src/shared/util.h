@@ -270,6 +270,7 @@ char **replace_env_argv(char **argv, char **env);
 
 int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
+int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
