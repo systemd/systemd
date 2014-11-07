@@ -36,7 +36,7 @@
 static const char* arg_what = "idle:sleep:shutdown";
 static const char* arg_who = NULL;
 static const char* arg_why = "Unknown reason";
-static const char* arg_mode = "block";
+static const char* arg_mode = NULL;
 
 static enum {
         ACTION_INHIBIT,
@@ -96,6 +96,9 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                if (arg_mode && !streq(mode, arg_mode))
+                        continue;
 
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
@@ -251,6 +254,9 @@ int main(int argc, char *argv[]) {
 
                 if (!arg_who)
                         arg_who = w = strv_join(argv + optind, " ");
+
+                if (!arg_mode)
+                        arg_mode = "block";
 
                 fd = inhibit(bus, &error);
                 if (fd < 0) {
