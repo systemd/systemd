@@ -840,6 +840,7 @@ static void install_info_free(InstallInfo *i) {
         strv_free(i->aliases);
         strv_free(i->wanted_by);
         strv_free(i->required_by);
+        strv_free(i->also);
         free(i->default_instance);
         free(i);
 }
@@ -948,6 +949,7 @@ static int config_parse_also(
         size_t l;
         const char *word, *state;
         InstallContext *c = data;
+        InstallInfo *i = userdata;
 
         assert(filename);
         assert(lvalue);
@@ -962,6 +964,10 @@ static int config_parse_also(
                         return -ENOMEM;
 
                 r = install_info_add(c, n, NULL);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&i->also, n);
                 if (r < 0)
                         return r;
         }
@@ -1043,7 +1049,8 @@ static int unit_file_load(
                 const char *path,
                 const char *root_dir,
                 bool allow_symlink,
-                bool load) {
+                bool load,
+                bool *also) {
 
         const ConfigTableItem items[] = {
                 { "Install", "Alias",           config_parse_strv,             0, &info->aliases           },
@@ -1087,6 +1094,9 @@ static int unit_file_load(
         if (r < 0)
                 return r;
 
+        if (also)
+                *also = !strv_isempty(info->also);
+
         return
                 (int) strv_length(info->aliases) +
                 (int) strv_length(info->wanted_by) +
@@ -1099,7 +1109,8 @@ static int unit_file_search(
                 LookupPaths *paths,
                 const char *root_dir,
                 bool allow_symlink,
-                bool load) {
+                bool load,
+                bool *also) {
 
         char **p;
         int r;
@@ -1109,7 +1120,7 @@ static int unit_file_search(
         assert(paths);
 
         if (info->path)
-                return unit_file_load(c, info, info->path, root_dir, allow_symlink, load);
+                return unit_file_load(c, info, info->path, root_dir, allow_symlink, load, also);
 
         assert(info->name);
 
@@ -1120,7 +1131,7 @@ static int unit_file_search(
                 if (!path)
                         return -ENOMEM;
 
-                r = unit_file_load(c, info, path, root_dir, allow_symlink, load);
+                r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
                 if (r >= 0) {
                         info->path = path;
                         path = NULL;
@@ -1149,7 +1160,7 @@ static int unit_file_search(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_load(c, info, path, root_dir, allow_symlink, load);
+                        r = unit_file_load(c, info, path, root_dir, allow_symlink, load, also);
                         if (r >= 0) {
                                 info->path = path;
                                 path = NULL;
@@ -1167,7 +1178,8 @@ static int unit_file_can_install(
                 LookupPaths *paths,
                 const char *root_dir,
                 const char *name,
-                bool allow_symlink) {
+                bool allow_symlink,
+                bool *also) {
 
         _cleanup_(install_context_done) InstallContext c = {};
         InstallInfo *i;
@@ -1182,7 +1194,7 @@ static int unit_file_can_install(
 
         assert_se(i = ordered_hashmap_first(c.will_install));
 
-        r = unit_file_search(&c, i, paths, root_dir, allow_symlink, true);
+        r = unit_file_search(&c, i, paths, root_dir, allow_symlink, true, also);
 
         if (r >= 0)
                 r =
@@ -1415,7 +1427,7 @@ static int install_context_apply(
         while ((i = ordered_hashmap_first(c->will_install))) {
                 assert_se(ordered_hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
-                q = unit_file_search(c, i, paths, root_dir, false, true);
+                q = unit_file_search(c, i, paths, root_dir, false, true, NULL);
                 if (q < 0) {
                         if (r >= 0)
                                 r = q;
@@ -1462,7 +1474,7 @@ static int install_context_mark_for_removal(
         while ((i = ordered_hashmap_first(c->will_install))) {
                 assert_se(ordered_hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
-                q = unit_file_search(c, i, paths, root_dir, false, true);
+                q = unit_file_search(c, i, paths, root_dir, false, true, NULL);
                 if (q == -ENOENT) {
                         /* do nothing */
                 } else if (q < 0) {
@@ -1569,7 +1581,7 @@ int unit_file_add_dependency(
         while ((info = ordered_hashmap_first(c.will_install))) {
                 assert_se(ordered_hashmap_move_one(c.have_installed, c.will_install, info->name) == 0);
 
-                r = unit_file_search(&c, info, &paths, root_dir, false, false);
+                r = unit_file_search(&c, info, &paths, root_dir, false, false, NULL);
                 if (r < 0)
                         return r;
 
@@ -1738,7 +1750,7 @@ int unit_file_set_default(
 
         assert_se(i = ordered_hashmap_first(c.will_install));
 
-        r = unit_file_search(&c, i, &paths, root_dir, false, true);
+        r = unit_file_search(&c, i, &paths, root_dir, false, true, NULL);
         if (r < 0)
                 return r;
 
@@ -1825,6 +1837,7 @@ UnitFileState unit_file_get_state(
         STRV_FOREACH(i, paths.unit_path) {
                 struct stat st;
                 char *partial;
+                bool also = false;
 
                 free(path);
                 path = NULL;
@@ -1869,13 +1882,16 @@ UnitFileState unit_file_get_state(
                 else if (r > 0)
                         return state;
 
-                r = unit_file_can_install(&paths, root_dir, partial, true);
+                r = unit_file_can_install(&paths, root_dir, partial, true, &also);
                 if (r < 0 && errno != ENOENT)
                         return r;
                 else if (r > 0)
                         return UNIT_FILE_DISABLED;
-                else if (r == 0)
+                else if (r == 0) {
+                        if (also)
+                                return UNIT_FILE_INDIRECT;
                         return UNIT_FILE_STATIC;
+                }
         }
 
         return r < 0 ? r : state;
@@ -2242,7 +2258,7 @@ int unit_file_get_list(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = unit_file_can_install(&paths, root_dir, path, true);
+                        r = unit_file_can_install(&paths, root_dir, path, true, NULL);
                         if (r == -EINVAL ||  /* Invalid setting? */
                             r == -EBADMSG || /* Invalid format? */
                             r == -ENOENT     /* Included file not found? */)
@@ -2274,6 +2290,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_MASKED_RUNTIME] = "masked-runtime",
         [UNIT_FILE_STATIC] = "static",
         [UNIT_FILE_DISABLED] = "disabled",
+        [UNIT_FILE_INDIRECT] = "indirect",
         [UNIT_FILE_INVALID] = "invalid",
 };
 

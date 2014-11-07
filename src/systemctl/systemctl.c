@@ -5660,7 +5660,8 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
 
                         if (state == UNIT_FILE_ENABLED ||
                             state == UNIT_FILE_ENABLED_RUNTIME ||
-                            state == UNIT_FILE_STATIC)
+                            state == UNIT_FILE_STATIC ||
+                            state == UNIT_FILE_INDIRECT)
                                 enabled = true;
 
                         if (!arg_quiet)
@@ -5690,9 +5691,7 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (streq(s, "enabled") ||
-                            streq(s, "enabled-runtime") ||
-                            streq(s, "static"))
+                        if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "indirect"))
                                 enabled = true;
 
                         if (!arg_quiet)

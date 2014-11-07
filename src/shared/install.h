@@ -41,6 +41,7 @@ typedef enum UnitFileState {
         UNIT_FILE_MASKED_RUNTIME,
         UNIT_FILE_STATIC,
         UNIT_FILE_DISABLED,
+        UNIT_FILE_INDIRECT,
         UNIT_FILE_INVALID,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -1
@@ -80,6 +81,7 @@ typedef struct {
         char **aliases;
         char **wanted_by;
         char **required_by;
+        char **also;
 
         char *default_instance;
 } InstallInfo;

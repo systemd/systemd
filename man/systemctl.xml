@@ -1019,6 +1019,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
                     <entry>0</entry>
                   </row>
                   <row>
+                    <entry><literal>indirect</literal></entry>
+                    <entry>Unit's status is determined indirectly by another unit(s) specified in <literal>Also=</literal> in [Install] section</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
                     <entry><literal>disabled</literal></entry>
                     <entry>Unit is not enabled</entry>
                     <entry>1</entry>
