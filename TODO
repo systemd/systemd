@@ -37,7 +37,11 @@ External:
 
 Features:
 
+* maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
+
 * kdbus: set the bus-wide creds sender requirement mask to ANY
+
+* kdbus: busnames.target should get pulled in by basic.target
 
 * code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
 
