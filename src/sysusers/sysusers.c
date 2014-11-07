@@ -241,7 +241,8 @@ static int make_backup(const char *target, const char *x) {
 
         ts[0] = st.st_atim;
         ts[1] = st.st_mtim;
-        futimens(fileno(dst), ts);
+        if (futimens(fileno(dst), ts) < 0)
+                log_warning("Failed to fix access and modification time of %s: %m", backup);
 
         if (rename(temp, backup) < 0)
                 goto fail;
