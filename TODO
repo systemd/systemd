@@ -37,6 +37,8 @@ External:
 
 Features:
 
+* kdbus: set the bus-wide creds sender requirement mask to ANY
+
 * code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
 
 * logind: when the power button is pressed short, just popup a logout dialog. If it is pressed for 1s, do the usual shutdown. Inspiration are Macs here.
