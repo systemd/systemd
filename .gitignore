@@ -143,7 +143,6 @@
 /test-bus-kernel-bloom
 /test-bus-marshal
 /test-bus-match
-/test-bus-memfd
 /test-bus-objects
 /test-bus-policy
 /test-bus-server
@@ -196,7 +195,6 @@
 /test-journal-syslog
 /test-journal-verify
 /test-libsystemd-sym*
-/test-libsystemd-*-sym*
 /test-libudev
 /test-libudev-sym*
 /test-list
