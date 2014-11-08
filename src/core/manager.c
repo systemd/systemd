@@ -79,9 +79,6 @@
 #include "bus-kernel.h"
 #include "time-util.h"
 
-/* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
-#define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
-
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
