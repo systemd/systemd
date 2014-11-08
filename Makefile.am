@@ -1893,7 +1893,8 @@ lcov-report:
 	$(MKDIR_P) $(coverage_dir)
 	lcov $(coverage_opts) --compat-libtool --capture --no-external \
 		| sed 's|$(abspath $(builddir))|$(abspath $(srcdir))|' > $(coverage_dir)/.lcov.info
-	genhtml -t "systemd test coverage" -o $(coverage_dir) $(coverage_dir)/.lcov.info
+	lcov --remove $(coverage_dir)/.lcov.info --output-file $(coverage_dir)/.lcov-clean.info 'test-*'
+	genhtml -t "systemd test coverage" -o $(coverage_dir) $(coverage_dir)/.lcov-clean.info
 	@echo "Coverage report generated in $(abs_builddir)/$(coverage_dir)/index.html"
 
 # lcov doesn't work properly with vpath builds, make sure that bad
