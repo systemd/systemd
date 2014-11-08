@@ -1531,7 +1531,7 @@ test_fdset_SOURCES = \
 	src/test/test-fdset.c
 
 test_fdset_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_ratelimit_SOURCES = \
 	src/test/test-ratelimit.c
@@ -1544,31 +1544,31 @@ test_util_SOURCES = \
 
 test_util_LDADD = \
 	-lm \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_uid_range_SOURCES = \
 	src/test/test-uid-range.c
 
 test_uid_range_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_socket_util_SOURCES = \
 	src/test/test-socket-util.c
 
 test_socket_util_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_ring_SOURCES = \
 	src/test/test-ring.c
 
 test_ring_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_barrier_SOURCES = \
 	src/test/test-barrier.c
 
 test_barrier_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_pty_SOURCES = \
 	src/test/test-pty.c
@@ -1611,13 +1611,13 @@ test_hashmap_SOURCES = \
 	src/test/test-hashmap-plain.c
 
 test_hashmap_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_set_SOURCES = \
 	src/test/test-set.c
 
 test_set_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_xml_SOURCES = \
 	src/test/test-xml.c
@@ -1628,14 +1628,14 @@ test_xml_LDADD = \
 test_list_SOURCES = \
 	src/test/test-list.c
 
+test_list_LDADD = \
+	libsystemd-shared.la
+
 test_unaligned_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_unaligned_SOURCES = \
 	src/test/test-unaligned.c
-
-test_list_LDADD = \
-	libsystemd-core.la
 
 test_tables_SOURCES = \
 	src/test/test-tables.c \
@@ -1665,19 +1665,19 @@ test_prioq_SOURCES = \
 	src/test/test-prioq.c
 
 test_prioq_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_fileio_SOURCES = \
 	src/test/test-fileio.c
 
 test_fileio_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_time_SOURCES = \
 	src/test/test-time.c
 
 test_time_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_architecture_SOURCES = \
 	src/test/test-architecture.c
@@ -1689,7 +1689,7 @@ test_log_SOURCES = \
 	src/test/test-log.c
 
 test_log_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_ipcrm_SOURCES = \
 	src/test/test-ipcrm.c
@@ -1714,13 +1714,13 @@ test_ellipsize_SOURCES = \
 	src/test/test-ellipsize.c
 
 test_ellipsize_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_date_SOURCES = \
 	src/test/test-date.c
 
 test_date_LDADD = \
-	libsystemd-core.la
+	libsystemd-shared.la
 
 test_sleep_SOURCES = \
 	src/test/test-sleep.c
@@ -3927,7 +3927,6 @@ systemd_journal_upload_CFLAGS = \
 	$(LIBCURL_CFLAGS)
 
 systemd_journal_upload_LDADD = \
-	libsystemd-core.la \
 	libsystemd-internal.la \
 	libsystemd-journal-internal.la \
 	libsystemd-shared.la \
