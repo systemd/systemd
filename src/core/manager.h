@@ -296,7 +296,7 @@ struct Manager {
 };
 
 int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);
-void manager_free(Manager *m);
+Manager* manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);

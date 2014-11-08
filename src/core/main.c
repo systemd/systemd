@@ -1799,10 +1799,7 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        if (m) {
-                manager_free(m);
-                m = NULL;
-        }
+        m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
                 free(arg_default_rlimit[j]);

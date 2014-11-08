@@ -889,11 +889,12 @@ static void manager_clear_jobs_and_units(Manager *m) {
         m->n_running_jobs = 0;
 }
 
-void manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         UnitType c;
         int i;
 
-        assert(m);
+        if (!m)
+                return NULL;
 
         manager_clear_jobs_and_units(m);
 
@@ -955,6 +956,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->units_requiring_mounts_for);
 
         free(m);
+        return NULL;
 }
 
 int manager_enumerate(Manager *m) {
