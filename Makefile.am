@@ -1765,8 +1765,7 @@ test_cgroup_mask_SOURCES = \
 	src/test/test-cgroup-mask.c
 
 test_cgroup_mask_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
+	$(AM_CPPFLAGS)
 
 test_cgroup_mask_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1844,8 +1843,7 @@ test_sched_prio_SOURCES = \
 	src/test/test-sched-prio.c
 
 test_sched_prio_CPPFLAGS = \
-	$(AM_CPPFLAGS) \
-	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
+	$(AM_CPPFLAGS)
 
 test_sched_prio_CFLAGS = \
 	$(AM_CFLAGS) \
