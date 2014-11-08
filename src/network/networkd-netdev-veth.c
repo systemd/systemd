@@ -39,7 +39,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
         if (r < 0) {
                 log_error_netdev(netdev,
-                                 "Could not append IFLA_IPTUN_LINK attribute: %s",
+                                 "Could not append VETH_INFO_PEER attribute: %s",
                                  strerror(-r));
                 return r;
         }
