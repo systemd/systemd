@@ -143,7 +143,7 @@ void pager_close(void) {
         /* Inform pager that we are done */
         fclose(stdout);
         kill(pager_pid, SIGCONT);
-        wait_for_terminate(pager_pid, NULL);
+        (void) wait_for_terminate(pager_pid, NULL);
         pager_pid = 0;
 }
 
