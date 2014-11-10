@@ -208,7 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_action == ACTION_INHIBIT && argc == 1)
+        if (arg_action == ACTION_INHIBIT && optind == argc)
                 arg_action = ACTION_LIST;
 
         else if (arg_action == ACTION_INHIBIT && optind >= argc) {

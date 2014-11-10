@@ -26,6 +26,8 @@
 #include "log.h"
 #include "build.h"
 #include "pager.h"
+#include "xml.h"
+#include "path-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -45,6 +47,7 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_user = false;
 static size_t arg_snaplen = 4096;
+static bool arg_list = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -68,6 +71,9 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         Iterator iterator;
 
         assert(bus);
+
+        if (!arg_unique && !arg_acquired && !arg_activatable)
+                arg_unique = arg_acquired = arg_activatable = true;
 
         r = sd_bus_list_names(bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
         if (r < 0) {
@@ -224,6 +230,789 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         return 0;
 }
 
+static void print_subtree(const char *prefix, const char *path, char **l) {
+        const char *vertical, *space;
+        char **n;
+
+        /* We assume the list is sorted. Let's first skip over the
+         * entry we are looking at. */
+        for (;;) {
+                if (!*l)
+                        return;
+
+                if (!streq(*l, path))
+                        break;
+
+                l++;
+        }
+
+        vertical = strappenda(prefix, draw_special_char(DRAW_TREE_VERTICAL));
+        space = strappenda(prefix, draw_special_char(DRAW_TREE_SPACE));
+
+        for (;;) {
+                bool has_more = false;
+
+                if (!*l || !path_startswith(*l, path))
+                        break;
+
+                n = l + 1;
+                for (;;) {
+                        if (!*n || !path_startswith(*n, path))
+                                break;
+
+                        if (!path_startswith(*n, *l)) {
+                                has_more = true;
+                                break;
+                        }
+
+                        n++;
+                }
+
+                printf("%s%s%s\n", prefix, draw_special_char(has_more ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT), *l);
+
+                print_subtree(has_more ? vertical : space, *l, l);
+                l = n;
+        }
+}
+
+static void print_tree(const char *prefix, char **l) {
+
+        pager_open_if_enabled();
+
+        prefix = strempty(prefix);
+
+        if (arg_list) {
+                char **i;
+
+                STRV_FOREACH(i, l)
+                        printf("%s%s\n", prefix, *i);
+                return;
+        }
+
+        if (!strv_isempty(l))
+                printf("%s/\n", prefix);
+
+        print_subtree(prefix, "/", l);
+}
+
+static int parse_xml_annotation(
+                const char **p,
+                void **xml_state) {
+
+
+        enum {
+                STATE_ANNOTATION,
+                STATE_NAME,
+                STATE_VALUE
+        } state = STATE_ANNOTATION;
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+
+                int t;
+
+                t = xml_tokenize(p, &name, xml_state, NULL);
+                if (t < 0) {
+                        log_error("XML parse error.");
+                        return t;
+                }
+
+                if (t == XML_END) {
+                        log_error("Premature end of XML data.");
+                        return -EBADMSG;
+                }
+
+                switch (state) {
+
+                case STATE_ANNOTATION:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_NAME;
+
+                                else if (streq_ptr(name, "value"))
+                                        state = STATE_VALUE;
+
+                                else {
+                                        log_error("Unexpected <annotation> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "annotation")))
+
+                                return 0;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <annotation>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_ANNOTATION;
+                        else {
+                                log_error("Unexpected token in <annotation>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_VALUE:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_ANNOTATION;
+                        else {
+                                log_error("Unexpected token in <annotation>. (3)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                default:
+                        assert_not_reached("Bad state");
+                }
+        }
+}
+
+static int parse_xml_node(
+                const char *prefix,
+                Set *paths,
+                const char **p,
+                void **xml_state) {
+
+        enum {
+                STATE_NODE,
+                STATE_NODE_NAME,
+                STATE_INTERFACE,
+                STATE_INTERFACE_NAME,
+                STATE_METHOD,
+                STATE_METHOD_NAME,
+                STATE_METHOD_ARG,
+                STATE_METHOD_ARG_NAME,
+                STATE_METHOD_ARG_TYPE,
+                STATE_METHOD_ARG_DIRECTION,
+                STATE_SIGNAL,
+                STATE_SIGNAL_NAME,
+                STATE_SIGNAL_ARG,
+                STATE_SIGNAL_ARG_NAME,
+                STATE_SIGNAL_ARG_TYPE,
+                STATE_PROPERTY,
+                STATE_PROPERTY_NAME,
+                STATE_PROPERTY_TYPE,
+                STATE_PROPERTY_ACCESS,
+        } state = STATE_NODE;
+
+        _cleanup_free_ char *node_path = NULL;
+        const char *np = prefix;
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+                int t;
+
+                t = xml_tokenize(p, &name, xml_state, NULL);
+                if (t < 0) {
+                        log_error("XML parse error.");
+                        return t;
+                }
+
+                if (t == XML_END) {
+                        log_error("Premature end of XML data.");
+                        return -EBADMSG;
+                }
+
+                switch (state) {
+
+                case STATE_NODE:
+                        if (t == XML_ATTRIBUTE_NAME) {
+
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_NODE_NAME;
+                                else {
+                                        log_error("Unexpected <node> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+
+                        } else if (t == XML_TAG_OPEN) {
+
+                                if (streq_ptr(name, "interface"))
+                                        state = STATE_INTERFACE;
+
+                                else if (streq_ptr(name, "node")) {
+
+                                        r = parse_xml_node(np, paths, p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected <node> tag %s.", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "node"))) {
+
+                                if (paths) {
+                                        if (!node_path) {
+                                                node_path = strdup(np);
+                                                if (!node_path)
+                                                        return log_oom();
+                                        }
+
+                                        r = set_put(paths, node_path);
+                                        if (r < 0)
+                                                return log_oom();
+                                        else if (r > 0)
+                                                node_path = NULL;
+                                }
+
+                                return 0;
+
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <node>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_NODE_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                free(node_path);
+
+                                if (name[0] == '/') {
+                                        node_path = name;
+                                        name = NULL;
+                                } else {
+
+                                        if (endswith(prefix, "/"))
+                                                node_path = strappend(prefix, name);
+                                        else
+                                                node_path = strjoin(prefix, "/", name, NULL);
+                                        if (!node_path)
+                                                return log_oom();
+                                }
+
+                                np = node_path;
+                                state = STATE_NODE;
+                        } else {
+                                log_error("Unexpected token in <node>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_INTERFACE:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_INTERFACE_NAME;
+                                else {
+                                        log_error("Unexpected <interface> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+
+                        } else if (t == XML_TAG_OPEN) {
+                                if (streq_ptr(name, "method"))
+                                        state = STATE_METHOD;
+                                else if (streq_ptr(name, "signal"))
+                                        state = STATE_SIGNAL;
+                                else if (streq_ptr(name, "property"))
+                                        state = STATE_PROPERTY;
+                                else if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected <interface> tag %s.", name);
+                                        return -EINVAL;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "interface")))
+
+                                state = STATE_NODE;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <interface>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_INTERFACE_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_INTERFACE;
+                        else {
+                                log_error("Unexpected token in <interface>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_METHOD_NAME;
+                                else {
+                                        log_error("Unexpected <method> attribute %s", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_OPEN) {
+                                if (streq_ptr(name, "arg"))
+                                        state = STATE_METHOD_ARG;
+                                else if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected <method> tag %s.", name);
+                                        return -EINVAL;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "method")))
+
+                                state = STATE_INTERFACE;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <method> (1).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_METHOD;
+                        else {
+                                log_error("Unexpected token in <method> (2).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD_ARG:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_METHOD_ARG_NAME;
+                                else if (streq_ptr(name, "type"))
+                                        state = STATE_METHOD_ARG_TYPE;
+                                else if (streq_ptr(name, "direction"))
+                                         state = STATE_METHOD_ARG_DIRECTION;
+                                else {
+                                        log_error("Unexpected method <arg> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_OPEN) {
+                                if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected method <arg> tag %s.", name);
+                                        return -EINVAL;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg")))
+
+                                state = STATE_METHOD;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in method <arg>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD_ARG_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_METHOD_ARG;
+                        else {
+                                log_error("Unexpected token in method <arg>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD_ARG_TYPE:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_METHOD_ARG;
+                        else {
+                                log_error("Unexpected token in method <arg>. (3)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_METHOD_ARG_DIRECTION:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_METHOD_ARG;
+                        else {
+                                log_error("Unexpected token in method <arg>. (4)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_SIGNAL_NAME;
+                                else {
+                                        log_error("Unexpected <signal> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_OPEN) {
+                                if (streq_ptr(name, "arg"))
+                                        state = STATE_SIGNAL_ARG;
+                                else if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected <signal> tag %s.", name);
+                                        return -EINVAL;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "signal")))
+
+                                state = STATE_INTERFACE;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <signal>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_SIGNAL;
+                        else {
+                                log_error("Unexpected token in <signal>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+
+                case STATE_SIGNAL_ARG:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_SIGNAL_ARG_NAME;
+                                else if (streq_ptr(name, "type"))
+                                        state = STATE_SIGNAL_ARG_TYPE;
+                                else {
+                                        log_error("Unexpected signal <arg> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_OPEN) {
+                                if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected signal <arg> tag %s.", name);
+                                        return -EINVAL;
+                                }
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg")))
+
+                                state = STATE_SIGNAL;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in signal <arg> (1).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL_ARG_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_SIGNAL_ARG;
+                        else {
+                                log_error("Unexpected token in signal <arg> (2).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_SIGNAL_ARG_TYPE:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_SIGNAL_ARG;
+                        else {
+                                log_error("Unexpected token in signal <arg> (3).");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_PROPERTY:
+
+                        if (t == XML_ATTRIBUTE_NAME) {
+                                if (streq_ptr(name, "name"))
+                                        state = STATE_PROPERTY_NAME;
+                                else if (streq_ptr(name, "type"))
+                                        state  = STATE_PROPERTY_TYPE;
+                                else if (streq_ptr(name, "access"))
+                                        state  = STATE_PROPERTY_ACCESS;
+                                else {
+                                        log_error("Unexpected <property> attribute %s.", name);
+                                        return -EBADMSG;
+                                }
+                        } else if (t == XML_TAG_OPEN) {
+
+                                if (streq_ptr(name, "annotation")) {
+                                        r = parse_xml_annotation(p, xml_state);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        log_error("Unexpected <property> tag %s.", name);
+                                        return -EINVAL;
+                                }
+
+                        } else if (t == XML_TAG_CLOSE_EMPTY ||
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "property")))
+
+                                state = STATE_INTERFACE;
+
+                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                                log_error("Unexpected token in <property>. (1)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_PROPERTY_NAME:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_PROPERTY;
+                        else {
+                                log_error("Unexpected token in <property>. (2)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_PROPERTY_TYPE:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_PROPERTY;
+                        else {
+                                log_error("Unexpected token in <property>. (3)");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_PROPERTY_ACCESS:
+
+                        if (t == XML_ATTRIBUTE_VALUE)
+                                state = STATE_PROPERTY;
+                        else {
+                                log_error("Unexpected token in <property>. (4)");
+                                return -EINVAL;
+                        }
+
+                        break;
+                }
+        }
+}
+
+static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *paths) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *xml, *p;
+        void *xml_state = NULL;
+        int r;
+
+        r = sd_bus_call_method(bus, service, path, "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
+        if (r < 0) {
+                log_error("Failed to introspect object %s of service %s: %s", path, service, bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "s", &xml);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        /* fputs(xml, stdout); */
+
+        p = xml;
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+
+                r = xml_tokenize(&p, &name, &xml_state, NULL);
+                if (r < 0) {
+                        log_error("XML parse error");
+                        return r;
+                }
+
+                if (r == XML_END)
+                        break;
+
+                if (r == XML_TAG_OPEN) {
+
+                        if (streq(name, "node")) {
+                                r = parse_xml_node(path, paths, &p, &xml_state);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                log_error("Unexpected tag '%s' in introspection data.", name);
+                                return -EBADMSG;
+                        }
+                } else if (r != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        log_error("Unexpected token.");
+                        return -EINVAL;
+                }
+        }
+
+        return 0;
+}
+
+static int tree_one(sd_bus *bus, const char *service, const char *prefix) {
+        _cleanup_set_free_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+        _cleanup_free_ char **l = NULL;
+        char *m;
+        int r;
+
+        paths = set_new(&string_hash_ops);
+        if (!paths)
+                return log_oom();
+
+        done = set_new(&string_hash_ops);
+        if (!done)
+                return log_oom();
+
+        failed = set_new(&string_hash_ops);
+        if (!failed)
+                return log_oom();
+
+        m = strdup("/");
+        if (!m)
+                return log_oom();
+
+        r = set_put(paths, m);
+        if (r < 0) {
+                free(m);
+                return log_oom();
+        }
+
+        for (;;) {
+                _cleanup_free_ char *p = NULL;
+                int q;
+
+                p = set_steal_first(paths);
+                if (!p)
+                        break;
+
+                if (set_contains(done, p) ||
+                    set_contains(failed, p))
+                        continue;
+
+                q = find_nodes(bus, service, p, paths);
+                if (q < 0) {
+                        if (r >= 0)
+                                r = q;
+
+                        q = set_put(failed, p);
+                } else
+                        q = set_put(done, p);
+
+                if (q < 0)
+                        return log_oom();
+
+                assert(q != 0);
+                p = NULL;
+        }
+
+        l = set_get_strv(done);
+        if (!l)
+                return log_oom();
+
+        strv_sort(l);
+        print_tree(prefix, l);
+
+        fflush(stdout);
+
+        return r;
+}
+
+static int tree(sd_bus *bus, char **argv) {
+        char **i;
+        int r = 0;
+
+        if (!arg_unique && !arg_acquired)
+                arg_acquired = true;
+
+        if (strv_length(argv) <= 1) {
+                _cleanup_strv_free_ char **names = NULL;
+                bool not_first = true;
+
+                r = sd_bus_list_names(bus, &names, NULL);
+                if (r < 0) {
+                        log_error("Failed to get name list: %s", strerror(-r));
+                        return r;
+                }
+
+                pager_open_if_enabled();
+
+                STRV_FOREACH(i, names) {
+                        int q;
+
+                        if (!arg_unique && (*i)[0] == ':')
+                                continue;
+
+                        if (!arg_acquired && (*i)[0] == ':')
+                                continue;
+
+                        if (not_first)
+                                printf("\n");
+
+                        printf("Service %s:\n", *i);
+
+                        q = tree_one(bus, *i, "\t");
+                        if (q < 0 && r >= 0)
+                                r = q;
+
+                        not_first = true;
+                }
+        } else {
+                pager_open_if_enabled();
+
+                STRV_FOREACH(i, argv+1) {
+                        int q;
+
+                        if (i > argv+1)
+                                printf("\n");
+
+                        if (argv[2])
+                                printf("Service %s:\n", *i);
+
+                        q = tree_one(bus, *i, NULL);
+                        if (q < 0 && r >= 0)
+                                r = q;
+                }
+        }
+
+        return r;
+}
+
 static int message_dump(sd_bus_message *m, FILE *f) {
         return bus_message_dump(m, f, true);
 }
@@ -366,9 +1155,11 @@ static int help(void) {
                "     --unique             Only show unique names\n"
                "     --acquired           Only show acquired names\n"
                "     --activatable        Only show activatable names\n"
-               "     --match=MATCH        Only show matching messages\n\n"
+               "     --match=MATCH        Only show matching messages\n"
+               "     --list               Don't show tree, but simple object path list\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
+               "  tree [SERVICE...]       Show object tree of service\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  status NAME             Show name status\n"
@@ -393,6 +1184,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ACQUIRED,
                 ARG_ACTIVATABLE,
                 ARG_SIZE,
+                ARG_LIST,
         };
 
         static const struct option options[] = {
@@ -411,6 +1203,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",         required_argument, NULL, 'H'              },
                 { "machine",      required_argument, NULL, 'M'              },
                 { "size",         required_argument, NULL, ARG_SIZE         },
+                { "list",         no_argument,       NULL, ARG_LIST         },
                 {},
         };
 
@@ -490,6 +1283,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_LIST:
+                        arg_list = true;
+                        break;
+
                 case 'H':
                         arg_transport = BUS_TRANSPORT_REMOTE;
                         arg_host = optarg;
@@ -506,9 +1303,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-
-        if (!arg_unique && !arg_acquired && !arg_activatable)
-                arg_unique = arg_acquired = arg_activatable = true;
 
         return 1;
 }
@@ -528,6 +1322,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "status"))
                 return status(bus, argv + optind);
+
+        if (streq(argv[optind], "tree"))
+                return tree(bus, argv + optind);
 
         if (streq(argv[optind], "help"))
                 return help();
