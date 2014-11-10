@@ -1535,7 +1535,8 @@ test_fdset_SOURCES = \
 	src/test/test-fdset.c
 
 test_fdset_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-internal.la
 
 test_ratelimit_SOURCES = \
 	src/test/test-ratelimit.c
