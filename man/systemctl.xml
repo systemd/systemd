@@ -98,9 +98,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--state=</option></term>
 
         <listitem>
-        <para>The argument should be a comma-separated list of unit LOAD,
-        SUB, or ACTIVE states. When listing units, show only those
-        in specified states.</para>
+        <para>The argument should be a comma-separated list of unit
+        LOAD, SUB, or ACTIVE states. When listing units, show only
+        those in specified states. Use <option>--state=failed</option>
+        to show only failed units.</para>
         </listitem>
       </varlistentry>
 
@@ -321,14 +322,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
 
-      <varlistentry>
-        <term><option>--failed</option></term>
-
-        <listitem>
-          <para>List units in failed state. This is equivalent to
-          <option>--state=failed</option>.</para>
-        </listitem>
-      </varlistentry>
+      <!-- we do not document -failed here, as it has been made
+           redundant by -state=failed, which it predates. To keep
+           things simple we only document the new switch, while
+           keeping the old one around for compatibility only. -->
 
       <varlistentry>
         <term><option>--no-wall</option></term>
