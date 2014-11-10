@@ -586,7 +586,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             </para>
 
             <para>See also the options <option>--show-types</option>,
-            <option>--all</option>, and <option>--failed</option>.</para>
+            <option>--all</option>, and <option>--state=</option>.</para>
           </listitem>
         </varlistentry>
 
@@ -600,7 +600,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             </para>
 
             <para>See also the options <option>--all</option> and
-            <option>--failed</option>.</para>
+            <option>--state=</option>.</para>
           </listitem>
         </varlistentry>
 
