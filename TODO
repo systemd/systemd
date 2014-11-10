@@ -37,6 +37,12 @@ External:
 
 Features:
 
+* resolved: maybe randomize DNS UDP source ports
+
+* resolved: maybe compare query section of DNS replies
+
+* machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
+
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
 
 * kdbus: set the bus-wide creds sender requirement mask to ANY
