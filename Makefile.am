@@ -903,8 +903,12 @@ nodist_libsystemd_shared_la_SOURCES = \
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
+	$(CAP_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	-pthread
+
+libsystemd_shared_la_LIBADD = \
+	$(CAP_LIBS)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
