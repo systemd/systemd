@@ -861,8 +861,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/audit.h \
 	src/shared/xml.c \
 	src/shared/xml.h \
-	src/shared/condition.c \
-	src/shared/condition.h \
 	src/shared/bus-label.c \
 	src/shared/bus-label.h \
 	src/shared/gpt.h \
@@ -945,6 +943,8 @@ libsystemd_label_la_SOURCES = \
 	src/shared/dev-setup.h \
 	src/shared/dropin.c \
 	src/shared/dropin.h \
+	src/shared/condition.c \
+	src/shared/condition.h \
 	src/shared/generator.h \
 	src/shared/generator.c
 
@@ -1526,10 +1526,10 @@ test_condition_SOURCES = \
 	src/test/test-condition.c
 
 test_condition_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-internal.la \
+	libsystemd-label.la \
 	libsystemd-capability.la \
-	libsystemd-label.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_fdset_SOURCES = \
 	src/test/test-fdset.c
