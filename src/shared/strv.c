@@ -248,40 +248,6 @@ char **strv_split(const char *s, const char *separator) {
         return r;
 }
 
-int strv_split_quoted(char ***t, const char *s) {
-        const char *word, *state;
-        size_t l;
-        unsigned n, i;
-        char **r;
-
-        assert(s);
-
-        n = 0;
-        FOREACH_WORD_QUOTED(word, l, s, state)
-                n++;
-        if (!isempty(state))
-                /* bad syntax */
-                return -EINVAL;
-
-        r = new(char*, n+1);
-        if (!r)
-                return -ENOMEM;
-
-        i = 0;
-        FOREACH_WORD_QUOTED(word, l, s, state) {
-                r[i] = cunescape_length(word, l);
-                if (!r[i]) {
-                        strv_free(r);
-                        return -ENOMEM;
-                }
-                i++;
-        }
-
-        r[i] = NULL;
-        *t = r;
-        return 0;
-}
-
 char **strv_split_newlines(const char *s) {
         char **l;
         unsigned n;
@@ -305,6 +271,41 @@ char **strv_split_newlines(const char *s) {
         }
 
         return l;
+}
+
+int strv_split_quoted(char ***t, const char *s, bool relax) {
+        size_t n = 0, allocated = 0;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(t);
+        assert(s);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = unquote_first_word(&s, &word, relax);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (!GREEDY_REALLOC(l, allocated, n + 2))
+                        return -ENOMEM;
+
+                l[n++] = word;
+                word = NULL;
+
+                l[n] = NULL;
+        }
+
+        if (!l)
+                l = new0(char*, 1);
+
+        *t = l;
+        l = NULL;
+
+        return 0;
 }
 
 char *strv_join(char **l, const char *separator) {

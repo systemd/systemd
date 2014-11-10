@@ -3292,7 +3292,7 @@ char **replace_env_argv(char **argv, char **env) {
                         if (e) {
                                 int r;
 
-                                r = strv_split_quoted(&m, e);
+                                r = strv_split_quoted(&m, e, true);
                                 if (r < 0) {
                                         ret[k] = NULL;
                                         strv_free(ret);

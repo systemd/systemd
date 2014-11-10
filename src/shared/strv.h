@@ -63,8 +63,9 @@ static inline bool strv_isempty(char * const *l) {
 }
 
 char **strv_split(const char *s, const char *separator);
-int strv_split_quoted(char ***t, const char *s);
 char **strv_split_newlines(const char *s);
+
+int strv_split_quoted(char ***t, const char *s, bool relax);
 
 char *strv_join(char **l, const char *separator);
 char *strv_join_quoted(char **l);
