@@ -37,6 +37,10 @@ External:
 
 Features:
 
+* networkd-wait-online really should have a timeout by default
+
+* expose orientation sensors through logind
+
 * add infrastructure to allocate dynamic/transient users and UID ranges, for use in user-namespaced containers, per-seat gdm login screens and gdm guest sessions
 
 * resolved: maybe randomize DNS UDP source ports
