@@ -837,6 +837,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 struct kdbus_info *creator_info;
 
                 cmd.size = sizeof(cmd);
+                cmd.flags = _KDBUS_ATTACH_ALL;
                 r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
                 if (r < 0)
                         return -errno;
