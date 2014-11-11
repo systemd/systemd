@@ -122,7 +122,7 @@ static int create_log_socket(int type) {
                 timeval_store(&tv, 10 * USEC_PER_MSEC);
         else
                 timeval_store(&tv, 10 * USEC_PER_SEC);
-        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        (void)setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
         return fd;
 }
