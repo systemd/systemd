@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for PrivateTmp=no
+
+[Service]
+ExecStart=/bin/sh -c 'exit $(test -f /tmp/test-exec_privatetmp)'
+Type=oneshot
+PrivateTmp=no

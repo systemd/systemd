@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for WorkingDirectory
+
+[Service]
+ExecStart=/bin/sh -c 'echo $PWD; exit $(test $PWD = "/tmp/test-exec_workingdirectory")'
+Type=oneshot
+WorkingDirectory=/tmp/test-exec_workingdirectory

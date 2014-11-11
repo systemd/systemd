@@ -1350,6 +1350,7 @@ tests += \
 	test-uid-range \
 	test-bus-policy \
 	test-locale-util \
+	test-execute \
 	test-copy
 
 EXTRA_DIST += \
@@ -1803,6 +1804,15 @@ test_path_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_path_LDADD = \
+	libsystemd-core.la
+
+test_execute_SOURCES = \
+	src/test/test-execute.c
+
+test_execute_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_execute_LDADD = \
 	libsystemd-core.la
 
 test_strxcpyx_SOURCES = \

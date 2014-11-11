@@ -1,0 +1,6 @@
+[Unit]
+Description=Test for User
+
+[Service]
+ExecStart=/bin/sh -c 'exit $(test "$USER" = nobody)'
+User=nobody

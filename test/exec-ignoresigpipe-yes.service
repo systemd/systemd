@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for IgnoreSIGPIPE=yes
+
+[Service]
+ExecStart=/bin/sh -c 'kill -PIPE 0'
+Type=oneshot
+IgnoreSIGPIPE=yes

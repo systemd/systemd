@@ -1,5 +1,5 @@
 [Unit]
-Description=Will not fail
+Description=Test for SystemCallFilter
 
 [Service]
 ExecStart=/bin/echo "Foo bar"

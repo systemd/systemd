@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for PrivateDev=no
+
+[Service]
+ExecStart=/bin/sh -c 'exit $(test -c /dev/mem)'
+Type=oneshot
+PrivateDevices=no

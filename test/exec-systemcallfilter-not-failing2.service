@@ -1,5 +1,5 @@
 [Unit]
-Description=Reset SystemCallFilter
+Description=Test for SystemCallFilter
 
 [Service]
 ExecStart=/bin/echo "Foo bar"
