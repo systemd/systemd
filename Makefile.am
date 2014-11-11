@@ -739,6 +739,8 @@ noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
+	src/shared/capability.c \
+	src/shared/capability.h \
 	src/shared/linux/auto_dev-ioctl.h \
 	src/shared/ioprio.h \
 	src/shared/missing.h \
@@ -992,21 +994,6 @@ libsystemd_logs_la_SOURCES = \
 	src/shared/logs-show.h
 
 # ------------------------------------------------------------------------------
-noinst_LTLIBRARIES += \
-	libsystemd-capability.la
-
-libsystemd_capability_la_SOURCES = \
-	src/shared/capability.c \
-	src/shared/capability.h
-
-libsystemd_capability_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
-
-libsystemd_capability_la_LIBADD = \
-	$(CAP_LIBS)
-
-# ------------------------------------------------------------------------------
 if HAVE_ACL
 noinst_LTLIBRARIES += \
 	libsystemd-acl.la
@@ -1163,14 +1150,12 @@ libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
-	$(CAP_CFLAGS) \
 	$(KMOD_CFLAGS) \
 	$(APPARMOR_CFLAGS) \
 	$(SECCOMP_CFLAGS) \
 	-pthread
 
 libsystemd_core_la_LIBADD = \
-	libsystemd-capability.la \
 	libsystemd-units.la \
 	libsystemd-label.la \
 	libudev-internal.la \
@@ -1178,7 +1163,6 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-internal.la \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
-	$(CAP_LIBS) \
 	$(KMOD_LIBS) \
 	$(APPARMOR_LIBS) \
 	$(SECCOMP_LIBS)
@@ -1501,8 +1485,7 @@ test_capability_SOURCES = \
 	src/test/test-capability.c
 
 test_capability_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-capability.la
+	libsystemd-shared.la
 
 test_async_SOURCES = \
 	src/test/test-async.c
@@ -1527,7 +1510,6 @@ test_condition_SOURCES = \
 
 test_condition_LDADD = \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -1870,7 +1852,6 @@ test_bus_policy_SOURCES = \
 	src/bus-proxyd/bus-policy.h
 
 test_bus_policy_LDADD = \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2029,7 +2010,6 @@ systemd_tmpfiles_SOURCES = \
 systemd_tmpfiles_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2092,7 +2072,6 @@ systemd_sysusers_SOURCES = \
 systemd_sysusers_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2141,7 +2120,6 @@ systemd_firstboot_SOURCES = \
 systemd_firstboot_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	-lcrypt
@@ -2484,7 +2462,6 @@ systemd_nspawn_CFLAGS = \
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la \
@@ -2502,7 +2479,6 @@ systemd_run_SOURCES = \
 
 systemd_run_LDADD = \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2513,7 +2489,6 @@ systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-policy.h
 
 systemd_bus_proxyd_LDADD = \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2657,10 +2632,6 @@ libsystemd_dump_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-dump.c \
 	src/libsystemd/sd-bus/bus-dump.h
 
-libsystemd_dump_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
-
 noinst_LTLIBRARIES += \
 	libsystemd-dump.la
 
@@ -2759,19 +2730,16 @@ test_bus_marshal_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-marshal.c
 
 test_bus_marshal_LDADD = \
+	libsystemd-dump.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	libsystemd-dump.la \
-	libsystemd-capability.la \
 	$(GLIB_LIBS) \
-	$(DBUS_LIBS) \
-	$(CAP_LIBS)
+	$(DBUS_LIBS)
 
 test_bus_marshal_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(GLIB_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	$(CAP_CFLAGS)
+	$(DBUS_CFLAGS)
 
 test_bus_signature_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-signature.c
@@ -2818,15 +2786,12 @@ test_bus_objects_SOURCES = \
 
 test_bus_objects_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(CAP_CFLAGS) \
 	-pthread
 
 test_bus_objects_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-dump.la \
-	libsystemd-capability.la \
-	$(CAP_LIBS)
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_bus_error_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-error.c
@@ -2839,26 +2804,22 @@ test_bus_gvariant_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-gvariant.c
 
 test_bus_gvariant_LDADD = \
+	libsystemd-dump.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	libsystemd-dump.la \
-	libsystemd-capability.la \
-	$(GLIB_LIBS) \
-	$(CAP_LIBS)
+	$(GLIB_LIBS)
 
 test_bus_gvariant_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(GLIB_CFLAGS)
-	$(CAP_CFLAGS)
 
 test_bus_creds_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-creds.c
 
 test_bus_creds_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-dump.la \
-	libsystemd-capability.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_bus_match_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-match.c
@@ -2871,15 +2832,9 @@ test_bus_kernel_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-kernel.c
 
 test_bus_kernel_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-dump.la \
-	libsystemd-capability.la \
-	$(CAP_LIBS)
-
-test_bus_kernel_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_bus_kernel_bloom_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-kernel-bloom.c
@@ -2899,15 +2854,9 @@ test_bus_zero_copy_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-zero-copy.c
 
 test_bus_zero_copy_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-dump.la \
-	libsystemd-capability.la \
-	$(CAP_LIBS)
-
-test_bus_zero_copy_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 test_bus_introspect_SOURCES = \
 	src/libsystemd/sd-bus/test-bus-introspect.c
@@ -2946,15 +2895,9 @@ busctl_SOURCES = \
 	src/libsystemd/sd-bus/busctl.c
 
 busctl_LDADD = \
-	libsystemd-internal.la \
-	libsystemd-shared.la \
 	libsystemd-dump.la \
-	libsystemd-capability.la \
-	$(CAP_LIBS)
-
-busctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CAP_CFLAGS)
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -3500,8 +3443,7 @@ systemd_udevd_SOURCES = \
 	src/udev/udevd.c
 
 systemd_udevd_LDADD = \
-	libudev-core.la \
-	libsystemd-capability.la
+	libudev-core.la
 
 udevadm_SOURCES = \
 	src/udev/udevadm.c \
@@ -3515,8 +3457,7 @@ udevadm_SOURCES = \
 	src/udev/udevadm-test-builtin.c
 
 udevadm_LDADD = \
-	libudev-core.la \
-	libsystemd-capability.la
+	libudev-core.la
 
 # Update hwdb on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
@@ -3551,7 +3492,6 @@ test_udev_SOURCES = \
 
 test_udev_LDADD = \
 	libudev-core.la  \
-	libsystemd-capability.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS) \
 	$(SELINUX_LIBS)
@@ -4101,7 +4041,6 @@ nodist_libsystemd_journal_core_la_SOURCES = \
 libsystemd_journal_core_la_LIBADD = \
 	libsystemd-journal-internal.la \
 	libudev-internal.la \
-	libsystemd-capability.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
@@ -4818,7 +4757,6 @@ systemd_timesyncd_LDADD = \
 	libsystemd-resolve.la \
 	libsystemd-network.la \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	-lm
@@ -5019,7 +4957,6 @@ CLEANFILES += \
 	src/resolve/resolved-gperf.c
 
 systemd_resolved_LDADD = \
-	libsystemd-capability.la \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
@@ -5072,7 +5009,6 @@ test_dns_domain_SOURCES = \
 	src/resolve/test-dns-domain.c
 
 test_dns_domain_LDADD = \
-	libsystemd-capability.la \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
@@ -5136,8 +5072,7 @@ systemd_networkd_SOURCES = \
 	src/network/networkd.c
 
 systemd_networkd_LDADD = \
-	libsystemd-networkd-core.la \
-	libsystemd-capability.la
+	libsystemd-networkd-core.la
 
 noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
@@ -5225,8 +5160,7 @@ test_network_SOURCES = \
 	src/network/test-network.c
 
 test_network_LDADD = \
-	libsystemd-networkd-core.la \
-	libsystemd-capability.la
+	libsystemd-networkd-core.la
 
 test_network_tables_SOURCES = \
 	src/network/test-network-tables.c \
@@ -5297,7 +5231,6 @@ libsystemd_logind_core_la_SOURCES = \
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la
@@ -5406,7 +5339,6 @@ pam_systemd_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/login/pam_systemd.sym
 
 pam_systemd_la_LIBADD = \
-	libsystemd-capability.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(PAM_LIBS)
