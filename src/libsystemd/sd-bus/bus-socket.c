@@ -610,10 +610,10 @@ void bus_socket_setup(sd_bus *b) {
         /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
          * socket, just in case. */
         enable = !b->bus_client;
-        setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
+        (void)setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
 
         enable = !b->bus_client && (b->attach_flags & KDBUS_ATTACH_SECLABEL);
-        setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
+        (void)setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
         /* Increase the buffers to 8 MB */
         fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
