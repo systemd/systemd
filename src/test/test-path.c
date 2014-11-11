@@ -104,7 +104,6 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
         }
 
         assert_se(UNIT_VTABLE(unit)->stop(unit) >= 0);
-        assert_se(UNIT_VTABLE(service_unit)->stop(service_unit) >= 0);
         rm_rf_dangerous(test_path, false, true, false);
 }
 
