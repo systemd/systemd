@@ -354,12 +354,26 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         return 0;
 }
 
+static int sync_rights(FILE *from, FILE *to) {
+        struct stat st;
+
+        if (fstat(fileno(from), &st) < 0)
+                return -errno;
+
+        if (fchmod(fileno(to), st.st_mode & 07777) < 0)
+                return -errno;
+
+        if (fchown(fileno(to), st.st_uid, st.st_gid) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int write_files(void) {
 
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
-        struct stat st;
         bool group_changed = false;
         Iterator iterator;
         Item *i;
@@ -378,12 +392,9 @@ static int write_files(void) {
                 if (original) {
                         struct group *gr;
 
-                        if (fstat(fileno(original), &st) < 0 ||
-                            fchmod(fileno(group), st.st_mode & 07777) < 0 ||
-                            fchown(fileno(group), st.st_uid, st.st_gid) < 0) {
-                                r = -errno;
+                        r = sync_rights(original, group);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         errno = 0;
                         while ((gr = fgetgrent(original))) {
@@ -460,12 +471,9 @@ static int write_files(void) {
                 if (original) {
                         struct sgrp *sg;
 
-                        if (fstat(fileno(original), &st) < 0 ||
-                            fchmod(fileno(gshadow), st.st_mode & 07777) < 0 ||
-                            fchown(fileno(gshadow), st.st_uid, st.st_gid) < 0) {
-                                r = -errno;
+                        r = sync_rights(original, gshadow);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         errno = 0;
                         while ((sg = fgetsgent(original))) {
@@ -529,12 +537,9 @@ static int write_files(void) {
                 if (original) {
                         struct passwd *pw;
 
-                        if (fstat(fileno(original), &st) < 0 ||
-                            fchmod(fileno(passwd), st.st_mode & 07777) < 0 ||
-                            fchown(fileno(passwd), st.st_uid, st.st_gid) < 0) {
-                                r = -errno;
+                        r = sync_rights(original, passwd);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         errno = 0;
                         while ((pw = fgetpwent(original))) {
@@ -617,12 +622,9 @@ static int write_files(void) {
                 if (original) {
                         struct spwd *sp;
 
-                        if (fstat(fileno(original), &st) < 0 ||
-                            fchmod(fileno(shadow), st.st_mode & 07777) < 0 ||
-                            fchown(fileno(shadow), st.st_uid, st.st_gid) < 0) {
-                                r = -errno;
+                        r = sync_rights(original, shadow);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         errno = 0;
                         while ((sp = fgetspent(original))) {
