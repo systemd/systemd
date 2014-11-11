@@ -475,9 +475,6 @@ static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         assert(b);
         assert(m);
 
-        if (!policy)
-                return 0;
-
         if (b->is_kernel) {
 
                 /* The message came from the kernel, and is sent to our legacy client. */
@@ -852,7 +849,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (policy && !policy_check_own(policy, ucred, name))
+                if (!policy_check_own(policy, ucred, name))
                         return synthetic_reply_method_errno(m, -EPERM, NULL);
 
                 if (!service_name_is_valid(name))
@@ -1025,7 +1022,7 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy
                 return -EIO;
         }
 
-        if (policy && !policy_check_hello(policy, ucred)) {
+        if (!policy_check_hello(policy, ucred)) {
                 log_error("Policy denied HELLO");
                 return -EPERM;
         }
@@ -1136,7 +1133,6 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *bus_creds = NULL;
         _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         int r, in_fd, out_fd;
@@ -1252,12 +1248,6 @@ int main(int argc, char *argv[]) {
         r = sd_bus_get_owner_id(a, &server_id);
         if (r < 0) {
                 log_error("Failed to get server ID: %s", strerror(-r));
-                goto finish;
-        }
-
-        r = sd_bus_get_owner_creds(a, SD_BUS_CREDS_UID, &bus_creds);
-        if (r < 0) {
-                log_error("Failed to get bus creds: %s", strerror(-r));
                 goto finish;
         }
 
@@ -1420,21 +1410,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (m) {
-                        Policy *p = NULL;
-                        uid_t uid;
-
-                        assert_se(sd_bus_creds_get_uid(bus_creds, &uid) == 0);
-
-                        if (uid == 0 || uid != ucred.uid)
-                                p = &policy;
-
                         /* We officially got EOF, let's quit */
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
                                 r = 0;
                                 goto finish;
                         }
 
-                        k = process_hello(a, b, m, p, &ucred, &got_hello);
+                        k = process_hello(a, b, m, &policy, &ucred, &got_hello);
                         if (k < 0) {
                                 r = k;
                                 log_error("Failed to process HELLO: %s", strerror(-r));
@@ -1444,7 +1426,7 @@ int main(int argc, char *argv[]) {
                         if (k > 0)
                                 r = k;
                         else {
-                                k = process_driver(a, b, m, p, &ucred);
+                                k = process_driver(a, b, m, &policy, &ucred);
                                 if (k < 0) {
                                         r = k;
                                         log_error("Failed to process driver calls: %s", strerror(-r));
@@ -1466,9 +1448,6 @@ int main(int argc, char *argv[]) {
                                                 if (k == -ECONNRESET)
                                                         r = 0;
                                                 else {
-
-                                                k = process_policy(a, b, m, p, &ucred);
-                                                if (k < 0) {
                                                         r = k;
                                                         log_error("Failed to send message: %s", strerror(-r));
                                                 }
