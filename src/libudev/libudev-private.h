@@ -41,7 +41,6 @@
   } while (0)
 
 #define udev_dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
-#define udev_info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
 #define udev_err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
 
 /* libudev.c */

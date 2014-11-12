@@ -474,9 +474,9 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        udev_err(rules->udev, "specified user '%s' unknown\n", owner);
+                        log_error("specified user '%s' unknown\n", owner);
                 else
-                        udev_err(rules->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
+                        log_error("error resolving user '%s': %s\n", owner, strerror(-r));
         }
 
         /* grow buffer if needed */
@@ -521,9 +521,9 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         r = get_group_creds(&group, &gid);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        udev_err(rules->udev, "specified group '%s' unknown\n", group);
+                        log_error("specified group '%s' unknown\n", group);
                 else
-                        udev_err(rules->udev, "error resolving group '%s': %s\n", group, strerror(-r));
+                        log_error("error resolving group '%s': %s\n", group, strerror(-r));
         }
 
         /* grow buffer if needed */
@@ -2265,9 +2265,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        udev_err(event->udev, "specified user '%s' unknown\n", owner);
+                                        log_error(event->udev, "specified user '%s' unknown\n", owner);
                                 else
-                                        udev_err(event->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
+                                        log_error(event->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
 
                                 event->uid = 0;
                         }
@@ -2291,9 +2291,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_group_creds(&gr, &event->gid);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        udev_err(event->udev, "specified group '%s' unknown\n", group);
+                                        log_error(event->udev, "specified group '%s' unknown\n", group);
                                 else
-                                        udev_err(event->udev, "error resolving group '%s': %s\n", group, strerror(-r));
+                                        log_error(event->udev, "error resolving group '%s': %s\n", group, strerror(-r));
 
                                 event->gid = 0;
                         }
