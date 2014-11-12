@@ -2265,9 +2265,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        log_error(event->udev, "specified user '%s' unknown\n", owner);
+                                        log_error("specified user '%s' unknown\n", owner);
                                 else
-                                        log_error(event->udev, "error resolving user '%s': %s\n", owner, strerror(-r));
+                                        log_error("error resolving user '%s': %s\n", owner, strerror(-r));
 
                                 event->uid = 0;
                         }
@@ -2291,9 +2291,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_group_creds(&gr, &event->gid);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        log_error(event->udev, "specified group '%s' unknown\n", group);
+                                        log_error("specified group '%s' unknown\n", group);
                                 else
-                                        log_error(event->udev, "error resolving group '%s': %s\n", group, strerror(-r));
+                                        log_error("error resolving group '%s': %s\n", group, strerror(-r));
 
                                 event->gid = 0;
                         }
