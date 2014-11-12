@@ -233,7 +233,7 @@ int mac_selinux_get_our_label(char **label) {
         return r;
 }
 
-int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label) {
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
         int r = -EOPNOTSUPP;
 
 #ifdef HAVE_SELINUX
@@ -257,11 +257,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, char **label
         if (r < 0)
                 return -errno;
 
-        r = getexeccon(&fcon);
-        if (r < 0)
-                return -errno;
-
-        if (!fcon) {
+        if (!exec_label) {
                 /* If there is no context set for next exec let's use context
                    of target executable */
                 r = getfilecon(exe, &fcon);

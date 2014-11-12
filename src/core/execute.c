@@ -1238,6 +1238,7 @@ static int exec_child(ExecCommand *command,
                       int *error) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
+        _cleanup_free_ char *mac_selinux_context_net = NULL;
         const char *username = NULL, *home = NULL, *shell = NULL;
         unsigned n_dont_close = 0;
         int dont_close[n_fds + 4];
@@ -1584,6 +1585,16 @@ static int exec_child(ExecCommand *command,
                 }
         }
 
+#ifdef HAVE_SELINUX
+        if (params->apply_permissions && mac_selinux_use() && params->selinux_context_net && socket_fd >= 0) {
+                err = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
+                if (err < 0) {
+                        *error = EXIT_SELINUX_CONTEXT;
+                        return err;
+                }
+        }
+#endif
+
         /* We repeat the fd closing here, to make sure that
          * nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time since socket_fd
@@ -1683,24 +1694,10 @@ static int exec_child(ExecCommand *command,
 
 #ifdef HAVE_SELINUX
                 if (mac_selinux_use()) {
-                        if (context->selinux_context) {
-                                err = setexeccon(context->selinux_context);
-                                if (err < 0 && !context->selinux_context_ignore) {
-                                        *error = EXIT_SELINUX_CONTEXT;
-                                        return err;
-                                }
-                        }
+                        char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
-                        if (params->selinux_context_net && socket_fd >= 0) {
-                                _cleanup_free_ char *label = NULL;
-
-                                err = mac_selinux_get_child_mls_label(socket_fd, command->path, &label);
-                                if (err < 0) {
-                                        *error = EXIT_SELINUX_CONTEXT;
-                                        return err;
-                                }
-
-                                err = setexeccon(label);
+                        if (exec_context) {
+                                err = setexeccon(exec_context);
                                 if (err < 0) {
                                         *error = EXIT_SELINUX_CONTEXT;
                                         return err;
