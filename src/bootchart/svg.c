@@ -39,6 +39,7 @@
 #include "svg.h"
 #include "bootchart.h"
 #include "list.h"
+#include "utf8.h"
 
 #define time_to_graph(t) ((t) * arg_scale_x)
 #define ps_to_graph(n) ((n) * arg_scale_y)
@@ -1006,12 +1007,15 @@ static void svg_ps_bars(void) {
         /* pass 2 - ps boxes */
         ps = ps_first;
         while ((ps = get_next_ps(ps))) {
-                _cleanup_free_ char *enc_name = NULL;
+                _cleanup_free_ char *enc_name = NULL, *escaped = NULL;
                 double endtime;
                 double starttime;
                 int t;
 
-                enc_name = xml_comment_encode(ps->name);
+                if (!utf8_is_printable(ps->name, strlen(ps->name)))
+                        escaped = utf8_escape_non_printable(ps->name);
+
+                enc_name = xml_comment_encode(escaped ? escaped : ps->name);
                 if (!enc_name)
                         continue;
 
@@ -1100,7 +1104,7 @@ static void svg_ps_bars(void) {
                 svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]<tspan class=\"run\">%.03fs</tspan> %s</text>\n",
                     time_to_graph(w - graph_start) + 5.0,
                     ps_to_graph(j) + 14.0,
-                    ps->name,
+                    escaped ? escaped : ps->name,
                     ps->pid,
                     (ps->last->runtime - ps->first->runtime) / 1000000000.0,
                     arg_show_cgroup ? ps->cgroup : "");
