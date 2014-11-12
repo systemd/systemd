@@ -37,6 +37,10 @@ External:
 
 Features:
 
+* increase CORE resource limit by default for all services, so that coredumpctl becomes useful
+
+* firstboot: make it useful to be run immediately after yum --installroot to set up a machine.
+
 * networkd-wait-online really should have a timeout by default
 
 * expose orientation sensors through logind
