@@ -66,12 +66,37 @@ static void test_utf8_escaping(void) {
         assert_se(utf8_is_valid(p3));
 }
 
+static void test_utf8_escaping_printable(void) {
+        _cleanup_free_ char *p1, *p2, *p3, *p4, *p5;
+
+        p1 = utf8_escape_non_printable("goo goo goo");
+        puts(p1);
+        assert_se(utf8_is_valid(p1));
+
+        p2 = utf8_escape_non_printable("\341\204\341\204");
+        puts(p2);
+        assert_se(utf8_is_valid(p2));
+
+        p3 = utf8_escape_non_printable("\341\204");
+        puts(p3);
+        assert_se(utf8_is_valid(p3));
+
+        p4 = utf8_escape_non_printable("ąę\n가너도루\n1234\n\341\204\341\204\n\001 \019\20\a");
+        puts(p4);
+        assert_se(utf8_is_valid(p4));
+
+        p5 = utf8_escape_non_printable("\001 \019\20\a");
+        puts(p5);
+        assert_se(utf8_is_valid(p5));
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
         test_ascii_is_valid();
         test_utf8_encoded_valid_unichar();
         test_utf8_escaping();
+        test_utf8_escaping_printable();
 
         return 0;
 }

@@ -30,6 +30,7 @@
 const char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 char *utf8_escape_invalid(const char *s);
+char *utf8_escape_non_printable(const char *str);
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
 _pure_ static inline bool utf8_is_printable(const char* str, size_t length) {

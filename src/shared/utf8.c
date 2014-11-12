@@ -212,6 +212,45 @@ char *utf8_escape_invalid(const char *str) {
         return p;
 }
 
+char *utf8_escape_non_printable(const char *str) {
+        char *p, *s;
+
+        assert(str);
+
+        p = s = malloc(strlen(str) * 4 + 1);
+        if (!p)
+                return NULL;
+
+        while (*str) {
+                int len;
+
+                len = utf8_encoded_valid_unichar(str);
+                if (len > 0) {
+                        if (utf8_is_printable(str, len)) {
+                                s = mempcpy(s, str, len);
+                                str += len;
+                        } else {
+                                if ((*str < ' ') || (*str >= 127)) {
+                                        *(s++) = '\\';
+                                        *(s++) = 'x';
+                                        *(s++) = hexchar((int) *str >> 4);
+                                        *(s++) = hexchar((int) *str);
+                                } else
+                                        *(s++) = *str;
+
+                                str += 1;
+                        }
+                } else {
+                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
+                        str += 1;
+                }
+        }
+
+        *s = '\0';
+
+        return p;
+}
+
 char *ascii_is_valid(const char *str) {
         const char *p;
 
