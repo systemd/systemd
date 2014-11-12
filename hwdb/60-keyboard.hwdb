@@ -585,8 +585,8 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*
 
 # ThinkPad X6 Tablet
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
- KEYBOARD_KEY_6c=f21                                    # rotate
- KEYBOARD_KEY_68=screenlock                             # screenlock
+ KEYBOARD_KEY_6c=direction                              # rotate
+ KEYBOARD_KEY_68=f13                                    # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
  KEYBOARD_KEY_6d=right                                  # right on d-pad
  KEYBOARD_KEY_6e=left                                   # left on d-pad
