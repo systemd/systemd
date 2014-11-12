@@ -594,6 +594,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
  KEYBOARD_KEY_6f=down                                   # down on d-pad
  KEYBOARD_KEY_69=enter                                  # enter on d-pad
 
+# ThinkPad X41 Tablet
+keyboard:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:pvr*
+ KEYBOARD_KEY_6c=direction                              # rotate
+ KEYBOARD_KEY_68=f13                                    # toolbox
+ KEYBOARD_KEY_6b=esc                                    # escape
+ KEYBOARD_KEY_69=enter                                  # enter on d-pad
+
 # IdeaPad
 keyboard:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_42=f23
