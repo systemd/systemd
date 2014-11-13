@@ -129,17 +129,6 @@
     </variablelist>
   </refsect1>
 
-  <refsect1><title>Environment</title>
-    <variablelist class='environment-variables'>
-      <varlistentry>
-        <term><varname>$UDEV_LOG=</varname></term>
-        <listitem>
-          <para>Set the log level.</para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
- </refsect1>
-
   <refsect1><title>Kernel command line</title>
     <variablelist class='kernel-commandline-options'>
       <para>Parameters starting with "rd." will be read when

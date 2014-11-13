@@ -18,8 +18,6 @@ Bugfixes:
   str_split_quoted() should return a real return code, so spawn_child can
   report the failure properly.
 
-* udev_set_log_priority should verify the value before saving it.
-
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
@@ -80,7 +78,7 @@ Features:
 * maybe allow timer units with an empty Units= setting, so that they
   can be used for resuming the system but nothing else.
 
-* what to do about udev db binary stability for apps?
+* what to do about udev db binary stability for apps? (raw access is not an option)
 
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
 

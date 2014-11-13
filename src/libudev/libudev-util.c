@@ -93,7 +93,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                         strscpy(result, maxsize, val);
                 else
                         result[0] = '\0';
-                udev_dbg(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                log_debug("value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         } else {
                 size_t l;
                 char *s;
@@ -102,7 +102,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                 l = strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
                 if (attr != NULL)
                         strpcpyl(&s, l, "/", attr, NULL);
-                udev_dbg(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                log_debug("path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         }
         udev_device_unref(dev);
         return 0;

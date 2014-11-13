@@ -535,7 +535,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 
         f = fopen(dbfile, "re");
         if (f == NULL) {
-                udev_dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
+                log_debug("no db file to read %s: %m\n", dbfile);
                 return -errno;
         }
 
@@ -577,7 +577,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         }
         fclose(f);
 
-        udev_dbg(udev_device->udev, "device %p filled with db file data\n", udev_device);
+        log_debug("device %p filled with db file data\n", udev_device);
         return 0;
 }
 
@@ -704,7 +704,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
 
         /* path starts in sys */
         if (!startswith(syspath, "/sys")) {
-                udev_dbg(udev, "not in sys :%s\n", syspath);
+                log_debug("not in sys :%s\n", syspath);
                 errno = EINVAL;
                 return NULL;
         }
@@ -739,7 +739,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         udev_device_set_syspath(udev_device, path);
-        udev_dbg(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
+        log_debug("device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
         return udev_device;
 }
@@ -971,7 +971,7 @@ _public_ struct udev_device *udev_device_new_from_environment(struct udev *udev)
                 udev_device_add_property_from_string_parse(udev_device, environ[i]);
 
         if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
-                udev_dbg(udev, "missing values, invalid device\n");
+                log_debug("missing values, invalid device\n");
                 udev_device_unref(udev_device);
                 udev_device = NULL;
         }

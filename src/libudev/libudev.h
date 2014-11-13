@@ -41,9 +41,9 @@ struct udev *udev_new(void);
 void udev_set_log_fn(struct udev *udev,
                             void (*log_fn)(struct udev *udev,
                                            int priority, const char *file, int line, const char *fn,
-                                           const char *format, va_list args));
-int udev_get_log_priority(struct udev *udev);
-void udev_set_log_priority(struct udev *udev, int priority);
+                                           const char *format, va_list args)) __attribute__ ((deprecated));
+int udev_get_log_priority(struct udev *udev) __attribute__ ((deprecated));
+void udev_set_log_priority(struct udev *udev, int priority) __attribute__ ((deprecated));
 void *udev_get_userdata(struct udev *udev);
 void udev_set_userdata(struct udev *udev, void *userdata);
 

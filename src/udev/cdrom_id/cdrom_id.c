@@ -37,14 +37,6 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-_printf_(6,0)
-static void log_fn(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
-        log_metav(priority, file, line, fn, format, args);
-}
-
 /* device info */
 static unsigned int cd_cd_rom;
 static unsigned int cd_cd_r;
@@ -875,8 +867,6 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        udev_set_log_fn(udev, log_fn);
-
         while (1) {
                 int option;
 
@@ -897,7 +887,6 @@ int main(int argc, char *argv[])
                 case 'd':
                         log_set_target(LOG_TARGET_CONSOLE);
                         log_set_max_level(LOG_DEBUG);
-                        udev_set_log_priority(udev, LOG_DEBUG);
                         log_open();
                         break;
                 case 'h':

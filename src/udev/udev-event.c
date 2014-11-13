@@ -676,7 +676,6 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_warn_usec,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize) {
-        struct udev *udev = event->udev;
         int outpipe[2] = {-1, -1};
         int errpipe[2] = {-1, -1};
         pid_t pid;
@@ -689,14 +688,14 @@ int udev_event_spawn(struct udev_event *event,
         udev_build_argv(event->udev, arg, NULL, argv);
 
         /* pipes from child to parent */
-        if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
+        if (result != NULL || log_get_max_level() >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
                         err = -errno;
                         log_error("pipe failed: %m");
                         goto out;
                 }
         }
-        if (udev_get_log_priority(udev) >= LOG_INFO) {
+        if (log_get_max_level() >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
                         err = -errno;
                         log_error("pipe failed: %m");

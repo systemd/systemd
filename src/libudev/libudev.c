@@ -1,7 +1,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright 2008-2014 Kay Sievers <kay@vrfy.org>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -51,40 +51,18 @@ struct udev {
                        const char *format, va_list args);
         void *userdata;
         struct udev_list properties_list;
-        int log_priority;
 };
-
-void udev_log(struct udev *udev,
-              int priority, const char *file, int line, const char *fn,
-              const char *format, ...)
-{
-        va_list args;
-
-        va_start(args, format);
-        udev->log_fn(udev, priority, file, line, fn, format, args);
-        va_end(args);
-}
-
-_printf_(6,0)
-static void log_stderr(struct udev *udev,
-                       int priority, const char *file, int line, const char *fn,
-                       const char *format, va_list args)
-{
-        fprintf(stderr, "libudev: %s: ", fn);
-        vfprintf(stderr, format, args);
-}
 
 /**
  * udev_get_userdata:
  * @udev: udev library context
  *
  * Retrieve stored data pointer from library context. This might be useful
- * to access from callbacks like a custom log function.
+ * to access from callbacks.
  *
  * Returns: stored userdata
  **/
-_public_ void *udev_get_userdata(struct udev *udev)
-{
+_public_ void *udev_get_userdata(struct udev *udev) {
         if (udev == NULL)
                 return NULL;
         return udev->userdata;
@@ -97,8 +75,7 @@ _public_ void *udev_get_userdata(struct udev *udev)
  *
  * Store custom @userdata in the library context.
  **/
-_public_ void udev_set_userdata(struct udev *udev, void *userdata)
-{
+_public_ void udev_set_userdata(struct udev *udev, void *userdata) {
         if (udev == NULL)
                 return;
         udev->userdata = userdata;
@@ -115,18 +92,14 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata)
  *
  * Returns: a new udev library context
  **/
-_public_ struct udev *udev_new(void)
-{
+_public_ struct udev *udev_new(void) {
         struct udev *udev;
-        const char *env;
         _cleanup_fclose_ FILE *f = NULL;
 
         udev = new0(struct udev, 1);
         if (udev == NULL)
                 return NULL;
         udev->refcount = 1;
-        udev->log_fn = log_stderr;
-        udev->log_priority = LOG_INFO;
         udev_list_init(udev, &udev->properties_list, true);
 
         f = fopen("/etc/udev/udev.conf", "re");
@@ -153,7 +126,7 @@ _public_ struct udev *udev_new(void)
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                udev_dbg(udev, "/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
+                                log_debug("/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -185,7 +158,7 @@ _public_ struct udev *udev_new(void)
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        udev_dbg(udev, "/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
+                                        log_debug("/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';
@@ -197,24 +170,12 @@ _public_ struct udev *udev_new(void)
 
                                 prio = util_log_priority(val);
                                 if (prio < 0)
-                                        udev_dbg(udev, "/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
+                                        log_debug("/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
                                 else
-                                        udev_set_log_priority(udev, prio);
+                                        log_set_max_level(prio);
                                 continue;
                         }
                 }
-        }
-
-        /* environment overrides config */
-        env = secure_getenv("UDEV_LOG");
-        if (env != NULL) {
-                int prio;
-
-                prio = util_log_priority(env);
-                if (prio < 0)
-                        udev_dbg(udev, "$UDEV_LOG specifies invalid log level '%s', ignoring.\n", env);
-                else
-                        udev_set_log_priority(udev, prio);
         }
 
         return udev;
@@ -228,8 +189,7 @@ _public_ struct udev *udev_new(void)
  *
  * Returns: the passed udev library context
  **/
-_public_ struct udev *udev_ref(struct udev *udev)
-{
+_public_ struct udev *udev_ref(struct udev *udev) {
         if (udev == NULL)
                 return NULL;
         udev->refcount++;
@@ -245,8 +205,7 @@ _public_ struct udev *udev_ref(struct udev *udev)
  *
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
-_public_ struct udev *udev_unref(struct udev *udev)
-{
+_public_ struct udev *udev_unref(struct udev *udev) {
         if (udev == NULL)
                 return NULL;
         udev->refcount--;
@@ -262,31 +221,25 @@ _public_ struct udev *udev_unref(struct udev *udev)
  * @udev: udev library context
  * @log_fn: function to be called for log messages
  *
- * The built-in logging writes to stderr. It can be
- * overridden by a custom function, to plug log messages
- * into the users' log functionality.
+ * This function is deprecated.
  *
  **/
 _public_ void udev_set_log_fn(struct udev *udev,
                      void (*log_fn)(struct udev *udev,
                                     int priority, const char *file, int line, const char *fn,
-                                    const char *format, va_list args))
-{
-        udev->log_fn = log_fn;
-        udev_dbg(udev, "custom log function %p registered\n", log_fn);
+                                    const char *format, va_list args)) {
+        return;
 }
 
 /**
  * udev_get_log_priority:
  * @udev: udev library context
  *
- * The initial log level is read from the udev config file at startup.
+ * This function is deprecated.
  *
- * Returns: the current log level
  **/
-_public_ int udev_get_log_priority(struct udev *udev)
-{
-        return udev->log_priority;
+_public_ int udev_get_log_priority(struct udev *udev) {
+        return log_get_max_level();
 }
 
 /**
@@ -294,19 +247,14 @@ _public_ int udev_get_log_priority(struct udev *udev)
  * @udev: udev library context
  * @priority: the new log priority
  *
- * Set the log level. This value controls which messages are logged.
+ * This function is deprecated.
+ *
  **/
-_public_ void udev_set_log_priority(struct udev *udev, int priority)
-{
-        char num[32];
-
-        udev->log_priority = priority;
-        snprintf(num, sizeof(num), "%u", udev->log_priority);
-        udev_add_property(udev, "UDEV_LOG", num);
+_public_ void udev_set_log_priority(struct udev *udev, int priority) {
+        log_set_max_level(priority);
 }
 
-struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)
-{
+struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value) {
         if (value == NULL) {
                 struct udev_list_entry *list_entry;
 
@@ -319,7 +267,6 @@ struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, co
         return udev_list_entry_add(&udev->properties_list, key, value);
 }
 
-struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev)
-{
+struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev) {
         return udev_list_get_entry(&udev->properties_list);
 }

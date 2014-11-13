@@ -33,15 +33,6 @@
 #define READ_END  0
 #define WRITE_END 1
 
-/* avoid (sometimes expensive) calculations of parameters for debug output */
-#define udev_log_cond(udev, prio, arg...) \
-  do { \
-    if (udev_get_log_priority(udev) >= prio) \
-      udev_log(udev, prio, __FILE__, __LINE__, __FUNCTION__, ## arg); \
-  } while (0)
-
-#define udev_dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
-
 /* libudev.c */
 void udev_log(struct udev *udev,
               int priority, const char *file, int line, const char *fn,

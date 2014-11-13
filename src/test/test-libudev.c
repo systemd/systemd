@@ -34,14 +34,6 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-_printf_(6,0)
-static void log_fn(struct udev *udev,
-                   int priority, const char *file, int line, const char *fn,
-                   const char *format, va_list args) {
-        printf("test-libudev: %s %s:%d ", fn, file, line);
-        vprintf(format, args);
-}
-
 static void print_device(struct udev_device *device) {
         const char *str;
         dev_t devnum;
@@ -431,9 +423,6 @@ int main(int argc, char *argv[]) {
                 printf("no context\n");
                 return 1;
         }
-        udev_set_log_fn(udev, log_fn);
-        printf("set log: %p\n", log_fn);
-
 
         while ((c = getopt_long(argc, argv, "p:s:dhV", options, NULL)) >= 0)
                 switch (c) {
@@ -447,8 +436,8 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        if (udev_get_log_priority(udev) < LOG_INFO)
-                                udev_set_log_priority(udev, LOG_INFO);
+                        if (log_get_max_level() < LOG_INFO)
+                                log_set_max_level(LOG_INFO);
                         break;
 
                 case 'h':

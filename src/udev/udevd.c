@@ -644,7 +644,6 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl) {
         if (i >= 0) {
                 log_debug("udevd message (SET_LOG_LEVEL) received, log_priority=%i", i);
                 log_set_max_level(i);
-                udev_set_log_priority(udev, i);
                 worker_kill(udev);
         }
 
@@ -984,7 +983,6 @@ static void kernel_cmdline_options(struct udev *udev) {
 
                         prio = util_log_priority(value);
                         log_set_max_level(prio);
-                        udev_set_log_priority(udev, prio);
                 } else if ((value = startswith(opt, "udev.children-max="))) {
                         r = safe_atoi(value, &arg_children_max);
                         if (r < 0)
@@ -1120,19 +1118,14 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        udev_set_log_fn(udev, udev_main_log);
-        log_set_max_level(udev_get_log_priority(udev));
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto exit;
 
         kernel_cmdline_options(udev);
 
-        if (arg_debug) {
+        if (arg_debug)
                 log_set_max_level(LOG_DEBUG);
-                udev_set_log_priority(udev, LOG_DEBUG);
-        }
 
         if (getuid() != 0) {
                 log_error("root privileges required");
