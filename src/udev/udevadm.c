@@ -26,12 +26,6 @@
 
 #include "udev.h"
 
-void udev_main_log(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args) {
-        log_metav(priority, file, line, fn, format, args);
-}
-
 static int adm_version(struct udev *udev, int argc, char *argv[]) {
         printf("%s\n", VERSION);
         return 0;

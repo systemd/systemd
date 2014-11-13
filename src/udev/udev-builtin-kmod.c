@@ -66,7 +66,7 @@ static int load_module(struct udev *udev, const char *alias) {
 _printf_(6,0)
 static void udev_kmod_log(void *data, int priority, const char *file, int line,
                           const char *fn, const char *format, va_list args) {
-        udev_main_log(data, priority, file, line, fn, format, args);
+        log_metav(priority, file, line, fn, format, args);
 }
 
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test) {

@@ -50,7 +50,6 @@ struct udev {
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args);
         void *userdata;
-        struct udev_list properties_list;
 };
 
 /**
@@ -100,7 +99,6 @@ _public_ struct udev *udev_new(void) {
         if (udev == NULL)
                 return NULL;
         udev->refcount = 1;
-        udev_list_init(udev, &udev->properties_list, true);
 
         f = fopen("/etc/udev/udev.conf", "re");
         if (f != NULL) {
@@ -211,7 +209,6 @@ _public_ struct udev *udev_unref(struct udev *udev) {
         udev->refcount--;
         if (udev->refcount > 0)
                 return udev;
-        udev_list_cleanup(&udev->properties_list);
         free(udev);
         return NULL;
 }
@@ -252,21 +249,4 @@ _public_ int udev_get_log_priority(struct udev *udev) {
  **/
 _public_ void udev_set_log_priority(struct udev *udev, int priority) {
         log_set_max_level(priority);
-}
-
-struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value) {
-        if (value == NULL) {
-                struct udev_list_entry *list_entry;
-
-                list_entry = udev_get_properties_list_entry(udev);
-                list_entry = udev_list_entry_get_by_name(list_entry, key);
-                if (list_entry != NULL)
-                        udev_list_entry_delete(list_entry);
-                return NULL;
-        }
-        return udev_list_entry_add(&udev->properties_list, key, value);
-}
-
-struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev) {
-        return udev_list_get_entry(&udev->properties_list);
 }

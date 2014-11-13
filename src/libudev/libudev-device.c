@@ -642,7 +642,6 @@ void udev_device_set_info_loaded(struct udev_device *device)
 struct udev_device *udev_device_new(struct udev *udev)
 {
         struct udev_device *udev_device;
-        struct udev_list_entry *list_entry;
 
         if (udev == NULL) {
                 errno = EINVAL;
@@ -662,11 +661,7 @@ struct udev_device *udev_device_new(struct udev *udev)
         udev_list_init(udev, &udev_device->sysattr_list, false);
         udev_list_init(udev, &udev_device->tags_list, true);
         udev_device->watch_handle = -1;
-        /* copy global properties */
-        udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
-                udev_device_add_property(udev_device,
-                                         udev_list_entry_get_name(list_entry),
-                                         udev_list_entry_get_value(list_entry));
+
         return udev_device;
 }
 

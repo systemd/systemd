@@ -34,12 +34,7 @@
 #define WRITE_END 1
 
 /* libudev.c */
-void udev_log(struct udev *udev,
-              int priority, const char *file, int line, const char *fn,
-              const char *format, ...) _printf_(6, 7);
 int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
-struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
-struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device.c */
 struct udev_device *udev_device_new(struct udev *udev);

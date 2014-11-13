@@ -197,11 +197,6 @@ int udev_builtin_add_property(struct udev_device *dev, bool test, const char *ke
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
 
-/* udev logging */
-void udev_main_log(struct udev *udev, int priority,
-                   const char *file, int line, const char *fn,
-                   const char *format, va_list args) _printf_(6, 0);
-
 /* udevadm commands */
 struct udevadm_cmd {
         const char *name;
