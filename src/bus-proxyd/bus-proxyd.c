@@ -1478,8 +1478,10 @@ int main(int argc, char *argv[]) {
 
                         assert_se(sd_bus_creds_get_uid(bus_creds, &uid) == 0);
 
+/*
                         if (uid == 0 || uid != ucred.uid)
                                 p = &policy;
+*/
 
                         /* We officially got EOF, let's quit */
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
