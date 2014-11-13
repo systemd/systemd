@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 int mount_setup_early(void);
+int mount_setup_late(void);
 
 int mount_setup(bool loaded_policy);
 

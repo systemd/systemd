@@ -635,8 +635,8 @@ enum kdbus_make_flags {
  * @kernel_flags:	Supported flags for the used command, kernel → userspace
  * @items:		Items describing details
  *
- * This structure is used with the KDBUS_CMD_BUS_MAKE, KDBUS_CMD_ENDPOINT_MAKE
- * and KDBUS_CMD_DOMAIN_MAKE ioctls.
+ * This structure is used with the KDBUS_CMD_BUS_MAKE and
+ * KDBUS_CMD_ENDPOINT_MAKE ioctls.
  */
 struct kdbus_cmd_make {
 	__u64 size;
@@ -839,8 +839,6 @@ struct kdbus_cmd_match {
  *				name. The bus is immediately shut down and
  *				cleaned up when the opened "control" device node
  *				is closed.
- * KDBUS_CMD_DOMAIN_MAKE:	Similar to KDBUS_CMD_BUS_MAKE, but it creates a
- *				new kdbus domain.
  * KDBUS_CMD_ENDPOINT_MAKE:	Creates a new named special endpoint to talk to
  *				the bus. Such endpoints usually carry a more
  *				restrictive policy and grant restricted access
@@ -887,44 +885,42 @@ struct kdbus_cmd_match {
  */
 #define KDBUS_CMD_BUS_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x00,	\
 					     struct kdbus_cmd_make)
-#define KDBUS_CMD_DOMAIN_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x10,	\
-					     struct kdbus_cmd_make)
-#define KDBUS_CMD_ENDPOINT_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x20,	\
+#define KDBUS_CMD_ENDPOINT_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x10,	\
 					     struct kdbus_cmd_make)
 
-#define KDBUS_CMD_HELLO			_IOWR(KDBUS_IOCTL_MAGIC, 0x30,	\
+#define KDBUS_CMD_HELLO			_IOWR(KDBUS_IOCTL_MAGIC, 0x20,	\
 					      struct kdbus_cmd_hello)
-#define KDBUS_CMD_BYEBYE		_IO(KDBUS_IOCTL_MAGIC, 0x31)	\
+#define KDBUS_CMD_BYEBYE		_IO(KDBUS_IOCTL_MAGIC, 0x21)	\
 
-#define KDBUS_CMD_MSG_SEND		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,	\
+#define KDBUS_CMD_MSG_SEND		_IOWR(KDBUS_IOCTL_MAGIC, 0x30,	\
 					      struct kdbus_msg)
-#define KDBUS_CMD_MSG_RECV		_IOWR(KDBUS_IOCTL_MAGIC, 0x41,	\
+#define KDBUS_CMD_MSG_RECV		_IOWR(KDBUS_IOCTL_MAGIC, 0x31,	\
 					      struct kdbus_cmd_recv)
-#define KDBUS_CMD_MSG_CANCEL		_IOW(KDBUS_IOCTL_MAGIC, 0x42,	\
+#define KDBUS_CMD_MSG_CANCEL		_IOW(KDBUS_IOCTL_MAGIC, 0x32,	\
 					     struct kdbus_cmd_cancel)
-#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x43,	\
+#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x33,	\
 					     struct kdbus_cmd_free)
 
-#define KDBUS_CMD_NAME_ACQUIRE		_IOWR(KDBUS_IOCTL_MAGIC, 0x50,	\
+#define KDBUS_CMD_NAME_ACQUIRE		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,	\
 					      struct kdbus_cmd_name)
-#define KDBUS_CMD_NAME_RELEASE		_IOW(KDBUS_IOCTL_MAGIC, 0x51,	\
+#define KDBUS_CMD_NAME_RELEASE		_IOW(KDBUS_IOCTL_MAGIC, 0x41,	\
 					     struct kdbus_cmd_name)
-#define KDBUS_CMD_NAME_LIST		_IOWR(KDBUS_IOCTL_MAGIC, 0x52,	\
+#define KDBUS_CMD_NAME_LIST		_IOWR(KDBUS_IOCTL_MAGIC, 0x42,	\
 					      struct kdbus_cmd_name_list)
 
-#define KDBUS_CMD_CONN_INFO		_IOWR(KDBUS_IOCTL_MAGIC, 0x60,	\
+#define KDBUS_CMD_CONN_INFO		_IOWR(KDBUS_IOCTL_MAGIC, 0x50,	\
 					      struct kdbus_cmd_info)
-#define KDBUS_CMD_CONN_UPDATE		_IOW(KDBUS_IOCTL_MAGIC, 0x61,	\
+#define KDBUS_CMD_CONN_UPDATE		_IOW(KDBUS_IOCTL_MAGIC, 0x51,	\
 					     struct kdbus_cmd_update)
-#define KDBUS_CMD_BUS_CREATOR_INFO	_IOWR(KDBUS_IOCTL_MAGIC, 0x62,	\
+#define KDBUS_CMD_BUS_CREATOR_INFO	_IOWR(KDBUS_IOCTL_MAGIC, 0x52,	\
 					      struct kdbus_cmd_info)
 
-#define KDBUS_CMD_ENDPOINT_UPDATE	_IOW(KDBUS_IOCTL_MAGIC, 0x71,	\
+#define KDBUS_CMD_ENDPOINT_UPDATE	_IOW(KDBUS_IOCTL_MAGIC, 0x61,	\
 					     struct kdbus_cmd_update)
 
-#define KDBUS_CMD_MATCH_ADD		_IOW(KDBUS_IOCTL_MAGIC, 0x80,	\
+#define KDBUS_CMD_MATCH_ADD		_IOW(KDBUS_IOCTL_MAGIC, 0x70,	\
 					     struct kdbus_cmd_match)
-#define KDBUS_CMD_MATCH_REMOVE		_IOW(KDBUS_IOCTL_MAGIC, 0x81,	\
+#define KDBUS_CMD_MATCH_REMOVE		_IOW(KDBUS_IOCTL_MAGIC, 0x71,	\
 					     struct kdbus_cmd_match)
 
 #endif /* _KDBUS_UAPI_H_ */

@@ -1282,7 +1282,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         assert(name);
         assert(s);
 
-        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open("/sys/fs/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -1323,7 +1323,7 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         if (s) {
                 char *p;
 
-                p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
+                p = strjoin("/sys/fs/kdbus/", n->str, "/bus", NULL);
                 if (!p) {
                         safe_close(fd);
                         return -ENOMEM;
@@ -1403,7 +1403,7 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
         int fd;
         size_t len;
 
-        len = strlen("/dev/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
+        len = strlen("/sys/fs/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
 
         if (path) {
                 p = malloc(len);
@@ -1412,7 +1412,7 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
                 *path = p;
         } else
                 p = alloca(len);
-        sprintf(p, "/dev/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
+        sprintf(p, "/sys/fs/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -1581,58 +1581,6 @@ int bus_kernel_make_starter(
 
         if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
                 return -ENOTSUP;
-
-        return fd;
-}
-
-int bus_kernel_create_domain(const char *name, char **s) {
-        struct kdbus_cmd_make *make;
-        struct kdbus_item *n;
-        int fd;
-
-        assert(name);
-        assert(s);
-
-        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                                    offsetof(struct kdbus_item, str) +
-                                    strlen(name) + 1),
-                             8);
-
-        n = make->items;
-        strcpy(n->str, name);
-        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_ITEM_MAKE_NAME;
-
-        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items) + n->size);
-        make->flags = KDBUS_MAKE_ACCESS_WORLD;
-
-        if (ioctl(fd, KDBUS_CMD_DOMAIN_MAKE, make) < 0) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        /* The higher 32bit of the flags field are considered
-         * 'incompatible flags'. Refuse them all for now. */
-        if (make->flags > 0xFFFFFFFFULL) {
-                safe_close(fd);
-                return -ENOTSUP;
-        }
-
-        if (s) {
-                char *p;
-
-                p = strappend("/dev/kdbus/domain/", name);
-                if (!p) {
-                        safe_close(fd);
-                        return -ENOMEM;
-                }
-
-                *s = p;
-        }
 
         return fd;
 }

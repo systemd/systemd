@@ -145,7 +145,7 @@ static int mount_dev(BindMount *m) {
                 "/dev/tty\0";
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
-        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devkdbus = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
+        const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -184,10 +184,6 @@ static int mount_dev(BindMount *m) {
         devmqueue = strappenda(temporary_mount, "/dev/mqueue");
         mkdir(devmqueue, 0755);
         mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
-
-        devkdbus = strappenda(temporary_mount, "/dev/kdbus");
-        mkdir(devkdbus, 0755);
-        mount("/dev/kdbus", devkdbus, NULL, MS_BIND, NULL);
 
         devhugepages = strappenda(temporary_mount, "/dev/hugepages");
         mkdir(devhugepages, 0755);
@@ -253,9 +249,6 @@ fail:
 
         if (devshm)
                 umount(devshm);
-
-        if (devkdbus)
-                umount(devkdbus);
 
         if (devhugepages)
                 umount(devhugepages);

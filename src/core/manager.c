@@ -729,13 +729,6 @@ static int manager_setup_kdbus(Manager *m) {
         }
 
         log_debug("Successfully set up kdbus on %s", p);
-
-        /* Create the namespace directory here, so that the contents
-         * of that directory is not visible to non-root users. This is
-         * necessary to ensure that users cannot get access to busses
-         * of virtualized users when no UID namespacing is used. */
-        if (m->running_as == SYSTEMD_SYSTEM)
-                mkdir_p_label("/dev/kdbus/domain", 0700);
 #endif
 
         return 0;

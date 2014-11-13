@@ -807,7 +807,7 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
         machine = NULL;
 
         free(b->kernel);
-        b->kernel = strdup("/dev/kdbus/0-system/bus");
+        b->kernel = strdup("/sys/fs/kdbus/0-system/bus");
         if (!b->kernel)
                 return -ENOMEM;
 

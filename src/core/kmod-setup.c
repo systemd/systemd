@@ -71,7 +71,7 @@ int kmod_setup(void) {
                 { "unix",    "/proc/net/unix",         true, NULL },
 
                 /* IPC is needed before we bring up any other services */
-                { "kdbus",   "/sys/bus/kdbus",         false, cmdline_check_kdbus },
+                { "kdbus",   "/sys/fs/kdbus",          false, cmdline_check_kdbus },
         };
         struct kmod_ctx *ctx = NULL;
         unsigned int i;

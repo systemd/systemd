@@ -1441,26 +1441,6 @@ static int setup_journal(const char *directory) {
         return 0;
 }
 
-static int setup_kdbus(const char *dest, const char *path) {
-        const char *p;
-
-        if (!path)
-                return 0;
-
-        p = strappenda(dest, "/dev/kdbus");
-        if (mkdir(p, 0755) < 0) {
-                log_error("Failed to create kdbus path: %m");
-                return  -errno;
-        }
-
-        if (mount(path, p, "bind", MS_BIND, NULL) < 0) {
-                log_error("Failed to mount kdbus domain path: %m");
-                return -errno;
-        }
-
-        return 0;
-}
-
 static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
@@ -1546,7 +1526,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                         return r;
                 }
 
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 11,
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 9,
                                           /* Allow the container to
                                            * access and create the API
                                            * device nodes, so that
@@ -1566,18 +1546,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                            * container to ever create
                                            * these device nodes. */
                                           "/dev/pts/ptmx", "rw",
-                                          "char-pts", "rw",
-                                          /* Allow the container
-                                           * access to all kdbus
-                                           * devices. Again, the
-                                           * container cannot create
-                                           * these nodes, only use
-                                           * them. We use a pretty
-                                           * open match here, so that
-                                           * the kernel API can still
-                                           * change. */
-                                          "char-kdbus", "rw",
-                                          "char-kdbus/*", "rw");
+                                          "char-pts", "rw");
                 if (r < 0) {
                         log_error("Failed to add device whitelist: %s", strerror(-r));
                         return r;
@@ -2991,9 +2960,9 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
+        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
-        _cleanup_close_ int master = -1, kdbus_fd = -1, image_fd = -1;
+        _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r = EXIT_FAILURE, k, n_fd_passed, loop_nr = -1;
@@ -3138,26 +3107,6 @@ int main(int argc, char *argv[]) {
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
                 goto finish;
-        }
-
-        if (access("/dev/kdbus/control", F_OK) >= 0) {
-
-                if (arg_share_system) {
-                        kdbus_domain = strdup("/dev/kdbus");
-                        if (!kdbus_domain) {
-                                log_oom();
-                                goto finish;
-                        }
-                } else {
-                        const char *ns;
-
-                        ns = strappenda("machine-", arg_machine);
-                        kdbus_fd = bus_kernel_create_domain(ns, &kdbus_domain);
-                        if (r < 0)
-                                log_debug("Failed to create kdbus domain: %s", strerror(-r));
-                        else
-                                log_debug("Successfully created kdbus domain as %s", kdbus_domain);
-                }
         }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
@@ -3363,9 +3312,6 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
 
                         if (mount_tmpfs(arg_directory) < 0)
-                                _exit(EXIT_FAILURE);
-
-                        if (setup_kdbus(arg_directory, kdbus_domain) < 0)
                                 _exit(EXIT_FAILURE);
 
                         /* Tell the parent that we are ready, and that

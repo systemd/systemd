@@ -14,11 +14,11 @@ GVariant compatible marshaler to your library first.
 
 After you have done that: here's the basic principle how kdbus works:
 
-You connect to a bus by opening its bus node in /dev/kdbus/. All
+You connect to a bus by opening its bus node in /sys/fs/kdbus/. All
 buses have a device node there, it starts with a numeric UID of the
 owner of the bus, followed by a dash and a string identifying the
-bus. The system bus is thus called /dev/kdbus/0-system, and for user
-buses the device node is /dev/kdbus/1000-user (if 1000 is your user
+bus. The system bus is thus called /sys/fs/kdbus/0-system, and for user
+buses the device node is /sys/fs/kdbus/1000-user (if 1000 is your user
 id).
 
 (Before we proceed, please always keep a copy of libsystemd next
@@ -496,12 +496,12 @@ parameter.
 Client libraries should use the following connection string when
 connecting to the system bus:
 
-   kernel:path=/dev/kdbus/0-system/bus;unix:path=/var/run/dbus/system_bus_socket
+   kernel:path=/sys/fs/kdbus/0-system/bus;unix:path=/var/run/dbus/system_bus_socket
 
 This will ensure that kdbus is preferred over the legacy AF_UNIX
 socket, but compatibility is kept. For the user bus use:
 
-   kernel:path=/dev/kdbus/$UID-user/bus;unix:path=$XDG_RUNTIME_DIR/bus
+   kernel:path=/sys/fs/kdbus/$UID-user/bus;unix:path=$XDG_RUNTIME_DIR/bus
 
 With $UID replaced by the callers numer user ID, and $XDG_RUNTIME_DIR
 following the XDG basedir spec.

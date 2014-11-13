@@ -62,7 +62,7 @@
 #endif
 
 #define UNIX_SYSTEM_BUS_PATH "unix:path=/var/run/dbus/system_bus_socket"
-#define KERNEL_SYSTEM_BUS_PATH "kernel:path=/dev/kdbus/0-system/bus"
+#define KERNEL_SYSTEM_BUS_PATH "kernel:path=/sys/fs/kdbus/0-system/bus"
 
 #ifdef ENABLE_KDBUS
 #  define DEFAULT_SYSTEM_BUS_PATH KERNEL_SYSTEM_BUS_PATH ";" UNIX_SYSTEM_BUS_PATH
@@ -71,7 +71,7 @@
 #endif
 
 #define UNIX_USER_BUS_FMT "unix:path=%s/bus"
-#define KERNEL_USER_BUS_FMT "kernel:path=/dev/kdbus/"UID_FMT"-user/bus"
+#define KERNEL_USER_BUS_FMT "kernel:path=/sys/fs/kdbus/"UID_FMT"-user/bus"
 
 #define PLYMOUTH_SOCKET {                                       \
                 .un.sun_family = AF_UNIX,                       \

@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (access("/dev/kdbus/control", F_OK) < 0)
+        if (access("/sys/fs/kdbus/control", F_OK) < 0)
                 return 0;
 
         r = cg_pid_get_owner_uid(0, NULL);
