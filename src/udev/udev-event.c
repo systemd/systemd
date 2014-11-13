@@ -787,9 +787,10 @@ static int rename_netif(struct udev_event *event) {
 }
 
 void udev_event_execute_rules(struct udev_event *event,
-                              usec_t timeout_usec,
-                              usec_t timeout_warn_usec,
-                              struct udev_rules *rules, const sigset_t *sigmask) {
+                              usec_t timeout_usec, usec_t timeout_warn_usec,
+                              struct udev_list *properties_list,
+                              struct udev_rules *rules,
+                              const sigset_t *sigmask) {
         struct udev_device *dev = event->dev;
 
         if (udev_device_get_subsystem(dev) == NULL)
@@ -803,7 +804,10 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_watch_end(event->udev, dev);
 
-                udev_rules_apply_to_event(rules, event, timeout_usec, timeout_warn_usec, sigmask);
+                udev_rules_apply_to_event(rules, event,
+                                          timeout_usec, timeout_warn_usec,
+                                          properties_list,
+                                          sigmask);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
@@ -837,7 +841,10 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
                 }
 
-                udev_rules_apply_to_event(rules, event, timeout_usec, timeout_warn_usec, sigmask);
+                udev_rules_apply_to_event(rules, event,
+                                          timeout_usec, timeout_warn_usec,
+                                          properties_list,
+                                          sigmask);
 
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&

@@ -75,8 +75,8 @@ static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
 static char *udev_cgroup;
-static bool udev_exit;
 static struct udev_list properties_list;
+static bool udev_exit;
 
 enum event_state {
         EVENT_UNDEF,
@@ -305,9 +305,15 @@ static void worker_new(struct event *event) {
                         udev_event->rtnl = rtnl;
 
                         /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, rules, &sigmask_orig);
+                        udev_event_execute_rules(udev_event,
+                                                 arg_event_timeout_usec, arg_event_timeout_warn_usec,
+                                                 &properties_list,
+                                                 rules,
+                                                 &sigmask_orig);
 
-                        udev_event_execute_run(udev_event, arg_event_timeout_usec, arg_event_timeout_warn_usec, &sigmask_orig);
+                        udev_event_execute_run(udev_event,
+                                               arg_event_timeout_usec, arg_event_timeout_warn_usec,
+                                               &sigmask_orig);
 
                         /* in case rtnl was initialized */
                         rtnl = sd_rtnl_ref(udev_event->rtnl);

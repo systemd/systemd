@@ -136,7 +136,11 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 goto out;
         }
 
-        udev_event_execute_rules(event, 60 * USEC_PER_SEC, 20 * USEC_PER_SEC, rules, &sigmask_orig);
+        udev_event_execute_rules(event,
+                                 60 * USEC_PER_SEC, 20 * USEC_PER_SEC,
+                                 NULL,
+                                 rules,
+                                 &sigmask_orig);
 
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev))
                 printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
