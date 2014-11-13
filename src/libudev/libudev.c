@@ -153,7 +153,7 @@ _public_ struct udev *udev_new(void)
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                udev_err(udev, "/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
+                                udev_dbg(udev, "/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -185,7 +185,7 @@ _public_ struct udev *udev_new(void)
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        udev_err(udev, "/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
+                                        udev_dbg(udev, "/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';
@@ -197,7 +197,7 @@ _public_ struct udev *udev_new(void)
 
                                 prio = util_log_priority(val);
                                 if (prio < 0)
-                                        udev_err(udev, "/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
+                                        udev_dbg(udev, "/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
                                 else
                                         udev_set_log_priority(udev, prio);
                                 continue;
@@ -212,7 +212,7 @@ _public_ struct udev *udev_new(void)
 
                 prio = util_log_priority(env);
                 if (prio < 0)
-                        udev_err(udev, "$UDEV_LOG specifies invalid log level '%s', ignoring.\n", env);
+                        udev_dbg(udev, "$UDEV_LOG specifies invalid log level '%s', ignoring.\n", env);
                 else
                         udev_set_log_priority(udev, prio);
         }
