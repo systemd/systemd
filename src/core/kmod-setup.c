@@ -23,13 +23,17 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
+#ifdef HAVE_KMOD
 #include <libkmod.h>
+#endif
 
 #include "macro.h"
 #include "execute.h"
 #include "capability.h"
 #include "kmod-setup.h"
 
+#ifdef HAVE_KMOD
 static void systemd_kmod_log(
                 void *data,
                 int priority,
@@ -52,8 +56,10 @@ static bool cmdline_check_kdbus(void) {
 
         return strstr(line, "kdbus") != NULL;
 }
+#endif
 
 int kmod_setup(void) {
+#ifdef HAVE_KMOD
 
         static const struct {
                 const char *module;
@@ -123,5 +129,6 @@ int kmod_setup(void) {
         if (ctx)
                 kmod_unref(ctx);
 
+#endif
         return 0;
 }

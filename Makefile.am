@@ -1121,6 +1121,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/machine-id-setup.h \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
+	src/core/kmod-setup.c \
+	src/core/kmod-setup.h \
 	src/core/loopback-setup.h \
 	src/core/loopback-setup.c \
 	src/core/namespace.c \
@@ -1135,12 +1137,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/show-status.h \
 	src/core/failure-action.c \
 	src/core/failure-action.h
-
-if HAVE_KMOD
-libsystemd_core_la_SOURCES += \
-	src/core/kmod-setup.c \
-	src/core/kmod-setup.h
-endif
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \

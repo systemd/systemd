@@ -75,9 +75,7 @@
 #include "selinux-setup.h"
 #include "ima-setup.h"
 #include "smack-setup.h"
-#ifdef HAVE_KMOD
 #include "kmod-setup.h"
-#endif
 
 static enum {
         ACTION_RUN,
@@ -1389,10 +1387,10 @@ int main(int argc, char *argv[]) {
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
         if (getpid() == 1) {
-#ifdef HAVE_KMOD
+
+                /* Load the kernel modules early, so that we kdbus.ko is loaded before kdbusfs shall be mounted */
                 if (!skip_setup)
                         kmod_setup();
-#endif
 
                 r = mount_setup(loaded_policy);
                 if (r < 0)
