@@ -50,11 +50,24 @@ static void systemd_kmod_log(
 
 static bool cmdline_check_kdbus(void) {
         _cleanup_free_ char *line = NULL;
+        const char *p;
+        int r;
 
-        if (proc_cmdline(&line) < 0)
+        r = proc_cmdline(&line);
+        if (r < 0)
                 return false;
 
-        return strstr(line, "kdbus") != NULL;
+        p = line;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = unquote_first_word(&p, &word, true);
+                if (r <= 0)
+                        return false;
+
+                if (streq(word, "kdbus"))
+                        return true;
+        }
 }
 #endif
 
