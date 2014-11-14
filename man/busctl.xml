@@ -147,7 +147,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--list</option></term>
 
         <listitem>
-          <para>When used with the <command>tree</command> shows a
+          <para>When used with the <command>tree</command> command shows a
           flat list of object paths instead of a tree.</para>
         </listitem>
       </varlistentry>
@@ -186,26 +186,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>tree</command>  <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg></term>
+        <term><command>tree</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Shows an object tree of one or more
-        services. If <replaceable>NAME</replaceable> is specified,
+        services. If <replaceable>SERVICE</replaceable> is specified,
         show object tree of the specified services only. Otherwise,
         show all object trees of all services on the bus that acquired
         at least one well-known name.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>monitor</command>  <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg></term>
+        <term><command>monitor</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Dump messages being exchanged. If
-        <replaceable>NAME</replaceable> is specified, show messages
+        <replaceable>SERVICE</replaceable> is specified, show messages
         to or from this endpoint. Otherwise, show all messages on the
         bus.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>capture</command>  <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg></term>
+        <term><command>capture</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Similar to <command>monitor</command> but
         writes the output in pcap format (for details see the <ulink
@@ -218,7 +218,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>status</command>  <arg choice="plain"><replaceable>NAME</replaceable></arg></term>
+        <term><command>status</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Show process information and credentials of a
         bus service.</para></listitem>
