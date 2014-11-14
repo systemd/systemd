@@ -444,29 +444,6 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
         return get_creds_by_name(bus, name, mask, _creds, error);
 }
 
-static int peer_is_privileged(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
-        int r;
-
-        r = get_creds_by_message(bus, m, SD_BUS_CREDS_UID, &creds, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_has_effective_cap(creds, CAP_SYS_ADMIN);
-        if (r > 0)
-                return true;
-
-        if (uid == getuid())
-                return true;
-
-        return false;
-}
-
 static int process_policy(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred) {
         int r;
         char **name;
@@ -980,9 +957,6 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "UpdateActivationEnvironment")) {
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
                 _cleanup_strv_free_ char **args = NULL;
-
-                if (!peer_is_privileged(a, m))
-                        return synthetic_reply_method_errno(m, -EPERM, NULL);
 
                 r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
                 if (r < 0)
