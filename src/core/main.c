@@ -1389,6 +1389,11 @@ int main(int argc, char *argv[]) {
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
         if (getpid() == 1) {
+#ifdef HAVE_KMOD
+                if (!skip_setup)
+                        kmod_setup();
+#endif
+
                 r = mount_setup(loaded_policy);
                 if (r < 0)
                         goto finish;
@@ -1553,10 +1558,6 @@ int main(int argc, char *argv[]) {
                 if (arg_show_status > 0 || plymouth_running())
                         status_welcome();
 
-#ifdef HAVE_KMOD
-                kmod_setup();
-#endif
-                mount_setup_late();
                 hostname_setup();
                 machine_id_setup(NULL);
                 loopback_setup();

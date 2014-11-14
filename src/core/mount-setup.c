@@ -108,9 +108,6 @@ static const MountPoint mount_table[] = {
         { "efivarfs",   "/sys/firmware/efi/efivars", "efivarfs",   NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           is_efi_boot, MNT_NONE },
 #endif
-};
-
-static const MountPoint mount_table_late[] = {
 #ifdef ENABLE_KDBUS
         { "kdbusfs",    "/sys/fs/kdbus",             "kdbusfs",    NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_IN_CONTAINER },
@@ -221,21 +218,6 @@ int mount_setup_early(void) {
                 int j;
 
                 j = mount_one(mount_table + i, false);
-                if (r == 0)
-                        r = j;
-        }
-
-        return r;
-}
-
-int mount_setup_late(void) {
-        unsigned i;
-        int r = 0;
-
-        for (i = 0; i < ELEMENTSOF(mount_table_late); i ++)  {
-                int j;
-
-                j = mount_one(mount_table_late + i, false);
                 if (r == 0)
                         r = j;
         }
