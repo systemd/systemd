@@ -291,8 +291,15 @@ static void print_tree(const char *prefix, char **l) {
                 return;
         }
 
-        if (!strv_isempty(l))
-                printf("%s/\n", prefix);
+        if (strv_isempty(l)) {
+                printf("No objects discovered.\n");
+                return;
+        }
+
+        if (streq(l[0], "/") && !l[1]) {
+                printf("Only root object discovered.\n");
+                return;
+        }
 
         print_subtree(prefix, "/", l);
 }
@@ -964,7 +971,7 @@ static int tree(sd_bus *bus, char **argv) {
 
         if (strv_length(argv) <= 1) {
                 _cleanup_strv_free_ char **names = NULL;
-                bool not_first = true;
+                bool not_first = false;
 
                 r = sd_bus_list_names(bus, &names, NULL);
                 if (r < 0) {
@@ -986,9 +993,9 @@ static int tree(sd_bus *bus, char **argv) {
                         if (not_first)
                                 printf("\n");
 
-                        printf("Service %s:\n", *i);
+                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
 
-                        q = tree_one(bus, *i, "\t");
+                        q = tree_one(bus, *i, NULL);
                         if (q < 0 && r >= 0)
                                 r = q;
 
@@ -1004,7 +1011,7 @@ static int tree(sd_bus *bus, char **argv) {
                                 printf("\n");
 
                         if (argv[2])
-                                printf("Service %s:\n", *i);
+                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_highlight_off());
 
                         q = tree_one(bus, *i, NULL);
                         if (q < 0 && r >= 0)
