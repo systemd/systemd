@@ -39,6 +39,8 @@ Features:
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine.
 
+* timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
+
 * networkd-wait-online really should have a timeout by default
 
 * expose orientation sensors through logind
