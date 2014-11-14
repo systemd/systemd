@@ -651,7 +651,7 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
         case POLICY_ITEM_OWN_PREFIX:
                 assert(filter->name);
 
-                if (streq(i->name, "*") || startswith(i->name, filter->name))
+                if (streq(i->name, "*") || service_name_startswith(i->name, filter->name))
                         return is_permissive(i);
                 break;
 
