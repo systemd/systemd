@@ -1023,7 +1023,7 @@ static int tree(sd_bus *bus, char **argv) {
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
-        return bus_message_dump(m, f, true);
+        return bus_message_dump(m, f, BUS_MESSAGE_DUMP_WITH_HEADER);
 }
 
 static int message_pcap(sd_bus_message *m, FILE *f) {
@@ -1445,7 +1445,108 @@ static int call(sd_bus *bus, char *argv[]) {
                 return bus_log_parse_error(r);
         if (r == 0 && !arg_quiet) {
                 pager_open_if_enabled();
-                bus_message_dump(reply, stdout, false);
+                bus_message_dump(reply, stdout, 0);
+        }
+
+        return 0;
+}
+
+static int get_property(sd_bus *bus, char *argv[]) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        unsigned n;
+        int r;
+
+        assert(bus);
+
+        n = strv_length(argv);
+        if (n < 3) {
+                log_error("Expects at least three arguments.");
+                return -EINVAL;
+        }
+
+        if (n < 5) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                bool not_first = false;
+
+                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", strempty(argv[3]));
+                if (r < 0) {
+                        log_error("%s", bus_error_message(&error, r));
+                        return r;
+                }
+
+                r = sd_bus_message_enter_container(reply, 'a', "{sv}");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                for (;;) {
+                        const char *name;
+
+                        r = sd_bus_message_enter_container(reply, 'e', "sv");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_read(reply, "s", &name);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (not_first)
+                                printf("\n");
+
+                        printf("Property %s:\n", name);
+
+                        r = sd_bus_message_enter_container(reply, 'v', NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        pager_open_if_enabled();
+                        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        not_first = true;
+                }
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        } else {
+                char **i;
+
+                STRV_FOREACH(i, argv + 4) {
+                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+
+                        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
+                        if (r < 0) {
+                                log_error("%s", bus_error_message(&error, r));
+                                return r;
+                        }
+
+                        r = sd_bus_message_enter_container(reply, 'v', NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (i > argv + 4)
+                                printf("\n");
+
+                        if (argv[5])
+                                printf("Property %s:\n", *i);
+
+                        pager_open_if_enabled();
+                        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
         }
 
         return 0;
@@ -1476,8 +1577,10 @@ static int help(void) {
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  status SERVICE          Show service name status\n"
-               "  call SERVICE PATH INTERFACE METHOD [SIGNATURE] [ARGUMENTS...]\n"
+               "  call SERVICE PATH INTERFACE METHOD [SIGNATURE [ARGUMENTS...]]\n"
                "                          Call a method\n"
+               "  get-property SERVICE PATH [INTERFACE [PROPERTY...]]\n"
+               "                          Get property value\n"
                "  help                    Show this help\n"
                , program_invocation_short_name);
 
@@ -1648,6 +1751,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "call"))
                 return call(bus, argv + optind);
+
+        if (streq(argv[optind], "get-property"))
+                return get_property(bus, argv + optind);
 
         if (streq(argv[optind], "help"))
                 return help();

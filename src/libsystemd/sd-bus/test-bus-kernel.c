@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(m);
 
-        bus_message_dump(m, stdout, true);
+        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
         assert_se(sd_bus_message_rewind(m, true) >= 0);
 
         r = sd_bus_message_read(m, "s", &the_string);
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
                 assert_se(r > 0);
                 assert_se(m);
 
-                bus_message_dump(m, stdout, true);
+                bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
                 assert_se(sd_bus_message_rewind(m, true) >= 0);
 
                 if (sd_bus_message_is_method_call(m, "an.inter.face", "AMethod")) {

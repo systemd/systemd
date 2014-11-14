@@ -175,14 +175,14 @@ static void test_marshal(void) {
         }
 #endif
 
-        assert_se(bus_message_dump(m, NULL, true) >= 0);
+        assert_se(bus_message_dump(m, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);
 
         assert_se(bus_message_get_blob(m, &blob, &sz) >= 0);
 
         assert_se(bus_message_from_malloc(bus, blob, sz, NULL, 0, NULL, NULL, &n) >= 0);
         blob = NULL;
 
-        assert_se(bus_message_dump(n, NULL, true) >= 0);
+        assert_se(bus_message_dump(n, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);
 
         m = sd_bus_message_unref(m);
 
@@ -191,7 +191,7 @@ static void test_marshal(void) {
         assert_se(sd_bus_message_append(m, "as", 0) >= 0);
 
         assert_se(bus_message_seal(m, 4712, 0) >= 0);
-        assert_se(bus_message_dump(m, NULL, true) >= 0);
+        assert_se(bus_message_dump(m, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);
 }
 
 int main(int argc, char *argv[]) {

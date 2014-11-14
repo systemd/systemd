@@ -30,21 +30,34 @@
 #include "bus-type.h"
 #include "bus-dump.h"
 
-static char *indent(unsigned level) {
+static char *indent(unsigned level, unsigned flags) {
         char *p;
+        unsigned n, i = 0;
 
-        p = new(char, 2 + level + 1);
+        n = 0;
+
+        if (flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY && level > 0)
+                level -= 1;
+
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER)
+                n += 2;
+
+        p = new(char, n + level*8 + 1);
         if (!p)
                 return NULL;
 
-        p[0] = p[1] = ' ';
-        memset(p + 2, '\t', level);
-        p[2 + level] = 0;
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
+                p[i++] = ' ';
+                p[i++] = ' ';
+        }
+
+        memset(p + i, ' ', level*8);
+        p[i + level*8] = 0;
 
         return p;
 }
 
-int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
+int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         unsigned level = 1;
         int r;
 
@@ -53,7 +66,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         if (!f)
                 f = stdout;
 
-        if (with_header) {
+        if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
@@ -111,13 +124,14 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 bus_creds_dump(&m->creds, f);
         }
 
-        r = sd_bus_message_rewind(m, true);
+        r = sd_bus_message_rewind(m, !(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY));
         if (r < 0) {
                 log_error("Failed to rewind: %s", strerror(-r));
                 return r;
         }
 
-        fprintf(f, "  MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
+                fprintf(f, "%sMESSAGE \"%s\" {\n", indent(0, flags), strempty(m->root_container.signature));
 
         for (;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -154,7 +168,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
                         level--;
 
-                        prefix = indent(level);
+                        prefix = indent(level, flags);
                         if (!prefix)
                                 return log_oom();
 
@@ -162,7 +176,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         continue;
                 }
 
-                prefix = indent(level);
+                prefix = indent(level, flags);
                 if (!prefix)
                         return log_oom();
 
@@ -254,7 +268,9 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 }
         }
 
-        fprintf(f, "  };\n\n");
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
+                fprintf(f, "%s};\n\n", indent(0, flags));
+
         return 0;
 }
 

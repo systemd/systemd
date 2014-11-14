@@ -227,7 +227,24 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PARAMETERS</replaceable></arg></arg></term>
 
-        <listitem><para>Invoke a method and show the response.</para></listitem>
+        <listitem><para>Invoke a method and show the response. Takes a
+        service name, object path, interface name and method name. If
+        parameters shall be passed to the method call a signature
+        string is required, followed by the individual parameters,
+        individually formatted as textual arguments.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PROPERTIES</replaceable></arg></arg></term>
+
+        <listitem><para>Retrieve the current value one or more object
+        properties. Takes a service name and object path. Optionally
+        takes an interface name and property name. If the property
+        name is omited, shows all properties on the selected
+        interface. If the interface is also omitted shows the
+        properties of all interfaces. Multiple properties may be
+        specified at once in which case their values will be shown one
+        after the other.</para></listitem>
       </varlistentry>
 
       <varlistentry>

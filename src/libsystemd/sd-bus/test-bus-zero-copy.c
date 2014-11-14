@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
         r = bus_message_seal(m, 55, 99*USEC_PER_SEC);
         assert_se(r >= 0);
 
-        bus_message_dump(m, stdout, true);
+        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         r = sd_bus_send(b, m, NULL);
         assert_se(r >= 0);
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_process(a, &m);
         assert_se(r > 0);
 
-        bus_message_dump(m, stdout, true);
+        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
         sd_bus_message_rewind(m, true);
 
         r = sd_bus_message_enter_container(m, 'r', "aysay");

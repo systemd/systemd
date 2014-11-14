@@ -385,7 +385,7 @@ static int client(struct context *c) {
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", "");
         assert_se(r >= 0);
 
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
@@ -403,7 +403,7 @@ static int client(struct context *c) {
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, "");
         assert_se(r >= 0);
 
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
@@ -415,7 +415,7 @@ static int client(struct context *c) {
         assert_se(r > 0);
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
@@ -427,7 +427,7 @@ static int client(struct context *c) {
         assert_se(r > 0);
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
@@ -439,7 +439,7 @@ static int client(struct context *c) {
         assert_se(r > 0);
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
@@ -451,7 +451,7 @@ static int client(struct context *c) {
         assert_se(r > 0);
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
-        bus_message_dump(reply, stdout, true);
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         sd_bus_message_unref(reply);
         reply = NULL;
