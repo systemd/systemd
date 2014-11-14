@@ -152,6 +152,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--quiet</option></term>
+
+        <listitem>
+          <para>When used with the <command>call</command> command suppresses
+          display of the response message.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
@@ -213,6 +222,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Show process information and credentials of a
         bus service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PARAMETERS</replaceable></arg></arg></term>
+
+        <listitem><para>Invoke a method and show the response.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -34,6 +34,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-dump.h"
+#include "bus-signature.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -48,6 +49,7 @@ static char *arg_host = NULL;
 static bool arg_user = false;
 static size_t arg_snaplen = 4096;
 static bool arg_list = false;
+static bool arg_quiet = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -1139,6 +1141,309 @@ static int status(sd_bus *bus, char *argv[]) {
         return 0;
 }
 
+static int message_append_cmdline(sd_bus_message *m, const char *signature, char ***x) {
+        char **p;
+        int r;
+
+        assert(m);
+        assert(signature);
+        assert(x);
+
+        p = *x;
+
+        for (;;) {
+                const char *v;
+                char t;
+
+                t = *signature;
+                v = *p;
+
+                if (t == 0)
+                        break;
+                if (!v) {
+                        log_error("Too few parameters for signature.");
+                        return -EINVAL;
+                }
+
+                signature++;
+                p++;
+
+                switch (t) {
+
+                case SD_BUS_TYPE_BOOLEAN:
+
+                        r = parse_boolean(v);
+                        if (r < 0) {
+                                log_error("Failed to parse as boolean: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &r);
+                        break;
+
+                case SD_BUS_TYPE_BYTE: {
+                        uint8_t z;
+
+                        r = safe_atou8(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as byte (unsigned 8bit integer): %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT16: {
+                        int16_t z;
+
+                        r = safe_atoi16(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as signed 16bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT16: {
+                        uint16_t z;
+
+                        r = safe_atou16(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as unsigned 16bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT32: {
+                        int32_t z;
+
+                        r = safe_atoi32(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as signed 32bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT32: {
+                        uint32_t z;
+
+                        r = safe_atou32(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as unsigned 32bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT64: {
+                        int64_t z;
+
+                        r = safe_atoi64(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as signed 64bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT64: {
+                        uint64_t z;
+
+                        r = safe_atou64(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as unsigned 64bit integer: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+
+                case SD_BUS_TYPE_DOUBLE: {
+                        double z;
+
+                        r = safe_atod(v, &z);
+                        if (r < 0) {
+                                log_error("Failed to parse as double precision floating point: %s", v);
+                                return r;
+                        }
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE:
+
+                        r = sd_bus_message_append_basic(m, t, v);
+                        break;
+
+                case SD_BUS_TYPE_ARRAY: {
+                        uint32_t n;
+                        size_t k;
+
+                        r = safe_atou32(v, &n);
+                        if (r < 0) {
+                                log_error("Failed to parse number of array entries: %s", v);
+                                return r;
+                        }
+
+                        r = signature_element_length(signature, &k);
+                        if (r < 0) {
+                                log_error("Invalid array signature.");
+                                return r;
+                        }
+
+                        {
+                                unsigned i;
+                                char s[k + 1];
+                                memcpy(s, signature, k);
+                                s[k] = 0;
+
+                                r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, s);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                for (i = 0; i < n; i++) {
+                                        r = message_append_cmdline(m, s, &p);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        signature += k;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+                }
+
+                case SD_BUS_TYPE_VARIANT:
+                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, v);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = message_append_cmdline(m, v, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+
+                case SD_BUS_TYPE_STRUCT_BEGIN:
+                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
+                        size_t k;
+
+                        signature--;
+                        p--;
+
+                        r = signature_element_length(signature, &k);
+                        if (r < 0) {
+                                log_error("Invalid struct/dict entry signature.");
+                                return r;
+                        }
+
+                        {
+                                char s[k-1];
+                                memcpy(s, signature + 1, k - 2);
+                                s[k - 2] = 0;
+
+                                r = sd_bus_message_open_container(m, t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                r = message_append_cmdline(m, s, &p);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        signature += k;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UNIX_FD:
+                        log_error("UNIX file descriptor not supported as type.");
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown signature type %c.", t);
+                        return -EINVAL;
+                }
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        *x = p;
+        return 0;
+}
+
+static int call(sd_bus *bus, char *argv[]) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        int r;
+
+        assert(bus);
+
+        if (strv_length(argv) < 5) {
+                log_error("Expects at least four arguments.");
+                return -EINVAL;
+        }
+
+        r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], argv[3], argv[4]);
+        if (r < 0) {
+                log_error("Failed to prepare bus message: %s", strerror(-r));
+                return r;
+        }
+
+        if (!isempty(argv[5])) {
+                char **p;
+
+                p = argv+6;
+
+                r = message_append_cmdline(m, argv[5], &p);
+                if (r < 0)
+                        return r;
+
+                if (*p) {
+                        log_error("Too many parameters for signature.");
+                        return -EINVAL;
+                }
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("%s", bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_is_empty(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        if (r == 0 && !arg_quiet) {
+                pager_open_if_enabled();
+                bus_message_dump(reply, stdout, false);
+        }
+
+        return 0;
+}
+
 static int help(void) {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Introspect the bus.\n\n"
@@ -1156,13 +1461,16 @@ static int help(void) {
                "     --acquired           Only show acquired names\n"
                "     --activatable        Only show activatable names\n"
                "     --match=MATCH        Only show matching messages\n"
-               "     --list               Don't show tree, but simple object path list\n\n"
+               "     --list               Don't show tree, but simple object path list\n"
+               "     --quiet              Don't show method call reply\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  tree [SERVICE...]       Show object tree of service\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
-               "  status NAME             Show name status\n"
+               "  status SERVICE          Show service name status\n"
+               "  call SERVICE PATH INTERFACE METHOD [SIGNATURE] [ARGUMENTS...]\n"
+               "                          Call a method\n"
                "  help                    Show this help\n"
                , program_invocation_short_name);
 
@@ -1204,6 +1512,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",      required_argument, NULL, 'M'              },
                 { "size",         required_argument, NULL, ARG_SIZE         },
                 { "list",         no_argument,       NULL, ARG_LIST         },
+                { "quiet",        no_argument,       NULL, 'q'              },
                 {},
         };
 
@@ -1212,7 +1521,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:q", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1297,6 +1606,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1325,6 +1638,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "tree"))
                 return tree(bus, argv + optind);
+
+        if (streq(argv[optind], "call"))
+                return call(bus, argv + optind);
 
         if (streq(argv[optind], "help"))
                 return help();

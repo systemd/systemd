@@ -245,6 +245,9 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
+int safe_atou16(const char *s, uint16_t *ret);
+int safe_atoi16(const char *s, int16_t *ret);
+
 const char* split(const char **state, size_t *l, const char *separator, bool quoted);
 
 #define FOREACH_WORD(word, length, s, state)                            \

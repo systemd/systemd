@@ -363,6 +363,46 @@ int safe_atou8(const char *s, uint8_t *ret) {
         return 0;
 }
 
+int safe_atou16(const char *s, uint16_t *ret) {
+        char *x = NULL;
+        unsigned long l;
+
+        assert(s);
+        assert(ret);
+
+        errno = 0;
+        l = strtoul(s, &x, 0);
+
+        if (!x || x == s || *x || errno)
+                return errno > 0 ? -errno : -EINVAL;
+
+        if ((unsigned long) (uint16_t) l != l)
+                return -ERANGE;
+
+        *ret = (uint16_t) l;
+        return 0;
+}
+
+int safe_atoi16(const char *s, int16_t *ret) {
+        char *x = NULL;
+        long l;
+
+        assert(s);
+        assert(ret);
+
+        errno = 0;
+        l = strtol(s, &x, 0);
+
+        if (!x || x == s || *x || errno)
+                return errno > 0 ? -errno : -EINVAL;
+
+        if ((long) (int16_t) l != l)
+                return -ERANGE;
+
+        *ret = (int16_t) l;
+        return 0;
+}
+
 int safe_atollu(const char *s, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;
