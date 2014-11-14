@@ -254,6 +254,7 @@ global:
         sd_bus_message_get_realtime_usec;
         sd_bus_message_get_seqnum;
         sd_bus_message_get_creds;
+        sd_bus_message_is_empty;
         sd_bus_message_is_signal;
         sd_bus_message_is_method_call;
         sd_bus_message_is_method_error;

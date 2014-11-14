@@ -5380,6 +5380,12 @@ _public_ const char* sd_bus_message_get_signature(sd_bus_message *m, int complet
         return strempty(c->signature);
 }
 
+_public_ int sd_bus_message_is_empty(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+
+        return isempty(m->root_container.signature);
+}
+
 _public_ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
         bool done_something = false;
         int r;
