@@ -114,7 +114,7 @@ static int get_user_data(
         }
 
         *ret_pw = pw;
-        *ret_username = username ? username : pw->pw_name;
+        *ret_username = username;
 
         return PAM_SUCCESS;
 }
