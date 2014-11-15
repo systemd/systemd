@@ -505,6 +505,19 @@
         </refsect1>
 
         <refsect1>
+                <title>[BridgePort] Section Options</title>
+                        <para>The <literal>[BridgePort]</literal> section accepts the following keys.</para>
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Cost=</varname></term>
+                                        <listitem>
+                                          <para>Each port in a bridge may have different speed. Cost is used to decide which link to use. Faster interfaces should have lower costs</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>Example</title>
                 <example>
                         <title>/etc/systemd/network/50-static.network</title>

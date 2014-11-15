@@ -106,6 +106,8 @@ struct Network {
 
         bool dhcp_server;
 
+        unsigned cost;
+
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
 
