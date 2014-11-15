@@ -272,6 +272,36 @@
                                                 to discover remote MAC addresses.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>FDBAgeingSec=</varname></term>
+                                        <listitem>
+                                                <para>The lifetime of Forwarding Database entry learnt by the kernel in seconds.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>ARPProxy=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables ARP proxy.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>L2MissNotification=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables netlink LLADDR miss notifications.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>L3MissNotification=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables netlink IP ADDR miss notifications.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>RouteShortCircuit=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true route short circuit is turned on.</para>
+                                        </listitem>
+                                </varlistentry>
                         </variablelist>
         </refsect1>
         <refsect1>

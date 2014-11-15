@@ -33,10 +33,20 @@ struct VxLan {
         NetDev meta;
 
         uint64_t id;
+
+        int family;
         union in_addr_union group;
+
         unsigned tos;
         unsigned ttl;
+
+        usec_t fdb_ageing;
+
         bool learning;
+        bool arp_proxy;
+        bool route_short_circuit;
+        bool l2miss;
+        bool l3miss;
 };
 
 extern const NetDevVTable vxlan_vtable;
