@@ -4511,6 +4511,15 @@ rootlibexec_PROGRAMS += \
 
 dist_pkgsysconf_DATA += \
 	src/bootchart/bootchart.conf
+
+nodist_systemunit_DATA += \
+	units/systemd-bootchart.service
+
+EXTRA_DIST += \
+	units/systemd-bootchart.service.in
+
+CLEANFILES += \
+	units/systemd-bootchart.service
 endif
 
 # ------------------------------------------------------------------------------
