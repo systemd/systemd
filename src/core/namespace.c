@@ -157,14 +157,14 @@ static int mount_dev(BindMount *m) {
                 return -errno;
 
         dev = strappenda(temporary_mount, "/dev");
-        mkdir(dev, 0755);
+        (void)mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755") < 0) {
                 r = -errno;
                 goto fail;
         }
 
         devpts = strappenda(temporary_mount, "/dev/pts");
-        mkdir(devpts, 0755);
+        (void)mkdir(devpts, 0755);
         if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
                 r = -errno;
                 goto fail;
@@ -174,7 +174,7 @@ static int mount_dev(BindMount *m) {
         symlink("pts/ptmx", devptmx);
 
         devshm = strappenda(temporary_mount, "/dev/shm");
-        mkdir(devshm, 01777);
+        (void)mkdir(devshm, 01777);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
                 r = -errno;
@@ -182,11 +182,11 @@ static int mount_dev(BindMount *m) {
         }
 
         devmqueue = strappenda(temporary_mount, "/dev/mqueue");
-        mkdir(devmqueue, 0755);
+        (void)mkdir(devmqueue, 0755);
         mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strappenda(temporary_mount, "/dev/hugepages");
-        mkdir(devhugepages, 0755);
+        (void)mkdir(devhugepages, 0755);
         mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strappenda(temporary_mount, "/dev/log");
@@ -282,7 +282,7 @@ static int mount_kdbus(BindMount *m) {
         }
 
         root = strappenda(temporary_mount, "/kdbus");
-        mkdir(root, 0755);
+        (void)mkdir(root, 0755);
         if (mount("tmpfs", root, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=777") < 0) {
                 r = -errno;
                 goto fail;
