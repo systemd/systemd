@@ -1857,7 +1857,7 @@ int link_save(Link *link) {
         if (link->dhcp_lease) {
                 assert(link->network);
 
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
+                r = sd_dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
                         goto fail;
 

@@ -580,7 +580,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
-int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
+int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct in_addr address;
@@ -675,7 +675,7 @@ finish:
         return r;
 }
 
-int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
+int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
                             *server_address = NULL, *next_server = NULL,

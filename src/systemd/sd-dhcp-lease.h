@@ -46,4 +46,7 @@ int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
 int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
 int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, struct sd_dhcp_route **routesgn);
 
+int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
+int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
+
 #endif
