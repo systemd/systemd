@@ -82,6 +82,9 @@ REQUIREMENTS:
           CONFIG_CGROUP_SCHED
           CONFIG_FAIR_GROUP_SCHED
 
+        Required for CPUQuota in resource control unit settings
+          CONFIG_CFS_BANDWIDTH
+
         For systemd-bootchart, several proc debug interfaces are required:
           CONFIG_SCHEDSTATS
           CONFIG_SCHED_DEBUG
