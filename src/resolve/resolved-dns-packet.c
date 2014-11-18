@@ -928,8 +928,10 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                         /* Jumps are limited to a "prior occurence" (RFC-1035 4.1.4) */
                         jump_barrier = ptr;
                         p->rindex = ptr;
-                } else
+                } else {
+                        r = -EBADMSG;
                         goto fail;
+                }
         }
 
         if (!GREEDY_REALLOC(ret, allocated, n + 1)) {
