@@ -1114,6 +1114,13 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
         case DNS_TYPE_TXT: {
                 char *s;
 
+                /* RFC 1035 says that TXT must be at least one
+                   string. Reject empty records. */
+                if (!rdlength) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
                 while (p->rindex < offset + rdlength) {
                         r = dns_packet_read_string(p, &s, NULL);
                         if (r < 0)
