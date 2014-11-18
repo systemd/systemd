@@ -392,10 +392,12 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
 
         fprintf(f, "%s=", key);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, "%s/%" PRIu8 ",%s%s", inet_ntoa(routes[i].dst_addr),
-                        routes[i].dst_prefixlen, inet_ntoa(routes[i].gw_addr),
+        for (i = 0; i < size; i++) {
+                fprintf(f, "%s/%" PRIu8, inet_ntoa(routes[i].dst_addr),
+                        routes[i].dst_prefixlen);
+                fprintf(f, ",%s%s", inet_ntoa(routes[i].gw_addr),
                         (i < (size - 1)) ? " ": "");
+        }
 
         fputs("\n", f);
 }
