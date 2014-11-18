@@ -38,6 +38,7 @@
 #include "dhcp-lease-internal.h"
 #include "sd-dhcp-client.h"
 
+#define MAX_CLIENT_ID_LEN 64  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
 struct sd_dhcp_client {
@@ -56,13 +57,33 @@ struct sd_dhcp_client {
         size_t req_opts_allocated;
         size_t req_opts_size;
         be32_t last_addr;
-        struct {
-                uint8_t type;
-                struct ether_addr mac_addr;
-        } _packed_ client_id;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
         uint16_t arp_type;
+        union {
+                struct {
+                        uint8_t type; /* 0: Generic (non-LL) (RFC 2132) */
+                        uint8_t data[MAX_CLIENT_ID_LEN];
+                } _packed_ gen;
+                struct {
+                        uint8_t type; /* 1: Ethernet Link-Layer (RFC 2132) */
+                        uint8_t haddr[ETH_ALEN];
+                } _packed_ eth;
+                struct {
+                        uint8_t type; /* 2 - 254: ARP/Link-Layer (RFC 2132) */
+                        uint8_t haddr[0];
+                } _packed_ ll;
+                struct {
+                        uint8_t type; /* 255: Node-specific (RFC 4361) */
+                        uint8_t iaid[4];
+                        uint8_t duid[MAX_CLIENT_ID_LEN - 4];
+                } _packed_ ns;
+                struct {
+                        uint8_t type;
+                        uint8_t data[MAX_CLIENT_ID_LEN];
+                } _packed_ raw;
+        } client_id;
+        size_t client_id_len;
         char *hostname;
         char *vendor_class_identifier;
         uint32_t mtu;
@@ -200,8 +221,70 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client, const uint8_t *addr,
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
 
-        memcpy(&client->client_id.mac_addr, addr, ETH_ALEN);
-        client->client_id.type = 0x01;
+        if (need_restart && client->state != DHCP_STATE_STOPPED)
+                sd_dhcp_client_start(client);
+
+        return 0;
+}
+
+int sd_dhcp_client_get_client_id(sd_dhcp_client *client, uint8_t *type,
+                                 const uint8_t **data, size_t *data_len) {
+
+        assert_return(client, -EINVAL);
+        assert_return(type, -EINVAL);
+        assert_return(data, -EINVAL);
+        assert_return(data_len, -EINVAL);
+
+        *type = 0;
+        *data = NULL;
+        *data_len = 0;
+        if (client->client_id_len) {
+                *type = client->client_id.raw.type;
+                *data = client->client_id.raw.data;
+                *data_len = client->client_id_len -
+                        sizeof (client->client_id.raw.type);
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_set_client_id(sd_dhcp_client *client, uint8_t type,
+                                 const uint8_t *data, size_t data_len) {
+        DHCP_CLIENT_DONT_DESTROY(client);
+        bool need_restart = false;
+
+        assert_return(client, -EINVAL);
+        assert_return(data, -EINVAL);
+        assert_return(data_len > 0 && data_len <= MAX_CLIENT_ID_LEN, -EINVAL);
+
+        switch (type) {
+        case ARPHRD_ETHER:
+                if (data_len != ETH_ALEN)
+                        return -EINVAL;
+                break;
+        case ARPHRD_INFINIBAND:
+                if (data_len != INFINIBAND_ALEN)
+                        return -EINVAL;
+                break;
+        default:
+                break;
+        }
+
+        if (client->client_id_len == data_len + sizeof (client->client_id.raw.type) &&
+            client->client_id.raw.type == type &&
+            memcmp(&client->client_id.raw.data, data, data_len) == 0)
+                return 0;
+
+        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
+                log_dhcp_client(client, "Changing client ID on running DHCP "
+                                "client, restarting");
+                need_restart = true;
+                client_stop(client, DHCP_EVENT_STOP);
+        }
+
+        client->client_id.raw.type = type;
+        memcpy(&client->client_id.raw.data, data, data_len);
+        client->client_id_len = data_len + sizeof (client->client_id.raw.type);
 
         if (need_restart && client->state != DHCP_STATE_STOPPED)
                 sd_dhcp_client_start(client);
@@ -378,14 +461,24 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
         if (client->arp_type == ARPHRD_ETHER)
                 memcpy(&packet->dhcp.chaddr, &client->mac_addr, ETH_ALEN);
 
+        /* If no client identifier exists, construct one from an ethernet
+           address if present */
+        if (client->client_id_len == 0 && client->arp_type == ARPHRD_ETHER) {
+                client->client_id.eth.type = ARPHRD_ETHER;
+                memcpy(&client->client_id.eth.haddr, &client->mac_addr, ETH_ALEN);
+                client->client_id_len = sizeof (client->client_id.eth);
+        }
+
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                               DHCP_OPTION_CLIENT_IDENTIFIER,
-                               sizeof(client->client_id), &client->client_id);
-        if (r < 0)
-                return r;
-
+        if (client->client_id_len) {
+                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+                                       DHCP_OPTION_CLIENT_IDENTIFIER,
+                                       client->client_id_len,
+                                       &client->client_id.raw);
+                if (r < 0)
+                        return r;
+        }
 
         /* RFC2131 section 3.5:
            in its initial DHCPDISCOVER or DHCPREQUEST message, a
