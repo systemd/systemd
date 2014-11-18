@@ -860,7 +860,7 @@ fail:
 
 int dns_packet_read_name(DnsPacket *p, char **_ret,
                          bool allow_compression, size_t *start) {
-        size_t saved_rindex, after_rindex = 0;
+        size_t saved_rindex, after_rindex = 0, jump_barrier;
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
         bool first = true;
@@ -870,6 +870,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
         assert(_ret);
 
         saved_rindex = p->rindex;
+        jump_barrier = p->rindex;
 
         for (;;) {
                 uint8_t c, d;
@@ -916,7 +917,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                                 goto fail;
 
                         ptr = (uint16_t) (c & ~0xc0) << 8 | (uint16_t) d;
-                        if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= saved_rindex) {
+                        if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier) {
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -924,6 +925,8 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                         if (after_rindex == 0)
                                 after_rindex = p->rindex;
 
+                        /* Jumps are limited to a "prior occurence" (RFC-1035 4.1.4) */
+                        jump_barrier = ptr;
                         p->rindex = ptr;
                 } else
                         goto fail;
