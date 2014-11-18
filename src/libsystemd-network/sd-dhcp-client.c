@@ -1029,6 +1029,14 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer,
         if (r < 0)
                 return r;
 
+        if (client->client_id_len) {
+                r = dhcp_lease_set_client_id(lease,
+                                             (uint8_t *) &client->client_id.raw,
+                                             client->client_id_len);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease);
         if (r != DHCP_OFFER) {
                 log_dhcp_client(client, "received message was not an OFFER, ignoring");
@@ -1087,6 +1095,14 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack,
         r = dhcp_lease_new(&lease);
         if (r < 0)
                 return r;
+
+        if (client->client_id_len) {
+                r = dhcp_lease_set_client_id(lease,
+                                             (uint8_t *) &client->client_id.raw,
+                                             client->client_id_len);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease);
         if (r == DHCP_NAK) {

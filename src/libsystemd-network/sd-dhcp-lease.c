@@ -199,6 +199,7 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
                 free(lease->dns);
                 free(lease->ntp);
                 free(lease->static_route);
+                free(lease->client_id);
                 free(lease);
         }
 
@@ -585,6 +586,8 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_fclose_ FILE *f = NULL;
         struct in_addr address;
         const struct in_addr *addresses;
+        const uint8_t *client_id;
+        size_t client_id_len;
         const char *string;
         uint16_t mtu;
         struct sd_dhcp_route *routes;
@@ -658,6 +661,18 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 serialize_dhcp_routes(f, "ROUTES", routes, r);
 
+        r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
+        if (r >= 0) {
+                _cleanup_free_ char *client_id_hex;
+
+                client_id_hex = hexmem (client_id, client_id_len);
+                if (!client_id_hex) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+                fprintf(f, "CLIENTID=%s\n", client_id_hex);
+        }
+
         r = 0;
 
         fflush(f);
@@ -679,7 +694,8 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
                             *server_address = NULL, *next_server = NULL,
-                            *dns = NULL, *ntp = NULL, *mtu = NULL, *routes = NULL;
+                            *dns = NULL, *ntp = NULL, *mtu = NULL,
+                            *routes = NULL, *client_id_hex = NULL;
         struct in_addr addr;
         int r;
 
@@ -703,6 +719,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "HOSTNAME", &lease->hostname,
                            "ROOT_PATH", &lease->root_path,
                            "ROUTES", &routes,
+                           "CLIENTID", &client_id_hex,
                            NULL);
         if (r < 0) {
                 if (r == -ENOENT)
@@ -777,6 +794,16 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                     return r;
         }
 
+        if (client_id_hex) {
+                if (strlen (client_id_hex) % 2)
+                        return -EINVAL;
+
+                lease->client_id = unhexmem (client_id_hex, strlen (client_id_hex));
+                if (!lease->client_id)
+                        return -ENOMEM;
+                lease->client_id_len = strlen (client_id_hex) / 2;
+        }
+
         *ret = lease;
         lease = NULL;
 
@@ -798,6 +825,35 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
                 return r;
 
         lease->subnet_mask = mask.s_addr;
+
+        return 0;
+}
+
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const uint8_t **client_id,
+                                size_t *client_id_len) {
+        assert_return(lease, -EINVAL);
+        assert_return(client_id, -EINVAL);
+        assert_return(client_id_len, -EINVAL);
+
+        *client_id = lease->client_id;
+        *client_id_len = lease->client_id_len;
+        return 0;
+}
+
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const uint8_t *client_id,
+                             size_t client_id_len) {
+        assert_return(lease, -EINVAL);
+        assert_return((!client_id && !client_id_len) ||
+                      (client_id && client_id_len), -EINVAL);
+
+        free (lease->client_id);
+        lease->client_id = NULL;
+        lease->client_id_len = 0;
+
+        if (client_id) {
+                lease->client_id = memdup (client_id, client_id_len);
+                lease->client_id_len = client_id_len;
+        }
 
         return 0;
 }
