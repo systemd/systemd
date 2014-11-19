@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_creds_new_from_pid(&creds, 0, _SD_BUS_CREDS_ALL);
         assert_se(r >= 0);
 
-        bus_creds_dump(creds, NULL);
+        bus_creds_dump(creds, NULL, true);
 
         creds = sd_bus_creds_unref(creds);
 
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         if (r != -EACCES) {
                 assert_se(r >= 0);
                 putchar('\n');
-                bus_creds_dump(creds, NULL);
+                bus_creds_dump(creds, NULL, true);
         }
 
         return 0;

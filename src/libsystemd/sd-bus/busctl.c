@@ -938,7 +938,7 @@ static int status(sd_bus *bus, char *argv[]) {
                 return r;
         }
 
-        bus_creds_dump(creds, NULL);
+        bus_creds_dump(creds, NULL, false);
         return 0;
 }
 
