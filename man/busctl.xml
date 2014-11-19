@@ -186,13 +186,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>tree</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
+        <term><command>status</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg></term>
 
-        <listitem><para>Shows an object tree of one or more
-        services. If <replaceable>SERVICE</replaceable> is specified,
-        show object tree of the specified services only. Otherwise,
-        show all object trees of all services on the bus that acquired
-        at least one well-known name.</para></listitem>
+        <listitem><para>Show process information and credentials of a
+        bus service.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -201,7 +198,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>Dump messages being exchanged. If
         <replaceable>SERVICE</replaceable> is specified, show messages
         to or from this endpoint. Otherwise, show all messages on the
-        bus.</para></listitem>
+        bus. Use Ctrl-C to terminate dump.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -218,24 +215,35 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>status</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg></term>
+        <term><command>tree</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
 
-        <listitem><para>Show process information and credentials of a
-        bus service.</para></listitem>
+        <listitem><para>Shows an object tree of one or more
+        services. If <replaceable>SERVICE</replaceable> is specified,
+        show object tree of the specified services only. Otherwise,
+        show all object trees of all services on the bus that acquired
+        at least one well-known name.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PARAMETERS</replaceable></arg></arg></term>
+        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg></term>
+
+        <listitem><para>Show interfaces, methods, properties and
+        signals of the specified object (identified by its path) on
+        the specified service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></term>
 
         <listitem><para>Invoke a method and show the response. Takes a
         service name, object path, interface name and method name. If
         parameters shall be passed to the method call a signature
-        string is required, followed by the individual parameters,
-        individually formatted as textual arguments.</para></listitem>
+        string is required, followed by the individual arguments,
+        individually formatted as textual parameters.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PROPERTIES</replaceable></arg></arg></term>
+        <term><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable> <arg choice="opt" rep="repeat"><replaceable>PROPERTY</replaceable></arg></arg></term>
 
         <listitem><para>Retrieve the current value one or more object
         properties. Takes a service name and object path. Optionally

@@ -38,10 +38,29 @@ typedef struct Context {
         char *member_signature;
         char *member_result;
         uint64_t member_flags;
+        bool member_writable;
 
         const char *current;
         void *xml_state;
 } Context;
+
+static void context_reset_member(Context *c) {
+        free(c->member_name);
+        free(c->member_signature);
+        free(c->member_result);
+
+        c->member_name = c->member_signature = c->member_result = NULL;
+        c->member_flags = 0;
+        c->member_writable = false;
+}
+
+static void context_reset_interface(Context *c) {
+        free(c->interface_name);
+        c->interface_name = NULL;
+        c->interface_flags = 0;
+
+        context_reset_member(c);
+}
 
 static int parse_xml_annotation(Context *context, uint64_t *flags) {
 
@@ -105,11 +124,11 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                                         } else if (streq_ptr(field, "org.freedesktop.DBus.Property.EmitsChangedSignal")) {
 
                                                 if (streq_ptr(value, "const"))
-                                                        *flags |= SD_BUS_VTABLE_PROPERTY_CONST;
+                                                        *flags = (*flags & ~(SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION|SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE)) | SD_BUS_VTABLE_PROPERTY_CONST;
                                                 else if (streq_ptr(value, "invalidates"))
-                                                        *flags |= SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION;
+                                                        *flags = (*flags & ~(SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_CONST)) | SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION;
                                                 else if (streq_ptr(value, "false"))
-                                                        *flags |= SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE;
+                                                        *flags = *flags & ~(SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION);
                                         }
                                 }
 
@@ -182,7 +201,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 STATE_PROPERTY_ACCESS,
         } state = STATE_NODE;
 
-        _cleanup_free_ char *node_path = NULL;
+        _cleanup_free_ char *node_path = NULL, *argument_type = NULL, *argument_direction = NULL;
         const char *np = prefix;
         int r;
 
@@ -225,7 +244,6 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 if (streq_ptr(name, "interface"))
                                         state = STATE_INTERFACE;
-
                                 else if (streq_ptr(name, "node")) {
 
                                         r = parse_xml_node(context, np, n_depth+1);
@@ -297,9 +315,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         state = STATE_METHOD;
                                 else if (streq_ptr(name, "signal"))
                                         state = STATE_SIGNAL;
-                                else if (streq_ptr(name, "property"))
+                                else if (streq_ptr(name, "property")) {
+                                        context->member_flags |= SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE;
                                         state = STATE_PROPERTY;
-                                else if (streq_ptr(name, "annotation")) {
+                                } else if (streq_ptr(name, "annotation")) {
                                         r = parse_xml_annotation(context, &context->interface_flags);
                                         if (r < 0)
                                                 return r;
@@ -308,11 +327,21 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         return -EINVAL;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "interface")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "interface"))) {
+
+                                if (n_depth == 0) {
+                                        if (context->ops->on_interface) {
+                                                r = context->ops->on_interface(context->interface_name, context->interface_flags, context->userdata);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+
+                                        context_reset_interface(context);
+                                }
 
                                 state = STATE_NODE;
 
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in <interface>. (1)");
                                 return -EINVAL;
                         }
@@ -321,9 +350,15 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_INTERFACE_NAME:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                if (n_depth == 0) {
+                                        free(context->interface_name);
+                                        context->interface_name = name;
+                                        name = NULL;
+                                }
+
                                 state = STATE_INTERFACE;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <interface>. (2)");
                                 return -EINVAL;
                         }
@@ -351,11 +386,21 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         return -EINVAL;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "method")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "method"))) {
+
+                                if (n_depth == 0) {
+                                        if (context->ops->on_method) {
+                                                r = context->ops->on_method(context->interface_name, context->member_name, context->member_signature, context->member_result, context->member_flags, context->userdata);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+
+                                        context_reset_member(context);
+                                }
 
                                 state = STATE_INTERFACE;
 
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in <method> (1).");
                                 return -EINVAL;
                         }
@@ -364,9 +409,16 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_METHOD_NAME:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                if (n_depth == 0) {
+                                        free(context->member_name);
+                                        context->member_name = name;
+                                        name = NULL;
+                                }
+
                                 state = STATE_METHOD;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <method> (2).");
                                 return -EINVAL;
                         }
@@ -396,11 +448,27 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         return -EINVAL;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
+
+                                if (n_depth == 0) {
+
+                                        if (argument_type) {
+                                                if (!argument_direction || streq(argument_direction, "in")) {
+                                                        if (!strextend(&context->member_signature, argument_type, NULL))
+                                                                return log_oom();
+                                                } else if (streq(argument_direction, "out")) {
+                                                        if (!strextend(&context->member_result, argument_type, NULL))
+                                                                return log_oom();
+                                                }
+                                        }
+
+                                        free(argument_type);
+                                        free(argument_direction);
+                                        argument_type = argument_direction = NULL;
+                                }
 
                                 state = STATE_METHOD;
-
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in method <arg>. (1)");
                                 return -EINVAL;
                         }
@@ -420,9 +488,13 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_METHOD_ARG_TYPE:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                free(argument_type);
+                                argument_type = name;
+                                name = NULL;
+
                                 state = STATE_METHOD_ARG;
-                        else {
+                        } else {
                                 log_error("Unexpected token in method <arg>. (3)");
                                 return -EINVAL;
                         }
@@ -431,9 +503,13 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_METHOD_ARG_DIRECTION:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                free(argument_direction);
+                                argument_direction = name;
+                                name = NULL;
+
                                 state = STATE_METHOD_ARG;
-                        else {
+                        } else {
                                 log_error("Unexpected token in method <arg>. (4)");
                                 return -EINVAL;
                         }
@@ -461,11 +537,21 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         return -EINVAL;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "signal")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "signal"))) {
+
+                                if (n_depth == 0) {
+                                        if (context->ops->on_signal) {
+                                                r = context->ops->on_signal(context->interface_name, context->member_name, context->member_signature, context->member_flags, context->userdata);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+
+                                        context_reset_member(context);
+                                }
 
                                 state = STATE_INTERFACE;
 
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in <signal>. (1)");
                                 return -EINVAL;
                         }
@@ -474,9 +560,16 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_SIGNAL_NAME:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                if (n_depth == 0) {
+                                        free(context->member_name);
+                                        context->member_name = name;
+                                        name = NULL;
+                                }
+
                                 state = STATE_SIGNAL;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <signal>. (2)");
                                 return -EINVAL;
                         }
@@ -505,11 +598,18 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                         return -EINVAL;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "arg"))) {
+
+                                if (argument_type) {
+                                        if (!strextend(&context->member_signature, argument_type, NULL))
+                                                return log_oom();
+
+                                        free(argument_type);
+                                        argument_type = NULL;
+                                }
 
                                 state = STATE_SIGNAL;
-
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in signal <arg> (1).");
                                 return -EINVAL;
                         }
@@ -529,9 +629,13 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_SIGNAL_ARG_TYPE:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                free(argument_type);
+                                argument_type = name;
+                                name = NULL;
+
                                 state = STATE_SIGNAL_ARG;
-                        else {
+                        } else {
                                 log_error("Unexpected token in signal <arg> (3).");
                                 return -EINVAL;
                         }
@@ -563,11 +667,21 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 }
 
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
-                                   (t == XML_TAG_CLOSE && streq_ptr(name, "property")))
+                                   (t == XML_TAG_CLOSE && streq_ptr(name, "property"))) {
+
+                                if (n_depth == 0) {
+                                        if (context->ops->on_property) {
+                                                r = context->ops->on_property(context->interface_name, context->member_name, context->member_signature, context->member_writable, context->member_flags, context->userdata);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+
+                                        context_reset_member(context);
+                                }
 
                                 state = STATE_INTERFACE;
 
-                        else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
+                        } else if (t != XML_TEXT || !in_charset(name, WHITESPACE)) {
                                 log_error("Unexpected token in <property>. (1)");
                                 return -EINVAL;
                         }
@@ -576,9 +690,15 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_PROPERTY_NAME:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                if (n_depth == 0) {
+                                        free(context->member_name);
+                                        context->member_name = name;
+                                        name = NULL;
+                                }
                                 state = STATE_PROPERTY;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <property>. (2)");
                                 return -EINVAL;
                         }
@@ -587,9 +707,16 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_PROPERTY_TYPE:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                if (n_depth == 0) {
+                                        free(context->member_signature);
+                                        context->member_signature = name;
+                                        name = NULL;
+                                }
+
                                 state = STATE_PROPERTY;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <property>. (3)");
                                 return -EINVAL;
                         }
@@ -598,9 +725,13 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                 case STATE_PROPERTY_ACCESS:
 
-                        if (t == XML_ATTRIBUTE_VALUE)
+                        if (t == XML_ATTRIBUTE_VALUE) {
+
+                                if (streq(name, "readwrite") || streq(name, "write"))
+                                        context->member_writable = true;
+
                                 state = STATE_PROPERTY;
-                        else {
+                        } else {
                                 log_error("Unexpected token in <property>. (4)");
                                 return -EINVAL;
                         }
@@ -629,27 +760,34 @@ int parse_xml_introspect(const char *prefix, const char *xml, const XMLIntrospec
                 r = xml_tokenize(&context.current, &name, &context.xml_state, NULL);
                 if (r < 0) {
                         log_error("XML parse error");
-                        return r;
+                        goto finish;
                 }
 
-                if (r == XML_END)
+                if (r == XML_END) {
+                        r = 0;
                         break;
+                }
 
                 if (r == XML_TAG_OPEN) {
 
                         if (streq(name, "node")) {
                                 r = parse_xml_node(&context, prefix, 0);
                                 if (r < 0)
-                                        return r;
+                                        goto finish;
                         } else {
                                 log_error("Unexpected tag '%s' in introspection data.", name);
-                                return -EBADMSG;
+                                r = -EBADMSG;
+                                goto finish;
                         }
                 } else if (r != XML_TEXT || !in_charset(name, WHITESPACE)) {
                         log_error("Unexpected token.");
-                        return -EINVAL;
+                        r = -EBADMSG;
+                        goto finish;
                 }
         }
 
-        return 0;
+finish:
+        context_reset_interface(&context);
+
+        return r;
 }

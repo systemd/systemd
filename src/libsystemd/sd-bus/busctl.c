@@ -319,7 +319,7 @@ static int on_path(const char *path, void *userdata) {
 }
 
 static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *paths) {
-        const XMLIntrospectOps ops = {
+        static const XMLIntrospectOps ops = {
                 .on_path = on_path,
         };
 
@@ -338,7 +338,6 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        /* fputs(xml, stdout); */
         return parse_xml_introspect(path, xml, &ops, paths);
 }
 
@@ -468,6 +467,353 @@ static int tree(sd_bus *bus, char **argv) {
         }
 
         return r;
+}
+
+typedef struct Member {
+        const char *type;
+        char *interface;
+        char *name;
+        char *signature;
+        char *result;
+        bool writable;
+        uint64_t flags;
+} Member;
+
+static unsigned long member_hash_func(const void *p, const uint8_t hash_key[]) {
+        const Member *m = p;
+        unsigned long ul;
+
+        assert(m);
+        assert(m->type);
+
+        ul = string_hash_func(m->type, hash_key);
+
+        if (m->name)
+                ul ^= string_hash_func(m->name, hash_key);
+
+        if (m->interface)
+                ul ^= string_hash_func(m->interface, hash_key);
+
+        return ul;
+}
+
+static int member_compare_func(const void *a, const void *b) {
+        const Member *x = a, *y = b;
+        int d;
+
+        assert(x);
+        assert(y);
+        assert(x->type);
+        assert(y->type);
+
+        if (!x->interface && y->interface)
+                return -1;
+        if (x->interface && !y->interface)
+                return 1;
+        if (x->interface && y->interface) {
+                d = strcmp(x->interface, y->interface);
+                if (d != 0)
+                        return d;
+        }
+
+        d = strcmp(x->type, y->type);
+        if (d != 0)
+                return d;
+
+        if (!x->name && y->name)
+                return -1;
+        if (x->name && !y->name)
+                return 1;
+        if (x->name && y->name)
+                return strcmp(x->name, y->name);
+
+        return 0;
+}
+
+static int member_compare_funcp(const void *a, const void *b) {
+        const Member *const * x = (const Member *const *) a, * const *y = (const Member *const *) b;
+
+        return member_compare_func(*x, *y);
+}
+
+static void member_free(Member *m) {
+        if (!m)
+                return;
+
+        free(m->interface);
+        free(m->name);
+        free(m->signature);
+        free(m->result);
+        free(m);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
+
+static void member_set_free(Set *s) {
+        Member *m;
+
+        while ((m = set_steal_first(s)))
+                member_free(m);
+
+        set_free(s);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
+
+static int on_interface(const char *interface, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(members);
+
+        m = new0(Member, 1);
+        if (!m)
+                return log_oom();
+
+        m->type = "interface";
+        m->flags = flags;
+
+        r = free_and_strdup(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = set_put(members, m);
+        if (r <= 0) {
+                log_error("Duplicate interface");
+                return -EINVAL;
+        }
+
+        m = NULL;
+        return 0;
+}
+
+static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new0(Member, 1);
+        if (!m)
+                return log_oom();
+
+        m->type = "method";
+        m->flags = flags;
+
+        r = free_and_strdup(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->result, result);
+        if (r < 0)
+                return log_oom();
+
+        r = set_put(members, m);
+        if (r <= 0) {
+                log_error("Duplicate method");
+                return -EINVAL;
+        }
+
+        m = NULL;
+        return 0;
+}
+
+static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new0(Member, 1);
+        if (!m)
+                return log_oom();
+
+        m->type = "signal";
+        m->flags = flags;
+
+        r = free_and_strdup(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = set_put(members, m);
+        if (r <= 0) {
+                log_error("Duplicate signal");
+                return -EINVAL;
+        }
+
+        m = NULL;
+        return 0;
+}
+
+static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new0(Member, 1);
+        if (!m)
+                return log_oom();
+
+        m->type = "property";
+        m->flags = flags;
+        m->writable = writable;
+
+        r = free_and_strdup(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = free_and_strdup(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = set_put(members, m);
+        if (r <= 0) {
+                log_error("Duplicate property");
+                return -EINVAL;
+        }
+
+        m = NULL;
+        return 0;
+}
+
+static const char *strdash(const char *x) {
+        return isempty(x) ? "-" : x;
+}
+
+static int introspect(sd_bus *bus, char **argv) {
+        static const struct hash_ops member_hash_ops = {
+                .hash = member_hash_func,
+                .compare = member_compare_func,
+        };
+
+        static const XMLIntrospectOps ops = {
+                .on_interface = on_interface,
+                .on_method = on_method,
+                .on_signal = on_signal,
+                .on_property = on_property,
+        };
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(member_set_freep) Set *members = NULL;
+        Iterator i;
+        Member *m;
+        const char *xml;
+        int r;
+        unsigned name_width,  type_width, signature_width, result_width;
+        Member **sorted = NULL;
+        unsigned k = 0, j;
+
+        if (strv_length(argv) != 3) {
+                log_error("Requires service and object path argument.");
+                return -EINVAL;
+        }
+
+        members = set_new(&member_hash_ops);
+        if (!members)
+                return log_oom();
+
+        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
+        if (r < 0) {
+                log_error("Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "s", &xml);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = parse_xml_introspect(argv[2], xml, &ops, members);
+        if (r < 0)
+                return r;
+
+        pager_open_if_enabled();
+
+        name_width = strlen("NAME");
+        type_width = strlen("TYPE");
+        signature_width = strlen("SIGNATURE");
+        result_width = strlen("RESULT");
+
+        sorted = newa(Member*, set_size(members));
+
+        SET_FOREACH(m, members, i) {
+                if (m->interface)
+                        name_width = MAX(name_width, strlen(m->interface));
+                if (m->name)
+                        name_width = MAX(name_width, strlen(m->name) + 1);
+                if (m->type)
+                        type_width = MAX(type_width, strlen(m->type));
+                if (m->signature)
+                        signature_width = MAX(signature_width, strlen(m->signature));
+                if (m->result)
+                        result_width = MAX(result_width, strlen(m->result));
+
+                sorted[k++] = m;
+        }
+
+        assert(k == set_size(members));
+        qsort(sorted, k, sizeof(Member*), member_compare_funcp);
+
+        printf("%-*s %-*s %-*s %-*s %s\n",
+               (int) name_width, "NAME",
+               (int) type_width, "TYPE",
+               (int) signature_width, "SIGNATURE",
+               (int) result_width, "RESULT",
+               "FLAGS");
+
+        for (j = 0; j < k; j++) {
+                bool is_interface;
+
+                m = sorted[j];
+
+                is_interface = streq(m->type, "interface");
+
+                printf("%s%s%-*s%s %-*s %-*s %-*s%s%s%s%s%s%s\n",
+                       is_interface ? ansi_highlight() : "",
+                       is_interface ? "" : ".",
+                       - !is_interface + (int) name_width, strdash(streq_ptr(m->type, "interface") ? m->interface : m->name),
+                       is_interface ? ansi_highlight_off() : "",
+                       (int) type_width, strdash(m->type),
+                       (int) signature_width, strdash(m->signature),
+                       (int) result_width, strdash(m->result),
+                       (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" : (m->flags || m->writable ? "" : " -"),
+                       (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ? " no-reply" : "",
+                       (m->flags & SD_BUS_VTABLE_PROPERTY_CONST) ? " const" : "",
+                       (m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) ? " emits-change" : "",
+                       (m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) ? " emits-invalidation" : "",
+                       m->writable ? " writable" : "");
+        }
+
+        return 0;
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
@@ -1021,13 +1367,14 @@ static int help(void) {
                "     --quiet              Don't show method call reply\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
-               "  tree [SERVICE...]       Show object tree of service\n"
+               "  status SERVICE          Show service name status\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
-               "  status SERVICE          Show service name status\n"
-               "  call SERVICE PATH INTERFACE METHOD [SIGNATURE [ARGUMENTS...]]\n"
+               "  tree [SERVICE...]       Show object tree of service\n"
+               "  introspect SERVICE PATH\n"
+               "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
                "                          Call a method\n"
-               "  get-property SERVICE PATH [INTERFACE [PROPERTY...]]\n"
+               "  get-property SERVICE OBJECT [INTERFACE [PROPERTY...]]\n"
                "                          Get property value\n"
                "  help                    Show this help\n"
                , program_invocation_short_name);
@@ -1196,6 +1543,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "tree"))
                 return tree(bus, argv + optind);
+
+        if (streq(argv[optind], "introspect"))
+                return introspect(bus, argv + optind);
 
         if (streq(argv[optind], "call"))
                 return call(bus, argv + optind);
