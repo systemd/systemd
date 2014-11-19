@@ -797,19 +797,30 @@ int get_process_capeff(pid_t pid, char **capeff) {
         return get_status_field(p, "\nCapEff:", capeff);
 }
 
+static int get_process_link_contents(const char *proc_file, char **name) {
+        int r;
+
+        assert(proc_file);
+        assert(name);
+
+        r = readlink_malloc(proc_file, name);
+        if (r < 0)
+                return r == -ENOENT ? -ESRCH : r;
+
+        return 0;
+}
+
 int get_process_exe(pid_t pid, char **name) {
         const char *p;
         char *d;
         int r;
 
         assert(pid >= 0);
-        assert(name);
 
         p = procfs_file_alloca(pid, "exe");
-
-        r = readlink_malloc(p, name);
+        r = get_process_link_contents(p, name);
         if (r < 0)
-                return r == -ENOENT ? -ESRCH : r;
+                return r;
 
         d = endswith(*name, " (deleted)");
         if (d)
@@ -859,6 +870,26 @@ int get_process_uid(pid_t pid, uid_t *uid) {
 int get_process_gid(pid_t pid, gid_t *gid) {
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
         return get_process_id(pid, "Gid:", gid);
+}
+
+int get_process_cwd(pid_t pid, char **cwd) {
+        const char *p;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "cwd");
+
+        return get_process_link_contents(p, cwd);
+}
+
+int get_process_root(pid_t pid, char **root) {
+        const char *p;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "root");
+
+        return get_process_link_contents(p, root);
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
