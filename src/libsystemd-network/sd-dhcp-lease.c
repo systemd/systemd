@@ -51,7 +51,7 @@ int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
 
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
         assert_return(lease, -EINVAL);
-        assert_return(lease, -EINVAL);
+        assert_return(lifetime, -EINVAL);
 
         *lifetime = lease->lifetime;
 
