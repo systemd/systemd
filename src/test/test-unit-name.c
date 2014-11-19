@@ -135,7 +135,7 @@ static int test_unit_printf(void) {
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
                 char *e;                                                \
-                _cleanup_free_ char *t;                                 \
+                _cleanup_free_ char *t = NULL;                          \
                 assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
                 printf("result: %s\nexpect: %s\n", t, expected);        \
                 if ((e = endswith(expected, "*")))                      \

@@ -1217,6 +1217,7 @@ static void test_unquote_first_word(void) {
         p = original = "\'fooo";
         assert_se(unquote_first_word(&p, &t, true) > 0);
         assert_se(streq(t, "fooo"));
+        free(t);
         assert_se(p == original + 5);
 
         p = original = "yay\'foo\'bar";
