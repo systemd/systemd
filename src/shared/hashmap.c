@@ -1810,7 +1810,7 @@ int set_consume(Set *s, void *value) {
         int r;
 
         r = set_put(s, value);
-        if (r < 0)
+        if (r <= 0)
                 free(value);
 
         return r;
