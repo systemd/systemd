@@ -2898,7 +2898,9 @@ test_resolve_CFLAGS = \
 	-pthread
 
 busctl_SOURCES = \
-	src/libsystemd/sd-bus/busctl.c
+	src/libsystemd/sd-bus/busctl.c \
+	src/libsystemd/sd-bus/busctl-introspect.c \
+	src/libsystemd/sd-bus/busctl-introspect.h
 
 busctl_LDADD = \
 	libsystemd-dump.la \
