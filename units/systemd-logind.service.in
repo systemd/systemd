@@ -19,6 +19,7 @@ Wants=dbus.socket
 After=dbus.socket
 
 [Service]
+Type=notify
 ExecStart=@rootlibexecdir@/systemd-logind
 Restart=always
 RestartSec=0
