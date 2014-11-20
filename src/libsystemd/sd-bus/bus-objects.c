@@ -617,6 +617,9 @@ static int property_get_set_callbacks_run(
                         return r;
 
         } else {
+                const char *signature = NULL;
+                char type = 0;
+
                 if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
                         return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
 
@@ -627,6 +630,13 @@ static int property_get_set_callbacks_run(
                         return 0;
 
                 c->last_iteration = bus->iteration_counter;
+
+                r = sd_bus_message_peek_type(m, &type, &signature);
+                if (r < 0)
+                        return r;
+
+                if (type != 'v' || !streq(strempty(signature), strempty(c->vtable->x.property.signature)))
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Incorrect parameters for property '%s', expected '%s', got '%s'.", c->member, strempty(c->vtable->x.property.signature), strempty(signature));
 
                 r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                 if (r < 0)
