@@ -1612,6 +1612,12 @@ int main(int argc, char *argv[]) {
         if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
         else {
+                r = sd_bus_set_bus_client(bus, true);
+                if (r < 0) {
+                        log_error("Failed to set bus client: %s", strerror(-r));
+                        goto finish;
+                }
+
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
@@ -1635,12 +1641,6 @@ int main(int argc, char *argv[]) {
         }
         if (r < 0) {
                 log_error("Failed to set address: %s", strerror(-r));
-                goto finish;
-        }
-
-        r = sd_bus_set_bus_client(bus, true);
-        if (r < 0) {
-                log_error("Failed to set bus client: %s", strerror(-r));
                 goto finish;
         }
 
