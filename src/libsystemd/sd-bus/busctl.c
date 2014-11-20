@@ -52,6 +52,7 @@ static bool arg_user = false;
 static size_t arg_snaplen = 4096;
 static bool arg_list = false;
 static bool arg_quiet = false;
+static bool arg_verbose = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -475,12 +476,152 @@ static int tree(sd_bus *bus, char **argv) {
         return r;
 }
 
+static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
+        int r;
+
+        for (;;) {
+                const char *contents = NULL;
+                char type;
+                union {
+                        uint8_t u8;
+                        uint16_t u16;
+                        int16_t s16;
+                        uint32_t u32;
+                        int32_t s32;
+                        uint64_t u64;
+                        int64_t s64;
+                        double d64;
+                        const char *string;
+                        int i;
+                } basic;
+
+                r = sd_bus_message_peek_type(m, &type, &contents);
+                if (r <= 0)
+                        return r;
+
+                if (bus_type_is_container(type) > 0) {
+
+                        r = sd_bus_message_enter_container(m, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        if (type == SD_BUS_TYPE_ARRAY) {
+                                unsigned n = 0;
+
+                                /* count array entries */
+                                for (;;) {
+
+                                        r = sd_bus_message_skip(m, contents);
+                                        if (r < 0)
+                                                return r;
+                                        if (r == 0)
+                                                break;
+
+                                        n++;
+                                }
+
+                                r = sd_bus_message_rewind(m, false);
+                                if (r < 0)
+                                        return r;
+
+                                if (needs_space)
+                                        fputc(' ', f);
+
+                                fprintf(f, "%u", n);
+                        } else if (type == SD_BUS_TYPE_VARIANT) {
+
+                                if (needs_space)
+                                        fputc(' ', f);
+
+                                fprintf(f, "%s", contents);
+                        }
+
+                        r = format_cmdline(m, f, true);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = sd_bus_message_read_basic(m, type, &basic);
+                if (r < 0)
+                        return r;
+
+                if (needs_space)
+                        fputc(' ', f);
+
+                switch (type) {
+                case SD_BUS_TYPE_BYTE:
+                        fprintf(f, "%u", basic.u8);
+                        break;
+
+                case SD_BUS_TYPE_BOOLEAN:
+                        fputs(true_false(basic.i), f);
+                        break;
+
+                case SD_BUS_TYPE_INT16:
+                        fprintf(f, "%i", basic.s16);
+                        break;
+
+                case SD_BUS_TYPE_UINT16:
+                        fprintf(f, "%u", basic.u16);
+                        break;
+
+                case SD_BUS_TYPE_INT32:
+                        fprintf(f, "%i", basic.s32);
+                        break;
+
+                case SD_BUS_TYPE_UINT32:
+                        fprintf(f, "%u", basic.u32);
+                        break;
+
+                case SD_BUS_TYPE_INT64:
+                        fprintf(f, "%" PRIi64, basic.s64);
+                        break;
+
+                case SD_BUS_TYPE_UINT64:
+                        fprintf(f, "%" PRIu64, basic.u64);
+                        break;
+
+                case SD_BUS_TYPE_DOUBLE:
+                        fprintf(f, "%g", basic.d64);
+                        break;
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE: {
+                        _cleanup_free_ char *b = NULL;
+
+                        b = cescape(basic.string);
+                        if (!b)
+                                return -ENOMEM;
+
+                        fprintf(f, "\"%s\"", b);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UNIX_FD:
+                        fprintf(f, "%i", basic.i);
+                        break;
+
+                default:
+                        assert_not_reached("Unknown basic type.");
+                }
+
+        }
+}
+
 typedef struct Member {
         const char *type;
         char *interface;
         char *name;
         char *signature;
         char *result;
+        char *value;
         bool writable;
         uint64_t flags;
 } Member;
@@ -550,6 +691,7 @@ static void member_free(Member *m) {
         free(m->name);
         free(m->signature);
         free(m->result);
+        free(m->value);
         free(m);
 }
 
@@ -758,16 +900,93 @@ static int introspect(sd_bus *bus, char **argv) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        /* First, get list of all properties */
         r = parse_xml_introspect(argv[2], xml, &ops, members);
         if (r < 0)
                 return r;
+
+        /* Second, find the current values for them */
+        SET_FOREACH(m, members, i) {
+
+                if (!streq(m->type, "property"))
+                        continue;
+
+                if (m->value)
+                        continue;
+
+                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
+                if (r < 0) {
+                        log_error("%s", bus_error_message(&error, r));
+                        return r;
+                }
+
+                r = sd_bus_message_enter_container(reply, 'a', "{sv}");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                for (;;) {
+                        Member *z;
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *mf = NULL;
+                        size_t sz = 0;
+                        const char *name;
+
+                        r = sd_bus_message_enter_container(reply, 'e', "sv");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_read(reply, "s", &name);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_enter_container(reply, 'v', NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        mf = open_memstream(&buf, &sz);
+                        if (!mf)
+                                return log_oom();
+
+                        r = format_cmdline(reply, mf, false);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        fclose(mf);
+                        mf = NULL;
+
+                        z = set_get(members, &((Member) {
+                                                .type = "property",
+                                                .interface = m->interface,
+                                                .name = (char*) name }));
+                        if (z) {
+                                free(z->value);
+                                z->value = buf;
+                                buf = NULL;
+                        }
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
 
         pager_open_if_enabled();
 
         name_width = strlen("NAME");
         type_width = strlen("TYPE");
         signature_width = strlen("SIGNATURE");
-        result_width = strlen("RESULT");
+        result_width = strlen("RESULT/VALUE");
 
         sorted = newa(Member*, set_size(members));
 
@@ -782,26 +1001,44 @@ static int introspect(sd_bus *bus, char **argv) {
                         signature_width = MAX(signature_width, strlen(m->signature));
                 if (m->result)
                         result_width = MAX(result_width, strlen(m->result));
+                if (m->value)
+                        result_width = MAX(result_width, strlen(m->value));
 
                 sorted[k++] = m;
         }
 
+        if (result_width > 40)
+                result_width = 40;
+
         assert(k == set_size(members));
         qsort(sorted, k, sizeof(Member*), member_compare_funcp);
 
-        printf("%-*s %-*s %-*s %-*s %s\n",
-               (int) name_width, "NAME",
-               (int) type_width, "TYPE",
-               (int) signature_width, "SIGNATURE",
-               (int) result_width, "RESULT",
-               "FLAGS");
+        if (arg_legend) {
+                printf("%-*s %-*s %-*s %-*s %s\n",
+                       (int) name_width, "NAME",
+                       (int) type_width, "TYPE",
+                       (int) signature_width, "SIGNATURE",
+                       (int) result_width, "RESULT/VALUE",
+                       "FLAGS");
+        }
 
         for (j = 0; j < k; j++) {
+                _cleanup_free_ char *ellipsized = NULL;
+                const char *rv;
                 bool is_interface;
 
                 m = sorted[j];
 
                 is_interface = streq(m->type, "interface");
+
+                if (m->value) {
+                        ellipsized = ellipsize(m->value, result_width, 100);
+                        if (!ellipsized)
+                                return log_oom();
+
+                        rv = ellipsized;
+                } else
+                        rv = strdash(m->result);
 
                 printf("%s%s%-*s%s %-*s %-*s %-*s%s%s%s%s%s%s\n",
                        is_interface ? ansi_highlight() : "",
@@ -810,7 +1047,7 @@ static int introspect(sd_bus *bus, char **argv) {
                        is_interface ? ansi_highlight_off() : "",
                        (int) type_width, strdash(m->type),
                        (int) signature_width, strdash(m->signature),
-                       (int) result_width, strdash(m->result),
+                       (int) result_width, rv,
                        (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" : (m->flags || m->writable ? "" : " -"),
                        (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ? " no-reply" : "",
                        (m->flags & SD_BUS_VTABLE_PROPERTY_CONST) ? " const" : "",
@@ -1241,9 +1478,26 @@ static int call(sd_bus *bus, char *argv[]) {
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+
         if (r == 0 && !arg_quiet) {
-                pager_open_if_enabled();
-                bus_message_dump(reply, stdout, 0);
+
+                if (arg_verbose) {
+                        pager_open_if_enabled();
+
+                        r = bus_message_dump(reply, stdout, 0);
+                        if (r < 0)
+                                return r;
+                } else {
+
+                        fputs(sd_bus_message_get_signature(reply, true), stdout);
+                        fputc(' ', stdout);
+
+                        r = format_cmdline(reply, stdout, false);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        fputc('\n', stdout);
+                }
         }
 
         return 0;
@@ -1252,99 +1506,106 @@ static int call(sd_bus *bus, char *argv[]) {
 static int get_property(sd_bus *bus, char *argv[]) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned n;
+        char **i;
         int r;
 
         assert(bus);
 
         n = strv_length(argv);
-        if (n < 3) {
-                log_error("Expects at least three arguments.");
+        if (n < 5) {
+                log_error("Expects at least four arguments.");
                 return -EINVAL;
         }
 
-        if (n < 5) {
+        STRV_FOREACH(i, argv + 4) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                bool not_first = false;
+                const char *contents = NULL;
+                char type;
 
-                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", strempty(argv[3]));
+                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
                 if (r < 0) {
                         log_error("%s", bus_error_message(&error, r));
                         return r;
                 }
 
-                r = sd_bus_message_enter_container(reply, 'a', "{sv}");
+                r = sd_bus_message_peek_type(reply, &type, &contents);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                for (;;) {
-                        const char *name;
+                r = sd_bus_message_enter_container(reply, 'v', contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-                        r = sd_bus_message_enter_container(reply, 'e', "sv");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (r == 0)
-                                break;
-
-                        r = sd_bus_message_read(reply, "s", &name);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (not_first)
-                                printf("\n");
-
-                        printf("Property %s:\n", name);
-
-                        r = sd_bus_message_enter_container(reply, 'v', NULL);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
+                if (arg_verbose)  {
                         pager_open_if_enabled();
-                        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
 
-                        r = sd_bus_message_exit_container(reply);
+                        r = bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+                        if (r < 0)
+                                return r;
+                } else {
+                        fputs(contents, stdout);
+                        fputc(' ', stdout);
+
+                        r = format_cmdline(reply, stdout, false);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        not_first = true;
+                        fputc('\n', stdout);
                 }
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
-        } else {
-                char **i;
+        }
 
-                STRV_FOREACH(i, argv + 4) {
-                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        return 0;
+}
 
-                        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
-                        if (r < 0) {
-                                log_error("%s", bus_error_message(&error, r));
-                                return r;
-                        }
+static int set_property(sd_bus *bus, char *argv[]) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        unsigned n;
+        char **p;
+        int r;
 
-                        r = sd_bus_message_enter_container(reply, 'v', NULL);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+        assert(bus);
 
-                        if (i > argv + 4)
-                                printf("\n");
+        n = strv_length(argv);
+        if (n < 6) {
+                log_error("Expects at least five arguments.");
+                return -EINVAL;
+        }
 
-                        if (argv[5])
-                                printf("Property %s:\n", *i);
+        r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Set");
+        if (r < 0)
+                return bus_log_create_error(r);
 
-                        pager_open_if_enabled();
-                        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+        r = sd_bus_message_append(m, "ss", argv[3], argv[4]);
+        if (r < 0)
+                return bus_log_create_error(r);
 
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
+        r = sd_bus_message_open_container(m, 'v', argv[5]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        p = argv+6;
+        r = message_append_cmdline(m, argv[5], &p);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (*p) {
+                log_error("Too many parameters for signature.");
+                return -EINVAL;
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("%s", bus_error_message(&error, r));
+                return r;
         }
 
         return 0;
@@ -1368,18 +1629,21 @@ static int help(void) {
                "     --activatable        Only show activatable names\n"
                "     --match=MATCH        Only show matching messages\n"
                "     --list               Don't show tree, but simple object path list\n"
-               "     --quiet              Don't show method call reply\n\n"
+               "     --quiet              Don't show method call reply\n"
+               "     --verbose            Show result values in long format\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  status SERVICE          Show service name status\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  tree [SERVICE...]       Show object tree of service\n"
-               "  introspect SERVICE PATH\n"
+               "  introspect SERVICE OBJECT\n"
                "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
                "                          Call a method\n"
-               "  get-property SERVICE OBJECT [INTERFACE [PROPERTY...]]\n"
+               "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
                "                          Get property value\n"
+               "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
+               "                          Set property value\n"
                "  help                    Show this help\n"
                , program_invocation_short_name);
 
@@ -1402,6 +1666,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ACTIVATABLE,
                 ARG_SIZE,
                 ARG_LIST,
+                ARG_VERBOSE,
         };
 
         static const struct option options[] = {
@@ -1422,6 +1687,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "size",         required_argument, NULL, ARG_SIZE         },
                 { "list",         no_argument,       NULL, ARG_LIST         },
                 { "quiet",        no_argument,       NULL, 'q'              },
+                { "verbose",      no_argument,       NULL, ARG_VERBOSE      },
                 {},
         };
 
@@ -1519,6 +1785,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
+                case ARG_VERBOSE:
+                        arg_verbose = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1556,6 +1826,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "get-property"))
                 return get_property(bus, argv + optind);
+
+        if (streq(argv[optind], "set-property"))
+                return set_property(bus, argv + optind);
 
         if (streq(argv[optind], "help"))
                 return help();
