@@ -191,8 +191,6 @@ Features:
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
-* support setting empty environment variables with Environment= and EnvironmentFile=
-
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
 * a way for container managers to turn off getty starting via $container_headless= or so...

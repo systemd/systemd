@@ -222,6 +222,9 @@ static void test_config_parse_exec(void) {
        "MODULE_0=coretemp\n" \
        "MODULE_1=f71882fg"
 
+#define env_file_5                              \
+        "a=\n"                                 \
+        "b="
 
 static void test_load_env_file_1(void) {
         _cleanup_strv_free_ char **data = NULL;
@@ -300,6 +303,24 @@ static void test_load_env_file_4(void) {
         unlink(name);
 }
 
+static void test_load_env_file_5(void) {
+        _cleanup_strv_free_ char **data = NULL;
+        int r;
+
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(write(fd, env_file_5, sizeof(env_file_5)) == sizeof(env_file_5));
+
+        r = load_env_file(NULL, name, NULL, &data);
+        assert_se(r == 0);
+        assert_se(streq(data[0], "a="));
+        assert_se(streq(data[1], "b="));
+        assert_se(data[2] == NULL);
+        unlink(name);
+}
 
 static void test_install_printf(void) {
         char    name[] = "name.service",
@@ -387,6 +408,7 @@ int main(int argc, char *argv[]) {
         test_load_env_file_2();
         test_load_env_file_3();
         test_load_env_file_4();
+        test_load_env_file_5();
         TEST_REQ_RUNNING_SYSTEMD(test_install_printf());
 
         return r;
