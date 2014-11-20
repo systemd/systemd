@@ -439,7 +439,9 @@
                                 versa). Takes one of
                                 <literal>no</literal>,
                                 <literal>host</literal>,
+                                <literal>try-host</literal>,
                                 <literal>guest</literal>,
+                                <literal>try-guest</literal>,
                                 <literal>auto</literal>. If
                                 <literal>no</literal>, the journal is
                                 not linked. If <literal>host</literal>,
@@ -453,8 +455,11 @@
                                 guest file system (beneath
                                 <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
                                 and the subdirectory is symlinked into the host
-                                at the same location. If
-                                <literal>auto</literal> (the default),
+                                at the same location. <literal>try-host</literal>
+                                and <literal>try-guest</literal> do the same
+                                but do not fail if the host does not have
+                                persistant journalling enabled.
+                                If <literal>auto</literal> (the default),
                                 and the right subdirectory of
                                 <filename>/var/log/journal</filename>
                                 exists, it will be bind mounted
@@ -473,7 +478,7 @@
                                 <term><option>-j</option></term>
 
                                 <listitem><para>Equivalent to
-                                <option>--link-journal=guest</option>.</para></listitem>
+                                <option>--link-journal=try-guest</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

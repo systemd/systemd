@@ -124,6 +124,7 @@ static bool arg_private_network = false;
 static bool arg_read_only = false;
 static bool arg_boot = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
+static bool arg_link_journal_try = false;
 static uint64_t arg_retain =
         (1ULL << CAP_CHOWN) |
         (1ULL << CAP_DAC_OVERRIDE) |
@@ -202,8 +203,9 @@ static void help(void) {
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
-               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host\n"
-               "  -j                        Equivalent to --link-journal=host\n"
+               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host,\n"
+               "                            try-guest, try-host\n"
+               "  -j                        Equivalent to --link-journal=try-guest\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
                "                            the container\n"
@@ -428,6 +430,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'j':
                         arg_link_journal = LINK_GUEST;
+                        arg_link_journal_try = true;
                         break;
 
                 case ARG_LINK_JOURNAL:
@@ -439,7 +442,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_link_journal = LINK_GUEST;
                         else if (streq(optarg, "host"))
                                 arg_link_journal = LINK_HOST;
-                        else {
+                        else if (streq(optarg, "try-guest")) {
+                                arg_link_journal = LINK_GUEST;
+                                arg_link_journal_try = true;
+                        } else if (streq(optarg, "try-host")) {
+                                arg_link_journal = LINK_HOST;
+                                arg_link_journal_try = true;
+                        } else {
                                 log_error("Failed to parse link journal mode %s", optarg);
                                 return -EINVAL;
                         }
@@ -1404,8 +1413,13 @@ static int setup_journal(const char *directory) {
         if (arg_link_journal == LINK_GUEST) {
 
                 if (symlink(q, p) < 0) {
-                        log_error("Failed to symlink %s to %s: %m", q, p);
-                        return -errno;
+                        if (arg_link_journal_try) {
+                                log_debug("Failed to symlink %s to %s, skipping journal setup: %m", q, p);
+                                return 0;
+                        } else {
+                                log_error("Failed to symlink %s to %s: %m", q, p);
+                                return -errno;
+                        }
                 }
 
                 r = mkdir_p(q, 0755);
@@ -1415,10 +1429,17 @@ static int setup_journal(const char *directory) {
         }
 
         if (arg_link_journal == LINK_HOST) {
-                r = mkdir_p(p, 0755);
+                /* don't create parents here -- if the host doesn't have
+                 * permanent journal set up, don't force it here */
+                r = mkdir(p, 0755);
                 if (r < 0) {
-                        log_error("Failed to create %s: %m", p);
-                        return r;
+                        if (arg_link_journal_try) {
+                                log_debug("Failed to create %s, skipping journal setup: %m", p);
+                                return 0;
+                        } else {
+                                log_error("Failed to create %s: %m", p);
+                                return r;
+                        }
                 }
 
         } else if (access(p, F_OK) < 0)

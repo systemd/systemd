@@ -10,7 +10,7 @@ Description=Container %i
 Documentation=man:systemd-nspawn(1)
 
 [Service]
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=guest --directory=/var/lib/container/%i
+ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --directory=/var/lib/container/%i
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
