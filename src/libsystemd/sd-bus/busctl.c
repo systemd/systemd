@@ -35,6 +35,7 @@
 #include "bus-util.h"
 #include "bus-dump.h"
 #include "bus-signature.h"
+#include "bus-type.h"
 #include "busctl-introspect.h"
 
 static bool arg_no_pager = false;
@@ -1213,10 +1214,8 @@ static int call(sd_bus *bus, char *argv[]) {
         }
 
         r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], argv[3], argv[4]);
-        if (r < 0) {
-                log_error("Failed to prepare bus message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_create_error(r);
 
         if (!isempty(argv[5])) {
                 char **p;
