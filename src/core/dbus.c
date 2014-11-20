@@ -1180,7 +1180,7 @@ int bus_track_deserialize_item(char ***l, const char *line) {
 
         e = startswith(line, "subscribed=");
         if (!e)
-                return 0;
+                return -EINVAL;
 
         return strv_extend(l, e);
 }
