@@ -154,4 +154,4 @@
         _BLKID_FEATURE_ " "                                             \
         _ELFUTILS_FEATURE_ " "                                          \
         _KMOD_FEATURE_ " "                                              \
-        _IDN_FEATURE_ " "
+        _IDN_FEATURE_
