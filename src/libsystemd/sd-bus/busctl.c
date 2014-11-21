@@ -56,6 +56,7 @@ static bool arg_verbose = false;
 static bool arg_expect_reply = true;
 static bool arg_auto_start = true;
 static bool arg_allow_interactive_authorization = true;
+static usec_t arg_timeout = 0;
 
 static void pager_open_if_enabled(void) {
 
@@ -1494,7 +1495,7 @@ static int call(sd_bus *bus, char *argv[]) {
                 return 0;
         }
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
         if (r < 0) {
                 log_error("%s", bus_error_message(&error, r));
                 return r;
@@ -1627,7 +1628,7 @@ static int set_property(sd_bus *bus, char *argv[]) {
                 return -EINVAL;
         }
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0) {
                 log_error("%s", bus_error_message(&error, r));
                 return r;
@@ -1659,7 +1660,8 @@ static int help(void) {
                "     --expect-reply=BOOL  Expect a method call reply\n"
                "     --auto-start=BOOL    Auto-start destination service\n"
                "     --allow-interactive-authorization=BOOL\n"
-               "                          Allow interactive authorization for operation\n\n"
+               "                          Allow interactive authorization for operation\n"
+               "     --timeout=SECS       Maximum time to wait for method call completion\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  status SERVICE          Show service name status\n"
@@ -1699,6 +1701,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXPECT_REPLY,
                 ARG_AUTO_START,
                 ARG_ALLOW_INTERACTIVE_AUTHORIZATION,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -1723,6 +1726,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "expect-reply", required_argument, NULL, ARG_EXPECT_REPLY },
                 { "auto-start",   required_argument, NULL, ARG_AUTO_START   },
                 { "allow-interactive-authorization", required_argument, NULL, ARG_ALLOW_INTERACTIVE_AUTHORIZATION },
+                { "timeout",      required_argument, NULL, ARG_TIMEOUT      },
                 {},
         };
 
@@ -1854,6 +1858,15 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_allow_interactive_authorization = !!r;
+                        break;
+
+                case ARG_TIMEOUT:
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0) {
+                                log_error("Failed to parse --timeout= parameter.");
+                                return r;
+                        }
+
                         break;
 
                 case '?':
