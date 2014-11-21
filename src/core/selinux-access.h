@@ -40,7 +40,7 @@ int mac_selinux_unit_access_check_strv(char **units, sd_bus_message *message, Ma
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         ({                                                              \
                 Unit *_unit = (unit);                                   \
-                mac_selinux_generic_access_check((message), _unit->fragment_path ?: _unit->fragment_path, (permission), (error)); \
+                mac_selinux_generic_access_check((message), _unit->source_path ?: _unit->fragment_path, (permission), (error)); \
         })
 
 #else
