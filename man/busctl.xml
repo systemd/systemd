@@ -156,11 +156,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--quiet</option></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command suppresses
-          display of the response message.</para>
+          <para>When used with the <command>call</command> command
+          suppresses display of the response message payload. Note that even
+          if this option is specified errors returned will still be
+          printed and the tool will indicate success or failure with
+          the process exit code.</para>
         </listitem>
       </varlistentry>
-
 
       <varlistentry>
         <term><option>--verbose</option></term>
@@ -169,6 +171,48 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>When used with the <command>call</command> or
           <command>get-property</command> command shows output in a
           more verbose format.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--expect-reply=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>When used with the <command>call</command> command
+          specifies whether <command>busctl</command> shall wait for
+          completion of the method call, output the returned method
+          response data, and return success or failure via the process
+          exit code. If this is set to <literal>no</literal> the
+          method call will be issued but no response is expected, the
+          tool terminates immediately, and thus no response can be
+          shown, and no success or failure is returned via the exit
+          code. To only suppress output of the reply message payload
+          use <option>--quiet</option> above. Defaults to
+          <literal>yes</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--auto-start=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>When used with the <command>call</command> command specifies
+          whether the method call should implicitly activate the
+          called service should it not be running yet but is
+          configured to be auto-started. Defaults to
+          <literal>yes</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--allow-interactive-authorization=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>When used with the <command>call</command> command
+          specifies whether the services may enforce interactive
+          authorization while executing the operation, if the security
+          policy is configured for this. Defaults to
+          <literal>yes</literal>.</para>
         </listitem>
       </varlistentry>
 

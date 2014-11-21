@@ -53,6 +53,9 @@ static size_t arg_snaplen = 4096;
 static bool arg_list = false;
 static bool arg_quiet = false;
 static bool arg_verbose = false;
+static bool arg_expect_reply = true;
+static bool arg_auto_start = true;
+static bool arg_allow_interactive_authorization = true;
 
 static void pager_open_if_enabled(void) {
 
@@ -1454,6 +1457,18 @@ static int call(sd_bus *bus, char *argv[]) {
         if (r < 0)
                 return bus_log_create_error(r);
 
+        r = sd_bus_message_set_expect_reply(m, arg_expect_reply);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_auto_start(m, arg_auto_start);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_allow_interactive_authorization);
+        if (r < 0)
+                return bus_log_create_error(r);
+
         if (!isempty(argv[5])) {
                 char **p;
 
@@ -1467,6 +1482,16 @@ static int call(sd_bus *bus, char *argv[]) {
                         log_error("Too many parameters for signature.");
                         return -EINVAL;
                 }
+        }
+
+        if (!arg_expect_reply) {
+                r = sd_bus_send(bus, m, NULL);
+                if (r < 0) {
+                        log_error("Failed to send message.");
+                        return r;
+                }
+
+                return 0;
         }
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
@@ -1630,7 +1655,11 @@ static int help(void) {
                "     --match=MATCH        Only show matching messages\n"
                "     --list               Don't show tree, but simple object path list\n"
                "     --quiet              Don't show method call reply\n"
-               "     --verbose            Show result values in long format\n\n"
+               "     --verbose            Show result values in long format\n"
+               "     --expect-reply=BOOL  Expect a method call reply\n"
+               "     --auto-start=BOOL    Auto-start destination service\n"
+               "     --allow-interactive-authorization=BOOL\n"
+               "                          Allow interactive authorization for operation\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  status SERVICE          Show service name status\n"
@@ -1667,6 +1696,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SIZE,
                 ARG_LIST,
                 ARG_VERBOSE,
+                ARG_EXPECT_REPLY,
+                ARG_AUTO_START,
+                ARG_ALLOW_INTERACTIVE_AUTHORIZATION,
         };
 
         static const struct option options[] = {
@@ -1688,6 +1720,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",         no_argument,       NULL, ARG_LIST         },
                 { "quiet",        no_argument,       NULL, 'q'              },
                 { "verbose",      no_argument,       NULL, ARG_VERBOSE      },
+                { "expect-reply", required_argument, NULL, ARG_EXPECT_REPLY },
+                { "auto-start",   required_argument, NULL, ARG_AUTO_START   },
+                { "allow-interactive-authorization", required_argument, NULL, ARG_ALLOW_INTERACTIVE_AUTHORIZATION },
                 {},
         };
 
@@ -1787,6 +1822,38 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERBOSE:
                         arg_verbose = true;
+                        break;
+
+                case ARG_EXPECT_REPLY:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --expect-reply= parameter.");
+                                return r;
+                        }
+
+                        arg_expect_reply = !!r;
+                        break;
+
+
+                case ARG_AUTO_START:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --auto-start= parameter.");
+                                return r;
+                        }
+
+                        arg_auto_start = !!r;
+                        break;
+
+
+                case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --allow-interactive-authorization= parameter.");
+                                return r;
+                        }
+
+                        arg_allow_interactive_authorization = !!r;
                         break;
 
                 case '?':
