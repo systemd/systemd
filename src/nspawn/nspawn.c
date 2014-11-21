@@ -828,7 +828,7 @@ static int mount_tmpfs(const char *dest) {
                         return log_oom();
 
                 r = mkdir_label(where, 0755);
-                if (r < 0) {
+                if (r < 0 && errno != EEXIST) {
                         log_error("creating mount point for tmpfs %s failed: %s", where, strerror(-r));
 
                         return r;
