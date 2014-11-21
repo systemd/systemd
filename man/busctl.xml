@@ -345,115 +345,110 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
-          <title>Parameter Formatting</title>
+    <title>Parameter Formatting</title>
 
-          <para>The <command>call</command> and
-          <command>set-property</command> commands take a signature
-          string followed by a list of parameters formatted as string
-          (for details on D-Bus signature strings see the <ulink
-          url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">Type
-          system chapter of the D-Bus specification</ulink>). For
-          simple types each parameter following the signature should
-          simply be the parameter's value formatted as
-          string. Positive boolean values may be formatted as
-          <literal>true</literal>, <literal>yes</literal>,
-          <literal>on</literal>, <literal>1</literal>; negative
-          boolean values may be specified as <literal>false</literal>,
-          <literal>no</literal>, <literal>off</literal>,
-          <literal>0</literal>. For arrays, a numeric argument for the
-          number of entries followed by the entries shall be
-          specified. For variants the signature of the contents shall
-          be specified, followed by the contents. For dictionaries and
-          structs the contents of them shall be directly
-          specified.</para>
+    <para>The <command>call</command> and
+    <command>set-property</command> commands take a signature string
+    followed by a list of parameters formatted as string (for details
+    on D-Bus signature strings see the <ulink
+    url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">Type
+    system chapter of the D-Bus specification</ulink>). For simple
+    types each parameter following the signature should simply be the
+    parameter's value formatted as string. Positive boolean values may
+    be formatted as <literal>true</literal>, <literal>yes</literal>,
+    <literal>on</literal>, <literal>1</literal>; negative boolean
+    values may be specified as <literal>false</literal>,
+    <literal>no</literal>, <literal>off</literal>,
+    <literal>0</literal>. For arrays, a numeric argument for the
+    number of entries followed by the entries shall be specified. For
+    variants the signature of the contents shall be specified,
+    followed by the contents. For dictionaries and structs the
+    contents of them shall be directly specified.</para>
 
-          <para>For example,
-          <programlisting>s jawoll</programlisting> is the formatting
-          of a single string <literal>jawoll</literal>.</para>
+    <para>For example,
+    <programlisting>s jawoll</programlisting> is the formatting
+    of a single string <literal>jawoll</literal>.</para>
 
-          <para>
-          <programlisting>as 3 hello world foobar</programlisting>
-          is the formatting of a string array with three entries,
-          <literal>hello</literal>, <literal>world</literal> and
-          <literal>foobar</literal>.</para>
+    <para>
+    <programlisting>as 3 hello world foobar</programlisting>
+    is the formatting of a string array with three entries,
+    <literal>hello</literal>, <literal>world</literal> and
+    <literal>foobar</literal>.</para>
 
-          <para>
-          <programlisting>a{sv} 3 One s Eins Two u 2 Yes b true</programlisting>
-          is the formatting of a dictionary
-          array that maps strings to variants, consisting of three
-          entries. The string <literal>One</literal> is assigned the
-          string <literal>Eins</literal>. The string
-          <literal>Two</literal> is assigned the 32bit unsigned
-          integer 2. The string <literal>Yes</literal> is assigned a
-          positive boolean.</para>
+    <para>
+    <programlisting>a{sv} 3 One s Eins Two u 2 Yes b true</programlisting>
+    is the formatting of a dictionary
+    array that maps strings to variants, consisting of three
+    entries. The string <literal>One</literal> is assigned the
+    string <literal>Eins</literal>. The string
+    <literal>Two</literal> is assigned the 32bit unsigned
+    integer 2. The string <literal>Yes</literal> is assigned a
+    positive boolean.</para>
 
-          <para>Note that the <command>call</command>,
-          <command>get-property</command>,
-          <command>introspect</command> commands will also generate
-          output in this format for the returned data. Since this
-          format is sometimes too terse to be easily understood, the
-          <command>call</command> and <command>get-property</command>
-          commands may generate a more verbose, multi-line output when
-          passed the <option>--verbose</option> option.</para>
+    <para>Note that the <command>call</command>,
+    <command>get-property</command>, <command>introspect</command>
+    commands will also generate output in this format for the returned
+    data. Since this format is sometimes too terse to be easily
+    understood, the <command>call</command> and
+    <command>get-property</command> commands may generate a more
+    verbose, multi-line output when passed the
+    <option>--verbose</option> option.</para>
   </refsect1>
 
   <refsect1>
-          <title>Examples</title>
+    <title>Examples</title>
 
-          <example>
-                  <title>Write and Read a Property</title>
+    <example>
+      <title>Write and Read a Property</title>
 
-                  <para>The following two commands first write a
-                  property and then read it back. The property is
-                  found on the
-                  <literal>/org/freedesktop/systemd1</literal> object
-                  of the <literal>org.freedesktop.systemd1</literal>
-                  service. The name of the property is
-                  <literal>LogLevel</literal> on the
-                  <literal>org.freedesktop.systemd1.Manager</literal>
-                  interface. The property contains a single
-                  string:</para>
+      <para>The following two commands first write a property and then
+      read it back. The property is found on the
+      <literal>/org/freedesktop/systemd1</literal> object of the
+      <literal>org.freedesktop.systemd1</literal> service. The name of
+      the property is <literal>LogLevel</literal> on the
+      <literal>org.freedesktop.systemd1.Manager</literal>
+      interface. The property contains a single string:</para>
 
-                  <programlisting># busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LogLevel s debug
+      <programlisting># busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LogLevel s debug
 # busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LogLevel
 s "debug"</programlisting>
 
-          </example>
+    </example>
 
-          <example>
-                  <title>Terse and Verbose Output</title>
+    <example>
+      <title>Terse and Verbose Output</title>
 
-                  <para>The following two commands read a property that
-                  contains an array of strings, and first show it in
-                  terse format, followed by verbose format:</para>
+      <para>The following two commands read a property that contains
+      an array of strings, and first show it in terse format, followed
+      by verbose format:</para>
 
-                  <programlisting>$ busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Environment
+      <programlisting>$ busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Environment
 as 2 "LANG=en_US.UTF-8" "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
 $ busctl get-property --verbose org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Environment
 ARRAY "s" {
         STRING "LANG=en_US.UTF-8";
         STRING "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin";
 };</programlisting>
-          </example>
+    </example>
 
-        <example>
-                  <title>Invoking a Method</title>
+    <example>
+      <title>Invoking a Method</title>
 
-                  <para>The following command invokes a the
-                  <literal>StartUnit</literal> method on the
-                  <literal>org.freedesktop.systemd1.Manager</literal>
-                  interface of the
-                  <literal>/org/freedesktop/systemd1</literal> object
-                  of the <literal>org.freedesktop.systemd1</literal>
-                  service, and passes it two strings
-                  <literal>cups.service</literal> and
-                  <literal>replace</literal>. As result of the method
-                  call a single object path parameter is received and
-                  shown:</para>
+      <para>The following command invokes a the
+      <literal>StartUnit</literal> method on the
+      <literal>org.freedesktop.systemd1.Manager</literal>
+      interface of the
+      <literal>/org/freedesktop/systemd1</literal> object
+      of the <literal>org.freedesktop.systemd1</literal>
+      service, and passes it two strings
+      <literal>cups.service</literal> and
+      <literal>replace</literal>. As result of the method
+      call a single object path parameter is received and
+      shown:</para>
 
-                  <programlisting># busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager StartUnit ss "cups.service" "replace"
+      <programlisting># busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager StartUnit ss "cups.service" "replace"
 o "/org/freedesktop/systemd1/job/42684"</programlisting>
-        </example>
+    </example>
   </refsect1>
 
   <refsect1>
