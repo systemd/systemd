@@ -9,6 +9,7 @@
 Description=Load/Save RF Kill Switch Status of %I
 Documentation=man:systemd-rfkill@.service(8)
 DefaultDependencies=no
+BindsTo=sys-subsystem-rfkill-devices-%i.device
 RequiresMountsFor=/var/lib/systemd/rfkill
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
