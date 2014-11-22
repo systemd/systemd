@@ -149,6 +149,16 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #ifndef __NR_getrandom
 #  if defined __x86_64__
 #    define __NR_getrandom 318
+#  elif defined(__i386__)
+#    define __NR_getrandom 355
+#  elif defined(__arm__) || defined(__aarch64__)
+#    define __NR_getrandom 384
+#  elif defined(__ia64__)
+#    define __NR_getrandom 1339
+#  elif defined(__m68k__)
+#    define __NR_getrandom 352
+#  elif defined(__s390x__)
+#    define __NR_getrandom 349
 #  else
 #    warning "__NR_getrandom unknown for your architecture"
 #    define __NR_getrandom 0xffffffff

@@ -133,7 +133,7 @@ int uname_architecture(void);
 #  else
 #    define native_architecture() ARCHITECTURE_MIPS_LE
 #    define LIB_ARCH_TUPLE "mipsel-linux-gnu"
-#endif
+#  endif
 #elif defined(__alpha__)
 #  define native_architecture() ARCHITECTURE_ALPHA
 #  define LIB_ARCH_TUPLE "alpha-linux-gnu"
@@ -185,7 +185,7 @@ int uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_CRIS
 #  error "Missing LIB_ARCH_TUPLE for CRIS"
 #else
-#error "Please register your architecture here!"
+#  error "Please register your architecture here!"
 #endif
 
 const char *architecture_to_string(int a) _const_;
