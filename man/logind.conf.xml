@@ -281,17 +281,17 @@
                                 sleep keys and the lid switch are
                                 subject to inhibitor locks. These
                                 settings take boolean arguments. If
-                                <literal>off</literal>, the inhibitor
+                                <literal>no</literal>, the inhibitor
                                 locks taken by applications in order
                                 to block the requested operation are
-                                respected. If <literal>on</literal>,
+                                respected. If <literal>yes</literal>,
                                 the requested operation is executed in
                                 any
                                 case. <varname>PowerKeyIgnoreInhibited=</varname>,
                                 <varname>SuspendKeyIgnoreInhibited=</varname>
                                 and
                                 <varname>HibernateKeyIgnoreInhibited=</varname>
-                                default to <literal>off</literal>.
+                                default to <literal>no</literal>.
                                 <varname>LidSwitchIgnoreInhibited=</varname>
                                 defaults to
                                 <literal>yes</literal>. This means
