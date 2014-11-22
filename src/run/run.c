@@ -573,9 +573,12 @@ int main(int argc, char* argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = find_binary(argv[optind], &command);
+        r = find_binary(argv[optind], arg_transport == BUS_TRANSPORT_LOCAL, &command);
         if (r < 0) {
-                log_error("Failed to find executable %s: %s", argv[optind], strerror(-r));
+                log_error("Failed to find executable %s%s: %s",
+                          argv[optind],
+                          arg_transport == BUS_TRANSPORT_LOCAL ? "" : " on local system",
+                          strerror(-r));
                 goto finish;
         }
         argv[optind] = command;

@@ -563,11 +563,11 @@ int path_is_os_tree(const char *path) {
         return r >= 0;
 }
 
-int find_binary(const char *name, char **filename) {
+int find_binary(const char *name, bool local, char **filename) {
         assert(name);
 
         if (is_path(name)) {
-                if (access(name, X_OK) < 0)
+                if (local && access(name, X_OK) < 0)
                         return -errno;
 
                 if (filename) {
@@ -657,7 +657,7 @@ int fsck_exists(const char *fstype) {
 
         checker = strappenda("fsck.", fstype);
 
-        r = find_binary(checker, &p);
+        r = find_binary(checker, true, &p);
         if (r < 0)
                 return r;
 
