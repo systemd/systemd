@@ -326,7 +326,8 @@ AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
                 IFLA_VLAN_PROTOCOL,
                 IFLA_VXLAN_LOCAL6,
                 IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
-                IFLA_BRIDGE_VLAN_INFO],
+                IFLA_BRIDGE_VLAN_INFO,
+                IFLA_BRPORT_UNICAST_FLOOD],
 [], [], [[
 #include <inttypes.h>
 #include <netinet/in.h>
