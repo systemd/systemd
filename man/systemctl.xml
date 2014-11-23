@@ -151,9 +151,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Show reverse dependencies between units with
-          <command>list-dependencies</command>, i.e. units with
-          dependencies of type <varname>Wants=</varname> or
-          <varname>Requires=</varname> on the given unit.
+          <command>list-dependencies</command>, i.e. follow
+          dependencies of type <varname>WantedBy=</varname>,
+          <varname>RequiredBy=</varname>,
+          <varname>RequiredByOverrridable=</varname>,
+          <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
+          instead of <varname>Wants=</varname> and similar.
           </para>
         </listitem>
       </varlistentry>
@@ -164,10 +167,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>With <command>list-dependencies</command>, show the
           units that are ordered before the specified unit. In other
-          words, list the units that are in the <varname>After=</varname>
-          directive of the specified unit, have the specified unit in
-          their <varname>Before=</varname> directive, or are otherwise
-          implicit dependencies of the specified unit.</para>
+          words, recursively list units following the
+          <varname>After=</varname> dependency.</para>
+
+          <para>Note that any <varname>After=</varname> dependency is
+          automatically mirrored to create a
+          <varname>Before=</varname> dependency. Temporal dependencies
+          may be specified explictly, but are also created implicitly
+          for units which are <varname>WantedBy=</varname> targets
+          (see
+          <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+          and as a result of other directives (for example
+          <varname>RequiresMountsFor=</varname>). Both explicitly
+          and implicitly introduced dependencies are shown with
+          <command>list-dependencies</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -177,10 +190,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>With <command>list-dependencies</command>, show the
           units that are ordered after the specified unit. In other
-          words, list the units that are in the <varname>Before=</varname>
-          directive of the specified unit, have the specified unit in
-          their <varname>After=</varname> directive, or otherwise depend
-          on the specified unit.</para>
+          words, recursively list units following the
+          <varname>Before=</varname> dependency.</para>
         </listitem>
       </varlistentry>
 
@@ -848,15 +859,30 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-dependencies <replaceable>NAME</replaceable></command></term>
+          <term>
+            <command>list-dependencies</command>
+            <optional><replaceable>NAME</replaceable></optional>
+          </term>
 
           <listitem>
-            <para>Shows required and wanted units of the specified
-            unit. If no unit is specified,
-            <filename>default.target</filename> is implied. Target units
-            are recursively expanded.  When <option>--all</option> is
-            passed, all other units are recursively expanded as
-            well.</para>
+            <para>Shows units required and wanted by the specified
+            unit. This recursively lists units following the
+            <varname>Requires=</varname>,
+            <varname>RequiresOverridable=</varname>,
+            <varname>Requisite=</varname>,
+            <varname>RequisiteOverridable=</varname>,
+            <varname>Wants=</varname>, <varname>BindsTo=</varname>
+            dependencies. If no unit is specified,
+            <filename>default.target</filename> is implied.</para>
+
+            <para>By default, only target units are recursively
+            expanded. When <option>--all</option> is passed, all other
+            units are recursively expanded as well.</para>
+
+            <para>Options <option>--reverse</option>,
+            <option>--after</option>, <option>--before</option>
+            may be used to change what types of dependencies
+            are shown.</para>
           </listitem>
         </varlistentry>
       </variablelist>
