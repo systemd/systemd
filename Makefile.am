@@ -3079,7 +3079,18 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp6-network.c \
 	src/libsystemd-network/dhcp6-option.c \
 	src/libsystemd-network/dhcp6-lease-internal.h \
-	src/libsystemd-network/sd-dhcp6-lease.c
+	src/libsystemd-network/sd-dhcp6-lease.c \
+	src/libsystemd-network/lldp.h \
+	src/libsystemd-network/lldp-tlv.h \
+	src/libsystemd-network/lldp-tlv.c \
+	src/libsystemd-network/lldp-network.h \
+	src/libsystemd-network/lldp-network.c \
+	src/libsystemd-network/lldp-port.h \
+	src/libsystemd-network/lldp-port.c \
+	src/libsystemd-network/lldp-internal.h \
+	src/libsystemd-network/lldp-internal.c \
+	src/libsystemd-network/sd-lldp.h \
+	src/libsystemd-network/sd-lldp.c
 
 libsystemd_network_la_LIBADD = \
 	libudev-internal.la \
@@ -3158,13 +3169,25 @@ test_dhcp6_client_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+test_lldp_SOURCES = \
+       src/libsystemd-network/lldp.h \
+       src/libsystemd-network/lldp-tlv.h \
+       src/libsystemd-network/lldp-tlv.c \
+       src/libsystemd-network/test-lldp.c
+
+test_lldp_LDADD = \
+	libsystemd-network.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
 tests += \
 	test-dhcp-option \
 	test-dhcp-client \
 	test-dhcp-server \
 	test-ipv4ll \
 	test-icmp6-rs \
-	test-dhcp6-client
+	test-dhcp6-client \
+	test-lldp
 
 manual_tests += \
 	test-pppoe
