@@ -75,6 +75,19 @@ static bool link_ipv4ll_enabled(Link *link) {
         return link->network->ipv4ll;
 }
 
+static bool link_lldp_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if(link->network->bridge)
+                return false;
+
+        return link->network->lldp;
+}
+
 #define FLAG_STRING(string, flag, old, new) \
         (((old ^ new) & flag) \
                 ? ((old & flag) ? (" -" string) : (" +" string)) \
@@ -359,6 +372,16 @@ static int link_stop_clients(Link *link) {
                 if (k < 0) {
                         log_link_warning(link,
                                          "Could not stop ICMPv6 router discovery: %s",
+                                         strerror(-r));
+                        r = k;
+                }
+        }
+
+        if (link->lldp) {
+
+                k = sd_lldp_stop(link->lldp);
+                if (k < 0) {
+                        log_link_warning(link, "Could not stop LLDP : %s",
                                          strerror(-r));
                         r = k;
                 }
@@ -919,6 +942,18 @@ static int link_acquire_conf(Link *link) {
                 }
         }
 
+        if (link_lldp_enabled(link)) {
+                assert(link->lldp);
+
+                log_link_debug(link, "Starting LLDP");
+
+                r = sd_lldp_start(link->lldp);
+                if (r < 0) {
+                        log_link_warning(link, "could not start LLDP ");
+                        return r;
+                }
+        }
+
         return 0;
 }
 
@@ -1190,6 +1225,16 @@ static int link_configure(Link *link) {
 
         if (link_dhcp6_enabled(link)) {
                 r = icmp6_configure(link);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link_lldp_enabled(link)) {
+                r = sd_lldp_new(link->ifindex, link->ifname, &link->mac, &link->lldp);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_attach_event(link->lldp, NULL, 0);
                 if (r < 0)
                         return r;
         }

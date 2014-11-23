@@ -258,6 +258,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>LLDP=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables LLDP link receive support.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Address=</varname></term>
                                         <listitem>
                                                 <para>A static IPv4 or IPv6 address and its prefix length,

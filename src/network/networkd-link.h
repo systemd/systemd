@@ -91,6 +91,8 @@ struct Link {
 
         sd_icmp6_nd *icmp6_router_discovery;
         sd_dhcp6_client *dhcp6_client;
+
+        sd_lldp *lldp;
 };
 
 Link *link_unref(Link *link);

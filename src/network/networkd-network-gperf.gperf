@@ -37,6 +37,7 @@ Network.DHCP,                config_parse_dhcp,                  0,             
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
 Network.IPv4LLRoute,         config_parse_bool,                  0,                             offsetof(Network, ipv4ll_route)
+Network.LLDP,                config_parse_bool,                  0,                             offsetof(Network, lldp)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
 Network.Domains,             config_parse_domains,               0,                             offsetof(Network, domains)

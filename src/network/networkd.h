@@ -32,6 +32,7 @@
 #include "sd-icmp6-nd.h"
 #include "sd-dhcp6-client.h"
 #include "udev.h"
+#include "sd-lldp.h"
 
 #include "rtnl-util.h"
 #include "hashmap.h"
@@ -121,6 +122,8 @@ struct Network {
 
         struct ether_addr *mac;
         unsigned mtu;
+
+        bool lldp;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
