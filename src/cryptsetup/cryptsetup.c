@@ -400,7 +400,9 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                         /* plain isn't a real hash type. it just means "use no hash" */
                         if (!streq(arg_hash, "plain"))
                                 params.hash = arg_hash;
-                } else
+                } else if (!key_file)
+                        /* for CRYPT_PLAIN, the behaviour of cryptsetup
+                         * package is to not hash when a key file is provided */
                         params.hash = "ripemd160";
 
                 if (arg_cipher) {
