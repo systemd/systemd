@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2014 Didier Roche
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+<refentry id="systemd-machine-id-commit.service">
+
+        <refentryinfo>
+                <title>systemd-machine-id-commit.service</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Didier</firstname>
+                                <surname>Roche</surname>
+                                <email>didrocks@ubuntu.com</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-machine-id-commit.service</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-machine-id-commit.service</refname>
+                <refpurpose>Commit transient machine-id to disk</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd-machine-id-commit.service</filename></para>
+                <para><filename>/usr/lib/systemd/systemd-machine-id-commit</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><filename>systemd-machine-id-commit.service</filename> is
+                a service responsible for commiting any transient
+                <filename>/etc/machine-id</filename> file to a writable file
+                system. See
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information about this file.</para>
+
+                <para>This service is started shortly after
+                <filename>local-fs.target</filename> if
+                <filename>/etc/machine-id</filename> is an independent mount
+                point (probably a tmpfs one) and /etc is writable.
+                <command>systemd-machine-id-commit</command> will then
+                write current machine ID to disk and unmount the transient
+                <filename>/etc/machine-id</filename> file in a race-free
+                manner to ensure that file is always valid for other
+                processes.</para>
+
+                <para>Note that the traditional way to initialize the machine
+                ID in <filename>/etc/machine-id</filename> is to use
+                <command>systemd-machine-id-setup</command> by system
+                installer tools. You can also use
+                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to initialize the machine ID on mounted (but not
+                booted) system images. The main use case for that service is
+                <filename>/etc/machine-id</filename> being an empty file at
+                boot and initrd chaining to systemd giving it a read only file
+                system that will be turned read-write later during the boot
+                process.</para>
+
+                <para>There is no consequence if that service fails other than
+                a newer machine-id will be generated during next system boot.
+                </para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-machine-id-commit</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
