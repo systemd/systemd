@@ -420,10 +420,20 @@ int bus_message_from_header(
         m->n_fds = n_fds;
 
         if (ucred) {
-                m->creds.uid = ucred->uid;
                 m->creds.pid = ucred->pid;
+                m->creds.uid = ucred->uid;
                 m->creds.gid = ucred->gid;
-                m->creds.mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID;
+
+                /* Due to namespace translations some data might be
+                 * missing from this ucred record. */
+                if (m->creds.pid > 0)
+                        m->creds.mask |= SD_BUS_CREDS_PID;
+
+                if (m->creds.uid != (uid_t) -1)
+                        m->creds.mask |= SD_BUS_CREDS_UID;
+
+                if (m->creds.gid != (gid_t) -1)
+                        m->creds.mask |= SD_BUS_CREDS_GID;
         }
 
         if (label) {
