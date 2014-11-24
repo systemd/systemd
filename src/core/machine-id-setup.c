@@ -157,6 +157,37 @@ static int generate(char id[34], const char *root) {
         return 0;
 }
 
+static int get_valid_machine_id(int fd, char id[34]) {
+        char id_to_validate[34];
+
+        assert(fd >= 0);
+        assert(id);
+
+        if (loop_read(fd, id_to_validate, 33, false) == 33 && id_to_validate[32] == '\n') {
+                id_to_validate[32] = 0;
+
+                if (id128_is_valid(id_to_validate)) {
+                        memcpy(id, id_to_validate, 32);
+                        id[32] = '\n';
+                        id[33] = 0;
+                        return 0;
+                }
+        }
+
+        return -EINVAL;
+}
+
+static int write_machine_id(int fd, char id[34]) {
+        assert(fd >= 0);
+        assert(id);
+        lseek(fd, 0, SEEK_SET);
+
+        if (loop_write(fd, id, 33, false) == 33)
+                return 0;
+
+        return -errno;
+}
+
 int machine_id_setup(const char *root) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
@@ -207,13 +238,8 @@ int machine_id_setup(const char *root) {
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "fstat() failed: %m");
 
-        if (S_ISREG(st.st_mode))
-                if (loop_read(fd, id, 33, false) == 33 && id[32] == '\n') {
-                        id[32] = 0;
-
-                        if (id128_is_valid(id))
-                                return 0;
-                }
+        if (S_ISREG(st.st_mode) && get_valid_machine_id(fd, id) == 0)
+                return 0;
 
         /* Hmm, so, the id currently stored is not useful, then let's
          * generate one */
@@ -223,9 +249,7 @@ int machine_id_setup(const char *root) {
                 return r;
 
         if (S_ISREG(st.st_mode) && writable) {
-                lseek(fd, 0, SEEK_SET);
-
-                if (loop_write(fd, id, 33, false) == 33)
+                if (write_machine_id(fd, id) == 0)
                         return 0;
         }
 
