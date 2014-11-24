@@ -25,6 +25,7 @@
 #include <sys/epoll.h>
 #include <signal.h>
 #include <libmount.h>
+#include <sys/inotify.h>
 
 #include "manager.h"
 #include "unit.h"
@@ -1553,11 +1554,13 @@ static void mount_shutdown(Manager *m) {
         assert(m);
 
         m->mount_event_source = sd_event_source_unref(m->mount_event_source);
+        m->mount_utab_event_source = sd_event_source_unref(m->mount_utab_event_source);
 
         if (m->proc_self_mountinfo) {
                 fclose(m->proc_self_mountinfo);
                 m->proc_self_mountinfo = NULL;
         }
+        m->utab_inotify_fd = safe_close(m->utab_inotify_fd);
 }
 
 static int mount_get_timeout(Unit *u, uint64_t *timeout) {
@@ -1597,12 +1600,32 @@ static int mount_enumerate(Manager *m) {
                         goto fail;
         }
 
+        if (m->utab_inotify_fd < 0) {
+                m->utab_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                if (m->utab_inotify_fd < 0)
+                        goto fail_with_errno;
+
+                r = inotify_add_watch(m->utab_inotify_fd, "/run/mount", IN_MOVED_TO);
+                if (r < 0)
+                        goto fail_with_errno;
+
+                r = sd_event_add_io(m->event, &m->mount_utab_event_source, m->utab_inotify_fd, EPOLLIN, mount_dispatch_io, m);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_event_source_set_priority(m->mount_utab_event_source, -10);
+                if (r < 0)
+                        goto fail;
+        }
+
         r = mount_load_proc_self_mountinfo(m, false);
         if (r < 0)
                 goto fail;
 
         return 0;
 
+fail_with_errno:
+        r = -errno;
 fail:
         mount_shutdown(m);
         return r;
@@ -1614,11 +1637,34 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         int r;
 
         assert(m);
-        assert(revents & EPOLLPRI);
+        assert(revents & (EPOLLPRI | EPOLLIN));
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting
-         * table changes */
+         * table changes
+         * This may also be called for /run/mount events */
+
+        if (fd == m->utab_inotify_fd) {
+                char inotify_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
+                struct inotify_event *event;
+                char *p;
+                int rescan = 0;
+
+                while ((r = read(fd, inotify_buffer, sizeof(inotify_buffer))) > 0) {
+                        for (p = inotify_buffer; p < inotify_buffer + r; ) {
+                                event = (struct inotify_event *) p;
+                                /* only care about changes to utab, but we have
+                                 * to monitor the directory to reliably get
+                                 * notifications about when utab is replaced
+                                 * using rename(2) */
+                                if (strcmp(event->name, "utab") == 0)
+                                        rescan = 1;
+                                p += sizeof(struct inotify_event) + event->len;
+                        }
+                }
+                if (!rescan)
+                        return 0;
+        }
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
