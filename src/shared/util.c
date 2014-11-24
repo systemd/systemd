@@ -6482,6 +6482,10 @@ int getpeercred(int fd, struct ucred *ucred) {
          * to namespacing issues */
         if (u.pid <= 0)
                 return -ENODATA;
+        if (u.uid == (uid_t) -1)
+                return -ENODATA;
+        if (u.gid == (gid_t) -1)
+                return -ENODATA;
 
         *ucred = u;
         return 0;
