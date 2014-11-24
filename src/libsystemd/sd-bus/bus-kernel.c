@@ -513,28 +513,75 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
                 }
 
-                case KDBUS_ITEM_CREDS:
-                        /* UID/GID/PID are always valid */
-                        m->creds.uid = (uid_t) d->creds.uid;
-                        m->creds.gid = (gid_t) d->creds.gid;
-                        m->creds.pid = (pid_t) d->creds.pid;
-                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID) & bus->creds_mask;
+                case KDBUS_ITEM_PIDS:
 
-                        /* The PID starttime/TID might be missing
-                         * however, when the data is faked by some
-                         * data bus proxy and it lacks that
-                         * information about the real client since
-                         * SO_PEERCRED is used for that */
+                        /* The PID starttime/TID might be missing,
+                         * when the data is faked by some data bus
+                         * proxy and it lacks that information about
+                         * the real client since SO_PEERCRED is used
+                         * for that. */
 
-                        if (d->creds.starttime > 0) {
-                                m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                        if (d->pids.pid > 0) {
+                                m->creds.pid = (pid_t) d->pids.pid;
+                                m->creds.mask |= SD_BUS_CREDS_PID & bus->creds_mask;
+                        }
+
+                        if (d->pids.starttime > 0) {
+                                m->creds.pid_starttime = d->pids.starttime / NSEC_PER_USEC;
                                 m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
                         }
 
-                        if (d->creds.tid > 0) {
-                                m->creds.tid = (pid_t) d->creds.tid;
+                        if (d->pids.tid > 0) {
+                                m->creds.tid = (pid_t) d->pids.tid;
                                 m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
                         }
+
+                        break;
+
+                case KDBUS_ITEM_CREDS:
+
+                        /* EUID/SUID/FSUID/EGID/SGID/FSGID might be missing too (see above). */
+
+                        if ((uid_t) d->creds.uid != (uid_t) -1) {
+                                m->creds.uid = (uid_t) d->creds.uid;
+                                m->creds.mask |= SD_BUS_CREDS_UID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.euid != (uid_t) -1) {
+                                m->creds.euid = (uid_t) d->creds.euid;
+                                m->creds.mask |= SD_BUS_CREDS_EUID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.suid != (uid_t) -1) {
+                                m->creds.suid = (uid_t) d->creds.suid;
+                                m->creds.mask |= SD_BUS_CREDS_SUID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->creds.fsuid != (uid_t) -1) {
+                                m->creds.fsuid = (uid_t) d->creds.fsuid;
+                                m->creds.mask |= SD_BUS_CREDS_FSUID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.gid != (gid_t) -1) {
+                                m->creds.gid = (gid_t) d->creds.gid;
+                                m->creds.mask |= SD_BUS_CREDS_GID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.egid != (gid_t) -1) {
+                                m->creds.egid = (gid_t) d->creds.egid;
+                                m->creds.mask |= SD_BUS_CREDS_EGID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.sgid != (gid_t) -1) {
+                                m->creds.sgid = (gid_t) d->creds.sgid;
+                                m->creds.mask |= SD_BUS_CREDS_SGID & bus->creds_mask;
+                        }
+
+                        if ((gid_t) d->creds.fsgid != (gid_t) -1) {
+                                m->creds.fsgid = (gid_t) d->creds.fsgid;
+                                m->creds.mask |= SD_BUS_CREDS_FSGID & bus->creds_mask;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_TIMESTAMP:
@@ -724,6 +771,9 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (b->fake_creds_valid)
                 sz += ALIGN8(offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds));
 
+        if (b->fake_pids_valid)
+                sz += ALIGN8(offsetof(struct kdbus_item, pids) + sizeof(struct kdbus_pids));
+
         if (b->fake_label) {
                 l = strlen(b->fake_label);
                 sz += ALIGN8(offsetof(struct kdbus_item, str) + l + 1);
@@ -747,6 +797,14 @@ int bus_kernel_take_fd(sd_bus *b) {
                 item->size = offsetof(struct kdbus_item, creds) + sizeof(struct kdbus_creds);
                 item->type = KDBUS_ITEM_CREDS;
                 item->creds = b->fake_creds;
+
+                item = KDBUS_ITEM_NEXT(item);
+        }
+
+        if (b->fake_pids_valid) {
+                item->size = offsetof(struct kdbus_item, pids) + sizeof(struct kdbus_pids);
+                item->type = KDBUS_ITEM_PIDS;
+                item->pids = b->fake_pids;
 
                 item = KDBUS_ITEM_NEXT(item);
         }
@@ -1237,8 +1295,12 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
 
         assert(kdbus_mask);
 
-        if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
+        if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                    SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID))
                 m |= KDBUS_ATTACH_CREDS;
+
+        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
+                m |= KDBUS_ATTACH_PIDS;
 
         if (mask & SD_BUS_CREDS_COMM)
                 m |= KDBUS_ATTACH_PID_COMM;

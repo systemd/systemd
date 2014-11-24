@@ -206,6 +206,7 @@ struct sd_bus {
         bool nodes_modified:1;
         bool trusted:1;
         bool fake_creds_valid:1;
+        bool fake_pids_valid:1;
         bool manual_peer_interface:1;
         bool is_system:1;
         bool is_user:1;
@@ -306,6 +307,7 @@ struct sd_bus {
         pid_t tid;
 
         struct kdbus_creds fake_creds;
+        struct kdbus_pids fake_pids;
         char *fake_label;
 
         char *cgroup_root;

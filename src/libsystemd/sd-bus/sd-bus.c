@@ -1070,7 +1070,7 @@ _public_ int sd_bus_open(sd_bus **ret) {
         /* We don't know whether the bus is trusted or not, so better
          * be safe, and authenticate everything */
         b->trusted = false;
-        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
+        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS | KDBUS_ATTACH_PIDS;
 
         r = sd_bus_start(b);
         if (r < 0)

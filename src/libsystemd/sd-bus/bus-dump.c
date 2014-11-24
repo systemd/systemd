@@ -360,15 +360,32 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%sPIDStartTime=%s"USEC_FMT"%s", prefix, color, c->pid_starttime, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
                 fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
+
+        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))))
+                fputs("\n", f);
+
         if (c->mask & SD_BUS_CREDS_UID)
                 fprintf(f, "%sUID=%s"UID_FMT"%s", prefix, color, c->uid, suffix);
+        if (c->mask & SD_BUS_CREDS_EUID)
+                fprintf(f, "%sEUID=%s"UID_FMT"%s", prefix, color, c->euid, suffix);
+        if (c->mask & SD_BUS_CREDS_SUID)
+                fprintf(f, "%sSUID=%s"UID_FMT"%s", prefix, color, c->suid, suffix);
+        if (c->mask & SD_BUS_CREDS_FSUID)
+                fprintf(f, "%sFSUID=%s"UID_FMT"%s", prefix, color, c->fsuid, suffix);
         r = sd_bus_creds_get_owner_uid(c, &owner);
         if (r >= 0)
                 fprintf(f, "%sOwnerUID=%s"UID_FMT"%s", prefix, color, owner, suffix);
         if (c->mask & SD_BUS_CREDS_GID)
                 fprintf(f, "%sGID=%s"GID_FMT"%s", prefix, color, c->gid, suffix);
+        if (c->mask & SD_BUS_CREDS_EGID)
+                fprintf(f, "%sEGID=%s"GID_FMT"%s", prefix, color, c->egid, suffix);
+        if (c->mask & SD_BUS_CREDS_SGID)
+                fprintf(f, "%sSGID=%s"GID_FMT"%s", prefix, color, c->sgid, suffix);
+        if (c->mask & SD_BUS_CREDS_FSGID)
+                fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
 
-        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID)) || r >= 0))
+        if (terse && ((c->mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID)) || r >= 0))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_COMM)

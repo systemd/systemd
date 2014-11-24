@@ -405,24 +405,65 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 switch (item->type) {
 
-                case KDBUS_ITEM_CREDS:
-                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID) & mask;
+                case KDBUS_ITEM_PIDS:
 
-                        if (m) {
-                                c->uid = (uid_t) item->creds.uid;
-                                c->pid = (pid_t) item->creds.pid;
-                                c->gid = (gid_t) item->creds.gid;
-                                c->mask |= m;
+                        if (mask & SD_BUS_CREDS_PID && item->pids.pid > 0) {
+                                c->pid = (pid_t) item->pids.pid;
+                                c->mask |= SD_BUS_CREDS_PID;
                         }
 
-                        if (mask & SD_BUS_CREDS_TID && item->creds.tid > 0) {
-                                c->tid = (pid_t) item->creds.tid;
+                        if (mask & SD_BUS_CREDS_TID && item->pids.tid > 0) {
+                                c->tid = (pid_t) item->pids.tid;
                                 c->mask |= SD_BUS_CREDS_TID;
                         }
 
-                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->creds.starttime > 0) {
-                                c->pid_starttime = item->creds.starttime;
+                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->pids.starttime > 0) {
+                                c->pid_starttime = item->pids.starttime;
                                 c->mask |= SD_BUS_CREDS_PID_STARTTIME;
+                        }
+
+                        break;
+
+                case KDBUS_ITEM_CREDS:
+
+                        if (mask & SD_BUS_CREDS_UID && (uid_t) item->creds.uid != (uid_t) -1) {
+                                c->uid = (uid_t) item->creds.uid;
+                                c->mask |= SD_BUS_CREDS_UID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_EUID && (uid_t) item->creds.euid != (uid_t) -1) {
+                                c->euid = (uid_t) item->creds.euid;
+                                c->mask |= SD_BUS_CREDS_EUID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_SUID && (uid_t) item->creds.suid != (uid_t) -1) {
+                                c->suid = (uid_t) item->creds.suid;
+                                c->mask |= SD_BUS_CREDS_SUID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_FSUID && (uid_t) item->creds.fsuid != (uid_t) -1) {
+                                c->fsuid = (uid_t) item->creds.fsuid;
+                                c->mask |= SD_BUS_CREDS_FSUID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_GID && (gid_t) item->creds.gid != (gid_t) -1) {
+                                c->gid = (gid_t) item->creds.gid;
+                                c->mask |= SD_BUS_CREDS_GID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_EGID && (gid_t) item->creds.egid != (gid_t) -1) {
+                                c->egid = (gid_t) item->creds.egid;
+                                c->mask |= SD_BUS_CREDS_EGID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_SGID && (gid_t) item->creds.sgid != (gid_t) -1) {
+                                c->sgid = (gid_t) item->creds.sgid;
+                                c->mask |= SD_BUS_CREDS_SGID;
+                        }
+
+                        if (mask & SD_BUS_CREDS_FSGID && (gid_t) item->creds.fsgid != (gid_t) -1) {
+                                c->fsgid = (gid_t) item->creds.fsgid;
+                                c->mask |= SD_BUS_CREDS_FSGID;
                         }
 
                         break;
@@ -581,6 +622,19 @@ static int bus_get_name_creds_kdbus(
         cmd->size = size;
         kdbus_translate_attach_flags(mask, (uint64_t*) &cmd->flags);
 
+        /* If augmentation is on, and the bus doesn't didn't allow us
+         * to get the bits we want, then ask for the PID/TID so that we
+         * can read the rest from /proc. */
+        if ((mask & SD_BUS_CREDS_AUGMENT) &&
+            (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                     SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                     SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                     SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                     SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                     SD_BUS_CREDS_SELINUX_CONTEXT|
+                     SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
+                cmd->flags |= KDBUS_ATTACH_PIDS;
+
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
                 return -errno;
@@ -612,6 +666,10 @@ static int bus_get_name_creds_kdbus(
         }
 
         r = bus_populate_creds_from_items(bus, conn_info, mask, c);
+        if (r < 0)
+                goto fail;
+
+        r = bus_creds_add_more(c, mask, 0, 0);
         if (r < 0)
                 goto fail;
 
@@ -673,11 +731,17 @@ static int bus_get_name_creds_dbus1(
                         c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
                 }
 
-                if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_GID|
-                            SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
-                            SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
-                            SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
-                            SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)) {
+                if ((mask & SD_BUS_CREDS_PID) ||
+                    ((mask & SD_BUS_CREDS_AUGMENT) &&
+                     (mask & (SD_BUS_CREDS_PID_STARTTIME|
+                              SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                              SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                              SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                              SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                              SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                              SD_BUS_CREDS_SELINUX_CONTEXT|
+                              SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))) {
+
                         uint32_t u;
 
                         r = sd_bus_call_method(
@@ -781,7 +845,7 @@ _public_ int sd_bus_get_name_creds(
 
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(mask == 0 || creds, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
@@ -802,7 +866,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -837,7 +901,21 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 struct kdbus_info *creator_info;
 
                 cmd.size = sizeof(cmd);
-                cmd.flags = _KDBUS_ATTACH_ALL;
+                kdbus_translate_attach_flags(mask, (uint64_t*) &cmd.flags);
+
+                /* If augmentation is on, and the bus doesn't didn't allow us
+                 * to get the bits we want, then ask for the PID/TID so that we
+                 * can read the rest from /proc. */
+                if ((mask & SD_BUS_CREDS_AUGMENT) &&
+                    (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                             SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                             SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                             SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                             SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                             SD_BUS_CREDS_SELINUX_CONTEXT|
+                             SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
+                        cmd.flags |= KDBUS_ATTACH_PIDS;
+
                 r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
                 if (r < 0)
                         return -errno;
@@ -849,11 +927,11 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
                 if (r < 0)
                         return r;
-        } else {
-                r = bus_creds_add_more(c, mask, pid, 0);
-                if (r < 0)
-                        return r;
         }
+
+        r = bus_creds_add_more(c, mask, pid, 0);
+        if (r < 0)
+                return r;
 
         *ret = c;
         c = NULL;

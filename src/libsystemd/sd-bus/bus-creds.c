@@ -141,7 +141,7 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
         if (!c)
                 return -ENOMEM;
 
-        r = bus_creds_add_more(c, mask, pid, 0);
+        r = bus_creds_add_more(c, mask | SD_BUS_CREDS_AUGMENT, pid, 0);
         if (r < 0) {
                 sd_bus_creds_unref(c);
                 return r;
@@ -169,6 +169,40 @@ _public_ int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid) {
         return 0;
 }
 
+_public_ int sd_bus_creds_get_euid(sd_bus_creds *c, uid_t *euid) {
+        assert_return(c, -EINVAL);
+        assert_return(euid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_EUID))
+                return -ENODATA;
+
+        *euid = c->euid;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *suid) {
+        assert_return(c, -EINVAL);
+        assert_return(suid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_SUID))
+                return -ENODATA;
+
+        *suid = c->suid;
+        return 0;
+}
+
+
+_public_ int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *fsuid) {
+        assert_return(c, -EINVAL);
+        assert_return(fsuid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_FSUID))
+                return -ENODATA;
+
+        *fsuid = c->fsuid;
+        return 0;
+}
+
 _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         assert_return(c, -EINVAL);
         assert_return(gid, -EINVAL);
@@ -177,6 +211,41 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
                 return -ENODATA;
 
         *gid = c->gid;
+        return 0;
+}
+
+
+_public_ int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *egid) {
+        assert_return(c, -EINVAL);
+        assert_return(egid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_EGID))
+                return -ENODATA;
+
+        *egid = c->egid;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_sgid(sd_bus_creds *c, gid_t *sgid) {
+        assert_return(c, -EINVAL);
+        assert_return(sgid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_SGID))
+                return -ENODATA;
+
+        *sgid = c->sgid;
+        return 0;
+}
+
+
+_public_ int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *fsgid) {
+        assert_return(c, -EINVAL);
+        assert_return(fsgid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_FSGID))
+                return -ENODATA;
+
+        *fsgid = c->fsgid;
         return 0;
 }
 
@@ -581,6 +650,9 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         assert(c);
         assert(c->allocated);
 
+        if (!(mask & SD_BUS_CREDS_AUGMENT))
+                return 0;
+
         missing = mask & ~c->mask;
         if (missing == 0)
                 return 0;
@@ -596,98 +668,120 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (pid <= 0)
                 return 0;
 
-        if (missing & (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID |
+        if (pid > 0) {
+                c->pid = pid;
+                c->mask |= SD_BUS_CREDS_PID;
+        }
+
+        if (tid > 0) {
+                c->tid = tid;
+                c->mask |= SD_BUS_CREDS_TID;
+        }
+
+        if (missing & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
+                       SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID |
                        SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
                        SD_BUS_CREDS_PERMITTED_CAPS | SD_BUS_CREDS_BOUNDING_CAPS)) {
 
                 _cleanup_fclose_ FILE *f = NULL;
-                char line[LINE_MAX];
                 const char *p;
 
                 p = procfs_file_alloca(pid, "status");
 
                 f = fopen(p, "re");
-                if (!f)
-                        return errno == ENOENT ? -ESRCH : -errno;
+                if (!f) {
+                        if (errno == ENOENT)
+                                return -ESRCH;
+                        else if (errno != EPERM && errno != EACCES)
+                                return -errno;
+                } else {
+                        char line[LINE_MAX];
 
-                FOREACH_LINE(line, f, return -errno) {
-                        truncate_nl(line);
+                        FOREACH_LINE(line, f, return -errno) {
+                                truncate_nl(line);
 
-                        if (missing & SD_BUS_CREDS_UID) {
-                                p = startswith(line, "Uid:");
-                                if (p) {
-                                        unsigned long uid;
+                                if (missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID)) {
+                                        p = startswith(line, "Uid:");
+                                        if (p) {
+                                                unsigned long uid, euid, suid, fsuid;
 
-                                        p += strspn(p, WHITESPACE);
-                                        if (sscanf(p, "%lu", &uid) != 1)
-                                                return -EIO;
+                                                p += strspn(p, WHITESPACE);
+                                                if (sscanf(p, "%lu %lu %lu %lu", &uid, &euid, &suid, &fsuid) != 4)
+                                                        return -EIO;
 
-                                        c->uid = (uid_t) uid;
-                                        c->mask |= SD_BUS_CREDS_UID;
-                                        continue;
+                                                c->uid = (uid_t) uid;
+                                                c->euid = (uid_t) euid;
+                                                c->suid = (uid_t) suid;
+                                                c->fsuid = (uid_t) fsuid;
+                                                c->mask |= missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID);
+                                                continue;
+                                        }
                                 }
-                        }
 
-                        if (missing & SD_BUS_CREDS_GID) {
-                                p = startswith(line, "Gid:");
-                                if (p) {
-                                        unsigned long gid;
+                                if (missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID)) {
+                                        p = startswith(line, "Gid:");
+                                        if (p) {
+                                                unsigned long gid, egid, sgid, fsgid;
 
-                                        p += strspn(p, WHITESPACE);
-                                        if (sscanf(p, "%lu", &gid) != 1)
-                                                return -EIO;
+                                                p += strspn(p, WHITESPACE);
+                                                if (sscanf(p, "%lu %lu %lu %lu", &gid, &egid, &sgid, &fsgid) != 4)
+                                                        return -EIO;
 
-                                        c->gid = (uid_t) gid;
-                                        c->mask |= SD_BUS_CREDS_GID;
-                                        continue;
+                                                c->gid = (gid_t) gid;
+                                                c->egid = (gid_t) egid;
+                                                c->sgid = (gid_t) sgid;
+                                                c->fsgid = (gid_t) fsgid;
+                                                c->mask |= missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID);
+                                                continue;
+                                        }
                                 }
-                        }
 
-                        if (missing & SD_BUS_CREDS_EFFECTIVE_CAPS) {
-                                p = startswith(line, "CapEff:");
-                                if (p) {
-                                        r = parse_caps(c, CAP_OFFSET_EFFECTIVE, p);
-                                        if (r < 0)
-                                                return r;
+                                if (missing & SD_BUS_CREDS_EFFECTIVE_CAPS) {
+                                        p = startswith(line, "CapEff:");
+                                        if (p) {
+                                                r = parse_caps(c, CAP_OFFSET_EFFECTIVE, p);
+                                                if (r < 0)
+                                                        return r;
 
-                                        c->mask |= SD_BUS_CREDS_EFFECTIVE_CAPS;
-                                        continue;
+                                                c->mask |= SD_BUS_CREDS_EFFECTIVE_CAPS;
+                                                continue;
+                                        }
                                 }
-                        }
 
-                        if (missing & SD_BUS_CREDS_PERMITTED_CAPS) {
-                                p = startswith(line, "CapPrm:");
-                                if (p) {
-                                        r = parse_caps(c, CAP_OFFSET_PERMITTED, p);
-                                        if (r < 0)
-                                                return r;
+                                if (missing & SD_BUS_CREDS_PERMITTED_CAPS) {
+                                        p = startswith(line, "CapPrm:");
+                                        if (p) {
+                                                r = parse_caps(c, CAP_OFFSET_PERMITTED, p);
+                                                if (r < 0)
+                                                        return r;
 
-                                        c->mask |= SD_BUS_CREDS_PERMITTED_CAPS;
-                                        continue;
+                                                c->mask |= SD_BUS_CREDS_PERMITTED_CAPS;
+                                                continue;
+                                        }
                                 }
-                        }
 
-                        if (missing & SD_BUS_CREDS_INHERITABLE_CAPS) {
-                                p = startswith(line, "CapInh:");
-                                if (p) {
-                                        r = parse_caps(c, CAP_OFFSET_INHERITABLE, p);
-                                        if (r < 0)
-                                                return r;
+                                if (missing & SD_BUS_CREDS_INHERITABLE_CAPS) {
+                                        p = startswith(line, "CapInh:");
+                                        if (p) {
+                                                r = parse_caps(c, CAP_OFFSET_INHERITABLE, p);
+                                                if (r < 0)
+                                                        return r;
 
-                                        c->mask |= SD_BUS_CREDS_INHERITABLE_CAPS;
-                                        continue;
+                                                c->mask |= SD_BUS_CREDS_INHERITABLE_CAPS;
+                                                continue;
+                                        }
                                 }
-                        }
 
-                        if (missing & SD_BUS_CREDS_BOUNDING_CAPS) {
-                                p = startswith(line, "CapBnd:");
-                                if (p) {
-                                        r = parse_caps(c, CAP_OFFSET_BOUNDING, p);
-                                        if (r < 0)
-                                                return r;
+                                if (missing & SD_BUS_CREDS_BOUNDING_CAPS) {
+                                        p = startswith(line, "CapBnd:");
+                                        if (p) {
+                                                r = parse_caps(c, CAP_OFFSET_BOUNDING, p);
+                                                if (r < 0)
+                                                        return r;
 
-                                        c->mask |= SD_BUS_CREDS_BOUNDING_CAPS;
-                                        continue;
+                                                c->mask |= SD_BUS_CREDS_BOUNDING_CAPS;
+                                                continue;
+                                        }
                                 }
                         }
                 }
@@ -697,11 +791,13 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 unsigned long long st;
 
                 r = get_starttime_of_pid(pid, &st);
-                if (r < 0)
-                        return r;
-
-                c->pid_starttime = ((usec_t) st * USEC_PER_SEC) / (usec_t) sysconf(_SC_CLK_TCK);
-                c->mask |= SD_BUS_CREDS_PID_STARTTIME;
+                if (r < 0) {
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else {
+                        c->pid_starttime = ((usec_t) st * USEC_PER_SEC) / (usec_t) sysconf(_SC_CLK_TCK);
+                        c->mask |= SD_BUS_CREDS_PID_STARTTIME;
+                }
         }
 
         if (missing & SD_BUS_CREDS_SELINUX_CONTEXT) {
@@ -709,26 +805,29 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
                 p = procfs_file_alloca(pid, "attr/current");
                 r = read_one_line_file(p, &c->label);
-                if (r < 0 && r != -ENOENT && r != -EINVAL)
-                        return r;
-                else if (r >= 0)
+                if (r < 0) {
+                        if (r != -ENOENT && r != -EINVAL && r != -EPERM && r != -EACCES)
+                                return r;
+                } else
                         c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
         if (missing & SD_BUS_CREDS_COMM) {
                 r = get_process_comm(pid, &c->comm);
-                if (r < 0)
-                        return r;
-
-                c->mask |= SD_BUS_CREDS_COMM;
+                if (r < 0) {
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else
+                        c->mask |= SD_BUS_CREDS_COMM;
         }
 
         if (missing & SD_BUS_CREDS_EXE) {
                 r = get_process_exe(pid, &c->exe);
-                if (r < 0)
-                        return r;
-
-                c->mask |= SD_BUS_CREDS_EXE;
+                if (r < 0) {
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else
+                        c->mask |= SD_BUS_CREDS_EXE;
         }
 
         if (missing & SD_BUS_CREDS_CMDLINE) {
@@ -736,14 +835,18 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
                 p = procfs_file_alloca(pid, "cmdline");
                 r = read_full_file(p, &c->cmdline, &c->cmdline_size);
-                if (r < 0)
-                        return r;
-
-                if (c->cmdline_size == 0) {
-                        free(c->cmdline);
-                        c->cmdline = NULL;
-                } else
-                        c->mask |= SD_BUS_CREDS_CMDLINE;
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                return -ESRCH;
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else {
+                        if (c->cmdline_size == 0) {
+                                free(c->cmdline);
+                                c->cmdline = NULL;
+                        } else
+                                c->mask |= SD_BUS_CREDS_CMDLINE;
+                }
         }
 
         if (tid > 0 && (missing & SD_BUS_CREDS_TID_COMM)) {
@@ -753,38 +856,45 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         return -ENOMEM;
 
                 r = read_one_line_file(p, &c->tid_comm);
-                if (r < 0)
-                        return r == -ENOENT ? -ESRCH : r;
-
-                c->mask |= SD_BUS_CREDS_TID_COMM;
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                return -ESRCH;
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else
+                        c->mask |= SD_BUS_CREDS_TID_COMM;
         }
 
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
                 r = cg_pid_get_path(NULL, pid, &c->cgroup);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if (r != -EPERM && r != -EACCES)
+                                return r;
+                } else {
+                        r = cg_get_root_path(&c->cgroup_root);
+                        if (r < 0)
+                                return r;
 
-                r = cg_get_root_path(&c->cgroup_root);
-                if (r < 0)
-                        return r;
-
-                c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
+                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
+                }
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                 r = audit_session_from_pid(pid, &c->audit_session_id);
-                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != -ENOENT)
-                        return r;
-                else if (r >= 0)
+                if (r < 0) {
+                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                                return r;
+                } else
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 r = audit_loginuid_from_pid(pid, &c->audit_login_uid);
-                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != -ENOENT)
-                        return r;
-                else if (r >= 0)
+                if (r < 0) {
+                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                                return r;
+                } else
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
         }
 
@@ -798,8 +908,9 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         assert(c);
         assert(ret);
 
-        if ((mask & ~c->mask) == 0) {
-                /* There's already all data we need. */
+        if ((mask & ~c->mask) == 0 || (!(mask & SD_BUS_CREDS_AUGMENT))) {
+                /* There's already all data we need, or augmentation
+                 * wasn't turned on. */
 
                 *ret = sd_bus_creds_ref(c);
                 return 0;
@@ -816,9 +927,39 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 n->mask |= SD_BUS_CREDS_UID;
         }
 
+        if (c->mask & mask & SD_BUS_CREDS_EUID) {
+                n->euid = c->euid;
+                n->mask |= SD_BUS_CREDS_EUID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_SUID) {
+                n->suid = c->suid;
+                n->mask |= SD_BUS_CREDS_SUID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_FSUID) {
+                n->fsuid = c->fsuid;
+                n->mask |= SD_BUS_CREDS_FSUID;
+        }
+
         if (c->mask & mask & SD_BUS_CREDS_GID) {
                 n->gid = c->gid;
                 n->mask |= SD_BUS_CREDS_GID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_EGID) {
+                n->egid = c->egid;
+                n->mask |= SD_BUS_CREDS_EGID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_SGID) {
+                n->sgid = c->sgid;
+                n->mask |= SD_BUS_CREDS_SGID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_FSGID) {
+                n->fsgid = c->fsgid;
+                n->mask |= SD_BUS_CREDS_FSGID;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_PID) {

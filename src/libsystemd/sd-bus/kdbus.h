@@ -58,22 +58,43 @@ struct kdbus_notify_name_change {
 /**
  * struct kdbus_creds - process credentials
  * @uid:		User ID
+ * @euid:		Effective UID
+ * @suid:		Saved UID
+ * @fsuid:		Filesystem UID
  * @gid:		Group ID
- * @pid:		Process ID
- * @tid:		Thread ID
- * @starttime:		Starttime of the process
- *
- * The starttime of the process PID. This is useful to detect PID overruns
- * from the client side. i.e. if you use the PID to look something up in
- * /proc/$PID/ you can afterwards check the starttime field of it, to ensure
- * you didn't run into a PID overrun.
+ * @egid:		Effective GID
+ * @sgid:		Saved GID
+ * @fsgid:		Filesystem GID
  *
  * Attached to:
  *   KDBUS_ITEM_CREDS
  */
 struct kdbus_creds {
 	__u64 uid;
+        __u64 euid;
+        __u64 suid;
+        __u64 fsuid;
 	__u64 gid;
+        __u64 egid;
+        __u64 sgid;
+        __u64 fsgid;
+};
+
+/**
+ * struct kdbus_pids - process identifiers
+ * @pid:		Process ID
+ * @tid:		Thread ID
+ * @starttime:		Starttime of the process
+ *
+ * The PID, TID and starttime of a process. The start tmie is useful to detect
+ * PID overruns from the client side. i.e. if you use the PID to look something
+ * up in /proc/$PID/ you can afterwards check the starttime field of it, to
+ * ensure you didn't run into a PID overrun.
+ *
+ * Attached to:
+ *   KDBUS_ITEM_PIDS
+ */
+struct kdbus_pids {
 	__u64 pid;
 	__u64 tid;
 	__u64 starttime;
@@ -229,14 +250,19 @@ struct kdbus_policy_access {
  * @KDBUS_ITEM_NAME:			Well-know name with flags
  * @_KDBUS_ITEM_ATTACH_BASE:		Start of metadata attach items
  * @KDBUS_ITEM_TIMESTAMP:		Timestamp
- * @KDBUS_ITEM_CREDS:			Process credential
+ * @KDBUS_ITEM_CREDS:			Process credentials
+ * @KDBUS_ITEM_PIDS:			Process identifiers
  * @KDBUS_ITEM_AUXGROUPS:		Auxiliary process groups
  * @KDBUS_ITEM_OWNED_NAME:		A name owned by the associated
  *					connection
  * @KDBUS_ITEM_TID_COMM:		Thread ID "comm" identifier
+ *					(Don't trust this, see below.)
  * @KDBUS_ITEM_PID_COMM:		Process ID "comm" identifier
+ *					(Don't trust this, see below.)
  * @KDBUS_ITEM_EXE:			The path of the executable
+ *					(Don't trust this, see below.)
  * @KDBUS_ITEM_CMDLINE:			The process command line
+ *					(Don't trust this, see below.)
  * @KDBUS_ITEM_CGROUP:			The croup membership
  * @KDBUS_ITEM_CAPS:			The process capabilities
  * @KDBUS_ITEM_SECLABEL:		The security label
@@ -253,6 +279,12 @@ struct kdbus_policy_access {
  * @KDBUS_ITEM_ID_REMOVE:		Notification in kdbus_notify_id_change
  * @KDBUS_ITEM_REPLY_TIMEOUT:		Timeout has been reached
  * @KDBUS_ITEM_REPLY_DEAD:		Destination died
+ *
+ * N.B: The process and thread COMM fields, as well as the CMDLINE and
+ * EXE fields may be altered by unprivileged processes und should
+ * hence *not* used for security decisions. Peers should make use of
+ * these items only for informational purposes, such as generating log
+ * records.
  */
 enum kdbus_item_type {
 	_KDBUS_ITEM_NULL,
@@ -275,6 +307,7 @@ enum kdbus_item_type {
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
 	KDBUS_ITEM_TIMESTAMP	= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_CREDS,
+        KDBUS_ITEM_PIDS,
 	KDBUS_ITEM_AUXGROUPS,
 	KDBUS_ITEM_OWNED_NAME,
 	KDBUS_ITEM_TID_COMM,
@@ -336,6 +369,7 @@ struct kdbus_item {
 		__u64 id;
 		struct kdbus_vec vec;
 		struct kdbus_creds creds;
+                struct kdbus_pids pids;
 		struct kdbus_audit audit;
 		struct kdbus_caps caps;
 		struct kdbus_timestamp timestamp;
@@ -455,6 +489,10 @@ enum kdbus_recv_flags {
  * @offset:		Returned offset in the pool where the message is
  *			stored. The user must use KDBUS_CMD_FREE to free
  *			the allocated memory.
+ * @dropped_msgs:	In case the KDBUS_CMD_MSG_RECV ioctl returns
+ *			-EOVERFLOW, this field will contain the number of
+ *			broadcast messages that have been lost since the
+ *			last call.
  *
  * This struct is used with the KDBUS_CMD_MSG_RECV ioctl.
  */
@@ -462,7 +500,10 @@ struct kdbus_cmd_recv {
 	__u64 flags;
 	__u64 kernel_flags;
 	__s64 priority;
-	__u64 offset;
+        union {
+                __u64 offset;
+                __u64 dropped_msgs;
+        };
 } __attribute__((aligned(8)));
 
 /**
@@ -547,6 +588,7 @@ enum kdbus_hello_flags {
  * enum kdbus_attach_flags - flags for metadata attachments
  * @KDBUS_ATTACH_TIMESTAMP:		Timestamp
  * @KDBUS_ATTACH_CREDS:			Credentials
+ * @KDBUS_ATTACH_PIDS:			PIDs
  * @KDBUS_ATTACH_AUXGROUPS:		Auxiliary groups
  * @KDBUS_ATTACH_NAMES:			Well-known names
  * @KDBUS_ATTACH_TID_COMM:		The "comm" process identifier of the TID
@@ -565,18 +607,19 @@ enum kdbus_hello_flags {
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1ULL <<  0,
 	KDBUS_ATTACH_CREDS		=  1ULL <<  1,
-	KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  2,
-	KDBUS_ATTACH_NAMES		=  1ULL <<  3,
-	KDBUS_ATTACH_TID_COMM		=  1ULL <<  4,
-	KDBUS_ATTACH_PID_COMM		=  1ULL <<  5,
-	KDBUS_ATTACH_EXE		=  1ULL <<  6,
-	KDBUS_ATTACH_CMDLINE		=  1ULL <<  7,
-	KDBUS_ATTACH_CGROUP		=  1ULL <<  8,
-	KDBUS_ATTACH_CAPS		=  1ULL <<  9,
-	KDBUS_ATTACH_SECLABEL		=  1ULL << 10,
-	KDBUS_ATTACH_AUDIT		=  1ULL << 11,
-	KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 12,
-	_KDBUS_ATTACH_ALL		=  (1ULL << 13) - 1,
+        KDBUS_ATTACH_PIDS		=  1ULL <<  2,
+        KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  3,
+        KDBUS_ATTACH_NAMES		=  1ULL <<  4,
+        KDBUS_ATTACH_TID_COMM		=  1ULL <<  5,
+        KDBUS_ATTACH_PID_COMM		=  1ULL <<  6,
+        KDBUS_ATTACH_EXE		=  1ULL <<  7,
+        KDBUS_ATTACH_CMDLINE		=  1ULL <<  8,
+        KDBUS_ATTACH_CGROUP		=  1ULL <<  9,
+        KDBUS_ATTACH_CAPS		=  1ULL << 10,
+        KDBUS_ATTACH_SECLABEL		=  1ULL << 11,
+        KDBUS_ATTACH_AUDIT		=  1ULL << 12,
+        KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 13,
+        _KDBUS_ATTACH_ALL		=  (1ULL << 14) - 1,
 	_KDBUS_ATTACH_ANY		=  ~0ULL
 };
 
@@ -619,8 +662,8 @@ struct kdbus_cmd_hello {
 
 /**
  * enum kdbus_make_flags - Flags for KDBUS_CMD_{BUS,EP,NS}_MAKE
- * @KDBUS_MAKE_ACCESS_GROUP:	Make the device node group-accessible
- * @KDBUS_MAKE_ACCESS_WORLD:	Make the device node world-accessible
+ * @KDBUS_MAKE_ACCESS_GROUP:	Make the bus or endpoint node group-accessible
+ * @KDBUS_MAKE_ACCESS_WORLD:	Make the bus or endpoint node world-accessible
  */
 enum kdbus_make_flags {
 	KDBUS_MAKE_ACCESS_GROUP		= 1ULL <<  0,
@@ -713,7 +756,7 @@ enum kdbus_name_list_flags {
 /**
  * struct kdbus_cmd_name_list - request a list of name entries
  * @flags:		Flags for the query (KDBUS_NAME_LIST_*),
- * 			userspace → kernel
+ *			userspace → kernel
  * @kernel_flags:	Supported flags for queries, kernel → userspace
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
@@ -834,16 +877,16 @@ struct kdbus_cmd_match {
 
 /**
  * Ioctl API
- * KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
- *				command creates a new bus with the specified
+ * KDBUS_CMD_BUS_MAKE:		After opening the "control" node, this command
+ *				creates a new bus with the specified
  *				name. The bus is immediately shut down and
- *				cleaned up when the opened "control" device node
- *				is closed.
+ *				cleaned up when the opened file descriptor is
+ *				closed.
  * KDBUS_CMD_ENDPOINT_MAKE:	Creates a new named special endpoint to talk to
  *				the bus. Such endpoints usually carry a more
  *				restrictive policy and grant restricted access
  *				to specific applications.
- * KDBUS_CMD_HELLO:		By opening the bus device node a connection is
+ * KDBUS_CMD_HELLO:		By opening the bus node, a connection is
  *				created. After a HELLO the opened connection
  *				becomes an active peer on the bus.
  * KDBUS_CMD_BYEBYE:		Disconnect a connection. If there are no

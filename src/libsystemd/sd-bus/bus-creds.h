@@ -32,7 +32,14 @@ struct sd_bus_creds {
         uint64_t mask;
 
         uid_t uid;
+        uid_t euid;
+        uid_t suid;
+        uid_t fsuid;
         gid_t gid;
+        gid_t egid;
+        gid_t sgid;
+        gid_t fsgid;
+
         pid_t pid;
         usec_t pid_starttime;
         pid_t tid;

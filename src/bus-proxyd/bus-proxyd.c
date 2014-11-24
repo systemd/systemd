@@ -1242,9 +1242,17 @@ int main(int argc, char *argv[]) {
         }
 
         if (ucred.pid > 0) {
-                a->fake_creds.pid = ucred.pid;
+                a->fake_pids.pid = ucred.pid;
+                a->fake_pids_valid = true;
+
                 a->fake_creds.uid = ucred.uid;
+                a->fake_creds.euid = (uid_t) -1;
+                a->fake_creds.suid = (uid_t) -1;
+                a->fake_creds.fsuid = (uid_t) -1;
                 a->fake_creds.gid = ucred.gid;
+                a->fake_creds.egid = (gid_t) -1;
+                a->fake_creds.sgid = (gid_t) -1;
+                a->fake_creds.fsgid = (gid_t) -1;
                 a->fake_creds_valid = true;
         }
 
