@@ -56,6 +56,7 @@ static bool arg_verbose = false;
 static bool arg_expect_reply = true;
 static bool arg_auto_start = true;
 static bool arg_allow_interactive_authorization = true;
+static bool arg_augment_creds = true;
 static usec_t arg_timeout = 0;
 
 static void pager_open_if_enabled(void) {
@@ -161,10 +162,12 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_name_creds(bus, *i,
-                                     SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
-                                     SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
-                                     SD_BUS_CREDS_DESCRIPTION, &creds);
+                r = sd_bus_get_name_creds(
+                                bus, *i,
+                                (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
+                                SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
+                                SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
+                                SD_BUS_CREDS_DESCRIPTION, &creds);
                 if (r >= 0) {
                         const char *unique, *session, *unit, *cn;
                         pid_t pid;
@@ -1179,7 +1182,11 @@ static int status(sd_bus *bus, char *argv[]) {
 
         r = parse_pid(argv[1], &pid);
         if (r < 0)
-                r = sd_bus_get_name_creds(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
+                r = sd_bus_get_name_creds(
+                                bus,
+                                argv[1],
+                                (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
+                                &creds);
         else
                 r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
 
@@ -1664,7 +1671,8 @@ static int help(void) {
                "     --auto-start=BOOL    Auto-start destination service\n"
                "     --allow-interactive-authorization=BOOL\n"
                "                          Allow interactive authorization for operation\n"
-               "     --timeout=SECS       Maximum time to wait for method call completion\n\n"
+               "     --timeout=SECS       Maximum time to wait for method call completion\n"
+               "     --augment-creds=BOOL Extend credential data with data read from /proc/$PID\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  status SERVICE          Show service name status\n"
@@ -1705,6 +1713,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTO_START,
                 ARG_ALLOW_INTERACTIVE_AUTHORIZATION,
                 ARG_TIMEOUT,
+                ARG_AUGMENT_CREDS,
         };
 
         static const struct option options[] = {
@@ -1730,6 +1739,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "auto-start",   required_argument, NULL, ARG_AUTO_START   },
                 { "allow-interactive-authorization", required_argument, NULL, ARG_ALLOW_INTERACTIVE_AUTHORIZATION },
                 { "timeout",      required_argument, NULL, ARG_TIMEOUT      },
+                { "augment-creds",required_argument, NULL, ARG_AUGMENT_CREDS},
                 {},
         };
 
@@ -1870,6 +1880,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
+                        break;
+
+                case ARG_AUGMENT_CREDS:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --augment-creds= parameter.");
+                                return r;
+                        }
+
+                        arg_augment_creds = !!r;
                         break;
 
                 case '?':
