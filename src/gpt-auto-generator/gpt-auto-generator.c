@@ -680,8 +680,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 r = parse_boolean(value);
                 if (r < 0)
                         log_warning("Failed to parse gpt-auto switch %s. Ignoring.", value);
-
-                arg_enabled = r;
+                else
+                        arg_enabled = r;
 
         } else if (streq(key, "root") && value) {
 
