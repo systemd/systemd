@@ -1438,6 +1438,19 @@ static int mount_add_one(
                         }
                 }
 
+                if (m->running_as == SYSTEMD_SYSTEM) {
+                        const char* target;
+
+                        target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : NULL;
+                        /* _netdev option may have shown up late, or on a
+                         * remount. Add remote-fs dependencies, even though
+                         * local-fs ones may already be there */
+                        if (target) {
+                                unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
+                                load_extras = true;
+                        }
+                }
+
                 if (u->load_state == UNIT_NOT_FOUND) {
                         u->load_state = UNIT_LOADED;
                         u->load_error = 0;
