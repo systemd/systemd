@@ -67,6 +67,9 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
+#define NAME_IS_ACQUIRED INT_TO_PTR(1)
+#define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
+
 static int list_bus_names(sd_bus *bus, char **argv) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_free_ char **merged = NULL;
@@ -99,7 +102,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         STRV_FOREACH(i, acquired) {
                 max_i = MAX(max_i, strlen(*i));
 
-                r = hashmap_put(names, *i, INT_TO_PTR(1));
+                r = hashmap_put(names, *i, NAME_IS_ACQUIRED);
                 if (r < 0) {
                         log_error("Failed to add to hashmap: %s", strerror(-r));
                         return r;
@@ -109,7 +112,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         STRV_FOREACH(i, activatable) {
                 max_i = MAX(max_i, strlen(*i));
 
-                r = hashmap_put(names, *i, INT_TO_PTR(2));
+                r = hashmap_put(names, *i, NAME_IS_ACTIVATABLE);
                 if (r < 0 && r != -EEXIST) {
                         log_error("Failed to add to hashmap: %s", strerror(-r));
                         return r;
@@ -137,7 +140,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_id128_t mid;
 
-                if (hashmap_get(names, *i) == INT_TO_PTR(2)) {
+                if (hashmap_get(names, *i) == NAME_IS_ACTIVATABLE) {
                         /* Activatable */
 
                         printf("%-*s", (int) max_i, *i);
