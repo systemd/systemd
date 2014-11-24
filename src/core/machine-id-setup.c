@@ -188,6 +188,85 @@ static int write_machine_id(int fd, char id[34]) {
         return -errno;
 }
 
+int machine_id_commit(const char *root) {
+        _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
+        const char *etc_machine_id;
+        char id[34]; /* 32 + \n + \0 */
+        int r;
+
+        if (isempty(root))
+                etc_machine_id = "/etc/machine-id";
+        else {
+                char *x;
+
+                x = strappenda(root, "/etc/machine-id");
+                etc_machine_id = path_kill_slashes(x);
+        }
+
+        r = path_is_mount_point(etc_machine_id, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine wether %s is a mount point: %m", etc_machine_id);
+        if (r == 0) {
+                log_debug("%s is is not a mount point. Nothing to do.", etc_machine_id);
+                return 0;
+        }
+
+        /* Read existing machine-id */
+        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+
+        r = get_valid_machine_id(fd, id);
+        if (r < 0)
+                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
+
+        r = is_fd_on_temporary_fs(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
+        if (r == 0) {
+                log_error("%s is not on a temporary file system.", etc_machine_id);
+                return -EROFS;
+        }
+
+        fd = safe_close(fd);
+
+        /* Store current mount namespace */
+        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Can't fetch current mount namespace: %m");
+
+        /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
+        if (unshare(CLONE_NEWNS) < 0)
+                return log_error_errno(errno, "Failed to enter new namespace: %m");
+
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+                return log_error_errno(errno, "Couldn't make-rslave / mountpoint in our private namespace: %m");
+
+        if (umount(etc_machine_id) < 0)
+                return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
+
+        /* Update a persistent version of etc_machine_id */
+        fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open for writing %s. This is mandatory to get a persistent machine-id: %m", etc_machine_id);
+
+        r = write_machine_id(fd, id);
+        if (r < 0)
+                return log_error_errno(r, "Cannot write %s: %m", etc_machine_id);
+
+        fd = safe_close(fd);
+
+        /* Return to initial namespace and proceed a lazy tmpfs unmount */
+        r = namespace_enter(-1, initial_mntns_fd, -1, -1);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+
+        if (umount2(etc_machine_id, MNT_DETACH) < 0)
+                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+
+        return 0;
+}
+
 int machine_id_setup(const char *root) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;

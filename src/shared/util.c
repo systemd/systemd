@@ -3052,6 +3052,15 @@ _pure_ static int is_temporary_fs(struct statfs *s) {
                F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
 }
 
+int is_fd_on_temporary_fs(int fd) {
+        struct statfs s;
+
+        if (fstatfs(fd, &s) < 0)
+                return -errno;
+
+        return is_temporary_fs(&s);
+}
+
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
         struct statfs s;
 
