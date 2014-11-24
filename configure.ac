@@ -1080,7 +1080,7 @@ AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 have_terminal=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
-        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.4 libdrm >= 2.4], [have_terminal=yes])
+        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.5 libdrm >= 2.4], [have_terminal=yes])
         AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
               [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
               [test "x$have_terminal" = xyes],

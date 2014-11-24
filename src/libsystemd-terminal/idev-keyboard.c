@@ -25,6 +25,7 @@
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
 #include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-compose.h>
 #include "bus-util.h"
 #include "hashmap.h"
 #include "idev.h"
@@ -32,9 +33,15 @@
 #include "macro.h"
 #include "util.h"
 
+typedef struct kbdtbl kbdtbl;
 typedef struct kbdmap kbdmap;
 typedef struct kbdctx kbdctx;
 typedef struct idev_keyboard idev_keyboard;
+
+struct kbdtbl {
+        unsigned long ref;
+        struct xkb_compose_table *xkb_compose_table;
+};
 
 struct kbdmap {
         unsigned long ref;
@@ -48,10 +55,12 @@ struct kbdctx {
         idev_context *context;
         struct xkb_context *xkb_context;
         struct kbdmap *kbdmap;
+        struct kbdtbl *kbdtbl;
 
         sd_bus_slot *slot_locale_props_changed;
         sd_bus_slot *slot_locale_get_all;
 
+        char *locale_lang;
         char *locale_x11_model;
         char *locale_x11_layout;
         char *locale_x11_variant;
@@ -66,8 +75,10 @@ struct idev_keyboard {
         idev_device device;
         kbdctx *kbdctx;
         kbdmap *kbdmap;
+        kbdtbl *kbdtbl;
 
         struct xkb_state *xkb_state;
+        struct xkb_compose_state *xkb_compose;
 
         usec_t repeat_delay;
         usec_t repeat_rate;
@@ -91,6 +102,60 @@ struct idev_keyboard {
 static const idev_device_vtable keyboard_vtable;
 
 static int keyboard_update_kbdmap(idev_keyboard *k);
+static int keyboard_update_kbdtbl(idev_keyboard *k);
+
+/*
+ * Keyboard Compose Tables
+ */
+
+static kbdtbl *kbdtbl_ref(kbdtbl *kt) {
+        if (kt) {
+                assert_return(kt->ref > 0, NULL);
+                ++kt->ref;
+        }
+
+        return kt;
+}
+
+static kbdtbl *kbdtbl_unref(kbdtbl *kt) {
+        if (!kt)
+                return NULL;
+
+        assert_return(kt->ref > 0, NULL);
+
+        if (--kt->ref > 0)
+                return NULL;
+
+        xkb_compose_table_unref(kt->xkb_compose_table);
+        free(kt);
+
+        return 0;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(kbdtbl*, kbdtbl_unref);
+
+static int kbdtbl_new_from_locale(kbdtbl **out, kbdctx *kc, const char *locale) {
+        _cleanup_(kbdtbl_unrefp) kbdtbl *kt = NULL;
+
+        assert_return(out, -EINVAL);
+        assert_return(locale, -EINVAL);
+
+        kt = new0(kbdtbl, 1);
+        if (!kt)
+                return -ENOMEM;
+
+        kt->ref = 1;
+
+        kt->xkb_compose_table = xkb_compose_table_new_from_locale(kc->xkb_context,
+                                                                  locale,
+                                                                  XKB_COMPOSE_COMPILE_NO_FLAGS);
+        if (!kt->xkb_compose_table)
+                return errno > 0 ? -errno : -EFAULT;
+
+        *out = kt;
+        kt = NULL;
+        return 0;
+}
 
 /*
  * Keyboard Keymaps
@@ -191,6 +256,49 @@ static int kbdmap_new_from_names(kbdmap **out,
  * Keyboard Context
  */
 
+static int kbdctx_refresh_compose_table(kbdctx *kc, const char *lang) {
+        kbdtbl *kt;
+        idev_session *s;
+        idev_device *d;
+        Iterator i, j;
+        int r;
+
+        if (!lang)
+                lang = "C";
+
+        if (streq_ptr(kc->locale_lang, lang))
+                return 0;
+
+        r = free_and_strdup(&kc->locale_lang, lang);
+        if (r < 0)
+                return r;
+
+        log_debug("idev-keyboard: new default compose table: [ %s ]", lang);
+
+        r = kbdtbl_new_from_locale(&kt, kc, lang);
+        if (r < 0) {
+                /* TODO: We need to catch the case where no compose-file is
+                 * available. xkb doesn't tell us so far.. so we must not treat
+                 * it as a hard-failure but just continue. Preferably, we want
+                 * xkb to tell us exactly whether compilation failed or whether
+                 * there is no compose file available for this locale. */
+                log_debug("idev-keyboard: cannot load compose-table for '%s': %s",
+                          lang, strerror(-r));
+                r = 0;
+                kt = NULL;
+        }
+
+        kbdtbl_unref(kc->kbdtbl);
+        kc->kbdtbl = kt;
+
+        HASHMAP_FOREACH(s, kc->context->session_map, i)
+                HASHMAP_FOREACH(d, s->device_map, j)
+                        if (idev_is_keyboard(d))
+                                keyboard_update_kbdtbl(keyboard_from_device(d));
+
+        return 0;
+}
+
 static void move_str(char **dest, char **src) {
         free(*dest);
         *dest = *src;
@@ -239,7 +347,41 @@ static int kbdctx_refresh_keymap(kbdctx *kc) {
         return 0;
 }
 
+static int kbdctx_set_locale(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        kbdctx *kc = userdata;
+        const char *s, *ctype = NULL, *lang = NULL;
+        int r;
+
+        r = sd_bus_message_enter_container(m, 'a', "s");
+        if (r < 0)
+                goto error;
+
+        while ((r = sd_bus_message_read(m, "s", &s)) > 0) {
+                if (!ctype)
+                        ctype = startswith(s, "LC_CTYPE=");
+                if (!lang)
+                        lang = startswith(s, "LANG=");
+        }
+
+        if (r < 0)
+                goto error;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                goto error;
+
+        kbdctx_refresh_compose_table(kc, ctype ? : lang);
+        r = 0;
+
+error:
+        if (r < 0)
+                log_debug("idev-keyboard: cannot parse locale property from locale1: %s", strerror(-r));
+
+        return r;
+}
+
 static const struct bus_properties_map kbdctx_locale_map[] = {
+        { "Locale",     "as",   kbdctx_set_locale, 0 },
         { "X11Model",   "s",    NULL, offsetof(kbdctx, locale_x11_model) },
         { "X11Layout",  "s",    NULL, offsetof(kbdctx, locale_x11_layout) },
         { "X11Variant", "s",    NULL, offsetof(kbdctx, locale_x11_variant) },
@@ -385,8 +527,10 @@ static kbdctx *kbdctx_unref(kbdctx *kc) {
         free(kc->locale_x11_variant);
         free(kc->locale_x11_layout);
         free(kc->locale_x11_model);
+        free(kc->locale_lang);
         kc->slot_locale_get_all = sd_bus_slot_unref(kc->slot_locale_get_all);
         kc->slot_locale_props_changed = sd_bus_slot_unref(kc->slot_locale_props_changed);
+        kc->kbdtbl = kbdtbl_unref(kc->kbdtbl);
         kc->kbdmap = kbdmap_unref(kc->kbdmap);
         xkb_context_unref(kc->xkb_context);
         hashmap_remove_value(kc->context->data_map, KBDCTX_KEY, kc);
@@ -417,6 +561,10 @@ static int kbdctx_new(kbdctx **out, idev_context *c) {
                 return errno > 0 ? -errno : -EFAULT;
 
         r = kbdctx_refresh_keymap(kc);
+        if (r < 0)
+                return r;
+
+        r = kbdctx_refresh_compose_table(kc, NULL);
         if (r < 0)
                 return r;
 
@@ -529,6 +677,10 @@ int idev_keyboard_new(idev_device **out, idev_session *s, const char *name) {
         if (r < 0)
                 return r;
 
+        r = keyboard_update_kbdtbl(k);
+        if (r < 0)
+                return r;
+
         r = sd_event_add_time(s->context->event,
                               &k->repeat_timer,
                               CLOCK_MONOTONIC,
@@ -557,12 +709,14 @@ int idev_keyboard_new(idev_device **out, idev_session *s, const char *name) {
 static void keyboard_free(idev_device *d) {
         idev_keyboard *k = keyboard_from_device(d);
 
+        xkb_compose_state_unref(k->xkb_compose);
         xkb_state_unref(k->xkb_state);
         free(k->repdata.keyboard.codepoints);
         free(k->repdata.keyboard.keysyms);
         free(k->evdata.keyboard.codepoints);
         free(k->evdata.keyboard.keysyms);
         k->repeat_timer = sd_event_source_unref(k->repeat_timer);
+        k->kbdtbl = kbdtbl_unref(k->kbdtbl);
         k->kbdmap = kbdmap_unref(k->kbdmap);
         k->kbdctx = kbdctx_unref(k->kbdctx);
         free(k);
@@ -845,6 +999,40 @@ static int keyboard_update_kbdmap(idev_keyboard *k) {
 
 error:
         log_debug("idev-keyboard: %s/%s: cannot adopt new keymap: %s",
+                  d->session->name, d->name, strerror(-r));
+        return r;
+}
+
+static int keyboard_update_kbdtbl(idev_keyboard *k) {
+        idev_device *d = &k->device;
+        struct xkb_compose_state *compose = NULL;
+        kbdtbl *kt;
+        int r;
+
+        assert(k);
+
+        kt = k->kbdctx->kbdtbl;
+        if (kt == k->kbdtbl)
+                return 0;
+
+        if (kt) {
+                errno = 0;
+                compose = xkb_compose_state_new(kt->xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+                if (!compose) {
+                        r = errno > 0 ? -errno : -EFAULT;
+                        goto error;
+                }
+        }
+
+        kbdtbl_unref(k->kbdtbl);
+        k->kbdtbl = kbdtbl_ref(kt);
+        xkb_compose_state_unref(k->xkb_compose);
+        k->xkb_compose = compose;
+
+        return 0;
+
+error:
+        log_debug("idev-keyboard: %s/%s: cannot adopt new compose table: %s",
                   d->session->name, d->name, strerror(-r));
         return r;
 }
