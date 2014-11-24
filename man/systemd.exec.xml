@@ -1138,6 +1138,35 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SmackProcessLabel=</varname></term>
+
+                                <listitem><para>Takes a
+                                <option>SMACK64</option> security
+                                label as argument. The process
+                                executed by the unit will be started
+                                under this label and SMACK will decide
+                                whether the processes is allowed to
+                                run or not based on it. The process
+                                will continue to run under the label
+                                specified here unless the executable
+                                has its own
+                                <option>SMACK64EXEC</option> label, in
+                                which case the process will transition
+                                to run under that label. When not
+                                specified, the label that systemd is
+                                running under is used. This directive
+                                is ignored if SMACK is
+                                disabled.</para>
+
+                                <para>The value may be prefixed by
+                                <literal>-</literal>, in which case
+                                all errors will be ignored. An empty
+                                value may be specified to unset
+                                previous assignments.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>IgnoreSIGPIPE=</varname></term>
 
                                 <listitem><para>Takes a boolean

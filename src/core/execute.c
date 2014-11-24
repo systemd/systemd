@@ -83,6 +83,7 @@
 #include "af-list.h"
 #include "mkdir.h"
 #include "apparmor-util.h"
+#include "smack-util.h"
 #include "bus-kernel.h"
 #include "label.h"
 
@@ -1617,6 +1618,16 @@ static int exec_child(ExecCommand *command,
                                 return err;
                         }
                 }
+
+#ifdef HAVE_SMACK
+                if (context->smack_process_label) {
+                        err = mac_smack_apply_pid(0, context->smack_process_label);
+                        if (err < 0) {
+                                *error = EXIT_SMACK_PROCESS_LABEL;
+                                return err;
+                        }
+                }
+#endif
 
                 if (context->user) {
                         err = enforce_user(context, uid);

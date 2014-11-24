@@ -142,6 +142,9 @@ struct ExecContext {
         bool apparmor_profile_ignore;
         char *apparmor_profile;
 
+        bool smack_process_label_ignore;
+        char *smack_process_label;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 

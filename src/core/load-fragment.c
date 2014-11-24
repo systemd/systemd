@@ -1313,6 +1313,56 @@ int config_parse_exec_apparmor_profile(
         return 0;
 }
 
+int config_parse_exec_smack_process_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool ignore;
+        char *k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                free(c->smack_process_label);
+                c->smack_process_label = NULL;
+                c->smack_process_label_ignore = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '-') {
+                ignore = true;
+                rvalue++;
+        } else
+                ignore = false;
+
+        r = unit_name_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r,
+                           "Failed to resolve specifiers, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        free(c->smack_process_label);
+        c->smack_process_label = k;
+        c->smack_process_label_ignore = ignore;
+
+        return 0;
+}
+
 int config_parse_timer(const char *unit,
                        const char *filename,
                        unsigned line,

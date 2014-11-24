@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "path-util.h"
+#include "fileio.h"
 #include "smack-util.h"
 
 #define SMACK_FLOOR_LABEL "_"
@@ -118,6 +119,25 @@ int mac_smack_apply_ip_in_fd(int fd, const char *label) {
                 r = fremovexattr(fd, "security.SMACK64IPIN");
         if (r < 0)
                 return -errno;
+#endif
+
+        return r;
+}
+
+int mac_smack_apply_pid(pid_t pid, const char *label) {
+        int r = 0;
+        const char *p;
+
+        assert(label);
+
+#ifdef HAVE_SMACK
+        if (!mac_smack_use())
+                return 0;
+
+        p = procfs_file_alloca(pid, "attr/current");
+        r = write_string_file(p, label);
+        if (r < 0)
+                return r;
 #endif
 
         return r;
