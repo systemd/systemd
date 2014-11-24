@@ -31,6 +31,7 @@
 #include "idev.h"
 #include "idev-internal.h"
 #include "macro.h"
+#include "term-internal.h"
 #include "util.h"
 
 typedef struct kbdtbl kbdtbl;
@@ -87,6 +88,7 @@ struct idev_keyboard {
         uint32_t n_syms;
         idev_data evdata;
         idev_data repdata;
+        uint32_t *compose_res;
 
         bool repeating : 1;
 };
@@ -628,6 +630,79 @@ static int keyboard_raise_data(idev_keyboard *k, idev_data *data) {
         return r;
 }
 
+static int keyboard_resize_bufs(idev_keyboard *k, uint32_t n_syms) {
+        uint32_t *t;
+
+        if (n_syms <= k->n_syms)
+                return 0;
+
+        t = realloc(k->compose_res, sizeof(*t) * n_syms);
+        if (!t)
+                return -ENOMEM;
+        k->compose_res = t;
+
+        t = realloc(k->evdata.keyboard.keysyms, sizeof(*t) * n_syms);
+        if (!t)
+                return -ENOMEM;
+        k->evdata.keyboard.keysyms = t;
+
+        t = realloc(k->evdata.keyboard.codepoints, sizeof(*t) * n_syms);
+        if (!t)
+                return -ENOMEM;
+        k->evdata.keyboard.codepoints = t;
+
+        t = realloc(k->repdata.keyboard.keysyms, sizeof(*t) * n_syms);
+        if (!t)
+                return -ENOMEM;
+        k->repdata.keyboard.keysyms = t;
+
+        t = realloc(k->repdata.keyboard.codepoints, sizeof(*t) * n_syms);
+        if (!t)
+                return -ENOMEM;
+        k->repdata.keyboard.codepoints = t;
+
+        k->n_syms = n_syms;
+        return 0;
+}
+
+static unsigned int keyboard_read_compose(idev_keyboard *k, const xkb_keysym_t **out) {
+        _cleanup_free_ char *t = NULL;
+        term_utf8 u8 = { };
+        char buf[256], *p;
+        size_t flen = 0;
+        int i, r;
+
+        r = xkb_compose_state_get_utf8(k->xkb_compose, buf, sizeof(buf));
+        if (r >= (int)sizeof(buf)) {
+                t = malloc(r + 1);
+                if (!t)
+                        return 0;
+
+                xkb_compose_state_get_utf8(k->xkb_compose, t, r + 1);
+                p = t;
+        } else {
+                p = buf;
+        }
+
+        for (i = 0; i < r; ++i) {
+                uint32_t *ucs;
+                size_t len, j;
+
+                len = term_utf8_decode(&u8, &ucs, p[i]);
+                if (len > 0) {
+                        r = keyboard_resize_bufs(k, flen + len);
+                        if (r < 0)
+                                return 0;
+
+                        for (j = 0; j < len; ++j)
+                                k->compose_res[flen++] = ucs[j];
+                }
+        }
+
+        *out = k->compose_res;
+        return flen;
+}
+
 static void keyboard_arm(idev_keyboard *k, usec_t usecs) {
         int r;
 
@@ -643,6 +718,8 @@ static void keyboard_arm(idev_keyboard *k, usec_t usecs) {
 
 static int keyboard_repeat_timer_fn(sd_event_source *source, uint64_t usec, void *userdata) {
         idev_keyboard *k = userdata;
+
+        /* never feed REPEAT keys into COMPOSE */
 
         keyboard_arm(k, k->repeat_rate);
         return keyboard_raise_data(k, &k->repdata);
@@ -681,6 +758,10 @@ int idev_keyboard_new(idev_device **out, idev_session *s, const char *name) {
         if (r < 0)
                 return r;
 
+        r = keyboard_resize_bufs(k, 8);
+        if (r < 0)
+                return r;
+
         r = sd_event_add_time(s->context->event,
                               &k->repeat_timer,
                               CLOCK_MONOTONIC,
@@ -715,6 +796,7 @@ static void keyboard_free(idev_device *d) {
         free(k->repdata.keyboard.keysyms);
         free(k->evdata.keyboard.codepoints);
         free(k->evdata.keyboard.keysyms);
+        free(k->compose_res);
         k->repeat_timer = sd_event_source_unref(k->repeat_timer);
         k->kbdtbl = kbdtbl_unref(k->kbdtbl);
         k->kbdmap = kbdmap_unref(k->kbdmap);
@@ -754,34 +836,13 @@ static int keyboard_fill(idev_keyboard *k,
                          const uint32_t *keysyms) {
         idev_data_keyboard *kev;
         uint32_t i;
+        int r;
 
         assert(dst == &k->evdata || dst == &k->repdata);
 
-        if (n_syms > k->n_syms) {
-                uint32_t *t;
-
-                t = realloc(k->evdata.keyboard.keysyms, sizeof(*t) * n_syms);
-                if (!t)
-                        return -ENOMEM;
-                k->evdata.keyboard.keysyms = t;
-
-                t = realloc(k->evdata.keyboard.codepoints, sizeof(*t) * n_syms);
-                if (!t)
-                        return -ENOMEM;
-                k->evdata.keyboard.codepoints = t;
-
-                t = realloc(k->repdata.keyboard.keysyms, sizeof(*t) * n_syms);
-                if (!t)
-                        return -ENOMEM;
-                k->repdata.keyboard.keysyms = t;
-
-                t = realloc(k->repdata.keyboard.codepoints, sizeof(*t) * n_syms);
-                if (!t)
-                        return -ENOMEM;
-                k->repdata.keyboard.codepoints = t;
-
-                k->n_syms = n_syms;
-        }
+        r = keyboard_resize_bufs(k, n_syms);
+        if (r < 0)
+                return r;
 
         dst->type = IDEV_DATA_KEYBOARD;
         dst->resync = resync;
@@ -801,8 +862,6 @@ static int keyboard_fill(idev_keyboard *k,
         }
 
         for (i = 0; i < IDEV_KBDMOD_CNT; ++i) {
-                int r;
-
                 if (k->kbdmap->modmap[i] == XKB_MOD_INVALID)
                         continue;
 
@@ -905,6 +964,7 @@ static void keyboard_repeat(idev_keyboard *k) {
 static int keyboard_feed_evdev(idev_keyboard *k, idev_data *data) {
         struct input_event *ev = &data->evdev.event;
         enum xkb_state_component compch;
+        enum xkb_compose_status cstatus;
         const xkb_keysym_t *keysyms;
         idev_device *d = &k->device;
         int num, r;
@@ -927,6 +987,52 @@ static int keyboard_feed_evdev(idev_keyboard *k, idev_data *data) {
         if (num < 0) {
                 r = num;
                 goto error;
+        }
+
+        if (k->xkb_compose && ev->value == KBDKEY_DOWN) {
+                if (num == 1 && !data->resync) {
+                        xkb_compose_state_feed(k->xkb_compose, keysyms[0]);
+                        cstatus = xkb_compose_state_get_status(k->xkb_compose);
+                } else {
+                        cstatus = XKB_COMPOSE_CANCELLED;
+                }
+
+                switch (cstatus) {
+                case XKB_COMPOSE_NOTHING:
+                        /* keep produced keysyms and forward unchanged */
+                        break;
+                case XKB_COMPOSE_COMPOSING:
+                        /* consumed by compose-state, drop keysym */
+                        keysyms = NULL;
+                        num = 0;
+                        break;
+                case XKB_COMPOSE_COMPOSED:
+                        /* compose-state produced sth, replace keysym */
+                        num = keyboard_read_compose(k, &keysyms);
+                        xkb_compose_state_reset(k->xkb_compose);
+                        break;
+                case XKB_COMPOSE_CANCELLED:
+                        /* canceled compose, reset, forward cancellation sym */
+                        xkb_compose_state_reset(k->xkb_compose);
+                        break;
+                }
+        } else if (k->xkb_compose &&
+                   num == 1 &&
+                   keysyms[0] == XKB_KEY_Multi_key &&
+                   !data->resync &&
+                   ev->value == KBDKEY_UP) {
+                /* Reset compose state on Multi-Key UP events. This effectively
+                 * requires you to hold the key during the whole sequence. I
+                 * think it's pretty handy to avoid accidental
+                 * Compose-sequences, but this may break Compose for disabled
+                 * people. We really need to make this opional! (TODO) */
+                xkb_compose_state_reset(k->xkb_compose);
+        }
+
+        if (ev->value == KBDKEY_UP) {
+                /* never produce keysyms for UP */
+                keysyms = NULL;
+                num = 0;
         }
 
         r = keyboard_fill(k, &k->evdata, data->resync, ev->code, ev->value, num, keysyms);
