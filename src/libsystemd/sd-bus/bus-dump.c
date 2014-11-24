@@ -371,22 +371,14 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID)) || r >= 0))
                 fputs("\n", f);
 
-        if (c->mask & SD_BUS_CREDS_EXE)
-                fprintf(f, "%sExe=%s%s%s", prefix, color, c->exe, suffix);
         if (c->mask & SD_BUS_CREDS_COMM)
                 fprintf(f, "%sComm=%s%s%s", prefix, color, c->comm, suffix);
         if (c->mask & SD_BUS_CREDS_TID_COMM)
                 fprintf(f, "%sTIDComm=%s%s%s", prefix, color, c->tid_comm, suffix);
+        if (c->mask & SD_BUS_CREDS_EXE)
+                fprintf(f, "%sExe=%s%s%s", prefix, color, c->exe, suffix);
 
         if (terse && (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)))
-                fputs("\n", f);
-
-        if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
-                fprintf(f, "%sLabel=%s%s%s", prefix, color, c->label, suffix);
-        if (c->mask & SD_BUS_CREDS_DESCRIPTION)
-                fprintf(f, "%sDescription=%s%s%s", prefix, color, c->description, suffix);
-
-        if (terse && (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_DESCRIPTION)))
                 fputs("\n", f);
 
         if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
@@ -402,6 +394,14 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
                 fprintf(f, "%s", suffix);
         }
+
+        if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
+                fprintf(f, "%sLabel=%s%s%s", prefix, color, c->label, suffix);
+        if (c->mask & SD_BUS_CREDS_DESCRIPTION)
+                fprintf(f, "%sDescription=%s%s%s", prefix, color, c->description, suffix);
+
+        if (terse && (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_DESCRIPTION)))
+                fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
                 fprintf(f, "%sCGroup=%s%s%s", prefix, color, c->cgroup, suffix);
