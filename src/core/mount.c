@@ -24,6 +24,7 @@
 #include <mntent.h>
 #include <sys/epoll.h>
 #include <signal.h>
+#include <libmount.h>
 
 #include "manager.h"
 #include "unit.h"
@@ -1500,55 +1501,47 @@ fail:
         return r;
 }
 
+static inline void mnt_free_table_p(struct libmnt_table **tb) {
+        mnt_free_table(*tb);
+}
+
+static inline void mnt_free_iter_p(struct libmnt_iter **itr) {
+        mnt_free_iter(*itr);
+}
+
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+        _cleanup_(mnt_free_table_p) struct libmnt_table *tb = NULL;
+        _cleanup_(mnt_free_iter_p) struct libmnt_iter *itr = NULL;
+        struct libmnt_fs *fs;
         int r = 0;
-        unsigned i;
 
         assert(m);
 
-        rewind(m->proc_self_mountinfo);
+        tb = mnt_new_table();
+        itr = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!tb || !itr)
+                return log_oom();
 
-        for (i = 1;; i++) {
-                _cleanup_free_ char *device = NULL, *path = NULL, *options = NULL, *options2 = NULL, *fstype = NULL, *d = NULL, *p = NULL, *o = NULL;
+        mnt_table_parse_mtab(tb, NULL);
+        if (r)
+                return r;
+
+        while (mnt_table_next_fs(tb, itr, &fs) == 0) {
+                const char *device, *path, *options, *fstype;
+                _cleanup_free_ const char *d = NULL, *p = NULL;
                 int k;
 
-                k = fscanf(m->proc_self_mountinfo,
-                           "%*s "       /* (1) mount id */
-                           "%*s "       /* (2) parent id */
-                           "%*s "       /* (3) major:minor */
-                           "%*s "       /* (4) root */
-                           "%ms "       /* (5) mount point */
-                           "%ms"        /* (6) mount options */
-                           "%*[^-]"     /* (7) optional fields */
-                           "- "         /* (8) separator */
-                           "%ms "       /* (9) file system type */
-                           "%ms"        /* (10) mount source */
-                           "%ms"        /* (11) mount options 2 */
-                           "%*[^\n]",   /* some rubbish at the end */
-                           &path,
-                           &options,
-                           &fstype,
-                           &device,
-                           &options2);
-
-                if (k == EOF)
-                        break;
-
-                if (k != 5) {
-                        log_warning("Failed to parse /proc/self/mountinfo:%u.", i);
-                        continue;
-                }
-
-                o = strjoin(options, ",", options2, NULL);
-                if (!o)
-                        return log_oom();
+                device = mnt_fs_get_source(fs);
+                path = mnt_fs_get_target(fs);
+                options = mnt_fs_get_options(fs);
+                fstype = mnt_fs_get_fstype(fs);
 
                 d = cunescape(device);
                 p = cunescape(path);
                 if (!d || !p)
                         return log_oom();
 
-                k = mount_add_one(m, d, p, o, fstype, set_flags);
+                k = mount_add_one(m, d, p, options, fstype, set_flags);
                 if (k < 0)
                         r = k;
         }
@@ -1584,6 +1577,8 @@ static int mount_get_timeout(Unit *u, uint64_t *timeout) {
 static int mount_enumerate(Manager *m) {
         int r;
         assert(m);
+
+        mnt_init_debug(0);
 
         if (!m->proc_self_mountinfo) {
                 m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");

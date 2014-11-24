@@ -439,6 +439,15 @@ fi
 AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libmount=no
+PKG_CHECK_MODULES(MOUNT, [ mount >= 2.20 ],
+        [AC_DEFINE(HAVE_LIBMOUNT, 1, [Define if libmount is available]) have_libmount=yes], have_libmount=no)
+if test "x$have_libmount" = xno; then
+        AC_MSG_ERROR([*** libmount support required but libraries not found])
+fi
+AM_CONDITIONAL(HAVE_LIBMOUNT, [test "$have_libmount" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_seccomp=no
 AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
 if test "x$enable_seccomp" != "xno"; then
@@ -1388,6 +1397,7 @@ AC_MSG_RESULT([
         kmod:                    ${have_kmod}
         xkbcommon:               ${have_xkbcommon}
         blkid:                   ${have_blkid}
+        libmount:                ${have_libmount}
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
