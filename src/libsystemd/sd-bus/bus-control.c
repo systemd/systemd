@@ -797,6 +797,7 @@ static int bus_get_name_creds_dbus1(
                 }
 
                 if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                         const void *p = NULL;
                         size_t sz = 0;
 
@@ -806,22 +807,24 @@ static int bus_get_name_creds_dbus1(
                                         "/org/freedesktop/DBus",
                                         "org.freedesktop.DBus",
                                         "GetConnectionSELinuxSecurityContext",
-                                        NULL,
+                                        &error,
                                         &reply,
                                         "s",
                                         unique ? unique : name);
-                        if (r < 0)
-                                return r;
+                        if (r < 0) {
+                                if (!sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
+                                        return r;
+                        } else {
+                                r = sd_bus_message_read_array(reply, 'y', &p, &sz);
+                                if (r < 0)
+                                        return r;
 
-                        r = sd_bus_message_read_array(reply, 'y', &p, &sz);
-                        if (r < 0)
-                                return r;
+                                c->label = strndup(p, sz);
+                                if (!c->label)
+                                        return -ENOMEM;
 
-                        c->label = strndup(p, sz);
-                        if (!c->label)
-                                return -ENOMEM;
-
-                        c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+                                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+                        }
                 }
 
                 r = bus_creds_add_more(c, mask, pid, 0);
