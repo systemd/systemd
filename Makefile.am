@@ -385,6 +385,7 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
+	systemd-machine-id-commit \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep \
@@ -2213,6 +2214,17 @@ systemd_fsck_SOURCES = \
 systemd_fsck_LDADD = \
 	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_machine_id_commit_SOURCES = \
+	src/machine-id-commit/machine-id-commit.c \
+	src/core/machine-id-setup.c \
+	src/core/machine-id-setup.h
+
+systemd_machine_id_commit_LDADD = \
+	libsystemd-label.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
