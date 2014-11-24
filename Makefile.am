@@ -537,6 +537,7 @@ nodist_systemunit_DATA = \
 	units/systemd-kexec.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
+	units/systemd-machine-id-commit.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -589,6 +590,7 @@ EXTRA_DIST += \
 	units/user/systemd-exit.service.in \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
+	units/systemd-machine-id-commit.service.in \
 	units/user@.service.in \
 	units/debug-shell.service.in \
 	units/systemd-suspend.service.in \
@@ -2226,6 +2228,9 @@ systemd_machine_id_commit_LDADD = \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
+
+SYSINIT_TARGET_WANTS += \
+	systemd-machine-id-commit.service
 
 # ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \
