@@ -41,6 +41,10 @@
 #include "event-util.h"
 #include "locale-util.h"
 
+#ifdef HAVE_XKBCOMMON
+#include <xkbcommon/xkbcommon.h>
+#endif
+
 enum {
         /* We don't list LC_ALL here on purpose. People should be
          * using LANG instead. */
@@ -1005,6 +1009,51 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
         return sd_bus_reply_method_return(m, NULL);
 }
 
+#ifdef HAVE_XKBCOMMON
+static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
+        /* suppress xkb messages for now */
+}
+
+static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+        const struct xkb_rule_names rmlvo = {
+                .model          = model,
+                .layout         = layout,
+                .variant        = variant,
+                .options        = options,
+        };
+        struct xkb_context *ctx = NULL;
+        struct xkb_keymap *km = NULL;
+        int r;
+
+        /* compile keymap from RMLVO information to check out its validity */
+
+        ctx = xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
+        if (!ctx) {
+                r = -ENOMEM;
+                goto exit;
+        }
+
+        xkb_context_set_log_fn(ctx, log_xkb);
+
+        km = xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        if (!km) {
+                r = -EINVAL;
+                goto exit;
+        }
+
+        r = 0;
+
+exit:
+        xkb_keymap_unref(km);
+        xkb_context_unref(ctx);
+        return r;
+}
+#else
+static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+        return 0;
+}
+#endif
+
 static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *layout, *model, *variant, *options;
@@ -1037,6 +1086,11 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     (variant && !string_is_safe(variant)) ||
                     (options && !string_is_safe(options)))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keyboard data");
+
+                r = verify_xkb_rmlvo(model, layout, variant, options);
+                if (r < 0)
+                        log_warning("Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %s",
+                                    strempty(model), strempty(layout), strempty(variant), strempty(options), strerror(-r));
 
                 r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", interactive, &c->polkit_registry, error);
                 if (r < 0)

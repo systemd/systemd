@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 218:
+
+        * If compiled with --enable-xkbcommon, systemd-localed will
+          verify x11 keymap settings by compiling the given keymap. It
+          will spew out warnings if the compilation fails. This
+          requires libxkbcommon to be installed.
+
 CHANGES WITH 217:
 
         * journalctl gained the new options -t/--identifier= to match

@@ -4626,7 +4626,12 @@ systemd_localed_SOURCES = \
 systemd_localed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	$(XKBCOMMON_LIBS)
+
+systemd_localed_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(XKBCOMMON_CFLAGS)
 
 nodist_systemunit_DATA += \
 	units/systemd-localed.service

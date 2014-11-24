@@ -415,6 +415,18 @@ fi
 AM_CONDITIONAL(HAVE_KMOD, [test "$have_kmod" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_xkbcommon=no
+AC_ARG_ENABLE(xkbcommon, AS_HELP_STRING([--disable-xkbcommon], [disable xkbcommon keymap support]))
+if test "x$enable_xkbcommon" != "xno"; then
+        PKG_CHECK_MODULES(XKBCOMMON, [ xkbcommon >= 0.3.0 ],
+                [AC_DEFINE(HAVE_XKBCOMMON, 1, [Define if libxkbcommon is available]) have_xkbcommon=yes], have_xkbcommon=no)
+        if test "x$have_xkbcommon" = xno -a "x$enable_xkbcommon" = xyes; then
+                AC_MSG_ERROR([*** xkbcommon support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_XKBCOMMON, [test "$have_xkbcommon" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_blkid=no
 AC_ARG_ENABLE(blkid, AS_HELP_STRING([--disable-blkid], [disable blkid support]))
 if test "x$enable_blkid" != "xno"; then
@@ -1374,6 +1386,7 @@ AC_MSG_RESULT([
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
         kmod:                    ${have_kmod}
+        xkbcommon:               ${have_xkbcommon}
         blkid:                   ${have_blkid}
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
