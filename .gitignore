@@ -11,6 +11,7 @@
 *.swp
 *.trs
 *~
+.config.args
 .deps/
 .dirstamp
 .libs/
