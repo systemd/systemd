@@ -64,16 +64,20 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
-static bool mount_is_network(MountParameters *p) {
-        assert(p);
-
-        if (mount_test_option(p->options, "_netdev"))
+static bool mount_needs_network(const char *options, const char *fstype) {
+        if (mount_test_option(options, "_netdev"))
                 return true;
 
-        if (p->fstype && fstype_is_network(p->fstype))
+        if (fstype && fstype_is_network(fstype))
                 return true;
 
         return false;
+}
+
+static bool mount_is_network(MountParameters *p) {
+        assert(p);
+
+        return mount_needs_network(p->options, p->fstype);
 }
 
 static bool mount_is_bind(MountParameters *p) {
@@ -1412,8 +1416,7 @@ static int mount_add_one(
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         const char* target;
 
-                        target = fstype_is_network(fstype) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
-
+                        target = mount_needs_network(options, fstype) ?  SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
                         r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
                         if (r < 0)
                                 goto fail;
