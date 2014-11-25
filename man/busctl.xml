@@ -271,10 +271,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>status</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg></term>
+        <term><command>status</command> <arg choice="opt"><replaceable>SERVICE</replaceable></arg></term>
 
         <listitem><para>Show process information and credentials of a
-        bus service.</para></listitem>
+        bus service (if one is specified by its unique or well-known
+        name), a process (if one is specified by its numeric PID), or
+        the owner of the bus (if no parameter is
+        specified).</para></listitem>
       </varlistentry>
 
       <varlistentry>

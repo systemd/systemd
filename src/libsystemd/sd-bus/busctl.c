@@ -1175,20 +1175,29 @@ static int status(sd_bus *bus, char *argv[]) {
 
         assert(bus);
 
-        if (strv_length(argv) != 2) {
-                log_error("Expects one argument.");
+        if (strv_length(argv) > 2) {
+                log_error("Expects no or one argument.");
                 return -EINVAL;
         }
 
-        r = parse_pid(argv[1], &pid);
-        if (r < 0)
-                r = sd_bus_get_name_creds(
+        if (argv[1]) {
+                r = parse_pid(argv[1], &pid);
+                if (r < 0)
+                        r = sd_bus_get_name_creds(
+                                        bus,
+                                        argv[1],
+                                        (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
+                                        &creds);
+                else
+                        r = sd_bus_creds_new_from_pid(
+                                        &creds,
+                                        pid,
+                                        _SD_BUS_CREDS_ALL);
+        } else
+                r = sd_bus_get_owner_creds(
                                 bus,
-                                argv[1],
                                 (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
                                 &creds);
-        else
-                r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
 
         if (r < 0) {
                 log_error("Failed to get credentials: %s", strerror(-r));
@@ -1675,7 +1684,7 @@ static int help(void) {
                "     --augment-creds=BOOL Extend credential data with data read from /proc/$PID\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
-               "  status SERVICE          Show service name status\n"
+               "  status [SERVICE]        Show bus service, process or bus owner credentials\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  tree [SERVICE...]       Show object tree of service\n"
