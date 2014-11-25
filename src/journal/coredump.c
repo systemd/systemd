@@ -36,6 +36,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "fileio.h"
 #include "strv.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -461,24 +462,103 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         return 0;
 }
 
+/* Joins /proc/[pid]/fd/ and /proc/[pid]/fdinfo/ into the following lines:
+ * 0:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ *
+ * 1:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ *
+ * 2:/dev/pts/23
+ * pos:    0
+ * flags:  0100002
+ * EOF
+ */
+static int compose_open_fds(pid_t pid, char **open_fds) {
+        _cleanup_fclose_ FILE *stream = NULL;
+        char path[PATH_MAX], line[LINE_MAX];
+        size_t ignored_size;
+        const char *fddelim = "";
+        struct dirent *dent = NULL;
+        _cleanup_closedir_ DIR *proc_fd_dir = NULL;
+        int r = 0;
+
+        assert(pid >= 0);
+        assert(open_fds != NULL);
+
+        sprintf(path, "/proc/"PID_FMT"/fd", pid);
+        proc_fd_dir = opendir(path);
+
+        if (proc_fd_dir == NULL)
+                return -ENOENT;
+
+        stream = open_memstream(open_fds, &ignored_size);
+        if (!stream)
+                return -ENOMEM;
+
+        for (dent = readdir(proc_fd_dir); dent != NULL; dent = readdir(proc_fd_dir)) {
+                _cleanup_free_ char *fdname = NULL;
+                _cleanup_fclose_ FILE *fdinfo = NULL;
+
+                if (dent->d_name[0] == '.' || strcmp(dent->d_name, "..") == 0)
+                        continue;
+
+                /* Too long path is unlikely a path to valid file descriptor in /proc/[pid]/fd */
+                /* Skip it. */
+                r = snprintf(path, sizeof(path), "/proc/"PID_FMT"/fd/%s", pid, dent->d_name);
+                if (r >= (int)sizeof(path))
+                        continue;
+
+                r = readlink_malloc(path, &fdname);
+                if (r < 0)
+                        return r;
+
+                fprintf(stream, "%s%s:%s\n", fddelim, dent->d_name, fdname);
+                fddelim = "\n";
+
+                /* Use the directory entry from /proc/[pid]/fd with /proc/[pid]/fdinfo */
+
+                /* Too long path is unlikely a path to valid file descriptor info in /proc/[pid]/fdinfo */
+                /* Skip it. */
+                r = snprintf(path, sizeof(path), "/proc/"PID_FMT"/fdinfo/%s", pid, dent->d_name);
+                if (r >= (int)sizeof(path))
+                        continue;
+
+                fdinfo = fopen(path, "re");
+                if (fdinfo == NULL)
+                        continue;
+
+                while(fgets(line, sizeof(line), fdinfo) != NULL)
+                        fprintf(stream, "%s%s",
+                                line, strchr(line, '\n') == NULL ? "\n" : "");
+        }
+
+        return 0;
+}
+
 int main(int argc, char* argv[]) {
 
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL,
+                *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL, *core_open_fds = NULL,
+                *core_proc_status = NULL, *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL,
+                *core_cwd = NULL, *core_root = NULL, *core_environ = NULL,
                 *exe = NULL, *comm = NULL, *filename = NULL;
         const char *info[_INFO_LEN];
 
         _cleanup_close_ int coredump_fd = -1;
 
-        struct iovec iovec[18];
+        struct iovec iovec[26];
         off_t coredump_size;
         int r, j = 0;
         uid_t uid, owner_uid;
         gid_t gid;
         pid_t pid;
         char *t;
+        const char *p;
 
         /* Make sure we never enter a loop */
         prctl(PR_SET_DUMPABLE, 0);
@@ -636,6 +716,74 @@ int main(int argc, char* argv[]) {
 
                 if (core_cgroup)
                         IOVEC_SET_STRING(iovec[j++], core_cgroup);
+        }
+
+        if (compose_open_fds(pid, &t) >= 0) {
+                core_open_fds = strappend("COREDUMP_OPEN_FDS=", t);
+                free(t);
+
+                if (core_open_fds)
+                        IOVEC_SET_STRING(iovec[j++], core_open_fds);
+        }
+
+        p = procfs_file_alloca(pid, "status");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_status = strappend("COREDUMP_PROC_STATUS=", t);
+                free(t);
+
+                if (core_proc_status)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_status);
+        }
+
+        p = procfs_file_alloca(pid, "maps");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_maps = strappend("COREDUMP_PROC_MAPS=", t);
+                free(t);
+
+                if (core_proc_maps)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_maps);
+        }
+
+        p = procfs_file_alloca(pid, "limits");
+        if (read_full_file(p, &t, NULL) >= 0) {
+                core_proc_limits = strappend("COREDUMP_PROC_LIMITS=", t);
+                free(t);
+
+                if (core_proc_limits)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_limits);
+        }
+
+        p = procfs_file_alloca(pid, "cgroup");
+        if (read_full_file(p, &t, NULL) >=0) {
+                core_proc_cgroup = strappend("COREDUMP_PROC_CGROUP=", t);
+                free(t);
+
+                if (core_proc_cgroup)
+                        IOVEC_SET_STRING(iovec[j++], core_proc_cgroup);
+        }
+
+        if (get_process_cwd(pid, &t) >= 0) {
+                core_cwd = strappend("COREDUMP_CWD=", t);
+                free(t);
+
+                if (core_cwd)
+                        IOVEC_SET_STRING(iovec[j++], core_cwd);
+        }
+
+        if (get_process_root(pid, &t) >= 0) {
+                core_root = strappend("COREDUMP_ROOT=", t);
+                free(t);
+
+                if (core_root)
+                        IOVEC_SET_STRING(iovec[j++], core_root);
+        }
+
+        if (get_process_environ(pid, &t) >= 0) {
+                core_environ = strappend("COREDUMP_ENVIRON=", t);
+                free(t);
+
+                if (core_environ)
+                        IOVEC_SET_STRING(iovec[j++], core_environ);
         }
 
         core_timestamp = strjoin("COREDUMP_TIMESTAMP=", info[INFO_TIMESTAMP], "000000", NULL);
