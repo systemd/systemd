@@ -40,6 +40,9 @@ struct sd_bus_creds {
         gid_t sgid;
         gid_t fsgid;
 
+        gid_t *supplementary_gids;
+        unsigned n_supplementary_gids;
+
         pid_t pid;
         usec_t pid_starttime;
         pid_t tid;

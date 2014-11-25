@@ -500,7 +500,7 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_CMDLINE:
                         if (mask & SD_BUS_CREDS_CMDLINE) {
-                                c->cmdline_size = item->size - KDBUS_ITEM_HEADER_SIZE;
+                                c->cmdline_size = item->size - offsetof(struct kdbus_item, data);
                                 c->cmdline = memdup(item->data, c->cmdline_size);
                                 if (!c->cmdline)
                                         return -ENOMEM;
@@ -578,12 +578,32 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                         break;
 
                 case KDBUS_ITEM_CONN_DESCRIPTION:
-                        if ((mask & SD_BUS_CREDS_DESCRIPTION)) {
+                        if (mask & SD_BUS_CREDS_DESCRIPTION) {
                                 c->description = strdup(item->str);
                                 if (!c->description)
                                         return -ENOMEM;
 
                                 c->mask |= SD_BUS_CREDS_DESCRIPTION;
+                        }
+                        break;
+
+                case KDBUS_ITEM_AUXGROUPS:
+                        if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                                size_t i, n;
+                                uid_t *u;
+
+                                n = (item->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                u = new(uid_t, n);
+                                if (!u)
+                                        return -ENOMEM;
+
+                                for (i = 0; i < n; i++)
+                                        u[i] = (uid_t) item->data64[i];
+
+                                c->supplementary_gids = u;
+                                c->n_supplementary_gids = n;
+
+                                c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
                         }
                         break;
                 }

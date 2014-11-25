@@ -384,8 +384,18 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (c->mask & SD_BUS_CREDS_FSGID)
                 fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
 
+        if (c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                unsigned i;
+
+                fprintf(f, "%sSupplementaryGIDs=%s", prefix, color);
+                for (i = 0; i < c->n_supplementary_gids; i++)
+                        fprintf(f, "%s" GID_FMT, i > 0 ? " " : "", c->supplementary_gids[i]);
+                fprintf(f, "%s", suffix);
+        }
+
         if (terse && ((c->mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
-                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID)) || r >= 0))
+                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                                  SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) || r >= 0))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_COMM)

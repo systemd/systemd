@@ -53,6 +53,8 @@ void bus_creds_done(sd_bus_creds *c) {
 
         strv_free(c->cmdline_array);
         strv_free(c->well_known_names);
+
+        free(c->supplementary_gids);
 }
 
 _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
@@ -237,7 +239,6 @@ _public_ int sd_bus_creds_get_sgid(sd_bus_creds *c, gid_t *sgid) {
         return 0;
 }
 
-
 _public_ int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *fsgid) {
         assert_return(c, -EINVAL);
         assert_return(fsgid, -EINVAL);
@@ -247,6 +248,17 @@ _public_ int sd_bus_creds_get_fsgid(sd_bus_creds *c, gid_t *fsgid) {
 
         *fsgid = c->fsgid;
         return 0;
+}
+
+_public_ int sd_bus_creds_get_supplementary_gids(sd_bus_creds *c, const gid_t **gids) {
+        assert_return(c, -EINVAL);
+        assert_return(gids, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS))
+                return -ENODATA;
+
+        *gids = c->supplementary_gids;
+        return (int) c->n_supplementary_gids;
 }
 
 _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid) {
@@ -680,6 +692,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
                        SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID |
+                       SD_BUS_CREDS_SUPPLEMENTARY_GIDS |
                        SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
                        SD_BUS_CREDS_PERMITTED_CAPS | SD_BUS_CREDS_BOUNDING_CAPS)) {
 
@@ -732,6 +745,34 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                 c->sgid = (gid_t) sgid;
                                                 c->fsgid = (gid_t) fsgid;
                                                 c->mask |= missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID);
+                                                continue;
+                                        }
+                                }
+
+                                if (missing & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                                        p = startswith(line, "Groups:");
+                                        if (p) {
+                                                size_t allocated = 0;
+
+                                                for (;;) {
+                                                        unsigned long g;
+                                                        int n = 0;
+
+                                                        p += strspn(p, WHITESPACE);
+                                                        if (*p == 0)
+                                                                break;
+
+                                                        if (sscanf(p, "%lu%n", &g, &n) != 1)
+                                                                return -EIO;
+
+                                                        if (!GREEDY_REALLOC(c->supplementary_gids, allocated, c->n_supplementary_gids+1))
+                                                                return -ENOMEM;
+
+                                                        c->supplementary_gids[c->n_supplementary_gids++] = (gid_t) g;
+                                                        p += n;
+                                                }
+
+                                                c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
                                                 continue;
                                         }
                                 }
@@ -960,6 +1001,14 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & SD_BUS_CREDS_FSGID) {
                 n->fsgid = c->fsgid;
                 n->mask |= SD_BUS_CREDS_FSGID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                n->supplementary_gids = newdup(gid_t, c->supplementary_gids, c->n_supplementary_gids);
+                if (!n->supplementary_gids)
+                        return -ENOMEM;
+                n->n_supplementary_gids = c->n_supplementary_gids;
+                n->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_PID) {

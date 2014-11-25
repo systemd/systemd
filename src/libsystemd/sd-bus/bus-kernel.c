@@ -660,6 +660,29 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         m->creds.mask |= SD_BUS_CREDS_DESCRIPTION & bus->creds_mask;
                         break;
 
+                case KDBUS_ITEM_AUXGROUPS:
+
+                        if (bus->creds_mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
+                                size_t i, n;
+                                uid_t *u;
+                                n = (d->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                u = new(uid_t, n);
+                                if (!u) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                for (i = 0; i < n; i++)
+                                        u[i] = (uid_t) d->data64[i];
+
+                                m->creds.supplementary_gids = u;
+                                m->creds.n_supplementary_gids = n;
+
+                                m->creds.mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
+                        }
+
+                        break;
+
                 case KDBUS_ITEM_FDS:
                 case KDBUS_ITEM_SECLABEL:
                         break;
@@ -1331,6 +1354,9 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
 
         if (mask & SD_BUS_CREDS_DESCRIPTION)
                 m |= KDBUS_ATTACH_CONN_DESCRIPTION;
+
+        if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS)
+                m |= KDBUS_ATTACH_AUXGROUPS;
 
         *kdbus_mask = m;
         return 0;
