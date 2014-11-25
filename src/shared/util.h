@@ -112,7 +112,7 @@
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
-size_t page_size(void);
+size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
