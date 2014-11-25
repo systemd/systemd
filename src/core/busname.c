@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/mman.h>
+
 #include "special.h"
 #include "bus-kernel.h"
 #include "bus-internal.h"
@@ -26,6 +28,7 @@
 #include "service.h"
 #include "dbus-busname.h"
 #include "busname.h"
+#include "kdbus.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,
@@ -301,8 +304,7 @@ static int busname_open_fd(BusName *n) {
         mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
         n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
         if (n->starter_fd < 0) {
-                log_warning_unit(UNIT(n)->id, "Failed to open %s: %s",
-                                 path ?: "kdbus", strerror(-n->starter_fd));
+                log_warning_unit(UNIT(n)->id, "Failed to open %s: %s", path ?: "kdbus", strerror(-n->starter_fd));
                 return n->starter_fd;
         }
 
@@ -725,6 +727,81 @@ _pure_ static const char *busname_sub_state_to_string(Unit *u) {
         return busname_state_to_string(BUSNAME(u)->state);
 }
 
+static int busname_peek_message(BusName *n) {
+        struct kdbus_cmd_recv cmd_recv = {
+                .flags = KDBUS_RECV_PEEK,
+        };
+        const char *comm = NULL;
+        struct kdbus_item *d;
+        struct kdbus_msg *k;
+        size_t start, ps, sz, delta;
+        void *p = NULL;
+        pid_t pid = 0;
+        int r;
+
+        assert(n);
+
+        /* Generate a friendly log message about which process caused
+         * triggering of this bus name. This simply peeks the metadata
+         * of the first queued message and logs it. */
+
+        r = ioctl(n->starter_fd, KDBUS_CMD_MSG_RECV, &cmd_recv);
+        if (r < 0) {
+                if (errno == EINTR || errno == EAGAIN)
+                        return 0;
+
+                log_error_unit(UNIT(n)->id, "%s: Failed to query activation message: %m", UNIT(n)->id);
+                return -errno;
+        }
+
+        /* We map as late as possible, and unmap imemdiately after
+         * use. On 32bit address space is scarce and we want to be
+         * able to handle a lot of activator connections at the same
+         * time, and hence shouldn't keep the mmap()s around for
+         * longer than necessary. */
+
+        ps = page_size();
+        start = (cmd_recv.offset / ps) * ps;
+        delta = cmd_recv.offset - start;
+        sz = PAGE_ALIGN(delta + cmd_recv.msg_size);
+
+        p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
+        if (p == MAP_FAILED) {
+                log_error_unit(UNIT(n)->id, "%s: Failed to map activation message: %m", UNIT(n)->id);
+                r = -errno;
+                goto finish;
+        }
+
+        k = (struct kdbus_msg *) ((uint8_t *) p + delta);
+        KDBUS_ITEM_FOREACH(d, k, items) {
+                switch (d->type) {
+
+                case KDBUS_ITEM_PIDS:
+                        pid = d->pids.pid;
+                        break;
+
+                case KDBUS_ITEM_PID_COMM:
+                        comm = d->str;
+                        break;
+                }
+        }
+
+        if (pid > 0)
+                log_debug_unit(UNIT(n)->id, "%s: Activation triggered by process " PID_FMT " (%s)", UNIT(n)->id, pid, strna(comm));
+
+        r = 0;
+
+finish:
+        if (p)
+                (void) munmap(p, sz);
+
+        /* Hint: we don't invoke KDBUS_CMD_MSG_FREE here, as we only
+         * PEEKed the message, and didn't ask for it to be dropped
+         * from the queue. */
+
+        return r;
+}
+
 static int busname_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         BusName *n = userdata;
 
@@ -742,6 +819,7 @@ static int busname_dispatch_io(sd_event_source *source, int fd, uint32_t revents
                 goto fail;
         }
 
+        busname_peek_message(n);
         busname_enter_running(n);
         return 0;
 fail:

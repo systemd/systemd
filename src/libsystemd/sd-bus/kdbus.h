@@ -494,10 +494,11 @@ enum kdbus_recv_flags {
  *			broadcast messages that have been lost since the
  *			last call.
  * @msg_size:		Filled by the kernel with the actual message size. This
- *			mirrors the 'size' member of the message stored at
- *			@offset, but allows callers to access it without mapping
- *			their pool. By using @msg_size and @offset, you can map
- *			only the message itself, not the whole pool.
+ *			is the full size of the slice placed at @offset. It
+ *			includes the memory used for the kdbus_msg object, but
+ *			also for all appended VECs. By using @msg_size and
+ *			@offset, you can map a single message, instead of
+ *			mapping the whole pool.
  *
  * This struct is used with the KDBUS_CMD_MSG_RECV ioctl.
  */
