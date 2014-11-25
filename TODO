@@ -307,7 +307,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
-  - kdbus: maybe add euid, egid, fsuid, fsgid, controlling tty and ppid metadata fields
+  - kdbus: maybe add controlling tty and ppid metadata fields
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
