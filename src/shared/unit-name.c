@@ -243,6 +243,30 @@ static char *do_escape(const char *f, char *t) {
         return t;
 }
 
+static char *do_escape_mangle(const char *f, enum unit_name_mangle allow_globs, char *t) {
+        const char *valid_chars;
+
+        assert(f);
+        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
+        assert(t);
+
+        /* We'll only escape the obvious characters here, to play
+         * safe. */
+
+        valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
+
+        for (; *f; f++) {
+                if (*f == '/')
+                        *(t++) = '-';
+                else if (!strchr(valid_chars, *f))
+                        t = do_escape_char(*f, t);
+                else
+                        *(t++) = *f;
+        }
+
+        return t;
+}
+
 char *unit_name_escape(const char *f) {
         char *r, *t;
 
@@ -482,11 +506,9 @@ int unit_name_from_dbus_path(const char *path, char **name) {
  *  sensible unit name.
  */
 char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
-        const char *valid_chars, *f;
         char *r, *t;
 
         assert(name);
-        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
 
         if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
@@ -494,23 +516,11 @@ char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
         if (path_is_absolute(name))
                 return unit_name_from_path(name, ".mount");
 
-        /* We'll only escape the obvious characters here, to play
-         * safe. */
-
-        valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
-
         r = new(char, strlen(name) * 4 + strlen(".service") + 1);
         if (!r)
                 return NULL;
 
-        for (f = name, t = r; *f; f++) {
-                if (*f == '/')
-                        *(t++) = '-';
-                else if (!strchr(valid_chars, *f))
-                        t = do_escape_char(*f, t);
-                else
-                        *(t++) = *f;
-        }
+        t = do_escape_mangle(name, allow_globs, r);
 
         if (unit_name_to_type(name) < 0)
                 strcpy(t, ".service");
@@ -526,10 +536,8 @@ char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
  */
 char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix) {
         char *r, *t;
-        const char *f;
 
         assert(name);
-        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
         assert(suffix);
         assert(suffix[0] == '.');
 
@@ -537,14 +545,7 @@ char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow
         if (!r)
                 return NULL;
 
-        for (f = name, t = r; *f; f++) {
-                if (*f == '/')
-                        *(t++) = '-';
-                else if (!strchr(VALID_CHARS, *f))
-                        t = do_escape_char(*f, t);
-                else
-                        *(t++) = *f;
-        }
+        t = do_escape_mangle(name, allow_globs, r);
 
         if (!endswith(name, suffix))
                 strcpy(t, suffix);
