@@ -71,13 +71,13 @@ struct kdbus_notify_name_change {
  */
 struct kdbus_creds {
 	__u64 uid;
-        __u64 euid;
-        __u64 suid;
-        __u64 fsuid;
+	__u64 euid;
+	__u64 suid;
+	__u64 fsuid;
 	__u64 gid;
-        __u64 egid;
-        __u64 sgid;
-        __u64 fsgid;
+	__u64 egid;
+	__u64 sgid;
+	__u64 fsgid;
 };
 
 /**
@@ -307,7 +307,7 @@ enum kdbus_item_type {
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
 	KDBUS_ITEM_TIMESTAMP	= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_CREDS,
-        KDBUS_ITEM_PIDS,
+	KDBUS_ITEM_PIDS,
 	KDBUS_ITEM_AUXGROUPS,
 	KDBUS_ITEM_OWNED_NAME,
 	KDBUS_ITEM_TID_COMM,
@@ -369,7 +369,7 @@ struct kdbus_item {
 		__u64 id;
 		struct kdbus_vec vec;
 		struct kdbus_creds creds;
-                struct kdbus_pids pids;
+		struct kdbus_pids pids;
 		struct kdbus_audit audit;
 		struct kdbus_caps caps;
 		struct kdbus_timestamp timestamp;
@@ -493,6 +493,11 @@ enum kdbus_recv_flags {
  *			-EOVERFLOW, this field will contain the number of
  *			broadcast messages that have been lost since the
  *			last call.
+ * @msg_size:		Filled by the kernel with the actual message size. This
+ *			mirrors the 'size' member of the message stored at
+ *			@offset, but allows callers to access it without mapping
+ *			their pool. By using @msg_size and @offset, you can map
+ *			only the message itself, not the whole pool.
  *
  * This struct is used with the KDBUS_CMD_MSG_RECV ioctl.
  */
@@ -500,10 +505,11 @@ struct kdbus_cmd_recv {
 	__u64 flags;
 	__u64 kernel_flags;
 	__s64 priority;
-        union {
-                __u64 offset;
-                __u64 dropped_msgs;
-        };
+	union {
+		__u64 offset;
+		__u64 dropped_msgs;
+	};
+	__u64 msg_size;
 } __attribute__((aligned(8)));
 
 /**
@@ -607,19 +613,19 @@ enum kdbus_hello_flags {
 enum kdbus_attach_flags {
 	KDBUS_ATTACH_TIMESTAMP		=  1ULL <<  0,
 	KDBUS_ATTACH_CREDS		=  1ULL <<  1,
-        KDBUS_ATTACH_PIDS		=  1ULL <<  2,
-        KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  3,
-        KDBUS_ATTACH_NAMES		=  1ULL <<  4,
-        KDBUS_ATTACH_TID_COMM		=  1ULL <<  5,
-        KDBUS_ATTACH_PID_COMM		=  1ULL <<  6,
-        KDBUS_ATTACH_EXE		=  1ULL <<  7,
-        KDBUS_ATTACH_CMDLINE		=  1ULL <<  8,
-        KDBUS_ATTACH_CGROUP		=  1ULL <<  9,
-        KDBUS_ATTACH_CAPS		=  1ULL << 10,
-        KDBUS_ATTACH_SECLABEL		=  1ULL << 11,
-        KDBUS_ATTACH_AUDIT		=  1ULL << 12,
-        KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 13,
-        _KDBUS_ATTACH_ALL		=  (1ULL << 14) - 1,
+	KDBUS_ATTACH_PIDS		=  1ULL <<  2,
+	KDBUS_ATTACH_AUXGROUPS		=  1ULL <<  3,
+	KDBUS_ATTACH_NAMES		=  1ULL <<  4,
+	KDBUS_ATTACH_TID_COMM		=  1ULL <<  5,
+	KDBUS_ATTACH_PID_COMM		=  1ULL <<  6,
+	KDBUS_ATTACH_EXE		=  1ULL <<  7,
+	KDBUS_ATTACH_CMDLINE		=  1ULL <<  8,
+	KDBUS_ATTACH_CGROUP		=  1ULL <<  9,
+	KDBUS_ATTACH_CAPS		=  1ULL << 10,
+	KDBUS_ATTACH_SECLABEL		=  1ULL << 11,
+	KDBUS_ATTACH_AUDIT		=  1ULL << 12,
+	KDBUS_ATTACH_CONN_DESCRIPTION	=  1ULL << 13,
+	_KDBUS_ATTACH_ALL		=  (1ULL << 14) - 1,
 	_KDBUS_ATTACH_ANY		=  ~0ULL
 };
 
