@@ -504,6 +504,27 @@ static int kbdctx_setup_bus(kbdctx *kc) {
         return kbdctx_query_locale(kc);
 }
 
+static void kbdctx_log_fn(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
+        char buf[LINE_MAX];
+        int sd_lvl;
+
+        if (lvl >= XKB_LOG_LEVEL_DEBUG)
+                sd_lvl = LOG_DEBUG;
+        else if (lvl >= XKB_LOG_LEVEL_INFO)
+                sd_lvl = LOG_INFO;
+        else if (lvl >= XKB_LOG_LEVEL_WARNING)
+                sd_lvl = LOG_INFO; /* most XKB warnings really are informational */
+        else if (lvl >= XKB_LOG_LEVEL_ERROR)
+                sd_lvl = LOG_ERR;
+        else if (lvl >= XKB_LOG_LEVEL_CRITICAL)
+                sd_lvl = LOG_CRIT;
+        else
+                sd_lvl = LOG_CRIT;
+
+        snprintf(buf, sizeof(buf), "idev-xkb: %s", format);
+        log_metav(sd_lvl, __FILE__, __LINE__, __func__, buf, args);
+}
+
 static kbdctx *kbdctx_ref(kbdctx *kc) {
         assert_return(kc, NULL);
         assert_return(kc->ref > 0, NULL);
@@ -561,6 +582,9 @@ static int kbdctx_new(kbdctx **out, idev_context *c) {
         kc->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!kc->xkb_context)
                 return errno > 0 ? -errno : -EFAULT;
+
+        xkb_context_set_log_fn(kc->xkb_context, kbdctx_log_fn);
+        xkb_context_set_log_level(kc->xkb_context, XKB_LOG_LEVEL_DEBUG);
 
         r = kbdctx_refresh_keymap(kc);
         if (r < 0)
