@@ -646,19 +646,27 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_DST_NAME:
-                        if (!service_name_is_valid(d->str))
-                                return -EBADMSG;
+                        if (!service_name_is_valid(d->str)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
 
                         destination = d->str;
                         break;
 
                 case KDBUS_ITEM_OWNED_NAME:
-                        if (!service_name_is_valid(d->name.name))
-                                return -EBADMSG;
-
-                        r = strv_extend(&m->creds.well_known_names, d->name.name);
-                        if (r < 0)
+                        if (!service_name_is_valid(d->name.name)) {
+                                r = -EBADMSG;
                                 goto fail;
+                        }
+
+                        if (bus->creds_mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
+                                r = strv_extend(&m->creds.well_known_names, d->name.name);
+                                if (r < 0)
+                                        goto fail;
+
+                                m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+                        }
                         break;
 
                 case KDBUS_ITEM_CONN_DESCRIPTION:
