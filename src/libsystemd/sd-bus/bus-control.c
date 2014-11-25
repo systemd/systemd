@@ -556,12 +556,14 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        m = (SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID) & mask;
+                        if (mask & SD_BUS_CREDS_AUDIT_SESSION_ID && (uint32_t) item->audit.sessionid != (uint32_t) -1) {
+                                c->audit_session_id = (uint32_t) item->audit.sessionid;
+                                c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
+                        }
 
-                        if (m) {
-                                c->audit_session_id = item->audit.sessionid;
-                                c->audit_login_uid = item->audit.loginuid;
-                                c->mask |= m;
+                        if (mask & SD_BUS_CREDS_AUDIT_LOGIN_UID && (uid_t) item->audit.loginuid != (uid_t) -1) {
+                                c->audit_login_uid = (uid_t) item->audit.loginuid;
+                                c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
                         }
                         break;
 
