@@ -297,6 +297,7 @@ int get_process_gid(pid_t pid, gid_t *gid);
 int get_process_capeff(pid_t pid, char **capeff);
 int get_process_cwd(pid_t pid, char **cwd);
 int get_process_root(pid_t pid, char **root);
+int get_process_environ(pid_t pid, char **environ);
 
 char hexchar(int x) _const_;
 int unhexchar(char c) _const_;

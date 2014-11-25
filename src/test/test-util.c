@@ -491,6 +491,7 @@ static void test_u64log2(void) {
 static void test_get_process_comm(void) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
+        _cleanup_free_ char *env = NULL;
         unsigned long long b;
         pid_t e;
         uid_t u;
@@ -542,6 +543,10 @@ static void test_get_process_comm(void) {
         r = get_process_root(me, &root);
         assert_se(r >= 0 || r == -EACCES);
         log_info("pid1 root: '%s'", root);
+
+        r = get_process_environ(me, &env);
+        assert_se(r >= 0 || r == -EACCES);
+        log_info("self strlen(environ): '%zd'", strlen(env));
 
         assert_se(get_ctty_devnr(1, &h) == -ENOENT);
 

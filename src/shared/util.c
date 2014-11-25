@@ -174,6 +174,69 @@ char* first_word(const char *s, const char *word) {
         return (char*) p;
 }
 
+static size_t cescape_char(char c, char *buf) {
+        char * buf_old = buf;
+
+        switch (c) {
+
+                case '\a':
+                        *(buf++) = '\\';
+                        *(buf++) = 'a';
+                        break;
+                case '\b':
+                        *(buf++) = '\\';
+                        *(buf++) = 'b';
+                        break;
+                case '\f':
+                        *(buf++) = '\\';
+                        *(buf++) = 'f';
+                        break;
+                case '\n':
+                        *(buf++) = '\\';
+                        *(buf++) = 'n';
+                        break;
+                case '\r':
+                        *(buf++) = '\\';
+                        *(buf++) = 'r';
+                        break;
+                case '\t':
+                        *(buf++) = '\\';
+                        *(buf++) = 't';
+                        break;
+                case '\v':
+                        *(buf++) = '\\';
+                        *(buf++) = 'v';
+                        break;
+                case '\\':
+                        *(buf++) = '\\';
+                        *(buf++) = '\\';
+                        break;
+                case '"':
+                        *(buf++) = '\\';
+                        *(buf++) = '"';
+                        break;
+                case '\'':
+                        *(buf++) = '\\';
+                        *(buf++) = '\'';
+                        break;
+
+                default:
+                        /* For special chars we prefer octal over
+                         * hexadecimal encoding, simply because glib's
+                         * g_strescape() does the same */
+                        if ((c < ' ') || (c >= 127)) {
+                                *(buf++) = '\\';
+                                *(buf++) = octchar((unsigned char) c >> 6);
+                                *(buf++) = octchar((unsigned char) c >> 3);
+                                *(buf++) = octchar((unsigned char) c);
+                        } else
+                                *(buf++) = c;
+                        break;
+        }
+
+        return buf - buf_old;
+}
+
 int close_nointr(int fd) {
         assert(fd >= 0);
 
@@ -892,6 +955,39 @@ int get_process_root(pid_t pid, char **root) {
         return get_process_link_contents(p, root);
 }
 
+int get_process_environ(pid_t pid, char **environ) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *outcome = NULL;
+        int c;
+        const char *p;
+        size_t allocated = 0, sz = 0;
+
+        assert(pid >= 0);
+        assert(environ);
+
+        p = procfs_file_alloca(pid, "environ");
+
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        while ((c = fgetc(f)) != EOF) {
+                if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
+                        return -ENOMEM;
+
+                if (c == '\0')
+                        outcome[sz++] = '\n';
+                else
+                        sz += cescape_char(c, outcome + sz);
+        }
+
+        outcome[sz] = '\0';
+        *environ = outcome;
+        outcome = NULL;
+
+        return 0;
+}
+
 char *strnappend(const char *s, const char *suffix, size_t b) {
         size_t a;
         char *r;
@@ -1271,63 +1367,7 @@ char *cescape(const char *s) {
                 return NULL;
 
         for (f = s, t = r; *f; f++)
-
-                switch (*f) {
-
-                case '\a':
-                        *(t++) = '\\';
-                        *(t++) = 'a';
-                        break;
-                case '\b':
-                        *(t++) = '\\';
-                        *(t++) = 'b';
-                        break;
-                case '\f':
-                        *(t++) = '\\';
-                        *(t++) = 'f';
-                        break;
-                case '\n':
-                        *(t++) = '\\';
-                        *(t++) = 'n';
-                        break;
-                case '\r':
-                        *(t++) = '\\';
-                        *(t++) = 'r';
-                        break;
-                case '\t':
-                        *(t++) = '\\';
-                        *(t++) = 't';
-                        break;
-                case '\v':
-                        *(t++) = '\\';
-                        *(t++) = 'v';
-                        break;
-                case '\\':
-                        *(t++) = '\\';
-                        *(t++) = '\\';
-                        break;
-                case '"':
-                        *(t++) = '\\';
-                        *(t++) = '"';
-                        break;
-                case '\'':
-                        *(t++) = '\\';
-                        *(t++) = '\'';
-                        break;
-
-                default:
-                        /* For special chars we prefer octal over
-                         * hexadecimal encoding, simply because glib's
-                         * g_strescape() does the same */
-                        if ((*f < ' ') || (*f >= 127)) {
-                                *(t++) = '\\';
-                                *(t++) = octchar((unsigned char) *f >> 6);
-                                *(t++) = octchar((unsigned char) *f >> 3);
-                                *(t++) = octchar((unsigned char) *f);
-                        } else
-                                *(t++) = *f;
-                        break;
-                }
+                t += cescape_char(*f, t);
 
         *t = 0;
 
