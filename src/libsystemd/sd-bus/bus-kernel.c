@@ -911,13 +911,12 @@ int bus_kernel_connect(sd_bus *b) {
 }
 
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
-        struct kdbus_cmd_free cmd;
+        struct kdbus_cmd_free cmd = {};
         struct kdbus_item *d;
 
         assert(bus);
         assert(k);
 
-        cmd.flags = 0;
         cmd.offset = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
 
         KDBUS_ITEM_FOREACH(d, k, items) {
