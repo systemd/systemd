@@ -35,6 +35,8 @@ External:
 
 Features:
 
+* kdbus: peeking is subject to a race when we look at a message while the message is being migrated to the implementor's connection. Needs kernel fix, and then we need to invoke the FREE ioctl in busname_peek_message()
+
 * kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
 
 * add "systemctl start -v foobar.service" that shows logs of a service
@@ -314,7 +316,6 @@ Features:
   - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
   - allow updating attach flags during runtime
-  - pid1: peek into activating message when activating a service
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - port to sd-resolve for connecting to TCP dbus servers
   - see if we can drop more message validation on the sending side
