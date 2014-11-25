@@ -1185,6 +1185,11 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 if (errno == EAGAIN)
                         return 0;
 
+                if (errno == EOVERFLOW) {
+                        log_debug("%s: kdbus reports %" PRIu64 " dropped broadcast messages, ignoring.", strna(bus->description), (uint64_t) recv.dropped_msgs);
+                        return 0;
+                }
+
                 return -errno;
         }
 
