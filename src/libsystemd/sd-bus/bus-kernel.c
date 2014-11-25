@@ -628,9 +628,15 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_AUDIT:
-                        m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
-                        m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
-                        m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
+                        if ((uint32_t) d->audit.sessionid != (uint32_t) -1) {
+                                m->creds.audit_session_id = (uint32_t) d->audit.sessionid;
+                                m->creds.mask |= SD_BUS_CREDS_AUDIT_SESSION_ID & bus->creds_mask;
+                        }
+
+                        if ((uid_t) d->audit.loginuid != (uid_t) -1) {
+                                m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
+                                m->creds.mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID & bus->creds_mask;
+                        }
                         break;
 
                 case KDBUS_ITEM_CAPS:
