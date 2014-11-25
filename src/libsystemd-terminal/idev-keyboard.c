@@ -558,7 +558,7 @@ static int kbdctx_new(kbdctx **out, idev_context *c) {
         kc->context = c;
 
         errno = 0;
-        kc->xkb_context = xkb_context_new(0);
+        kc->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!kc->xkb_context)
                 return errno > 0 ? -errno : -EFAULT;
 
