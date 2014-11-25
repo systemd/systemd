@@ -1,0 +1,92 @@
+# This file is part of systemd.
+#
+# Database for the DPI setting of mice, trackballs, other pointer devices that
+# cannot be queried directly.
+#
+# The lookup keys are composed in:
+#   70-mouse.rules
+#
+# Note: The format of the "mouse:" prefix match key is a
+# contract between the rules file and the hardware data, it might
+# change in later revisions to support more or better matches, it
+# is not necessarily expected to be a stable ABI.
+#
+# Match string format:
+# mouse:<subsystem>:v<vid>p<pid>:name:<name>:
+#
+# Supported subsystems: usb, bluetooth
+# vid/pid as 4-digit hex lowercase vendor/product
+#
+# if vid/pid is unavailable, use
+# mouse:*:name:<name>:
+# if name is unavailable, use
+# mouse:<subsystem>:v<vid>p<pid>:*
+#
+# For example, the following 5 matches all match the same mouse:
+# mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
+# mouse:usb:*:name:Lenovo Optical USB Mouse:
+# mouse:usb:v17efp6019:*
+# mouse:*:name:Lenovo Optical USB Mouse:
+#
+# DPI settings are specified as
+#    MOUSE_DPI=<dpi>[@<frequency>]
+#
+# Where <dpi> is the resolution in dots per inch, and <frequency> the
+# optional sampling frequency in Hz.
+#
+# The value of MOUSE_DPI is:
+# - a single integer for single-resolution mice, e.g.
+#   MOUSE_DPI=800
+#   or, if the frequency is known:
+#   MOUSE_DPI=800@120
+# - a space-separated list of resolutions for multi-resolution mice.
+#   The default resolution must be prefixed by an asterisk, the resultions
+#   in the database must be as shipped by the manufacturer. e.g.
+#   MOUSE_DPI=400 *800 2000
+#
+#   The order of resolutions is as configured by the HW manufacturer or in
+#   ascending order, whichever appropriate.
+#
+#   The frequency must be given to either none or all resolutions. If the
+#   device supports multiple frequencies, the order of items is
+#   MOUSE_DPI=r1@f1 r2@f1 r3@f1 r1@f2 r2@f2 r3@f2
+#
+#   If the default manufacturer-set resolution is unclear, a resolution of
+#   800 or 1000 should be set as default, if available. If neither is
+#   available, choose the "middle" resolution value of those available.
+#
+#   The list may contain a single item which must be marked with an
+#   asterisk.
+#
+# Local changes to the a non-default resolution of the mouse (e.g. through
+# third-party software) must not be entered into this file, use a local
+# hwdb instead.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-mouse-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   udevadm hwdb --update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the mouse in question. If in
+# doubt, simply use /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, open a bug report on
+#   http://bugs.freedesktop.org/enter_bug.cgi?product=systemd
+# and include your new rules, a description of the device, and the
+# output of
+#   udevadm info /dev/input/eventXX
+# (or /dev/input/event*).
+
+##########################################
+# Lenovo
+##########################################
+
+mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
+ MOUSE_DPI=1000@125
+
+##########################################
+# Logitech
+##########################################
+
+mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
+ MOUSE_DPI=400@500 *800@500 2000@500

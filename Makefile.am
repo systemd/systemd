@@ -3286,6 +3286,7 @@ dist_udevrules_DATA += \
 	rules/50-udev-default.rules \
 	rules/60-drm.rules \
 	rules/60-keyboard.rules \
+	rules/70-mouse.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-serial.rules \
 	rules/60-persistent-input.rules \
@@ -3312,7 +3313,8 @@ dist_udevhwdb_DATA = \
 	hwdb/20-acpi-vendor.hwdb \
 	hwdb/20-OUI.hwdb \
 	hwdb/20-net-ifname.hwdb \
-	hwdb/60-keyboard.hwdb
+	hwdb/60-keyboard.hwdb \
+	hwdb/70-mouse.hwdb
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
