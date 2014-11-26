@@ -1566,10 +1566,8 @@ int server_init(Server *s) {
 
                         s->audit_fd = fd;
 
-                } else {
-                        log_error("Unknown socket passed.");
-                        return -EINVAL;
-                }
+                } else
+                        log_error("Unknown socket passed as file descriptor %d, ignoring.", fd);
         }
 
         r = server_open_syslog_socket(s);
