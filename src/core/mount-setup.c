@@ -72,41 +72,41 @@ typedef struct MountPoint {
 #endif
 
 static const MountPoint mount_table[] = {
-        { "sysfs",      "/sys",                      "sysfs",      NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "devtmpfs",   "/dev",                      "devtmpfs",   "mode=755", MS_NOSUID|MS_STRICTATIME,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "securityfs", "/sys/kernel/security",      "securityfs", NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_NONE },
+        { "sysfs",       "/sys",                      "sysfs",      NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "proc",        "/proc",                     "proc",       NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=755",                MS_NOSUID|MS_STRICTATIME,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_NONE                   },
 #ifdef HAVE_SMACK
-        { "smackfs",    "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL },
-        { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL },
+        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",            MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          mac_smack_use, MNT_FATAL                  },
+        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          mac_smack_use, MNT_FATAL                  },
 #endif
-        { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "devpts",     "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
-          NULL,       MNT_IN_CONTAINER },
+        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=1777",               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "devpts",      "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
+          NULL,          MNT_IN_CONTAINER           },
 #ifdef HAVE_SMACK
-        { "tmpfs",      "/run",                      "tmpfs",      "mode=755,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL },
+        { "tmpfs",       "/run",                      "tmpfs",      "mode=755,smackfsroot=*",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          mac_smack_use, MNT_FATAL                  },
 #endif
-        { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_IN_CONTAINER },
-        { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
-        { "pstore",     "/sys/fs/pstore",            "pstore",     NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,       MNT_NONE },
+        { "tmpfs",       "/run",                      "tmpfs",      "mode=755",                MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755",                MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr", MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_IN_CONTAINER           },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_NONE                   },
 #ifdef ENABLE_EFI
-        { "efivarfs",   "/sys/firmware/efi/efivars", "efivarfs",   NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          is_efi_boot, MNT_NONE },
+        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          is_efi_boot,   MNT_NONE                   },
 #endif
 #ifdef ENABLE_KDBUS
         { "kdbusfs",    "/sys/fs/kdbus",             "kdbusfs",    NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -380,15 +380,19 @@ static int nftw_cb(
 #endif
 
 int mount_setup(bool loaded_policy) {
-        int r;
         unsigned i;
+        int r = 0;
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++) {
-                r = mount_one(mount_table + i, true);
+                int j;
 
-                if (r < 0)
-                        return r;
+                j = mount_one(mount_table + i, loaded_policy);
+                if (r == 0)
+                        r = j;
         }
+
+        if (r < 0)
+                return r;
 
 #if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
         /* Nodes in devtmpfs and /run need to be manually updated for

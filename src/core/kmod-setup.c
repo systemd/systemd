@@ -81,13 +81,13 @@ int kmod_setup(void) {
                 bool (*condition_fn)(void);
         } kmod_table[] = {
                 /* auto-loading on use doesn't work before udev is up */
-                { "autofs4", "/sys/class/misc/autofs", true, NULL },
+                { "autofs4", "/sys/class/misc/autofs", true, NULL                 },
 
                 /* early configure of ::1 on the loopback device */
-                { "ipv6",    "/sys/module/ipv6",       true, NULL },
+                { "ipv6",    "/sys/module/ipv6",       true, NULL                 },
 
                 /* this should never be a module */
-                { "unix",    "/proc/net/unix",         true, NULL },
+                { "unix",    "/proc/net/unix",         true, NULL                 },
 
                 /* IPC is needed before we bring up any other services */
                 { "kdbus",   "/sys/fs/kdbus",          false, cmdline_check_kdbus },
