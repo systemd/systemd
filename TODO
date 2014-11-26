@@ -42,7 +42,7 @@ Features:
   races though, since we should flush out all journal messages before
   returning from the "systemctl stop".
 
-* firstboot: make it useful to be run immediately after yum --installroot to set up a machine.
+* firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
 
 * timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
 
@@ -283,6 +283,8 @@ Features:
     handle the case where a large number of fds is appended that we
     cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
     253 messages)
+  - kdbus: auxgroups is now uin32_t, we don't have to convert the array anymore while exposing it in the creds structure
+  - kdbus: introduce a concept of "send-only" connections
 
 * sd-event
   - allow multiple signal handlers per signal?
@@ -389,7 +391,7 @@ Features:
   - given that logind now lets PID 1 do all nasty work, we can
     probably reduce the capability set it retains substantially.
     (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
-  - expose orientation sensors through logind
+  - expose orientation sensors and tablet mode through logind
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -640,7 +642,6 @@ Features:
   - how to make changes to sysctl and sysfs attributes
   - remote access
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
-  - how to integrate cgconfig and suchlike with systemd
   - testing with Harald's awesome test kit
   - auto-restart
   - how to develop against journal browsing APIs
