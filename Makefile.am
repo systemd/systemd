@@ -2039,7 +2039,6 @@ nodist_tmpfiles_DATA = \
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
 	tmpfiles.d/systemd-nologin.conf \
-	tmpfiles.d/systemd-remote.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf \
 	tmpfiles.d/var.conf
@@ -2094,8 +2093,7 @@ SYSINIT_TARGET_WANTS += \
 	systemd-sysusers.service
 
 dist_sysusers_DATA = \
-	sysusers.d/systemd.conf \
-	sysusers.d/systemd-remote.conf
+	sysusers.d/systemd.conf
 
 nodist_sysusers_DATA = \
 	sysusers.d/basic.conf
@@ -3838,6 +3836,16 @@ systemd_journal_remote_CFLAGS = \
 
 systemd_journal_remote_LDADD += \
 	$(MICROHTTPD_LIBS)
+
+if ENABLE_SYSUSERS
+dist_sysusers_DATA += \
+	sysusers.d/systemd-remote.conf
+endif
+
+if ENABLE_TMPFILES
+dist_tmpfiles_DATA += \
+	tmpfiles.d/systemd-remote.conf
+endif
 
 if HAVE_GNUTLS
 systemd_journal_remote_LDADD += \
