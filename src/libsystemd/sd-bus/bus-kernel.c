@@ -1377,6 +1377,7 @@ uint64_t attach_flags_to_kdbus(uint64_t mask) {
 int bus_kernel_create_bus(const char *name, bool world, char **s) {
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
+        size_t l;
         int fd;
 
         assert(name);
@@ -1386,19 +1387,20 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
         if (fd < 0)
                 return -errno;
 
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
-                                    offsetof(struct kdbus_item, data64) + sizeof(uint64_t) +
-                                    offsetof(struct kdbus_item, str) +
-                                    DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1),
+        l = strlen(name);
+        make = alloca0_align(offsetof(struct kdbus_cmd_make, items) +
+                             ALIGN8(offsetof(struct kdbus_item, bloom_parameter) + sizeof(struct kdbus_bloom_parameter)) +
+                             ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
+                             ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1),
                              8);
 
         make->size = offsetof(struct kdbus_cmd_make, items);
 
+        /* Set the bloom parameters */
         n = make->items;
         n->size = offsetof(struct kdbus_item, bloom_parameter) +
                   sizeof(struct kdbus_bloom_parameter);
         n->type = KDBUS_ITEM_BLOOM_PARAMETER;
-
         n->bloom_parameter.size = DEFAULT_BLOOM_SIZE;
         n->bloom_parameter.n_hash = DEFAULT_BLOOM_N_HASH;
 
@@ -1407,6 +1409,15 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
 
         make->size += ALIGN8(n->size);
 
+        /* The busses we create make no restrictions on what metadata
+         * peers can read from incoming messages. */
+        n = KDBUS_ITEM_NEXT(n);
+        n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
+        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
+        n->data64[0] = _KDBUS_ATTACH_ANY;
+        make->size += ALIGN8(n->size);
+
+        /* Set the a good name */
         n = KDBUS_ITEM_NEXT(n);
         sprintf(n->str, UID_FMT "-%s", getuid(), name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
@@ -1633,7 +1644,7 @@ int bus_kernel_make_starter(
         if (world_policy >= 0)
                 policy_cnt++;
 
-        size = ALIGN8(offsetof(struct kdbus_cmd_hello, items)) +
+        size = offsetof(struct kdbus_cmd_hello, items) +
                ALIGN8(offsetof(struct kdbus_item, str) + strlen(name) + 1) +
                policy_cnt * ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
 
@@ -1715,15 +1726,18 @@ int bus_kernel_realize_attach_flags(sd_bus *bus) {
         assert(bus);
         assert(bus->is_kernel);
 
-        update = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_update, items) +
-                                      offsetof(struct kdbus_item, data64) + sizeof(uint64_t)), 8);
+        update = alloca0_align(offsetof(struct kdbus_cmd_update, items) +
+                               ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)),
+                               8);
 
         n = update->items;
         n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
         n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
         n->data64[0] = bus->attach_flags;
 
-        update->size = offsetof(struct kdbus_cmd_update, items) + n->size;
+        update->size =
+                offsetof(struct kdbus_cmd_update, items) +
+                ALIGN8(n->size);
 
         if (ioctl(bus->input_fd, KDBUS_CMD_CONN_UPDATE, update) < 0)
                 return -errno;
