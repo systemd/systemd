@@ -1514,20 +1514,29 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
         int fd;
         size_t len;
 
+        assert(bus);
+
         len = strlen("/sys/fs/kdbus/") + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + strlen("/bus") + 1;
 
         if (path) {
-                p = malloc(len);
+                p = new(char, len);
                 if (!p)
                         return -ENOMEM;
-                *path = p;
         } else
-                p = alloca(len);
+                p = newa(char, len);
+
         sprintf(p, "/sys/fs/kdbus/" UID_FMT "-%s/bus", getuid(), bus);
 
         fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
+        if (fd < 0) {
+                if (path)
+                        free(p);
+
                 return -errno;
+        }
+
+        if (path)
+                *path = p;
 
         return fd;
 }
