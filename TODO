@@ -315,7 +315,6 @@ Features:
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - when kdbus does not take our message without memfds, try again with memfds
   - systemd-bus-proxyd needs to enforce good old XML policy
-  - allow updating attach flags during runtime
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
   - port to sd-resolve for connecting to TCP dbus servers
   - see if we can drop more message validation on the sending side
