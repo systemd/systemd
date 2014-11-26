@@ -147,5 +147,17 @@ int main(int argc, char *argv[]) {
 
         policy_free(&p);
 
+        /* dbus1 test file: many rules */
+
+        assert_se(test_policy_load(&p, "many-rules.conf") >= 0);
+        policy_dump(&p);
+        policy_free(&p);
+
+        /* dbus1 test file: generic test */
+
+        assert_se(test_policy_load(&p, "test.conf") >= 0);
+        policy_dump(&p);
+        policy_free(&p);
+
         return EXIT_SUCCESS;
 }
