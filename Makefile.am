@@ -1383,7 +1383,8 @@ EXTRA_DIST += \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
-	test/bus-policy/signals.conf
+	test/bus-policy/signals.conf \
+	test/bus-policy/check-own-rules.conf
 
 
 EXTRA_DIST += \

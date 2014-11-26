@@ -599,7 +599,7 @@ enum {
 };
 
 struct policy_check_filter {
-        int class;
+        PolicyItemClass class;
         const struct ucred *ucred;
         int message_type;
         const char *name;
@@ -651,7 +651,7 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
         case POLICY_ITEM_OWN_PREFIX:
                 assert(filter->name);
 
-                if (streq(i->name, "*") || service_name_startswith(i->name, filter->name))
+                if (streq(i->name, "*") || service_name_startswith(filter->name, i->name))
                         return is_permissive(i);
                 break;
 
@@ -687,7 +687,8 @@ static int check_policy_items(PolicyItem *items, const struct policy_check_filte
         /* Check all policies in a set - a broader one might be followed by a more specific one,
          * and the order of rules in policy definitions matters */
         LIST_FOREACH(items, i, items) {
-                if (i->class != filter->class)
+                if (i->class != filter->class &&
+                    IN_SET(i->class, POLICY_ITEM_OWN, POLICY_ITEM_OWN_PREFIX) != IN_SET(filter->class, POLICY_ITEM_OWN, POLICY_ITEM_OWN_PREFIX))
                         continue;
 
                 r = check_policy_item(i, filter);

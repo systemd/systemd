@@ -131,5 +131,21 @@ int main(int argc, char *argv[]) {
 
         policy_free(&p);
 
+        /* dbus1 test file: ownership */
+
+        assert_se(test_policy_load(&p, "check-own-rules.conf") >= 0);
+        policy_dump(&p);
+
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop") == false);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystem") == false);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems") == true);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems.foo") == true);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems.foo.bar") == true);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2") == false);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2.foo") == false);
+        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2.foo.bar") == false);
+
+        policy_free(&p);
+
         return EXIT_SUCCESS;
 }
