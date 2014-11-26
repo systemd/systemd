@@ -86,26 +86,32 @@ static void help(void) {
                "  -A,--attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
                "  -p,--property-match=<key>=<value>  trigger devices with a matching property\n"
                "  -g,--tag-match=<key>=<value>       trigger devices with a matching property\n"
-               "  -y,--sysname-match=<name>          trigger devices with a matching name\n"
+               "  -y,--sysname-match=<name>          trigger devices with this /sys path\n"
+               "     --name-match=<name>             trigger devices with this /dev name\n"
                "  -b,--parent-match=<name>           trigger devices with that parent device\n"
                "  -h,--help\n\n");
 }
 
 static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
+        enum {
+                ARG_NAME = 0x100,
+        };
+
         static const struct option options[] = {
-                { "verbose",           no_argument,       NULL, 'v' },
-                { "dry-run",           no_argument,       NULL, 'n' },
-                { "type",              required_argument, NULL, 't' },
-                { "action",            required_argument, NULL, 'c' },
-                { "subsystem-match",   required_argument, NULL, 's' },
-                { "subsystem-nomatch", required_argument, NULL, 'S' },
-                { "attr-match",        required_argument, NULL, 'a' },
-                { "attr-nomatch",      required_argument, NULL, 'A' },
-                { "property-match",    required_argument, NULL, 'p' },
-                { "tag-match",         required_argument, NULL, 'g' },
-                { "sysname-match",     required_argument, NULL, 'y' },
-                { "parent-match",      required_argument, NULL, 'b' },
-                { "help",              no_argument,       NULL, 'h' },
+                { "verbose",           no_argument,       NULL, 'v'      },
+                { "dry-run",           no_argument,       NULL, 'n'      },
+                { "type",              required_argument, NULL, 't'      },
+                { "action",            required_argument, NULL, 'c'      },
+                { "subsystem-match",   required_argument, NULL, 's'      },
+                { "subsystem-nomatch", required_argument, NULL, 'S'      },
+                { "attr-match",        required_argument, NULL, 'a'      },
+                { "attr-nomatch",      required_argument, NULL, 'A'      },
+                { "property-match",    required_argument, NULL, 'p'      },
+                { "tag-match",         required_argument, NULL, 'g'      },
+                { "sysname-match",     required_argument, NULL, 'y'      },
+                { "name-match",        required_argument, NULL, ARG_NAME },
+                { "parent-match",      required_argument, NULL, 'b'      },
+                { "help",              no_argument,       NULL, 'h'      },
                 {}
         };
         enum {
@@ -187,6 +193,19 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_NAME: {
+                        _cleanup_udev_device_unref_ struct udev_device *dev;
+
+                        dev = find_device(udev, optarg, "/dev/");
+                        if (dev == NULL) {
+                                log_error("unable to open the device '%s'", optarg);
+                                return 2;
+                        }
+
+                        udev_enumerate_add_match_parent(udev_enumerate, dev);
+                        break;
+                }
+
                 case 'h':
                         help();
                         return 0;
@@ -197,9 +216,16 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 }
         }
 
-        if (optind < argc) {
-                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
-                return 1;
+        for (; optind < argc; optind++) {
+                _cleanup_udev_device_unref_ struct udev_device *dev;
+
+                dev = find_device(udev, argv[optind], NULL);
+                if (dev == NULL) {
+                        log_error("unable to open the device '%s'", argv[optind]);
+                        return 2;
+                }
+
+                udev_enumerate_add_match_parent(udev_enumerate, dev);
         }
 
         switch (device_type) {
