@@ -124,8 +124,8 @@ struct kdbus_caps {
  *   KDBUS_ITEM_AUDIT
  */
 struct kdbus_audit {
-	__u64 sessionid;
-	__u64 loginuid;
+	__u32 sessionid;
+	__u32 loginuid;
 };
 
 /**
