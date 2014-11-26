@@ -157,6 +157,25 @@ int main(int argc, char *argv[]) {
 
         assert_se(test_policy_load(&p, "test.conf") >= 0);
         policy_dump(&p);
+
+        ucred.uid = 0;
+        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService") == true);
+        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService2") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+
+        ucred.uid = 100;
+        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService") == false);
+        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService2") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
+        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
+        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+
         policy_free(&p);
 
         return EXIT_SUCCESS;

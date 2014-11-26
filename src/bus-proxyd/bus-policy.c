@@ -627,7 +627,7 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
                 if (i->name && !streq_ptr(i->name, filter->name))
                         break;
 
-                if ((i->message_type != _POLICY_ITEM_CLASS_UNSET) && (i->message_type != filter->message_type))
+                if ((i->message_type != 0) && (i->message_type != filter->message_type))
                         break;
 
                 if (i->path && !streq_ptr(i->path, filter->path))
@@ -688,7 +688,7 @@ static int check_policy_items(PolicyItem *items, const struct policy_check_filte
          * and the order of rules in policy definitions matters */
         LIST_FOREACH(items, i, items) {
                 if (i->class != filter->class &&
-                    IN_SET(i->class, POLICY_ITEM_OWN, POLICY_ITEM_OWN_PREFIX) != IN_SET(filter->class, POLICY_ITEM_OWN, POLICY_ITEM_OWN_PREFIX))
+                    !(i->class == POLICY_ITEM_OWN_PREFIX && filter->class == POLICY_ITEM_OWN))
                         continue;
 
                 r = check_policy_item(i, filter);
@@ -706,6 +706,8 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
 
         assert(p);
         assert(filter);
+
+        assert(IN_SET(filter->class, POLICY_ITEM_SEND, POLICY_ITEM_RECV, POLICY_ITEM_OWN, POLICY_ITEM_USER, POLICY_ITEM_GROUP));
 
         /*
          * The policy check is implemented by the following logic:
