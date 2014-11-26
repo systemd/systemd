@@ -21,6 +21,15 @@ ELAPSED=$(($END_SEC-$START_SEC))
 systemctl list-jobs > /root/list-jobs.txt
 grep 'sleep\.service.*running' /root/list-jobs.txt || exit 1
 grep 'hello\.service' /root/list-jobs.txt && exit 1
+systemctl stop sleep.service hello-after-sleep.target || exit 1
+
+# Test for a crash when enqueueing a JOB_NOP when other job already exists
+systemctl start --no-block hello-after-sleep.target || exit 1
+# hello.service should still be waiting, so these try-restarts will collapse
+# into NOPs.
+systemctl try-restart --fail hello.service || exit 1
+systemctl try-restart hello.service || exit 1
+systemctl stop hello.service sleep.service hello-after-sleep.target || exit 1
 
 # TODO: add more job queueing/merging tests here.
 
