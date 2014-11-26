@@ -207,7 +207,8 @@ int mac_selinux_generic_access_check(
                         message,
                         SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|
                         SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
-                        SD_BUS_CREDS_SELINUX_CONTEXT,
+                        SD_BUS_CREDS_SELINUX_CONTEXT|
+                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
                         &creds);
         if (r < 0)
                 goto finish;

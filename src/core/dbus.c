@@ -776,6 +776,14 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
+        /* Let's make sure we have enough credential bits so that we can make security and selinux decisions */
+        r = sd_bus_negotiate_creds(bus, 1,
+                                   SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
+                                   SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
+                                   SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0)
+                log_warning("Failed to enable credential passing, ignoring: %s", strerror(-r));
+
         r = bus_setup_api_vtables(m, bus);
         if (r < 0)
                 return r;
