@@ -1975,7 +1975,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = sd_bus_negotiate_creds(bus, _SD_BUS_CREDS_ALL);
+                r = sd_bus_negotiate_creds(bus, true, _SD_BUS_CREDS_ALL);
                 if (r < 0) {
                         log_error("Failed to enable credentials: %s", strerror(-r));
                         goto finish;

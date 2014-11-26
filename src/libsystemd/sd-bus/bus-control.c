@@ -62,7 +62,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l);
         n = alloca0_align(size, 8);
         n->size = size;
-        kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
+        n->flags = request_name_flags_to_kdbus(flags);
 
         n->items[0].size = KDBUS_ITEM_HEADER_SIZE + l;
         n->items[0].type = KDBUS_ITEM_NAME;
@@ -643,7 +643,7 @@ static int bus_get_name_creds_kdbus(
         }
 
         cmd->size = size;
-        kdbus_translate_attach_flags(mask, (uint64_t*) &cmd->flags);
+        cmd->flags = attach_flags_to_kdbus(mask);
 
         /* If augmentation is on, and the bus doesn't didn't allow us
          * to get the bits we want, then ask for the PID/TID so that we
@@ -927,7 +927,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 struct kdbus_info *creator_info;
 
                 cmd.size = sizeof(cmd);
-                kdbus_translate_attach_flags(mask, (uint64_t*) &cmd.flags);
+                cmd.flags = attach_flags_to_kdbus(mask);
 
                 /* If augmentation is on, and the bus doesn't didn't allow us
                  * to get the bits we want, then ask for the PID/TID so that we

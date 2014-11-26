@@ -274,24 +274,50 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
 }
 
 _public_ int sd_bus_negotiate_timestamp(sd_bus *bus, int b) {
+        uint64_t new_flags;
         assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_TIMESTAMP, b);
+        new_flags = bus->attach_flags;
+        SET_FLAG(new_flags, KDBUS_ATTACH_TIMESTAMP, b);
+
+        if (bus->attach_flags == new_flags)
+                return 0;
+
+        bus->attach_flags = new_flags;
+        if (bus->state != BUS_UNSET && bus->is_kernel)
+                bus_kernel_realize_attach_flags(bus);
+
         return 0;
 }
 
-_public_ int sd_bus_negotiate_creds(sd_bus *bus, uint64_t mask) {
+_public_ int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t mask) {
+        uint64_t new_flags;
+
         assert_return(bus, -EINVAL);
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        /* The well knowns we need unconditionally, so that matches can work */
-        bus->creds_mask = mask | SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
+        if (b)
+                bus->creds_mask |= mask;
+        else
+                bus->creds_mask &= ~mask;
 
-        return kdbus_translate_attach_flags(bus->creds_mask, &bus->attach_flags);
+        /* The well knowns we need unconditionally, so that matches can work */
+        bus->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
+
+        /* Make sure we don't lose the timestamp flag */
+        new_flags = (bus->attach_flags & KDBUS_ATTACH_TIMESTAMP) | attach_flags_to_kdbus(bus->creds_mask);
+        if (bus->attach_flags == new_flags)
+                return 0;
+
+        bus->attach_flags = new_flags;
+        if (bus->state != BUS_UNSET && bus->is_kernel)
+                bus_kernel_realize_attach_flags(bus);
+
+        return 0;
 }
 
 _public_ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {

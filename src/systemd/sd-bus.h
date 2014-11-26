@@ -127,7 +127,7 @@ int sd_bus_set_description(sd_bus *bus, const char *description);
 int sd_bus_set_monitor(sd_bus *bus, int b);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
-int sd_bus_negotiate_creds(sd_bus *bus, uint64_t creds_mask);
+int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
 int sd_bus_start(sd_bus *ret);
 
 int sd_bus_try_close(sd_bus *bus);

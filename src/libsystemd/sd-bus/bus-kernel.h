@@ -81,9 +81,11 @@ void bus_kernel_flush_memfd(sd_bus *bus);
 
 int bus_kernel_parse_unique_name(const char *s, uint64_t *id);
 
-int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
-int kdbus_translate_attach_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
+uint64_t request_name_flags_to_kdbus(uint64_t sd_bus_flags);
+uint64_t attach_flags_to_kdbus(uint64_t sd_bus_flags);
 
 int bus_kernel_try_close(sd_bus *bus);
 
 int bus_kernel_drop_one(int fd);
+
+int bus_kernel_realize_attach_flags(sd_bus *bus);

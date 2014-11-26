@@ -1313,10 +1313,8 @@ void bus_kernel_flush_memfd(sd_bus *b) {
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].mapped);
 }
 
-int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
+uint64_t request_name_flags_to_kdbus(uint64_t flags) {
         uint64_t f = 0;
-
-        assert(kdbus_flags);
 
         if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
                 f |= KDBUS_NAME_ALLOW_REPLACEMENT;
@@ -1327,14 +1325,11 @@ int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
         if (flags & SD_BUS_NAME_QUEUE)
                 f |= KDBUS_NAME_QUEUE;
 
-        *kdbus_flags = f;
-        return 0;
+        return f;
 }
 
-int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
+uint64_t attach_flags_to_kdbus(uint64_t mask) {
         uint64_t m = 0;
-
-        assert(kdbus_mask);
 
         if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                     SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID))
@@ -1376,8 +1371,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS)
                 m |= KDBUS_ATTACH_AUXGROUPS;
 
-        *kdbus_mask = m;
-        return 0;
+        return m;
 }
 
 int bus_kernel_create_bus(const char *name, bool world, char **s) {
@@ -1709,6 +1703,29 @@ int bus_kernel_drop_one(int fd) {
         assert(fd >= 0);
 
         if (ioctl(fd, KDBUS_CMD_MSG_RECV, &recv) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bus_kernel_realize_attach_flags(sd_bus *bus) {
+        struct kdbus_cmd_update *update;
+        struct kdbus_item *n;
+
+        assert(bus);
+        assert(bus->is_kernel);
+
+        update = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_update, items) +
+                                      offsetof(struct kdbus_item, data64) + sizeof(uint64_t)), 8);
+
+        n = update->items;
+        n->type = KDBUS_ITEM_ATTACH_FLAGS_RECV;
+        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
+        n->data64[0] = bus->attach_flags;
+
+        update->size = offsetof(struct kdbus_cmd_update, items) + n->size;
+
+        if (ioctl(bus->input_fd, KDBUS_CMD_CONN_UPDATE, update) < 0)
                 return -errno;
 
         return 0;
