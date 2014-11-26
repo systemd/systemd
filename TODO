@@ -37,10 +37,6 @@ Features:
 
 * sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
 
-* kdbus: peeking is subject to a race when we look at a message while the message is being migrated to the implementor's connection. Needs kernel fix, and then we need to invoke the FREE ioctl in busname_peek_message()
-
-* kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
-
 * add "systemctl start -v foobar.service" that shows logs of a service
   while the start command runs. This is non-trivial to do without
   races though, since we should flush out all journal messages before
@@ -52,27 +48,13 @@ Features:
 
 * networkd-wait-online really should have a timeout by default
 
-* expose orientation sensors through logind
-
 * add infrastructure to allocate dynamic/transient users and UID ranges, for use in user-namespaced containers, per-seat gdm login screens and gdm guest sessions
-
-* resolved: maybe randomize DNS UDP source ports
-
-* resolved: maybe compare query section of DNS replies
 
 * machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
 
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
 
-* kdbus: busnames.target should get pulled in by basic.target
-
 * code cleanup: retire FOREACH_WORD_QUOTED, port to unquote_first_word() loops instead
-
-* logind: when the power button is pressed short, just popup a logout dialog. If it is pressed for 1s, do the usual shutdown. Inspiration are Macs here.
-
-* optionally support running journald from the command line for testing purposes in external projects
-
-* journald: allow per-priority and per-service retention times when rotating/vacuuming
 
 * introduce systemd-timesync-wait.service or so to sync on an NTP fix?
 
@@ -91,26 +73,15 @@ Features:
 
 * maybe provide an API to allow migration of foreign PIDs into existing scopes.
 
-* PID 1 doesn't apply nspawns devices cgroup policy
-
 * maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
 
 * man: document that corrupted journal files is nothing to act on
 
-* bus-proxy: when passing messages from kdbus, make sure we properly
-  handle the case where a large number of fds is appended that we
-  cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
-  253 messages)
-
 * man: maybe use the word "inspect" rather than "introspect"?
-
-* introduce machines.target to order after all nspawn instances
-
-* systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
 
 * "machinectl list" should probably show columns for OS version and IP addresses
 
-* systemctl: if it fails, show log output?
+* systemctl: if some operation fails, show log output?
 
 * maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
 
@@ -118,23 +89,13 @@ Features:
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
 
-* journald: make use of uid-range.h to managed uid ranges to split
-  journals in.
-
 * tmpfiles: port to unquote_many_words(), similar to sysusers
 
 * unquote_many_words() should probably be used by a lot of code that
   currently uses FOREACH_WORD and friends. For example, most conf
   parsing callbacks should use it.
 
-* logind: make the Suspend()/Hibernate() bus calls wait for the for
-  the job to be completed. before returning, so that clients can wait
-  for "systemctl suspend" to finish to know when the suspending is
-  complete.
-
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
-
-* journald: allows specification of UID range for splitting up journal files
 
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
@@ -174,16 +135,12 @@ Features:
   - edns0
   - dname
   - cname on PTR (?)
-
-* Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
-  without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
-  pull-in the policy.
+  - maybe randomize DNS UDP source ports
+  - maybe compare query section of DNS replies
 
 * Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
 * Add a new verb "systemctl top"
-
-* logind: allow users to kill or lock their own sessions
 
 * add new gpt type for btrfs volumes
 
@@ -199,8 +156,6 @@ Features:
 
 * figure out a nice way how we can let the admin know what child/sibling unit causes cgroup membership for a specific unit
 
-* journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
-
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
@@ -209,8 +164,6 @@ Features:
 * Run most system services with cgroupfs read-only and procfs with a more secure mode (doesn't work, since the hidepid= option is per-pid-namespace, not per-mount)
 
 * sd-event: generate a failure of a default event loop is executed out-of-thread
-
-* expose "Locked" property on logind sesison objects
 
 * add bus api to query unit file's X fields.
 
@@ -222,11 +175,6 @@ Features:
   - Support LUKS for root devices
   - Define new partition type for encrypted swap? Support probed LUKS for encrypted swap?
   - Make /home automount rather than mount?
-
-* improve journalctl performance by loading journal files
-  lazily. Encode just enough information in the file name, so that we
-  do not have to open it to know that it is not interesting for us, for
-  the most common operations.
 
 * add generator that pulls in systemd-network from containers when
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
@@ -295,10 +243,6 @@ Features:
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
-* given that logind now lets PID 1 do all nasty work, we can
-  probably reduce the capability set it retains substantially.
-  (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
-
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
 * make sure gdm does not use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
@@ -329,6 +273,16 @@ Features:
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
+  - kdbus: peeking is subject to a race when we look at a message while the message is being migrated to the implementor's connection. Needs kernel fix, and then we need to invoke the FREE ioctl in busname_peek_message()
+  - kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
+  - kdbus: busnames.target should get pulled in by basic.target
+  - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
+    without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
+    pull-in the policy.
+  - bus-proxy: when passing messages from kdbus, make sure we properly
+    handle the case where a large number of fds is appended that we
+    cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
+    253 messages)
 
 * sd-event
   - allow multiple signal handlers per signal?
@@ -423,6 +377,19 @@ Features:
     any session we should probably just become a NOP, since that's
     usually not a real user session but just some system code that just
     needs setuid().
+  - logind: make the Suspend()/Hibernate() bus calls wait for the for
+    the job to be completed. before returning, so that clients can wait
+    for "systemctl suspend" to finish to know when the suspending is
+    complete.
+  - logind: when the power button is pressed short, just popup a
+    logout dialog. If it is pressed for 1s, do the usual
+    shutdown. Inspiration are Macs here.
+  - logind: allow users to kill or lock their own sessions
+  - expose "Locked" property on logind sesison objects
+  - given that logind now lets PID 1 do all nasty work, we can
+    probably reduce the capability set it retains substantially.
+    (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
+  - expose orientation sensors through logind
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -469,6 +436,15 @@ Features:
     boot, and causes the journal to be moved back to /run on shutdown,
     so that we do not keep /var busy. This needs to happen synchronously,
     hence doing this via signals is not going to work.
+  - optionally support running journald from the command line for testing purposes in external projects
+  - journald: allow per-priority and per-service retention times when rotating/vacuuming
+  - journald: make use of uid-range.h to managed uid ranges to split
+    journals in.
+  - journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
+  - improve journalctl performance by loading journal files
+    lazily. Encode just enough information in the file name, so that we
+    do not have to open it to know that it is not interesting for us, for
+    the most common operations.
 
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
@@ -538,6 +514,9 @@ Features:
   - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
   - support taking a btrfs snapshot at startup and dropping it afterwards
+  - introduce machines.target to order after all nspawn instances
+  - systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
+  - PID 1 doesn't apply nspawns devices cgroup policy
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
