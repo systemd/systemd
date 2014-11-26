@@ -286,6 +286,7 @@ Features:
     cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
     253 messages)
   - kdbus: introduce a concept of "send-only" connections
+  - kdbus: add counter for refused unicast messages that is passed out via the RECV ioctl. SImilar to the counter for dropped multicast messages we already have.
 
 * sd-event
   - allow multiple signal handlers per signal?
