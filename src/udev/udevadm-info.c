@@ -31,6 +31,7 @@
 
 #include "udev.h"
 #include "udev-util.h"
+#include "udevadm-util.h"
 
 static bool skip_attribute(const char *name) {
         static const char* const skip[] = {
@@ -255,35 +256,6 @@ static void cleanup_db(struct udev *udev) {
                 cleanup_dir(dir, 0, 1);
                 closedir(dir);
         }
-}
-
-static struct udev_device *find_device(struct udev *udev, const char *id, const char *prefix) {
-        char name[UTIL_PATH_SIZE];
-
-        if (prefix && !startswith(id, prefix)) {
-                strscpyl(name, sizeof(name), prefix, id, NULL);
-                id = name;
-        }
-
-        if (startswith(id, "/dev/")) {
-                struct stat statbuf;
-                char type;
-
-                if (stat(id, &statbuf) < 0)
-                        return NULL;
-
-                if (S_ISBLK(statbuf.st_mode))
-                        type = 'b';
-                else if (S_ISCHR(statbuf.st_mode))
-                        type = 'c';
-                else
-                        return NULL;
-
-                return udev_device_new_from_devnum(udev, type, statbuf.st_rdev);
-        } else if (startswith(id, "/sys/"))
-                return udev_device_new_from_syspath(udev, id);
-        else
-                return NULL;
 }
 
 static int uinfo(struct udev *udev, int argc, char *argv[]) {

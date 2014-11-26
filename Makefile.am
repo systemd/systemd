@@ -3462,7 +3462,9 @@ udevadm_SOURCES = \
 	src/udev/udevadm-settle.c \
 	src/udev/udevadm-trigger.c \
 	src/udev/udevadm-test.c \
-	src/udev/udevadm-test-builtin.c
+	src/udev/udevadm-test-builtin.c \
+	src/udev/udevadm-util.c \
+	src/udev/udevadm-util.h
 
 udevadm_LDADD = \
 	libudev-core.la

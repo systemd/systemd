@@ -32,6 +32,7 @@
 
 #include "udev.h"
 #include "udev-util.h"
+#include "udevadm-util.h"
 #include "util.h"
 
 static int verbose;
@@ -174,25 +175,18 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         udev_enumerate_add_match_sysname(udev_enumerate, optarg);
                         break;
                 case 'b': {
-                        char path[UTIL_PATH_SIZE];
-                        struct udev_device *dev;
+                        _cleanup_udev_device_unref_ struct udev_device *dev;
 
-                        /* add sys dir if needed */
-                        if (!startswith(optarg, "/sys"))
-                                strscpyl(path, sizeof(path), "/sys", optarg, NULL);
-                        else
-                                strscpy(path, sizeof(path), optarg);
-                        util_remove_trailing_chars(path, '/');
-                        dev = udev_device_new_from_syspath(udev, path);
+                        dev = find_device(udev, optarg, "/sys");
                         if (dev == NULL) {
                                 log_error("unable to open the device '%s'", optarg);
                                 return 2;
                         }
+
                         udev_enumerate_add_match_parent(udev_enumerate, dev);
-                        /* drop reference immediately, enumerate pins the device as long as needed */
-                        udev_device_unref(dev);
                         break;
                 }
+
                 case 'h':
                         help();
                         return 0;
