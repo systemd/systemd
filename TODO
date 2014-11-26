@@ -257,14 +257,15 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - kdbus: the kernel needs to tell us whether it accepted a message because of a method call window. THis can then be used by the proxy to blindly accept all method replies with that flag set as OK.
   - systemd-bus-proxyd needs to enforce good old XML policy
-  - kdbus: maybe add controlling tty and ppid metadata fields
   - kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
   - kdbus: busnames.target should get pulled in by basic.target
   - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
     without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
     pull-in the policy.
   - port to sd-resolve for connecting to TCP dbus servers
+  - kdbus: maybe add controlling tty and ppid metadata fields
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - when kdbus does not take our message without memfds, try again with memfds
   - introduce sd_bus_emit_object_added()/sd_bus_emit_object_removed() that automatically includes the build-in interfaces in the list
