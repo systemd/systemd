@@ -543,14 +543,12 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         if (!streq_ptr(sd_bus_message_get_destination(m), "org.freedesktop.DBus"))
                 return 0;
 
+        /* The "Hello()" call is is handled in process_hello() */
+
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                if (0 && !isempty(sd_bus_message_get_signature(m, true))) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
-
-                        return synthetic_reply_method_errno(m, r, &error);
-                }
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 return synthetic_reply_method_return(m, "s",
                         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" "
@@ -640,6 +638,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "AddMatch")) {
                 const char *match;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
@@ -652,6 +653,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RemoveMatch")) {
                 const char *match;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &match);
                 if (r < 0)
@@ -669,6 +673,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
@@ -678,6 +685,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, &error);
                 if (r < 0)
@@ -689,6 +699,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
@@ -698,6 +711,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetId")) {
                 sd_id128_t server_id;
                 char buf[SD_ID128_STRING_MAX];
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_get_owner_id(a, &server_id);
                 if (r < 0)
@@ -709,6 +725,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 const char *name;
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
@@ -723,10 +742,11 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
 
                 return synthetic_reply_method_return(m, "s", creds->unique_name);
 
-        /* "Hello" is handled in process_hello() */
-
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListActivatableNames")) {
                 _cleanup_strv_free_ char **names = NULL;
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_list_names(a, NULL, &names);
                 if (r < 0)
@@ -739,6 +759,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListNames")) {
                 _cleanup_strv_free_ char **names = NULL;
+
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_list_names(a, &names, NULL);
                 if (r < 0)
@@ -762,6 +785,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
                 int err = 0;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &arg0);
                 if (r < 0)
@@ -821,6 +847,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "NameHasOwner")) {
                 const char *name;
 
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
@@ -836,6 +865,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReleaseName")) {
                 const char *name;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "s", &name);
                 if (r < 0)
@@ -858,6 +890,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ReloadConfig")) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                if (!sd_bus_message_has_signature(m, ""))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_error_setf(&error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
 
                 return synthetic_reply_method_errno(m, r, &error);
@@ -866,6 +901,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 const char *name;
                 uint32_t flags, param;
                 bool in_queue;
+
+                if (!sd_bus_message_has_signature(m, "su"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
@@ -910,6 +948,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 const char *name;
                 uint32_t flags;
 
+                if (!sd_bus_message_has_signature(m, "su"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
@@ -942,6 +983,9 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "UpdateActivationEnvironment")) {
                 _cleanup_bus_message_unref_ sd_bus_message *msg = NULL;
                 _cleanup_strv_free_ char **args = NULL;
+
+                if (!sd_bus_message_has_signature(m, "a{ss}"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
                 r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{ss}");
                 if (r < 0)

@@ -231,6 +231,7 @@ int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const cha
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_error(sd_bus_message *m, const char *name);
 int sd_bus_message_is_empty(sd_bus_message *m);
+int sd_bus_message_has_signature(sd_bus_message *m, const char *signature);
 
 int sd_bus_message_set_expect_reply(sd_bus_message *m, int b);
 int sd_bus_message_set_auto_start(sd_bus_message *m, int b);
