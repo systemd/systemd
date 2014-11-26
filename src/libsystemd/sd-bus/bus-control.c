@@ -392,10 +392,11 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 return bus_list_names_dbus1(bus, acquired, activatable);
 }
 
-static int bus_populate_creds_from_items(sd_bus *bus,
-                                         struct kdbus_info *info,
-                                         uint64_t mask,
-                                         sd_bus_creds *c) {
+static int bus_populate_creds_from_items(
+                sd_bus *bus,
+                struct kdbus_info *info,
+                uint64_t mask,
+                sd_bus_creds *c) {
 
         struct kdbus_item *item;
         uint64_t m;
@@ -470,9 +471,9 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_PID_COMM:
                         if (mask & SD_BUS_CREDS_COMM) {
-                                c->comm = strdup(item->str);
-                                if (!c->comm)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->comm, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= SD_BUS_CREDS_COMM;
                         }
@@ -480,9 +481,9 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_TID_COMM:
                         if (mask & SD_BUS_CREDS_TID_COMM) {
-                                c->tid_comm = strdup(item->str);
-                                if (!c->tid_comm)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->tid_comm, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= SD_BUS_CREDS_TID_COMM;
                         }
@@ -490,9 +491,9 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_EXE:
                         if (mask & SD_BUS_CREDS_EXE) {
-                                c->exe = strdup(item->str);
-                                if (!c->exe)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->exe, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= SD_BUS_CREDS_EXE;
                         }
@@ -515,17 +516,17 @@ static int bus_populate_creds_from_items(sd_bus *bus,
                              SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID) & mask;
 
                         if (m) {
-                                c->cgroup = strdup(item->str);
-                                if (!c->cgroup)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->cgroup, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 r = bus_get_root_path(bus);
                                 if (r < 0)
                                         return r;
 
-                                c->cgroup_root = strdup(bus->cgroup_root);
-                                if (!c->cgroup_root)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->cgroup_root, bus->cgroup_root);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= m;
                         }
@@ -547,9 +548,9 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_SECLABEL:
                         if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                                c->label = strdup(item->str);
-                                if (!c->label)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->label, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
                         }
@@ -579,9 +580,9 @@ static int bus_populate_creds_from_items(sd_bus *bus,
 
                 case KDBUS_ITEM_CONN_DESCRIPTION:
                         if (mask & SD_BUS_CREDS_DESCRIPTION) {
-                                c->description = strdup(item->str);
-                                if (!c->description)
-                                        return -ENOMEM;
+                                r = free_and_strdup(&c->description, item->str);
+                                if (r < 0)
+                                        return r;
 
                                 c->mask |= SD_BUS_CREDS_DESCRIPTION;
                         }
