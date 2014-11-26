@@ -124,7 +124,7 @@
         </refsect1>
 
         <refsect1>
-                <title><filename>/etc/fstab</filename></title>
+                <title><filename>fstab</filename></title>
 
                 <para>Mount units may either be configured via unit
                 files, or via <filename>/etc/fstab</filename> (see
@@ -142,8 +142,7 @@
                 <para>When reading <filename>/etc/fstab</filename> a
                 few special mount options are understood by systemd
                 which influence how dependencies are created for mount
-                points from <filename>/etc/fstab</filename>. systemd
-                will create a dependency of type
+                points. systemd will create a dependency of type
                 <option>Wants</option> or <option>Requires</option>
                 (see option <option>nofail</option> below), from
                 either <filename>local-fs.target</filename> or
@@ -181,30 +180,32 @@
                   </varlistentry>
 
                   <varlistentry>
-                    <term><option>nofail</option></term>
-                    <term><option>fail</option></term>
-
-                    <listitem><para>With <option>nofail</option> this
-                    mount will be only wanted, not required, by the
-                    <filename>local-fs.target</filename>. This means
-                    that the boot will continue even if this mount
-                    point is not mounted successfully. Option
-                    <option>fail</option> has the opposite meaning and
-                    is the default.</para>
-                    </listitem>
-                  </varlistentry>
-
-                  <varlistentry>
                     <term><option>noauto</option></term>
                     <term><option>auto</option></term>
 
                     <listitem><para>With <option>noauto</option>, this
                     mount will not be added as a dependency for
-                    <filename>local-fs.target</filename>. This means
+                    <filename>local-fs.target</filename> or
+                    <filename>remote-fs.target</filename>. This means
                     that it will not be mounted automatically during
                     boot, unless it is pulled in by some other
                     unit. Option <option>auto</option> has the
                     opposite meaning and is the default.</para>
+                    </listitem>
+                  </varlistentry>
+
+                  <varlistentry>
+                    <term><option>nofail</option></term>
+                    <term><option>fail</option></term>
+
+                    <listitem><para>With <option>nofail</option> this
+                    mount will be only wanted, not required, by
+                    <filename>local-fs.target</filename> or
+                    <filename>remote-fs.target</filename>. This means
+                    that the boot will continue even if this mount
+                    point is not mounted successfully. Option
+                    <option>fail</option> has the opposite meaning and
+                    is the default.</para>
                     </listitem>
                   </varlistentry>
 

@@ -209,8 +209,6 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
-        int r;
-
         assert(s);
 
         if (UNIT(s)->manager->running_as != SYSTEMD_SYSTEM)
@@ -219,19 +217,7 @@ static int swap_add_default_dependencies(Swap *s) {
         if (detect_container(NULL) > 0)
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-        if (r < 0)
-                return r;
-
-        if (!s->from_fragment)
-                /* The swap unit can either be for an alternative device name, in which
-                 * case we don't need to add the dependency on swap.target because this unit
-                 * is following a different unit which will have this dependency added,
-                 * or it can be derived from /proc/swaps, in which case it was started
-                 * manually, and should not become a dependency of swap.target. */
-                return 0;
-
-        return unit_add_two_dependencies_by_name_inverse(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SWAP_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
 }
 
 static int swap_verify(Swap *s) {

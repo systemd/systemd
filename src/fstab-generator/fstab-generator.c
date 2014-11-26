@@ -74,11 +74,14 @@ static int mount_find_pri(struct mntent *me, int *ret) {
         return 1;
 }
 
-static int add_swap(const char *what, struct mntent *me) {
+static int add_swap(
+                const char *what,
+                struct mntent *me,
+                bool noauto,
+                bool nofail) {
+
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-
-        bool noauto;
         int r, pri = -1;
 
         assert(what);
@@ -94,8 +97,6 @@ static int add_swap(const char *what, struct mntent *me) {
                 log_error("Failed to parse priority");
                 return r;
         }
-
-        noauto = !!hasmntopt(me, "noauto");
 
         name = unit_name_from_path(what, ".swap");
         if (!name)
@@ -143,7 +144,8 @@ static int add_swap(const char *what, struct mntent *me) {
                 return r;
 
         if (!noauto) {
-                lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
+                lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET,
+                              nofail ? ".wants/" : ".requires/", name, NULL);
                 if (!lnk)
                         return log_oom();
 
@@ -357,6 +359,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL;
+                bool noauto, nofail;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -378,16 +381,18 @@ static int parse_fstab(bool initrd) {
                 if (is_path(where))
                         path_kill_slashes(where);
 
-                log_debug("Found entry what=%s where=%s type=%s", what, where, me->mnt_type);
+                noauto = !!hasmntopt(me, "noauto");
+                nofail = !!hasmntopt(me, "nofail");
+                log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
+                          what, where, me->mnt_type,
+                          yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me);
+                        k = add_swap(what, me, noauto, nofail);
                 else {
-                        bool noauto, nofail, automount;
+                        bool automount;
                         const char *post;
 
-                        noauto = !!hasmntopt(me, "noauto");
-                        nofail = !!hasmntopt(me, "nofail");
                         automount =
                                   hasmntopt(me, "comment=systemd.automount") ||
                                   hasmntopt(me, "x-systemd.automount");
