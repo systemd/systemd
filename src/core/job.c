@@ -352,6 +352,9 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                 return
                         b == UNIT_ACTIVATING;
 
+        case JOB_NOP:
+                return true;
+
         default:
                 assert_not_reached("Invalid job type");
         }

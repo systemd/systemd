@@ -49,9 +49,11 @@ enum JobType {
         _JOB_TYPE_MAX_MERGING,
 
         /* JOB_NOP can enter into a transaction, but as it won't pull in
-         * any dependencies, it won't have to merge with anything.
-         * job_install() avoids the problem of merging JOB_NOP too (it's
-         * special-cased, only merges with other JOB_NOPs). */
+         * any dependencies and it uses the special 'nop_job' slot in Unit,
+         * it won't have to merge with anything (except possibly into another
+         * JOB_NOP, previously installed). JOB_NOP is special-cased in
+         * job_type_is_*() functions so that the transaction can be
+         * activated. */
         JOB_NOP = _JOB_TYPE_MAX_MERGING, /* do nothing */
 
         _JOB_TYPE_MAX_IN_TRANSACTION,
@@ -191,11 +193,15 @@ _pure_ static inline bool job_type_is_mergeable(JobType a, JobType b) {
 }
 
 _pure_ static inline bool job_type_is_conflicting(JobType a, JobType b) {
-        return !job_type_is_mergeable(a, b);
+        return a != JOB_NOP && b != JOB_NOP && !job_type_is_mergeable(a, b);
 }
 
 _pure_ static inline bool job_type_is_superset(JobType a, JobType b) {
         /* Checks whether operation a is a "superset" of b in its actions */
+        if (b == JOB_NOP)
+                return true;
+        if (a == JOB_NOP)
+                return false;
         return a == job_type_lookup_merge(a, b);
 }
 
