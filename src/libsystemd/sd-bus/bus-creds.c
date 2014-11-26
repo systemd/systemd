@@ -53,8 +53,6 @@ void bus_creds_done(sd_bus_creds *c) {
 
         strv_free(c->cmdline_array);
         strv_free(c->well_known_names);
-
-        free(c->supplementary_gids);
 }
 
 _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
@@ -97,6 +95,7 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->unique_name);
                         free(c->cgroup_root);
                         free(c->description);
+                        free(c->supplementary_gids);
                         free(c);
                 }
         } else {

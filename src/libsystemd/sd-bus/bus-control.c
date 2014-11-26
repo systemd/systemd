@@ -402,6 +402,10 @@ static int bus_populate_creds_from_items(
         uint64_t m;
         int r;
 
+        assert(bus);
+        assert(info);
+        assert(c);
+
         KDBUS_ITEM_FOREACH(item, info, items) {
 
                 switch (item->type) {
@@ -590,18 +594,18 @@ static int bus_populate_creds_from_items(
 
                 case KDBUS_ITEM_AUXGROUPS:
                         if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                                size_t i, n;
-                                uid_t *u;
+                                size_t n;
+                                uid_t *g;
 
-                                n = (item->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
-                                u = new(uid_t, n);
-                                if (!u)
+                                assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+
+                                n = (item->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
+                                g = newdup(gid_t, item->data32, n);
+                                if (!g)
                                         return -ENOMEM;
 
-                                for (i = 0; i < n; i++)
-                                        u[i] = (uid_t) item->data64[i];
-
-                                c->supplementary_gids = u;
+                                free(c->supplementary_gids);
+                                c->supplementary_gids = g;
                                 c->n_supplementary_gids = n;
 
                                 c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
