@@ -258,7 +258,6 @@ Features:
 
 * sd-bus:
   - systemd-bus-proxyd needs to enforce good old XML policy
-  - kdbus: peeking is subject to a race when we look at a message while the message is being migrated to the implementor's connection. Needs kernel fix, and then we need to invoke the FREE ioctl in busname_peek_message()
   - kdbus: maybe add controlling tty and ppid metadata fields
   - kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
   - kdbus: busnames.target should get pulled in by basic.target
