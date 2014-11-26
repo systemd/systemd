@@ -731,6 +731,7 @@ static int busname_peek_message(BusName *n) {
         struct kdbus_cmd_recv cmd_recv = {
                 .flags = KDBUS_RECV_PEEK,
         };
+        struct kdbus_cmd_free cmd_free = {};
         const char *comm = NULL;
         struct kdbus_item *d;
         struct kdbus_msg *k;
@@ -739,11 +740,17 @@ static int busname_peek_message(BusName *n) {
         pid_t pid = 0;
         int r;
 
+        /* Generate a friendly debug log message about which process
+         * caused triggering of this bus name. This simply peeks the
+         * metadata of the first queued message and logs it. */
+
         assert(n);
 
-        /* Generate a friendly log message about which process caused
-         * triggering of this bus name. This simply peeks the metadata
-         * of the first queued message and logs it. */
+        /* Let's shortcut things a bit, if debug logging is turned off
+         * anyway. */
+
+        if (log_get_max_level() < LOG_DEBUG)
+                return 0;
 
         r = ioctl(n->starter_fd, KDBUS_CMD_MSG_RECV, &cmd_recv);
         if (r < 0) {
@@ -795,9 +802,9 @@ finish:
         if (p)
                 (void) munmap(p, sz);
 
-        /* Hint: we don't invoke KDBUS_CMD_MSG_FREE here, as we only
-         * PEEKed the message, and didn't ask for it to be dropped
-         * from the queue. */
+        cmd_free.offset = cmd_recv.offset;
+        if (ioctl(n->starter_fd, KDBUS_CMD_FREE, &cmd_free) < 0)
+                log_warning_unit(UNIT(n)->id, "Failed to free peeked message, ignoring: %m");
 
         return r;
 }
