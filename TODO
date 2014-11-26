@@ -35,6 +35,8 @@ External:
 
 Features:
 
+* sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
+
 * kdbus: peeking is subject to a race when we look at a message while the message is being migrated to the implementor's connection. Needs kernel fix, and then we need to invoke the FREE ioctl in busname_peek_message()
 
 * kdbus: for some reason "busctl monitor" only shows metadata for signal msgs, never method call or method reply msgs
@@ -61,8 +63,6 @@ Features:
 * machined: add an API so that libvirt-lxc can inform us about network interfaces being removed or added to an existing machine
 
 * maybe add support for specifier expansion in user.conf, specifically DefaultEnvironment=
-
-* kdbus: set the bus-wide creds sender requirement mask to ANY
 
 * kdbus: busnames.target should get pulled in by basic.target
 
