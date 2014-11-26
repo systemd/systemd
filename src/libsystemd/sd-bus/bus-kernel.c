@@ -1689,7 +1689,7 @@ int bus_kernel_make_starter(
                 (accept_fd ? KDBUS_HELLO_ACCEPT_FD : 0);
         hello->pool_size = KDBUS_POOL_SIZE;
         hello->attach_flags_send = _KDBUS_ATTACH_ANY;
-        hello->attach_flags_recv = _KDBUS_ATTACH_ALL;
+        hello->attach_flags_recv = _KDBUS_ATTACH_ANY;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
                 return -errno;
