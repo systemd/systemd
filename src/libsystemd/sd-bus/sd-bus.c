@@ -1096,7 +1096,8 @@ _public_ int sd_bus_open(sd_bus **ret) {
         /* We don't know whether the bus is trusted or not, so better
          * be safe, and authenticate everything */
         b->trusted = false;
-        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS | KDBUS_ATTACH_PIDS;
+        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
+        b->creds_mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS;
 
         r = sd_bus_start(b);
         if (r < 0)
@@ -1142,6 +1143,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
          * need the caller's UID and capability set for that. */
         b->trusted = false;
         b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
+        b->creds_mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS;
 
         r = sd_bus_start(b);
         if (r < 0)
