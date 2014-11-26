@@ -70,14 +70,14 @@ struct kdbus_notify_name_change {
  *   KDBUS_ITEM_CREDS
  */
 struct kdbus_creds {
-	__u64 uid;
-	__u64 euid;
-	__u64 suid;
-	__u64 fsuid;
-	__u64 gid;
-	__u64 egid;
-	__u64 sgid;
-	__u64 fsgid;
+	__u32 uid;
+	__u32 euid;
+	__u32 suid;
+	__u32 fsuid;
+	__u32 gid;
+	__u32 egid;
+	__u32 sgid;
+	__u32 fsgid;
 };
 
 /**

@@ -679,7 +679,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         if (bus->creds_mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
                                 size_t i, n;
                                 uid_t *u;
-                                n = (d->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                n = (d->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
                                 u = new(uid_t, n);
                                 if (!u) {
                                         r = -ENOMEM;
@@ -687,7 +687,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 }
 
                                 for (i = 0; i < n; i++)
-                                        u[i] = (uid_t) d->data64[i];
+                                        u[i] = (uid_t) d->data32[i];
 
                                 m->creds.supplementary_gids = u;
                                 m->creds.n_supplementary_gids = n;
