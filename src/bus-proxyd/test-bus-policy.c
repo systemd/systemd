@@ -62,41 +62,29 @@ static int test_policy_load(Policy *p, const char *name)
 int main(int argc, char *argv[]) {
 
         Policy p = {};
-        struct ucred ucred = {};
 
         /* Ownership tests */
         assert_se(test_policy_load(&p, "ownerships.conf") == 0);
 
-        ucred.uid = 0;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test1") == true);
-        ucred.uid = 1;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test1") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.test.test1") == true);
+        assert_se(policy_check_own(&p, 1, 0, "org.test.test1") == true);
 
-        ucred.uid = 0;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test2") == true);
-        ucred.uid = 1;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test2") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.test.test2") == true);
+        assert_se(policy_check_own(&p, 1, 0, "org.test.test2") == false);
 
-        ucred.uid = 0;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test3") == false);
-        ucred.uid = 1;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test3") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.test.test3") == false);
+        assert_se(policy_check_own(&p, 1, 0, "org.test.test3") == false);
 
-        ucred.uid = 0;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test4") == false);
-        ucred.uid = 1;
-        assert_se(policy_check_own(&p, &ucred, "org.test.test4") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.test.test4") == false);
+        assert_se(policy_check_own(&p, 1, 0, "org.test.test4") == true);
 
         policy_free(&p);
 
         /* Signaltest */
         assert_se(test_policy_load(&p, "signals.conf") == 0);
 
-        ucred.uid = 0;
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == true);
-
-        ucred.uid = 1;
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == false);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == true);
+        assert_se(policy_check_send(&p, 1, 0, SD_BUS_MESSAGE_SIGNAL, "bli.bla.blubb", NULL, "/an/object/path", NULL) == false);
 
         policy_free(&p);
 
@@ -104,14 +92,12 @@ int main(int argc, char *argv[]) {
         assert_se(test_policy_load(&p, "methods.conf") == 0);
         policy_dump(&p);
 
-        ucred.uid = 0;
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int1", "Member") == true);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == true);
 
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "bli.bla.blubb", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int1", "Member") == true);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == true);
-
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test3", "/an/object/path", "org.test.int3", "Member111") == true);
+        assert_se(policy_check_recv(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test3", "/an/object/path", "org.test.int3", "Member111") == true);
 
         policy_free(&p);
 
@@ -119,15 +105,9 @@ int main(int argc, char *argv[]) {
         assert_se(test_policy_load(&p, "hello.conf") == 0);
         policy_dump(&p);
 
-        ucred.uid = 0;
-        assert_se(policy_check_hello(&p, &ucred) == true);
-
-        ucred.uid = 1;
-        assert_se(policy_check_hello(&p, &ucred) == false);
-
-        ucred.uid = 0;
-        ucred.gid = 1;
-        assert_se(policy_check_hello(&p, &ucred) == false);
+        assert_se(policy_check_hello(&p, 0, 0) == true);
+        assert_se(policy_check_hello(&p, 1, 0) == false);
+        assert_se(policy_check_hello(&p, 0, 1) == false);
 
         policy_free(&p);
 
@@ -136,14 +116,14 @@ int main(int argc, char *argv[]) {
         assert_se(test_policy_load(&p, "check-own-rules.conf") >= 0);
         policy_dump(&p);
 
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop") == false);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystem") == false);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems") == true);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems.foo") == true);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems.foo.bar") == true);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2") == false);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2.foo") == false);
-        assert_se(policy_check_own(&p, &ucred, "org.freedesktop.ManySystems2.foo.bar") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystem") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems.foo") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems.foo.bar") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems2") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems2.foo") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.freedesktop.ManySystems2.foo.bar") == false);
 
         policy_free(&p);
 
@@ -158,23 +138,21 @@ int main(int argc, char *argv[]) {
         assert_se(test_policy_load(&p, "test.conf") >= 0);
         policy_dump(&p);
 
-        ucred.uid = 0;
-        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService") == true);
-        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService2") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+        assert_se(policy_check_own(&p, 0, 0, "org.foo.FooService") == true);
+        assert_se(policy_check_own(&p, 0, 0, "org.foo.FooService2") == false);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
+        assert_se(policy_check_send(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
+        assert_se(policy_check_recv(&p, 0, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
 
-        ucred.uid = 100;
-        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService") == false);
-        assert_se(policy_check_own(&p, &ucred, "org.foo.FooService2") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
-        assert_se(policy_check_send(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
-        assert_se(policy_check_recv(&p, &ucred, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+        assert_se(policy_check_own(&p, 100, 0, "org.foo.FooService") == false);
+        assert_se(policy_check_own(&p, 100, 0, "org.foo.FooService2") == false);
+        assert_se(policy_check_send(&p, 100, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.test.int2", "Member") == false);
+        assert_se(policy_check_send(&p, 100, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.test.test1", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
+        assert_se(policy_check_recv(&p, 100, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == true);
+        assert_se(policy_check_recv(&p, 100, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService", "/an/object/path", "org.foo.FooBroadcastInterface2", "Member") == false);
+        assert_se(policy_check_recv(&p, 100, 0, SD_BUS_MESSAGE_METHOD_CALL, "org.foo.FooService2", "/an/object/path", "org.foo.FooBroadcastInterface", "Member") == false);
 
         policy_free(&p);
 
