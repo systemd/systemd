@@ -268,23 +268,22 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
                 ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
 
-        if (well_known) {
+        if (well_known)
                 /* verify_destination_id will usually be 0, which makes the kernel driver only look
                  * at the provided well-known name. Otherwise, the kernel will make sure the provided
                  * destination id matches the owner of the provided weel-known-name, and fail if they
                  * differ. Currently, this is only needed for bus-proxyd. */
                 m->kdbus->dst_id = m->verify_destination_id;
-        } else {
+        else
                 m->kdbus->dst_id = destination ? unique : KDBUS_DST_ID_BROADCAST;
-        }
 
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = (uint64_t) m->header->serial;
         m->kdbus->priority = m->priority;
 
-        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) {
+        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 m->kdbus->cookie_reply = m->reply_cookie;
-        } else {
+        else {
                 struct timespec now;
 
                 assert_se(clock_gettime(CLOCK_MONOTONIC_COARSE, &now) == 0);
@@ -698,6 +697,30 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         r = bus_message_parse_fields(m);
         if (r < 0)
                 goto fail;
+
+        /* Refuse messages if kdbus and dbus1 cookie doesn't match up */
+        if ((uint64_t) m->header->serial != k->cookie) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse messages where the reply flag doesn't match up */
+        if (!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) != !!(k->flags & KDBUS_MSG_FLAGS_EXPECT_REPLY)) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse reply messages where the reply cookie doesn't match up */
+        if ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) && m->reply_cookie != k->cookie_reply) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Refuse messages where the autostart flag doesn't match up */
+        if (!(m->header->flags & BUS_MESSAGE_NO_AUTO_START) != !(k->flags & KDBUS_MSG_FLAGS_NO_AUTO_START)) {
+                r = -EBADMSG;
+                goto fail;
+        }
 
         /* Override information from the user header with data from the kernel */
         if (k->src_id == KDBUS_SRC_ID_KERNEL)

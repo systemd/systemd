@@ -5170,11 +5170,18 @@ int bus_message_parse_fields(sd_bus_message *m) {
         case SD_BUS_MESSAGE_SIGNAL:
                 if (!m->path || !m->interface || !m->member)
                         return -EBADMSG;
+
+                if (m->reply_cookie != 0)
+                        return -EBADMSG;
+
                 break;
 
         case SD_BUS_MESSAGE_METHOD_CALL:
 
                 if (!m->path || !m->member)
+                        return -EBADMSG;
+
+                if (m->reply_cookie != 0)
                         return -EBADMSG;
 
                 break;
