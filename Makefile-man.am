@@ -1515,6 +1515,15 @@ MANPAGES_ALIAS += \
 
 endif
 
+if HAVE_SYSV_COMPAT
+MANPAGES += \
+	man/systemd-sysv-generator.8
+MANPAGES_ALIAS += \
+	#
+
+
+endif
+
 if HAVE_UTMP
 MANPAGES += \
 	man/runlevel.8 \
@@ -1686,6 +1695,7 @@ EXTRA_DIST += \
 	man/systemd-system-update-generator.xml \
 	man/systemd-system.conf.xml \
 	man/systemd-sysusers.xml \
+	man/systemd-sysv-generator.xml \
 	man/systemd-timedated.service.xml \
 	man/systemd-timesyncd.service.xml \
 	man/systemd-tmpfiles.xml \
