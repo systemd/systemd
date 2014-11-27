@@ -587,6 +587,17 @@ char **strv_sort(char **l) {
         return l;
 }
 
+bool strv_equal(char **a, char **b) {
+        if (!a || !b)
+                return a == b;
+
+        for ( ; *a || *b; ++a, ++b)
+                if (!streq_ptr(*a, *b))
+                        return false;
+
+        return true;
+}
+
 void strv_print(char **l) {
         char **s;
 

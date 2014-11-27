@@ -49,6 +49,8 @@ int strv_consume_prepend(char ***l, char *value);
 char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);
 
+bool strv_equal(char **a, char **b);
+
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
 char **strv_new(const char *x, ...) _sentinel_;

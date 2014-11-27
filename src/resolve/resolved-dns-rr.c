@@ -370,14 +370,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                        strcaseeq(a->hinfo.os, b->hinfo.os);
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                int i;
-
-                for (i = 0; a->txt.strings[i] || b->txt.strings[i]; i++)
-                        if (!streq_ptr(a->txt.strings[i], b->txt.strings[i]))
-                                return false;
-                return true;
-        }
+        case DNS_TYPE_TXT:
+                return strv_equal(a->txt.strings, b->txt.strings);
 
         case DNS_TYPE_A:
                 return memcmp(&a->a.in_addr, &b->a.in_addr, sizeof(struct in_addr)) == 0;
