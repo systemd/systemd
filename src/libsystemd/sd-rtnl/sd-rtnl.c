@@ -140,6 +140,10 @@ int sd_rtnl_open(sd_rtnl **ret, unsigned n_groups, ...) {
         return 0;
 }
 
+int sd_rtnl_inc_rcvbuf(const sd_rtnl *const rtnl, const int size) {
+        return fd_inc_rcvbuf(rtnl->fd, size);
+}
+
 sd_rtnl *sd_rtnl_ref(sd_rtnl *rtnl) {
         assert_return(rtnl, NULL);
         assert_return(!rtnl_pid_changed(rtnl), NULL);

@@ -41,6 +41,7 @@ typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void
 
 /* bus */
 int sd_rtnl_open(sd_rtnl **nl, unsigned n_groups, ...);
+int sd_rtnl_inc_rcvbuf(const sd_rtnl *const rtnl, const int size);
 
 sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
 sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);

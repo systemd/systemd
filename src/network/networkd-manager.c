@@ -36,6 +36,9 @@
 
 #include "sd-rtnl.h"
 
+/* use 8 MB for receive socket kernel queue. */
+#define RCVBUF_SIZE    (8*1024*1024)
+
 const char* const network_dirs[] = {
         "/etc/systemd/network",
         "/run/systemd/network",
@@ -95,6 +98,10 @@ int manager_new(Manager **ret) {
 
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
                          RTNLGRP_IPV6_IFADDR);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
         if (r < 0)
                 return r;
 
