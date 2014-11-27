@@ -1534,25 +1534,25 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         _cleanup_free_ char *path = NULL;
         struct kdbus_cmd_make *make;
         struct kdbus_item *n;
-        size_t size;
+        const char *name;
         int fd;
 
         fd = bus_kernel_open_bus_fd(bus_name, &path);
         if (fd < 0)
                 return fd;
 
-        size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
-        size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(ep_name) + 1);
-
-        make = alloca0_align(size, 8);
-        make->size = size;
+        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items)) +
+                             ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + strlen(ep_name) + 1),
+                             8);
+        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
         make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
         n = make->items;
-
+        sprintf(n->str, UID_FMT "-%s", getuid(), ep_name);
+        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_MAKE_NAME;
-        n->size = offsetof(struct kdbus_item, str) + strlen(ep_name) + 1;
-        strcpy(n->str, ep_name);
+        make->size += ALIGN8(n->size);
+        name = n->str;
 
         if (ioctl(fd, KDBUS_CMD_ENDPOINT_MAKE, make) < 0) {
                 safe_close(fd);
@@ -1562,7 +1562,7 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         if (ep_path) {
                 char *p;
 
-                p = strjoin(dirname(path), "/", ep_name, NULL);
+                p = strjoin(dirname(path), "/", name, NULL);
                 if (!p) {
                         safe_close(fd);
                         return -ENOMEM;
