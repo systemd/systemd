@@ -44,7 +44,7 @@ static void systemd_kmod_log(void *data, int priority, const char *file, int lin
                              const char *fn, const char *format, va_list args) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_metav(priority, file, line, fn, format, args);
+        log_metav(priority, 0, file, line, fn, format, args);
         REENABLE_WARNING;
 }
 

@@ -40,8 +40,7 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return 0;
 
-        log_debug_link(link, "IPv4 link-local release %u.%u.%u.%u",
-                       ADDRESS_FMT_VAL(addr));
+        log_debug_link(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
 
         r = address_new_dynamic(&address);
         if (r < 0) {

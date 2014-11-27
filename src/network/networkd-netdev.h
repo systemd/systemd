@@ -192,7 +192,7 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsign
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
+#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
 #define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
 #define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
 #define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)

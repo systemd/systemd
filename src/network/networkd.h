@@ -336,7 +336,7 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
+#define log_full_link(level, link, fmt, ...) log_meta_object(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
 #define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, ##__VA_ARGS__)
 #define log_info_link(link, ...)        log_full_link(LOG_INFO, link, ##__VA_ARGS__)
 #define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, ##__VA_ARGS__)

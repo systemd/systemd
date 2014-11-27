@@ -596,7 +596,9 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_full_unit(level, unit, ...) log_meta_object(level, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+#define log_full_unit(level, unit, ...) log_meta_object(level, 0, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+#define log_full_unit_errno(level, error, unit, ...) log_meta_object(level, error, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+
 #define log_debug_unit(unit, ...)       log_full_unit(LOG_DEBUG, unit, __VA_ARGS__)
 #define log_info_unit(unit, ...)        log_full_unit(LOG_INFO, unit, __VA_ARGS__)
 #define log_notice_unit(unit, ...)      log_full_unit(LOG_NOTICE, unit, __VA_ARGS__)

@@ -35,4 +35,4 @@ void arp_packet_probe(struct ether_arp *arp, be32_t pa, const struct ether_addr 
 void arp_packet_announcement(struct ether_arp *arp, be32_t pa, const struct ether_addr *ha);
 int arp_packet_verify_headers(struct ether_arp *arp);
 
-#define log_ipv4ll(ll, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll(ll, fmt, ...) log_meta(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "IPv4LL: " fmt, ##__VA_ARGS__)

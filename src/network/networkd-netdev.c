@@ -65,7 +65,6 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
 
-
 static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         netdev_join_callback *callback;

@@ -71,4 +71,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_client*, sd_dhcp_client_unref);
 #define DHCP_CLIENT_DONT_DESTROY(client) \
         _cleanup_dhcp_client_unref_ _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
-#define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)
+#define log_dhcp_client(client, fmt, ...) log_meta(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)
