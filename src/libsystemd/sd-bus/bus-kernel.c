@@ -32,6 +32,8 @@
 #include "util.h"
 #include "strv.h"
 #include "memfd-util.h"
+#include "cgroup-util.h"
+#include "fileio.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -39,7 +41,6 @@
 #include "bus-bloom.h"
 #include "bus-util.h"
 #include "bus-label.h"
-#include "cgroup-util.h"
 
 #define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
@@ -1793,6 +1794,38 @@ int bus_kernel_realize_attach_flags(sd_bus *bus) {
 
         if (ioctl(bus->input_fd, KDBUS_CMD_CONN_UPDATE, update) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int bus_kernel_fix_attach_mask(void) {
+        _cleanup_free_ char *mask = NULL;
+        uint64_t m = (uint32_t) -1;
+        char buf[2+16+2];
+        int r;
+
+        r = get_proc_cmdline_key("systemd.kdbus_attach_flags_mask=", &mask);
+        if (r < 0) {
+                log_warning_errno(-r, "Failed to read kernel command line: %m");
+                return r;
+        }
+
+        if (mask) {
+                const char *p = mask;
+
+                if (startswith(p, "0x"))
+                        p += 2;
+
+                if (sscanf(p, "%" PRIx64, &m) != 1)
+                        log_warning("Couldn't parse systemd.kdbus_attach_flags_mask= kernel command line parameter.");
+        }
+
+        sprintf(buf, "0x%" PRIx64 "\n", m);
+        r = write_string_file("/sys/module/kdbus/parameters/attach_flags_mask", buf);
+        if (r < 0) {
+                log_warning_errno(-r, "Failed to write kdbus attach mask: %m");
+                return r;
+        }
 
         return 0;
 }

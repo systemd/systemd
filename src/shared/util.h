@@ -972,6 +972,7 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
 
 int proc_cmdline(char **ret);
 int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
+int get_proc_cmdline_key(const char *parameter, char **value);
 
 int container_get_leader(const char *machine, pid_t *pid);
 

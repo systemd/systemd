@@ -89,3 +89,5 @@ int bus_kernel_try_close(sd_bus *bus);
 int bus_kernel_drop_one(int fd);
 
 int bus_kernel_realize_attach_flags(sd_bus *bus);
+
+int bus_kernel_fix_attach_mask(void);

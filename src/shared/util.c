@@ -6270,38 +6270,16 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
 }
 
 int shall_restore_state(void) {
-        _cleanup_free_ char *line = NULL;
-        const char *p;
+        _cleanup_free_ char *value = NULL;
         int r;
 
-        r = proc_cmdline(&line);
+        r = get_proc_cmdline_key("systemd.restore_state=", &value);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return true;
 
-        r = 1;
-        p = line;
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                const char *e;
-                int k;
-
-                k = unquote_first_word(&p, &word, true);
-                if (k < 0)
-                        return k;
-                if (k == 0)
-                        break;
-
-                e = startswith(word, "systemd.restore_state=");
-                if (!e)
-                        continue;
-
-                k = parse_boolean(e);
-                if (k >= 0)
-                        r = k;
-        }
-
-        return r;
+        return parse_boolean(value) != 0;
 }
 
 int proc_cmdline(char **ret) {
@@ -6350,6 +6328,59 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         }
 
         return 0;
+}
+
+int get_proc_cmdline_key(const char *key, char **value) {
+        _cleanup_free_ char *line = NULL, *ret = NULL;
+        bool found = false;
+        const char *p;
+        int r;
+
+        assert(key);
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
+
+        p = line;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const char *e;
+
+                r = unquote_first_word(&p, &word, true);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                /* Filter out arguments that are intended only for the
+                 * initrd */
+                if (!in_initrd() && startswith(word, "rd."))
+                        continue;
+
+                if (value) {
+                        e = startswith(word, key);
+                        if (!e)
+                                continue;
+
+                        r = free_and_strdup(&ret, e);
+                        if (r < 0)
+                                return r;
+
+                        found = true;
+                } else {
+                        if (streq(word, key))
+                                found = true;
+                }
+        }
+
+        if (value) {
+                *value = ret;
+                ret = NULL;
+        }
+
+        return found;
+
 }
 
 int container_get_leader(const char *machine, pid_t *pid) {
