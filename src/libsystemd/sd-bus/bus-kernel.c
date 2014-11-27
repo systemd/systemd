@@ -660,9 +660,23 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         }
 
                         if (bus->creds_mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
-                                r = strv_extend(&m->creds.well_known_names, d->name.name);
-                                if (r < 0)
+                                char **wkn;
+                                size_t n;
+
+                                /* We just extend the array here, but
+                                 * do not allocate the strings inside
+                                 * of it, instead we just point to our
+                                 * buffer directly. */
+                                n = strv_length(m->creds.well_known_names);
+                                wkn = realloc(m->creds.well_known_names, (n + 2) * sizeof(char*));
+                                if (!wkn) {
+                                        r = -ENOMEM;
                                         goto fail;
+                                }
+
+                                wkn[n] = d->name.name;
+                                wkn[n+1] = NULL;
+                                m->creds.well_known_names = wkn;
 
                                 m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
                         }

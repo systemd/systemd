@@ -51,8 +51,14 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->slice);
         free(c->unescaped_description);
 
+        free(c->well_known_names); /* note that this is an strv, but
+                                    * we only free the array, not the
+                                    * strings the array points to. The
+                                    * full strv we only free if
+                                    * c->allocated is set, see
+                                    * below. */
+
         strv_free(c->cmdline_array);
-        strv_free(c->well_known_names);
 }
 
 _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
@@ -83,8 +89,6 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                 c->n_ref--;
 
                 if (c->n_ref == 0) {
-                        bus_creds_done(c);
-
                         free(c->comm);
                         free(c->tid_comm);
                         free(c->exe);
@@ -96,6 +100,12 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->cgroup_root);
                         free(c->description);
                         free(c->supplementary_gids);
+
+                        strv_free(c->well_known_names);
+                        c->well_known_names = NULL;
+
+                        bus_creds_done(c);
+
                         free(c);
                 }
         } else {
