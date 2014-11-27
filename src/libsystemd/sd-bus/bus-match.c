@@ -748,6 +748,9 @@ int bus_match_parse(
                 bool escaped = false, quoted;
                 uint8_t u;
 
+                /* Avahi's match rules appear to include whitespace, skip over it */
+                p += strspn(p, " ");
+
                 eq = strchr(p, '=');
                 if (!eq)
                         return -EINVAL;
