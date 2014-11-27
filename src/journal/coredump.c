@@ -478,21 +478,25 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
  */
 static int compose_open_fds(pid_t pid, char **open_fds) {
         _cleanup_fclose_ FILE *stream = NULL;
-        char path[PATH_MAX], line[LINE_MAX];
         size_t ignored_size;
-        const char *fddelim = "";
+        const char *fddelim = "", *path;
         struct dirent *dent = NULL;
         _cleanup_closedir_ DIR *proc_fd_dir = NULL;
+        _cleanup_close_ int proc_fdinfo_fd = -1;
         int r = 0;
 
         assert(pid >= 0);
         assert(open_fds != NULL);
 
-        sprintf(path, "/proc/"PID_FMT"/fd", pid);
+        path = procfs_file_alloca(pid, "fd");
         proc_fd_dir = opendir(path);
+        if (!proc_fd_dir)
+                return -errno;
 
-        if (proc_fd_dir == NULL)
-                return -ENOENT;
+        proc_fdinfo_fd = openat(dirfd(proc_fd_dir), "../fdinfo",
+                                O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (proc_fdinfo_fd < 0)
+                return -errno;
 
         stream = open_memstream(open_fds, &ignored_size);
         if (!stream)
@@ -500,18 +504,14 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 
         for (dent = readdir(proc_fd_dir); dent != NULL; dent = readdir(proc_fd_dir)) {
                 _cleanup_free_ char *fdname = NULL;
+                int fd;
                 _cleanup_fclose_ FILE *fdinfo = NULL;
+                char line[LINE_MAX];
 
                 if (dent->d_name[0] == '.' || strcmp(dent->d_name, "..") == 0)
                         continue;
 
-                /* Too long path is unlikely a path to valid file descriptor in /proc/[pid]/fd */
-                /* Skip it. */
-                r = snprintf(path, sizeof(path), "/proc/"PID_FMT"/fd/%s", pid, dent->d_name);
-                if (r >= (int)sizeof(path))
-                        continue;
-
-                r = readlink_malloc(path, &fdname);
+                r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
                 if (r < 0)
                         return r;
 
@@ -519,16 +519,15 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 fddelim = "\n";
 
                 /* Use the directory entry from /proc/[pid]/fd with /proc/[pid]/fdinfo */
-
-                /* Too long path is unlikely a path to valid file descriptor info in /proc/[pid]/fdinfo */
-                /* Skip it. */
-                r = snprintf(path, sizeof(path), "/proc/"PID_FMT"/fdinfo/%s", pid, dent->d_name);
-                if (r >= (int)sizeof(path))
+                fd = openat(proc_fdinfo_fd, dent->d_name, O_NOFOLLOW|O_CLOEXEC|O_RDONLY);
+                if (fd < 0)
                         continue;
 
-                fdinfo = fopen(path, "re");
-                if (fdinfo == NULL)
+                fdinfo = fdopen(fd, "re");
+                if (fdinfo == NULL) {
+                        close(fd);
                         continue;
+                }
 
                 while(fgets(line, sizeof(line), fdinfo) != NULL)
                         fprintf(stream, "%s%s",
