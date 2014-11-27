@@ -2505,6 +2505,15 @@ null_message:
         return r;
 }
 
+static void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus.Local";
+        m->creds.well_known_names_local = true;
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
+}
+
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         struct reply_callback *c;
@@ -2573,7 +2582,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         if (r < 0)
                 return r;
 
-        m->sender = "org.freedesktop.DBus.Local";
+        bus_message_set_sender_local(bus, m);
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)

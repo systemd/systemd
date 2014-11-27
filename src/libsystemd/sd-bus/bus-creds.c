@@ -563,6 +563,16 @@ _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_kno
                 return 0;
         }
 
+        if (c->well_known_names_local) {
+                static const char* const wkn[] = {
+                        "org.freedesktop.DBus.Local",
+                        NULL
+                };
+
+                *well_known_names = (char**) wkn;
+                return 0;
+        }
+
         *well_known_names = c->well_known_names;
         return 0;
 }

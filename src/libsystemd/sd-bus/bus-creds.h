@@ -72,7 +72,8 @@ struct sd_bus_creds {
         char *unique_name;
 
         char **well_known_names;
-        bool well_known_names_driver;
+        bool well_known_names_driver:1;
+        bool well_known_names_local:1;
 
         char *cgroup_root;
 
