@@ -48,7 +48,7 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_rtn
         if (m->mode != _NETDEV_MACVLAN_MODE_INVALID) {
         r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, m->mode);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_MACVLAN_MODE attribute: %s",
                                  strerror(-r));
                         return r;

@@ -40,11 +40,11 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return 0;
 
-        log_debug_link(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
+        log_link_debug(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
 
         r = address_new_dynamic(&address);
         if (r < 0) {
-                log_error_link(link, "Could not allocate address: %s", strerror(-r));
+                log_link_error(link, "Could not allocate address: %s", strerror(-r));
                 return r;
         }
 
@@ -57,7 +57,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         r = route_new_dynamic(&route, RTPROT_UNSPEC);
         if (r < 0) {
-                log_error_link(link, "Could not allocate route: %s",
+                log_link_error(link, "Could not allocate route: %s",
                                strerror(-r));
                 return r;
         }
@@ -82,7 +82,7 @@ static int ipv4ll_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdat
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_error_link(link, "could not set ipv4ll route: %s", strerror(-r));
+                log_link_error(link, "could not set ipv4ll route: %s", strerror(-r));
                 link_enter_failed(link);
         }
 
@@ -103,7 +103,7 @@ static int ipv4ll_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userd
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_error_link(link, "could not set ipv4ll address: %s", strerror(-r));
+                log_link_error(link, "could not set ipv4ll address: %s", strerror(-r));
                 link_enter_failed(link);
         } else if (r >= 0) {
                 /* calling handler directly so take a ref */
@@ -134,7 +134,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         else if (r < 0)
                 return r;
 
-        log_debug_link(link, "IPv4 link-local claim %u.%u.%u.%u",
+        log_link_debug(link, "IPv4 link-local claim %u.%u.%u.%u",
                        ADDRESS_FMT_VAL(address));
 
         r = address_new_dynamic(&ll_addr);
@@ -199,9 +199,9 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata){
                         break;
                 default:
                         if (event < 0)
-                                log_warning_link(link, "IPv4 link-local error: %s", strerror(-event));
+                                log_link_warning(link, "IPv4 link-local error: %s", strerror(-event));
                         else
-                                log_warning_link(link, "IPv4 link-local unknown event: %d", event);
+                                log_link_warning(link, "IPv4 link-local unknown event: %d", event);
                         break;
         }
 }

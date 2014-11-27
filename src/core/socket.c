@@ -391,33 +391,33 @@ static int socket_verify(Socket *s) {
                 return 0;
 
         if (!s->ports) {
-                log_error_unit(UNIT(s)->id, "%s lacks Listen setting. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s lacks Listen setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && have_non_accept_socket(s)) {
-                log_error_unit(UNIT(s)->id, "%s configured for accepting sockets, but sockets are non-accepting. Refusing.",
+                log_unit_error(UNIT(s)->id, "%s configured for accepting sockets, but sockets are non-accepting. Refusing.",
                                UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && s->max_connections <= 0) {
-                log_error_unit(UNIT(s)->id, "%s's MaxConnection setting too small. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s's MaxConnection setting too small. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && UNIT_DEREF(s->service)) {
-                log_error_unit(UNIT(s)->id, "Explicit service configuration for accepting sockets not supported on %s. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "Explicit service configuration for accepting sockets not supported on %s. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error_unit(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s)) {
-                log_error_unit(UNIT(s)->id, "%s has symlinks set but none or more than one node in the file system. Refusing.", UNIT(s)->id);
+                log_unit_error(UNIT(s)->id, "%s has symlinks set but none or more than one node in the file system. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -815,60 +815,60 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->keep_alive) {
                 int b = s->keep_alive;
                 if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_KEEPALIVE failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_KEEPALIVE failed: %m");
         }
 
         if (s->keep_alive_time) {
                 int value = s->keep_alive_time / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_KEEPIDLE failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_KEEPIDLE failed: %m");
         }
 
         if (s->keep_alive_interval) {
                 int value =  s->keep_alive_interval / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_KEEPINTVL failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_KEEPINTVL failed: %m");
         }
 
         if (s->keep_alive_cnt) {
                 int value = s->keep_alive_cnt;
                 if (setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &value, sizeof(value)) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_KEEPCNT failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_KEEPCNT failed: %m");
         }
 
         if (s->defer_accept) {
                 int value = s->defer_accept / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_DEFER_ACCEPT failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_DEFER_ACCEPT failed: %m");
         }
 
         if (s->no_delay) {
                 int b = s->no_delay;
                 if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_NODELAY failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_NODELAY failed: %m");
         }
 
         if (s->broadcast) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_BROADCAST failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_BROADCAST failed: %m");
         }
 
         if (s->pass_cred) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_PASSCRED failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_PASSCRED failed: %m");
         }
 
         if (s->pass_sec) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_PASSSEC failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_PASSSEC failed: %m");
         }
 
         if (s->priority >= 0)
                 if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &s->priority, sizeof(s->priority)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_PRIORITY failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_PRIORITY failed: %m");
 
         if (s->receive_buffer > 0) {
                 int value = (int) s->receive_buffer;
@@ -877,23 +877,23 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
                 if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
                         if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
-                                log_warning_unit(UNIT(s)->id, "SO_RCVBUF failed: %m");
+                                log_unit_warning(UNIT(s)->id, "SO_RCVBUF failed: %m");
         }
 
         if (s->send_buffer > 0) {
                 int value = (int) s->send_buffer;
                 if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
                         if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
-                                log_warning_unit(UNIT(s)->id, "SO_SNDBUF failed: %m");
+                                log_unit_warning(UNIT(s)->id, "SO_SNDBUF failed: %m");
         }
 
         if (s->mark >= 0)
                 if (setsockopt(fd, SOL_SOCKET, SO_MARK, &s->mark, sizeof(s->mark)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_MARK failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_MARK failed: %m");
 
         if (s->ip_tos >= 0)
                 if (setsockopt(fd, IPPROTO_IP, IP_TOS, &s->ip_tos, sizeof(s->ip_tos)) < 0)
-                        log_warning_unit(UNIT(s)->id, "IP_TOS failed: %m");
+                        log_unit_warning(UNIT(s)->id, "IP_TOS failed: %m");
 
         if (s->ip_ttl >= 0) {
                 int x;
@@ -908,30 +908,30 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 }
 
                 if (r < 0 && x < 0)
-                        log_warning_unit(UNIT(s)->id,
+                        log_unit_warning(UNIT(s)->id,
                                          "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
         }
 
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
-                        log_warning_unit(UNIT(s)->id, "TCP_CONGESTION failed: %m");
+                        log_unit_warning(UNIT(s)->id, "TCP_CONGESTION failed: %m");
 
         if (s->reuse_port) {
                 int b = s->reuse_port;
                 if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)) < 0)
-                        log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
+                        log_unit_warning(UNIT(s)->id, "SO_REUSEPORT failed: %m");
         }
 
         if (s->smack_ip_in) {
                 r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
                 if (r < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %s", strerror(-r));
+                        log_unit_error(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %s", strerror(-r));
         }
 
         if (s->smack_ip_out) {
                 r = mac_smack_apply_ip_out_fd(fd, s->smack_ip_out);
                 if (r < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %s", strerror(-r));
+                        log_unit_error(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %s", strerror(-r));
         }
 }
 
@@ -943,12 +943,12 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
 
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
-                        log_warning_unit(UNIT(s)->id, "F_SETPIPE_SZ: %m");
+                        log_unit_warning(UNIT(s)->id, "F_SETPIPE_SZ: %m");
 
         if (s->smack) {
                 r = mac_smack_apply_fd(fd, s->smack);
                 if (r < 0)
-                        log_error_unit(UNIT(s)->id, "mac_smack_apply_fd: %s", strerror(-r));
+                        log_unit_error(UNIT(s)->id, "mac_smack_apply_fd: %s", strerror(-r));
         }
 }
 
@@ -1249,7 +1249,7 @@ static void socket_unwatch_fds(Socket *s) {
 
                 r = sd_event_source_set_enabled(p->event_source, SD_EVENT_OFF);
                 if (r < 0)
-                        log_debug_unit(UNIT(s)->id, "Failed to disable event source.");
+                        log_unit_debug(UNIT(s)->id, "Failed to disable event source.");
         }
 }
 
@@ -1269,7 +1269,7 @@ static int socket_watch_fds(Socket *s) {
                         r = sd_event_add_io(UNIT(s)->manager->event, &p->event_source, p->fd, EPOLLIN, socket_dispatch_io, p);
 
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "Failed to watch listening fds: %s", strerror(-r));
+                        log_unit_warning(UNIT(s)->id, "Failed to watch listening fds: %s", strerror(-r));
                         goto fail;
                 }
         }
@@ -1319,7 +1319,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                 socket_close_fds(s);
 
         if (state != old_state)
-                log_debug_unit(UNIT(s)->id, "%s changed %s -> %s",
+                log_unit_debug(UNIT(s)->id, "%s changed %s -> %s",
                                UNIT(s)->id, socket_state_to_string(old_state), socket_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
@@ -1562,7 +1562,7 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id,
+        log_unit_warning(UNIT(s)->id,
                          "%s failed to run 'stop-post' task: %s",
                          UNIT(s)->id, strerror(-r));
         socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
@@ -1605,7 +1605,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning(UNIT(s)->id, "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
 
         if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
                 socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
@@ -1636,7 +1636,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run 'stop-pre' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning(UNIT(s)->id, "%s failed to run 'stop-pre' task: %s", UNIT(s)->id, strerror(-r));
         socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
 }
 
@@ -1646,7 +1646,7 @@ static void socket_enter_listening(Socket *s) {
 
         r = socket_watch_fds(s);
         if (r < 0) {
-                log_warning_unit(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
                 goto fail;
         }
 
@@ -1668,7 +1668,7 @@ static void socket_enter_start_post(Socket *s) {
         if (s->control_command) {
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
                         goto fail;
                 }
 
@@ -1689,7 +1689,7 @@ static void socket_enter_start_chown(Socket *s) {
 
         r = socket_open_fds(s);
         if (r < 0) {
-                log_warning_unit(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
                 goto fail;
         }
 
@@ -1701,7 +1701,7 @@ static void socket_enter_start_chown(Socket *s) {
 
                 r = socket_chown(s, &s->control_pid);
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "%s failed to fork 'start-chown' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning(UNIT(s)->id, "%s failed to fork 'start-chown' task: %s", UNIT(s)->id, strerror(-r));
                         goto fail;
                 }
 
@@ -1726,7 +1726,7 @@ static void socket_enter_start_pre(Socket *s) {
         if (s->control_command) {
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_warning_unit(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
                         goto fail;
                 }
 
@@ -1750,7 +1750,7 @@ static void socket_enter_running(Socket *s, int cfd) {
          * shut down anyway */
         if (unit_stop_pending(UNIT(s))) {
 
-                log_debug_unit(UNIT(s)->id, "Suppressing connection request on %s since unit stop is scheduled.", UNIT(s)->id);
+                log_unit_debug(UNIT(s)->id, "Suppressing connection request on %s since unit stop is scheduled.", UNIT(s)->id);
 
                 if (cfd >= 0)
                         safe_close(cfd);
@@ -1760,14 +1760,14 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                         r = socket_open_fds(s);
                         if (r < 0) {
-                                log_warning_unit(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
+                                log_unit_warning(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
                                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
                                 return;
                         }
 
                         r = socket_watch_fds(s);
                         if (r < 0) {
-                                log_warning_unit(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
+                                log_unit_warning(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
                                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
                         }
                 }
@@ -1790,7 +1790,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                log_error_unit(UNIT(s)->id, "%s: service to activate vanished, refusing activation.", UNIT(s)->id);
+                                log_unit_error(UNIT(s)->id, "%s: service to activate vanished, refusing activation.", UNIT(s)->id);
                                 r = -ENOENT;
                                 goto fail;
                         }
@@ -1806,7 +1806,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_warning_unit(UNIT(s)->id, "%s: Too many incoming connections (%u)", UNIT(s)->id, s->n_connections);
+                        log_unit_warning(UNIT(s)->id, "%s: Too many incoming connections (%u)", UNIT(s)->id, s->n_connections);
                         safe_close(cfd);
                         return;
                 }
@@ -1868,7 +1868,7 @@ static void socket_enter_running(Socket *s, int cfd) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
+        log_unit_warning(UNIT(s)->id, "%s failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
                          UNIT(s)->id, cfd >= 0 ? "template" : "non-template",
                          bus_error_message(&error, r));
 
@@ -1894,7 +1894,7 @@ static void socket_run_next(Socket *s) {
         return;
 
 fail:
-        log_warning_unit(UNIT(s)->id, "%s failed to run next task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning(UNIT(s)->id, "%s failed to run next task: %s", UNIT(s)->id, strerror(-r));
 
         if (s->state == SOCKET_START_POST)
                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
@@ -1934,7 +1934,7 @@ static int socket_start(Unit *u) {
                 service = SERVICE(UNIT_DEREF(s->service));
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_error_unit(u->id, "Socket service %s not loaded, refusing.", UNIT(service)->id);
+                        log_unit_error(u->id, "Socket service %s not loaded, refusing.", UNIT(service)->id);
                         return -ENOENT;
                 }
 
@@ -1943,7 +1943,7 @@ static int socket_start(Unit *u) {
                 if (service->state != SERVICE_DEAD &&
                     service->state != SERVICE_FAILED &&
                     service->state != SERVICE_AUTO_RESTART) {
-                        log_error_unit(u->id, "Socket service %s already active, refusing.", UNIT(service)->id);
+                        log_unit_error(u->id, "Socket service %s already active, refusing.", UNIT(service)->id);
                         return -EBUSY;
                 }
         }
@@ -2053,7 +2053,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 state = socket_state_from_string(value);
                 if (state < 0)
-                        log_debug_unit(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u->id, "Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -2061,7 +2061,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 f = socket_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(u->id, "Failed to parse result value %s", value);
+                        log_unit_debug(u->id, "Failed to parse result value %s", value);
                 else if (f != SOCKET_SUCCESS)
                         s->result = f;
 
@@ -2069,14 +2069,14 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 unsigned k;
 
                 if (safe_atou(value, &k) < 0)
-                        log_debug_unit(u->id, "Failed to parse n-accepted value %s", value);
+                        log_unit_debug(u->id, "Failed to parse n-accepted value %s", value);
                 else
                         s->n_accepted += k;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(u->id, "Failed to parse control-pid value %s", value);
+                        log_unit_debug(u->id, "Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
         } else if (streq(key, "control-command")) {
@@ -2084,7 +2084,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 id = socket_exec_command_from_string(value);
                 if (id < 0)
-                        log_debug_unit(u->id, "Failed to parse exec-command value %s", value);
+                        log_unit_debug(u->id, "Failed to parse exec-command value %s", value);
                 else {
                         s->control_command_id = id;
                         s->control_command = s->exec_command[id];
@@ -2094,7 +2094,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse fifo value %s", value);
+                        log_unit_debug(u->id, "Failed to parse fifo value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
@@ -2113,7 +2113,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse special value %s", value);
+                        log_unit_debug(u->id, "Failed to parse special value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
@@ -2132,7 +2132,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse mqueue value %s", value);
+                        log_unit_debug(u->id, "Failed to parse mqueue value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
@@ -2151,7 +2151,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 SocketPort *p;
 
                 if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse socket value %s", value);
+                        log_unit_debug(u->id, "Failed to parse socket value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
@@ -2169,7 +2169,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse socket value %s", value);
+                        log_unit_debug(u->id, "Failed to parse socket value %s", value);
                 else {
 
                         LIST_FOREACH(port, p, s->ports)
@@ -2182,7 +2182,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         }
                 }
         } else
-                log_debug_unit(UNIT(s)->id, "Unknown serialization key '%s'", key);
+                log_unit_debug(UNIT(s)->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -2286,15 +2286,15 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (p->socket->state != SOCKET_LISTENING)
                 return 0;
 
-        log_debug_unit(UNIT(p->socket)->id, "Incoming traffic on %s", UNIT(p->socket)->id);
+        log_unit_debug(UNIT(p->socket)->id, "Incoming traffic on %s", UNIT(p->socket)->id);
 
         if (revents != EPOLLIN) {
 
                 if (revents & EPOLLHUP)
-                        log_error_unit(UNIT(p->socket)->id, "%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.",
+                        log_unit_error(UNIT(p->socket)->id, "%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.",
                                        UNIT(p->socket)->id);
                 else
-                        log_error_unit(UNIT(p->socket)->id, "%s: Got unexpected poll event (0x%x) on socket.",
+                        log_unit_error(UNIT(p->socket)->id, "%s: Got unexpected poll event (0x%x) on socket.",
                                        UNIT(p->socket)->id, revents);
 
                 goto fail;
@@ -2312,7 +2312,7 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                                 if (errno == EINTR)
                                         continue;
 
-                                log_error_unit(UNIT(p->socket)->id,
+                                log_unit_error(UNIT(p->socket)->id,
                                                "Failed to accept socket: %m");
                                 goto fail;
                         }
@@ -2361,8 +2361,8 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         f = SOCKET_SUCCESS;
         }
 
-        log_full_unit(f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                      u->id,
+        log_unit_full(u->id,
+                      f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
                       "%s control process exited, code=%s status=%i",
                       u->id, sigchld_code_to_string(code), status);
 
@@ -2373,7 +2373,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
             s->control_command->command_next &&
             f == SOCKET_SUCCESS) {
 
-                log_debug_unit(u->id,
+                log_unit_debug(u->id,
                                "%s running next command for state %s",
                                u->id, socket_state_to_string(s->state));
                 socket_run_next(s);
@@ -2384,7 +2384,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* No further commands for this step, so let's figure
                  * out what to do next */
 
-                log_debug_unit(u->id,
+                log_unit_debug(u->id,
                                "%s got final SIGCHLD for state %s",
                                u->id, socket_state_to_string(s->state));
 
@@ -2441,53 +2441,53 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         switch (s->state) {
 
         case SOCKET_START_PRE:
-                log_warning_unit(UNIT(s)->id, "%s starting timed out. Terminating.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s starting timed out. Terminating.", UNIT(s)->id);
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_TIMEOUT);
                 break;
 
         case SOCKET_START_CHOWN:
         case SOCKET_START_POST:
-                log_warning_unit(UNIT(s)->id, "%s starting timed out. Stopping.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s starting timed out. Stopping.", UNIT(s)->id);
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
                 break;
 
         case SOCKET_STOP_PRE:
-                log_warning_unit(UNIT(s)->id, "%s stopping timed out. Terminating.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s stopping timed out. Terminating.", UNIT(s)->id);
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, SOCKET_FAILURE_TIMEOUT);
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(s)->id, "%s stopping timed out. Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stopping timed out. Killing.", UNIT(s)->id);
                         socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, SOCKET_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(s)->id, "%s stopping timed out. Skipping SIGKILL. Ignoring.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stopping timed out. Skipping SIGKILL. Ignoring.", UNIT(s)->id);
                         socket_enter_stop_post(s, SOCKET_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SOCKET_STOP_PRE_SIGKILL:
-                log_warning_unit(UNIT(s)->id, "%s still around after SIGKILL. Ignoring.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s still around after SIGKILL. Ignoring.", UNIT(s)->id);
                 socket_enter_stop_post(s, SOCKET_FAILURE_TIMEOUT);
                 break;
 
         case SOCKET_STOP_POST:
-                log_warning_unit(UNIT(s)->id, "%s stopping timed out (2). Terminating.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s stopping timed out (2). Terminating.", UNIT(s)->id);
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_TIMEOUT);
                 break;
 
         case SOCKET_FINAL_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(s)->id, "%s stopping timed out (2). Killing.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stopping timed out (2). Killing.", UNIT(s)->id);
                         socket_enter_signal(s, SOCKET_FINAL_SIGKILL, SOCKET_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(s)->id, "%s stopping timed out (2). Skipping SIGKILL. Ignoring.", UNIT(s)->id);
+                        log_unit_warning(UNIT(s)->id, "%s stopping timed out (2). Skipping SIGKILL. Ignoring.", UNIT(s)->id);
                         socket_enter_dead(s, SOCKET_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SOCKET_FINAL_SIGKILL:
-                log_warning_unit(UNIT(s)->id, "%s still around after SIGKILL (2). Entering failed mode.", UNIT(s)->id);
+                log_unit_warning(UNIT(s)->id, "%s still around after SIGKILL (2). Entering failed mode.", UNIT(s)->id);
                 socket_enter_dead(s, SOCKET_FAILURE_TIMEOUT);
                 break;
 
@@ -2556,7 +2556,7 @@ static void socket_notify_service_dead(Socket *s, bool failed_permanent) {
          * services. */
 
         if (s->state == SOCKET_RUNNING) {
-                log_debug_unit(UNIT(s)->id, "%s got notified about service death (failed permanently: %s)", UNIT(s)->id, yes_no(failed_permanent));
+                log_unit_debug(UNIT(s)->id, "%s got notified about service death (failed permanently: %s)", UNIT(s)->id, yes_no(failed_permanent));
                 if (failed_permanent)
                         socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_FAILED_PERMANENT);
                 else
@@ -2575,7 +2575,7 @@ void socket_connection_unref(Socket *s) {
         assert(s->n_connections > 0);
         s->n_connections--;
 
-        log_debug_unit(UNIT(s)->id, "%s: One connection closed, %u left.", UNIT(s)->id, s->n_connections);
+        log_unit_debug(UNIT(s)->id, "%s: One connection closed, %u left.", UNIT(s)->id, s->n_connections);
 }
 
 static void socket_trigger_notify(Unit *u, Unit *other) {

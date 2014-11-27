@@ -113,7 +113,7 @@ static int slice_verify(Slice *s) {
                         a = (char*) SPECIAL_ROOT_SLICE;
 
                 if (!unit_has_name(UNIT_DEREF(UNIT(s)->slice), a)) {
-                        log_error_unit(UNIT(s)->id,
+                        log_unit_error(UNIT(s)->id,
                                        "%s located outside its parent slice. Refusing.", UNIT(s)->id);
                         return -EINVAL;
                 }

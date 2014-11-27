@@ -41,7 +41,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if (v->id <= VXLAN_VID_MAX) {
                 r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_ID, v->id);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_ID attribute: %s",
                                          strerror(-r));
                         return r;
@@ -50,7 +50,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_GROUP attribute: %s",
                                  strerror(-r));
                 return r;
@@ -58,7 +58,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_LINK attribute: %s",
                                  strerror(-r));
                 return r;
@@ -67,7 +67,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if(v->ttl) {
                 r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_TTL attribute: %s",
                                          strerror(-r));
                         return r;
@@ -77,7 +77,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if(v->tos) {
                 r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_TOS attribute: %s",
                                          strerror(-r));
                         return r;
@@ -86,7 +86,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_LEARNING attribute: %s",
                                  strerror(-r));
                 return r;

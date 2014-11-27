@@ -854,7 +854,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
                 if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
                     u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
-                        log_debug_unit(u->id, "Collecting %s", u->id);
+                        log_unit_debug(u->id, "Collecting %s", u->id);
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(u);
                 }
@@ -1173,7 +1173,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
                 return sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
-        log_debug_unit(unit->id,
+        log_unit_debug(unit->id,
                        "Trying to enqueue job %s/%s/%s", unit->id,
                        job_type_to_string(type), job_mode_to_string(mode));
 
@@ -1199,7 +1199,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (r < 0)
                 goto tr_abort;
 
-        log_debug_unit(unit->id,
+        log_unit_debug(unit->id,
                        "Enqueued job %s/%s as %u", unit->id,
                        job_type_to_string(type), (unsigned) tr->anchor_job->id);
 
@@ -1469,7 +1469,7 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, char *
                 return;
         }
 
-        log_debug_unit(u->id, "Got notification message for unit %s", u->id);
+        log_unit_debug(u->id, "Got notification message for unit %s", u->id);
 
         if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, pid, tags);
@@ -1565,7 +1565,7 @@ static void invoke_sigchld_event(Manager *m, Unit *u, siginfo_t *si) {
         assert(u);
         assert(si);
 
-        log_debug_unit(u->id, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
+        log_unit_debug(u->id, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
 
         unit_unwatch_pid(u, si->si_pid);
         UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
@@ -1637,11 +1637,11 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_debug_unit(name, "Activating special unit %s", name);
+        log_unit_debug(name, "Activating special unit %s", name);
 
         r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
         if (r < 0)
-                log_error_unit(name, "Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
+                log_unit_error(name, "Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
 
         return r;
 }

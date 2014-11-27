@@ -251,11 +251,11 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
          * Then let's acquire something more useful from the pool. */
         r = manager_address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
         if (r < 0) {
-                log_error_link(link, "Failed to acquire address from pool: %s", strerror(-r));
+                log_link_error(link, "Failed to acquire address from pool: %s", strerror(-r));
                 return r;
         }
         if (r == 0) {
-                log_error_link(link, "Couldn't find free address for interface, all taken.");
+                log_link_error(link, "Couldn't find free address for interface, all taken.");
                 return -EBUSY;
         }
 

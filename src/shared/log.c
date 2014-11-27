@@ -627,7 +627,7 @@ int log_dump_internal(
         return log_dispatch(level, error, file, line, func, NULL, NULL, buffer);
 }
 
-int log_metav(
+int log_internalv(
                 int level,
                 int error,
                 const char*file,
@@ -652,7 +652,7 @@ int log_metav(
         return log_dispatch(level, error, file, line, func, NULL, NULL, buffer);
 }
 
-int log_meta(
+int log_internal(
                 int level,
                 int error,
                 const char*file,
@@ -664,13 +664,13 @@ int log_meta(
         va_list ap;
 
         va_start(ap, format);
-        r = log_metav(level, error, file, line, func, format, ap);
+        r = log_internalv(level, error, file, line, func, format, ap);
         va_end(ap);
 
         return r;
 }
 
-int log_metav_object(
+int log_object_internalv(
                 int level,
                 int error,
                 const char*file,
@@ -697,7 +697,7 @@ int log_metav_object(
         return log_dispatch(level, error, file, line, func, object_field, object, buffer);
 }
 
-int log_meta_object(
+int log_object_internal(
                 int level,
                 int error,
                 const char*file,
@@ -711,7 +711,7 @@ int log_meta_object(
         va_list ap;
 
         va_start(ap, format);
-        r = log_metav_object(level, error, file, line, func, object_field, object, format, ap);
+        r = log_object_internalv(level, error, file, line, func, object_field, object, format, ap);
         va_end(ap);
 
         return r;
@@ -756,7 +756,7 @@ void log_assert_failed_return(const char *text, const char *file, int line, cons
 }
 
 int log_oom_internal(const char *file, int line, const char *func) {
-        log_meta(LOG_ERR, ENOMEM, file, line, func, "Out of memory.");
+        log_internal(LOG_ERR, ENOMEM, file, line, func, "Out of memory.");
         return -ENOMEM;
 }
 

@@ -70,13 +70,13 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         fd = open(TUN_DEV, O_RDWR);
         if (fd < 0) {
-                log_error_netdev(netdev, "Failed to open tun dev: %m");
+                log_netdev_error(netdev, "Failed to open tun dev: %m");
                 return -errno;
         }
 
         r = ioctl(fd, TUNSETIFF, ifr);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "TUNSETIFF failed on tun dev: %s",
                                  strerror(-r));
                 return r;
@@ -102,7 +102,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = ioctl(fd, TUNSETOWNER, uid);
                 if ( r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "TUNSETOWNER failed on tun dev: %s",
                                          strerror(-r));
                 }
@@ -121,7 +121,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = ioctl(fd, TUNSETGROUP, gid);
                 if( r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "TUNSETGROUP failed on tun dev: %s",
                                          strerror(-r));
                         return r;
@@ -131,7 +131,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
         r = ioctl(fd, TUNSETPERSIST, 1);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "TUNSETPERSIST failed on tun dev: %s",
                                  strerror(-r));
                 return r;

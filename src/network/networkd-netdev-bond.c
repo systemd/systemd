@@ -116,7 +116,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_MODE,
                                               bond_mode_to_kernel(b->mode));
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_MODE attribute: %s",
                                          strerror(-r));
                         return r;
@@ -127,7 +127,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
                                               bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %s",
                                          strerror(-r));
                         return r;
@@ -138,7 +138,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
             b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_rtnl_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_AD_LACP_RATE attribute: %s",
                                          strerror(-r));
                         return r;
@@ -148,7 +148,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->miimon != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_MIIMON, b->miimon / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_BOND_MIIMON attribute: %s",
                                          strerror(-r));
                         return r;
@@ -158,7 +158,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->downdelay != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_DOWNDELAY, b->downdelay / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_DOWNDELAY attribute: %s",
                                          strerror(-r));
                         return r;
@@ -168,7 +168,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (b->updelay != 0) {
                 r = sd_rtnl_message_append_u32(m, IFLA_BOND_UPDELAY, b->updelay / USEC_PER_MSEC);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_BOND_UPDELAY attribute: %s",
                                          strerror(-r));
                         return r;

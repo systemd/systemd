@@ -426,7 +426,7 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 r = connect_logger_as(context, o, ident, unit_id, fileno);
                 if (r < 0) {
-                        log_struct_unit(LOG_CRIT, unit_id,
+                        log_unit_struct(LOG_CRIT, unit_id,
                                 "MESSAGE=Failed to connect std%s of %s to the journal socket: %s",
                                 fileno == STDOUT_FILENO ? "out" : "err",
                                 unit_id, strerror(-r),
@@ -1549,7 +1549,7 @@ static int exec_child(ExecCommand *command,
                                 context->mount_flags);
 
                 if (err == -EPERM)
-                        log_warning_unit(params->unit_id, "Failed to set up file system namespace due to lack of privileges. Execution sandbox will not be in effect: %s", strerror(-err));
+                        log_unit_warning(params->unit_id, "Failed to set up file system namespace due to lack of privileges. Execution sandbox will not be in effect: %s", strerror(-err));
                 else if (err < 0) {
                         *error = EXIT_NAMESPACE;
                         return err;
@@ -1751,7 +1751,7 @@ static int exec_child(ExecCommand *command,
                 line = exec_command_line(final_argv);
                 if (line) {
                         log_open();
-                        log_struct_unit(LOG_DEBUG,
+                        log_unit_struct(LOG_DEBUG,
                                         params->unit_id,
                                         "EXECUTABLE=%s", command->path,
                                         "MESSAGE=Executing: %s", line,
@@ -1799,7 +1799,7 @@ int exec_spawn(ExecCommand *command,
 
         err = exec_context_load_environment(context, params->unit_id, &files_env);
         if (err < 0) {
-                log_struct_unit(LOG_ERR,
+                log_unit_struct(LOG_ERR,
                            params->unit_id,
                            "MESSAGE=Failed to load environment files: %s", strerror(-err),
                            "ERRNO=%d", -err,
@@ -1813,7 +1813,7 @@ int exec_spawn(ExecCommand *command,
         if (!line)
                 return log_oom();
 
-        log_struct_unit(LOG_DEBUG,
+        log_unit_struct(LOG_DEBUG,
                         params->unit_id,
                         "EXECUTABLE=%s", command->path,
                         "MESSAGE=About to execute: %s", line,
@@ -1851,7 +1851,7 @@ int exec_spawn(ExecCommand *command,
                 _exit(r);
         }
 
-        log_struct_unit(LOG_DEBUG,
+        log_unit_struct(LOG_DEBUG,
                         params->unit_id,
                         "MESSAGE=Forked %s as "PID_FMT,
                         command->path, pid,
@@ -2771,7 +2771,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
                         return r;
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[0]);
                         (*rt)->netns_storage_socket[0] = fdset_remove(fds, fd);
@@ -2784,7 +2784,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
                         return r;
 
                 if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
-                        log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
+                        log_unit_debug(u->id, "Failed to parse netns socket value %s", value);
                 else {
                         safe_close((*rt)->netns_storage_socket[1]);
                         (*rt)->netns_storage_socket[1] = fdset_remove(fds, fd);

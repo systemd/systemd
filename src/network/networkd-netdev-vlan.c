@@ -37,7 +37,7 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (v->id <= VLANID_MAX) {
                 r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, v->id);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VLAN_ID attribute: %s",
                                          strerror(-r));
                         return r;

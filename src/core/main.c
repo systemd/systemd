@@ -468,7 +468,7 @@ static int config_parse_cpu_affinity2(
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                        log_warning_unit(unit, "Failed to set CPU affinity: %m");
+                        log_unit_warning(unit, "Failed to set CPU affinity: %m");
 
                 CPU_FREE(c);
         }

@@ -1218,7 +1218,7 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 if (u->on_failure_job_mode == JOB_ISOLATE && set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
-                        log_error_unit(u->id, "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
+                        log_unit_error(u->id, "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
                         r = -EINVAL;
                         goto fail;
                 }
@@ -1239,7 +1239,7 @@ fail:
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 
-        log_debug_unit(u->id, "Failed to load configuration for %s: %s",
+        log_unit_debug(u->id, "Failed to load configuration for %s: %s",
                        u->id, strerror(-r));
 
         return r;
@@ -1264,7 +1264,7 @@ static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to
 
                 r = condition_test(c);
                 if (r < 0)
-                        log_warning_unit(u->id,
+                        log_unit_warning(u->id,
                                          "Couldn't determine result for %s=%s%s%s for %s, assuming failed: %s",
                                          to_string(c->type),
                                          c->trigger ? "|" : "",
@@ -1273,7 +1273,7 @@ static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to
                                          u->id,
                                          strerror(-r));
                 else
-                        log_debug_unit(u->id,
+                        log_unit_debug(u->id,
                                        "%s=%s%s%s %s for %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
@@ -1394,7 +1394,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
               t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
                                SD_MESSAGE_UNIT_RELOADING;
 
-        log_struct_unit(LOG_INFO,
+        log_unit_struct(LOG_INFO,
                         u->id,
                         MESSAGE_ID(mid),
                         "MESSAGE=%s", buf,
@@ -1431,21 +1431,21 @@ int unit_start(Unit *u) {
          * but we don't want to recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
-                log_debug_unit(u->id, "Starting of %s requested but condition failed. Not starting unit.", u->id);
+                log_unit_debug(u->id, "Starting of %s requested but condition failed. Not starting unit.", u->id);
                 return -EALREADY;
         }
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
             !unit_assert_test(u)) {
-                log_debug_unit(u->id, "Starting of %s requested but asserts failed.", u->id);
+                log_unit_debug(u->id, "Starting of %s requested but asserts failed.", u->id);
                 return -EPROTO;
         }
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
         if (following) {
-                log_debug_unit(u->id, "Redirecting start request from %s to %s.", u->id, following->id);
+                log_unit_debug(u->id, "Redirecting start request from %s to %s.", u->id, following->id);
                 return unit_start(following);
         }
 
@@ -1496,7 +1496,7 @@ int unit_stop(Unit *u) {
                 return -EALREADY;
 
         if ((following = unit_following(u))) {
-                log_debug_unit(u->id, "Redirecting stop request from %s to %s.",
+                log_unit_debug(u->id, "Redirecting stop request from %s to %s.",
                                u->id, following->id);
                 return unit_stop(following);
         }
@@ -1534,14 +1534,14 @@ int unit_reload(Unit *u) {
                 return -EALREADY;
 
         if (state != UNIT_ACTIVE) {
-                log_warning_unit(u->id, "Unit %s cannot be reloaded because it is inactive.",
+                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.",
                                  u->id);
                 return -ENOEXEC;
         }
 
         following = unit_following(u);
         if (following) {
-                log_debug_unit(u->id, "Redirecting reload request from %s to %s.",
+                log_unit_debug(u->id, "Redirecting reload request from %s to %s.",
                                u->id, following->id);
                 return unit_reload(following);
         }
@@ -1595,7 +1595,7 @@ static void unit_check_unneeded(Unit *u) {
                 if (unit_active_or_pending(other))
                         return;
 
-        log_info_unit(u->id, "Unit %s is not needed anymore. Stopping.", u->id);
+        log_unit_info(u->id, "Unit %s is not needed anymore. Stopping.", u->id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -1627,7 +1627,7 @@ static void unit_check_binds_to(Unit *u) {
         if (!stop)
                 return;
 
-        log_info_unit(u->id, "Unit %s is bound to inactive service. Stopping, too.", u->id);
+        log_unit_info(u->id, "Unit %s is bound to inactive service. Stopping, too.", u->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -1719,14 +1719,14 @@ void unit_start_on_failure(Unit *u) {
         if (set_size(u->dependencies[UNIT_ON_FAILURE]) <= 0)
                 return;
 
-        log_info_unit(u->id, "Triggering OnFailure= dependencies of %s.", u->id);
+        log_unit_info(u->id, "Triggering OnFailure= dependencies of %s.", u->id);
 
         SET_FOREACH(other, u->dependencies[UNIT_ON_FAILURE], i) {
                 int r;
 
                 r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, true, NULL, NULL);
                 if (r < 0)
-                        log_error_unit(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
+                        log_unit_error(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
         }
 }
 
@@ -1890,7 +1890,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_notice_unit(u->id, "Unit %s entered failed state.", u->id);
+                        log_unit_notice(u->id, "Unit %s entered failed state.", u->id);
                         unit_start_on_failure(u);
                 }
         }
@@ -2152,10 +2152,10 @@ static int maybe_warn_about_dependency(const char *id, const char *other, UnitDe
         case UNIT_TRIGGERS:
         case UNIT_TRIGGERED_BY:
                 if (streq_ptr(id, other))
-                        log_warning_unit(id, "Dependency %s=%s dropped from unit %s",
+                        log_unit_warning(id, "Dependency %s=%s dropped from unit %s",
                                          unit_dependency_to_string(dependency), id, other);
                 else
-                        log_warning_unit(id, "Dependency %s=%s dropped from unit %s merged into %s",
+                        log_unit_warning(id, "Dependency %s=%s dropped from unit %s merged into %s",
                                          unit_dependency_to_string(dependency), id,
                                          strna(other), id);
                 return -EINVAL;
@@ -3435,7 +3435,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_warning_unit(u->id, "Failed to kill main process " PID_FMT " (%s): %s", main_pid, strna(comm), strerror(-r));
+                        log_unit_warning(u->id, "Failed to kill main process " PID_FMT " (%s): %s", main_pid, strna(comm), strerror(-r));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
@@ -3452,7 +3452,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_warning_unit(u->id, "Failed to kill control process " PID_FMT " (%s): %s", control_pid, strna(comm), strerror(-r));
+                        log_unit_warning(u->id, "Failed to kill control process " PID_FMT " (%s): %s", control_pid, strna(comm), strerror(-r));
                 } else {
                         wait_for_exit = true;
 
@@ -3472,7 +3472,7 @@ int unit_kill_context(
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
+                                log_unit_warning(u->id, "Failed to kill control group: %s", strerror(-r));
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the

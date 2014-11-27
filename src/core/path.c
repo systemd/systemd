@@ -320,7 +320,7 @@ static int path_verify(Path *p) {
                 return 0;
 
         if (!p->specs) {
-                log_error_unit(UNIT(p)->id,
+                log_unit_error(UNIT(p)->id,
                                "%s lacks path setting. Refusing.", UNIT(p)->id);
                 return -EINVAL;
         }
@@ -724,7 +724,7 @@ static void path_trigger_notify(Unit *u, Unit *other) {
 
         if (p->state == PATH_RUNNING &&
             UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
-                log_debug_unit(UNIT(p)->id,
+                log_unit_debug(UNIT(p)->id,
                                "%s got notified about unit deactivation.",
                                UNIT(p)->id);
 

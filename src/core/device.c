@@ -98,7 +98,7 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_debug_unit(UNIT(d)->id,
+                log_unit_debug(UNIT(d)->id,
                                "%s changed %s -> %s", UNIT(d)->id,
                                device_state_to_string(old_state),
                                device_state_to_string(state));
@@ -249,7 +249,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                         return r;
         }
         if (!isempty(state))
-                log_warning_unit(u->id, "Property %s on %s has trailing garbage, ignoring.",
+                log_unit_warning(u->id, "Property %s on %s has trailing garbage, ignoring.",
                                  property, strna(udev_device_get_syspath(dev)));
 
         return 0;

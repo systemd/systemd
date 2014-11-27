@@ -596,13 +596,13 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_full_unit(level, unit, ...) log_meta_object(level, 0, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
-#define log_full_unit_errno(level, error, unit, ...) log_meta_object(level, error, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+#define log_unit_full_errno(unit, level, error, ...) log_object_internal(level, error, __FILE__, __LINE__, __func__, getpid() == 1 ? "UNIT=" : "USER_UNIT=", unit, __VA_ARGS__)
+#define log_unit_full(unit, level, ...) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
 
-#define log_debug_unit(unit, ...)       log_full_unit(LOG_DEBUG, unit, __VA_ARGS__)
-#define log_info_unit(unit, ...)        log_full_unit(LOG_INFO, unit, __VA_ARGS__)
-#define log_notice_unit(unit, ...)      log_full_unit(LOG_NOTICE, unit, __VA_ARGS__)
-#define log_warning_unit(unit, ...)     log_full_unit(LOG_WARNING, unit, __VA_ARGS__)
-#define log_error_unit(unit, ...)       log_full_unit(LOG_ERR, unit, __VA_ARGS__)
+#define log_unit_debug(unit, ...)       log_unit_full(unit, LOG_DEBUG, __VA_ARGS__)
+#define log_unit_info(unit, ...)        log_unit_full(unit, LOG_INFO, __VA_ARGS__)
+#define log_unit_notice(unit, ...)      log_unit_full(unit, LOG_NOTICE, __VA_ARGS__)
+#define log_unit_warning(unit, ...)     log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
+#define log_unit_error(unit, ...)       log_unit_full(unit, LOG_ERR, __VA_ARGS__)
 
-#define log_struct_unit(level, unit, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
+#define log_unit_struct(level, unit, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)

@@ -54,7 +54,7 @@ struct sd_icmp6_nd {
         void *userdata;
 };
 
-#define log_icmp6_nd(p, fmt, ...) log_meta(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "ICMPv6 CLIENT: " fmt, ##__VA_ARGS__)
+#define log_icmp6_nd(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "ICMPv6 CLIENT: " fmt, ##__VA_ARGS__)
 
 static void icmp6_nd_notify(sd_icmp6_nd *nd, int event)
 {

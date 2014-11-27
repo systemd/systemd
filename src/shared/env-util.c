@@ -425,7 +425,7 @@ char **strv_env_clean_log(char **e, const char *unit_id, const char *message) {
 
                 if (!env_assignment_is_valid(*p)) {
                         if (message)
-                                log_error_unit(unit_id, "Ignoring invalid environment '%s': %s", *p, message);
+                                log_unit_error(unit_id, "Ignoring invalid environment '%s': %s", *p, message);
                         free(*p);
                         continue;
                 }

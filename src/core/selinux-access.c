@@ -112,7 +112,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 #endif
 
         va_start(ap, fmt);
-        log_metav(LOG_USER | LOG_INFO, 0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
+        log_internalv(LOG_USER | LOG_INFO, 0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
         va_end(ap);
 
         return 0;

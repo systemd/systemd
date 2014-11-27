@@ -437,22 +437,22 @@ static int mount_verify(Mount *m) {
 
         b = unit_has_name(UNIT(m), e);
         if (!b) {
-                log_error_unit(UNIT(m)->id, "%s's Where= setting doesn't match unit name. Refusing.", UNIT(m)->id);
+                log_unit_error(UNIT(m)->id, "%s's Where= setting doesn't match unit name. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
 
         if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
-                log_error_unit(UNIT(m)->id, "Cannot create mount unit for API file system %s. Refusing.", m->where);
+                log_unit_error(UNIT(m)->id, "Cannot create mount unit for API file system %s. Refusing.", m->where);
                 return -EINVAL;
         }
 
         if (UNIT(m)->fragment_path && !m->parameters_fragment.what) {
-                log_error_unit(UNIT(m)->id, "%s's What setting is missing. Refusing.", UNIT(m)->id);
+                log_unit_error(UNIT(m)->id, "%s's What setting is missing. Refusing.", UNIT(m)->id);
                 return -EBADMSG;
         }
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error_unit(UNIT(m)->id, "%s has PAM enabled. Kill mode must be set to control-group'. Refusing.",UNIT(m)->id);
+                log_unit_error(UNIT(m)->id, "%s has PAM enabled. Kill mode must be set to control-group'. Refusing.",UNIT(m)->id);
                 return -EINVAL;
         }
 
@@ -597,7 +597,7 @@ static void mount_set_state(Mount *m, MountState state) {
         }
 
         if (state != old_state)
-                log_debug_unit(UNIT(m)->id,
+                log_unit_debug(UNIT(m)->id,
                                "%s changed %s -> %s",
                                UNIT(m)->id,
                                mount_state_to_string(old_state),
@@ -804,7 +804,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         return;
 
 fail:
-        log_warning_unit(UNIT(m)->id,
+        log_unit_warning(UNIT(m)->id,
                          "%s failed to kill processes: %s", UNIT(m)->id, strerror(-r));
 
         if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
@@ -823,7 +823,7 @@ void warn_if_dir_nonempty(const char *unit, const char* where) {
         if (r > 0)
                 return;
         else if (r == 0)
-                log_struct_unit(LOG_NOTICE,
+                log_unit_struct(LOG_NOTICE,
                                 unit,
                                 "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
                                 unit, where,
@@ -831,7 +831,7 @@ void warn_if_dir_nonempty(const char *unit, const char* where) {
                                 MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
                                 NULL);
         else
-                log_warning_unit(unit,
+                log_unit_warning(unit,
                                  "MESSAGE=Failed to check directory %s: %s",
                                  where, strerror(-r));
 }
@@ -840,7 +840,7 @@ static int fail_if_symlink(const char *unit, const char* where) {
         assert(where);
 
         if (is_symlink(where) > 0) {
-                log_struct_unit(LOG_WARNING,
+                log_unit_struct(LOG_WARNING,
                                 unit,
                                 "MESSAGE=%s: Mount on symlink %s not allowed.",
                                 unit, where,
@@ -879,7 +879,7 @@ static void mount_enter_unmounting(Mount *m) {
         return;
 
 fail:
-        log_warning_unit(UNIT(m)->id,
+        log_unit_warning(UNIT(m)->id,
                          "%s failed to run 'umount' task: %s",
                          UNIT(m)->id, strerror(-r));
         mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
@@ -934,7 +934,7 @@ static void mount_enter_mounting(Mount *m) {
         return;
 
 fail:
-        log_warning_unit(UNIT(m)->id,
+        log_unit_warning(UNIT(m)->id,
                          "%s failed to run 'mount' task: %s",
                          UNIT(m)->id, strerror(-r));
         mount_enter_dead(m, MOUNT_FAILURE_RESOURCES);
@@ -982,7 +982,7 @@ static void mount_enter_remounting(Mount *m) {
         return;
 
 fail:
-        log_warning_unit(UNIT(m)->id,
+        log_unit_warning(UNIT(m)->id,
                          "%s failed to run 'remount' task: %s",
                          UNIT(m)->id, strerror(-r));
         m->reload_result = MOUNT_FAILURE_RESOURCES;
@@ -1086,7 +1086,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                 MountState state;
 
                 if ((state = mount_state_from_string(value)) < 0)
-                        log_debug_unit(u->id, "Failed to parse state value %s", value);
+                        log_unit_debug(u->id, "Failed to parse state value %s", value);
                 else
                         m->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -1094,7 +1094,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = mount_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(UNIT(m)->id,
+                        log_unit_debug(UNIT(m)->id,
                                        "Failed to parse result value %s", value);
                 else if (f != MOUNT_SUCCESS)
                         m->result = f;
@@ -1104,7 +1104,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = mount_result_from_string(value);
                 if (f < 0)
-                        log_debug_unit(UNIT(m)->id,
+                        log_unit_debug(UNIT(m)->id,
                                        "Failed to parse reload result value %s", value);
                 else if (f != MOUNT_SUCCESS)
                         m->reload_result = f;
@@ -1113,7 +1113,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug_unit(UNIT(m)->id,
+                        log_unit_debug(UNIT(m)->id,
                                        "Failed to parse control-pid value %s", value);
                 else
                         m->control_pid = pid;
@@ -1121,14 +1121,14 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                 MountExecCommand id;
 
                 if ((id = mount_exec_command_from_string(value)) < 0)
-                        log_debug_unit(UNIT(m)->id,
+                        log_unit_debug(UNIT(m)->id,
                                        "Failed to parse exec-command value %s", value);
                 else {
                         m->control_command_id = id;
                         m->control_command = m->exec_command + id;
                 }
         } else
-                log_debug_unit(UNIT(m)->id,
+                log_unit_debug(UNIT(m)->id,
                                "Unknown serialization key '%s'", key);
 
         return 0;
@@ -1187,7 +1187,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
-        log_full_unit(f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE, u->id,
+        log_unit_full(u->id,
+                      f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
                       "%s mount process exited, code=%s status=%i",
                       u->id, sigchld_code_to_string(code), status);
 
@@ -1255,31 +1256,31 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-                log_warning_unit(UNIT(m)->id,
+                log_unit_warning(UNIT(m)->id,
                                  "%s mounting timed out. Stopping.", UNIT(m)->id);
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_REMOUNTING:
-                log_warning_unit(UNIT(m)->id,
+                log_unit_warning(UNIT(m)->id,
                                  "%s remounting timed out. Stopping.", UNIT(m)->id);
                 m->reload_result = MOUNT_FAILURE_TIMEOUT;
                 mount_enter_mounted(m, MOUNT_SUCCESS);
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_warning_unit(UNIT(m)->id,
+                log_unit_warning(UNIT(m)->id,
                                  "%s unmounting timed out. Stopping.", UNIT(m)->id);
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s mounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s mounting timed out. Skipping SIGKILL. Ignoring.",
                                          UNIT(m)->id);
 
@@ -1292,11 +1293,11 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_REMOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s remounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s remounting timed out. Skipping SIGKILL. Ignoring.",
                                          UNIT(m)->id);
 
@@ -1309,11 +1310,11 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_UNMOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s unmounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(UNIT(m)->id,
+                        log_unit_warning(UNIT(m)->id,
                                          "%s unmounting timed out. Skipping SIGKILL. Ignoring.",
                                          UNIT(m)->id);
 
@@ -1327,7 +1328,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGKILL:
-                log_warning_unit(UNIT(m)->id,
+                log_unit_warning(UNIT(m)->id,
                                  "%s mount process still around after SIGKILL. Ignoring.",
                                  UNIT(m)->id);
 

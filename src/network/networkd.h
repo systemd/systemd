@@ -336,14 +336,14 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_full_link(level, link, fmt, ...) log_meta_object(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
-#define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, ##__VA_ARGS__)
-#define log_info_link(link, ...)        log_full_link(LOG_INFO, link, ##__VA_ARGS__)
-#define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, ##__VA_ARGS__)
-#define log_warning_link(link, ...)     log_full_link(LOG_WARNING, link, ##__VA_ARGS__)
-#define log_error_link(link, ...)       log_full_link(LOG_ERR, link, ##__VA_ARGS__)
+#define log_link_full(level, link, fmt, ...) log_object_internal(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
+#define log_link_debug(link, ...)       log_link_full(LOG_DEBUG, link, ##__VA_ARGS__)
+#define log_link_info(link, ...)        log_link_full(LOG_INFO, link, ##__VA_ARGS__)
+#define log_link_notice(link, ...)      log_link_full(LOG_NOTICE, link, ##__VA_ARGS__)
+#define log_link_warning(link, ...)     log_link_full(LOG_WARNING, link, ##__VA_ARGS__)
+#define log_link_error(link, ...)       log_link_full(LOG_ERR, link, ##__VA_ARGS__)
 
-#define log_struct_link(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
+#define log_link_struct(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
 
 #define ADDRESS_FMT_VAL(address)            \
         (address).s_addr & 0xFF,            \

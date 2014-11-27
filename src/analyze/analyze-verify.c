@@ -74,7 +74,7 @@ static int verify_socket(Unit *u) {
         /* This makes sure instance is created if necessary. */
         r = socket_instantiate_service(SOCKET(u));
         if (r < 0) {
-                log_error_unit(u->id, "Socket %s cannot be started, failed to create instance.",
+                log_unit_error(u->id, "Socket %s cannot be started, failed to create instance.",
                                u->id);
                 return r;
         }
@@ -84,10 +84,10 @@ static int verify_socket(Unit *u) {
                 Service *service;
 
                 service = SERVICE(UNIT_DEREF(SOCKET(u)->service));
-                log_debug_unit(u->id, "%s uses %s", u->id, UNIT(service)->id);
+                log_unit_debug(u->id, "%s uses %s", u->id, UNIT(service)->id);
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_error_unit(u->id, "Service %s not loaded, %s cannot be started.",
+                        log_unit_error(u->id, "Service %s not loaded, %s cannot be started.",
                                        UNIT(service)->id, u->id);
                         return -ENOENT;
                 }
@@ -101,7 +101,7 @@ static int verify_executable(Unit *u, ExecCommand *exec) {
                 return 0;
 
         if (access(exec->path, X_OK) < 0) {
-                log_error_unit(u->id, "%s: command %s is not executable: %m",
+                log_unit_error(u->id, "%s: command %s is not executable: %m",
                                u->id, exec->path);
                 return -errno;
         }
@@ -145,15 +145,15 @@ static int verify_documentation(Unit *u, bool check_man) {
         int r = 0, k;
 
         STRV_FOREACH(p, u->documentation) {
-                log_debug_unit(u->id, "%s: found documentation item %s.", u->id, *p);
+                log_unit_debug(u->id, "%s: found documentation item %s.", u->id, *p);
                 if (check_man && startswith(*p, "man:")) {
                         k = show_man_page(*p + 4, true);
                         if (k != 0) {
                                 if (k < 0)
-                                        log_error_unit(u->id, "%s: can't show %s: %s",
+                                        log_unit_error(u->id, "%s: can't show %s: %s",
                                                        u->id, *p, strerror(-r));
                                 else {
-                                        log_error_unit(u->id, "%s: man %s command failed with code %d",
+                                        log_unit_error(u->id, "%s: man %s command failed with code %d",
                                                        u->id, *p + 4, k);
                                         k = -ENOEXEC;
                                 }
@@ -178,13 +178,13 @@ static int verify_unit(Unit *u, bool check_man) {
         if (log_get_max_level() >= LOG_DEBUG)
                 unit_dump(u, stdout, "\t");
 
-        log_debug_unit(u->id, "Creating %s/start job", u->id);
+        log_unit_debug(u->id, "Creating %s/start job", u->id);
         r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, false, &err, &j);
         if (sd_bus_error_is_set(&err))
-                log_error_unit(u->id, "Error: %s: %s",
+                log_unit_error(u->id, "Error: %s: %s",
                                err.name, err.message);
         if (r < 0)
-                log_error_unit(u->id, "Failed to create %s/start: %s",
+                log_unit_error(u->id, "Failed to create %s/start: %s",
                                u->id, strerror(-r));
 
         k = verify_socket(u);

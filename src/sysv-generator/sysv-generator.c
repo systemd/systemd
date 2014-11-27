@@ -192,7 +192,7 @@ static int generate_unit_file(SysvStub *s) {
         STRV_FOREACH(p, s->wanted_by) {
                 r = add_symlink(s->name, *p);
                 if (r < 0)
-                        log_error_unit(s->name, "Failed to create 'Wants' symlink to %s: %s", *p, strerror(-r));
+                        log_unit_error(s->name, "Failed to create 'Wants' symlink to %s: %s", *p, strerror(-r));
         }
 
         return 0;
@@ -320,7 +320,7 @@ static int load_sysv(SysvStub *s) {
                         if (feof(f))
                                 break;
 
-                        log_error_unit(s->name,
+                        log_unit_error(s->name,
                                        "Failed to read configuration file '%s': %m",
                                        s->path);
                         return -errno;
@@ -395,7 +395,7 @@ static int load_sysv(SysvStub *s) {
 
                                 fn = strstrip(t+8);
                                 if (!path_is_absolute(fn)) {
-                                        log_error_unit(s->name,
+                                        log_unit_error(s->name,
                                                        "[%s:%u] PID file not absolute. Ignoring.",
                                                        s->path, line);
                                         continue;
@@ -489,12 +489,12 @@ static int load_sysv(SysvStub *s) {
                                         }
 
                                         if (r < 0)
-                                                log_error_unit(s->name,
+                                                log_unit_error(s->name,
                                                                "[%s:%u] Failed to add LSB Provides name %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
                                 if (!isempty(state_))
-                                        log_error_unit(s->name,
+                                        log_unit_error(s->name,
                                                        "[%s:%u] Trailing garbage in Provides, ignoring.",
                                                        s->path, line);
 
@@ -517,7 +517,7 @@ static int load_sysv(SysvStub *s) {
 
                                         r = sysv_translate_facility(n, basename(s->path), &m);
                                         if (r < 0) {
-                                                log_error_unit(s->name,
+                                                log_unit_error(s->name,
                                                                "[%s:%u] Failed to translate LSB dependency %s, ignoring: %s",
                                                                s->path, line, n, strerror(-r));
                                                 continue;
@@ -551,12 +551,12 @@ static int load_sysv(SysvStub *s) {
                                         }
 
                                         if (r < 0)
-                                                log_error_unit(s->name,
+                                                log_unit_error(s->name,
                                                                "[%s:%u] Failed to add dependency on %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
                                 if (!isempty(state_))
-                                        log_error_unit(s->name,
+                                        log_unit_error(s->name,
                                                        "[%s:%u] Trailing garbage in %*s, ignoring.",
                                                        s->path, line,
                                                        (int)(strchr(t, ':') - t), t);

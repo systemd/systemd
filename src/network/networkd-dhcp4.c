@@ -38,7 +38,7 @@ static int dhcp4_route_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_error_link(link, "could not set DHCPv4 route: %s",
+                log_link_error(link, "could not set DHCPv4 route: %s",
                                strerror(-r));
                 link_enter_failed(link);
         }
@@ -61,7 +61,7 @@ static int link_set_dhcp_routes(Link *link) {
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
         if (r < 0 && r != -ENOENT) {
-                log_warning_link(link,
+                log_link_warning(link,
                                  "DHCP error: could not get gateway: %s",
                                  strerror(-r));
                 return r;
@@ -73,7 +73,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "DHCP error: could not get address: %s",
                                          strerror(-r));
                         return r;
@@ -81,7 +81,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_new_dynamic(&route, RTPROT_DHCP);
                 if (r < 0) {
-                        log_error_link(link,
+                        log_link_error(link,
                                        "Could not allocate route: %s",
                                        strerror(-r));
                         return r;
@@ -89,7 +89,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_new_dynamic(&route_gw, RTPROT_DHCP);
                 if (r < 0) {
-                log_error_link(link,
+                log_link_error(link,
                                "Could not allocate route: %s",
                                strerror(-r));
                                return r;
@@ -107,7 +107,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_configure(route_gw, link, &dhcp4_route_handler);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "could not set host route: %s",
                                          strerror(-r));
                         return r;
@@ -122,7 +122,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "could not set routes: %s",
                                          strerror(-r));
                         link_enter_failed(link);
@@ -136,7 +136,7 @@ static int link_set_dhcp_routes(Link *link) {
         if (n == -ENOENT)
                 return 0;
         if (n < 0) {
-                log_warning_link(link,
+                log_link_warning(link,
                                  "DHCP error: could not get routes: %s",
                                  strerror(-n));
 
@@ -148,7 +148,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_new_dynamic(&route, RTPROT_DHCP);
                 if (r < 0) {
-                        log_error_link(link, "Could not allocate route: %s",
+                        log_link_error(link, "Could not allocate route: %s",
                                        strerror(-r));
                         return r;
                 }
@@ -161,7 +161,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                 r = route_configure(route, link, &dhcp4_route_handler);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "could not set host route: %s",
                                          strerror(-r));
                         return r;
@@ -184,7 +184,7 @@ static int dhcp_lease_lost(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        log_warning_link(link, "DHCP lease lost");
+        log_link_warning(link, "DHCP lease lost");
 
         if (link->network->dhcp_routes) {
                 struct sd_dhcp_route *routes;
@@ -258,7 +258,7 @@ static int dhcp_lease_lost(Link *link) {
                 if (r >= 0 && link->original_mtu != mtu) {
                         r = link_set_mtu(link, link->original_mtu);
                         if (r < 0) {
-                                log_warning_link(link,
+                                log_link_warning(link,
                                                  "DHCP error: could not reset MTU");
                                 link_enter_failed(link);
                                 return r;
@@ -273,7 +273,7 @@ static int dhcp_lease_lost(Link *link) {
                 if (r >= 0 && hostname) {
                         r = link_set_hostname(link, "");
                         if (r < 0)
-                                log_error_link(link,
+                                log_link_error(link,
                                                "Failed to reset transient hostname");
                 }
         }
@@ -293,7 +293,7 @@ static int dhcp4_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_error_link(link, "could not set DHCPv4 address: %s",
+                log_link_error(link, "could not set DHCPv4 address: %s",
                                strerror(-r));
                 link_enter_failed(link);
         } else if (r >= 0) {
@@ -354,7 +354,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 
         r = sd_dhcp_client_get_lease(client, &lease);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no lease %s",
+                log_link_warning(link, "DHCP error: no lease %s",
                                  strerror(-r));
                 return r;
         }
@@ -365,14 +365,14 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no address: %s",
+                log_link_warning(link, "DHCP error: no address: %s",
                                  strerror(-r));
                 return r;
         }
 
         r = sd_dhcp_lease_get_netmask(lease, &netmask);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no netmask: %s",
+                log_link_warning(link, "DHCP error: no netmask: %s",
                                  strerror(-r));
                 return r;
         }
@@ -381,7 +381,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease,
                                                &lifetime);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "DHCP error: no lifetime: %s",
                                          strerror(-r));
                         return r;
@@ -390,7 +390,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
         if (r < 0) {
-                log_warning_link(link, "could not update IP address: %s",
+                log_link_warning(link, "could not update IP address: %s",
                                  strerror(-r));
                 link_enter_failed(link);
                 return r;
@@ -413,21 +413,21 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         r = sd_dhcp_client_get_lease(client, &lease);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no lease: %s",
+                log_link_warning(link, "DHCP error: no lease: %s",
                                  strerror(-r));
                 return r;
         }
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no address: %s",
+                log_link_warning(link, "DHCP error: no address: %s",
                                  strerror(-r));
                 return r;
         }
 
         r = sd_dhcp_lease_get_netmask(lease, &netmask);
         if (r < 0) {
-                log_warning_link(link, "DHCP error: no netmask: %s",
+                log_link_warning(link, "DHCP error: no netmask: %s",
                                  strerror(-r));
                 return r;
         }
@@ -436,13 +436,13 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         r = sd_dhcp_lease_get_router(lease, &gateway);
         if (r < 0 && r != -ENOENT) {
-                log_warning_link(link, "DHCP error: could not get gateway: %s",
+                log_link_warning(link, "DHCP error: could not get gateway: %s",
                                  strerror(-r));
                 return r;
         }
 
         if (r >= 0)
-                log_struct_link(LOG_INFO, link,
+                log_link_struct(LOG_INFO, link,
                                 "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
                                  IFNAMSIZ,
                                  link->ifname,
@@ -457,7 +457,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                  ADDRESS_FMT_VAL(gateway),
                                  NULL);
         else
-                log_struct_link(LOG_INFO, link,
+                log_link_struct(LOG_INFO, link,
                                 "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u",
                                  IFNAMSIZ,
                                  link->ifname,
@@ -478,7 +478,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = link_set_mtu(link, mtu);
                         if (r < 0)
-                                log_error_link(link, "Failed to set MTU "
+                                log_link_error(link, "Failed to set MTU "
                                                "to %" PRIu16, mtu);
                 }
         }
@@ -490,7 +490,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 if (r >= 0) {
                         r = link_set_hostname(link, hostname);
                         if (r < 0)
-                                log_error_link(link,
+                                log_link_error(link,
                                                "Failed to set transient hostname to '%s'",
                                                hostname);
                 }
@@ -500,7 +500,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease,
                                                &lifetime);
                 if (r < 0) {
-                        log_warning_link(link,
+                        log_link_warning(link,
                                          "DHCP error: no lifetime: %s",
                                          strerror(-r));
                         return r;
@@ -509,7 +509,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);
         if (r < 0) {
-                log_warning_link(link, "could not update IP address: %s",
+                log_link_warning(link, "could not update IP address: %s",
                                  strerror(-r));
                 link_enter_failed(link);
                 return r;
@@ -533,7 +533,7 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case DHCP_EVENT_STOP:
                 case DHCP_EVENT_IP_CHANGE:
                         if (link->network->dhcp_critical) {
-                                log_error_link(link,
+                                log_link_error(link,
                                                "DHCPv4 connection considered system critical, ignoring request to reconfigure it.");
                                 return;
                         }
@@ -571,11 +571,11 @@ static void dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         break;
                 default:
                         if (event < 0)
-                                log_warning_link(link,
+                                log_link_warning(link,
                                                  "DHCP error: client failed: %s",
                                                  strerror(-event));
                         else
-                                log_warning_link(link,
+                                log_link_warning(link,
                                                  "DHCP unknown event: %d",
                                                  event);
                         break;
