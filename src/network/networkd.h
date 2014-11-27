@@ -333,20 +333,3 @@ int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, cons
 void address_pool_free(AddressPool *p);
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
-
-/* Macros which append INTERFACE= to the message */
-
-#define log_link_full(level, link, fmt, ...) log_object_internal(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
-#define log_link_debug(link, ...)       log_link_full(LOG_DEBUG, link, ##__VA_ARGS__)
-#define log_link_info(link, ...)        log_link_full(LOG_INFO, link, ##__VA_ARGS__)
-#define log_link_notice(link, ...)      log_link_full(LOG_NOTICE, link, ##__VA_ARGS__)
-#define log_link_warning(link, ...)     log_link_full(LOG_WARNING, link, ##__VA_ARGS__)
-#define log_link_error(link, ...)       log_link_full(LOG_ERR, link, ##__VA_ARGS__)
-
-#define log_link_struct(level, link, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
-
-#define ADDRESS_FMT_VAL(address)            \
-        (address).s_addr & 0xFF,            \
-        ((address).s_addr >> 8) & 0xFF,     \
-        ((address).s_addr >> 16) & 0xFF,    \
-        (address).s_addr >> 24
