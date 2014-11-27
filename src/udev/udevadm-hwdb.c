@@ -428,6 +428,10 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
         value[0] = '\0';
         value++;
 
+        /* libudev requires properties to start with a space */
+        while (isblank(line[0]) && isblank(line[1]))
+                line++;
+
         if (line[0] == '\0' || value[0] == '\0') {
                 log_error("Error, empty key or value '%s' in '%s':", line, filename);
                 return -EINVAL;
