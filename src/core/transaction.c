@@ -511,7 +511,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 assert(!j->transaction_next);
 
                 if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
-                    !job_type_is_superset(j->unit->job->type, j->type))
+                    job_type_is_conflicting(j->unit->job->type, j->type))
                         return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
                                                  "Transaction is destructive.");
         }
