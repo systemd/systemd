@@ -692,6 +692,13 @@ static int bus_get_name_creds_kdbus(
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
 
+        /* If KDBUS_ITEM_OWNED_NAME is requested then we'll get 0 of
+           them in case the service has no names. This does not mean
+           however that the list of owned names could not be
+           acquired. Hence, let's explicitly clarify that the data is
+           complete. */
+        c->mask |= mask & SD_BUS_CREDS_WELL_KNOWN_NAMES;
+
         r = bus_populate_creds_from_items(bus, conn_info, mask, c);
         if (r < 0)
                 goto fail;

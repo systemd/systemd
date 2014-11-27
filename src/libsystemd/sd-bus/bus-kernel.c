@@ -717,6 +717,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 }
         }
 
+        /* If we requested the list of well-known names to be appended
+         * and the sender had none no item for it will be
+         * attached. However, this does *not* mean that we the kernel
+         * didn't want to provide this information to us. Hence, let's
+         * explicitly mark this information as available if it was
+         * requested. */
+        m->creds.mask |= bus->creds_mask & SD_BUS_CREDS_WELL_KNOWN_NAMES;
+
         r = bus_message_parse_fields(m);
         if (r < 0)
                 goto fail;
