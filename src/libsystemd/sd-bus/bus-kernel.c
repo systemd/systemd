@@ -737,9 +737,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         }
 
         /* Override information from the user header with data from the kernel */
-        if (k->src_id == KDBUS_SRC_ID_KERNEL)
+        if (k->src_id == KDBUS_SRC_ID_KERNEL) {
                 m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
-        else {
+                m->creds.well_known_names_driver = true;
+                m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
+        } else {
                 snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
                 m->sender = m->creds.unique_name = m->sender_buffer;
         }
@@ -1074,6 +1076,8 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
                 return r;
 
         m->sender = "org.freedesktop.DBus";
+        m->creds.well_known_names_driver = true;
+        m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
@@ -1143,6 +1147,8 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
                 return r;
 
         m->sender = "org.freedesktop.DBus";
+        m->creds.well_known_names_driver = true;
+        m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)

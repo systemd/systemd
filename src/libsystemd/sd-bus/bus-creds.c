@@ -551,6 +551,18 @@ _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_kno
         if (!(c->mask & SD_BUS_CREDS_WELL_KNOWN_NAMES))
                 return -ENODATA;
 
+        /* As a special hack we return the bus driver as well-known
+         * names list when this is requested. */
+        if (c->well_known_names_driver) {
+                static const char* const wkn[] = {
+                        "org.freedesktop.DBus",
+                        NULL
+                };
+
+                *well_known_names = (char**) wkn;
+                return 0;
+        }
+
         *well_known_names = c->well_known_names;
         return 0;
 }
