@@ -366,7 +366,7 @@ static int write_to_syslog(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[16], header_time[64], header_pid[16];
+        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_time[64], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
         struct iovec iovec[5] = {};
         struct msghdr msghdr = {
                 .msg_iov = iovec,
@@ -429,7 +429,7 @@ static int write_to_kmsg(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[16], header_pid[16];
+        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
         struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
