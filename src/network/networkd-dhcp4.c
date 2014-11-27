@@ -442,7 +442,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (r >= 0)
-                log_link_struct(LOG_INFO, link,
+                log_link_struct(link, LOG_INFO,
                                 "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
                                  IFNAMSIZ,
                                  link->ifname,
@@ -457,7 +457,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                  ADDRESS_FMT_VAL(gateway),
                                  NULL);
         else
-                log_link_struct(LOG_INFO, link,
+                log_link_struct(link, LOG_INFO,
                                 "MESSAGE=%-*s: DHCPv4 address %u.%u.%u.%u/%u",
                                  IFNAMSIZ,
                                  link->ifname,

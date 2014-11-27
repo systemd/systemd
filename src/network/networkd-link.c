@@ -515,12 +515,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not set route: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not set route: %m", IFNAMSIZ, link->ifname);
 
         if (link->link_messages == 0) {
                 log_link_debug(link, "routes set");
@@ -576,12 +571,7 @@ int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not drop route: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not drop route: %m", IFNAMSIZ, link->ifname);
 
         return 1;
 }
@@ -631,12 +621,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not set address: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not set address: %m", IFNAMSIZ, link->ifname);
         else if (r >= 0) {
                 /* calling handler directly so take a ref */
                 link_ref(link);
@@ -695,12 +680,7 @@ int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not drop address: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not drop address: %m", IFNAMSIZ, link->ifname);
 
         return 1;
 }
@@ -780,11 +760,7 @@ static int set_mtu_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0)
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not set MTU: %s",
-                                IFNAMSIZ, link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not set MTU: %m", IFNAMSIZ, link->ifname);
 
         return 1;
 }
@@ -1003,12 +979,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         if (r < 0) {
                 /* we warn but don't fail the link, as it may
                    be brought up later */
-                log_link_struct(LOG_WARNING, link,
-                                "MESSAGE=%-*s: could not bring up interface: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_warning_errno(link, -r, "%-*s: could not bring up interface: %m", IFNAMSIZ, link->ifname);
         }
 
         return 1;
@@ -1084,12 +1055,7 @@ static int netdev_join_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_struct(LOG_ERR, link,
-                                "MESSAGE=%-*s: could not join netdev: %s",
-                                IFNAMSIZ,
-                                link->ifname, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                log_link_error_errno(link, -r, "%-*s: could not join netdev: %m", IFNAMSIZ, link->ifname);
                 link_enter_failed(link);
                 return 1;
         } else
@@ -1120,7 +1086,7 @@ static int link_enter_join_netdev(Link *link) {
                 return link_joined(link);
 
         if (link->network->bond) {
-                log_link_struct(LOG_DEBUG, link,
+                log_link_struct(link, LOG_DEBUG,
                                 "MESSAGE=%-*s: enslaving by '%s'",
                                 IFNAMSIZ,
                                 link->ifname, link->network->bond->ifname,
@@ -1129,7 +1095,7 @@ static int link_enter_join_netdev(Link *link) {
 
                 r = netdev_join(link->network->bond, link, &netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(LOG_WARNING, link,
+                        log_link_struct(link, LOG_WARNING,
                                         "MESSAGE=%-*s: could not join netdev '%s': %s",
                                         IFNAMSIZ,
                                         link->ifname, link->network->bond->ifname,
@@ -1144,7 +1110,7 @@ static int link_enter_join_netdev(Link *link) {
         }
 
         if (link->network->bridge) {
-                log_link_struct(LOG_DEBUG, link,
+                log_link_struct(link, LOG_DEBUG,
                                 "MESSAGE=%-*s: enslaving by '%s'",
                                 IFNAMSIZ,
                                 link->ifname, link->network->bridge->ifname,
@@ -1154,7 +1120,7 @@ static int link_enter_join_netdev(Link *link) {
                 r = netdev_join(link->network->bridge, link,
                                 &netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(LOG_WARNING, link,
+                        log_link_struct(link, LOG_WARNING,
                                         "MESSAGE=%-*s: could not join netdev '%s': %s",
                                         IFNAMSIZ,
                                         link->ifname, link->network->bridge->ifname,
@@ -1169,7 +1135,7 @@ static int link_enter_join_netdev(Link *link) {
         }
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
-                log_link_struct(LOG_DEBUG, link,
+                log_link_struct(link, LOG_DEBUG,
                                 "MESSAGE=%-*s: enslaving by '%s'",
                                 IFNAMSIZ,
                                 link->ifname, netdev->ifname, NETDEVIF(netdev),
@@ -1177,7 +1143,7 @@ static int link_enter_join_netdev(Link *link) {
 
                 r = netdev_join(netdev, link, &netdev_join_handler);
                 if (r < 0) {
-                        log_link_struct(LOG_WARNING, link,
+                        log_link_struct(link, LOG_WARNING,
                                         "MESSAGE=%-*s: could not join netdev '%s': %s",
                                         IFNAMSIZ,
                                         link->ifname, netdev->ifname,
