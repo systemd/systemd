@@ -522,7 +522,7 @@ static void kbdctx_log_fn(struct xkb_context *ctx, enum xkb_log_level lvl, const
                 sd_lvl = LOG_CRIT;
 
         snprintf(buf, sizeof(buf), "idev-xkb: %s", format);
-        log_internalv(sd_lvl, __FILE__, __LINE__, __func__, buf, args);
+        log_internalv(sd_lvl, 0, __FILE__, __LINE__, __func__, buf, args);
 }
 
 static kbdctx *kbdctx_ref(kbdctx *kc) {
