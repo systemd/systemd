@@ -308,7 +308,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 close_fd_input(u);
                 return 0;
         } else {
-                log_error("Aborting transfer after read error on input: %m.");
+                log_error_errno(errno, "Aborting transfer after read error on input: %m.");
                 return CURL_READFUNC_ABORT;
         }
 }
@@ -358,7 +358,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         else {
                 fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        log_error("Failed to open %s: %m", filename);
+                        log_error_errno(errno, "Failed to open %s: %m", filename);
                         return -errno;
                 }
         }

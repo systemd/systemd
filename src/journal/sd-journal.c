@@ -1410,7 +1410,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         d = opendir(path);
         if (!d) {
-                log_debug("Failed to open %s: %m", path);
+                log_debug_errno(errno, "Failed to open %s: %m", path);
                 if (errno == ENOENT)
                         return 0;
                 return -errno;
@@ -1456,7 +1456,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)
@@ -1546,7 +1546,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %m", m->path);
+                        log_debug_errno(errno, "Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)

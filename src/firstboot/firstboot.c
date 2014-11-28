@@ -337,7 +337,7 @@ static int process_timezone(void) {
 
                         mkdir_parents(etc_localtime, 0755);
                         if (symlink(p, etc_localtime) < 0) {
-                                log_error("Failed to create %s symlink: %m", etc_localtime);
+                                log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
                                 return -errno;
                         }
 
@@ -357,7 +357,7 @@ static int process_timezone(void) {
 
         mkdir_parents(etc_localtime, 0755);
         if (symlink(e, etc_localtime) < 0) {
-                log_error("Failed to create %s symlink: %m", etc_localtime);
+                log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
                 return -errno;
         }
 
@@ -566,7 +566,7 @@ static int process_root_password(void) {
                                 if (!errno)
                                         errno = EIO;
 
-                                log_error("Failed to find shadow entry for root: %m");
+                                log_error_errno(errno, "Failed to find shadow entry for root: %m");
                                 return -errno;
                         }
 
@@ -604,7 +604,7 @@ static int process_root_password(void) {
                 if (!errno)
                         errno = -EINVAL;
 
-                log_error("Failed to encrypt password: %m");
+                log_error_errno(errno, "Failed to encrypt password: %m");
                 return -errno;
         }
 

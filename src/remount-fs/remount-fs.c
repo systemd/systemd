@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
                 if (errno == ENOENT)
                         return EXIT_SUCCESS;
 
-                log_error("Failed to open /etc/fstab: %m");
+                log_error_errno(errno, "Failed to open /etc/fstab: %m");
                 return EXIT_FAILURE;
         }
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
                 pid = fork();
                 if (pid < 0) {
-                        log_error("Failed to fork: %m");
+                        log_error_errno(errno, "Failed to fork: %m");
                         ret = EXIT_FAILURE;
                         continue;
                 }
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
                         execv("/bin/mount", (char **) arguments);
 
-                        log_error("Failed to execute /bin/mount: %m");
+                        log_error_errno(errno, "Failed to execute /bin/mount: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("waitid() failed: %m");
+                        log_error_errno(errno, "waitid() failed: %m");
                         ret = EXIT_FAILURE;
                         break;
                 }

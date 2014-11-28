@@ -93,7 +93,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read file '%s', ignoring: %m", path);
+                        log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
                         return -errno;
                 }
 

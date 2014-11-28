@@ -2535,10 +2535,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         f = fopen(attr, "we");
                         if (f != NULL) {
                                 if (fprintf(f, "%s", value) <= 0)
-                                        log_error("error writing ATTR{%s}: %m", attr);
+                                        log_error_errno(errno, "error writing ATTR{%s}: %m", attr);
                                 fclose(f);
                         } else {
-                                log_error("error opening ATTR{%s} for writing: %m", attr);
+                                log_error_errno(errno, "error opening ATTR{%s} for writing: %m", attr);
                         }
                         break;
                 }
@@ -2660,7 +2660,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
                                         strscpyl(tag_symlink, sizeof(tag_symlink), tags_dir, unescaped_filename, NULL);
                                         r = symlink(device_node, tag_symlink);
                                         if (r < 0 && errno != EEXIST) {
-                                                log_error("failed to create symlink %s -> %s: %m", tag_symlink, device_node);
+                                                log_error_errno(errno, "failed to create symlink %s -> %s: %m", tag_symlink, device_node);
                                                 return -errno;
                                         } else
                                                 r = 0;

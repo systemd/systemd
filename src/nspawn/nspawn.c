@@ -302,7 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_directory);
                         arg_directory = canonicalize_file_name(optarg);
                         if (!arg_directory) {
-                                log_error("Invalid root directory: %m");
+                                log_error_errno(errno, "Invalid root directory: %m");
                                 return -ENOMEM;
                         }
 
@@ -718,12 +718,12 @@ static int mount_all(const char *dest) {
                           o) < 0) {
 
                         if (mount_table[k].fatal) {
-                                log_error("mount(%s) failed: %m", where);
+                                log_error_errno(errno, "mount(%s) failed: %m", where);
 
                                 if (r == 0)
                                         r = -errno;
                         } else
-                                log_warning("mount(%s) failed: %m", where);
+                                log_warning_errno(errno, "mount(%s) failed: %m", where);
                 }
         }
 
@@ -739,7 +739,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                 int r;
 
                 if (stat(*x, &source_st) < 0) {
-                        log_error("Failed to stat %s: %m", *x);
+                        log_error_errno(errno, "Failed to stat %s: %m", *x);
                         return -errno;
                 }
 
@@ -758,7 +758,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to bind mount %s: %m", *x);
                 } else {
-                        log_error("Failed to bind mount %s: %m", *x);
+                        log_error_errno(errno, "Failed to bind mount %s: %m", *x);
                         return -errno;
                 }
 
@@ -771,14 +771,14 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                 } else if (S_ISFIFO(source_st.st_mode)) {
                         r = mkfifo(where, 0644);
                         if (r < 0 && errno != EEXIST) {
-                                log_error("Failed to create mount point %s: %m", where);
+                                log_error_errno(errno, "Failed to create mount point %s: %m", where);
 
                                 return -errno;
                         }
                 } else if (S_ISSOCK(source_st.st_mode)) {
                         r = mknod(where, 0644 | S_IFSOCK, 0);
                         if (r < 0 && errno != EEXIST) {
-                                log_error("Failed to create mount point %s: %m", where);
+                                log_error_errno(errno, "Failed to create mount point %s: %m", where);
 
                                 return -errno;
                         }
@@ -792,7 +792,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                 }
 
                 if (mount(*x, where, "bind", MS_BIND, NULL) < 0) {
-                        log_error("mount(%s) failed: %m", where);
+                        log_error_errno(errno, "mount(%s) failed: %m", where);
                         return -errno;
                 }
 
@@ -822,7 +822,7 @@ static int mount_tmpfs(const char *dest) {
                         return log_error_errno(r, "creating mount point for tmpfs %s failed: %m", where);
 
                 if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0) {
-                        log_error("tmpfs mount to %s failed: %m", where);
+                        log_error_errno(errno, "tmpfs mount to %s failed: %m", where);
                         return -errno;
                 }
         }
@@ -889,13 +889,13 @@ static int setup_timezone(const char *dest) {
 
         r = unlink(where);
         if (r < 0 && errno != ENOENT) {
-                log_error("Failed to remove existing timezone info %s in container: %m", where);
+                log_error_errno(errno, "Failed to remove existing timezone info %s in container: %m", where);
 
                 return 0;
         }
 
         if (symlink(what, where) < 0) {
-                log_error("Failed to correct timezone of container: %m");
+                log_error_errno(errno, "Failed to correct timezone of container: %m");
                 return 0;
         }
 
@@ -954,12 +954,12 @@ static int setup_volatile_state(const char *directory) {
         p = strappenda(directory, "/var");
         r = mkdir(p, 0755);
         if (r < 0 && errno != EEXIST) {
-                log_error("Failed to create %s: %m", directory);
+                log_error_errno(errno, "Failed to create %s: %m", directory);
                 return -errno;
         }
 
         if (mount("tmpfs", p, "tmpfs", MS_STRICTATIME, "mode=755") < 0) {
-                log_error("Failed to mount tmpfs to /var: %m");
+                log_error_errno(errno, "Failed to mount tmpfs to /var: %m");
                 return -errno;
         }
 
@@ -981,12 +981,12 @@ static int setup_volatile(const char *directory) {
            the original /usr to use inside it, and that read-only. */
 
         if (!mkdtemp(template)) {
-                log_error("Failed to create temporary directory: %m");
+                log_error_errno(errno, "Failed to create temporary directory: %m");
                 return -errno;
         }
 
         if (mount("tmpfs", template, "tmpfs", MS_STRICTATIME, "mode=755") < 0) {
-                log_error("Failed to mount tmpfs for root directory: %m");
+                log_error_errno(errno, "Failed to mount tmpfs for root directory: %m");
                 r = -errno;
                 goto fail;
         }
@@ -998,13 +998,13 @@ static int setup_volatile(const char *directory) {
 
         r = mkdir(t, 0755);
         if (r < 0 && errno != EEXIST) {
-                log_error("Failed to create %s: %m", t);
+                log_error_errno(errno, "Failed to create %s: %m", t);
                 r = -errno;
                 goto fail;
         }
 
         if (mount(f, t, "bind", MS_BIND|MS_REC, NULL) < 0) {
-                log_error("Failed to create /usr bind mount: %m");
+                log_error_errno(errno, "Failed to create /usr bind mount: %m");
                 r = -errno;
                 goto fail;
         }
@@ -1018,7 +1018,7 @@ static int setup_volatile(const char *directory) {
         }
 
         if (mount(template, directory, NULL, MS_MOVE, NULL) < 0) {
-                log_error("Failed to move root mount: %m");
+                log_error_errno(errno, "Failed to move root mount: %m");
                 r = -errno;
                 goto fail;
         }
@@ -1075,10 +1075,10 @@ static int setup_boot_id(const char *dest) {
                 return log_error_errno(r, "Failed to write boot id: %m");
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
-                log_error("Failed to bind mount boot id: %m");
+                log_error_errno(errno, "Failed to bind mount boot id: %m");
                 r = -errno;
         } else if (mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL))
-                log_warning("Failed to make boot id read-only: %m");
+                log_warning_errno(errno, "Failed to make boot id read-only: %m");
 
         unlink(from);
         return r;
@@ -1115,7 +1115,7 @@ static int copy_devnodes(const char *dest) {
                 if (stat(from, &st) < 0) {
 
                         if (errno != ENOENT) {
-                                log_error("Failed to stat %s: %m", from);
+                                log_error_errno(errno, "Failed to stat %s: %m", from);
                                 return -errno;
                         }
 
@@ -1132,7 +1132,7 @@ static int copy_devnodes(const char *dest) {
                         }
 
                         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
-                                log_error("mknod(%s) failed: %m", dest);
+                                log_error_errno(errno, "mknod(%s) failed: %m", dest);
                                 return  -errno;
                         }
                 }
@@ -1149,7 +1149,7 @@ static int setup_ptmx(const char *dest) {
                 return log_oom();
 
         if (symlink("pts/ptmx", p) < 0) {
-                log_error("Failed to create /dev/ptmx symlink: %m");
+                log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
                 return -errno;
         }
 
@@ -1168,7 +1168,7 @@ static int setup_dev_console(const char *dest, const char *console) {
         u = umask(0000);
 
         if (stat("/dev/null", &st) < 0) {
-                log_error("Failed to stat /dev/null: %m");
+                log_error_errno(errno, "Failed to stat /dev/null: %m");
                 return -errno;
         }
 
@@ -1186,12 +1186,12 @@ static int setup_dev_console(const char *dest, const char *console) {
 
         to = strappenda(dest, "/dev/console");
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
-                log_error("mknod() for /dev/console failed: %m");
+                log_error_errno(errno, "mknod() for /dev/console failed: %m");
                 return -errno;
         }
 
         if (mount(console, to, "bind", MS_BIND, NULL) < 0) {
-                log_error("Bind mount for /dev/console failed: %m");
+                log_error_errno(errno, "Bind mount for /dev/console failed: %m");
                 return -errno;
         }
 
@@ -1229,7 +1229,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
                 return log_oom();
 
         if (mkfifo(from, 0600) < 0) {
-                log_error("mkfifo() for /dev/kmsg failed: %m");
+                log_error_errno(errno, "mkfifo() for /dev/kmsg failed: %m");
                 return -errno;
         }
 
@@ -1238,13 +1238,13 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
                 return log_error_errno(r, "Failed to correct access mode for /dev/kmsg: %m");
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
-                log_error("Bind mount for /proc/kmsg failed: %m");
+                log_error_errno(errno, "Bind mount for /proc/kmsg failed: %m");
                 return -errno;
         }
 
         fd = open(from, O_RDWR|O_NDELAY|O_CLOEXEC);
         if (fd < 0) {
-                log_error("Failed to open fifo: %m");
+                log_error_errno(errno, "Failed to open fifo: %m");
                 return -errno;
         }
 
@@ -1262,7 +1262,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         safe_close(fd);
 
         if (k < 0) {
-                log_error("Failed to send FIFO fd: %m");
+                log_error_errno(errno, "Failed to send FIFO fd: %m");
                 return -errno;
         }
 
@@ -1355,12 +1355,12 @@ static int setup_journal(const char *directory) {
 
                         r = mkdir_p(q, 0755);
                         if (r < 0)
-                                log_warning("Failed to create directory %s: %m", q);
+                                log_warning_errno(errno, "Failed to create directory %s: %m", q);
                         return 0;
                 }
 
                 if (unlink(p) < 0) {
-                        log_error("Failed to remove symlink %s: %m", p);
+                        log_error_errno(errno, "Failed to remove symlink %s: %m", p);
                         return -errno;
                 }
         } else if (r == -EINVAL) {
@@ -1372,12 +1372,12 @@ static int setup_journal(const char *directory) {
                                 log_error("%s already exists and is neither a symlink nor a directory", p);
                                 return r;
                         } else {
-                                log_error("Failed to remove %s: %m", p);
+                                log_error_errno(errno, "Failed to remove %s: %m", p);
                                 return -errno;
                         }
                 }
         } else if (r != -ENOENT) {
-                log_error("readlink(%s) failed: %m", p);
+                log_error_errno(errno, "readlink(%s) failed: %m", p);
                 return r;
         }
 
@@ -1385,17 +1385,17 @@ static int setup_journal(const char *directory) {
 
                 if (symlink(q, p) < 0) {
                         if (arg_link_journal_try) {
-                                log_debug("Failed to symlink %s to %s, skipping journal setup: %m", q, p);
+                                log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
                         } else {
-                                log_error("Failed to symlink %s to %s: %m", q, p);
+                                log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                                 return -errno;
                         }
                 }
 
                 r = mkdir_p(q, 0755);
                 if (r < 0)
-                        log_warning("Failed to create directory %s: %m", q);
+                        log_warning_errno(errno, "Failed to create directory %s: %m", q);
                 return 0;
         }
 
@@ -1405,10 +1405,10 @@ static int setup_journal(const char *directory) {
                 r = mkdir(p, 0755);
                 if (r < 0) {
                         if (arg_link_journal_try) {
-                                log_debug("Failed to create %s, skipping journal setup: %m", p);
+                                log_debug_errno(errno, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
                         } else {
-                                log_error("Failed to create %s: %m", p);
+                                log_error_errno(errno, "Failed to create %s: %m", p);
                                 return r;
                         }
                 }
@@ -1421,12 +1421,12 @@ static int setup_journal(const char *directory) {
 
         r = mkdir_p(q, 0755);
         if (r < 0) {
-                log_error("Failed to create %s: %m", q);
+                log_error_errno(errno, "Failed to create %s: %m", q);
                 return r;
         }
 
         if (mount(p, q, "bind", MS_BIND, NULL) < 0) {
-                log_error("Failed to bind mount journal from host into guest: %m");
+                log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
                 return -errno;
         }
 
@@ -1753,7 +1753,7 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
 
         i = (int) if_nametoindex(iface_name);
         if (i <= 0) {
-                log_error("Failed to resolve interface %s: %m", iface_name);
+                log_error_errno(errno, "Failed to resolve interface %s: %m", iface_name);
                 return -errno;
         }
 
@@ -1778,7 +1778,7 @@ static int setup_bridge(const char veth_name[], int *ifi) {
 
         bridge = (int) if_nametoindex(arg_network_bridge);
         if (bridge <= 0) {
-                log_error("Failed to resolve interface %s: %m", arg_network_bridge);
+                log_error_errno(errno, "Failed to resolve interface %s: %m", arg_network_bridge);
                 return -errno;
         }
 
@@ -1818,14 +1818,14 @@ static int parse_interface(struct udev *udev, const char *name) {
 
         ifi = (int) if_nametoindex(name);
         if (ifi <= 0) {
-                log_error("Failed to resolve interface %s: %m", name);
+                log_error_errno(errno, "Failed to resolve interface %s: %m", name);
                 return -errno;
         }
 
         sprintf(ifi_str, "n%i", ifi);
         d = udev_device_new_from_device_id(udev, ifi_str);
         if (!d) {
-                log_error("Failed to get udev device for interface %s: %m", name);
+                log_error_errno(errno, "Failed to get udev device for interface %s: %m", name);
                 return -errno;
         }
 
@@ -2058,12 +2058,12 @@ static int setup_image(char **device_path, int *loop_nr) {
 
         fd = open(arg_image, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_error("Failed to open %s: %m", arg_image);
+                log_error_errno(errno, "Failed to open %s: %m", arg_image);
                 return -errno;
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to stat %s: %m", arg_image);
+                log_error_errno(errno, "Failed to stat %s: %m", arg_image);
                 return -errno;
         }
 
@@ -2085,19 +2085,19 @@ static int setup_image(char **device_path, int *loop_nr) {
         }
 
         if (!S_ISREG(st.st_mode)) {
-                log_error("%s is not a regular file or block device: %m", arg_image);
+                log_error_errno(errno, "%s is not a regular file or block device: %m", arg_image);
                 return -EINVAL;
         }
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0) {
-                log_error("Failed to open /dev/loop-control: %m");
+                log_error_errno(errno, "Failed to open /dev/loop-control: %m");
                 return -errno;
         }
 
         nr = ioctl(control, LOOP_CTL_GET_FREE);
         if (nr < 0) {
-                log_error("Failed to allocate loop device: %m");
+                log_error_errno(errno, "Failed to allocate loop device: %m");
                 return -errno;
         }
 
@@ -2106,12 +2106,12 @@ static int setup_image(char **device_path, int *loop_nr) {
 
         loop = open(loopdev, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
         if (loop < 0) {
-                log_error("Failed to open loop device %s: %m", loopdev);
+                log_error_errno(errno, "Failed to open loop device %s: %m", loopdev);
                 return -errno;
         }
 
         if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
-                log_error("Failed to set loopback file descriptor on %s: %m", loopdev);
+                log_error_errno(errno, "Failed to set loopback file descriptor on %s: %m", loopdev);
                 return -errno;
         }
 
@@ -2119,7 +2119,7 @@ static int setup_image(char **device_path, int *loop_nr) {
                 info.lo_flags |= LO_FLAGS_READ_ONLY;
 
         if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0) {
-                log_error("Failed to set loopback settings on %s: %m", loopdev);
+                log_error_errno(errno, "Failed to set loopback settings on %s: %m", loopdev);
                 return -errno;
         }
 
@@ -2171,7 +2171,7 @@ static int dissect_image(
                 if (errno == 0)
                         return log_oom();
 
-                log_error("Failed to set device on blkid probe: %m");
+                log_error_errno(errno, "Failed to set device on blkid probe: %m");
                 return -errno;
         }
 
@@ -2187,7 +2187,7 @@ static int dissect_image(
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error("Failed to probe: %m");
+                log_error_errno(errno, "Failed to probe: %m");
                 return -errno;
         }
 
@@ -2213,7 +2213,7 @@ static int dissect_image(
                 return log_oom();
 
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to stat block device: %m");
+                log_error_errno(errno, "Failed to stat block device: %m");
                 return -errno;
         }
 
@@ -2249,7 +2249,7 @@ static int dissect_image(
                         if (!errno)
                                 errno = ENOMEM;
 
-                        log_error("Failed to get partition device of %s: %m", arg_image);
+                        log_error_errno(errno, "Failed to get partition device of %s: %m", arg_image);
                         return -errno;
                 }
 
@@ -2404,7 +2404,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error("Failed to allocate prober for %s: %m", what);
+                log_error_errno(errno, "Failed to allocate prober for %s: %m", what);
                 return -errno;
         }
 
@@ -2419,7 +2419,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         } else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error("Failed to probe %s: %m", what);
+                log_error_errno(errno, "Failed to probe %s: %m", what);
                 return -errno;
         }
 
@@ -2437,7 +2437,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         }
 
         if (mount(what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL) < 0) {
-                log_error("Failed to mount %s: %m", what);
+                log_error_errno(errno, "Failed to mount %s: %m", what);
                 return -errno;
         }
 
@@ -2488,19 +2488,19 @@ static void loop_remove(int nr, int *image_fd) {
         if (image_fd && *image_fd >= 0) {
                 r = ioctl(*image_fd, LOOP_CLR_FD);
                 if (r < 0)
-                        log_warning("Failed to close loop image: %m");
+                        log_warning_errno(errno, "Failed to close loop image: %m");
                 *image_fd = safe_close(*image_fd);
         }
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0) {
-                log_warning("Failed to open /dev/loop-control: %m");
+                log_warning_errno(errno, "Failed to open /dev/loop-control: %m");
                 return;
         }
 
         r = ioctl(control, LOOP_CTL_REMOVE, nr);
         if (r < 0)
-                log_warning("Failed to remove loop %d: %m", nr);
+                log_warning_errno(errno, "Failed to remove loop %d: %m", nr);
 }
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
@@ -2512,13 +2512,13 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         assert(rpid);
 
         if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
-                log_error("Failed to allocate pipe: %m");
+                log_error_errno(errno, "Failed to allocate pipe: %m");
                 return -errno;
         }
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork getent child: %m");
+                log_error_errno(errno, "Failed to fork getent child: %m");
                 return -errno;
         } else if (pid == 0) {
                 int nullfd;
@@ -2580,17 +2580,17 @@ static int change_uid_gid(char **_home) {
                 /* Reset everything fully to 0, just in case */
 
                 if (setgroups(0, NULL) < 0) {
-                        log_error("setgroups() failed: %m");
+                        log_error_errno(errno, "setgroups() failed: %m");
                         return -errno;
                 }
 
                 if (setresgid(0, 0, 0) < 0) {
-                        log_error("setregid() failed: %m");
+                        log_error_errno(errno, "setregid() failed: %m");
                         return -errno;
                 }
 
                 if (setresuid(0, 0, 0) < 0) {
-                        log_error("setreuid() failed: %m");
+                        log_error_errno(errno, "setreuid() failed: %m");
                         return -errno;
                 }
 
@@ -2615,7 +2615,7 @@ static int change_uid_gid(char **_home) {
                         return -ESRCH;
                 }
 
-                log_error("Failed to read from getent: %m");
+                log_error_errno(errno, "Failed to read from getent: %m");
                 return -errno;
         }
 
@@ -2699,7 +2699,7 @@ static int change_uid_gid(char **_home) {
                         return -ESRCH;
                 }
 
-                log_error("Failed to read from getent: %m");
+                log_error_errno(errno, "Failed to read from getent: %m");
                 return -errno;
         }
 
@@ -2741,17 +2741,17 @@ static int change_uid_gid(char **_home) {
         fchown(STDERR_FILENO, uid, gid);
 
         if (setgroups(n_uids, uids) < 0) {
-                log_error("Failed to set auxiliary groups: %m");
+                log_error_errno(errno, "Failed to set auxiliary groups: %m");
                 return -errno;
         }
 
         if (setresgid(gid, gid, gid) < 0) {
-                log_error("setregid() failed: %m");
+                log_error_errno(errno, "setregid() failed: %m");
                 return -errno;
         }
 
         if (setresuid(uid, uid, uid) < 0) {
-                log_error("setreuid() failed: %m");
+                log_error_errno(errno, "setreuid() failed: %m");
                 return -errno;
         }
 
@@ -2950,7 +2950,7 @@ int main(int argc, char *argv[]) {
                 char template[] = "/tmp/nspawn-root-XXXXXX";
 
                 if (!mkdtemp(template)) {
-                        log_error("Failed to create temporary directory: %m");
+                        log_error_errno(errno, "Failed to create temporary directory: %m");
                         r = -errno;
                         goto finish;
                 }
@@ -2978,13 +2978,13 @@ int main(int argc, char *argv[]) {
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
-                log_error("Failed to acquire pseudo tty: %m");
+                log_error_errno(errno, "Failed to acquire pseudo tty: %m");
                 goto finish;
         }
 
         console = ptsname(master);
         if (!console) {
-                log_error("Failed to determine tty name: %m");
+                log_error_errno(errno, "Failed to determine tty name: %m");
                 goto finish;
         }
 
@@ -2993,12 +2993,12 @@ int main(int argc, char *argv[]) {
                          arg_machine, arg_image ? arg_image : arg_directory);
 
         if (unlockpt(master) < 0) {
-                log_error("Failed to unlock tty: %m");
+                log_error_errno(errno, "Failed to unlock tty: %m");
                 goto finish;
         }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                log_error("Failed to create kmsg socket pair: %m");
+                log_error_errno(errno, "Failed to create kmsg socket pair: %m");
                 goto finish;
         }
 
@@ -3032,13 +3032,13 @@ int main(int argc, char *argv[]) {
                  * give it a chance to call wait() and terminate. */
                 r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
                 if (r < 0) {
-                        log_error("Failed to change the signal mask: %m");
+                        log_error_errno(errno, "Failed to change the signal mask: %m");
                         goto finish;
                 }
 
                 r = sigaction(SIGCHLD, &sa, NULL);
                 if (r < 0) {
-                        log_error("Failed to install SIGCHLD handler: %m");
+                        log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
                         goto finish;
                 }
 
@@ -3047,9 +3047,9 @@ int main(int argc, char *argv[]) {
                                           (arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
                         if (errno == EINVAL)
-                                log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
+                                log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
                         else
-                                log_error("clone() failed: %m");
+                                log_error_errno(errno, "clone() failed: %m");
 
                         r = pid;
                         goto finish;
@@ -3103,12 +3103,12 @@ int main(int argc, char *argv[]) {
 
                         if (dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
                             dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO) {
-                                log_error("Failed to duplicate console: %m");
+                                log_error_errno(errno, "Failed to duplicate console: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
                         if (setsid() < 0) {
-                                log_error("setsid() failed: %m");
+                                log_error_errno(errno, "setsid() failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3116,7 +3116,7 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
 
                         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
-                                log_error("PR_SET_PDEATHSIG failed: %m");
+                                log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3124,7 +3124,7 @@ int main(int argc, char *argv[]) {
                          * receive mounts from the real root, but don't
                          * propagate mounts to the real root. */
                         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                                log_error("MS_SLAVE|MS_REC failed: %m");
+                                log_error_errno(errno, "MS_SLAVE|MS_REC failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3136,7 +3136,7 @@ int main(int argc, char *argv[]) {
 
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
-                                log_error("Failed to make bind mount: %m");
+                                log_error_errno(errno, "Failed to make bind mount: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3208,22 +3208,22 @@ int main(int argc, char *argv[]) {
                         (void)barrier_place(&barrier);
 
                         if (chdir(arg_directory) < 0) {
-                                log_error("chdir(%s) failed: %m", arg_directory);
+                                log_error_errno(errno, "chdir(%s) failed: %m", arg_directory);
                                 _exit(EXIT_FAILURE);
                         }
 
                         if (mount(arg_directory, "/", NULL, MS_MOVE, NULL) < 0) {
-                                log_error("mount(MS_MOVE) failed: %m");
+                                log_error_errno(errno, "mount(MS_MOVE) failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
                         if (chroot(".") < 0) {
-                                log_error("chroot() failed: %m");
+                                log_error_errno(errno, "chroot() failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
                         if (chdir("/") < 0) {
-                                log_error("chdir() failed: %m");
+                                log_error_errno(errno, "chdir() failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3233,7 +3233,7 @@ int main(int argc, char *argv[]) {
                                 loopback_setup();
 
                         if (drop_capabilities() < 0) {
-                                log_error("drop_capabilities() failed: %m");
+                                log_error_errno(errno, "drop_capabilities() failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3275,12 +3275,12 @@ int main(int argc, char *argv[]) {
 
                         if (arg_personality != 0xffffffffLU) {
                                 if (personality(arg_personality) < 0) {
-                                        log_error("personality() failed: %m");
+                                        log_error_errno(errno, "personality() failed: %m");
                                         _exit(EXIT_FAILURE);
                                 }
                         } else if (secondary) {
                                 if (personality(PER_LINUX32) < 0) {
-                                        log_error("personality() failed: %m");
+                                        log_error_errno(errno, "personality() failed: %m");
                                         _exit(EXIT_FAILURE);
                                 }
                         }
@@ -3288,7 +3288,7 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_SELINUX
                         if (arg_selinux_context)
                                 if (setexeccon((security_context_t) arg_selinux_context) < 0) {
-                                        log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
+                                        log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
                                         _exit(EXIT_FAILURE);
                                 }
 #endif
@@ -3336,7 +3336,7 @@ int main(int argc, char *argv[]) {
                                 execle("/bin/sh", "-sh", NULL, env_use);
                         }
 
-                        log_error("execv() failed: %m");
+                        log_error_errno(errno, "execv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
 

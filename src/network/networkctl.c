@@ -195,7 +195,7 @@ static int list_links(char **args, unsigned n) {
 
         udev = udev_new();
         if (!udev) {
-                log_error("Failed to connect to udev: %m");
+                log_error_errno(errno, "Failed to connect to udev: %m");
                 return -errno;
         }
 
@@ -446,7 +446,7 @@ static int link_status(char **args, unsigned n) {
 
         udev = udev_new();
         if (!udev) {
-                log_error("Failed to connect to udev: %m");
+                log_error_errno(errno, "Failed to connect to udev: %m");
                 return -errno;
         }
 

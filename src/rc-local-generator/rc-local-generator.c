@@ -60,7 +60,7 @@ static int add_symlink(const char *service, const char *where) {
                 if (errno == EEXIST)
                         return 0;
 
-                log_error("Failed to create symlink %s: %m", to);
+                log_error_errno(errno, "Failed to create symlink %s: %m", to);
                 return -errno;
         }
 

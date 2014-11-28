@@ -103,7 +103,7 @@ static int output_winch(Output *o) {
 
         r = ioctl(o->fd, TIOCGWINSZ, &wsz);
         if (r < 0) {
-                log_error("error: cannot read window-size: %m");
+                log_error_errno(errno, "error: cannot read window-size: %m");
                 return -errno;
         }
 
@@ -707,7 +707,7 @@ static int terminal_io_fn(sd_event_source *source, int fd, uint32_t revents, voi
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                log_error("error: cannot read from TTY (%d): %m", -errno);
+                log_error_errno(errno, "error: cannot read from TTY (%d): %m", -errno);
                 return -errno;
         }
 
@@ -823,13 +823,13 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
 
         r = tcgetattr(in_fd, &in_attr);
         if (r < 0) {
-                log_error("error: tcgetattr() (%d): %m", -errno);
+                log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
                 return -errno;
         }
 
         r = tcgetattr(out_fd, &out_attr);
         if (r < 0) {
-                log_error("error: tcgetattr() (%d): %m", -errno);
+                log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
                 return -errno;
         }
 
@@ -955,7 +955,7 @@ static int terminal_run(Terminal *t) {
                 setenv("COLORTERM", "systemd-subterm", 1);
 
                 execve(argv[0], argv, environ);
-                log_error("error: cannot exec %s (%d): %m", argv[0], -errno);
+                log_error_errno(errno, "error: cannot exec %s (%d): %m", argv[0], -errno);
                 _exit(1);
         }
 

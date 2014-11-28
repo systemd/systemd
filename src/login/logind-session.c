@@ -968,7 +968,7 @@ static int session_open_vt(Session *s) {
         sprintf(path, "/dev/tty%u", s->vtnr);
         s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0) {
-                log_error("cannot open VT %s of session %s: %m", path, s->id);
+                log_error_errno(errno, "cannot open VT %s of session %s: %m", path, s->id);
                 return -errno;
         }
 
@@ -989,21 +989,21 @@ int session_prepare_vt(Session *s) {
         r = fchown(vt, s->user->uid, -1);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot change owner of /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot change owner of /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSKBMODE, K_OFF);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set K_OFF on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set K_OFF on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
         r = ioctl(vt, KDSETMODE, KD_GRAPHICS);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set KD_GRAPHICS on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set KD_GRAPHICS on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
@@ -1016,7 +1016,7 @@ int session_prepare_vt(Session *s) {
         r = ioctl(vt, VT_SETMODE, &mode);
         if (r < 0) {
                 r = -errno;
-                log_error("Cannot set VT_PROCESS on /dev/tty%u: %m", s->vtnr);
+                log_error_errno(errno, "Cannot set VT_PROCESS on /dev/tty%u: %m", s->vtnr);
                 goto error;
         }
 
@@ -1073,7 +1073,7 @@ void session_leave_vt(Session *s) {
         session_device_pause_all(s);
         r = ioctl(s->vtfd, VT_RELDISP, 1);
         if (r < 0)
-                log_debug("Cannot release VT of session %s: %m", s->id);
+                log_debug_errno(errno, "Cannot release VT of session %s: %m", s->id);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

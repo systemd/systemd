@@ -191,7 +191,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                         output = fopen(optarg, "we");
                         if (!output) {
-                                log_error("writing to '%s': %m", optarg);
+                                log_error_errno(errno, "writing to '%s': %m", optarg);
                                 return -errno;
                         }
 
@@ -610,7 +610,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
                         if (fdt < 0) {
-                                log_error("Failed to create temporary file: %m");
+                                log_error_errno(errno, "Failed to create temporary file: %m");
                                 return -errno;
                         }
                         log_debug("Created temporary file %s", temp);
@@ -628,7 +628,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         sz = write(fdt, data, len);
                         if (sz < 0) {
-                                log_error("Failed to write temporary file: %m");
+                                log_error_errno(errno, "Failed to write temporary file: %m");
                                 r = -errno;
                                 goto error;
                         }
@@ -643,7 +643,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
                         if (fdf < 0) {
-                                log_error("Failed to open %s: %m", filename);
+                                log_error_errno(errno, "Failed to open %s: %m", filename);
                                 r = -errno;
                                 goto error;
                         }
@@ -755,20 +755,20 @@ static int run_gdb(sd_journal *j) {
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork(): %m");
+                log_error_errno(errno, "Failed to fork(): %m");
                 r = -errno;
                 goto finish;
         }
         if (pid == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
 
-                log_error("Failed to invoke gdb: %m");
+                log_error_errno(errno, "Failed to invoke gdb: %m");
                 _exit(1);
         }
 
         r = wait_for_terminate(pid, &st);
         if (r < 0) {
-                log_error("Failed to wait for gdb: %m");
+                log_error_errno(errno, "Failed to wait for gdb: %m");
                 goto finish;
         }
 

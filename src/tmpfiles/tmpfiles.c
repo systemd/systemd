@@ -291,9 +291,9 @@ static int dir_cleanup(
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
                         if (errno == EACCES)
-                                log_debug("stat(%s/%s) failed: %m", p, dent->d_name);
+                                log_debug_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
                         else
-                                log_error("stat(%s/%s) failed: %m", p, dent->d_name);
+                                log_error_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
                         r = -errno;
                         continue;
                 }
@@ -341,7 +341,7 @@ static int dir_cleanup(
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
                                 if (!sub_dir) {
                                         if (errno != ENOENT) {
-                                                log_error("opendir(%s/%s) failed: %m", p, dent->d_name);
+                                                log_error_errno(errno, "opendir(%s/%s) failed: %m", p, dent->d_name);
                                                 r = -errno;
                                         }
 
@@ -374,7 +374,7 @@ static int dir_cleanup(
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
                                         if (errno != ENOENT && errno != ENOTEMPTY) {
-                                                log_error("rmdir(%s): %m", sub_path);
+                                                log_error_errno(errno, "rmdir(%s): %m", sub_path);
                                                 r = -errno;
                                         }
                                 }
@@ -422,7 +422,7 @@ static int dir_cleanup(
 
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
                                 if (errno != ENOENT) {
-                                        log_error("unlink(%s): %m", sub_path);
+                                        log_error_errno(errno, "unlink(%s): %m", sub_path);
                                         r = -errno;
                                 }
                         }
@@ -438,7 +438,7 @@ finish:
                 times[1] = ds->st_mtim;
 
                 if (futimens(dirfd(d), times) < 0)
-                        log_error("utimensat(%s): %m", p);
+                        log_error_errno(errno, "utimensat(%s): %m", p);
         }
 
         return r;
@@ -470,7 +470,7 @@ static int item_set_perms(Item *i, const char *path) {
 
                 if (!st_valid || m != (st.st_mode & 07777)) {
                         if (chmod(path, m) < 0) {
-                                log_error("chmod(%s) failed: %m", path);
+                                log_error_errno(errno, "chmod(%s) failed: %m", path);
                                 return -errno;
                         }
                 }
@@ -482,7 +482,7 @@ static int item_set_perms(Item *i, const char *path) {
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
 
-                        log_error("chown(%s) failed: %m", path);
+                        log_error_errno(errno, "chown(%s) failed: %m", path);
                         return -errno;
                 }
 
@@ -510,7 +510,7 @@ static int write_one_file(Item *i, const char *path) {
                 if (i->type == WRITE_FILE && errno == ENOENT)
                         return 0;
 
-                log_error("Failed to create file %s: %m", path);
+                log_error_errno(errno, "Failed to create file %s: %m", path);
                 return -errno;
         }
 
@@ -535,7 +535,7 @@ static int write_one_file(Item *i, const char *path) {
         fd = safe_close(fd);
 
         if (stat(path, &st) < 0) {
-                log_error("stat(%s) failed: %m", path);
+                log_error_errno(errno, "stat(%s) failed: %m", path);
                 return -errno;
         }
 
@@ -628,7 +628,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
                 if (errno == 0)
                         errno = EIO;
 
-                log_error("glob(%s) failed: %m", i->path);
+                log_error_errno(errno, "glob(%s) failed: %m", i->path);
                 return -errno;
         }
 
@@ -671,12 +671,12 @@ static int create_item(Item *i) {
                                 return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
                         if (stat(i->argument, &a) < 0) {
-                                log_error("stat(%s) failed: %m", i->argument);
+                                log_error_errno(errno, "stat(%s) failed: %m", i->argument);
                                 return -errno;
                         }
 
                         if (stat(i->path, &b) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
+                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
                                 return -errno;
                         }
 
@@ -712,7 +712,7 @@ static int create_item(Item *i) {
                                 return log_error_errno(r, "Failed to create directory %s: %m", i->path);
 
                         if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
+                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
                                 return -errno;
                         }
 
@@ -738,12 +738,12 @@ static int create_item(Item *i) {
 
                 if (r < 0) {
                         if (errno != EEXIST) {
-                                log_error("Failed to create fifo %s: %m", i->path);
+                                log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
                                 return -errno;
                         }
 
                         if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
+                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
                                 return -errno;
                         }
 
@@ -782,7 +782,7 @@ static int create_item(Item *i) {
                         _cleanup_free_ char *x = NULL;
 
                         if (errno != EEXIST) {
-                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+                                log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
                                 return -errno;
                         }
 
@@ -835,12 +835,12 @@ static int create_item(Item *i) {
                         }
 
                         if (errno != EEXIST) {
-                                log_error("Failed to create device node %s: %m", i->path);
+                                log_error_errno(errno, "Failed to create device node %s: %m", i->path);
                                 return -errno;
                         }
 
                         if (stat(i->path, &st) < 0) {
-                                log_error("stat(%s) failed: %m", i->path);
+                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
                                 return -errno;
                         }
 
@@ -917,7 +917,7 @@ static int remove_item_instance(Item *i, const char *instance) {
 
         case REMOVE_PATH:
                 if (remove(instance) < 0 && errno != ENOENT) {
-                        log_error("remove(%s): %m", instance);
+                        log_error_errno(errno, "remove(%s): %m", instance);
                         return -errno;
                 }
 
@@ -993,12 +993,12 @@ static int clean_item_instance(Item *i, const char* instance) {
                 if (errno == ENOENT || errno == ENOTDIR)
                         return 0;
 
-                log_error("Failed to open directory %s: %m", i->path);
+                log_error_errno(errno, "Failed to open directory %s: %m", i->path);
                 return -errno;
         }
 
         if (fstat(dirfd(d), &s) < 0) {
-                log_error("stat(%s) failed: %m", i->path);
+                log_error_errno(errno, "stat(%s) failed: %m", i->path);
                 return -errno;
         }
 
@@ -1008,7 +1008,7 @@ static int clean_item_instance(Item *i, const char* instance) {
         }
 
         if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
-                log_error("stat(%s/..) failed: %m", i->path);
+                log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
                 return -errno;
         }
 
@@ -1564,7 +1564,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         if (ferror(f)) {
-                log_error("Failed to read from file %s: %m", fn);
+                log_error_errno(errno, "Failed to read from file %s: %m", fn);
                 if (r == 0)
                         r = -EIO;
         }

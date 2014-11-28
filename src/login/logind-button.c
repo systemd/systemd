@@ -251,12 +251,12 @@ int button_open(Button *b) {
 
         b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (b->fd < 0) {
-                log_warning("Failed to open %s: %m", b->name);
+                log_warning_errno(errno, "Failed to open %s: %m", b->name);
                 return -errno;
         }
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
-                log_error("Failed to get input name: %m");
+                log_error_errno(errno, "Failed to get input name: %m");
                 r = -errno;
                 goto fail;
         }

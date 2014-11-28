@@ -5220,7 +5220,7 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 pid = fork();
                 if (pid < 0) {
-                        log_error("Failed to fork: %m");
+                        log_error_errno(errno, "Failed to fork: %m");
                         return -errno;
                 } else if (pid == 0) {
                         /* Child */
@@ -6721,14 +6721,14 @@ static int talk_initctl(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open "INIT_FIFO": %m");
+                log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
                 return -errno;
         }
 
         errno = 0;
         r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
         if (r) {
-                log_error("Failed to write to "INIT_FIFO": %m");
+                log_error_errno(errno, "Failed to write to "INIT_FIFO": %m");
                 return errno > 0 ? -errno : -EIO;
         }
 
@@ -6953,7 +6953,7 @@ static int reload_with_fallback(sd_bus *bus) {
         assert(arg_action == ACTION_RELOAD || arg_action == ACTION_REEXEC);
 
         if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0) {
-                log_error("kill() failed: %m");
+                log_error_errno(errno, "kill() failed: %m");
                 return -errno;
         }
 

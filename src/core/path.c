@@ -136,7 +136,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         }
 
         if (!exists) {
-                log_error("Failed to add watch on any of the components of %s: %m",
+                log_error_errno(errno, "Failed to add watch on any of the components of %s: %m",
                           s->path);
                 r = -errno; /* either EACCESS or ENOENT */
                 goto fail;
@@ -169,7 +169,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         }
 
         if (ioctl(s->inotify_fd, FIONREAD, &l) < 0) {
-                log_error("FIONREAD failed: %m");
+                log_error_errno(errno, "FIONREAD failed: %m");
                 return -errno;
         }
 
@@ -181,7 +181,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
 
         k = read(s->inotify_fd, buf, l);
         if (k < 0) {
-                log_error("Failed to read inotify event: %m");
+                log_error_errno(errno, "Failed to read inotify event: %m");
                 return -errno;
         }
 

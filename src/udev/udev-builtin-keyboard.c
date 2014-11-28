@@ -140,7 +140,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
 
                 fd = open(udev_device_get_devnode(dev), O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0) {
-                        log_error("Error, opening device '%s': %m", node);
+                        log_error_errno(errno, "Error, opening device '%s': %m", node);
                         return EXIT_FAILURE;
                 }
 
@@ -149,7 +149,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
                                   map[i].scan, map[i].scan, map[i].key, map[i].key);
                         if (ioctl(fd, EVIOCSKEYCODE, &map[i]) < 0)
-                                log_error("Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map[i].scan, map[i].key);
+                                log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map[i].scan, map[i].key);
                 }
 
                 /* install list of force-release codes */

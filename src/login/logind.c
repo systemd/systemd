@@ -290,7 +290,7 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/seats: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
                 return -errno;
         }
 
@@ -327,7 +327,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /var/lib/systemd/linger/: %m");
+                log_error_errno(errno, "Failed to open /var/lib/systemd/linger/: %m");
                 return -errno;
         }
 
@@ -363,7 +363,7 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/users: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/users: %m");
                 return -errno;
         }
 
@@ -404,7 +404,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/sessions: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
                 return -errno;
         }
 
@@ -451,7 +451,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/inhibit: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
                 return -errno;
         }
 
@@ -568,7 +568,7 @@ static int manager_reserve_vt(Manager *m) {
 
                 /* Don't complain on VT-less systems */
                 if (errno != ENOENT)
-                        log_warning("Failed to pin reserved VT: %m");
+                        log_warning_errno(errno, "Failed to pin reserved VT: %m");
                 return -errno;
         }
 
@@ -753,7 +753,7 @@ static int manager_connect_console(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /sys/class/tty/tty0/active: %m");
+                log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
                 return -errno;
         }
 

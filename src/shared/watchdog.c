@@ -45,7 +45,7 @@ static int update_timeout(void) {
                 flags = WDIOS_DISABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
                 if (r < 0) {
-                        log_warning("Failed to disable hardware watchdog: %m");
+                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
                         return -errno;
                 }
         } else {
@@ -55,7 +55,7 @@ static int update_timeout(void) {
                 sec = (int) ((watchdog_timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
                 r = ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec);
                 if (r < 0) {
-                        log_warning("Failed to set timeout to %is: %m", sec);
+                        log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
                         return -errno;
                 }
 
@@ -65,13 +65,13 @@ static int update_timeout(void) {
                 flags = WDIOS_ENABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
                 if (r < 0) {
-                        log_warning("Failed to enable hardware watchdog: %m");
+                        log_warning_errno(errno, "Failed to enable hardware watchdog: %m");
                         return -errno;
                 }
 
                 r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
                 if (r < 0) {
-                        log_warning("Failed to ping hardware watchdog: %m");
+                        log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
                         return -errno;
                 }
         }
@@ -128,7 +128,7 @@ int watchdog_ping(void) {
 
         r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
         if (r < 0) {
-                log_warning("Failed to ping hardware watchdog: %m");
+                log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
                 return -errno;
         }
 
@@ -148,7 +148,7 @@ void watchdog_close(bool disarm) {
                 flags = WDIOS_DISABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
                 if (r < 0)
-                        log_warning("Failed to disable hardware watchdog: %m");
+                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
 
                 /* To be sure, use magic close logic, too */
                 for (;;) {
@@ -158,7 +158,7 @@ void watchdog_close(bool disarm) {
                                 break;
 
                         if (errno != EINTR) {
-                                log_error("Failed to disarm watchdog timer: %m");
+                                log_error_errno(errno, "Failed to disarm watchdog timer: %m");
                                 break;
                         }
                 }

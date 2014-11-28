@@ -263,12 +263,12 @@ static int manager_check_ask_password(Manager *m) {
 
                 m->ask_password_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (m->ask_password_inotify_fd < 0) {
-                        log_error("inotify_init1() failed: %m");
+                        log_error_errno(errno, "inotify_init1() failed: %m");
                         return -errno;
                 }
 
                 if (inotify_add_watch(m->ask_password_inotify_fd, "/run/systemd/ask-password", IN_CREATE|IN_DELETE|IN_MOVE) < 0) {
-                        log_error("Failed to add watch on /run/systemd/ask-password: %m");
+                        log_error_errno(errno, "Failed to add watch on /run/systemd/ask-password: %m");
                         manager_close_ask_password(m);
                         return -errno;
                 }
@@ -277,7 +277,7 @@ static int manager_check_ask_password(Manager *m) {
                                     m->ask_password_inotify_fd, EPOLLIN,
                                     manager_dispatch_ask_password_fd, m);
                 if (r < 0) {
-                        log_error("Failed to add event source for /run/systemd/ask-password: %m");
+                        log_error_errno(errno, "Failed to add event source for /run/systemd/ask-password: %m");
                         manager_close_ask_password(m);
                         return -errno;
                 }
@@ -335,12 +335,12 @@ static int manager_setup_time_change(Manager *m) {
 
         m->time_change_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
         if (m->time_change_fd < 0) {
-                log_error("Failed to create timerfd: %m");
+                log_error_errno(errno, "Failed to create timerfd: %m");
                 return -errno;
         }
 
         if (timerfd_settime(m->time_change_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
-                log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
+                log_debug_errno(errno, "Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
                 m->time_change_fd = safe_close(m->time_change_fd);
                 return 0;
         }
@@ -363,17 +363,17 @@ static int enable_special_signals(Manager *m) {
          * this will fail with EPERM (older) or EINVAL (newer), so
          * ignore that. */
         if (reboot(RB_DISABLE_CAD) < 0 && errno != EPERM && errno != EINVAL)
-                log_warning("Failed to enable ctrl-alt-del handling: %m");
+                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
                 /* Support systems without virtual console */
                 if (fd != -ENOENT)
-                        log_warning("Failed to open /dev/tty0: %m");
+                        log_warning_errno(errno, "Failed to open /dev/tty0: %m");
         } else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning("Failed to enable kbrequest handling: %m");
+                        log_warning_errno(errno, "Failed to enable kbrequest handling: %m");
         }
 
         return 0;
@@ -648,7 +648,7 @@ static int manager_setup_notify(Manager *m) {
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0) {
-                        log_error("Failed to allocate notification socket: %m");
+                        log_error_errno(errno, "Failed to allocate notification socket: %m");
                         return -errno;
                 }
 
@@ -659,7 +659,7 @@ static int manager_setup_notify(Manager *m) {
 
                         e = getenv("XDG_RUNTIME_DIR");
                         if (!e) {
-                                log_error("XDG_RUNTIME_DIR is not set: %m");
+                                log_error_errno(errno, "XDG_RUNTIME_DIR is not set: %m");
                                 return -EINVAL;
                         }
 
@@ -674,13 +674,13 @@ static int manager_setup_notify(Manager *m) {
                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
+                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
                 r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
                 if (r < 0) {
-                        log_error("SO_PASSCRED failed: %m");
+                        log_error_errno(errno, "SO_PASSCRED failed: %m");
                         return -errno;
                 }
 
@@ -1022,7 +1022,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                 d = opendir(*i);
                 if (!d) {
                         if (errno != ENOENT)
-                                log_error("Failed to open directory %s: %m", *i);
+                                log_error_errno(errno, "Failed to open directory %s: %m", *i);
                         continue;
                 }
 
@@ -2070,7 +2070,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                          * Then let's not retry again. */
                         close_audit_fd();
                 else
-                        log_warning("Failed to send audit message: %m");
+                        log_warning_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
@@ -2103,14 +2103,14 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
          * message then wait for plymouth */
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
-                log_error("socket() failed: %m");
+                log_error_errno(errno, "socket() failed: %m");
                 return;
         }
 
         if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
 
                 if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
-                        log_error("connect() failed: %m");
+                        log_error_errno(errno, "connect() failed: %m");
                 return;
         }
 
@@ -2122,7 +2122,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         errno = 0;
         if (write(fd, message, n + 1) != n + 1)
                 if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
-                        log_error("Failed to write Plymouth message: %m");
+                        log_error_errno(errno, "Failed to write Plymouth message: %m");
 }
 
 void manager_dispatch_bus_name_owner_changed(
@@ -2715,7 +2715,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return log_oom();
 
                 if (!mkdtemp(p)) {
-                        log_error("Failed to create generator directory %s: %m",
+                        log_error_errno(errno, "Failed to create generator directory %s: %m",
                                   p);
                         free(p);
                         return -errno;
@@ -2758,7 +2758,7 @@ void manager_run_generators(Manager *m) {
                 if (errno == ENOENT)
                         return;
 
-                log_error("Failed to enumerate generator directory %s: %m",
+                log_error_errno(errno, "Failed to enumerate generator directory %s: %m",
                           generator_path);
                 return;
         }

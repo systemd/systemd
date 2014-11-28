@@ -289,7 +289,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 else if (errno == ENOENT)
                         continue;
                 else {
-                        log_debug("error reading %s: %m", hwdb_bin_path);
+                        log_debug_errno(errno, "error reading %s: %m", hwdb_bin_path);
                         udev_hwdb_unref(hwdb);
                         return NULL;
                 }
@@ -303,14 +303,14 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
             (size_t)hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8) {
-                log_debug("error reading %s: %m", hwdb_bin_path);
+                log_debug_errno(errno, "error reading %s: %m", hwdb_bin_path);
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED) {
-                log_debug("error mapping %s: %m", hwdb_bin_path);
+                log_debug_errno(errno, "error mapping %s: %m", hwdb_bin_path);
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }

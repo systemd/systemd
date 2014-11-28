@@ -795,7 +795,7 @@ static int add_matches(sd_journal *j, char **args) {
                         path = p ? p : *i;
 
                         if (stat(path, &st) < 0)  {
-                                log_error("Couldn't stat file: %m");
+                                log_error_errno(errno, "Couldn't stat file: %m");
                                 return -errno;
                         }
 
@@ -1304,7 +1304,7 @@ static int setup_keys(void) {
 
         r = stat("/var/log/journal", &st);
         if (r < 0 && errno != ENOENT && errno != ENOTDIR) {
-                log_error("stat(\"%s\") failed: %m", "/var/log/journal");
+                log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
                 return -errno;
         }
 
@@ -1330,7 +1330,7 @@ static int setup_keys(void) {
                 if (arg_force) {
                         r = unlink(p);
                         if (r < 0) {
-                                log_error("unlink(\"%s\") failed: %m", p);
+                                log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
                                 r = -errno;
                                 goto finish;
                         }
@@ -1358,7 +1358,7 @@ static int setup_keys(void) {
 
         fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                log_error("Failed to open /dev/random: %m");
+                log_error_errno(errno, "Failed to open /dev/random: %m");
                 r = -errno;
                 goto finish;
         }
@@ -1385,7 +1385,7 @@ static int setup_keys(void) {
         safe_close(fd);
         fd = mkostemp_safe(k, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                log_error("Failed to open %s: %m", k);
+                log_error_errno(errno, "Failed to open %s: %m", k);
                 r = -errno;
                 goto finish;
         }
@@ -1393,12 +1393,12 @@ static int setup_keys(void) {
         /* Enable secure remove, exclusion from dump, synchronous
          * writing and in-place updating */
         if (ioctl(fd, FS_IOC_GETFLAGS, &attr) < 0)
-                log_warning("FS_IOC_GETFLAGS failed: %m");
+                log_warning_errno(errno, "FS_IOC_GETFLAGS failed: %m");
 
         attr |= FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL;
 
         if (ioctl(fd, FS_IOC_SETFLAGS, &attr) < 0)
-                log_warning("FS_IOC_SETFLAGS failed: %m");
+                log_warning_errno(errno, "FS_IOC_SETFLAGS failed: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);
@@ -1425,7 +1425,7 @@ static int setup_keys(void) {
         }
 
         if (link(k, p) < 0) {
-                log_error("Failed to link file: %m");
+                log_error_errno(errno, "Failed to link file: %m");
                 r = -errno;
                 goto finish;
         }
@@ -1686,13 +1686,13 @@ static int flush_to_var(void) {
 
         watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (watch_fd < 0) {
-                log_error("Failed to create inotify watch: %m");
+                log_error_errno(errno, "Failed to create inotify watch: %m");
                 return -errno;
         }
 
         r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
         if (r < 0) {
-                log_error("Failed to watch journal directory: %m");
+                log_error_errno(errno, "Failed to watch journal directory: %m");
                 return -errno;
         }
 
@@ -1701,7 +1701,7 @@ static int flush_to_var(void) {
                         break;
 
                 if (errno != ENOENT) {
-                        log_error("Failed to check for existance of /run/systemd/journal/flushed: %m");
+                        log_error_errno(errno, "Failed to check for existance of /run/systemd/journal/flushed: %m");
                         return -errno;
                 }
 

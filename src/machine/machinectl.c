@@ -726,7 +726,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         pty = ptsname(master);
         if (!pty) {
-                log_error("Failed to get pty name: %m");
+                log_error_errno(errno, "Failed to get pty name: %m");
                 return -errno;
         }
 
@@ -745,7 +745,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 return log_oom();
 
         if (unlockpt(master) < 0) {
-                log_error("Failed to unlock tty: %m");
+                log_error_errno(errno, "Failed to unlock tty: %m");
                 return -errno;
         }
 

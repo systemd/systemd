@@ -121,7 +121,7 @@ static bool udev_has_devtmpfs(struct udev *udev) {
         r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
         if (r < 0) {
                 if (errno != EOPNOTSUPP)
-                        log_debug("name_to_handle_at on /dev: %m");
+                        log_debug_errno(errno, "name_to_handle_at on /dev: %m");
                 return false;
         }
 
@@ -190,7 +190,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
         if (fd < 0) {
                 udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
                 if (udev_monitor->sock == -1) {
-                        log_debug("error getting socket: %m");
+                        log_debug_errno(errno, "error getting socket: %m");
                         free(udev_monitor);
                         return NULL;
                 }
@@ -407,14 +407,14 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
                 if (err == 0)
                         udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
         } else {
-                log_debug("bind failed: %m");
+                log_debug_errno(errno, "bind failed: %m");
                 return -errno;
         }
 
         /* enable receiving of sender credentials */
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
         if (err < 0)
-                log_debug("setting SO_PASSCRED failed: %m");
+                log_debug_errno(errno, "setting SO_PASSCRED failed: %m");
 
         return 0;
 }

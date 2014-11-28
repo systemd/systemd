@@ -144,7 +144,7 @@ static int generate_unit_file(SysvStub *s) {
 
         f = fopen(unit, "wxe");
         if (!f) {
-                log_error("Failed to create unit file %s: %m", unit);
+                log_error_errno(errno, "Failed to create unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -699,7 +699,7 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                 d = opendir(*path);
                 if (!d) {
                         if (errno != ENOENT)
-                                log_warning("opendir(%s) failed: %m", *path);
+                                log_warning_errno(errno, "opendir(%s) failed: %m", *path);
                         continue;
                 }
 
@@ -774,7 +774,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                         d = opendir(path);
                         if (!d) {
                                 if (errno != ENOENT)
-                                        log_warning("opendir(%s) failed: %m", path);
+                                        log_warning_errno(errno, "opendir(%s) failed: %m", path);
 
                                 continue;
                         }

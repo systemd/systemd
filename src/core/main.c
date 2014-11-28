@@ -144,7 +144,7 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_emergency("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
+                        log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
                 else if (pid == 0) {
                         struct rlimit rl = {};
@@ -201,12 +201,12 @@ noreturn static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_emergency("Failed to fork off crash shell: %m");
+                        log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
                         execl("/bin/sh", "/bin/sh", NULL);
 
-                        log_emergency("execl() failed: %m");
+                        log_emergency_errno(errno, "execl() failed: %m");
                         _exit(1);
                 }
 
@@ -885,7 +885,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         f = fdopen(fd, "r");
                         if (!f) {
-                                log_error("Failed to open serialization fd: %m");
+                                log_error_errno(errno, "Failed to open serialization fd: %m");
                                 return -errno;
                         }
 
@@ -1006,7 +1006,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
-                log_error("Failed to rewind serialization fd: %m");
+                log_error_errno(errno, "Failed to rewind serialization fd: %m");
                 goto fail;
         }
 
@@ -1046,7 +1046,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
          * later when transitioning from the initrd to the main
          * systemd or suchlike. */
         if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0) {
-                log_error("Reading RLIMIT_NOFILE failed: %m");
+                log_error_errno(errno, "Reading RLIMIT_NOFILE failed: %m");
                 return -errno;
         }
 
@@ -1234,7 +1234,7 @@ int main(int argc, char *argv[]) {
 
                 errno = -ENOENT;
                 execv(SYSTEMCTL_BINARY_PATH, argv);
-                log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+                log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
 #endif
@@ -1578,7 +1578,7 @@ int main(int argc, char *argv[]) {
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_error("Failed to adjust timer slack: %m");
+                        log_error_errno(errno, "Failed to adjust timer slack: %m");
 
         if (arg_capability_bounding_set_drop) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
@@ -1606,7 +1606,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_USER) {
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
-                        log_warning("Failed to make us a subreaper: %m");
+                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
                         if (errno == EINVAL)
                                 log_info("Perhaps the kernel version is too old (< 3.4?)");
                 }
@@ -1937,7 +1937,7 @@ finish:
                 if (switch_root_init) {
                         args[0] = switch_root_init;
                         execv(args[0], (char* const*) args);
-                        log_warning("Failed to execute configured init, trying fallback: %m");
+                        log_warning_errno(errno, "Failed to execute configured init, trying fallback: %m");
                 }
 
                 args[0] = "/sbin/init";
@@ -1949,9 +1949,9 @@ finish:
                         args[0] = "/bin/sh";
                         args[1] = NULL;
                         execv(args[0], (char* const*) args);
-                        log_error("Failed to execute /bin/sh, giving up: %m");
+                        log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
                 } else
-                        log_warning("Failed to execute /sbin/init, giving up: %m");
+                        log_warning_errno(errno, "Failed to execute /sbin/init, giving up: %m");
         }
 
         if (arg_serialization) {
@@ -2032,7 +2032,7 @@ finish:
                         cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-                log_error("Failed to execute shutdown binary, %s: %m",
+                log_error_errno(errno, "Failed to execute shutdown binary, %s: %m",
                           getpid() == 1 ? "freezing" : "quitting");
         }
 

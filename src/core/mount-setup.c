@@ -235,7 +235,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
         f = fopen("/proc/cgroups", "re");
         if (!f) {
-                log_error("Failed to enumerate cgroup controllers: %m");
+                log_error_errno(errno, "Failed to enumerate cgroup controllers: %m");
                 return 0;
         }
 
@@ -341,7 +341,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
                                 r = symlink(options, t);
                                 if (r < 0 && errno != EEXIST) {
-                                        log_error("Failed to create symlink %s: %m", t);
+                                        log_error_errno(errno, "Failed to create symlink %s: %m", t);
                                         return -errno;
                                 }
                         }
@@ -428,7 +428,7 @@ int mount_setup(bool loaded_policy) {
          * propagation mode to private if needed. */
         if (detect_container(NULL) <= 0)
                 if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
-                        log_warning("Failed to set up the root directory for shared mount propagation: %m");
+                        log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
 
         /* Create a few directories we always want around, Note that
          * sd_booted() checks for /run/systemd/system, so this mkdir

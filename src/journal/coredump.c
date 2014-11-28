@@ -143,26 +143,26 @@ static int fix_acl(int fd, uid_t uid) {
 
         acl = acl_get_fd(fd);
         if (!acl) {
-                log_error("Failed to get ACL: %m");
+                log_error_errno(errno, "Failed to get ACL: %m");
                 return -errno;
         }
 
         if (acl_create_entry(&acl, &entry) < 0 ||
             acl_set_tag_type(entry, ACL_USER) < 0 ||
             acl_set_qualifier(entry, &uid) < 0) {
-                log_error("Failed to patch ACL: %m");
+                log_error_errno(errno, "Failed to patch ACL: %m");
                 return -errno;
         }
 
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning("Failed to patch ACL: %m");
+                log_warning_errno(errno, "Failed to patch ACL: %m");
                 return -errno;
         }
 
         if (acl_set_fd(fd, acl) < 0) {
-                log_error("Failed to apply ACL: %m");
+                log_error_errno(errno, "Failed to apply ACL: %m");
                 return -errno;
         }
 #endif
@@ -224,12 +224,12 @@ static int fix_permissions(
         fix_xattr(fd, info);
 
         if (fsync(fd) < 0) {
-                log_error("Failed to sync coredump %s: %m", filename);
+                log_error_errno(errno, "Failed to sync coredump %s: %m", filename);
                 return -errno;
         }
 
         if (rename(filename, target) < 0) {
-                log_error("Failed to rename coredump %s -> %s: %m", filename, target);
+                log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
                 return -errno;
         }
 
@@ -248,7 +248,7 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
                 return 1;
 
         if (unlink(filename) < 0 && errno != ENOENT) {
-                log_error("Failed to unlink %s: %m", filename);
+                log_error_errno(errno, "Failed to unlink %s: %m", filename);
                 return -errno;
         }
 
@@ -323,7 +323,7 @@ static int save_external_coredump(
 
         fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
         if (fd < 0) {
-                log_error("Failed to create coredump file %s: %m", tmp);
+                log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
                 return -errno;
         }
 
@@ -340,12 +340,12 @@ static int save_external_coredump(
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error("Failed to fstat coredump %s: %m", tmp);
+                log_error_errno(errno, "Failed to fstat coredump %s: %m", tmp);
                 goto fail;
         }
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error("Failed to seek on %s: %m", tmp);
+                log_error_errno(errno, "Failed to seek on %s: %m", tmp);
                 goto fail;
         }
 
@@ -371,7 +371,7 @@ static int save_external_coredump(
 
                 fd_compressed = open(tmp_compressed, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
                 if (fd_compressed < 0) {
-                        log_error("Failed to create file %s: %m", tmp_compressed);
+                        log_error_errno(errno, "Failed to create file %s: %m", tmp_compressed);
                         goto uncompressed;
                 }
 
@@ -430,7 +430,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         assert(ret_size);
 
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_warning("Failed to seek: %m");
+                log_warning_errno(errno, "Failed to seek: %m");
                 return -errno;
         }
 
@@ -821,7 +821,7 @@ int main(int argc, char* argv[]) {
          * thus making sure the user gets access to the core dump. */
         if (setresgid(gid, gid, gid) < 0 ||
             setresuid(uid, uid, uid) < 0) {
-                log_error("Failed to drop privileges: %m");
+                log_error_errno(errno, "Failed to drop privileges: %m");
                 r = -errno;
                 goto finish;
         }

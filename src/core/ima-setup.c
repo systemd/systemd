@@ -60,36 +60,35 @@ int ima_setup(void) {
         }
 
         if (stat(IMA_SECFS_POLICY, &st) < 0) {
-                log_error("Another IMA custom policy has already been loaded, "
-                          "ignoring.");
+                log_error("Another IMA custom policy has already been loaded, ignoring.");
                 return 0;
         }
 
         policyfd = open(IMA_POLICY_PATH, O_RDONLY|O_CLOEXEC);
         if (policyfd < 0) {
-                log_error("Failed to open the IMA custom policy file %s (%m), "
-                          "ignoring.", IMA_POLICY_PATH);
+                log_error_errno(errno, "Failed to open the IMA custom policy file %s (%m), ignoring.",
+                                IMA_POLICY_PATH);
                 return 0;
         }
 
         imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
         if (imafd < 0) {
-                log_error("Failed to open the IMA kernel interface %s (%m), "
-                          "ignoring.", IMA_SECFS_POLICY);
+                log_error_errno(errno, "Failed to open the IMA kernel interface %s (%m), ignoring.",
+                                IMA_SECFS_POLICY);
                 goto out;
         }
 
         policy = mmap(NULL, policy_size, PROT_READ, MAP_PRIVATE, policyfd, 0);
         if (policy == MAP_FAILED) {
-                log_error("mmap() failed (%m), freezing");
+                log_error_errno(errno, "mmap() failed (%m), freezing");
                 result = -errno;
                 goto out;
         }
 
         written = loop_write(imafd, policy, (size_t)policy_size, false);
         if (written != policy_size) {
-                log_error("Failed to load the IMA custom policy file %s (%m), "
-                          "ignoring.", IMA_POLICY_PATH);
+                log_error_errno(errno, "Failed to load the IMA custom policy file %s (%m), ignoring.",
+                                IMA_POLICY_PATH);
                 goto out_mmap;
         }
 

@@ -75,7 +75,7 @@ static void repeat_unmount(const char *path) {
                         continue;
 
                 if (errno != EINVAL)
-                        log_error("Failed to unmount: %m");
+                        log_error_errno(errno, "Failed to unmount: %m");
 
                 break;
         }
@@ -301,7 +301,7 @@ static int open_dev_autofs(Manager *m) {
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0) {
-                log_error("Failed to open /dev/autofs: %m");
+                log_error_errno(errno, "Failed to open /dev/autofs: %m");
                 return -errno;
         }
 

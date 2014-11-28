@@ -172,11 +172,11 @@ static int dns_stream_identify(DnsStream *s) {
                 if (s->local.sa.sa_family == AF_INET) {
                         r = setsockopt(s->fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
                         if (r < 0)
-                                log_debug("Failed to invoke IP_UNICAST_IF: %m");
+                                log_debug_errno(errno, "Failed to invoke IP_UNICAST_IF: %m");
                 } else if (s->local.sa.sa_family == AF_INET6) {
                         r = setsockopt(s->fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
                         if (r < 0)
-                                log_debug("Failed to invoke IPV6_UNICAST_IF: %m");
+                                log_debug_errno(errno, "Failed to invoke IPV6_UNICAST_IF: %m");
                 }
         }
 

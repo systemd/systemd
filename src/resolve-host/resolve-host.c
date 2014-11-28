@@ -514,7 +514,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'i':
                         arg_ifindex = if_nametoindex(optarg);
                         if (arg_ifindex <= 0) {
-                                log_error("Unknown interfaces %s: %m", optarg);
+                                log_error_errno(errno, "Unknown interfaces %s: %m", optarg);
                                 return -errno;
                         }
                         break;

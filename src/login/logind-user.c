@@ -511,7 +511,7 @@ static int user_remove_runtime_path(User *u) {
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
 
         if (umount2(u->runtime_path, MNT_DETACH) < 0)
-                log_error("Failed to unmount user runtime directory %s: %m", u->runtime_path);
+                log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", u->runtime_path);
 
         r = rm_rf(u->runtime_path, false, true, false);
         if (r < 0)

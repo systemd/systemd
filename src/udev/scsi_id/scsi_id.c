@@ -174,7 +174,7 @@ static int get_file_options(struct udev *udev,
                 if (errno == ENOENT)
                         return 1;
                 else {
-                        log_error("can't open %s: %m", config_file);
+                        log_error_errno(errno, "can't open %s: %m", config_file);
                         return -1;
                 }
         }

@@ -523,14 +523,14 @@ int server_open_audit(Server *s) {
                         if (errno == EAFNOSUPPORT || errno == EPROTONOSUPPORT)
                                 log_debug("Audit not supported in the kernel.");
                         else
-                                log_warning("Failed to create audit socket, ignoring: %m");
+                                log_warning_errno(errno, "Failed to create audit socket, ignoring: %m");
 
                         return 0;
                 }
 
                 r = bind(s->audit_fd, &sa.sa, sizeof(sa.nl));
                 if (r < 0) {
-                        log_error("Failed to join audit multicast group: %m");
+                        log_error_errno(errno, "Failed to join audit multicast group: %m");
                         return -errno;
                 }
         } else
@@ -538,7 +538,7 @@ int server_open_audit(Server *s) {
 
         r = setsockopt(s->audit_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0) {
-                log_error("Failed to set SO_PASSCRED on audit socket: %m");
+                log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
                 return -errno;
         }
 

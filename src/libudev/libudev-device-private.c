@@ -129,7 +129,7 @@ int udev_device_update_db(struct udev_device *udev_device)
         mkdir_parents(filename_tmp, 0755);
         f = fopen(filename_tmp, "we");
         if (f == NULL) {
-                log_debug("unable to create temporary db file '%s': %m", filename_tmp);
+                log_debug_errno(errno, "unable to create temporary db file '%s': %m", filename_tmp);
                 return -errno;
         }
 

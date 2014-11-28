@@ -58,7 +58,7 @@ static int process_resume(void) {
 
         mkdir_parents_label(lnk, 0755);
         if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-hibernate-resume@.service", lnk) < 0) {
-                log_error("Failed to create symlink %s: %m", lnk);
+                log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                 return -errno;
         }
 

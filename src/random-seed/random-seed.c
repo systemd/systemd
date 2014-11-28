@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
                 if (seed_fd < 0) {
                         seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (seed_fd < 0) {
-                                log_error("Failed to open " RANDOM_SEED ": %m");
+                                log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
                                 r = -errno;
                                 goto finish;
                         }
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
                 if (random_fd < 0) {
                         random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600);
                         if (random_fd < 0) {
-                                log_error("Failed to open /dev/urandom: %m");
+                                log_error_errno(errno, "Failed to open /dev/urandom: %m");
                                 r = -errno;
                                 goto finish;
                         }
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
                 if (k <= 0) {
 
                         if (r != 0)
-                                log_error("Failed to read seed from " RANDOM_SEED ": %m");
+                                log_error_errno(errno, "Failed to read seed from " RANDOM_SEED ": %m");
 
                         r = k == 0 ? -EIO : (int) k;
 
@@ -125,14 +125,14 @@ int main(int argc, char *argv[]) {
 
                 seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
                 if (seed_fd < 0) {
-                        log_error("Failed to open " RANDOM_SEED ": %m");
+                        log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
                         r = -errno;
                         goto finish;
                 }
 
                 random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (random_fd < 0) {
-                        log_error("Failed to open /dev/urandom: %m");
+                        log_error_errno(errno, "Failed to open /dev/urandom: %m");
                         r = -errno;
                         goto finish;
                 }

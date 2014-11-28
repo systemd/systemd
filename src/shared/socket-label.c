@@ -93,13 +93,13 @@ int socket_address_listen(
                 if (free_bind) {
                         one = 1;
                         if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
-                                log_warning("IP_FREEBIND failed: %m");
+                                log_warning_errno(errno, "IP_FREEBIND failed: %m");
                 }
 
                 if (transparent) {
                         one = 1;
                         if (setsockopt(fd, IPPROTO_IP, IP_TRANSPARENT, &one, sizeof(one)) < 0)
-                                log_warning("IP_TRANSPARENT failed: %m");
+                                log_warning_errno(errno, "IP_TRANSPARENT failed: %m");
                 }
         }
 

@@ -54,7 +54,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
                 if (fd < 0)
                         continue;
                 if (write(fd, action, strlen(action)) < 0)
-                        log_debug("error writing '%s' to '%s': %m", action, filename);
+                        log_debug_errno(errno, "error writing '%s' to '%s': %m", action, filename);
                 close(fd);
         }
 }

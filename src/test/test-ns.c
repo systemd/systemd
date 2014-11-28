@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
         }
 
         execl("/bin/sh", "/bin/sh", NULL);
-        log_error("execl(): %m");
+        log_error_errno(errno, "execl(): %m");
 
         return 1;
 }

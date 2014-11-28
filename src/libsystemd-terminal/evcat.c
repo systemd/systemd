@@ -359,13 +359,13 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
 
                 r = ioctl(1, KDSKBMODE, K_UNICODE);
                 if (r < 0) {
-                        log_error("Cannot set K_UNICODE on stdout: %m");
+                        log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
                         return -errno;
                 }
 
                 r = ioctl(1, KDSETMODE, KD_TEXT);
                 if (r < 0) {
-                        log_error("Cannot set KD_TEXT on stdout: %m");
+                        log_error_errno(errno, "Cannot set KD_TEXT on stdout: %m");
                         return -errno;
                 }
 

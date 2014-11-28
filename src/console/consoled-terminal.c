@@ -165,7 +165,7 @@ void terminal_run(Terminal *t) {
                 setenv("COLORTERM", "systemd-console", 1);
 
                 execve(argv[0], argv, environ);
-                log_error("Cannot exec %s (%d): %m", argv[0], -errno);
+                log_error_errno(errno, "Cannot exec %s (%d): %m", argv[0], -errno);
                 _exit(1);
         }
 }

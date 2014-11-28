@@ -59,7 +59,7 @@ int base_filesystem_create(const char *root) {
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0) {
-                log_error("Failed to open root file system: %m");
+                log_error_errno(errno, "Failed to open root file system: %m");
                 return -errno;
         }
 
@@ -96,7 +96,7 @@ int base_filesystem_create(const char *root) {
 
                         r = symlinkat(target, fd, table[i].dir);
                         if (r < 0 && errno != EEXIST) {
-                                log_error("Failed to create symlink at %s/%s: %m", root, table[i].dir);
+                                log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
                                 return -errno;
                         }
                         continue;
@@ -105,7 +105,7 @@ int base_filesystem_create(const char *root) {
                 RUN_WITH_UMASK(0000)
                         r = mkdirat(fd, table[i].dir, table[i].mode);
                 if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create directory at %s/%s: %m", root, table[i].dir);
+                        log_error_errno(errno, "Failed to create directory at %s/%s: %m", root, table[i].dir);
                         return -errno;
                 }
         }

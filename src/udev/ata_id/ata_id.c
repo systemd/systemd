@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m", node);
+                        log_debug_errno(errno, "HDIO_GET_IDENTITY failed for '%s': %m", node);
                         rc = 2;
                         goto close;
                 }

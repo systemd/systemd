@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
 
                 pid = fork();
                 if (pid < 0) {
-                        log_error("Failed to fork: %m");
+                        log_error_errno(errno, "Failed to fork: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
                         close_all_fds(NULL, 0);
 
                         execvp(argv[optind], argv + optind);
-                        log_error("Failed to execute %s: %m", argv[optind]);
+                        log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
 

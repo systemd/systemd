@@ -275,7 +275,7 @@ int journal_directory_vacuum(
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
                                 freed += size;
                         } else if (errno != ENOENT)
-                                log_warning("Failed to delete empty archived journal %s/%s: %m", directory, p);
+                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         free(p);
                         continue;
@@ -318,7 +318,7 @@ int journal_directory_vacuum(
                                 sum = 0;
 
                 } else if (errno != ENOENT)
-                        log_warning("Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))

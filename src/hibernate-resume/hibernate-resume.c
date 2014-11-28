@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         device = argv[1];
 
         if (stat(device, &st) < 0) {
-                log_error("Failed to stat '%s': %m", device);
+                log_error_errno(errno, "Failed to stat '%s': %m", device);
                 return EXIT_FAILURE;
         }
 

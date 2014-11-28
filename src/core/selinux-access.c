@@ -127,7 +127,7 @@ static int access_init(void) {
         int r = 0;
 
         if (avc_open(NULL, 0)) {
-                log_error("avc_open() failed: %m");
+                log_error_errno(errno, "avc_open() failed: %m");
                 return -errno;
         }
 

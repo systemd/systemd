@@ -489,7 +489,7 @@ static int start_transient_scope(
 
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0) {
-                        log_error("Failed to set nice level: %m");
+                        log_error_errno(errno, "Failed to set nice level: %m");
                         return -errno;
                 }
         }
@@ -502,7 +502,7 @@ static int start_transient_scope(
                         return log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
 
                 if (setresgid(gid, gid, gid) < 0) {
-                        log_error("Failed to change GID to " GID_FMT ": %m", gid);
+                        log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
                         return -errno;
                 }
         }
@@ -534,13 +534,13 @@ static int start_transient_scope(
 
                 if (!arg_exec_group) {
                         if (setresgid(gid, gid, gid) < 0) {
-                                log_error("Failed to change GID to " GID_FMT ": %m", gid);
+                                log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
                                 return -errno;
                         }
                 }
 
                 if (setresuid(uid, uid, uid) < 0) {
-                        log_error("Failed to change UID to " UID_FMT ": %m", uid);
+                        log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
                         return -errno;
                 }
         }
@@ -552,7 +552,7 @@ static int start_transient_scope(
         log_info("Running as unit %s.", name);
 
         execvpe(argv[0], argv, env);
-        log_error("Failed to execute: %m");
+        log_error_errno(errno, "Failed to execute: %m");
         return -errno;
 }
 

@@ -210,13 +210,13 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
 
         f = fopen(path, "re");
         if (!f) {
-                log_error("Failed to open file %s: %m", path);
+                log_error_errno(errno, "Failed to open file %s: %m", path);
                 return -errno;
         }
 
         r = catalog_file_lang(path, &deflang);
         if (r < 0)
-                log_error("Failed to determine language for file %s: %m", path);
+                log_error_errno(errno, "Failed to determine language for file %s: %m", path);
         if (r == 1)
                 log_debug("File %s has language %s.", path, deflang);
 
@@ -229,7 +229,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read file %s: %m", path);
+                        log_error_errno(errno, "Failed to read file %s: %m", path);
                         return -errno;
                 }
 
@@ -385,7 +385,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
         fchmod(fileno(w), 0644);
 
         if (rename(p, database) < 0) {
-                log_error("rename (%s -> %s) failed: %m", p, database);
+                log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
                 r = -errno;
                 goto error;
         }

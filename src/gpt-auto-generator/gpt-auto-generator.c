@@ -69,7 +69,7 @@ static int add_swap(const char *path) {
 
         f = fopen(unit, "wxe");
         if (!f) {
-                log_error("Failed to create unit file %s: %m", unit);
+                log_error_errno(errno, "Failed to create unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -84,7 +84,7 @@ static int add_swap(const char *path) {
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", unit);
+                log_error_errno(errno, "Failed to write unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -94,7 +94,7 @@ static int add_swap(const char *path) {
 
         mkdir_parents_label(lnk, 0755);
         if (symlink(unit, lnk) < 0) {
-                log_error("Failed to create symlink %s: %m", lnk);
+                log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                 return -errno;
         }
 
@@ -129,7 +129,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
 
         f = fopen(p, "wxe");
         if (!f) {
-                log_error("Failed to create unit file %s: %m", p);
+                log_error_errno(errno, "Failed to create unit file %s: %m", p);
                 return -errno;
         }
 
@@ -156,7 +156,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write file %s: %m", p);
+                log_error_errno(errno, "Failed to write file %s: %m", p);
                 return -errno;
         }
 
@@ -168,7 +168,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
-                log_error("Failed to create symlink %s: %m", to);
+                log_error_errno(errno, "Failed to create symlink %s: %m", to);
                 return -errno;
         }
 
@@ -179,7 +179,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
-                log_error("Failed to create symlink %s: %m", to);
+                log_error_errno(errno, "Failed to create symlink %s: %m", to);
                 return -errno;
         }
 
@@ -190,7 +190,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
-                log_error("Failed to create symlink %s: %m", to);
+                log_error_errno(errno, "Failed to create symlink %s: %m", to);
                 return -errno;
         }
 
@@ -255,7 +255,7 @@ static int add_mount(
 
         f = fopen(p, "wxe");
         if (!f) {
-                log_error("Failed to create unit file %s: %m", unit);
+                log_error_errno(errno, "Failed to create unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -287,7 +287,7 @@ static int add_mount(
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", p);
+                log_error_errno(errno, "Failed to write unit file %s: %m", p);
                 return -errno;
         }
 
@@ -298,7 +298,7 @@ static int add_mount(
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(p, lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
         }
@@ -337,7 +337,7 @@ static int probe_and_add_mount(
         if (!b) {
                 if (errno == 0)
                         return log_oom();
-                log_error("Failed to allocate prober: %m");
+                log_error_errno(errno, "Failed to allocate prober: %m");
                 return -errno;
         }
 
@@ -351,7 +351,7 @@ static int probe_and_add_mount(
         else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error("Failed to probe %s: %m", what);
+                log_error_errno(errno, "Failed to probe %s: %m", what);
                 return -errno;
         }
 
@@ -429,7 +429,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (errno == 0)
                         return log_oom();
 
-                log_error("Failed allocate prober: %m");
+                log_error_errno(errno, "Failed allocate prober: %m");
                 return -errno;
         }
 
@@ -443,7 +443,7 @@ static int enumerate_partitions(dev_t devnum) {
         else if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error("Failed to probe %s: %m", node);
+                log_error_errno(errno, "Failed to probe %s: %m", node);
                 return -errno;
         }
 
@@ -452,7 +452,7 @@ static int enumerate_partitions(dev_t devnum) {
         if (r != 0) {
                 if (errno == 0)
                         errno = EIO;
-                log_error("Failed to determine partition table type of %s: %m", node);
+                log_error_errno(errno, "Failed to determine partition table type of %s: %m", node);
                 return -errno;
         }
 
@@ -468,7 +468,7 @@ static int enumerate_partitions(dev_t devnum) {
                 if (errno == 0)
                         return log_oom();
 
-                log_error("Failed to list partitions of %s: %m", node);
+                log_error_errno(errno, "Failed to list partitions of %s: %m", node);
                 return -errno;
         }
 

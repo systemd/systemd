@@ -111,7 +111,7 @@ static int add_swap(
                 if (errno == EEXIST)
                         log_error("Failed to create swap unit file %s, as it already exists. Duplicate entry in /etc/fstab?", unit);
                 else
-                        log_error("Failed to create unit file %s: %m", unit);
+                        log_error_errno(errno, "Failed to create unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -149,7 +149,7 @@ static int add_swap(
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
         }
@@ -229,7 +229,7 @@ static int add_mount(
                 if (errno == EEXIST)
                         log_error("Failed to create mount unit file %s, as it already exists. Duplicate entry in /etc/fstab?", unit);
                 else
-                        log_error("Failed to create unit file %s: %m", unit);
+                        log_error_errno(errno, "Failed to create unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -269,7 +269,7 @@ static int add_mount(
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", unit);
+                log_error_errno(errno, "Failed to write unit file %s: %m", unit);
                 return -errno;
         }
 
@@ -280,7 +280,7 @@ static int add_mount(
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
         }
@@ -297,7 +297,7 @@ static int add_mount(
                 fclose(f);
                 f = fopen(automount_unit, "wxe");
                 if (!f) {
-                        log_error("Failed to create unit file %s: %m", automount_unit);
+                        log_error_errno(errno, "Failed to create unit file %s: %m", automount_unit);
                         return -errno;
                 }
 
@@ -320,7 +320,7 @@ static int add_mount(
 
                 fflush(f);
                 if (ferror(f)) {
-                        log_error("Failed to write unit file %s: %m", automount_unit);
+                        log_error_errno(errno, "Failed to write unit file %s: %m", automount_unit);
                         return -errno;
                 }
 
@@ -331,7 +331,7 @@ static int add_mount(
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(automount_unit, lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
         }
@@ -351,7 +351,7 @@ static int parse_fstab(bool initrd) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open %s: %m", fstab_path);
+                log_error_errno(errno, "Failed to open %s: %m", fstab_path);
                 return -errno;
         }
 

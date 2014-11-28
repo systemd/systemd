@@ -65,7 +65,7 @@ int generator_write_fsck_deps(
 
                 mkdir_parents(lnk, 0755);
                 if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                         return -errno;
                 }
 

@@ -91,7 +91,7 @@ static int ask_password_plymouth(
 
         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
         if (r < 0) {
-                log_error("Failed to connect to Plymouth: %m");
+                log_error_errno(errno, "Failed to connect to Plymouth: %m");
                 return -errno;
         }
 
@@ -343,7 +343,7 @@ static int parse_password(const char *filename, char **wall) {
 
                 socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
                 if (socket_fd < 0) {
-                        log_error("socket(): %m");
+                        log_error_errno(errno, "socket(): %m");
                         return -errno;
                 }
 
@@ -353,7 +353,7 @@ static int parse_password(const char *filename, char **wall) {
                 r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa,
                            offsetof(struct sockaddr_un, sun_path) + strlen(socket_name));
                 if (r < 0) {
-                        log_error("Failed to send: %m");
+                        log_error_errno(errno, "Failed to send: %m");
                         return r;
                 }
         }
@@ -428,7 +428,7 @@ static int show_passwords(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("opendir(/run/systemd/ask-password): %m");
+                log_error_errno(errno, "opendir(/run/systemd/ask-password): %m");
                 return -errno;
         }
 

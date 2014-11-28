@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 
                 p = get_current_dir_name();
                 if (!p) {
-                        log_error("Cannot determine current working directory: %m");
+                        log_error_errno(errno, "Cannot determine current working directory: %m");
                         goto finish;
                 }
 

@@ -226,15 +226,15 @@ static int make_backup(const char *target, const char *x) {
 
         /* Copy over the access mask */
         if (fchmod(fileno(dst), st.st_mode & 07777) < 0)
-                log_warning("Failed to change mode on %s: %m", backup);
+                log_warning_errno(errno, "Failed to change mode on %s: %m", backup);
 
         if (fchown(fileno(dst), st.st_uid, st.st_gid)< 0)
-                log_warning("Failed to change ownership of %s: %m", backup);
+                log_warning_errno(errno, "Failed to change ownership of %s: %m", backup);
 
         ts[0] = st.st_atim;
         ts[1] = st.st_mtim;
         if (futimens(fileno(dst), ts) < 0)
-                log_warning("Failed to fix access and modification time of %s: %m", backup);
+                log_warning_errno(errno, "Failed to fix access and modification time of %s: %m", backup);
 
         if (rename(temp, backup) < 0)
                 goto fail;
@@ -899,7 +899,7 @@ static int add_user(Item *i) {
                         return 0;
                 }
                 if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if user %s already exists: %m", i->name);
+                        log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
                         return -errno;
                 }
 
@@ -911,7 +911,7 @@ static int add_user(Item *i) {
                         return -EBADMSG;
                 }
                 if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if user %s already exists in shadow database: %m", i->name);
+                        log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
                         return -errno;
                 }
         }
@@ -1057,7 +1057,7 @@ static int add_group(Item *i) {
                         return 0;
                 }
                 if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error("Failed to check if group %s already exists: %m", i->name);
+                        log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
                         return -errno;
                 }
         }
@@ -1731,7 +1731,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         if (ferror(f)) {
-                log_error("Failed to read from file %s: %m", fn);
+                log_error_errno(errno, "Failed to read from file %s: %m", fn);
                 if (r == 0)
                         r = -EIO;
         }

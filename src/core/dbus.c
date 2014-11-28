@@ -624,7 +624,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
-                log_warning("Failed to accept private connection, ignoring: %m");
+                log_warning_errno(errno, "Failed to accept private connection, ignoring: %m");
                 return 0;
         }
 
@@ -959,19 +959,19 @@ static int bus_init_private(Manager *m) {
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
-                log_error("Failed to allocate private socket: %m");
+                log_error_errno(errno, "Failed to allocate private socket: %m");
                 return -errno;
         }
 
         r = bind(fd, &sa.sa, salen);
         if (r < 0) {
-                log_error("Failed to bind private socket: %m");
+                log_error_errno(errno, "Failed to bind private socket: %m");
                 return -errno;
         }
 
         r = listen(fd, SOMAXCONN);
         if (r < 0) {
-                log_error("Failed to make private socket listening: %m");
+                log_error_errno(errno, "Failed to make private socket listening: %m");
                 return -errno;
         }
 

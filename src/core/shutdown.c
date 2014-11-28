@@ -139,12 +139,12 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int switch_root_initramfs(void) {
         if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0) {
-                log_error("Failed to mount bind /run/initramfs on /run/initramfs: %m");
+                log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
                 return -errno;
         }
 
         if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0) {
-                log_error("Failed to make /run/initramfs private mount: %m");
+                log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
                 return -errno;
         }
 
@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
                                  "Returning to initrd...");
 
                         execv("/shutdown", argv);
-                        log_error("Failed to execute shutdown binary: %m");
+                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
                 } else
                         log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
 
@@ -359,7 +359,7 @@ int main(int argc, char *argv[]) {
 
                         pid = fork();
                         if (pid < 0)
-                                log_error("Failed to fork: %m");
+                                log_error_errno(errno, "Failed to fork: %m");
                         else if (pid == 0) {
 
                                 const char * const args[] = {
@@ -412,7 +412,7 @@ int main(int argc, char *argv[]) {
                 exit(0);
         }
 
-        log_error("Failed to invoke reboot(): %m");
+        log_error_errno(errno, "Failed to invoke reboot(): %m");
         r = -errno;
 
   error:

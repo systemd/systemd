@@ -96,7 +96,7 @@ int manager_enumerate_machines(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open /run/systemd/machines: %m");
+                log_error_errno(errno, "Failed to open /run/systemd/machines: %m");
                 return -errno;
         }
 

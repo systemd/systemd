@@ -229,7 +229,7 @@ static int server(sd_bus *bus) {
                         log_info("Received fd=%d", fd);
 
                         if (write(fd, &x, 1) < 0) {
-                                log_error("Failed to write to fd: %m");
+                                log_error_errno(errno, "Failed to write to fd: %m");
                                 safe_close(fd);
                                 goto fail;
                         }
@@ -302,7 +302,7 @@ static void* client1(void*p) {
         assert(streq(hello, "hello"));
 
         if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
-                log_error("Failed to allocate pipe: %m");
+                log_error_errno(errno, "Failed to allocate pipe: %m");
                 r = -errno;
                 goto finish;
         }

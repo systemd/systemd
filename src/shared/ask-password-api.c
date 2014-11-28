@@ -259,7 +259,7 @@ static int create_socket(char **name) {
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
-                log_error("socket() failed: %m");
+                log_error_errno(errno, "socket() failed: %m");
                 return -errno;
         }
 
@@ -271,13 +271,13 @@ static int create_socket(char **name) {
 
         if (r < 0) {
                 r = -errno;
-                log_error("bind(%s) failed: %m", sa.un.sun_path);
+                log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
                 goto fail;
         }
 
         if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
                 r = -errno;
-                log_error("SO_PASSCRED failed: %m");
+                log_error_errno(errno, "SO_PASSCRED failed: %m");
                 goto fail;
         }
 
@@ -330,7 +330,7 @@ int ask_password_agent(
 
         fd = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
-                log_error("Failed to create password file: %m");
+                log_error_errno(errno, "Failed to create password file: %m");
                 r = -errno;
                 goto finish;
         }
@@ -339,7 +339,7 @@ int ask_password_agent(
 
         f = fdopen(fd, "w");
         if (!f) {
-                log_error("Failed to allocate FILE: %m");
+                log_error_errno(errno, "Failed to allocate FILE: %m");
                 r = -errno;
                 goto finish;
         }
@@ -348,7 +348,7 @@ int ask_password_agent(
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
-                log_error("signalfd(): %m");
+                log_error_errno(errno, "signalfd(): %m");
                 r = -errno;
                 goto finish;
         }
@@ -384,7 +384,7 @@ int ask_password_agent(
         fflush(f);
 
         if (ferror(f)) {
-                log_error("Failed to write query file: %m");
+                log_error_errno(errno, "Failed to write query file: %m");
                 r = -errno;
                 goto finish;
         }
@@ -396,7 +396,7 @@ int ask_password_agent(
         final[sizeof(final)-9] = 'k';
 
         if (rename(temp, final) < 0) {
-                log_error("Failed to rename query file: %m");
+                log_error_errno(errno, "Failed to rename query file: %m");
                 r = -errno;
                 goto finish;
         }
@@ -433,7 +433,7 @@ int ask_password_agent(
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("poll() failed: %m");
+                        log_error_errno(errno, "poll() failed: %m");
                         r = -errno;
                         goto finish;
                 }
@@ -472,7 +472,7 @@ int ask_password_agent(
                             errno == EINTR)
                                 continue;
 
-                        log_error("recvmsg() failed: %m");
+                        log_error_errno(errno, "recvmsg() failed: %m");
                         r = -errno;
                         goto finish;
                 }

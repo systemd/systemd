@@ -70,7 +70,7 @@ static int setup_tests(void) {
 
         nobody = getpwnam("nobody");
         if (!nobody) {
-                log_error("Could not find nobody user: %m");
+                log_error_errno(errno, "Could not find nobody user: %m");
                 return -EXIT_TEST_SKIP;
         }
         test_uid = nobody->pw_uid;

@@ -4065,7 +4065,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
 
         executor_pid = fork();
         if (executor_pid < 0) {
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 return;
 
         } else if (executor_pid == 0) {
@@ -4088,7 +4088,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                                 if (errno == ENOENT)
                                         _exit(EXIT_SUCCESS);
 
-                                log_error("Failed to enumerate directory %s: %m", directory);
+                                log_error_errno(errno, "Failed to enumerate directory %s: %m", directory);
                                 _exit(EXIT_FAILURE);
                         }
                 }
@@ -4114,7 +4114,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
 
                         pid = fork();
                         if (pid < 0) {
-                                log_error("Failed to fork: %m");
+                                log_error_errno(errno, "Failed to fork: %m");
                                 continue;
                         } else if (pid == 0) {
                                 char *_argv[2];
@@ -4129,7 +4129,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                                         argv[0] = path;
 
                                 execv(path, argv);
-                                log_error("Failed to execute %s: %m", path);
+                                log_error_errno(errno, "Failed to execute %s: %m", path);
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -5321,7 +5321,7 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
                  * keep an unused copy of stdin around. */
                 fd = open("/dev/tty", O_WRONLY);
                 if (fd < 0) {
-                        log_error("Failed to open /dev/tty: %m");
+                        log_error_errno(errno, "Failed to open /dev/tty: %m");
                         _exit(EXIT_FAILURE);
                 }
 

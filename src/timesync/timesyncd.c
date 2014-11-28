@@ -73,7 +73,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                          format_timestamp(date, sizeof(date), min));
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
-                        log_error("Failed to restore system clock: %m");
+                        log_error_errno(errno, "Failed to restore system clock: %m");
         }
 
         return 0;

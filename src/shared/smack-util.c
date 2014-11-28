@@ -194,7 +194,7 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 if (ignore_erofs && errno == EROFS)
                         return 0;
 
-                log_debug("Unable to fix SMACK label of %s: %m", path);
+                log_debug_errno(errno, "Unable to fix SMACK label of %s: %m", path);
                 r = -errno;
         }
 #endif

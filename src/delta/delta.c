@@ -186,11 +186,11 @@ static int found_override(const char *top, const char *bottom) {
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork off diff: %m");
+                log_error_errno(errno, "Failed to fork off diff: %m");
                 return -errno;
         } else if (pid == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
-                log_error("Failed to execute diff: %m");
+                log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(1);
         }
 
@@ -305,7 +305,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open %s: %m", path);
+                log_error_errno(errno, "Failed to open %s: %m", path);
                 return -errno;
         }
 

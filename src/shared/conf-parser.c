@@ -367,7 +367,7 @@ int config_parse(const char *unit,
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read configuration file '%s': %m", filename);
+                        log_error_errno(errno, "Failed to read configuration file '%s': %m", filename);
                         return -errno;
                 }
 

@@ -58,7 +58,7 @@ static int iterate_dir(
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open directory %s: %m", path);
+                log_error_errno(errno, "Failed to open directory %s: %m", path);
                 return -errno;
         }
 

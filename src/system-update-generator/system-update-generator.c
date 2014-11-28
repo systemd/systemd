@@ -41,13 +41,13 @@ static int generate_symlink(void) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to check for system update: %m");
+                log_error_errno(errno, "Failed to check for system update: %m");
                 return -EINVAL;
         }
 
         p = strappenda(arg_dest, "/default.target");
         if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0) {
-                log_error("Failed to create symlink %s: %m", p);
+                log_error_errno(errno, "Failed to create symlink %s: %m", p);
                 return -errno;
         }
 

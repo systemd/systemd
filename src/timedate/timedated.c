@@ -569,7 +569,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
 
         /* Set system clock */
         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
-                log_error("Failed to set local time: %m");
+                log_error_errno(errno, "Failed to set local time: %m");
                 return sd_bus_error_set_errnof(error, errno, "Failed to set local time: %m");
         }
 

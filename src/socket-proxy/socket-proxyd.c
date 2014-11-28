@@ -121,7 +121,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
 
         r = pipe2(buffer, O_CLOEXEC|O_NONBLOCK);
         if (r < 0) {
-                log_error("Failed to allocate pipe buffer: %m");
+                log_error_errno(errno, "Failed to allocate pipe buffer: %m");
                 return -errno;
         }
 
@@ -129,7 +129,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
 
         r = fcntl(buffer[0], F_GETPIPE_SZ);
         if (r < 0) {
-                log_error("Failed to get pipe buffer size: %m");
+                log_error_errno(errno, "Failed to get pipe buffer size: %m");
                 return -errno;
         }
 
@@ -172,7 +172,7 @@ static int connection_shovel(
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
                         } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error("Failed to splice: %m");
+                                log_error_errno(errno, "Failed to splice: %m");
                                 return -errno;
                         }
                 }
@@ -186,7 +186,7 @@ static int connection_shovel(
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
                         } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error("Failed to splice: %m");
+                                log_error_errno(errno, "Failed to splice: %m");
                                 return -errno;
                         }
                 }
@@ -317,7 +317,7 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         solen = sizeof(error);
         r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen);
         if (r < 0) {
-                log_error("Failed to issue SO_ERROR: %m");
+                log_error_errno(errno, "Failed to issue SO_ERROR: %m");
                 goto fail;
         }
 
@@ -344,7 +344,7 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
 
         c->client_fd = socket(sa->sa_family, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
         if (c->client_fd < 0) {
-                log_error("Failed to get remote socket: %m");
+                log_error_errno(errno, "Failed to get remote socket: %m");
                 goto fail;
         }
 
@@ -363,7 +363,7 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
                                 goto fail;
                         }
                 } else {
-                        log_error("Failed to connect to remote host: %m");
+                        log_error_errno(errno, "Failed to connect to remote host: %m");
                         goto fail;
                 }
         } else {
@@ -510,7 +510,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
                 if (errno != -EAGAIN)
-                        log_warning("Failed to accept() socket: %m");
+                        log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
                 getpeername_pretty(nfd, &peer);
                 log_debug("New connection from %s", strna(peer));

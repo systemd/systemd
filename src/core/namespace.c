@@ -277,7 +277,7 @@ static int mount_kdbus(BindMount *m) {
         u = umask(0000);
 
         if (!mkdtemp(temporary_mount)) {
-                log_error("Failed create temp dir: %m");
+                log_error_errno(errno, "Failed create temp dir: %m");
                 return -errno;
         }
 
@@ -291,21 +291,21 @@ static int mount_kdbus(BindMount *m) {
         /* create a new /dev/null dev node copy so we have some fodder to
          * bind-mount the custom endpoint over. */
         if (stat("/dev/null", &st) < 0) {
-                log_error("Failed to stat /dev/null: %m");
+                log_error_errno(errno, "Failed to stat /dev/null: %m");
                 r = -errno;
                 goto fail;
         }
 
         busnode = strappenda(root, "/bus");
         if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
-                log_error("mknod() for %s failed: %m", busnode);
+                log_error_errno(errno, "mknod() for %s failed: %m", busnode);
                 r = -errno;
                 goto fail;
         }
 
         r = mount(m->path, busnode, "bind", MS_BIND, NULL);
         if (r < 0) {
-                log_error("bind mount of %s failed: %m", m->path);
+                log_error_errno(errno, "bind mount of %s failed: %m", m->path);
                 r = -errno;
                 goto fail;
         }
@@ -317,7 +317,7 @@ static int mount_kdbus(BindMount *m) {
         }
 
         if (mount(root, basepath, NULL, MS_MOVE, NULL) < 0) {
-                log_error("bind mount of %s failed: %m", basepath);
+                log_error_errno(errno, "bind mount of %s failed: %m", basepath);
                 r = -errno;
                 goto fail;
         }

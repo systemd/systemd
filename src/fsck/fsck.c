@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
                 root_directory = false;
 
                 if (stat(device, &st) < 0) {
-                        log_error("Failed to stat '%s': %m", device);
+                        log_error_errno(errno, "Failed to stat '%s': %m", device);
                         return EXIT_FAILURE;
                 }
 
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
                 /* Find root device */
 
                 if (stat("/", &st) < 0) {
-                        log_error("Failed to stat() the root directory: %m");
+                        log_error_errno(errno, "Failed to stat() the root directory: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
 
         if (arg_show_progress)
                 if (pipe(progress_pipe) < 0) {
-                        log_error("pipe(): %m");
+                        log_error_errno(errno, "pipe(): %m");
                         return EXIT_FAILURE;
                 }
 
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
 
         pid = fork();
         if (pid < 0) {
-                log_error("fork(): %m");
+                log_error_errno(errno, "fork(): %m");
                 goto finish;
         } else if (pid == 0) {
                 /* Child */

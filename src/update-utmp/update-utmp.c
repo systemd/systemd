@@ -133,7 +133,7 @@ static int on_reboot(Context *c) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
-                        log_error("Failed to send audit message: %m");
+                        log_error_errno(errno, "Failed to send audit message: %m");
                         r = -errno;
                 }
 #endif
@@ -163,7 +163,7 @@ static int on_shutdown(Context *c) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
-                        log_error("Failed to send audit message: %m");
+                        log_error_errno(errno, "Failed to send audit message: %m");
                         r = -errno;
                 }
 #endif
@@ -215,7 +215,7 @@ static int on_runlevel(Context *c) {
 
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
-                        log_error("Failed to send audit message: %m");
+                        log_error_errno(errno, "Failed to send audit message: %m");
                         r = -errno;
                 }
         }
@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
          * don't worry about it. */
         c.audit_fd = audit_open();
         if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
-                log_error("Failed to connect to audit log: %m");
+                log_error_errno(errno, "Failed to connect to audit log: %m");
 #endif
         r = bus_open_system_systemd(&c.bus);
         if (r < 0) {

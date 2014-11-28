@@ -41,7 +41,7 @@ int get_audit_fd(void) {
 
                 if (audit_fd < 0) {
                         if (errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
-                                log_error("Failed to connect to audit log: %m");
+                                log_error_errno(errno, "Failed to connect to audit log: %m");
 
                         audit_fd = errno ? -errno : -EINVAL;
                 }

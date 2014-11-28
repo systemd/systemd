@@ -116,7 +116,7 @@ static int shovel(PTYForward *f) {
 
                                         f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                                 } else {
-                                        log_error("read(): %m");
+                                        log_error_errno(errno, "read(): %m");
                                         return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
                         } else if (k == 0) {
@@ -150,7 +150,7 @@ static int shovel(PTYForward *f) {
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
                                 } else {
-                                        log_error("write(): %m");
+                                        log_error_errno(errno, "write(): %m");
                                         return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
                         } else {
@@ -179,7 +179,7 @@ static int shovel(PTYForward *f) {
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
                                 } else {
-                                        log_error("read(): %m");
+                                        log_error_errno(errno, "read(): %m");
                                         return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
                         }  else
@@ -198,7 +198,7 @@ static int shovel(PTYForward *f) {
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
                                 } else {
-                                        log_error("write(): %m");
+                                        log_error_errno(errno, "write(): %m");
                                         return sd_event_exit(f->event, EXIT_FAILURE);
                                 }
 

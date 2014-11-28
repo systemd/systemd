@@ -78,7 +78,7 @@ static int write_state(FILE **f, char **states) {
                 fclose(*f);
                 *f = fopen("/sys/power/state", "we");
                 if (!*f) {
-                        log_error("Failed to open /sys/power/state: %m");
+                        log_error_errno(errno, "Failed to open /sys/power/state: %m");
                         return -errno;
                 }
         }
@@ -102,7 +102,7 @@ static int execute(char **modes, char **states) {
          * we can abort before modifying any state. */
         f = fopen("/sys/power/state", "we");
         if (!f) {
-                log_error("Failed to open /sys/power/state: %m");
+                log_error_errno(errno, "Failed to open /sys/power/state: %m");
                 return -errno;
         }
 

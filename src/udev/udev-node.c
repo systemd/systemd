@@ -112,12 +112,12 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                 mac_selinux_create_file_clear();
         } while (err == -ENOENT);
         if (err != 0) {
-                log_error("symlink '%s' '%s' failed: %m", target, slink_tmp);
+                log_error_errno(errno, "symlink '%s' '%s' failed: %m", target, slink_tmp);
                 goto exit;
         }
         err = rename(slink_tmp, slink);
         if (err != 0) {
-                log_error("rename '%s' '%s' failed: %m", slink_tmp, slink);
+                log_error_errno(errno, "rename '%s' '%s' failed: %m", slink_tmp, slink);
                 unlink(slink_tmp);
         }
 exit:
@@ -264,7 +264,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
         if (lstat(devnode, &stats) != 0) {
                 err = -errno;
-                log_debug("can not stat() node '%s' (%m)", devnode);
+                log_debug_errno(errno, "can not stat() node '%s' (%m)", devnode);
                 goto out;
         }
 
@@ -283,10 +283,10 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                         log_debug("set permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
                         err = chmod(devnode, mode);
                         if (err < 0)
-                                log_warning("setting mode of %s to %#o failed: %m", devnode, mode);
+                                log_warning_errno(errno, "setting mode of %s to %#o failed: %m", devnode, mode);
                         err = chown(devnode, uid, gid);
                         if (err < 0)
-                                log_warning("setting owner of %s to uid=%u, gid=%u failed: %m", devnode, uid, gid);
+                                log_warning_errno(errno, "setting owner of %s to uid=%u, gid=%u failed: %m", devnode, uid, gid);
                 } else {
                         log_debug("preserve permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
                 }

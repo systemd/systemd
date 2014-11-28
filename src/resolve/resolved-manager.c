@@ -370,7 +370,7 @@ static int manager_watch_hostname(Manager *m) {
 
         m->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
         if (m->hostname_fd < 0) {
-                log_warning("Failed to watch hostname: %m");
+                log_warning_errno(errno, "Failed to watch hostname: %m");
                 return 0;
         }
 
@@ -591,7 +591,7 @@ int manager_read_resolv_conf(Manager *m) {
         r = stat("/etc/resolv.conf", &st);
         if (r < 0) {
                 if (errno != ENOENT)
-                        log_warning("Failed to open /etc/resolv.conf: %m");
+                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 r = -errno;
                 goto clear;
         }
@@ -614,13 +614,13 @@ int manager_read_resolv_conf(Manager *m) {
         f = fopen("/etc/resolv.conf", "re");
         if (!f) {
                 if (errno != ENOENT)
-                        log_warning("Failed to open /etc/resolv.conf: %m");
+                        log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
                 r = -errno;
                 goto clear;
         }
 
         if (fstat(fileno(f), &st) < 0) {
-                log_error("Failed to stat open file: %m");
+                log_error_errno(errno, "Failed to stat open file: %m");
                 r = -errno;
                 goto clear;
         }

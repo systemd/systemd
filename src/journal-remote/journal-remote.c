@@ -85,7 +85,7 @@ static int spawn_child(const char* child, char** argv) {
         int r;
 
         if (pipe(fd) < 0) {
-                log_error("Failed to create pager pipe: %m");
+                log_error_errno(errno, "Failed to create pager pipe: %m");
                 return -errno;
         }
 
@@ -94,7 +94,7 @@ static int spawn_child(const char* child, char** argv) {
         child_pid = fork();
         if (child_pid < 0) {
                 r = -errno;
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 safe_close_pair(fd);
                 return r;
         }
@@ -103,7 +103,7 @@ static int spawn_child(const char* child, char** argv) {
         if (child_pid == 0) {
                 r = dup2(fd[1], STDOUT_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup pipe to stdout: %m");
+                        log_error_errno(errno, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -119,13 +119,13 @@ static int spawn_child(const char* child, char** argv) {
                         _exit(EXIT_SUCCESS);
 
                 execvp(child, argv);
-                log_error("Failed to exec child %s: %m", child);
+                log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
         r = close(fd[1]);
         if (r < 0)
-                log_warning("Failed to close write end of pipe: %m");
+                log_warning_errno(errno, "Failed to close write end of pipe: %m");
 
         return fd[0];
 }
@@ -140,7 +140,7 @@ static int spawn_curl(const char* url) {
 
         r = spawn_child("curl", argv);
         if (r < 0)
-                log_error("Failed to spawn curl: %m");
+                log_error_errno(errno, "Failed to spawn curl: %m");
         return r;
 }
 
@@ -159,7 +159,7 @@ static int spawn_getter(const char *getter, const char *url) {
 
         r = spawn_child(words[0], words);
         if (r < 0)
-                log_error("Failed to spawn getter %s: %m", getter);
+                log_error_errno(errno, "Failed to spawn getter %s: %m", getter);
 
         return r;
 }
@@ -941,7 +941,7 @@ static int remoteserver_init(RemoteServer *s,
 
                         fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                         if (fd < 0) {
-                                log_error("Failed to open %s: %m", *file);
+                                log_error_errno(errno, "Failed to open %s: %m", *file);
                                 return -errno;
                         }
                         output_name = *file;
@@ -1054,7 +1054,7 @@ static int accept_connection(const char* type, int fd,
         log_debug("Accepting new %s connection on fd:%d", type, fd);
         fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd2 < 0) {
-                log_error("accept() on fd:%d failed: %m", fd);
+                log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
                 return -errno;
         }
 

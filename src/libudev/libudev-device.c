@@ -535,7 +535,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 
         f = fopen(dbfile, "re");
         if (f == NULL) {
-                log_debug("no db file to read %s: %m", dbfile);
+                log_debug_errno(errno, "no db file to read %s: %m", dbfile);
                 return -errno;
         }
 

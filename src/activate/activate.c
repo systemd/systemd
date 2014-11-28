@@ -52,7 +52,7 @@ static int add_epoll(int epoll_fd, int fd) {
         ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
         if (r < 0) {
-                log_error("Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
+                log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
                 return -errno;
         }
 
@@ -112,7 +112,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (*epoll_fd < 0) {
-                log_error("Failed to create epoll object: %m");
+                log_error_errno(errno, "Failed to create epoll object: %m");
                 return -errno;
         }
 
@@ -175,7 +175,7 @@ static int launch(char* name, char **argv, char **env, int fds) {
 
         log_info("Execing %s (%s)", name, tmp);
         execvpe(name, argv, envp);
-        log_error("Failed to execp %s (%s): %m", name, tmp);
+        log_error_errno(errno, "Failed to execp %s (%s): %m", name, tmp);
 
         return -errno;
 }
@@ -193,7 +193,7 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
 
         child_pid = fork();
         if (child_pid < 0) {
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 return -errno;
         }
 
@@ -201,19 +201,19 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
         if (child_pid == 0) {
                 r = dup2(fd, STDIN_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup connection to stdin: %m");
+                        log_error_errno(errno, "Failed to dup connection to stdin: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = dup2(fd, STDOUT_FILENO);
                 if (r < 0) {
-                        log_error("Failed to dup connection to stdout: %m");
+                        log_error_errno(errno, "Failed to dup connection to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = close(fd);
                 if (r < 0) {
-                        log_error("Failed to close dupped connection: %m");
+                        log_error_errno(errno, "Failed to close dupped connection: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -227,7 +227,7 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
                         _exit(EXIT_SUCCESS);
 
                 execvp(child, argv);
-                log_error("Failed to exec child %s: %m", child);
+                log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
@@ -242,7 +242,7 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
 
         fd2 = accept(fd, NULL, NULL);
         if (fd2 < 0) {
-                log_error("Failed to accept connection on fd:%d: %m", fd);
+                log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
                 return fd2;
         }
 
@@ -271,7 +271,7 @@ static int install_chld_handler(void) {
 
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
-                log_error("Failed to install SIGCHLD handler: %m");
+                log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
         return r;
 }
 
@@ -389,7 +389,7 @@ int main(int argc, char **argv, char **envp) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("epoll_wait() failed: %m");
+                        log_error_errno(errno, "epoll_wait() failed: %m");
                         return EXIT_FAILURE;
                 }
 

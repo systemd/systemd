@@ -196,7 +196,7 @@ int machine_id_setup(const char *root) {
                                                   "2) /etc/machine-id exists and is empty.\n"
                                                   "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
-                                        log_error("Cannot open %s: %m", etc_machine_id);
+                                        log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                                 return -errno;
                         }
 
@@ -205,7 +205,7 @@ int machine_id_setup(const char *root) {
         }
 
         if (fstat(fd, &st) < 0) {
-                log_error("fstat() failed: %m");
+                log_error_errno(errno, "fstat() failed: %m");
                 return -errno;
         }
 
@@ -248,7 +248,7 @@ int machine_id_setup(const char *root) {
         /* And now, let's mount it over */
         r = mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
         if (r < 0) {
-                log_error("Failed to mount %s: %m", etc_machine_id);
+                log_error_errno(errno, "Failed to mount %s: %m", etc_machine_id);
                 unlink_noerrno(run_machine_id);
                 return -errno;
         }
@@ -257,7 +257,7 @@ int machine_id_setup(const char *root) {
 
         /* Mark the mount read-only */
         if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
-                log_warning("Failed to make transient %s read-only: %m", etc_machine_id);
+                log_warning_errno(errno, "Failed to make transient %s read-only: %m", etc_machine_id);
 
         return 0;
 }

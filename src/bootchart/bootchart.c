@@ -285,7 +285,7 @@ static void do_journal_append(char *file) {
 
         f = open(file, O_RDONLY|O_CLOEXEC);
         if (f < 0) {
-                log_error("Failed to read bootchart data: %m");
+                log_error_errno(errno, "Failed to read bootchart data: %m");
                 return;
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
                                         /* caught signal, probably HUP! */
                                         break;
                                 }
-                                log_error("nanosleep() failed: %m");
+                                log_error_errno(errno, "nanosleep() failed: %m");
                                 exit(EXIT_FAILURE);
                         }
                 } else {

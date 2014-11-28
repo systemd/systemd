@@ -212,7 +212,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         acl = acl_get_fd(f->fd);
         if (!acl) {
-                log_warning("Failed to read ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to read ACL on %s, ignoring: %m", f->path);
                 return;
         }
 
@@ -222,7 +222,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 if (acl_create_entry(&acl, &entry) < 0 ||
                     acl_set_tag_type(entry, ACL_USER) < 0 ||
                     acl_set_qualifier(entry, &uid) < 0) {
-                        log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                        log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
                         goto finish;
                 }
         }
@@ -232,12 +232,12 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0 ||
             calc_acl_mask_if_needed(&acl) < 0) {
-                log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to patch ACL on %s, ignoring: %m", f->path);
                 goto finish;
         }
 
         if (acl_set_fd(f->fd, acl) < 0)
-                log_warning("Failed to set ACL on %s, ignoring: %m", f->path);
+                log_warning_errno(errno, "Failed to set ACL on %s, ignoring: %m", f->path);
 
 finish:
         acl_free(acl);
@@ -1174,7 +1174,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                         if (errno == EINTR || errno == EAGAIN)
                                 return 0;
 
-                        log_error("recvmsg() failed: %m");
+                        log_error_errno(errno, "recvmsg() failed: %m");
                         return -errno;
                 }
 
@@ -1432,7 +1432,7 @@ static int server_open_hostname(Server *s) {
 
         s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
         if (s->hostname_fd < 0) {
-                log_error("Failed to open /proc/sys/kernel/hostname: %m");
+                log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
                 return -errno;
         }
 

@@ -125,7 +125,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error("read(%d, ..., %zd): %m", source->fd,
+                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
                                           source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
@@ -186,7 +186,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error("read(%d, ..., %zd): %m", source->fd,
+                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
                                           source->size - source->filled);
                         return -errno;
                 } else if (n == 0)

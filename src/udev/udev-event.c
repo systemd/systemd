@@ -387,7 +387,7 @@ static int spawn_exec(struct udev_event *event,
                 if (fd_stderr < 0)
                         dup2(fd, STDERR_FILENO);
         } else
-                log_error("open /dev/null failed: %m");
+                log_error_errno(errno, "open /dev/null failed: %m");
 
         /* connect pipes to std{out,err} */
         if (fd_stdout >= 0) {
@@ -409,7 +409,7 @@ static int spawn_exec(struct udev_event *event,
         execve(argv[0], argv, envp);
 
         /* exec failed */
-        log_error("failed to execute '%s' '%s': %m", argv[0], cmd);
+        log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
 
         return -errno;
 }
@@ -437,14 +437,14 @@ static void spawn_read(struct udev_event *event,
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                log_error("error creating epoll fd: %m");
+                log_error_errno(errno, "error creating epoll fd: %m");
                 return;
         }
 
         if (fd_stdout >= 0) {
                 r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe);
                 if (r < 0) {
-                        log_error("fail to add stdout fd to epoll: %m");
+                        log_error_errno(errno, "fail to add stdout fd to epoll: %m");
                         return;
                 }
         }
@@ -452,7 +452,7 @@ static void spawn_read(struct udev_event *event,
         if (fd_stderr >= 0) {
                 r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe);
                 if (r < 0) {
-                        log_error("fail to add stderr fd to epoll: %m");
+                        log_error_errno(errno, "fail to add stderr fd to epoll: %m");
                         return;
                 }
         }
@@ -481,7 +481,7 @@ static void spawn_read(struct udev_event *event,
                 if (fdcount < 0) {
                         if (errno == EINTR)
                                 continue;
-                        log_error("failed to poll: %m");
+                        log_error_errno(errno, "failed to poll: %m");
                         return;
                 } else if (fdcount == 0) {
                         log_error("timeout '%s'", cmd);
@@ -527,7 +527,7 @@ static void spawn_read(struct udev_event *event,
                         } else if (ev[i].events & EPOLLHUP) {
                                 r = epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL);
                                 if (r < 0) {
-                                        log_error("failed to remove fd from epoll: %m");
+                                        log_error_errno(errno, "failed to remove fd from epoll: %m");
                                         return;
                                 }
                                 *fd = -1;
@@ -576,7 +576,7 @@ static int spawn_wait(struct udev_event *event,
                         if (errno == EINTR)
                                 continue;
                         err = -errno;
-                        log_error("failed to poll: %m");
+                        log_error_errno(errno, "failed to poll: %m");
                         goto out;
                 }
                 if (fdcount == 0) {
@@ -587,7 +587,7 @@ static int spawn_wait(struct udev_event *event,
                                 if (errno == EINTR)
                                         continue;
                                 err = -errno;
-                                log_error("failed to poll: %m");
+                                log_error_errno(errno, "failed to poll: %m");
                                 goto out;
                         }
                         if (fdcount == 0) {
@@ -691,14 +691,14 @@ int udev_event_spawn(struct udev_event *event,
         if (result != NULL || log_get_max_level() >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        log_error("pipe failed: %m");
+                        log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
         if (log_get_max_level() >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        log_error("pipe failed: %m");
+                        log_error_errno(errno, "pipe failed: %m");
                         goto out;
                 }
         }
@@ -729,7 +729,7 @@ int udev_event_spawn(struct udev_event *event,
 
                 _exit(2 );
         case -1:
-                log_error("fork of '%s' failed: %m", cmd);
+                log_error_errno(errno, "fork of '%s' failed: %m", cmd);
                 err = -1;
                 goto out;
         default:

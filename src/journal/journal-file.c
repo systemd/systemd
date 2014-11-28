@@ -1292,7 +1292,7 @@ void journal_file_post_change(JournalFile *f) {
         __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error("Failed to truncate file to its own size: %m");
+                log_error_errno(errno, "Failed to truncate file to its own size: %m");
 }
 
 static int entry_item_cmp(const void *_a, const void *_b) {

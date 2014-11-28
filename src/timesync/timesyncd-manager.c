@@ -211,7 +211,7 @@ static int manager_send_request(Manager *m) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
-                log_debug("Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
+                log_debug_errno(errno, "Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
                 return manager_connect(m);
         }
 
@@ -312,12 +312,12 @@ static int manager_clock_watch_setup(Manager *m) {
 
         m->clock_watch_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
         if (m->clock_watch_fd < 0) {
-                log_error("Failed to create timerfd: %m");
+                log_error_errno(errno, "Failed to create timerfd: %m");
                 return -errno;
         }
 
         if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
-                log_error("Failed to set up timerfd: %m");
+                log_error_errno(errno, "Failed to set up timerfd: %m");
                 return -errno;
         }
 
@@ -682,7 +682,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->sync = true;
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
-                        log_error("Failed to call clock_adjtime(): %m");
+                        log_error_errno(errno, "Failed to call clock_adjtime(): %m");
         }
 
         log_info("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",

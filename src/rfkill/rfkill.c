@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
         device = udev_device_new_from_subsystem_sysname(udev, "rfkill", argv[2]);
         if (!device) {
                 if (errno != 0)
-                        log_error("Failed to get rfkill device '%s': %m", argv[2]);
+                        log_error_errno(errno, "Failed to get rfkill device '%s': %m", argv[2]);
                 else
                         log_oom();
 

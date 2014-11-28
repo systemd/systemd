@@ -220,14 +220,14 @@ static void worker_new(struct event *event) {
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
                 if (fd_signal < 0) {
-                        log_error("error creating signalfd %m");
+                        log_error_errno(errno, "error creating signalfd %m");
                         rc = 2;
                         goto out;
                 }
 
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0) {
-                        log_error("error creating epoll fd: %m");
+                        log_error_errno(errno, "error creating epoll fd: %m");
                         rc = 3;
                         goto out;
                 }
@@ -243,7 +243,7 @@ static void worker_new(struct event *event) {
 
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
                     epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
-                        log_error("fail to add fds to epoll: %m");
+                        log_error_errno(errno, "fail to add fds to epoll: %m");
                         rc = 4;
                         goto out;
                 }
@@ -293,7 +293,7 @@ static void worker_new(struct event *event) {
                                 if (d) {
                                         fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
-                                                log_debug("Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
+                                                log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
                                                 err = -EWOULDBLOCK;
                                                 fd_lock = safe_close(fd_lock);
                                                 goto skip;
@@ -358,7 +358,7 @@ skip:
                                 if (fdcount < 0) {
                                         if (errno == EINTR)
                                                 continue;
-                                        log_error("failed to poll: %m");
+                                        log_error_errno(errno, "failed to poll: %m");
                                         goto out;
                                 }
 
@@ -398,7 +398,7 @@ out:
                 udev_monitor_unref(worker_monitor);
                 event->state = EVENT_QUEUED;
                 free(worker);
-                log_error("fork of child failed: %m");
+                log_error_errno(errno, "fork of child failed: %m");
                 break;
         default:
                 /* close monitor, but keep address around */
@@ -429,7 +429,7 @@ static void event_run(struct event *event) {
 
                 count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
                 if (count < 0) {
-                        log_error("worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
+                        log_error_errno(errno, "worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
                         kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -1142,7 +1142,7 @@ int main(int argc, char *argv[]) {
         /* set umask before creating any file/directory */
         r = chdir("/");
         if (r < 0) {
-                log_error("could not change dir to /: %m");
+                log_error_errno(errno, "could not change dir to /: %m");
                 goto exit;
         }
 
@@ -1152,7 +1152,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
-                log_error("could not create /run/udev: %m");
+                log_error_errno(errno, "could not create /run/udev: %m");
                 goto exit;
         }
 
@@ -1249,7 +1249,7 @@ int main(int argc, char *argv[]) {
                 case 0:
                         break;
                 case -1:
-                        log_error("fork of daemon failed: %m");
+                        log_error_errno(errno, "fork of daemon failed: %m");
                         rc = 4;
                         goto exit;
                 default:
@@ -1312,7 +1312,7 @@ int main(int argc, char *argv[]) {
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                log_error("error creating epoll fd: %m");
+                log_error_errno(errno, "error creating epoll fd: %m");
                 goto exit;
         }
         if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_ctrl, &ep_ctrl) < 0 ||
@@ -1320,7 +1320,7 @@ int main(int argc, char *argv[]) {
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_netlink, &ep_netlink) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_worker, &ep_worker) < 0) {
-                log_error("fail to add fds to epoll: %m");
+                log_error_errno(errno, "fail to add fds to epoll: %m");
                 goto exit;
         }
 

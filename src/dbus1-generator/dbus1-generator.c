@@ -59,7 +59,7 @@ static int create_dbus_files(
 
                 f = fopen(a, "wxe");
                 if (!f) {
-                        log_error("Failed to create %s: %m", a);
+                        log_error_errno(errno, "Failed to create %s: %m", a);
                         return -errno;
                 }
 
@@ -117,7 +117,7 @@ static int create_dbus_files(
 
         f = fopen(b, "wxe");
         if (!f) {
-                log_error("Failed to create %s: %m", b);
+                log_error_errno(errno, "Failed to create %s: %m", b);
                 return -errno;
         }
 
@@ -146,7 +146,7 @@ static int create_dbus_files(
 
         mkdir_parents_label(lnk, 0755);
         if (symlink(b, lnk)) {
-                log_error("Failed to create symlink %s: %m", lnk);
+                log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
                 return -errno;
         }
 
@@ -229,7 +229,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
                 if (errno == -ENOENT)
                         return 0;
 
-                log_error("Failed to enumerate D-Bus activated services: %m");
+                log_error_errno(errno, "Failed to enumerate D-Bus activated services: %m");
                 return -errno;
         }
 
@@ -248,7 +248,7 @@ static int parse_dbus_fragments(const char *path, const char *type) {
         return r;
 
 fail:
-        log_error("Failed to read D-Bus services directory: %m");
+        log_error_errno(errno, "Failed to read D-Bus services directory: %m");
         return -errno;
 }
 
@@ -260,7 +260,7 @@ static int link_busnames_target(const char *units) {
 
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0) {
-                log_error("Failed to create symlink %s: %m", t);
+                log_error_errno(errno, "Failed to create symlink %s: %m", t);
                 return -errno;
         }
 
@@ -274,7 +274,7 @@ static int link_compatibility(const char *units) {
         t = strappenda(arg_dest, "/" SPECIAL_DBUS_SOCKET);
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0) {
-                log_error("Failed to create symlink %s: %m", t);
+                log_error_errno(errno, "Failed to create symlink %s: %m", t);
                 return -errno;
         }
 
@@ -282,13 +282,13 @@ static int link_compatibility(const char *units) {
         t = strappenda(arg_dest, "/" SPECIAL_SOCKETS_TARGET ".wants/systemd-bus-proxyd.socket");
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0) {
-                log_error("Failed to create symlink %s: %m", t);
+                log_error_errno(errno, "Failed to create symlink %s: %m", t);
                 return -errno;
         }
 
         t = strappenda(arg_dest, "/" SPECIAL_DBUS_SERVICE);
         if (symlink("/dev/null", t) < 0) {
-                log_error("Failed to mask %s: %m", t);
+                log_error_errno(errno, "Failed to mask %s: %m", t);
                 return -errno;
         }
 

@@ -117,7 +117,7 @@ static int create_disk(
 
         f = fopen(p, "wxe");
         if (!f) {
-                log_error("Failed to create unit file %s: %m", p);
+                log_error_errno(errno, "Failed to create unit file %s: %m", p);
                 return -errno;
         }
 
@@ -201,7 +201,7 @@ static int create_disk(
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write file %s: %m", p);
+                log_error_errno(errno, "Failed to write file %s: %m", p);
                 return -errno;
         }
 
@@ -215,7 +215,7 @@ static int create_disk(
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
-                        log_error("Failed to create symlink %s: %m", to);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", to);
                         return -errno;
                 }
 
@@ -229,7 +229,7 @@ static int create_disk(
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
-                        log_error("Failed to create symlink %s: %m", to);
+                        log_error_errno(errno, "Failed to create symlink %s: %m", to);
                         return -errno;
                 }
         }
@@ -241,7 +241,7 @@ static int create_disk(
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
-                log_error("Failed to create symlink %s: %m", to);
+                log_error_errno(errno, "Failed to create symlink %s: %m", to);
                 return -errno;
         }
 
@@ -342,13 +342,13 @@ int main(int argc, char *argv[]) {
                         if (errno == ENOENT)
                                 r = EXIT_SUCCESS;
                         else
-                                log_error("Failed to open /etc/crypttab: %m");
+                                log_error_errno(errno, "Failed to open /etc/crypttab: %m");
 
                         goto next;
                 }
 
                 if (fstat(fileno(f), &st) < 0) {
-                        log_error("Failed to stat /etc/crypttab: %m");
+                        log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
                         goto next;
                 }
 

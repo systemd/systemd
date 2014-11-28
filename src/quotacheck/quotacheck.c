@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
         pid = fork();
         if (pid < 0) {
-                log_error("fork(): %m");
+                log_error_errno(errno, "fork(): %m");
                 return EXIT_FAILURE;
         } else if (pid == 0) {
                 /* Child */

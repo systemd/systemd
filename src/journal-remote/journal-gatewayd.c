@@ -198,7 +198,7 @@ static ssize_t request_reader_entries(
                 else {
                         m->tmp = tmpfile();
                         if (!m->tmp) {
-                                log_error("Failed to create temporary file: %m");
+                                log_error_errno(errno, "Failed to create temporary file: %m");
                                 return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
                 }
@@ -211,7 +211,7 @@ static ssize_t request_reader_entries(
 
                 sz = ftello(m->tmp);
                 if (sz == (off_t) -1) {
-                        log_error("Failed to retrieve file position: %m");
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
@@ -219,7 +219,7 @@ static ssize_t request_reader_entries(
         }
 
         if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
-                log_error("Failed to seek to position: %m");
+                log_error_errno(errno, "Failed to seek to position: %m");
                 return MHD_CONTENT_READER_END_WITH_ERROR;
         }
 
@@ -559,7 +559,7 @@ static ssize_t request_reader_fields(
                 else {
                         m->tmp = tmpfile();
                         if (!m->tmp) {
-                                log_error("Failed to create temporary file: %m");
+                                log_error_errno(errno, "Failed to create temporary file: %m");
                                 return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
                 }
@@ -572,7 +572,7 @@ static ssize_t request_reader_fields(
 
                 sz = ftello(m->tmp);
                 if (sz == (off_t) -1) {
-                        log_error("Failed to retrieve file position: %m");
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
@@ -580,7 +580,7 @@ static ssize_t request_reader_fields(
         }
 
         if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
-                log_error("Failed to seek to position: %m");
+                log_error_errno(errno, "Failed to seek to position: %m");
                 return MHD_CONTENT_READER_END_WITH_ERROR;
         }
 

@@ -56,7 +56,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
         dst = fopen(dstpath, "we");
         if (!dst)  {
                 if (errno != ENOENT)
-                        log_warning("Failed to open %s: %m", dstpath);
+                        log_warning_errno(errno, "Failed to open %s: %m", dstpath);
                 return -errno; /* negative error */
         }
 
@@ -64,7 +64,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
         dir = opendir(srcdir);
         if (!dir) {
                 if (errno != ENOENT)
-                        log_warning("Failed to opendir %s: %m", srcdir);
+                        log_warning_errno(errno, "Failed to opendir %s: %m", srcdir);
                 return errno; /* positive on purpose */
         }
 
@@ -79,7 +79,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
                 if (fd < 0) {
                         if (r == 0)
                                 r = -errno;
-                        log_warning("Failed to open %s: %m", entry->d_name);
+                        log_warning_errno(errno, "Failed to open %s: %m", entry->d_name);
                         continue;
                 }
 
@@ -88,13 +88,13 @@ static int write_rules(const char* dstpath, const char* srcdir) {
                         if (r == 0)
                                 r = -errno;
                         safe_close(fd);
-                        log_error("Failed to open %s: %m", entry->d_name);
+                        log_error_errno(errno, "Failed to open %s: %m", entry->d_name);
                         continue;
                 }
 
                 /* load2 write rules in the kernel require a line buffered stream */
                 FOREACH_LINE(buf, policy,
-                             log_error("Failed to read line from %s: %m",
+                             log_error_errno(errno, "Failed to read line from %s: %m",
                                        entry->d_name)) {
                         if (!fputs(buf, dst)) {
                                 if (r == 0)
@@ -105,7 +105,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
                         if (fflush(dst)) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error("Failed to flush writes to %s: %m", dstpath);
+                                log_error_errno(errno, "Failed to flush writes to %s: %m", dstpath);
                                 break;
                         }
                 }

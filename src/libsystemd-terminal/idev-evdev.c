@@ -426,15 +426,15 @@ static void unmanaged_evdev_resume(idev_element *e) {
                 fd = open(eu->devnode, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (fd < 0) {
                         if (errno != EACCES && errno != EPERM) {
-                                log_debug("idev-evdev: %s/%s: cannot open node %s: %m",
-                                          e->session->name, e->name, eu->devnode);
+                                log_debug_errno(errno, "idev-evdev: %s/%s: cannot open node %s: %m",
+                                                e->session->name, e->name, eu->devnode);
                                 return;
                         }
 
                         fd = open(eu->devnode, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                         if (fd < 0) {
-                                log_debug("idev-evdev: %s/%s: cannot open node %s: %m",
-                                          e->session->name, e->name, eu->devnode);
+                                log_debug_errno(errno, "idev-evdev: %s/%s: cannot open node %s: %m",
+                                                e->session->name, e->name, eu->devnode);
                                 return;
                         }
 
@@ -565,7 +565,7 @@ static int managed_evdev_take_device_fn(sd_bus *bus,
 
         fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0) {
-                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m", s->name, e->name);
+                log_debug_errno(errno, "idev-evdev: %s/%s: cannot duplicate evdev fd: %m", s->name, e->name);
                 return 0;
         }
 
@@ -698,8 +698,8 @@ static void managed_evdev_resume(idev_element *e, int fd) {
 
         fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0) {
-                log_debug("idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
-                          s->name, e->name);
+                log_debug_errno(errno, "idev-evdev: %s/%s: cannot duplicate evdev fd: %m",
+                                s->name, e->name);
                 return;
         }
 

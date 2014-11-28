@@ -306,7 +306,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning("Failed to read from stream: %m");
+                log_warning_errno(errno, "Failed to read from stream: %m");
                 goto terminate;
         }
 
@@ -370,7 +370,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 if (errno == EAGAIN)
                         return 0;
 
-                log_error("Failed to accept stdout connection: %m");
+                log_error_errno(errno, "Failed to accept stdout connection: %m");
                 return -errno;
         }
 
@@ -390,19 +390,19 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         r = getpeercred(fd, &stream->ucred);
         if (r < 0) {
-                log_error("Failed to determine peer credentials: %m");
+                log_error_errno(errno, "Failed to determine peer credentials: %m");
                 goto fail;
         }
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
                 if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
-                        log_error("Failed to determine peer security context: %m");
+                        log_error_errno(errno, "Failed to determine peer security context: %m");
         }
 #endif
 
         if (shutdown(fd, SHUT_WR) < 0) {
-                log_error("Failed to shutdown writing side of socket: %m");
+                log_error_errno(errno, "Failed to shutdown writing side of socket: %m");
                 goto fail;
         }
 
@@ -442,7 +442,7 @@ int server_open_stdout_socket(Server *s) {
 
                 s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->stdout_fd < 0) {
-                        log_error("socket() failed: %m");
+                        log_error_errno(errno, "socket() failed: %m");
                         return -errno;
                 }
 
@@ -450,14 +450,14 @@ int server_open_stdout_socket(Server *s) {
 
                 r = bind(s->stdout_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
+                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
                 chmod(sa.un.sun_path, 0666);
 
                 if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error("listen(%s) failed: %m", sa.un.sun_path);
+                        log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
         } else

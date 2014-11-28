@@ -79,7 +79,7 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
-                log_error("recvmsg(): %m");
+                log_error_errno(errno, "recvmsg(): %m");
                 return -errno;
         }
 
@@ -233,7 +233,7 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
         fflush(f);
 
         if (ferror(f) || rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
-                log_error("Failed to write information about scheduled shutdowns: %m");
+                log_error_errno(errno, "Failed to write information about scheduled shutdowns: %m");
                 r = -errno;
 
                 unlink(temp_path);
@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
                 pollfd[i].events = POLLIN;
                 pollfd[i].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (pollfd[i].fd < 0) {
-                        log_error("timerfd_create(): %m");
+                        log_error_errno(errno, "timerfd_create(): %m");
                         goto finish;
                 }
         }
@@ -317,7 +317,7 @@ int main(int argc, char *argv[]) {
                         if (errno == EAGAIN || errno == EINTR)
                                 continue;
 
-                        log_error("poll(): %m");
+                        log_error_errno(errno, "poll(): %m");
                         goto finish;
                 }
 
@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
                                                 warn_wall(n, &b.command);
                                 }
                                 if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-                                        log_error("timerfd_settime(): %m");
+                                        log_error_errno(errno, "timerfd_settime(): %m");
                                         goto finish;
                                 }
 
@@ -362,7 +362,7 @@ int main(int argc, char *argv[]) {
                                 zero(its);
                                 timespec_store(&its.it_value, when_nologin(b.command.usec));
                                 if (timerfd_settime(pollfd[FD_NOLOGIN_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-                                        log_error("timerfd_settime(): %m");
+                                        log_error_errno(errno, "timerfd_settime(): %m");
                                         goto finish;
                                 }
 
@@ -370,7 +370,7 @@ int main(int argc, char *argv[]) {
                                 zero(its);
                                 timespec_store(&its.it_value, b.command.usec);
                                 if (timerfd_settime(pollfd[FD_SHUTDOWN_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-                                        log_error("timerfd_settime(): %m");
+                                        log_error_errno(errno, "timerfd_settime(): %m");
                                         goto finish;
                                 }
 
@@ -394,7 +394,7 @@ int main(int argc, char *argv[]) {
                         /* Restart timer */
                         timespec_store(&its.it_value, when_wall(n, b.command.usec));
                         if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-                                log_error("timerfd_settime(): %m");
+                                log_error_errno(errno, "timerfd_settime(): %m");
                                 goto finish;
                         }
                 }
@@ -448,7 +448,7 @@ finish:
                       (b.command.warn_wall ? NULL : "--no-wall"),
                       NULL);
 
-                log_error("Failed to execute /sbin/shutdown: %m");
+                log_error_errno(errno, "Failed to execute /sbin/shutdown: %m");
         }
 
         sd_notify(false,

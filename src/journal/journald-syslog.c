@@ -106,7 +106,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
         }
 
         if (errno != ENOENT)
-                log_debug("Failed to forward syslog message: %m");
+                log_debug_errno(errno, "Failed to forward syslog message: %m");
 }
 
 static void forward_syslog_raw(Server *s, int priority, const char *buffer, const struct ucred *ucred, const struct timeval *tv) {
@@ -429,7 +429,7 @@ int server_open_syslog_socket(Server *s) {
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0) {
-                        log_error("socket() failed: %m");
+                        log_error_errno(errno, "socket() failed: %m");
                         return -errno;
                 }
 
@@ -437,7 +437,7 @@ int server_open_syslog_socket(Server *s) {
 
                 r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind(%s) failed: %m", sa.un.sun_path);
+                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
@@ -447,7 +447,7 @@ int server_open_syslog_socket(Server *s) {
 
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0) {
-                log_error("SO_PASSCRED failed: %m");
+                log_error_errno(errno, "SO_PASSCRED failed: %m");
                 return -errno;
         }
 
@@ -455,13 +455,13 @@ int server_open_syslog_socket(Server *s) {
         if (mac_selinux_use()) {
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)
-                        log_warning("SO_PASSSEC failed: %m");
+                        log_warning_errno(errno, "SO_PASSSEC failed: %m");
         }
 #endif
 
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
-                log_error("SO_TIMESTAMP failed: %m");
+                log_error_errno(errno, "SO_TIMESTAMP failed: %m");
                 return -errno;
         }
 

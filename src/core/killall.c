@@ -102,7 +102,7 @@ static void wait_for_children(Set *pids, sigset_t *mask) {
                                 if (errno == ECHILD)
                                         break;
 
-                                log_error("waitpid() failed: %m");
+                                log_error_errno(errno, "waitpid() failed: %m");
                                 return;
                         }
 
@@ -136,7 +136,7 @@ static void wait_for_children(Set *pids, sigset_t *mask) {
                 if (k != SIGCHLD) {
 
                         if (k < 0 && errno != EAGAIN) {
-                                log_error("sigtimedwait() failed: %m");
+                                log_error_errno(errno, "sigtimedwait() failed: %m");
                                 return;
                         }
 
@@ -178,7 +178,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                         if (pids)
                                 set_put(pids, ULONG_TO_PTR(pid));
                 } else if (errno != ENOENT)
-                        log_warning("Could not kill %d: %m", pid);
+                        log_warning_errno(errno, "Could not kill %d: %m", pid);
 
                 if (send_sighup) {
                         /* Optionally, also send a SIGHUP signal, but
@@ -212,12 +212,12 @@ void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup) {
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
 
         if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGSTOP) failed: %m");
+                log_warning_errno(errno, "kill(-1, SIGSTOP) failed: %m");
 
         killall(sig, pids, send_sighup);
 
         if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGCONT) failed: %m");
+                log_warning_errno(errno, "kill(-1, SIGCONT) failed: %m");
 
         if (wait_for_exit)
                 wait_for_children(pids, &mask);

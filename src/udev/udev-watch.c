@@ -39,7 +39,7 @@ static int inotify_fd = -1;
 int udev_watch_init(struct udev *udev) {
         inotify_fd = inotify_init1(IN_CLOEXEC);
         if (inotify_fd < 0)
-                log_error("inotify_init failed: %m");
+                log_error_errno(errno, "inotify_init failed: %m");
         return inotify_fd;
 }
 
@@ -56,7 +56,7 @@ void udev_watch_restore(struct udev *udev) {
 
                 dir = opendir("/run/udev/watch.old");
                 if (dir == NULL) {
-                        log_error("unable to open old watches dir /run/udev/watch.old; old watches will not be restored: %m");
+                        log_error_errno(errno, "unable to open old watches dir /run/udev/watch.old; old watches will not be restored: %m");
                         return;
                 }
 
@@ -88,7 +88,7 @@ unlink:
                 rmdir("/run/udev/watch.old");
 
         } else if (errno != ENOENT) {
-                log_error("unable to move watches dir /run/udev/watch; old watches will not be restored: %m");
+                log_error_errno(errno, "unable to move watches dir /run/udev/watch; old watches will not be restored: %m");
         }
 }
 
@@ -103,7 +103,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         log_debug("adding watch on '%s'", udev_device_get_devnode(dev));
         wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
         if (wd < 0) {
-                log_error("inotify_add_watch(%d, %s, %o) failed: %m",
+                log_error_errno(errno, "inotify_add_watch(%d, %s, %o) failed: %m",
                     inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
                 return;
         }
@@ -113,7 +113,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         unlink(filename);
         r = symlink(udev_device_get_id_filename(dev), filename);
         if (r < 0)
-                log_error("Failed to create symlink %s: %m", filename);
+                log_error_errno(errno, "Failed to create symlink %s: %m", filename);
 
         udev_device_set_watch_handle(dev, wd);
 }

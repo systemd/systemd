@@ -123,7 +123,7 @@ static int keymap_load(const char *vc, const char *map, const char *map_toggle, 
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 return -errno;
         } else if (pid == 0) {
                 execv(args[0], (char **) args);
@@ -161,7 +161,7 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
 
         pid = fork();
         if (pid < 0) {
-                log_error("Failed to fork: %m");
+                log_error_errno(errno, "Failed to fork: %m");
                 return -errno;
         } else if (pid == 0) {
                 execv(args[0], (char **) args);
@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
         if (fd < 0) {
-                log_error("Failed to open %s: %m", vc);
+                log_error_errno(errno, "Failed to open %s: %m", vc);
                 return EXIT_FAILURE;
         }
 
