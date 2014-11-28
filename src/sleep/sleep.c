@@ -77,10 +77,8 @@ static int write_state(FILE **f, char **states) {
 
                 fclose(*f);
                 *f = fopen("/sys/power/state", "we");
-                if (!*f) {
-                        log_error_errno(errno, "Failed to open /sys/power/state: %m");
-                        return -errno;
-                }
+                if (!*f)
+                        return log_error_errno(errno, "Failed to open /sys/power/state: %m");
         }
 
         return r;
@@ -101,10 +99,8 @@ static int execute(char **modes, char **states) {
         /* This file is opened first, so that if we hit an error,
          * we can abort before modifying any state. */
         f = fopen("/sys/power/state", "we");
-        if (!f) {
-                log_error_errno(errno, "Failed to open /sys/power/state: %m");
-                return -errno;
-        }
+        if (!f)
+                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
         /* Configure the hibernation mode */
         r = write_mode(modes);

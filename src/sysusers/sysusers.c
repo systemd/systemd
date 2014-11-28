@@ -898,10 +898,8 @@ static int add_user(Item *i) {
                         i->description = strdup(p->pw_gecos);
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
 
                 /* And shadow too, just to be sure */
                 errno = 0;
@@ -910,10 +908,8 @@ static int add_user(Item *i) {
                         log_error("User %s already exists in shadow database, but not in user database.", i->name);
                         return -EBADMSG;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
         }
 
         /* Try to use the suggested numeric uid */
@@ -1056,10 +1052,8 @@ static int add_group(Item *i) {
                         i->gid_set = true;
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT)) {
-                        log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
-                        return -errno;
-                }
+                if (!IN_SET(errno, 0, ENOENT))
+                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
         }
 
         /* Try to use the suggested numeric gid */

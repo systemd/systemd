@@ -126,10 +126,8 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 static int access_init(void) {
         int r = 0;
 
-        if (avc_open(NULL, 0)) {
-                log_error_errno(errno, "avc_open() failed: %m");
-                return -errno;
-        }
+        if (avc_open(NULL, 0))
+                return log_error_errno(errno, "avc_open() failed: %m");
 
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
         selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);

@@ -44,36 +44,28 @@ static int update_timeout(void) {
 
                 flags = WDIOS_DISABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
-                if (r < 0) {
-                        log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to disable hardware watchdog: %m");
         } else {
                 int sec, flags;
                 char buf[FORMAT_TIMESPAN_MAX];
 
                 sec = (int) ((watchdog_timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
                 r = ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec);
-                if (r < 0) {
-                        log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
                 watchdog_timeout = (usec_t) sec * USEC_PER_SEC;
                 log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
 
                 flags = WDIOS_ENABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
-                if (r < 0) {
-                        log_warning_errno(errno, "Failed to enable hardware watchdog: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to enable hardware watchdog: %m");
 
                 r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
-                if (r < 0) {
-                        log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
         }
 
         return 0;
@@ -127,10 +119,8 @@ int watchdog_ping(void) {
         }
 
         r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
-        if (r < 0) {
-                log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
 
         return 0;
 }

@@ -311,15 +311,11 @@ static int manager_clock_watch_setup(Manager *m) {
         safe_close(m->clock_watch_fd);
 
         m->clock_watch_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (m->clock_watch_fd < 0) {
-                log_error_errno(errno, "Failed to create timerfd: %m");
-                return -errno;
-        }
+        if (m->clock_watch_fd < 0)
+                return log_error_errno(errno, "Failed to create timerfd: %m");
 
-        if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
-                log_error_errno(errno, "Failed to set up timerfd: %m");
-                return -errno;
-        }
+        if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
+                return log_error_errno(errno, "Failed to set up timerfd: %m");
 
         r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
         if (r < 0)

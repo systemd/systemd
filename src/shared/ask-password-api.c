@@ -258,10 +258,8 @@ static int create_socket(char **name) {
         assert(name);
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0) {
-                log_error_errno(errno, "socket() failed: %m");
-                return -errno;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "socket() failed: %m");
 
         snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%" PRIx64, random_u64());
 

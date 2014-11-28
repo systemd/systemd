@@ -262,10 +262,8 @@ static int manager_check_ask_password(Manager *m) {
                 mkdir_p_label("/run/systemd/ask-password", 0755);
 
                 m->ask_password_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-                if (m->ask_password_inotify_fd < 0) {
-                        log_error_errno(errno, "inotify_init1() failed: %m");
-                        return -errno;
-                }
+                if (m->ask_password_inotify_fd < 0)
+                        return log_error_errno(errno, "inotify_init1() failed: %m");
 
                 if (inotify_add_watch(m->ask_password_inotify_fd, "/run/systemd/ask-password", IN_CREATE|IN_DELETE|IN_MOVE) < 0) {
                         log_error_errno(errno, "Failed to add watch on /run/systemd/ask-password: %m");
@@ -334,10 +332,8 @@ static int manager_setup_time_change(Manager *m) {
          * CLOCK_REALTIME makes a jump relative to CLOCK_MONOTONIC */
 
         m->time_change_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (m->time_change_fd < 0) {
-                log_error_errno(errno, "Failed to create timerfd: %m");
-                return -errno;
-        }
+        if (m->time_change_fd < 0)
+                return log_error_errno(errno, "Failed to create timerfd: %m");
 
         if (timerfd_settime(m->time_change_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
                 log_debug_errno(errno, "Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
@@ -647,10 +643,8 @@ static int manager_setup_notify(Manager *m) {
                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (fd < 0) {
-                        log_error_errno(errno, "Failed to allocate notification socket: %m");
-                        return -errno;
-                }
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
                 if (m->running_as == SYSTEMD_SYSTEM)
                         m->notify_socket = strdup("/run/systemd/notify");
@@ -673,16 +667,12 @@ static int manager_setup_notify(Manager *m) {
 
                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-                if (r < 0) {
-                        log_error_errno(errno, "SO_PASSCRED failed: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
                 m->notify_fd = fd;
                 fd = -1;

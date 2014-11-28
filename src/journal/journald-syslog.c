@@ -428,28 +428,22 @@ int server_open_syslog_socket(Server *s) {
                 };
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->syslog_fd < 0) {
-                        log_error_errno(errno, "socket() failed: %m");
-                        return -errno;
-                }
+                if (s->syslog_fd < 0)
+                        return log_error_errno(errno, "socket() failed: %m");
 
                 unlink(sa.un.sun_path);
 
                 r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 chmod(sa.un.sun_path, 0666);
         } else
                 fd_nonblock(s->syslog_fd, 1);
 
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error_errno(errno, "SO_PASSCRED failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #ifdef HAVE_SELINUX
         if (mac_selinux_use()) {
@@ -460,10 +454,8 @@ int server_open_syslog_socket(Server *s) {
 #endif
 
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
-        if (r < 0) {
-                log_error_errno(errno, "SO_TIMESTAMP failed: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
         r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, process_datagram, s);
         if (r < 0)

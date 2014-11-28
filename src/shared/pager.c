@@ -67,10 +67,8 @@ int pager_open(bool jump_to_end) {
          * pager so that we get the value from the actual tty */
         columns();
 
-        if (pipe(fd) < 0) {
-                log_error_errno(errno, "Failed to create pager pipe: %m");
-                return -errno;
-        }
+        if (pipe(fd) < 0)
+                return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         parent_pid = getpid();
 
@@ -126,10 +124,8 @@ int pager_open(bool jump_to_end) {
         }
 
         /* Return in the parent */
-        if (dup2(fd[1], STDOUT_FILENO) < 0) {
-                log_error_errno(errno, "Failed to duplicate pager pipe: %m");
-                return -errno;
-        }
+        if (dup2(fd[1], STDOUT_FILENO) < 0)
+                return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
 
         safe_close_pair(fd);
         return 1;
@@ -176,10 +172,8 @@ int show_man_page(const char *desc, bool null_stdio) {
                 args[1] = desc;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return -errno;
-        }
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
         if (pid == 0) {
                 /* Child */

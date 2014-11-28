@@ -534,10 +534,8 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         }
 
         f = fopen(dbfile, "re");
-        if (f == NULL) {
-                log_debug_errno(errno, "no db file to read %s: %m", dbfile);
-                return -errno;
-        }
+        if (f == NULL)
+                return log_debug_errno(errno, "no db file to read %s: %m", dbfile);
 
         /* devices with a database entry are initialized */
         udev_device->is_initialized = true;

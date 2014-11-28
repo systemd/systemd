@@ -128,10 +128,8 @@ int udev_device_update_db(struct udev_device *udev_device)
         strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
         mkdir_parents(filename_tmp, 0755);
         f = fopen(filename_tmp, "we");
-        if (f == NULL) {
-                log_debug_errno(errno, "unable to create temporary db file '%s': %m", filename_tmp);
-                return -errno;
-        }
+        if (f == NULL)
+                return log_debug_errno(errno, "unable to create temporary db file '%s': %m", filename_tmp);
 
         /*
          * set 'sticky' bit to indicate that we should not clean the

@@ -227,31 +227,21 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
          * binary has the capability configured in the file system,
          * which we want to avoid. */
 
-        if (setresgid(gid, gid, gid) < 0) {
-                log_error_errno(errno, "Failed to change group ID: %m");
-                return -errno;
-        }
+        if (setresgid(gid, gid, gid) < 0)
+                return log_error_errno(errno, "Failed to change group ID: %m");
 
-        if (setgroups(0, NULL) < 0) {
-                log_error_errno(errno, "Failed to drop auxiliary groups list: %m");
-                return -errno;
-        }
+        if (setgroups(0, NULL) < 0)
+                return log_error_errno(errno, "Failed to drop auxiliary groups list: %m");
 
-        if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
-                log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
-                return -errno;
-        }
+        if (prctl(PR_SET_KEEPCAPS, 1) < 0)
+                return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
         r = setresuid(uid, uid, uid);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to change user ID: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to change user ID: %m");
 
-        if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
-                log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
-                return -errno;
-        }
+        if (prctl(PR_SET_KEEPCAPS, 0) < 0)
+                return log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
 
         r = capability_bounding_set_drop(~keep_capabilities, true);
         if (r < 0)
@@ -276,10 +266,8 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 }
         }
 
-        if (cap_set_proc(d) < 0) {
-                log_error_errno(errno, "Failed to increase capabilities: %m");
-                return -errno;
-        }
+        if (cap_set_proc(d) < 0)
+                return log_error_errno(errno, "Failed to increase capabilities: %m");
 
         return 0;
 }

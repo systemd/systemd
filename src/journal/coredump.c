@@ -142,10 +142,8 @@ static int fix_acl(int fd, uid_t uid) {
          * their own coredumps */
 
         acl = acl_get_fd(fd);
-        if (!acl) {
-                log_error_errno(errno, "Failed to get ACL: %m");
-                return -errno;
-        }
+        if (!acl)
+                return log_error_errno(errno, "Failed to get ACL: %m");
 
         if (acl_create_entry(&acl, &entry) < 0 ||
             acl_set_tag_type(entry, ACL_USER) < 0 ||
@@ -161,10 +159,8 @@ static int fix_acl(int fd, uid_t uid) {
                 return -errno;
         }
 
-        if (acl_set_fd(fd, acl) < 0) {
-                log_error_errno(errno, "Failed to apply ACL: %m");
-                return -errno;
-        }
+        if (acl_set_fd(fd, acl) < 0)
+                return log_error_errno(errno, "Failed to apply ACL: %m");
 #endif
 
         return 0;
@@ -223,15 +219,11 @@ static int fix_permissions(
         fix_acl(fd, uid);
         fix_xattr(fd, info);
 
-        if (fsync(fd) < 0) {
-                log_error_errno(errno, "Failed to sync coredump %s: %m", filename);
-                return -errno;
-        }
+        if (fsync(fd) < 0)
+                return log_error_errno(errno, "Failed to sync coredump %s: %m", filename);
 
-        if (rename(filename, target) < 0) {
-                log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
-                return -errno;
-        }
+        if (rename(filename, target) < 0)
+                return log_error_errno(errno, "Failed to rename coredump %s -> %s: %m", filename, target);
 
         return 0;
 }
@@ -247,10 +239,8 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
         if (!filename)
                 return 1;
 
-        if (unlink(filename) < 0 && errno != ENOENT) {
-                log_error_errno(errno, "Failed to unlink %s: %m", filename);
-                return -errno;
-        }
+        if (unlink(filename) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to unlink %s: %m", filename);
 
         return 1;
 }
@@ -322,10 +312,8 @@ static int save_external_coredump(
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
         fd = open(tmp, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0640);
-        if (fd < 0) {
-                log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
-                return -errno;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
 
         r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
         if (r == -EFBIG) {
@@ -429,10 +417,8 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         assert(ret);
         assert(ret_size);
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_warning_errno(errno, "Failed to seek: %m");
-                return -errno;
-        }
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                return log_warning_errno(errno, "Failed to seek: %m");
 
         field = malloc(9 + size);
         if (!field) {

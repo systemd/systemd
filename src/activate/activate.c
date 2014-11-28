@@ -51,10 +51,8 @@ static int add_epoll(int epoll_fd, int fd) {
 
         ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
 
         return 0;
 }
@@ -111,10 +109,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 log_open();
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (*epoll_fd < 0) {
-                log_error_errno(errno, "Failed to create epoll object: %m");
-                return -errno;
-        }
+        if (*epoll_fd < 0)
+                return log_error_errno(errno, "Failed to create epoll object: %m");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
                 _cleanup_free_ char *name = NULL;
@@ -192,10 +188,8 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
         parent_pid = getpid();
 
         child_pid = fork();
-        if (child_pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return -errno;
-        }
+        if (child_pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
 
         /* In the child */
         if (child_pid == 0) {

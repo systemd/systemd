@@ -354,10 +354,8 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                         return log_error_errno(r, "Cannot acquire session control: %m");
 
                 r = ioctl(1, KDSKBMODE, K_UNICODE);
-                if (r < 0) {
-                        log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
 
                 break;
         }

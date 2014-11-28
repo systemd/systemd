@@ -469,10 +469,8 @@ static int item_set_perms(Item *i, const char *path) {
                 }
 
                 if (!st_valid || m != (st.st_mode & 07777)) {
-                        if (chmod(path, m) < 0) {
-                                log_error_errno(errno, "chmod(%s) failed: %m", path);
-                                return -errno;
-                        }
+                        if (chmod(path, m) < 0)
+                                return log_error_errno(errno, "chmod(%s) failed: %m", path);
                 }
         }
 
@@ -534,10 +532,8 @@ static int write_one_file(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
-        if (stat(path, &st) < 0) {
-                log_error_errno(errno, "stat(%s) failed: %m", path);
-                return -errno;
-        }
+        if (stat(path, &st) < 0)
+                return log_error_errno(errno, "stat(%s) failed: %m", path);
 
         if (!S_ISREG(st.st_mode)) {
                 log_error("%s is not a file.", path);
@@ -670,15 +666,11 @@ static int create_item(Item *i) {
                         if (r != -EEXIST)
                                 return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                        if (stat(i->argument, &a) < 0) {
-                                log_error_errno(errno, "stat(%s) failed: %m", i->argument);
-                                return -errno;
-                        }
+                        if (stat(i->argument, &a) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
 
-                        if (stat(i->path, &b) < 0) {
-                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &b) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((a.st_mode ^ b.st_mode) & S_IFMT) {
                                 log_debug("Can't copy to %s, file exists already and is of different type", i->path);
@@ -711,10 +703,8 @@ static int create_item(Item *i) {
                         if (r != -EEXIST)
                                 return log_error_errno(r, "Failed to create directory %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISDIR(st.st_mode)) {
                                 log_debug("%s already exists and is not a directory.", i->path);
@@ -737,15 +727,11 @@ static int create_item(Item *i) {
                 }
 
                 if (r < 0) {
-                        if (errno != EEXIST) {
-                                log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISFIFO(st.st_mode)) {
 
@@ -781,10 +767,8 @@ static int create_item(Item *i) {
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
-                        if (errno != EEXIST) {
-                                log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                         r = readlink_malloc(i->path, &x);
                         if (r < 0 || !streq(i->argument, x)) {
@@ -834,15 +818,11 @@ static int create_item(Item *i) {
                                 return 0;
                         }
 
-                        if (errno != EEXIST) {
-                                log_error_errno(errno, "Failed to create device node %s: %m", i->path);
-                                return -errno;
-                        }
+                        if (errno != EEXIST)
+                                return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
 
-                        if (stat(i->path, &st) < 0) {
-                                log_error_errno(errno, "stat(%s) failed: %m", i->path);
-                                return -errno;
-                        }
+                        if (stat(i->path, &st) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if ((st.st_mode & S_IFMT) != file_type) {
 
@@ -916,10 +896,8 @@ static int remove_item_instance(Item *i, const char *instance) {
                 break;
 
         case REMOVE_PATH:
-                if (remove(instance) < 0 && errno != ENOENT) {
-                        log_error_errno(errno, "remove(%s): %m", instance);
-                        return -errno;
-                }
+                if (remove(instance) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "remove(%s): %m", instance);
 
                 break;
 
@@ -997,20 +975,16 @@ static int clean_item_instance(Item *i, const char* instance) {
                 return -errno;
         }
 
-        if (fstat(dirfd(d), &s) < 0) {
-                log_error_errno(errno, "stat(%s) failed: %m", i->path);
-                return -errno;
-        }
+        if (fstat(dirfd(d), &s) < 0)
+                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
         if (!S_ISDIR(s.st_mode)) {
                 log_error("%s is not a directory.", i->path);
                 return -ENOTDIR;
         }
 
-        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
-                log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
-                return -errno;
-        }
+        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
+                return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
 
         mountpoint = s.st_dev != ps.st_dev ||
                      (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);

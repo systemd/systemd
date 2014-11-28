@@ -884,10 +884,8 @@ static int parse_argv(int argc, char *argv[]) {
                         fd_cloexec(fd, true);
 
                         f = fdopen(fd, "r");
-                        if (!f) {
-                                log_error_errno(errno, "Failed to open serialization fd: %m");
-                                return -errno;
-                        }
+                        if (!f)
+                                return log_error_errno(errno, "Failed to open serialization fd: %m");
 
                         if (arg_serialization)
                                 fclose(arg_serialization);
@@ -1045,10 +1043,8 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         /* Save the original RLIMIT_NOFILE so that we can reset it
          * later when transitioning from the initrd to the main
          * systemd or suchlike. */
-        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0) {
-                log_error_errno(errno, "Reading RLIMIT_NOFILE failed: %m");
-                return -errno;
-        }
+        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
+                return log_error_errno(errno, "Reading RLIMIT_NOFILE failed: %m");
 
         /* Make sure forked processes get the default kernel setting */
         if (!arg_default_rlimit[RLIMIT_NOFILE]) {

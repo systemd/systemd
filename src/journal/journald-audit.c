@@ -529,18 +529,14 @@ int server_open_audit(Server *s) {
                 }
 
                 r = bind(s->audit_fd, &sa.sa, sizeof(sa.nl));
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to join audit multicast group: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to join audit multicast group: %m");
         } else
                 fd_nonblock(s->audit_fd, 1);
 
         r = setsockopt(s->audit_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
 
         r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, process_datagram, s);
         if (r < 0)

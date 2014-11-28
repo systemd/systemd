@@ -357,10 +357,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                 fd = STDIN_FILENO;
         else {
                 fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        log_error_errno(errno, "Failed to open %s: %m", filename);
-                        return -errno;
-                }
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", filename);
         }
 
         u->input = fd;

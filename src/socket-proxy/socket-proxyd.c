@@ -120,18 +120,14 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
                 return 0;
 
         r = pipe2(buffer, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to allocate pipe buffer: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to allocate pipe buffer: %m");
 
         (void) fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
 
         r = fcntl(buffer[0], F_GETPIPE_SZ);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to get pipe buffer size: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to get pipe buffer size: %m");
 
         assert(r > 0);
         *sz = r;
@@ -171,10 +167,8 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error_errno(errno, "Failed to splice: %m");
-                                return -errno;
-                        }
+                        } else if (errno != EAGAIN && errno != EINTR)
+                                return log_error_errno(errno, "Failed to splice: %m");
                 }
 
                 if (*full > 0 && *to >= 0) {
@@ -185,10 +179,8 @@ static int connection_shovel(
                         } else if (z == 0 || errno == EPIPE || errno == ECONNRESET) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (errno != EAGAIN && errno != EINTR) {
-                                log_error_errno(errno, "Failed to splice: %m");
-                                return -errno;
-                        }
+                        } else if (errno != EAGAIN && errno != EINTR)
+                                return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);
 

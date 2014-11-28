@@ -401,10 +401,8 @@ static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
         }
 
         f = fopen("/usr/share/X11/xkb/rules/base.lst", "re");
-        if (!f) {
-                log_error_errno(errno, "Failed to open keyboard mapping list. %m");
-                return -errno;
-        }
+        if (!f)
+                return log_error_errno(errno, "Failed to open keyboard mapping list. %m");
 
         if (streq(args[0], "list-x11-keymap-models"))
                 look_for = MODELS;

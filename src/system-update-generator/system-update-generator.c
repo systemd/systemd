@@ -46,10 +46,8 @@ static int generate_symlink(void) {
         }
 
         p = strappenda(arg_dest, "/default.target");
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0) {
-                log_error_errno(errno, "Failed to create symlink %s: %m", p);
-                return -errno;
-        }
+        if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0)
+                return log_error_errno(errno, "Failed to create symlink %s: %m", p);
 
         return 0;
 }

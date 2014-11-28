@@ -56,10 +56,8 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
 
         old_root_remove = in_initrd();
 
-        if (stat(new_root, &new_root_stat) < 0) {
-                log_error_errno(errno, "Failed to stat directory %s: %m", new_root);
-                return -errno;
-        }
+        if (stat(new_root, &new_root_stat) < 0)
+                return log_error_errno(errno, "Failed to stat directory %s: %m", new_root);
 
         /* Work-around for kernel design: the kernel refuses switching
          * root if any file systems are mounted MS_SHARED. Hence
@@ -109,10 +107,8 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
          * switch_root() nevertheless. */
         (void) base_filesystem_create(new_root);
 
-        if (chdir(new_root) < 0) {
-                log_error_errno(errno, "Failed to change directory to %s: %m", new_root);
-                return -errno;
-        }
+        if (chdir(new_root) < 0)
+                return log_error_errno(errno, "Failed to change directory to %s: %m", new_root);
 
         if (old_root_remove) {
                 old_root_fd = open("/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
@@ -132,20 +128,14 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                                   oldroot,
                                   errno == ENOENT ? "ignoring" : "leaving it around");
 
-        } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0) {
-                log_error_errno(errno, "Failed to mount moving %s to /: %m", new_root);
-                return -errno;
-        }
+        } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount moving %s to /: %m", new_root);
 
-        if (chroot(".") < 0) {
-                log_error_errno(errno, "Failed to change root: %m");
-                return -errno;
-        }
+        if (chroot(".") < 0)
+                return log_error_errno(errno, "Failed to change root: %m");
 
-        if (chdir("/") < 0) {
-                log_error_errno(errno, "Failed to change directory: %m");
-                return -errno;
-        }
+        if (chdir("/") < 0)
+                return log_error_errno(errno, "Failed to change directory: %m");
 
         if (old_root_fd >= 0) {
                 struct stat rb;

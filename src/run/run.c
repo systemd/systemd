@@ -488,10 +488,8 @@ static int start_transient_scope(
                 return bus_log_create_error(r);
 
         if (arg_nice_set) {
-                if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0) {
-                        log_error_errno(errno, "Failed to set nice level: %m");
-                        return -errno;
-                }
+                if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
+                        return log_error_errno(errno, "Failed to set nice level: %m");
         }
 
         if (arg_exec_group) {
@@ -501,10 +499,8 @@ static int start_transient_scope(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
 
-                if (setresgid(gid, gid, gid) < 0) {
-                        log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                        return -errno;
-                }
+                if (setresgid(gid, gid, gid) < 0)
+                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
         }
 
         if (arg_exec_user) {
@@ -533,16 +529,12 @@ static int start_transient_scope(
                         return log_oom();
 
                 if (!arg_exec_group) {
-                        if (setresgid(gid, gid, gid) < 0) {
-                                log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                                return -errno;
-                        }
+                        if (setresgid(gid, gid, gid) < 0)
+                                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
                 }
 
-                if (setresuid(uid, uid, uid) < 0) {
-                        log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
-                        return -errno;
-                }
+                if (setresuid(uid, uid, uid) < 0)
+                        return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
         }
 
         env = strv_env_merge(3, environ, user_env, arg_environment);

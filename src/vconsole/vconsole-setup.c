@@ -122,10 +122,9 @@ static int keymap_load(const char *vc, const char *map, const char *map_toggle, 
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return -errno;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
@@ -160,10 +159,9 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return -errno;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }

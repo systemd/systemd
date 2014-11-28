@@ -300,10 +300,8 @@ static int open_dev_autofs(Manager *m) {
         label_fix("/dev/autofs", false, false);
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
-        if (m->dev_autofs_fd < 0) {
-                log_error_errno(errno, "Failed to open /dev/autofs: %m");
-                return -errno;
-        }
+        if (m->dev_autofs_fd < 0)
+                return log_error_errno(errno, "Failed to open /dev/autofs: %m");
 
         init_autofs_dev_ioctl(&param);
         if (ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param) < 0) {

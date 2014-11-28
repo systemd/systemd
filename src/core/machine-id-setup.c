@@ -204,10 +204,8 @@ int machine_id_setup(const char *root) {
                 }
         }
 
-        if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "fstat() failed: %m");
-                return -errno;
-        }
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "fstat() failed: %m");
 
         if (S_ISREG(st.st_mode))
                 if (loop_read(fd, id, 33, false) == 33 && id[32] == '\n') {

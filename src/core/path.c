@@ -168,10 +168,8 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return -EINVAL;
         }
 
-        if (ioctl(s->inotify_fd, FIONREAD, &l) < 0) {
-                log_error_errno(errno, "FIONREAD failed: %m");
-                return -errno;
-        }
+        if (ioctl(s->inotify_fd, FIONREAD, &l) < 0)
+                return log_error_errno(errno, "FIONREAD failed: %m");
 
         assert(l > 0);
 
@@ -180,10 +178,8 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return log_oom();
 
         k = read(s->inotify_fd, buf, l);
-        if (k < 0) {
-                log_error_errno(errno, "Failed to read inotify event: %m");
-                return -errno;
-        }
+        if (k < 0)
+                return log_error_errno(errno, "Failed to read inotify event: %m");
 
         e = (struct inotify_event*) buf;
 

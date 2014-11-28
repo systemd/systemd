@@ -794,10 +794,8 @@ static int add_matches(sd_journal *j, char **args) {
                         p = canonicalize_file_name(*i);
                         path = p ? p : *i;
 
-                        if (stat(path, &st) < 0)  {
-                                log_error_errno(errno, "Couldn't stat file: %m");
-                                return -errno;
-                        }
+                        if (stat(path, &st) < 0)
+                                return log_error_errno(errno, "Couldn't stat file: %m");
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
                                 if (executable_is_script(path, &interpreter) > 0) {
@@ -1303,10 +1301,8 @@ static int setup_keys(void) {
         struct stat st;
 
         r = stat("/var/log/journal", &st);
-        if (r < 0 && errno != ENOENT && errno != ENOTDIR) {
-                log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
-                return -errno;
-        }
+        if (r < 0 && errno != ENOENT && errno != ENOTDIR)
+                return log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
 
         if (r < 0 || !S_ISDIR(st.st_mode)) {
                 log_error("%s is not a directory, must be using persistent logging for FSS.",
@@ -1685,25 +1681,19 @@ static int flush_to_var(void) {
         mkdir_p("/run/systemd/journal", 0755);
 
         watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-        if (watch_fd < 0) {
-                log_error_errno(errno, "Failed to create inotify watch: %m");
-                return -errno;
-        }
+        if (watch_fd < 0)
+                return log_error_errno(errno, "Failed to create inotify watch: %m");
 
         r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to watch journal directory: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to watch journal directory: %m");
 
         for (;;) {
                 if (access("/run/systemd/journal/flushed", F_OK) >= 0)
                         break;
 
-                if (errno != ENOENT) {
-                        log_error_errno(errno, "Failed to check for existance of /run/systemd/journal/flushed: %m");
-                        return -errno;
-                }
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check for existance of /run/systemd/journal/flushed: %m");
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
                 if (r < 0)

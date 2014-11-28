@@ -276,10 +276,8 @@ static int mount_kdbus(BindMount *m) {
 
         u = umask(0000);
 
-        if (!mkdtemp(temporary_mount)) {
-                log_error_errno(errno, "Failed create temp dir: %m");
-                return -errno;
-        }
+        if (!mkdtemp(temporary_mount))
+                return log_error_errno(errno, "Failed create temp dir: %m");
 
         root = strappenda(temporary_mount, "/kdbus");
         (void)mkdir(root, 0755);

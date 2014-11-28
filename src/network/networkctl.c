@@ -194,10 +194,8 @@ static int list_links(char **args, unsigned n) {
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
-        if (!udev) {
-                log_error_errno(errno, "Failed to connect to udev: %m");
-                return -errno;
-        }
+        if (!udev)
+                return log_error_errno(errno, "Failed to connect to udev: %m");
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
         if (r < 0)
@@ -445,10 +443,8 @@ static int link_status(char **args, unsigned n) {
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
-        if (!udev) {
-                log_error_errno(errno, "Failed to connect to udev: %m");
-                return -errno;
-        }
+        if (!udev)
+                return log_error_errno(errno, "Failed to connect to udev: %m");
 
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;

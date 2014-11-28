@@ -139,10 +139,8 @@ int coredump_vacuum(int exclude_fd, off_t keep_free, off_t max_use) {
                 return 0;
 
         if (exclude_fd >= 0) {
-                if (fstat(exclude_fd, &exclude_st) < 0) {
-                        log_error_errno(errno, "Failed to fstat(): %m");
-                        return -errno;
-                }
+                if (fstat(exclude_fd, &exclude_st) < 0)
+                        return log_error_errno(errno, "Failed to fstat(): %m");
         }
 
         /* This algorithm will keep deleting the oldest file of the

@@ -657,10 +657,8 @@ int getnameinfo_pretty(int fd, char **ret) {
         assert(fd >= 0);
         assert(ret);
 
-        if (getsockname(fd, &sa.sa, &salen) < 0) {
-                log_error_errno(errno, "getsockname(%d) failed: %m", fd);
-                return -errno;
-        }
+        if (getsockname(fd, &sa.sa, &salen) < 0)
+                return log_error_errno(errno, "getsockname(%d) failed: %m", fd);
 
         return socknameinfo_pretty(&sa, salen, ret);
 }

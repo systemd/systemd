@@ -513,10 +513,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         arg_ifindex = if_nametoindex(optarg);
-                        if (arg_ifindex <= 0) {
-                                log_error_errno(errno, "Unknown interfaces %s: %m", optarg);
-                                return -errno;
-                        }
+                        if (arg_ifindex <= 0)
+                                return log_error_errno(errno, "Unknown interfaces %s: %m", optarg);
                         break;
 
                 case 't':

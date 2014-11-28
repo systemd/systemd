@@ -102,10 +102,8 @@ static int output_winch(Output *o) {
         assert_return(o, -EINVAL);
 
         r = ioctl(o->fd, TIOCGWINSZ, &wsz);
-        if (r < 0) {
-                log_error_errno(errno, "error: cannot read window-size: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "error: cannot read window-size: %m");
 
         if (wsz.ws_col != o->width || wsz.ws_row != o->height) {
                 o->width = wsz.ws_col;
@@ -822,16 +820,12 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
         assert_return(out, -EINVAL);
 
         r = tcgetattr(in_fd, &in_attr);
-        if (r < 0) {
-                log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
 
         r = tcgetattr(out_fd, &out_attr);
-        if (r < 0) {
-                log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "error: tcgetattr() (%d): %m", -errno);
 
         t = new0(Terminal, 1);
         if (!t)

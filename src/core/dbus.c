@@ -958,22 +958,16 @@ static int bus_init_private(Manager *m) {
         (void) unlink(sa.un.sun_path);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0) {
-                log_error_errno(errno, "Failed to allocate private socket: %m");
-                return -errno;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate private socket: %m");
 
         r = bind(fd, &sa.sa, salen);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to bind private socket: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to bind private socket: %m");
 
         r = listen(fd, SOMAXCONN);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to make private socket listening: %m");
-                return -errno;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to make private socket listening: %m");
 
         r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
         if (r < 0)

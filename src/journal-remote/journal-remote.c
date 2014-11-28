@@ -84,10 +84,8 @@ static int spawn_child(const char* child, char** argv) {
         pid_t parent_pid, child_pid;
         int r;
 
-        if (pipe(fd) < 0) {
-                log_error_errno(errno, "Failed to create pager pipe: %m");
-                return -errno;
-        }
+        if (pipe(fd) < 0)
+                return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         parent_pid = getpid();
 
@@ -940,10 +938,8 @@ static int remoteserver_init(RemoteServer *s,
                         log_info("Reading file %s...", *file);
 
                         fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                        if (fd < 0) {
-                                log_error_errno(errno, "Failed to open %s: %m", *file);
-                                return -errno;
-                        }
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open %s: %m", *file);
                         output_name = *file;
                 }
 
@@ -1053,10 +1049,8 @@ static int accept_connection(const char* type, int fd,
 
         log_debug("Accepting new %s connection on fd:%d", type, fd);
         fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (fd2 < 0) {
-                log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
-                return -errno;
-        }
+        if (fd2 < 0)
+                return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
 
         switch(socket_address_family(addr)) {
         case AF_INET:

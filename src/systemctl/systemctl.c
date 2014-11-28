@@ -5219,10 +5219,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                 log_info("Executing %s", l);
 
                 pid = fork();
-                if (pid < 0) {
-                        log_error_errno(errno, "Failed to fork: %m");
-                        return -errno;
-                } else if (pid == 0) {
+                if (pid < 0)
+                        return log_error_errno(errno, "Failed to fork: %m");
+                else if (pid == 0) {
                         /* Child */
 
                         execv(argv[0], (char**) argv);
@@ -6952,10 +6951,8 @@ static int reload_with_fallback(sd_bus *bus) {
         /* Nothing else worked, so let's try signals */
         assert(arg_action == ACTION_RELOAD || arg_action == ACTION_REEXEC);
 
-        if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0) {
-                log_error_errno(errno, "kill() failed: %m");
-                return -errno;
-        }
+        if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0)
+                return log_error_errno(errno, "kill() failed: %m");
 
         return 0;
 }

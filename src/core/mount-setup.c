@@ -340,10 +340,8 @@ int mount_cgroup_controllers(char ***join_controllers) {
                                         return log_oom();
 
                                 r = symlink(options, t);
-                                if (r < 0 && errno != EEXIST) {
-                                        log_error_errno(errno, "Failed to create symlink %s: %m", t);
-                                        return -errno;
-                                }
+                                if (r < 0 && errno != EEXIST)
+                                        return log_error_errno(errno, "Failed to create symlink %s: %m", t);
                         }
                 }
         }

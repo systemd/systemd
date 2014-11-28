@@ -209,10 +209,8 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         assert(path);
 
         f = fopen(path, "re");
-        if (!f) {
-                log_error_errno(errno, "Failed to open file %s: %m", path);
-                return -errno;
-        }
+        if (!f)
+                return log_error_errno(errno, "Failed to open file %s: %m", path);
 
         r = catalog_file_lang(path, &deflang);
         if (r < 0)

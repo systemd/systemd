@@ -358,16 +358,12 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                         return log_error_errno(r, "Cannot acquire session control: %m");
 
                 r = ioctl(1, KDSKBMODE, K_UNICODE);
-                if (r < 0) {
-                        log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "Cannot set K_UNICODE on stdout: %m");
 
                 r = ioctl(1, KDSETMODE, KD_TEXT);
-                if (r < 0) {
-                        log_error_errno(errno, "Cannot set KD_TEXT on stdout: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "Cannot set KD_TEXT on stdout: %m");
 
                 printf("\n");
 

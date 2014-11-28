@@ -185,10 +185,9 @@ static int found_override(const char *top, const char *bottom) {
         fflush(stdout);
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork off diff: %m");
-                return -errno;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork off diff: %m");
+        else if (pid == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
                 log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(1);

@@ -138,15 +138,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int switch_root_initramfs(void) {
-        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0) {
-                log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
-                return -errno;
-        }
+        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
 
-        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0) {
-                log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
-                return -errno;
-        }
+        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
+                return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
         /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file desriptors.
          * /run/initramfs/shutdown will take care of these.

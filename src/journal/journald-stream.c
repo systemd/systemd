@@ -441,25 +441,19 @@ int server_open_stdout_socket(Server *s) {
                 };
 
                 s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->stdout_fd < 0) {
-                        log_error_errno(errno, "socket() failed: %m");
-                        return -errno;
-                }
+                if (s->stdout_fd < 0)
+                        return log_error_errno(errno, "socket() failed: %m");
 
                 unlink(sa.un.sun_path);
 
                 r = bind(s->stdout_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
                 chmod(sa.un.sun_path, 0666);
 
-                if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
-                        return -errno;
-                }
+                if (listen(s->stdout_fd, SOMAXCONN) < 0)
+                        return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
                 fd_nonblock(s->stdout_fd, 1);
 

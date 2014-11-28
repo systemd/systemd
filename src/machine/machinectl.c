@@ -725,10 +725,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 return log_error_errno(master, "Failed to acquire pseudo tty: %m");
 
         pty = ptsname(master);
-        if (!pty) {
-                log_error_errno(errno, "Failed to get pty name: %m");
-                return -errno;
-        }
+        if (!pty)
+                return log_error_errno(errno, "Failed to get pty name: %m");
 
         p = startswith(pty, "/dev/pts/");
         if (!p) {
@@ -744,10 +742,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         if (!getty)
                 return log_oom();
 
-        if (unlockpt(master) < 0) {
-                log_error_errno(errno, "Failed to unlock tty: %m");
-                return -errno;
-        }
+        if (unlockpt(master) < 0)
+                return log_error_errno(errno, "Failed to unlock tty: %m");
 
         r = sd_bus_call_method(container_bus,
                                "org.freedesktop.systemd1",

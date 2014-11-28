@@ -64,10 +64,8 @@ int generator_write_fsck_deps(
                 lnk = strappenda(dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
 
                 mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0) {
-                        log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-                        return -errno;
-                }
+                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0)
+                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
                 _cleanup_free_ char *fsck = NULL;

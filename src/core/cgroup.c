@@ -153,10 +153,8 @@ static int lookup_blkio_device(const char *p, dev_t *dev) {
         assert(dev);
 
         r = stat(p, &st);
-        if (r < 0) {
-                log_warning_errno(errno, "Couldn't stat device %s: %m", p);
-                return -errno;
-        }
+        if (r < 0)
+                return log_warning_errno(errno, "Couldn't stat device %s: %m", p);
 
         if (S_ISBLK(st.st_mode))
                 *dev = st.st_rdev;
@@ -218,10 +216,8 @@ static int whitelist_major(const char *path, const char *name, char type, const 
         assert(type == 'b' || type == 'c');
 
         f = fopen("/proc/devices", "re");
-        if (!f) {
-                log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
-                return -errno;
-        }
+        if (!f)
+                return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
 
         FOREACH_LINE(line, f, goto fail) {
                 char buf[2+DECIMAL_STR_MAX(unsigned)+3+4], *p, *w;
@@ -905,10 +901,8 @@ int manager_setup_cgroup(Manager *m) {
                 safe_close(m->pin_cgroupfs_fd);
 
                 m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-                if (m->pin_cgroupfs_fd < 0) {
-                        log_error_errno(errno, "Failed to open pin file: %m");
-                        return -errno;
-                }
+                if (m->pin_cgroupfs_fd < 0)
+                        return log_error_errno(errno, "Failed to open pin file: %m");
 
                 /* 6.  Always enable hierarchial support if it exists... */
                 cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");

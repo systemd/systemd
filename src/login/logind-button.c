@@ -250,10 +250,8 @@ int button_open(Button *b) {
         p = strappenda("/dev/input/", b->name);
 
         b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        if (b->fd < 0) {
-                log_warning_errno(errno, "Failed to open %s: %m", b->name);
-                return -errno;
-        }
+        if (b->fd < 0)
+                return log_warning_errno(errno, "Failed to open %s: %m", b->name);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
                 log_error_errno(errno, "Failed to get input name: %m");

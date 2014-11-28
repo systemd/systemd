@@ -51,10 +51,8 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name)) < 0) {
-                log_error_errno(errno, "Failed to send: %m");
-                return -errno;
-        }
+        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(socket_name)) < 0)
+                return log_error_errno(errno, "Failed to send: %m");
 
         return 0;
 }

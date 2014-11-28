@@ -190,10 +190,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         }
 
                         output = fopen(optarg, "we");
-                        if (!output) {
-                                log_error_errno(errno, "writing to '%s': %m", optarg);
-                                return -errno;
-                        }
+                        if (!output)
+                                return log_error_errno(errno, "writing to '%s': %m", optarg);
 
                         break;
 
@@ -609,10 +607,8 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 return log_oom();
 
                         fdt = mkostemp_safe(temp, O_WRONLY|O_CLOEXEC);
-                        if (fdt < 0) {
-                                log_error_errno(errno, "Failed to create temporary file: %m");
-                                return -errno;
-                        }
+                        if (fdt < 0)
+                                return log_error_errno(errno, "Failed to create temporary file: %m");
                         log_debug("Created temporary file %s", temp);
 
                         fd = fdt;
