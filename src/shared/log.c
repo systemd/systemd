@@ -813,6 +813,9 @@ int log_struct_internal(
                          * since vasprintf() leaves it afterwards at
                          * an undefined location */
 
+                        if (error != 0)
+                                errno = error;
+
                         va_copy(aq, ap);
                         if (vasprintf(&buf, format, aq) < 0) {
                                 va_end(aq);
@@ -855,6 +858,9 @@ int log_struct_internal(
                 va_start(ap, format);
                 while (format) {
                         va_list aq;
+
+                        if (error != 0)
+                                errno = error;
 
                         va_copy(aq, ap);
                         vsnprintf(buf, sizeof(buf), format, aq);
