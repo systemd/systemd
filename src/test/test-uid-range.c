@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         assert_se(uid_range_contains(p, n, 999));
         assert_se(!uid_range_contains(p, n, 1000));
 
-        search = (uid_t) -1;
+        search = UID_INVALID;
         assert_se(uid_range_next_lower(p, n, &search));
         assert_se(search == 999);
         assert_se(uid_range_next_lower(p, n, &search));

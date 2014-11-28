@@ -429,10 +429,10 @@ int bus_message_from_header(
                 if (m->creds.pid > 0)
                         m->creds.mask |= SD_BUS_CREDS_PID;
 
-                if (m->creds.uid != (uid_t) -1)
+                if (m->creds.uid != UID_INVALID)
                         m->creds.mask |= SD_BUS_CREDS_UID;
 
-                if (m->creds.gid != (gid_t) -1)
+                if (m->creds.gid != GID_INVALID)
                         m->creds.mask |= SD_BUS_CREDS_GID;
         }
 

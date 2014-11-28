@@ -580,42 +580,42 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                         /* EUID/SUID/FSUID/EGID/SGID/FSGID might be missing too (see above). */
 
-                        if ((uid_t) d->creds.uid != (uid_t) -1) {
+                        if ((uid_t) d->creds.uid != UID_INVALID) {
                                 m->creds.uid = (uid_t) d->creds.uid;
                                 m->creds.mask |= SD_BUS_CREDS_UID & bus->creds_mask;
                         }
 
-                        if ((uid_t) d->creds.euid != (uid_t) -1) {
+                        if ((uid_t) d->creds.euid != UID_INVALID) {
                                 m->creds.euid = (uid_t) d->creds.euid;
                                 m->creds.mask |= SD_BUS_CREDS_EUID & bus->creds_mask;
                         }
 
-                        if ((uid_t) d->creds.suid != (uid_t) -1) {
+                        if ((uid_t) d->creds.suid != UID_INVALID) {
                                 m->creds.suid = (uid_t) d->creds.suid;
                                 m->creds.mask |= SD_BUS_CREDS_SUID & bus->creds_mask;
                         }
 
-                        if ((uid_t) d->creds.fsuid != (uid_t) -1) {
+                        if ((uid_t) d->creds.fsuid != UID_INVALID) {
                                 m->creds.fsuid = (uid_t) d->creds.fsuid;
                                 m->creds.mask |= SD_BUS_CREDS_FSUID & bus->creds_mask;
                         }
 
-                        if ((gid_t) d->creds.gid != (gid_t) -1) {
+                        if ((gid_t) d->creds.gid != GID_INVALID) {
                                 m->creds.gid = (gid_t) d->creds.gid;
                                 m->creds.mask |= SD_BUS_CREDS_GID & bus->creds_mask;
                         }
 
-                        if ((gid_t) d->creds.egid != (gid_t) -1) {
+                        if ((gid_t) d->creds.egid != GID_INVALID) {
                                 m->creds.egid = (gid_t) d->creds.egid;
                                 m->creds.mask |= SD_BUS_CREDS_EGID & bus->creds_mask;
                         }
 
-                        if ((gid_t) d->creds.sgid != (gid_t) -1) {
+                        if ((gid_t) d->creds.sgid != GID_INVALID) {
                                 m->creds.sgid = (gid_t) d->creds.sgid;
                                 m->creds.mask |= SD_BUS_CREDS_SGID & bus->creds_mask;
                         }
 
-                        if ((gid_t) d->creds.fsgid != (gid_t) -1) {
+                        if ((gid_t) d->creds.fsgid != GID_INVALID) {
                                 m->creds.fsgid = (gid_t) d->creds.fsgid;
                                 m->creds.mask |= SD_BUS_CREDS_FSGID & bus->creds_mask;
                         }
@@ -671,7 +671,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 m->creds.mask |= SD_BUS_CREDS_AUDIT_SESSION_ID & bus->creds_mask;
                         }
 
-                        if ((uid_t) d->audit.loginuid != (uid_t) -1) {
+                        if ((uid_t) d->audit.loginuid != UID_INVALID) {
                                 m->creds.audit_login_uid = (uid_t) d->audit.loginuid;
                                 m->creds.mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID & bus->creds_mask;
                         }

@@ -1241,8 +1241,8 @@ static int exec_child(ExecCommand *command,
         const char *username = NULL, *home = NULL, *shell = NULL;
         unsigned n_dont_close = 0;
         int dont_close[n_fds + 4];
-        uid_t uid = (uid_t) -1;
-        gid_t gid = (gid_t) -1;
+        uid_t uid = UID_INVALID;
+        gid_t gid = GID_INVALID;
         int i, err;
 
         assert(command);
@@ -1436,7 +1436,7 @@ static int exec_child(ExecCommand *command,
 
 #ifdef ENABLE_KDBUS
         if (params->bus_endpoint_fd >= 0 && context->bus_endpoint) {
-                uid_t ep_uid = (uid == (uid_t) -1) ? 0 : uid;
+                uid_t ep_uid = (uid == UID_INVALID) ? 0 : uid;
 
                 err = bus_kernel_set_endpoint_policy(params->bus_endpoint_fd, ep_uid, context->bus_endpoint);
                 if (err < 0) {

@@ -682,7 +682,7 @@ int cg_set_group_access(
 
         assert(path);
 
-        if (mode != (mode_t) -1)
+        if (mode != MODE_INVALID)
                 mode &= 0777;
 
         r = cg_get_path(controller, path, NULL, &fs);
@@ -704,10 +704,10 @@ int cg_set_task_access(
 
         assert(path);
 
-        if (mode == (mode_t) -1 && uid == (uid_t) -1 && gid == (gid_t) -1)
+        if (mode == MODE_INVALID && uid == UID_INVALID && gid == GID_INVALID)
                 return 0;
 
-        if (mode != (mode_t) -1)
+        if (mode != MODE_INVALID)
                 mode &= 0666;
 
         r = cg_get_path(controller, path, "cgroup.procs", &fs);

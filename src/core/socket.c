@@ -1456,8 +1456,8 @@ static int socket_chown(Socket *s, pid_t *_pid) {
 
         if (pid == 0) {
                 SocketPort *p;
-                uid_t uid = (uid_t) -1;
-                gid_t gid = (gid_t) -1;
+                uid_t uid = UID_INVALID;
+                gid_t gid = GID_INVALID;
                 int ret;
 
                 default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);

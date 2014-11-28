@@ -668,13 +668,13 @@ static int check_policy_item(PolicyItem *i, const struct policy_check_filter *fi
                 break;
 
         case POLICY_ITEM_USER:
-                if (filter->uid != (uid_t) -1)
+                if (filter->uid != UID_INVALID)
                         if ((streq_ptr(i->name, "*") || (i->uid_valid && i->uid == filter->uid)))
                                 return is_permissive(i);
                 break;
 
         case POLICY_ITEM_GROUP:
-                if (filter->gid != (gid_t) -1)
+                if (filter->gid != GID_INVALID)
                         if ((streq_ptr(i->name, "*") || (i->gid_valid && i->gid == filter->gid)))
                                 return is_permissive(i);
                 break;
@@ -734,7 +734,7 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
 
         verdict = check_policy_items(p->default_items, filter);
 
-        if (filter->gid != (gid_t) -1) {
+        if (filter->gid != GID_INVALID) {
                 items = hashmap_get(p->group_items, UINT32_TO_PTR(filter->gid));
                 if (items) {
                         v = check_policy_items(items, filter);
@@ -743,7 +743,7 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
                 }
         }
 
-        if (filter->uid != (uid_t) -1) {
+        if (filter->uid != UID_INVALID) {
                 items = hashmap_get(p->user_items, UINT32_TO_PTR(filter->uid));
                 if (items) {
                         v = check_policy_items(items, filter);

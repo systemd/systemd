@@ -477,8 +477,8 @@ static int item_set_perms(Item *i, const char *path) {
         if ((!st_valid || (i->uid != st.st_uid || i->gid != st.st_gid)) &&
             (i->uid_set || i->gid_set))
                 if (chown(path,
-                          i->uid_set ? i->uid : (uid_t) -1,
-                          i->gid_set ? i->gid : (gid_t) -1) < 0) {
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID) < 0) {
 
                         log_error_errno(errno, "chown(%s) failed: %m", path);
                         return -errno;

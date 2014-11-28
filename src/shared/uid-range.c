@@ -161,7 +161,7 @@ int uid_range_add_str(UidRange **p, unsigned *n, const char *s) {
 }
 
 int uid_range_next_lower(const UidRange *p, unsigned n, uid_t *uid) {
-        uid_t closest = (uid_t) -1, candidate;
+        uid_t closest = UID_INVALID, candidate;
         unsigned i;
 
         assert(p);
@@ -184,7 +184,7 @@ int uid_range_next_lower(const UidRange *p, unsigned n, uid_t *uid) {
                         closest = end;
         }
 
-        if (closest == (uid_t) -1)
+        if (closest == UID_INVALID)
                 return -EBUSY;
 
         *uid = closest;

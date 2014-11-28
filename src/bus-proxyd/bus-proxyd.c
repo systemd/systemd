@@ -969,8 +969,8 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                 return 0;
 
         if (from->is_kernel) {
-                uid_t sender_uid = (uid_t) -1;
-                gid_t sender_gid = (gid_t) -1;
+                uid_t sender_uid = UID_INVALID;
+                gid_t sender_gid = GID_INVALID;
                 char **sender_names = NULL;
                 bool granted = false;
 
@@ -1026,8 +1026,8 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
         if (to->is_kernel) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *destination_creds = NULL;
-                uid_t destination_uid = (uid_t) -1;
-                gid_t destination_gid = (gid_t) -1;
+                uid_t destination_uid = UID_INVALID;
+                gid_t destination_gid = GID_INVALID;
                 const char *destination_unique = NULL;
                 char **destination_names = NULL;
                 bool granted = false;
@@ -1331,13 +1331,13 @@ int main(int argc, char *argv[]) {
                 a->fake_pids_valid = true;
 
                 a->fake_creds.uid = ucred.uid;
-                a->fake_creds.euid = (uid_t) -1;
-                a->fake_creds.suid = (uid_t) -1;
-                a->fake_creds.fsuid = (uid_t) -1;
+                a->fake_creds.euid = UID_INVALID;
+                a->fake_creds.suid = UID_INVALID;
+                a->fake_creds.fsuid = UID_INVALID;
                 a->fake_creds.gid = ucred.gid;
-                a->fake_creds.egid = (gid_t) -1;
-                a->fake_creds.sgid = (gid_t) -1;
-                a->fake_creds.fsgid = (gid_t) -1;
+                a->fake_creds.egid = GID_INVALID;
+                a->fake_creds.sgid = GID_INVALID;
+                a->fake_creds.fsgid = GID_INVALID;
                 a->fake_creds_valid = true;
         }
 

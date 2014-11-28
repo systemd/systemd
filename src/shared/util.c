@@ -354,7 +354,7 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         if ((unsigned long) uid != ul)
                 return -ERANGE;
 
-        /* Some libc APIs use (uid_t) -1 as special placeholder */
+        /* Some libc APIs use UID_INVALID as special placeholder */
         if (uid == (uid_t) 0xFFFFFFFF)
                 return -ENXIO;
 
@@ -3167,11 +3167,11 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
          * first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (mode != (mode_t) -1)
+        if (mode != MODE_INVALID)
                 if (chmod(path, mode) < 0)
                         return -errno;
 
-        if (uid != (uid_t) -1 || gid != (gid_t) -1)
+        if (uid != UID_INVALID || gid != GID_INVALID)
                 if (chown(path, uid, gid) < 0)
                         return -errno;
 
@@ -3185,11 +3185,11 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
          * first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (mode != (mode_t) -1)
+        if (mode != MODE_INVALID)
                 if (fchmod(fd, mode) < 0)
                         return -errno;
 
-        if (uid != (uid_t) -1 || gid != (gid_t) -1)
+        if (uid != UID_INVALID || gid != GID_INVALID)
                 if (fchown(fd, uid, gid) < 0)
                         return -errno;
 
@@ -3680,7 +3680,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
                         return -errno;
         }
 
-        if (uid != (uid_t) -1 || gid != (gid_t) -1) {
+        if (uid != UID_INVALID || gid != GID_INVALID) {
                 r = fchown(fd, uid, gid);
                 if (r < 0)
                         return -errno;
@@ -3701,7 +3701,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 }
 
 int touch(const char *path) {
-        return touch_file(path, false, USEC_INFINITY, (uid_t) -1, (gid_t) -1, 0);
+        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0);
 }
 
 char *unquote(const char *s, const char* quotes) {
@@ -6547,9 +6547,9 @@ int getpeercred(int fd, struct ucred *ucred) {
          * to namespacing issues */
         if (u.pid <= 0)
                 return -ENODATA;
-        if (u.uid == (uid_t) -1)
+        if (u.uid == UID_INVALID)
                 return -ENODATA;
-        if (u.gid == (gid_t) -1)
+        if (u.gid == GID_INVALID)
                 return -ENODATA;
 
         *ucred = u;

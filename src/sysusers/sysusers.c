@@ -76,7 +76,7 @@ static Hashmap *members = NULL;
 static Hashmap *database_uid = NULL, *database_user = NULL;
 static Hashmap *database_gid = NULL, *database_group = NULL;
 
-static uid_t search_uid = (uid_t) -1;
+static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 

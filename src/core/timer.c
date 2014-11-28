@@ -505,7 +505,7 @@ static void timer_enter_running(Timer *t) {
         dual_timestamp_get(&t->last_trigger);
 
         if (t->stamp_path)
-                touch_file(t->stamp_path, true, t->last_trigger.realtime, (uid_t) -1, (gid_t) -1, 0);
+                touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, 0);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -543,7 +543,7 @@ static int timer_start(Unit *u) {
                         /* The timer has never run before,
                          * make sure a stamp file exists.
                          */
-                        touch_file(t->stamp_path, true, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
+                        touch_file(t->stamp_path, true, (usec_t) -1, UID_INVALID, GID_INVALID, 0);
         }
 
         t->result = TIMER_SUCCESS;

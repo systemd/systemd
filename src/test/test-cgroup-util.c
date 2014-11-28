@@ -141,7 +141,7 @@ static void test_proc(void) {
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *slice = NULL;
                 pid_t pid;
-                uid_t uid = (uid_t) -1;
+                uid_t uid = UID_INVALID;
 
                 if (de->d_type != DT_DIR &&
                     de->d_type != DT_UNKNOWN)

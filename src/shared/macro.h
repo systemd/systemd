@@ -423,4 +423,8 @@ do {                                                                    \
 #endif
 #endif
 
+#define UID_INVALID ((uid_t) -1)
+#define GID_INVALID ((gid_t) -1)
+#define MODE_INVALID ((mode_t) -1)
+
 #include "log.h"
