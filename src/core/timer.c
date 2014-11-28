@@ -543,7 +543,7 @@ static int timer_start(Unit *u) {
                         /* The timer has never run before,
                          * make sure a stamp file exists.
                          */
-                        touch_file(t->stamp_path, true, (usec_t) -1, UID_INVALID, GID_INVALID, 0);
+                        touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0);
         }
 
         t->result = TIMER_SUCCESS;
