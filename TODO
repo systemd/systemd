@@ -257,9 +257,9 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - xml policy inforcement and bus activated services is broken?
   - rework errno registration logic
   - how can we make the xml enforcement for native clients unnecessary?
-  - add "as" (array of strings) support to bloom filter
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
   - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
   - kdbus: timestamps on kernel's NameOwnerChanged messages?
