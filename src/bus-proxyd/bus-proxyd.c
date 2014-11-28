@@ -1381,39 +1381,50 @@ int main(int argc, char *argv[]) {
         }
 
         if (a->is_kernel) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *bus_creds = NULL;
-                uid_t bus_uid;
+                if (!arg_configuration) {
+                        const char *scope;
 
-                r = sd_bus_get_owner_creds(a, SD_BUS_CREDS_UID, &bus_creds);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get bus creds: %m");
-                        goto finish;
-                }
-
-                r = sd_bus_creds_get_uid(bus_creds, &bus_uid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get bus owner UID: %m");
-                        goto finish;
-                }
-
-                if (bus_uid == 0) {
-                        /* We only enforce the old XML policy on
-                         * kernel busses owned by root users. */
-
-                        r = policy_load(&policy_buffer, arg_configuration);
+                        r = sd_bus_get_scope(a, &scope);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to load policy: %m");
+                                log_error_errno(r, "Couldn't determine bus scope: %m");
                                 goto finish;
                         }
 
-                        if (!policy_check_hello(&policy_buffer, ucred.uid, ucred.gid)) {
-                                log_error("Policy denied connection");
-                                r = -EPERM;
+                        if (streq(scope, "system"))
+                                arg_configuration = strv_new(
+                                                "/etc/dbus-1/system.conf",
+                                                "/etc/dbus-1/system.d/",
+                                                "/etc/dbus-1/system-local.conf",
+                                                NULL);
+                        else if (streq(scope, "user"))
+                                arg_configuration = strv_new(
+                                                "/etc/dbus-1/session.conf",
+                                                "/etc/dbus-1/session.d/",
+                                                "/etc/dbus-1/session-local.conf",
+                                                NULL);
+                        else {
+                                log_error("Unknown scope %s, don't know which policy to load. Refusing.", scope);
                                 goto finish;
                         }
 
-                        policy_dump(&policy_buffer);
-                        policy = &policy_buffer;
+                        if (!arg_configuration) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+
+                r = policy_load(&policy_buffer, arg_configuration);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to load policy: %m");
+                        goto finish;
+                }
+
+                policy = &policy_buffer;
+                policy_dump(policy);
+
+                if (!policy_check_hello(policy, ucred.uid, ucred.gid)) {
+                        r = log_error_errno(EPERM, "Policy denied connection.");
+                        goto finish;
                 }
         }
 
