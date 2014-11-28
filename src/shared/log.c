@@ -545,6 +545,9 @@ static int log_dispatch(
         if ((level & LOG_FACMASK) == 0)
                 level = log_facility | LOG_PRI(level);
 
+        if (error < 0)
+                error = -error;
+
         do {
                 char *e;
                 int k = 0;
@@ -644,7 +647,7 @@ int log_internalv(
 
         /* Make sure that %m maps to the specified error */
         if (error != 0)
-                errno = error;
+                errno = abs(error);
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
@@ -689,7 +692,7 @@ int log_object_internalv(
 
         /* Make sure that %m maps to the specified error */
         if (error != 0)
-                errno = error;
+                errno = abs(error);
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
@@ -780,6 +783,9 @@ int log_struct_internal(
 
         if ((level & LOG_FACMASK) == 0)
                 level = log_facility | LOG_PRI(level);
+
+        if (error < 0)
+                error = -error;
 
         if ((log_target == LOG_TARGET_AUTO ||
              log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
