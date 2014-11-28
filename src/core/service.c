@@ -209,7 +209,7 @@ static void service_start_watchdog(Service *s) {
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, s->watchdog_timestamp.monotonic + s->watchdog_usec);
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "%s failed to reset watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to reset watchdog timer: %m", UNIT(s)->id);
                         return;
                 }
 
@@ -222,7 +222,7 @@ static void service_start_watchdog(Service *s) {
                                 s->watchdog_timestamp.monotonic + s->watchdog_usec, 0,
                                 service_dispatch_watchdog, s);
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "%s failed to add watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to add watchdog timer: %m", UNIT(s)->id);
                         return;
                 }
 
@@ -232,7 +232,7 @@ static void service_start_watchdog(Service *s) {
         }
 
         if (r < 0)
-                log_unit_warning(UNIT(s)->id, "%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to install watchdog timer: %m", UNIT(s)->id);
 }
 
 static void service_reset_watchdog(Service *s) {
@@ -578,7 +578,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         r = parse_pid(k, &pid);
         if (r < 0) {
                 if (may_warn)
-                        log_unit_info(UNIT(s)->id, "Failed to read PID from file %s: %s", s->pid_file, strerror(-r));
+                        log_unit_info_errno(UNIT(s)->id, r, "Failed to read PID from file %s: %m", s->pid_file);
                 return r;
         }
 
@@ -1130,7 +1130,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run install restart timer: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run install restart timer: %m", UNIT(s)->id);
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
@@ -1167,7 +1167,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'stop-post' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'stop-post' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1213,7 +1213,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL ||
             state == SERVICE_STOP_SIGABRT)
@@ -1268,7 +1268,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'stop' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'stop' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1330,7 +1330,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-post' task: %m", UNIT(s)->id);
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1423,7 +1423,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'start' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start' task: %m", UNIT(s)->id);
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -1461,7 +1461,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-pre' task: %m", UNIT(s)->id);
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
@@ -1541,7 +1541,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'reload' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'reload' task: %m", UNIT(s)->id);
         s->reload_result = SERVICE_FAILURE_RESOURCES;
         service_enter_running(s, SERVICE_SUCCESS);
 }
@@ -1574,7 +1574,7 @@ static void service_run_next_control(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run next control task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next control task: %m", UNIT(s)->id);
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
@@ -1618,7 +1618,7 @@ static void service_run_next_main(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run next main task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next main task: %m", UNIT(s)->id);
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -2031,7 +2031,7 @@ static int service_watch_pid_file(Service *s) {
 
         return 0;
 fail:
-        log_unit_error(UNIT(s)->id, "Failed to set a watch for %s's PID file %s: %s", UNIT(s)->id, s->pid_file_pathspec->path, strerror(-r));
+        log_unit_error_errno(UNIT(s)->id, r, "Failed to set a watch for %s's PID file %s: %m", UNIT(s)->id, s->pid_file_pathspec->path);
         service_unwatch_pid_file(s);
         return r;
 }

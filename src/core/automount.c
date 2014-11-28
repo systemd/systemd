@@ -422,7 +422,7 @@ int automount_send_ready(Automount *a, int status) {
                 return ioctl_fd;
 
         if (status)
-                log_unit_debug(UNIT(a)->id, "Sending failure: %s", strerror(-status));
+                log_unit_debug_errno(UNIT(a)->id, status, "Sending failure: %m");
         else
                 log_unit_debug(UNIT(a)->id, "Sending success.");
 
@@ -770,7 +770,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                 r = set_put(a->tokens, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
                 if (r < 0) {
-                        log_unit_error(UNIT(a)->id, "Failed to remember token: %s", strerror(-r));
+                        log_unit_error_errno(UNIT(a)->id, r, "Failed to remember token: %m");
                         goto fail;
                 }
 

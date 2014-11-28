@@ -1726,7 +1726,7 @@ void unit_start_on_failure(Unit *u) {
 
                 r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, true, NULL, NULL);
                 if (r < 0)
-                        log_unit_error(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
+                        log_unit_error_errno(u->id, r, "Failed to enqueue OnFailure= job: %m");
         }
 }
 
@@ -3435,7 +3435,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(main_pid, &comm);
 
-                        log_unit_warning(u->id, "Failed to kill main process " PID_FMT " (%s): %s", main_pid, strna(comm), strerror(-r));
+                        log_unit_warning_errno(u->id, r, "Failed to kill main process " PID_FMT " (%s): %m", main_pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
@@ -3452,7 +3452,7 @@ int unit_kill_context(
                         _cleanup_free_ char *comm = NULL;
                         get_process_comm(control_pid, &comm);
 
-                        log_unit_warning(u->id, "Failed to kill control process " PID_FMT " (%s): %s", control_pid, strna(comm), strerror(-r));
+                        log_unit_warning_errno(u->id, r, "Failed to kill control process " PID_FMT " (%s): %m", control_pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
@@ -3472,7 +3472,7 @@ int unit_kill_context(
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                log_unit_warning(u->id, "Failed to kill control group: %s", strerror(-r));
+                                log_unit_warning_errno(u->id, r, "Failed to kill control group: %m");
                 } else if (r > 0) {
 
                         /* FIXME: For now, we will not wait for the

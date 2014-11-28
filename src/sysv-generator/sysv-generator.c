@@ -193,7 +193,7 @@ static int generate_unit_file(SysvStub *s) {
         STRV_FOREACH(p, s->wanted_by) {
                 r = add_symlink(s->name, *p);
                 if (r < 0)
-                        log_unit_error(s->name, "Failed to create 'Wants' symlink to %s: %s", *p, strerror(-r));
+                        log_unit_error_errno(s->name, r, "Failed to create 'Wants' symlink to %s: %m", *p);
         }
 
         return 0;

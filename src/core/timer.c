@@ -485,7 +485,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         return;
 
 fail:
-        log_unit_warning(UNIT(t)->id, "%s failed to enter waiting state: %s", UNIT(t)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(t)->id, r, "%s failed to enter waiting state: %m", UNIT(t)->id);
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 

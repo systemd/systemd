@@ -1550,7 +1550,7 @@ static int exec_child(ExecCommand *command,
                                 context->mount_flags);
 
                 if (err == -EPERM)
-                        log_unit_warning(params->unit_id, "Failed to set up file system namespace due to lack of privileges. Execution sandbox will not be in effect: %s", strerror(-err));
+                        log_unit_warning_errno(params->unit_id, err, "Failed to set up file system namespace due to lack of privileges. Execution sandbox will not be in effect: %m");
                 else if (err < 0) {
                         *error = EXIT_NAMESPACE;
                         return err;

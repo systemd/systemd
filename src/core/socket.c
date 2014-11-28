@@ -925,13 +925,13 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->smack_ip_in) {
                 r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
                 if (r < 0)
-                        log_unit_error(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %s", strerror(-r));
+                        log_unit_error_errno(UNIT(s)->id, r, "mac_smack_apply_ip_in_fd: %m");
         }
 
         if (s->smack_ip_out) {
                 r = mac_smack_apply_ip_out_fd(fd, s->smack_ip_out);
                 if (r < 0)
-                        log_unit_error(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %s", strerror(-r));
+                        log_unit_error_errno(UNIT(s)->id, r, "mac_smack_apply_ip_out_fd: %m");
         }
 }
 
@@ -948,7 +948,7 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
         if (s->smack) {
                 r = mac_smack_apply_fd(fd, s->smack);
                 if (r < 0)
-                        log_unit_error(UNIT(s)->id, "mac_smack_apply_fd: %s", strerror(-r));
+                        log_unit_error_errno(UNIT(s)->id, r, "mac_smack_apply_fd: %m");
         }
 }
 
@@ -1269,7 +1269,7 @@ static int socket_watch_fds(Socket *s) {
                         r = sd_event_add_io(UNIT(s)->manager->event, &p->event_source, p->fd, EPOLLIN, socket_dispatch_io, p);
 
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "Failed to watch listening fds: %s", strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "Failed to watch listening fds: %m");
                         goto fail;
                 }
         }
@@ -1605,7 +1605,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
 
         if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
                 socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
@@ -1636,7 +1636,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run 'stop-pre' task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'stop-pre' task: %m", UNIT(s)->id);
         socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
 }
 
@@ -1646,7 +1646,7 @@ static void socket_enter_listening(Socket *s) {
 
         r = socket_watch_fds(s);
         if (r < 0) {
-                log_unit_warning(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to watch sockets: %m", UNIT(s)->id);
                 goto fail;
         }
 
@@ -1668,7 +1668,7 @@ static void socket_enter_start_post(Socket *s) {
         if (s->control_command) {
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-post' task: %m", UNIT(s)->id);
                         goto fail;
                 }
 
@@ -1689,7 +1689,7 @@ static void socket_enter_start_chown(Socket *s) {
 
         r = socket_open_fds(s);
         if (r < 0) {
-                log_unit_warning(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to listen on sockets: %m", UNIT(s)->id);
                 goto fail;
         }
 
@@ -1701,7 +1701,7 @@ static void socket_enter_start_chown(Socket *s) {
 
                 r = socket_chown(s, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "%s failed to fork 'start-chown' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to fork 'start-chown' task: %m", UNIT(s)->id);
                         goto fail;
                 }
 
@@ -1726,7 +1726,7 @@ static void socket_enter_start_pre(Socket *s) {
         if (s->control_command) {
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning(UNIT(s)->id, "%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start-pre' task: %m", UNIT(s)->id);
                         goto fail;
                 }
 
@@ -1760,14 +1760,14 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                         r = socket_open_fds(s);
                         if (r < 0) {
-                                log_unit_warning(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
+                                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to listen on sockets: %m", UNIT(s)->id);
                                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
                                 return;
                         }
 
                         r = socket_watch_fds(s);
                         if (r < 0) {
-                                log_unit_warning(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
+                                log_unit_warning_errno(UNIT(s)->id, r, "%s failed to watch sockets: %m", UNIT(s)->id);
                                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
                         }
                 }
@@ -1894,7 +1894,7 @@ static void socket_run_next(Socket *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id, "%s failed to run next task: %s", UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next task: %m", UNIT(s)->id);
 
         if (s->state == SOCKET_START_POST)
                 socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);

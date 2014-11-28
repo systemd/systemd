@@ -284,7 +284,7 @@ static int busname_watch_fd(BusName *n) {
         else
                 r = sd_event_add_io(UNIT(n)->manager->event, &n->starter_event_source, n->starter_fd, EPOLLIN, busname_dispatch_io, n);
         if (r < 0) {
-                log_unit_warning(UNIT(n)->id, "Failed to watch starter fd: %s", strerror(-r));
+                log_unit_warning_errno(UNIT(n)->id, r, "Failed to watch starter fd: %m");
                 busname_unwatch_fd(n);
                 return r;
         }
@@ -453,14 +453,14 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
                               n->control_pid,
                               false);
         if (r < 0) {
-                log_unit_warning(UNIT(n)->id, "%s failed to kill control process: %s", UNIT(n)->id, strerror(-r));
+                log_unit_warning_errno(UNIT(n)->id, r, "%s failed to kill control process: %m", UNIT(n)->id);
                 goto fail;
         }
 
         if (r > 0) {
                 r = busname_arm_timer(n);
                 if (r < 0) {
-                        log_unit_warning(UNIT(n)->id, "%s failed to arm timer: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to arm timer: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -484,7 +484,7 @@ static void busname_enter_listening(BusName *n) {
         if (n->activating) {
                 r = busname_watch_fd(n);
                 if (r < 0) {
-                        log_unit_warning(UNIT(n)->id, "%s failed to watch names: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to watch names: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -515,7 +515,7 @@ static void busname_enter_making(BusName *n) {
 
                 r = busname_make_starter(n, &n->control_pid);
                 if (r < 0) {
-                        log_unit_warning(UNIT(n)->id, "%s failed to fork 'making' task: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to fork 'making' task: %m", UNIT(n)->id);
                         goto fail;
                 }
 
@@ -526,7 +526,7 @@ static void busname_enter_making(BusName *n) {
 
                 r = bus_kernel_make_starter(n->starter_fd, n->name, n->activating, n->accept_fd, NULL, n->policy_world);
                 if (r < 0) {
-                        log_unit_warning(UNIT(n)->id, "%s failed to make starter: %s", UNIT(n)->id, strerror(-r));
+                        log_unit_warning_errno(UNIT(n)->id, r, "%s failed to make starter: %m", UNIT(n)->id);
                         goto fail;
                 }
 

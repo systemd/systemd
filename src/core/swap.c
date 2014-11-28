@@ -410,7 +410,7 @@ static int swap_add_one(
         return 0;
 
 fail:
-        log_unit_warning(e, "Failed to load swap unit: %s", strerror(-r));
+        log_unit_warning_errno(e, r, "Failed to load swap unit: %m");
 
         if (delete && u)
                 unit_free(u);
