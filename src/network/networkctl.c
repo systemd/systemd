@@ -190,10 +190,8 @@ static int list_links(char **args, unsigned n) {
         pager_open_if_enabled();
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
         if (!udev) {
@@ -210,10 +208,8 @@ static int list_links(char **args, unsigned n) {
                 return rtnl_log_create_error(r);
 
         r = sd_rtnl_call(rtnl, req, 0, &reply);
-        if (r < 0) {
-                log_error_errno(r, "Failed to enumerate links: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate links: %m");
 
         if (arg_legend)
                 printf("%3s %-16s %-18s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
@@ -322,10 +318,8 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
                 return rtnl_log_create_error(r);
 
         r = sd_rtnl_call(rtnl, req, 0, &reply);
-        if (r < 0) {
-                log_error_errno(r, "Failed to query link: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query link: %m");
 
         r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
         if (r < 0)
@@ -447,10 +441,8 @@ static int link_status(char **args, unsigned n) {
         int r;
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
         if (!udev) {
@@ -513,10 +505,8 @@ static int link_status(char **args, unsigned n) {
                         return rtnl_log_create_error(r);
 
                 r = sd_rtnl_call(rtnl, req, 0, &reply);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate links: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate links: %m");
 
                 c = decode_and_sort_links(reply, &links);
                 if (c < 0)

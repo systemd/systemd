@@ -721,10 +721,8 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         r = ordered_hashmap_put(scope->conflict_queue, rr->key, rr);
         if (r == -EEXIST || r == 0)
                 return 0;
-        if (r < 0) {
-                log_debug_errno(r, "Failed to queue conflicting RR: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to queue conflicting RR: %m");
 
         dns_resource_record_ref(rr);
 
@@ -740,10 +738,8 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
                               now(clock_boottime_or_monotonic()) + jitter,
                               LLMNR_JITTER_INTERVAL_USEC,
                               on_conflict_dispatch, scope);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add conflict dispatch event: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
 
         return 0;
 }

@@ -254,10 +254,8 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         }
 
         r = capability_bounding_set_drop(~keep_capabilities, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to drop capabilities: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to drop capabilities: %m");
 
         d = cap_init();
         if (!d)

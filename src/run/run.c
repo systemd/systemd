@@ -498,10 +498,8 @@ static int start_transient_scope(
                 gid_t gid;
 
                 r = get_group_creds(&arg_exec_group, &gid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
 
                 if (setresgid(gid, gid, gid) < 0) {
                         log_error("Failed to change GID to " GID_FMT ": %m", gid);
@@ -515,10 +513,8 @@ static int start_transient_scope(
                 gid_t gid;
 
                 r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
 
                 r = strv_extendf(&user_env, "HOME=%s", home);
                 if (r < 0)

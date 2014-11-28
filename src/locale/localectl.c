@@ -234,10 +234,8 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
         assert(args);
 
         r = get_locales(&l);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read list of locales: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of locales: %m");
 
         pager_open_if_enabled();
         strv_print(l);
@@ -309,10 +307,8 @@ static int nftw_cb(
                 *e = 0;
 
         r = set_consume(keymaps, p);
-        if (r < 0 && r != -EEXIST) {
-                log_error_errno(r, "Can't add keymap: %m");
-                return r;
-        }
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Can't add keymap: %m");
 
         return 0;
 }

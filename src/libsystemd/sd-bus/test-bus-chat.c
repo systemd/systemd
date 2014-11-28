@@ -53,10 +53,8 @@ static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
                 log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
 
                 r = sd_bus_reply_method_return(m, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to send reply: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send reply: %m");
 
                 return 1;
         }

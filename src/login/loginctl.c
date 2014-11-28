@@ -384,10 +384,8 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
-        if (r < 0) {
-                log_error_errno(r, "Could not get properties: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
 
         if (*new_line)
                 printf("\n");
@@ -699,10 +697,8 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to look up user %s: %m", args[i]);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method(
                                 bus,
@@ -859,10 +855,8 @@ static int enable_linger(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to look up user %s: %m", args[i]);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,
@@ -892,10 +886,8 @@ static int terminate_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to look up user %s: %m", args[i]);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,
@@ -928,10 +920,8 @@ static int kill_user(sd_bus *bus, char **args, unsigned n) {
                 uid_t uid;
 
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to look up user %s: %m", args[i]);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", args[i]);
 
                 r = sd_bus_call_method (
                         bus,

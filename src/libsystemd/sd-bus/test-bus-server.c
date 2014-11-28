@@ -146,10 +146,8 @@ static int client(struct context *c) {
                         "/",
                         "org.freedesktop.systemd.test",
                         "Exit");
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate method call: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate method call: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {

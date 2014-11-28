@@ -337,10 +337,8 @@ int session_load(Session *s) {
                            "CONTROLLER",     &controller,
                            NULL);
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to read %s: %m", s->state_file);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
         if (!s->user) {
                 uid_t u;

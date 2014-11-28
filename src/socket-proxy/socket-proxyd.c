@@ -265,10 +265,8 @@ static int connection_enable_event_sources(Connection *c) {
         else
                 r = 0;
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up server event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up server event source: %m");
 
         if (c->client_event_source)
                 r = sd_event_source_set_io_events(c->client_event_source, b);
@@ -277,10 +275,8 @@ static int connection_enable_event_sources(Connection *c) {
         else
                 r = 0;
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up client event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up client event source: %m");
 
         return 0;
 }
@@ -550,26 +546,20 @@ static int add_listen_socket(Context *context, int fd) {
         }
 
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine socket type: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine socket type: %m");
         if (r == 0) {
                 log_error("Passed in socket is not a stream socket.");
                 return -EINVAL;
         }
 
         r = fd_nonblock(fd, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
 
         r = sd_event_add_io(context->event, &source, fd, EPOLLIN, accept_cb, context);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add event source: %m");
 
         r = set_put(context->listen, source);
         if (r < 0) {
@@ -581,10 +571,8 @@ static int add_listen_socket(Context *context, int fd) {
         /* Set the watcher to oneshot in case other processes are also
          * watching to accept(). */
         r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_error_errno(r, "Failed to enable oneshot mode: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable oneshot mode: %m");
 
         return 0;
 }

@@ -610,10 +610,8 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                 int r;
 
                 r = x11_write_data(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set X11 keyboard layout: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set X11 keyboard layout: %m");
 
                 log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
                          strempty(c->x11_layout),
@@ -1155,28 +1153,20 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         assert(_bus);
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get system bus connection: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get system bus connection: %m");
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register object: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register object: %m");
 
         r = sd_bus_request_name(bus, "org.freedesktop.locale1", 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(bus, event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach bus to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         *_bus = bus;
         bus = NULL;

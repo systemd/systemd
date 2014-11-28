@@ -189,10 +189,8 @@ static int on_runlevel(Context *c) {
         q = utmp_get_runlevel(&previous, NULL);
 
         if (q < 0) {
-                if (q != -ESRCH && q != -ENOENT) {
-                        log_error_errno(q, "Failed to get current runlevel: %m");
-                        return q;
-                }
+                if (q != -ESRCH && q != -ENOENT)
+                        return log_error_errno(q, "Failed to get current runlevel: %m");
 
                 previous = 0;
         }

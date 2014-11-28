@@ -755,10 +755,8 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         }
                 } else if (errno == ENOENT) {
                         r = mkdir_parents_label(where, 0755);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to bind mount %s: %m", *x);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind mount %s: %m", *x);
                 } else {
                         log_error("Failed to bind mount %s: %m", *x);
                         return -errno;
@@ -768,11 +766,8 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                  * and char devices. */
                 if (S_ISDIR(source_st.st_mode)) {
                         r = mkdir_label(where, 0755);
-                        if (r < 0 && errno != EEXIST) {
-                                log_error_errno(r, "Failed to create mount point %s: %m", where);
-
-                                return r;
-                        }
+                        if (r < 0 && errno != EEXIST)
+                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
                 } else if (S_ISFIFO(source_st.st_mode)) {
                         r = mkfifo(where, 0644);
                         if (r < 0 && errno != EEXIST) {
@@ -789,11 +784,8 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         }
                 } else if (S_ISREG(source_st.st_mode)) {
                         r = touch(where);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to create mount point %s: %m", where);
-
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
                 } else {
                         log_error("Refusing to create mountpoint for file: %s", *x);
                         return -ENOTSUP;
@@ -806,10 +798,8 @@ static int mount_binds(const char *dest, char **l, bool ro) {
 
                 if (ro) {
                         r = bind_remount_recursive(where, true);
-                        if (r < 0) {
-                                log_error_errno(r, "Read-Only bind mount failed: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Read-Only bind mount failed: %m");
                 }
         }
 
@@ -828,11 +818,8 @@ static int mount_tmpfs(const char *dest) {
                         return log_oom();
 
                 r = mkdir_label(where, 0755);
-                if (r < 0 && errno != EEXIST) {
-                        log_error_errno(r, "creating mount point for tmpfs %s failed: %m", where);
-
-                        return r;
-                }
+                if (r < 0 && errno != EEXIST)
+                        return log_error_errno(r, "creating mount point for tmpfs %s failed: %m", where);
 
                 if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0) {
                         log_error("tmpfs mount to %s failed: %m", where);
@@ -961,10 +948,8 @@ static int setup_volatile_state(const char *directory) {
            with a tmpfs, and the rest read-only. */
 
         r = bind_remount_recursive(directory, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to remount %s read-only: %m", directory);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to remount %s read-only: %m", directory);
 
         p = strappenda(directory, "/var");
         r = mkdir(p, 0755);
@@ -1080,18 +1065,14 @@ static int setup_boot_id(const char *dest) {
                 return log_oom();
 
         r = sd_id128_randomize(&rnd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate random boot id: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate random boot id: %m");
 
         id128_format_as_uuid(rnd, as_uuid);
 
         r = write_string_file(from, as_uuid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write boot id: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write boot id: %m");
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
                 log_error("Failed to bind mount boot id: %m");
@@ -1192,10 +1173,8 @@ static int setup_dev_console(const char *dest, const char *console) {
         }
 
         r = chmod_and_chown(console, 0600, 0, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to correct access mode for TTY: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to correct access mode for TTY: %m");
 
         /* We need to bind mount the right tty to /dev/console since
          * ptys can only exist on pts file systems. To have something
@@ -1255,10 +1234,8 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         }
 
         r = chmod_and_chown(from, 0600, 0, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to correct access mode for /dev/kmsg: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to correct access mode for /dev/kmsg: %m");
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
                 log_error("Bind mount for /proc/kmsg failed: %m");
@@ -1318,10 +1295,8 @@ static int setup_journal(const char *directory) {
         r = read_one_line_file(p, &b);
         if (r == -ENOENT && arg_link_journal == LINK_AUTO)
                 return 0;
-        else if (r < 0) {
-                log_error_errno(r, "Failed to read machine ID from %s: %m", p);
-                return r;
-        }
+        else if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID from %s: %m", p);
 
         id = strstrip(b);
         if (isempty(id) && arg_link_journal == LINK_AUTO)
@@ -1329,16 +1304,12 @@ static int setup_journal(const char *directory) {
 
         /* Verify validity */
         r = sd_id128_from_string(id, &machine_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse machine ID from %s: %m", p);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse machine ID from %s: %m", p);
 
         r = sd_id128_get_machine(&this_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to retrieve machine ID: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve machine ID: %m");
 
         if (sd_id128_equal(machine_id, this_id)) {
                 log_full(arg_link_journal == LINK_AUTO ? LOG_WARNING : LOG_ERR,
@@ -1475,10 +1446,8 @@ static int register_machine(pid_t pid, int local_ifindex) {
                 return 0;
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open system bus: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open system bus: %m");
 
         if (arg_keep_unit) {
                 r = sd_bus_call_method(
@@ -1507,10 +1476,8 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                 "/org/freedesktop/machine1",
                                 "org.freedesktop.machine1.Manager",
                                 "CreateMachineWithNetwork");
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create message: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create message: %m");
 
                 r = sd_bus_message_append(
                                 m,
@@ -1522,30 +1489,22 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                 (uint32_t) pid,
                                 strempty(arg_directory),
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to append message arguments: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append message arguments: %m");
 
                 r = sd_bus_message_open_container(m, 'a', "(sv)");
-                if (r < 0) {
-                        log_error_errno(r, "Failed to open container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open container: %m");
 
                 if (!isempty(arg_slice)) {
                         r = sd_bus_message_append(m, "(sv)", "Slice", "s", arg_slice);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to append slice: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append slice: %m");
                 }
 
                 r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add device policy: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add device policy: %m");
 
                 r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 9,
                                           /* Allow the container to
@@ -1568,16 +1527,12 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                            * these device nodes. */
                                           "/dev/pts/ptmx", "rw",
                                           "char-pts", "rw");
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add device whitelist: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add device whitelist: %m");
 
                 r = sd_bus_message_close_container(m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to close container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close container: %m");
 
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }
@@ -1601,10 +1556,8 @@ static int terminate_machine(pid_t pid) {
                 return 0;
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open system bus: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open system bus: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -1655,10 +1608,8 @@ static int reset_audit_loginuid(void) {
         r = read_one_line_file("/proc/self/loginuid", &p);
         if (r == -ENOENT)
                 return 0;
-        if (r < 0) {
-                log_error_errno(r, "Failed to read /proc/self/loginuid: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read /proc/self/loginuid: %m");
 
         /* Already reset? */
         if (streq(p, "4294967295"))
@@ -1745,88 +1696,60 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         }
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate netlink message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate netlink message: %m");
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink interface name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink interface name: %m");
 
         r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_host);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink MAC address: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
         r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open netlink container: %m");
 
         r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "veth");
-        if (r < 0) {
-                log_error_errno(r, "Failed to open netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open netlink container: %m");
 
         r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open netlink container: %m");
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink interface name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink interface name: %m");
 
         r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac_container);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink MAC address: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
         r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink namespace field: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
         r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to close netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to close netlink container: %m");
 
         r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to close netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to close netlink container: %m");
 
         r = sd_rtnl_message_close_container(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to close netlink container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to close netlink container: %m");
 
         r = sd_rtnl_call(rtnl, m, 0, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add new veth interfaces: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add new veth interfaces: %m");
 
         i = (int) if_nametoindex(iface_name);
         if (i <= 0) {
@@ -1862,40 +1785,28 @@ static int setup_bridge(const char veth_name[], int *ifi) {
         *ifi = bridge;
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate netlink message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate netlink message: %m");
 
         r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set IFF_UP flag: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set IFF_UP flag: %m");
 
         r = sd_rtnl_message_append_string(m, IFLA_IFNAME, veth_name);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink interface name field: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink interface name field: %m");
 
         r = sd_rtnl_message_append_u32(m, IFLA_MASTER, bridge);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add netlink master field: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add netlink master field: %m");
 
         r = sd_rtnl_call(rtnl, m, 0, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add veth interface to bridge: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add veth interface to bridge: %m");
 
         return 0;
 }
@@ -1939,10 +1850,8 @@ static int move_network_interfaces(pid_t pid) {
                 return 0;
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
         if (!udev) {
@@ -1959,22 +1868,16 @@ static int move_network_interfaces(pid_t pid) {
                         return ifi;
 
                 r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, ifi);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate netlink message: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate netlink message: %m");
 
                 r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to append namespace PID to netlink message: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append namespace PID to netlink message: %m");
 
                 r = sd_rtnl_call(rtnl, m, 0, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
         }
 
         return 0;
@@ -1993,10 +1896,8 @@ static int setup_macvlan(pid_t pid) {
                 return 0;
 
         r = sd_rtnl_open(&rtnl, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to netlink: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
 
         udev = udev_new();
         if (!udev) {
@@ -2014,16 +1915,12 @@ static int setup_macvlan(pid_t pid) {
                         return ifi;
 
                 r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate netlink message: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate netlink message: %m");
 
                 r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add netlink interface index: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface index: %m");
 
                 n = strappend("mv-", *i);
                 if (!n)
@@ -2032,52 +1929,36 @@ static int setup_macvlan(pid_t pid) {
                 strshorten(n, IFNAMSIZ-1);
 
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add netlink interface name: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name: %m");
 
                 r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add netlink namespace field: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
                 r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to open netlink container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
 
                 r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "macvlan");
-                if (r < 0) {
-                        log_error_errno(r, "Failed to open netlink container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
 
                 r = sd_rtnl_message_append_u32(m, IFLA_MACVLAN_MODE, MACVLAN_MODE_BRIDGE);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to append macvlan mode: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append macvlan mode: %m");
 
                 r = sd_rtnl_message_close_container(m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to close netlink container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
 
                 r = sd_rtnl_message_close_container(m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to close netlink container: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
 
                 r = sd_rtnl_call(rtnl, m, 0, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add new macvlan interfaces: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add new macvlan interfaces: %m");
         }
 
         return 0;
@@ -2349,10 +2230,8 @@ static int dissect_image(
                 return log_oom();
 
         r = udev_enumerate_scan_devices(e);
-        if (r < 0) {
-                log_error_errno(r, "Failed to scan for partition devices of %s: %m", arg_image);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to scan for partition devices of %s: %m", arg_image);
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
@@ -2580,26 +2459,20 @@ static int mount_devices(
 
         if (root_device) {
                 r = mount_device(root_device, arg_directory, NULL, root_device_rw);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to mount root directory: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount root directory: %m");
         }
 
         if (home_device) {
                 r = mount_device(home_device, arg_directory, "/home", home_device_rw);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to mount home directory: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount home directory: %m");
         }
 
         if (srv_device) {
                 r = mount_device(srv_device, arg_directory, "/srv", srv_device_rw);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to mount server data directory: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount server data directory: %m");
         }
 
         return 0;
@@ -2856,16 +2729,12 @@ static int change_uid_gid(char **_home) {
         }
 
         r = mkdir_parents(home, 0775);
-        if (r < 0) {
-                log_error_errno(r, "Failed to make home root directory: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to make home root directory: %m");
 
         r = mkdir_safe(home, 0755, uid, gid);
-        if (r < 0 && r != -EEXIST) {
-                log_error_errno(r, "Failed to make home directory: %m");
-                return r;
-        }
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to make home directory: %m");
 
         fchown(STDIN_FILENO, uid, gid);
         fchown(STDOUT_FILENO, uid, gid);
@@ -2916,10 +2785,8 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
         int r;
 
         r = wait_for_terminate(pid, &status);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to wait for container: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to wait for container: %m");
 
         switch (status.si_code) {
 
@@ -3545,10 +3412,8 @@ int main(int argc, char *argv[]) {
                         }
 
                         r = sd_event_loop(event);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to run event loop: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to run event loop: %m");
 
                         forward = pty_forward_free(forward);
 

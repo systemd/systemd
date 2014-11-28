@@ -3795,10 +3795,8 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         assert(pid > 1);
 
         r = wait_for_terminate(pid, &status);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to wait for %s: %m", name);
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to wait for %s: %m", name);
 
         if (status.si_code == CLD_EXITED) {
                 if (status.si_status != 0) {
@@ -5506,16 +5504,12 @@ int make_console_stdio(void) {
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
         fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
-        if (fd < 0) {
-                log_error_errno(fd, "Failed to acquire terminal: %m");
-                return fd;
-        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to acquire terminal: %m");
 
         r = make_stdio(fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to duplicate terminal fd: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to duplicate terminal fd: %m");
 
         return 0;
 }

@@ -310,10 +310,8 @@ static int user_mkdir_runtime_path(User *u) {
         assert(u);
 
         r = mkdir_safe_label("/run/user", 0755, 0, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create /run/user: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/user: %m");
 
         if (!u->runtime_path) {
                 if (asprintf(&p, "/run/user/" UID_FMT, u->uid) < 0)

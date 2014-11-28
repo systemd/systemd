@@ -363,10 +363,8 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         assert(n == 1);
 
         r = get_timezones(&zones);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read list of time zones: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of time zones: %m");
 
         pager_open_if_enabled();
         strv_print(zones);

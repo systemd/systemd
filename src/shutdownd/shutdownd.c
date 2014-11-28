@@ -203,20 +203,16 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
         assert(c);
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create shutdown subdirectory: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
 
         t = cescape(c->wall_message);
         if (!t)
                 return log_oom();
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
-        if (r < 0) {
-                log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
 
         fchmod(fileno(f), 0644);
 

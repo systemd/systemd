@@ -355,10 +355,8 @@ int manager_udev_listen(Manager *m) {
         assert(m->udev_monitor);
 
         r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
-        if (r < 0) {
-                log_error_errno(r, "Could not add udev monitor filter: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not add udev monitor filter: %m");
 
         r = udev_monitor_enable_receiving(m->udev_monitor);
         if (r < 0) {

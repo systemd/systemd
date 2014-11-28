@@ -187,10 +187,8 @@ static int manager_send_request(Manager *m) {
 
         if (m->server_socket < 0) {
                 r = manager_listen_setup(m);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to setup connection socket: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to setup connection socket: %m");
         }
 
         /*
@@ -225,10 +223,8 @@ static int manager_send_request(Manager *m) {
                 m->retry_interval = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         r = manager_arm_timer(m, m->retry_interval);
-        if (r < 0) {
-                log_error_errno(r, "Failed to rearm timer: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearm timer: %m");
 
         m->missed_replies++;
         if (m->missed_replies > NTP_MAX_MISSED_REPLIES) {
@@ -238,10 +234,8 @@ static int manager_send_request(Manager *m) {
                                 clock_boottime_or_monotonic(),
                                 now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
                                 manager_timeout, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to arm timeout timer: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to arm timeout timer: %m");
         }
 
         return 0;
@@ -328,10 +322,8 @@ static int manager_clock_watch_setup(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create clock watch event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create clock watch event source: %m");
 
         return 0;
 }
@@ -698,10 +690,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
-        if (r < 0) {
-                log_error_errno(r, "Failed to rearm timer: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearm timer: %m");
 
         return 0;
 }
@@ -826,10 +816,8 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 }
 
                 r = server_address_new(m->current_server_name, &a, (const union sockaddr_union*) ai->ai_addr, ai->ai_addrlen);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add server address: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add server address: %m");
 
                 server_address_pretty(a, &pretty);
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
@@ -867,10 +855,8 @@ int manager_connect(Manager *m) {
                 log_debug("Slowing down attempts to contact servers.");
 
                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create retry timer: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create retry timer: %m");
 
                 return 0;
         }
@@ -923,10 +909,8 @@ int manager_connect(Manager *m) {
                         if (restart && !m->exhausted_servers && m->poll_interval_usec) {
                                 log_debug("Waiting after exhausting servers.");
                                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + m->poll_interval_usec, 0, manager_retry_connect, m);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to create retry timer: %m");
-                                        return r;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create retry timer: %m");
 
                                 m->exhausted_servers = true;
 
@@ -952,10 +936,8 @@ int manager_connect(Manager *m) {
                 log_debug("Resolving %s...", m->current_server_name->string);
 
                 r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create resolver: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create resolver: %m");
 
                 return 1;
         }

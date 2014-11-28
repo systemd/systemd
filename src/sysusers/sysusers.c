@@ -919,10 +919,8 @@ static int add_user(Item *i) {
         /* Try to use the suggested numeric uid */
         if (i->uid_set) {
                 r = uid_is_ok(i->uid, i->name);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                 if (r == 0) {
                         log_debug("Suggested user ID " UID_FMT " for %s already used.", i->uid, i->name);
                         i->uid_set = false;
@@ -939,10 +937,9 @@ static int add_user(Item *i) {
                                 log_debug("User ID " UID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = uid_is_ok(c, i->name);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
-                                        return r;
-                                } else if (r > 0) {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                else if (r > 0) {
                                         i->uid = c;
                                         i->uid_set = true;
                                 } else
@@ -954,10 +951,8 @@ static int add_user(Item *i) {
         /* Otherwise try to reuse the group ID */
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                 if (r > 0) {
                         i->uid = (uid_t) i->gid;
                         i->uid_set = true;
@@ -974,10 +969,9 @@ static int add_user(Item *i) {
                         }
 
                         r = uid_is_ok(search_uid, i->name);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
-                                return r;
-                        } else if (r > 0)
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        else if (r > 0)
                                 break;
                 }
 
@@ -1071,10 +1065,8 @@ static int add_group(Item *i) {
         /* Try to use the suggested numeric gid */
         if (i->gid_set) {
                 r = gid_is_ok(i->gid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                 if (r == 0) {
                         log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
                         i->gid_set = false;
@@ -1084,10 +1076,8 @@ static int add_group(Item *i) {
         /* Try to reuse the numeric uid, if there's one */
         if (!i->gid_set && i->uid_set) {
                 r = gid_is_ok((gid_t) i->uid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                 if (r > 0) {
                         i->gid = (gid_t) i->uid;
                         i->gid_set = true;
@@ -1104,10 +1094,9 @@ static int add_group(Item *i) {
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = gid_is_ok(c);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
-                                        return r;
-                                } else if (r > 0) {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                else if (r > 0) {
                                         i->gid = c;
                                         i->gid_set = true;
                                 } else
@@ -1127,10 +1116,9 @@ static int add_group(Item *i) {
                         }
 
                         r = gid_is_ok(search_uid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
-                                return r;
-                        } else if (r > 0)
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        else if (r > 0)
                                 break;
                 }
 

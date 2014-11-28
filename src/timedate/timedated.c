@@ -649,28 +649,20 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         assert(_bus);
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get system bus connection: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get system bus connection: %m");
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register object: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register object: %m");
 
         r = sd_bus_request_name(bus, "org.freedesktop.timedate1", 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(bus, event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach bus to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         *_bus = bus;
         bus = NULL;

@@ -653,10 +653,8 @@ static int setup_microhttpd_server(RemoteServer *s,
         assert(fd >= 0);
 
         r = fd_nonblock(fd, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
 
         if (key) {
                 assert(cert);

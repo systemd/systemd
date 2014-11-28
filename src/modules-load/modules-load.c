@@ -81,10 +81,8 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
         log_debug("load: %s", m);
 
         r = kmod_module_new_from_lookup(ctx, m, &modlist);
-        if (r < 0) {
-                log_error_errno(r, "Failed to lookup alias '%s': %m", m);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lookup alias '%s': %m", m);
 
         if (!modlist) {
                 log_error("Failed to find module '%s'", m);

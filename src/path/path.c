@@ -108,10 +108,8 @@ static int print_home(const char *n) {
                         _cleanup_free_ char *p = NULL;
 
                         r = sd_path_home(i, arg_suffix, &p);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to query %s: %m", n);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to query %s: %m", n);
 
                         printf("%s\n", p);
                         return 0;

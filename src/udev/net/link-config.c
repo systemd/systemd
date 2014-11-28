@@ -202,10 +202,8 @@ int link_config_load(link_config_ctx *ctx) {
         paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, true);
 
         r = conf_files_list_strv(&files, ".link", NULL, link_dirs);
-        if (r < 0) {
-                log_error_errno(r, "failed to enumerate link files: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "failed to enumerate link files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = load_link(ctx, *f);
@@ -421,10 +419,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
                                      config->mtu);
-        if (r < 0) {
-                log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
 
         *name = new_name;
 

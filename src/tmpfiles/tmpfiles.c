@@ -710,10 +710,8 @@ static int create_item(Item *i) {
                 }
 
                 if (r < 0) {
-                        if (r != -EEXIST) {
-                                log_error_errno(r, "Failed to create directory %s: %m", i->path);
-                                return r;
-                        }
+                        if (r != -EEXIST)
+                                return log_error_errno(r, "Failed to create directory %s: %m", i->path);
 
                         if (stat(i->path, &st) < 0) {
                                 log_error("stat(%s) failed: %m", i->path);
@@ -761,10 +759,8 @@ static int create_item(Item *i) {
                                                 mac_selinux_create_file_clear();
                                         }
 
-                                        if (r < 0) {
-                                                log_error_errno(r, "Failed to create fifo %s: %m", i->path);
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
                                 } else {
                                         log_debug("%s is not a fifo.", i->path);
                                         return 0;
@@ -800,10 +796,8 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
-                                        if (r < 0) {
-                                                log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
                                 } else {
                                         log_debug("%s is not a symlink or does not point to the correct path.", i->path);
                                         return 0;
@@ -862,10 +856,8 @@ static int create_item(Item *i) {
                                                 mac_selinux_create_file_clear();
                                         }
 
-                                        if (r < 0) {
-                                                log_error_errno(r, "Failed to create device node %s: %m", i->path);
-                                                return r;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to create device node %s: %m", i->path);
                                 } else {
                                         log_debug("%s is not a device node.", i->path);
                                         return 0;
@@ -938,10 +930,8 @@ static int remove_item_instance(Item *i, const char *instance) {
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
                 r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
-                if (r < 0 && r != -ENOENT) {
-                        log_error_errno(r, "rm_rf(%s): %m", instance);
-                        return r;
-                }
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "rm_rf(%s): %m", instance);
 
                 break;
         }
@@ -1397,10 +1387,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         r = hashmap_put(h, i->path, i);
-        if (r < 0) {
-                log_error_errno(r, "Failed to insert item %s: %m", i->path);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to insert item %s: %m", i->path);
 
         i = NULL; /* avoid cleanup */
 

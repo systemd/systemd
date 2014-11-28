@@ -137,28 +137,20 @@ static int manager_connect_bus(Manager *m) {
         assert(!m->bus);
 
         r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to system bus: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add manager object vtable: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add manager object vtable: %m");
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add machine object vtable: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add machine object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add machine enumerator: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add machine enumerator: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -169,10 +161,8 @@ static int manager_connect_bus(Manager *m) {
                              "path='/org/freedesktop/systemd1'",
                              match_job_removed,
                              m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match for JobRemoved: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for JobRemoved: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -183,10 +173,8 @@ static int manager_connect_bus(Manager *m) {
                              "path='/org/freedesktop/systemd1'",
                              match_unit_removed,
                              m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match for UnitRemoved: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for UnitRemoved: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -196,10 +184,8 @@ static int manager_connect_bus(Manager *m) {
                              "member='PropertiesChanged'",
                              match_properties_changed,
                              m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match for PropertiesChanged: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for PropertiesChanged: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,
@@ -210,10 +196,8 @@ static int manager_connect_bus(Manager *m) {
                              "path='/org/freedesktop/systemd1'",
                              match_reloading,
                              m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match for Reloading: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for Reloading: %m");
 
         r = sd_bus_call_method(
                         m->bus,
@@ -229,16 +213,12 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach bus to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         return 0;
 }

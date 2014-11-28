@@ -414,10 +414,8 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
                                    path,
                                    map,
                                    &info);
-        if (r < 0) {
-                log_error_errno(r, "Could not get properties: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
 
         if (*new_line)
                 printf("\n");
@@ -681,16 +679,12 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         }
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
 
         r = sd_bus_attach_event(bus, event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach bus to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -719,20 +713,16 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                         &error,
                         &reply2,
                         "u");
-        if (r < 0) {
-                log_error_errno(r, "Failed to retrieve PID of leader: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve PID of leader: %m");
 
         r = sd_bus_message_read(reply2, "u", &leader);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
-        if (master < 0) {
-                log_error_errno(master, "Failed to acquire pseudo tty: %m");
-                return master;
-        }
+        if (master < 0)
+                return log_error_errno(master, "Failed to acquire pseudo tty: %m");
 
         pty = ptsname(master);
         if (!pty) {
@@ -747,10 +737,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         }
 
         r = sd_bus_open_system_container(&container_bus, args[1]);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get container bus: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get container bus: %m");
 
         getty = strjoin("container-getty@", p, ".service", NULL);
         if (!getty)
@@ -785,16 +773,12 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
         r = pty_forward_new(event, master, &forward);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create PTY forwarder: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
         r = sd_event_loop(event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
         forward = pty_forward_free(forward);
 

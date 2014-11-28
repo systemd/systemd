@@ -720,31 +720,23 @@ int manager_connect_bus(Manager *m) {
                 log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
 
                 r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to install bus reconnect time event: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
 
                 return 0;
         }
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", resolve_vtable, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register object: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register object: %m");
 
         r = sd_bus_request_name(m->bus, "org.freedesktop.resolve1", 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach bus to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
                              "type='signal',"

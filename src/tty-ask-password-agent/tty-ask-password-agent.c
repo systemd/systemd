@@ -338,10 +338,8 @@ static int parse_password(const char *filename, char **wall) {
                         /* If the query went away, that's OK */
                         return 0;
 
-                if (r < 0) {
-                        log_error_errno(r, "Failed to query password: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query password: %m");
 
                 socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
                 if (socket_fd < 0) {

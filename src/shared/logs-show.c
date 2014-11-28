@@ -295,10 +295,8 @@ static int output_short(
                 if (r < 0)
                         r = sd_journal_get_monotonic_usec(j, &t, &boot_id);
 
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get monotonic timestamp: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
                 fprintf(f, "[%5llu.%06llu]",
                         (unsigned long long) (t / USEC_PER_SEC),
@@ -322,10 +320,8 @@ static int output_short(
                 if (r < 0)
                         r = sd_journal_get_realtime_usec(j, &x);
 
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get realtime timestamp: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
                 t = (time_t) (x / USEC_PER_SEC);
 
@@ -440,10 +436,8 @@ static int output_verbose(
         }
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get cursor: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cursor: %m");
 
         fprintf(f, "%s [%s]\n",
                 flags & OUTPUT_UTC ?
@@ -515,22 +509,16 @@ static int output_export(
         sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get realtime timestamp: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         r = sd_journal_get_monotonic_usec(j, &monotonic, &boot_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get monotonic timestamp: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get cursor: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cursor: %m");
 
         fprintf(f,
                 "__CURSOR=%s\n"
@@ -655,22 +643,16 @@ static int output_json(
         sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get realtime timestamp: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         r = sd_journal_get_monotonic_usec(j, &monotonic, &boot_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get monotonic timestamp: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get cursor: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cursor: %m");
 
         if (mode == OUTPUT_JSON_PRETTY)
                 fprintf(f,
@@ -1224,24 +1206,18 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 
         if (machine) {
                 r = get_boot_id_for_machine(machine, &boot_id);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get boot id of container %s: %m", machine);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot id of container %s: %m", machine);
         } else {
                 r = sd_id128_get_boot(&boot_id);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get boot id: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot id: %m");
         }
 
         sd_id128_to_string(boot_id, match + 9);
         r = sd_journal_add_match(j, match, strlen(match));
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)

@@ -113,20 +113,16 @@ int route_drop(Route *route, Link *link,
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
                                       route->protocol);
-        if (r < 0) {
-                log_error_errno(r, "Could not create RTM_DELROUTE message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not create RTM_DELROUTE message: %m");
 
         if (!in_addr_is_null(route->family, &route->in_addr)) {
                 if (route->family == AF_INET)
                         r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &route->in_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_GATEWAY, &route->in_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
         }
 
         if (route->dst_prefixlen) {
@@ -134,16 +130,12 @@ int route_drop(Route *route, Link *link,
                         r = sd_rtnl_message_append_in_addr(req, RTA_DST, &route->dst_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_DST, &route->dst_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_DST attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_DST attribute: %m");
 
                 r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
-                if (r < 0) {
-                        log_error_errno(r, "Could not set destination prefix length: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
         if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
@@ -151,35 +143,25 @@ int route_drop(Route *route, Link *link,
                         r = sd_rtnl_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
         }
 
         r = sd_rtnl_message_route_set_scope(req, route->scope);
-        if (r < 0) {
-                log_error_errno(r, "Could not set scope: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not set scope: %m");
 
         r = sd_rtnl_message_append_u32(req, RTA_PRIORITY, route->metrics);
-        if (r < 0) {
-                log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
         r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
-        if (r < 0) {
-                log_error_errno(r, "Could not append RTA_OIF attribute: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Could not send rtnetlink message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
@@ -200,20 +182,16 @@ int route_configure(Route *route, Link *link,
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_NEWROUTE, route->family,
                                       route->protocol);
-        if (r < 0) {
-                log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
 
         if (!in_addr_is_null(route->family, &route->in_addr)) {
                 if (route->family == AF_INET)
                         r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &route->in_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_GATEWAY, &route->in_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
         }
 
         if (route->dst_prefixlen) {
@@ -221,16 +199,12 @@ int route_configure(Route *route, Link *link,
                         r = sd_rtnl_message_append_in_addr(req, RTA_DST, &route->dst_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_DST, &route->dst_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_DST attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_DST attribute: %m");
 
                 r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
-                if (r < 0) {
-                        log_error_errno(r, "Could not set destination prefix length: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
         if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
@@ -238,35 +212,25 @@ int route_configure(Route *route, Link *link,
                         r = sd_rtnl_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in);
                 else if (route->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in6);
-                if (r < 0) {
-                        log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
         }
 
         r = sd_rtnl_message_route_set_scope(req, route->scope);
-        if (r < 0) {
-                log_error_errno(r, "Could not set scope: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not set scope: %m");
 
         r = sd_rtnl_message_append_u32(req, RTA_PRIORITY, route->metrics);
-        if (r < 0) {
-                log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
         r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
-        if (r < 0) {
-                log_error_errno(r, "Could not append RTA_OIF attribute: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Could not send rtnetlink message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 

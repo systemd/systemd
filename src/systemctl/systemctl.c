@@ -1906,10 +1906,8 @@ static int get_default(sd_bus *bus, char **args) {
 
         if (!bus || avoid_bus()) {
                 r = unit_file_get_default(arg_scope, arg_root, &_path);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get default target: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get default target: %m");
                 path = _path;
 
         } else {
@@ -1989,10 +1987,8 @@ static int set_default(sd_bus *bus, char **args) {
 
         if (!bus || avoid_bus()) {
                 r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set default target: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set default target: %m");
 
                 if (!arg_quiet)
                         dump_unit_file_changes(changes, n_changes);
@@ -2200,10 +2196,8 @@ static int cancel_job(sd_bus *bus, char **args) {
                 int q;
 
                 q = safe_atou32(*name, &id);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
-                        return q;
-                }
+                if (q < 0)
+                        return log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
 
                 q = sd_bus_message_new_method_call(
                                 bus,
@@ -2431,10 +2425,8 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
 
         while (!set_isempty(s)) {
                 q = bus_process_wait(bus);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to wait for response: %m");
-                        return q;
-                }
+                if (q < 0)
+                        return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d.result) {
                         q = check_wait_response(&d);
@@ -2560,10 +2552,8 @@ static int check_triggering_units(
 
         STRV_FOREACH(i, triggered_by) {
                 r = check_one_unit(bus, *i, "active\0reloading\0", true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check unit: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check unit: %m");
 
                 if (r == 0)
                         continue;
@@ -2812,10 +2802,8 @@ static int start_unit(sd_bus *bus, char **args) {
 
         if (!arg_no_block) {
                 r = enable_wait_for_jobs(bus);
-                if (r < 0) {
-                        log_error_errno(r, "Could not watch jobs: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
 
                 s = set_new(&string_hash_ops);
                 if (!s)
@@ -3074,10 +3062,8 @@ static int check_unit_generic(sd_bus *bus, int code, const char *good_states, ch
         assert(args);
 
         r = expand_names(bus, args, NULL, &names);
-        if (r < 0) {
-                log_error_errno(r, "Failed to expand names: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
                 int state;
@@ -4438,10 +4424,8 @@ static int show_system_status(sd_bus *bus) {
                 return log_oom();
 
         r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &mi);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read server status: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read server status: %m");
 
         if (streq_ptr(mi.state, "degraded")) {
                 on = ansi_highlight_red();
@@ -5509,10 +5493,8 @@ static int add_dependency(sd_bus *bus, char **args) {
 
                 r = unit_file_add_dependency(arg_scope, arg_runtime, arg_root, names, target, dep, arg_force, &changes, &n_changes);
 
-                if (r < 0) {
-                        log_error_errno(r, "Can't add dependency: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Can't add dependency: %m");
 
                 if (!arg_quiet)
                         dump_unit_file_changes(changes, n_changes);
@@ -5655,10 +5637,8 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                         UnitFileState state;
 
                         state = unit_file_get_state(arg_scope, arg_root, *name);
-                        if (state < 0) {
-                                log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
-                                return state;
-                        }
+                        if (state < 0)
+                                return log_error_errno(state, "Failed to get unit file state for %s: %m", *name);
 
                         if (state == UNIT_FILE_ENABLED ||
                             state == UNIT_FILE_ENABLED_RUNTIME ||
