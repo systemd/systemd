@@ -539,7 +539,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_packet_extract(p);
         if (r < 0) {
-                log_debug("Failed to extract resources from incoming packet: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to extract resources from incoming packet: %m");
                 return;
         }
 
@@ -551,7 +551,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_zone_lookup(&s->zone, p->question, &answer, &soa, &tentative);
         if (r < 0) {
-                log_debug("Failed to lookup key: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to lookup key: %m");
                 return;
         }
         if (r == 0)
@@ -562,7 +562,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, tentative, &reply);
         if (r < 0) {
-                log_debug("Failed to build reply packet: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to build reply packet: %m");
                 return;
         }
 
@@ -581,7 +581,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                         return;
                 }
                 if (fd < 0) {
-                        log_debug("Failed to get reply socket: %s", strerror(-fd));
+                        log_debug_errno(-fd, "Failed to get reply socket: %m");
                         return;
                 }
 
@@ -594,7 +594,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 
         if (r < 0) {
-                log_debug("Failed to send reply packet: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to send reply packet: %m");
                 return;
         }
 }
@@ -688,13 +688,13 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
 
                 r = dns_scope_make_conflict_packet(scope, rr, &p);
                 if (r < 0) {
-                        log_error("Failed to make conflict packet: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to make conflict packet: %m");
                         return 0;
                 }
 
                 r = dns_scope_emit(scope, p);
                 if (r < 0)
-                        log_debug("Failed to send conflict packet: %s", strerror(-r));
+                        log_debug_errno(-r, "Failed to send conflict packet: %m");
         }
 
         return 0;
@@ -722,7 +722,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (r == -EEXIST || r == 0)
                 return 0;
         if (r < 0) {
-                log_debug("Failed to queue conflicting RR: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to queue conflicting RR: %m");
                 return r;
         }
 
@@ -741,7 +741,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
                               LLMNR_JITTER_INTERVAL_USEC,
                               on_conflict_dispatch, scope);
         if (r < 0) {
-                log_debug("Failed to add conflict dispatch event: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to add conflict dispatch event: %m");
                 return r;
         }
 
@@ -772,7 +772,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
         r = dns_packet_extract(p);
         if (r < 0) {
-                log_debug("Failed to extract packet: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to extract packet: %m");
                 return;
         }
 

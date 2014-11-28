@@ -304,7 +304,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                                 r = mac_selinux_apply(devnode, label);
                                 if (r < 0)
-                                        log_error("SECLABEL: failed to set SELinux label '%s': %s", label, strerror(-r));
+                                        log_error_errno(-r, "SECLABEL: failed to set SELinux label '%s': %m", label);
                                 else
                                         log_debug("SECLABEL: set SELinux label '%s'", label);
 
@@ -313,7 +313,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                                 r = mac_smack_apply(devnode, label);
                                 if (r < 0)
-                                        log_error("SECLABEL: failed to set SMACK label '%s': %s", label, strerror(-r));
+                                        log_error_errno(-r, "SECLABEL: failed to set SMACK label '%s': %m", label);
                                 else
                                         log_debug("SECLABEL: set SMACK label '%s'", label);
 

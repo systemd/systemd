@@ -823,7 +823,7 @@ static int setup_pam(
                  * If this fails, ignore the error - but expect sd-pam threads
                  * to fail to exit normally */
                 if (setresuid(uid, uid, uid) < 0)
-                        log_error("Error: Failed to setresuid() in sd-pam: %s", strerror(-r));
+                        log_error_errno(-r, "Error: Failed to setresuid() in sd-pam: %m");
 
                 /* Wait until our parent died. This will only work if
                  * the above setresuid() succeeds, otherwise the kernel
@@ -2819,7 +2819,7 @@ void exec_runtime_destroy(ExecRuntime *rt) {
 
                 r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
                 if (r < 0) {
-                        log_warning("Failed to nuke %s: %s", rt->tmp_dir, strerror(-r));
+                        log_warning_errno(-r, "Failed to nuke %s: %m", rt->tmp_dir);
                         free(rt->tmp_dir);
                 }
 
@@ -2831,7 +2831,7 @@ void exec_runtime_destroy(ExecRuntime *rt) {
 
                 r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
                 if (r < 0) {
-                        log_warning("Failed to nuke %s: %s", rt->var_tmp_dir, strerror(-r));
+                        log_warning_errno(-r, "Failed to nuke %s: %m", rt->var_tmp_dir);
                         free(rt->var_tmp_dir);
                 }
 

@@ -962,7 +962,7 @@ static void kernel_cmdline_options(struct udev *udev) {
 
         r = proc_cmdline(&line);
         if (r < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to read /proc/cmdline, ignoring: %m");
                 return;
         }
 
@@ -1135,7 +1135,7 @@ int main(int argc, char *argv[]) {
 
         r = mac_selinux_init("/dev");
         if (r < 0) {
-                log_error("could not initialize labelling: %s", strerror(-r));
+                log_error_errno(-r, "could not initialize labelling: %m");
                 goto exit;
         }
 
@@ -1239,7 +1239,7 @@ int main(int argc, char *argv[]) {
 
         rc = udev_rules_apply_static_dev_perms(rules);
         if (rc < 0)
-                log_error("failed to apply permissions on static device nodes - %s", strerror(-rc));
+                log_error_errno(-rc, "failed to apply permissions on static device nodes - %m");
 
         if (arg_daemonize) {
                 pid_t pid;

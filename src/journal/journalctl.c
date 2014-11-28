@@ -502,7 +502,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg);
                         if (r < 0) {
-                                log_error("Failed to add paths: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to add paths: %m");
                                 return r;
                         };
                         break;
@@ -750,7 +750,7 @@ static int generate_new_id128(void) {
 
         r = sd_id128_randomize(&id);
         if (r < 0) {
-                log_error("Failed to generate ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to generate ID: %m");
                 return r;
         }
 
@@ -852,7 +852,7 @@ static int add_matches(sd_journal *j, char **args) {
                 }
 
                 if (r < 0) {
-                        log_error("Failed to add match '%s': %s", *i, strerror(-r));
+                        log_error_errno(-r, "Failed to add match '%s': %m", *i);
                         return r;
                 }
         }
@@ -1030,7 +1030,7 @@ static int add_boot(sd_journal *j) {
         r = get_boot_id_by_offset(j, &arg_boot_id, arg_boot_offset);
         if (r < 0) {
                 if (sd_id128_equal(arg_boot_id, SD_ID128_NULL))
-                        log_error("Failed to look up boot %+i: %s", arg_boot_offset, strerror(-r));
+                        log_error_errno(-r, "Failed to look up boot %+i: %m", arg_boot_offset);
                 else
                         log_error("Failed to look up boot ID "SD_ID128_FORMAT_STR"%+i: %s",
                                   SD_ID128_FORMAT_VAL(arg_boot_id), arg_boot_offset, strerror(-r));
@@ -1041,7 +1041,7 @@ static int add_boot(sd_journal *j) {
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0) {
-                log_error("Failed to add match: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add match: %m");
                 return r;
         }
 
@@ -1061,7 +1061,7 @@ static int add_dmesg(sd_journal *j) {
 
         r = sd_journal_add_match(j, "_TRANSPORT=kernel", strlen("_TRANSPORT=kernel"));
         if (r < 0) {
-                log_error("Failed to add match: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add match: %m");
                 return r;
         }
 
@@ -1264,7 +1264,7 @@ static int add_priorities(sd_journal *j) {
 
                         r = sd_journal_add_match(j, match, strlen(match));
                         if (r < 0) {
-                                log_error("Failed to add match: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to add match: %m");
                                 return r;
                         }
                 }
@@ -1328,13 +1328,13 @@ static int setup_keys(void) {
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
-                log_error("Failed to get machine ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get machine ID: %m");
                 return r;
         }
 
         r = sd_id128_get_boot(&boot);
         if (r < 0) {
-                log_error("Failed to get boot ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get boot ID: %m");
                 return r;
         }
 
@@ -1683,7 +1683,7 @@ static int flush_to_var(void) {
          * daemon and set up inotify to wait for the flushed file to appear */
         r = bus_open_system_systemd(&bus);
         if (r < 0) {
-                log_error("Failed to get D-Bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get D-Bus connection: %m");
                 return r;
         }
 
@@ -1726,13 +1726,13 @@ static int flush_to_var(void) {
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
                 if (r < 0) {
-                        log_error("Failed to wait for event: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to wait for event: %m");
                         return r;
                 }
 
                 r = flush_fd(watch_fd);
                 if (r < 0) {
-                        log_error("Failed to flush inotify events: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to flush inotify events: %m");
                         return r;
                 }
         }
@@ -1789,7 +1789,7 @@ int main(int argc, char *argv[]) {
                 if (arg_action == ACTION_UPDATE_CATALOG) {
                         r = catalog_update(database, arg_root, catalog_file_dirs);
                         if (r < 0)
-                                log_error("Failed to list catalog: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to list catalog: %m");
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
@@ -1799,7 +1799,7 @@ int main(int argc, char *argv[]) {
                         else
                                 r = catalog_list(stdout, database, oneline);
                         if (r < 0)
-                                log_error("Failed to list catalog: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to list catalog: %m");
                 }
 
                 goto finish;
@@ -1859,7 +1859,7 @@ int main(int argc, char *argv[]) {
 
                         q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_time, NULL, true);
                         if (q < 0) {
-                                log_error("Failed to vacuum: %s", strerror(-q));
+                                log_error_errno(-q, "Failed to vacuum: %m");
                                 r = q;
                         }
                 }
@@ -1887,25 +1887,25 @@ int main(int argc, char *argv[]) {
         strv_free(arg_user_units);
 
         if (r < 0) {
-                log_error("Failed to add filter for units: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add filter for units: %m");
                 return EXIT_FAILURE;
         }
 
         r = add_syslog_identifier(j);
         if (r < 0) {
-                log_error("Failed to add filter for syslog identifiers: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add filter for syslog identifiers: %m");
                 return EXIT_FAILURE;
         }
 
         r = add_priorities(j);
         if (r < 0) {
-                log_error("Failed to add filter for priorities: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add filter for priorities: %m");
                 return EXIT_FAILURE;
         }
 
         r = add_matches(j, argv + optind);
         if (r < 0) {
-                log_error("Failed to add filters: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add filters: %m");
                 return EXIT_FAILURE;
         }
 
@@ -1928,7 +1928,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_query_unique(j, arg_field);
                 if (r < 0) {
-                        log_error("Failed to query unique data objects: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to query unique data objects: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -1960,7 +1960,7 @@ int main(int argc, char *argv[]) {
         if (arg_cursor || arg_after_cursor) {
                 r = sd_journal_seek_cursor(j, arg_cursor ?: arg_after_cursor);
                 if (r < 0) {
-                        log_error("Failed to seek to cursor: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to cursor: %m");
                         return EXIT_FAILURE;
                 }
                 if (!arg_reverse)
@@ -1975,7 +1975,7 @@ int main(int argc, char *argv[]) {
         } else if (arg_since_set && !arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_since);
                 if (r < 0) {
-                        log_error("Failed to seek to date: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to date: %m");
                         return EXIT_FAILURE;
                 }
                 r = sd_journal_next(j);
@@ -1983,7 +1983,7 @@ int main(int argc, char *argv[]) {
         } else if (arg_until_set && arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_until);
                 if (r < 0) {
-                        log_error("Failed to seek to date: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to date: %m");
                         return EXIT_FAILURE;
                 }
                 r = sd_journal_previous(j);
@@ -1991,7 +1991,7 @@ int main(int argc, char *argv[]) {
         } else if (arg_lines >= 0) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
-                        log_error("Failed to seek to tail: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to tail: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -2000,7 +2000,7 @@ int main(int argc, char *argv[]) {
         } else if (arg_reverse) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
-                        log_error("Failed to seek to tail: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to tail: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -2009,7 +2009,7 @@ int main(int argc, char *argv[]) {
         } else {
                 r = sd_journal_seek_head(j);
                 if (r < 0) {
-                        log_error("Failed to seek to head: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to seek to head: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -2017,7 +2017,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r < 0) {
-                log_error("Failed to iterate through journal: %s", strerror(-r));
+                log_error_errno(-r, "Failed to iterate through journal: %m");
                 return EXIT_FAILURE;
         }
 
@@ -2030,7 +2030,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_get_cutoff_realtime_usec(j, &start, &end);
                 if (r < 0) {
-                        log_error("Failed to get cutoff: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get cutoff: %m");
                         goto finish;
                 }
 
@@ -2055,7 +2055,7 @@ int main(int argc, char *argv[]) {
                                 else
                                         r = sd_journal_previous(j);
                                 if (r < 0) {
-                                        log_error("Failed to iterate through journal: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to iterate through journal: %m");
                                         goto finish;
                                 }
                                 if (r == 0)
@@ -2067,7 +2067,7 @@ int main(int argc, char *argv[]) {
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0) {
-                                        log_error("Failed to determine timestamp: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to determine timestamp: %m");
                                         goto finish;
                                 }
                                 if (usec > arg_until)
@@ -2079,7 +2079,7 @@ int main(int argc, char *argv[]) {
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0) {
-                                        log_error("Failed to determine timestamp: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to determine timestamp: %m");
                                         goto finish;
                                 }
                                 if (usec < arg_since)
@@ -2124,7 +2124,7 @@ int main(int argc, char *argv[]) {
 
                                 r = sd_journal_get_cursor(j, &cursor);
                                 if (r < 0 && r != -EADDRNOTAVAIL)
-                                        log_error("Failed to get cursor: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to get cursor: %m");
                                 else if (r >= 0)
                                         printf("-- cursor: %s\n", cursor);
                         }
@@ -2134,7 +2134,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_wait(j, (uint64_t) -1);
                 if (r < 0) {
-                        log_error("Couldn't wait for journal event: %s", strerror(-r));
+                        log_error_errno(-r, "Couldn't wait for journal event: %m");
                         goto finish;
                 }
 

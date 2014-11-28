@@ -1097,7 +1097,7 @@ int job_coldplug(Job *j) {
                         j->begin_usec + j->unit->job_timeout, 0,
                         job_dispatch_timer, j);
         if (r < 0)
-                log_debug("Failed to restart timeout for job: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to restart timeout for job: %m");
 
         return r;
 }

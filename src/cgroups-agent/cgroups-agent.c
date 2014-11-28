@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
                 /* If we couldn't connect we assume this was triggered
                  * while systemd got restarted/transitioned from
                  * initrd to the system, so let's ignore this */
-                log_debug("Failed to get D-Bus connection: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to get D-Bus connection: %m");
                 return EXIT_FAILURE;
         }
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
                                "Released",
                                "s", argv[1]);
         if (r < 0) {
-                log_debug("Failed to send signal message on private connection: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to send signal message on private connection: %m");
                 return EXIT_FAILURE;
         }
 

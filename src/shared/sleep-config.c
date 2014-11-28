@@ -227,7 +227,7 @@ static bool enough_memory_for_hibernation(void) {
 
         r = get_status_field("/proc/meminfo", "\nActive(anon):", &active);
         if (r < 0) {
-                log_error("Failed to retrieve Active(anon) from /proc/meminfo: %s", strerror(-r));
+                log_error_errno(-r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
                 return false;
         }
 

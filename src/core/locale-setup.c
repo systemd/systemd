@@ -56,7 +56,7 @@ int locale_setup(char ***environment) {
                                    NULL);
 
                 if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+                        log_warning_errno(-r, "Failed to read /proc/cmdline: %m");
         }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
@@ -80,7 +80,7 @@ int locale_setup(char ***environment) {
                                    NULL);
 
                 if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
+                        log_warning_errno(-r, "Failed to read /etc/locale.conf: %m");
         }
 
         add = NULL;

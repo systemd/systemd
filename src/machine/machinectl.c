@@ -415,7 +415,7 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
                                    map,
                                    &info);
         if (r < 0) {
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(-r, "Could not get properties: %m");
                 return r;
         }
 
@@ -445,7 +445,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
 
         r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_all);
         if (r < 0)
-                log_error("Could not get properties: %s", strerror(-r));
+                log_error_errno(-r, "Could not get properties: %m");
 
         return r;
 }
@@ -682,13 +682,13 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_event_default(&event);
         if (r < 0) {
-                log_error("Failed to get event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get event loop: %m");
                 return r;
         }
 
         r = sd_bus_attach_event(bus, event, 0);
         if (r < 0) {
-                log_error("Failed to attach bus to event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to attach bus to event loop: %m");
                 return r;
         }
 
@@ -720,7 +720,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                         &reply2,
                         "u");
         if (r < 0) {
-                log_error("Failed to retrieve PID of leader: %s", strerror(-r));
+                log_error_errno(-r, "Failed to retrieve PID of leader: %m");
                 return r;
         }
 
@@ -730,7 +730,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
-                log_error("Failed to acquire pseudo tty: %s", strerror(-master));
+                log_error_errno(-master, "Failed to acquire pseudo tty: %m");
                 return master;
         }
 
@@ -748,7 +748,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_open_system_container(&container_bus, args[1]);
         if (r < 0) {
-                log_error("Failed to get container bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get container bus: %m");
                 return r;
         }
 
@@ -786,13 +786,13 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         r = pty_forward_new(event, master, &forward);
         if (r < 0) {
-                log_error("Failed to create PTY forwarder: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create PTY forwarder: %m");
                 return r;
         }
 
         r = sd_event_loop(event);
         if (r < 0) {
-                log_error("Failed to run event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to run event loop: %m");
                 return r;
         }
 
@@ -1029,7 +1029,7 @@ int main(int argc, char*argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

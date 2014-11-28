@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
 
         fd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
         if (fd < 0) {
-                log_error("Failed to create stream fd: %s", strerror(-fd));
+                log_error_errno(-fd, "Failed to create stream fd: %m");
                 r = fd;
                 goto finish;
         }
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
         if (saved_stderr >= 0)
                 dup3(saved_stderr, STDERR_FILENO, 0);
 
-        log_error("Failed to execute process: %s", strerror(-r));
+        log_error_errno(-r, "Failed to execute process: %m");
 
 finish:
         safe_close(fd);

@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_event_run(server.event, t);
                 if (r < 0) {
-                        log_error("Failed to run event loop: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to run event loop: %m");
                         goto finish;
                 }
 

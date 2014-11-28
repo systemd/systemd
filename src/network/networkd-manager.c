@@ -357,7 +357,7 @@ int manager_udev_listen(Manager *m) {
 
         r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
         if (r < 0) {
-                log_error("Could not add udev monitor filter: %s", strerror(-r));
+                log_error_errno(-r, "Could not add udev monitor filter: %m");
                 return r;
         }
 
@@ -597,7 +597,7 @@ int manager_save(Manager *m) {
         return 0;
 
 fail:
-        log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        log_error_errno(-r, "Failed to save network state to %s: %m", m->state_file);
         unlink(m->state_file);
         unlink(temp_path);
         return r;

@@ -631,7 +631,7 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         /* First, create our own group */
         r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
         if (r < 0) {
-                log_error("Failed to create cgroup %s: %s", u->cgroup_path, strerror(-r));
+                log_error_errno(-r, "Failed to create cgroup %s: %m", u->cgroup_path);
                 return r;
         }
 
@@ -642,7 +642,7 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         /* Then, possibly move things over */
         r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
         if (r < 0)
-                log_warning("Failed to migrate cgroup from to %s: %s", u->cgroup_path, strerror(-r));
+                log_warning_errno(-r, "Failed to migrate cgroup from to %s: %m", u->cgroup_path);
 
         return 0;
 }
@@ -715,7 +715,7 @@ unsigned manager_dispatch_cgroup_queue(Manager *m) {
 
                 r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
-                        log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
+                        log_warning_errno(-r, "Failed to realize cgroups for queued unit %s: %m", i->id);
 
                 n++;
         }
@@ -798,7 +798,7 @@ void unit_destroy_cgroup(Unit *u) {
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
         if (r < 0)
-                log_debug("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
+                log_debug_errno(-r, "Failed to destroy cgroup %s: %m", u->cgroup_path);
 
         hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
 
@@ -858,7 +858,7 @@ int manager_setup_cgroup(Manager *m) {
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
         if (r < 0) {
-                log_error("Cannot determine cgroup we are running in: %s", strerror(-r));
+                log_error_errno(-r, "Cannot determine cgroup we are running in: %m");
                 return r;
         }
 
@@ -884,7 +884,7 @@ int manager_setup_cgroup(Manager *m) {
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
         if (r < 0) {
-                log_error("Cannot find cgroup mount point: %s", strerror(-r));
+                log_error_errno(-r, "Cannot find cgroup mount point: %m");
                 return r;
         }
 
@@ -895,7 +895,7 @@ int manager_setup_cgroup(Manager *m) {
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
                         if (r < 0)
-                                log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to install release agent, ignoring: %m");
                         else if (r > 0)
                                 log_debug("Installed release agent.");
                         else
@@ -905,7 +905,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* 4. Make sure we are in the root cgroup */
                 r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
                 if (r < 0) {
-                        log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to create root cgroup hierarchy: %m");
                         return r;
                 }
 

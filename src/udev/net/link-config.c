@@ -175,7 +175,7 @@ static bool enable_name_policy(void) {
 
         r = proc_cmdline(&line);
         if (r < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to read /proc/cmdline, ignoring: %m");
                 return true;
         }
 
@@ -203,7 +203,7 @@ int link_config_load(link_config_ctx *ctx) {
 
         r = conf_files_list_strv(&files, ".link", NULL, link_dirs);
         if (r < 0) {
-                log_error("failed to enumerate link files: %s", strerror(-r));
+                log_error_errno(-r, "failed to enumerate link files: %m");
                 return r;
         }
 

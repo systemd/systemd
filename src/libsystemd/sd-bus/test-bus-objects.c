@@ -237,14 +237,14 @@ static void *server(void *p) {
 
                 r = sd_bus_process(bus, NULL);
                 if (r < 0) {
-                        log_error("Failed to process requests: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to process requests: %m");
                         goto fail;
                 }
 
                 if (r == 0) {
                         r = sd_bus_wait(bus, (uint64_t) -1);
                         if (r < 0) {
-                                log_error("Failed to wait: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to wait: %m");
                                 goto fail;
                         }
 

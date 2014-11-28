@@ -100,7 +100,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         return 0;
 
 fail:
-        log_warning("Failed to process RTNL link message: %s", strerror(-r));
+        log_warning_errno(-r, "Failed to process RTNL link message: %m");
         return 0;
 }
 
@@ -185,7 +185,7 @@ static int manager_process_address(sd_rtnl *rtnl, sd_rtnl_message *mm, void *use
         return 0;
 
 fail:
-        log_warning("Failed to process RTNL address message: %s", strerror(-r));
+        log_warning_errno(-r, "Failed to process RTNL address message: %m");
         return 0;
 }
 
@@ -278,12 +278,12 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
         HASHMAP_FOREACH(l, m->links, i) {
                 r = link_update_monitor(l);
                 if (r < 0)
-                        log_warning("Failed to update monitor information for %i: %s", l->ifindex, strerror(-r));
+                        log_warning_errno(-r, "Failed to update monitor information for %i: %m", l->ifindex);
         }
 
         r = manager_write_resolv_conf(m);
         if (r < 0)
-                log_warning("Could not update resolv.conf: %s", strerror(-r));
+                log_warning_errno(-r, "Could not update resolv.conf: %m");
 
         return 0;
 }
@@ -380,7 +380,7 @@ static int manager_watch_hostname(Manager *m) {
                         /* kernels prior to 3.2 don't support polling this file. Ignore the failure. */
                         m->hostname_fd = safe_close(m->hostname_fd);
                 else {
-                        log_error("Failed to add hostname event source: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to add hostname event source: %m");
                         return r;
                 }
         }
@@ -688,7 +688,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 
         r = in_addr_to_string(s->family, &s->address, &t);
         if (r < 0) {
-                log_warning("Invalid DNS address. Ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Invalid DNS address. Ignoring: %m");
                 return;
         }
 

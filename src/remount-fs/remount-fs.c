@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 
                 k = hashmap_put(pids, UINT_TO_PTR(pid), s);
                 if (k < 0) {
-                        log_error("Failed to add PID to set: %s", strerror(-k));
+                        log_error_errno(-k, "Failed to add PID to set: %m");
                         ret = EXIT_FAILURE;
                         continue;
                 }

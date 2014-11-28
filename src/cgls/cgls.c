@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 
         r = bus_open_transport(BUS_TRANSPORT_LOCAL, NULL, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create bus connection: %m");
                 goto finish;
         }
 
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
                                 m = strappenda("/run/systemd/machines/", arg_machine);
                                 r = parse_env_file(m, NEWLINE, "SCOPE", &scope, NULL);
                                 if (r < 0) {
-                                        log_error("Failed to get machine path: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to get machine path: %m");
                                         goto finish;
                                 }
 
@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r < 0) {
-                log_error("Failed to list cgroup tree %s: %s", root, strerror(-r));
+                log_error_errno(-r, "Failed to list cgroup tree %s: %m", root);
                 retval = EXIT_FAILURE;
         } else
                 retval = EXIT_SUCCESS;

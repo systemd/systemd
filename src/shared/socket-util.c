@@ -637,7 +637,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 
                 r = sockaddr_pretty(&sa->sa, salen, true, &ret);
                 if (r < 0) {
-                        log_error("sockadd_pretty() failed: %s", strerror(-r));
+                        log_error_errno(-r, "sockadd_pretty() failed: %m");
                         return r;
                 }
 

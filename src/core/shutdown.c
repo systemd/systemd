@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all file systems unmounted, %d left.", r);
                         else
-                                log_error("Failed to unmount file systems: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to unmount file systems: %m");
                 }
 
                 if (need_swapoff) {
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all swaps deactivated, %d left.", r);
                         else
-                                log_error("Failed to deactivate swaps: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to deactivate swaps: %m");
                 }
 
                 if (need_loop_detach) {
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all loop devices detached, %d left.", r);
                         else
-                                log_error("Failed to detach loop devices: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to detach loop devices: %m");
                 }
 
                 if (need_dm_detach) {
@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all DM devices detached, %d left.", r);
                         else
-                                log_error("Failed to detach DM devices: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to detach DM devices: %m");
                 }
 
                 if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
                         execv("/shutdown", argv);
                         log_error("Failed to execute shutdown binary: %m");
                 } else
-                        log_error("Failed to switch root to \"/run/initramfs\": %s", strerror(-r));
+                        log_error_errno(-r, "Failed to switch root to \"/run/initramfs\": %m");
 
         }
 
@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
         r = -errno;
 
   error:
-        log_emergency("Critical error while doing system shutdown: %s", strerror(-r));
+        log_emergency_errno(-r, "Critical error while doing system shutdown: %m");
 
         freeze();
 }

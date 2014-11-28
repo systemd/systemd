@@ -1170,7 +1170,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
         r = swap_load_proc_swaps(m, true);
         if (r < 0) {
-                log_error("Failed to reread /proc/swaps: %s", strerror(-r));
+                log_error_errno(-r, "Failed to reread /proc/swaps: %m");
 
                 /* Reset flags, just in case, for late calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {

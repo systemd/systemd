@@ -155,7 +155,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
                 r = in_addr_to_string(family, a, &pretty);
                 if (r < 0) {
-                        log_error("%s: failed to print address: %s", name, strerror(-r));
+                        log_error_errno(-r, "%s: failed to print address: %m", name);
                         continue;
                 }
 
@@ -614,7 +614,7 @@ int main(int argc, char **argv) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
-                log_error("sd_bus_open_system: %s", strerror(-r));
+                log_error_errno(-r, "sd_bus_open_system: %m");
                 goto finish;
         }
 

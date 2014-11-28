@@ -47,7 +47,7 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_m
         if (v->ifname_peer) {
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
                 if (r < 0) {
-                        log_error("Failed to add netlink interface name: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to add netlink interface name: %m");
                         return r;
                 }
         }

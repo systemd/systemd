@@ -281,7 +281,7 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
 
         r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
         if (r < 0) {
-                log_error("Failed to query password: %s", strerror(-r));
+                log_error_errno(-r, "Failed to query password: %m");
                 return r;
         }
 
@@ -297,7 +297,7 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
 
                 r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
                 if (r < 0) {
-                        log_error("Failed to query verification password: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to query verification password: %m");
                         return r;
                 }
 
@@ -355,7 +355,7 @@ static int attach_tcrypt(struct crypt_device *cd,
         if (key_file) {
                 r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
-                        log_error("Failed to read password file '%s': %s", key_file, strerror(-r));
+                        log_error_errno(-r, "Failed to read password file '%s': %m", key_file);
                         return -EAGAIN;
                 }
 
@@ -439,7 +439,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         }
 
         if (r < 0) {
-                log_error("Loading of cryptographic parameters failed: %s", strerror(-r));
+                log_error_errno(-r, "Loading of cryptographic parameters failed: %m");
                 return r;
         }
 
@@ -454,7 +454,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                                                      key_file, arg_keyfile_size,
                                                      arg_keyfile_offset, flags);
                 if (r < 0) {
-                        log_error("Failed to activate with key file '%s': %s", key_file, strerror(-r));
+                        log_error_errno(-r, "Failed to activate with key file '%s': %m", key_file);
                         return -EAGAIN;
                 }
         } else {
@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_init(&cd, argv[3]);
                 if (k) {
-                        log_error("crypt_init() failed: %s", strerror(-k));
+                        log_error_errno(-k, "crypt_init() failed: %m");
                         goto finish;
                 }
 
@@ -623,7 +623,7 @@ int main(int argc, char *argv[]) {
                                 key_file = NULL;
                                 continue;
                         } else if (k != -EPERM) {
-                                log_error("Failed to activate: %s", strerror(-k));
+                                log_error_errno(-k, "Failed to activate: %m");
                                 goto finish;
                         }
 
@@ -641,7 +641,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_init_by_name(&cd, argv[2]);
                 if (k) {
-                        log_error("crypt_init() failed: %s", strerror(-k));
+                        log_error_errno(-k, "crypt_init() failed: %m");
                         goto finish;
                 }
 
@@ -649,7 +649,7 @@ int main(int argc, char *argv[]) {
 
                 k = crypt_deactivate(cd, argv[2]);
                 if (k < 0) {
-                        log_error("Failed to deactivate: %s", strerror(-k));
+                        log_error_errno(-k, "Failed to deactivate: %m");
                         goto finish;
                 }
 

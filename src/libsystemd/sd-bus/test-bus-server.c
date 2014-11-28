@@ -65,14 +65,14 @@ static void *server(void *p) {
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0) {
-                        log_error("Failed to process requests: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to process requests: %m");
                         goto fail;
                 }
 
                 if (r == 0) {
                         r = sd_bus_wait(bus, (uint64_t) -1);
                         if (r < 0) {
-                                log_error("Failed to wait: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to wait: %m");
                                 goto fail;
                         }
 
@@ -90,7 +90,7 @@ static void *server(void *p) {
 
                         r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to allocate return: %m");
                                 goto fail;
                         }
 
@@ -102,7 +102,7 @@ static void *server(void *p) {
                                         &reply,
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to allocate return: %m");
                                 goto fail;
                         }
                 }
@@ -110,7 +110,7 @@ static void *server(void *p) {
                 if (reply) {
                         r = sd_bus_send(bus, reply, NULL);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
                 }
@@ -147,7 +147,7 @@ static int client(struct context *c) {
                         "org.freedesktop.systemd.test",
                         "Exit");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate method call: %m");
                 return r;
         }
 

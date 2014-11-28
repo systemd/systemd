@@ -290,7 +290,7 @@ static void do_journal_append(char *file) {
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
         if (n < 0) {
-                log_error("Failed to read bootchart data: %s", strerror(-n));
+                log_error_errno(-n, "Failed to read bootchart data: %m");
                 close(f);
                 return;
         }
@@ -302,7 +302,7 @@ static void do_journal_append(char *file) {
 
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error("Failed to send bootchart: %s", strerror(-r));
+                log_error_errno(-r, "Failed to send bootchart: %m");
 }
 
 int main(int argc, char *argv[]) {

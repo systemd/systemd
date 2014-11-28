@@ -1685,7 +1685,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
 
         r = conf_files_list_strv(&files, ".rules", NULL, rules_dirs);
         if (r < 0) {
-                log_error("failed to enumerate rules files: %s", strerror(-r));
+                log_error_errno(-r, "failed to enumerate rules files: %m");
                 return udev_rules_unref(rules);
         }
 
@@ -2653,7 +2653,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
                                         strscpyl(tags_dir, sizeof(tags_dir), "/run/udev/static_node-tags/", *t, "/", NULL);
                                         r = mkdir_p(tags_dir, 0755);
                                         if (r < 0) {
-                                                log_error("failed to create %s: %s", tags_dir, strerror(-r));
+                                                log_error_errno(-r, "failed to create %s: %m", tags_dir);
                                                 return r;
                                         }
 

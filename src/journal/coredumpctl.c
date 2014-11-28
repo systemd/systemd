@@ -73,7 +73,7 @@ static Set *new_matches(void) {
 
         r = set_consume(set, tmp);
         if (r < 0) {
-                log_error("failed to add to set: %s", strerror(-r));
+                log_error_errno(-r, "failed to add to set: %m");
                 set_free(set);
                 return NULL;
         }
@@ -110,13 +110,13 @@ static int add_match(Set *set, const char *match) {
         log_debug("Adding pattern: %s", pattern);
         r = set_consume(set, pattern);
         if (r < 0) {
-                log_error("Failed to add pattern: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add pattern: %m");
                 goto fail;
         }
 
         return 0;
 fail:
-        log_error("Failed to add match: %s", strerror(-r));
+        log_error_errno(-r, "Failed to add match: %m");
         return r;
 }
 
@@ -327,7 +327,7 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
 
         r = sd_journal_get_realtime_usec(j, &t);
         if (r < 0) {
-                log_error("Failed to get realtime timestamp: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get realtime timestamp: %m");
                 return r;
         }
 
@@ -522,7 +522,7 @@ static int focus(sd_journal *j) {
         if (r == 0)
                 r = sd_journal_previous(j);
         if (r < 0) {
-                log_error("Failed to search journal: %s", strerror(-r));
+                log_error_errno(-r, "Failed to search journal: %m");
                 return r;
         }
         if (r == 0) {
@@ -586,7 +586,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
          * compressed file (probably uncached). */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to retrieve COREDUMP_FILENAME: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to retrieve COREDUMP_FILENAME: %m");
         else if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
@@ -655,7 +655,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
 
                         r = decompress_stream(filename, fdf, fd, -1);
                         if (r < 0) {
-                                log_error("Failed to decompress %s: %s", filename, strerror(-r));
+                                log_error_errno(-r, "Failed to decompress %s: %m", filename);
                                 goto error;
                         }
 #else
@@ -667,7 +667,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                         if (r == -ENOENT)
                                 log_error("Cannot retrieve coredump from journal nor disk.");
                         else
-                                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to retrieve COREDUMP field: %m");
                         goto error;
                 }
 
@@ -705,7 +705,7 @@ static int dump_core(sd_journal* j) {
 
         r = save_core(j, output ? fileno(output) : STDOUT_FILENO, NULL, NULL);
         if (r < 0) {
-                log_error("Coredump retrieval failed: %s", strerror(-r));
+                log_error_errno(-r, "Coredump retrieval failed: %m");
                 return r;
         }
 
@@ -736,7 +736,7 @@ static int run_gdb(sd_journal *j) {
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
         if (r < 0) {
-                log_error("Failed to retrieve COREDUMP_EXE field: %s", strerror(-r));
+                log_error_errno(-r, "Failed to retrieve COREDUMP_EXE field: %m");
                 return r;
         }
 
@@ -760,7 +760,7 @@ static int run_gdb(sd_journal *j) {
 
         r = save_core(j, -1, &path, &unlink_path);
         if (r < 0) {
-                log_error("Failed to retrieve core: %s", strerror(-r));
+                log_error_errno(-r, "Failed to retrieve core: %m");
                 return r;
         }
 
@@ -820,7 +820,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
         if (r < 0) {
-                log_error("Failed to open journal: %s", strerror(-r));
+                log_error_errno(-r, "Failed to open journal: %m");
                 goto end;
         }
 

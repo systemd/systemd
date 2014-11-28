@@ -142,7 +142,7 @@ static int generate(char id[34], const char *root) {
         /* If that didn't work, generate a random machine id */
         r = sd_id128_randomize(&buf);
         if (r < 0) {
-                log_error("Failed to open /dev/urandom: %s", strerror(-r));
+                log_error_errno(-r, "Failed to open /dev/urandom: %m");
                 return r;
         }
 
@@ -242,7 +242,7 @@ int machine_id_setup(const char *root) {
                 r = write_string_file(run_machine_id, id);
         }
         if (r < 0) {
-                log_error("Cannot write %s: %s", run_machine_id, strerror(-r));
+                log_error_errno(-r, "Cannot write %s: %m", run_machine_id);
                 unlink(run_machine_id);
                 return r;
         }

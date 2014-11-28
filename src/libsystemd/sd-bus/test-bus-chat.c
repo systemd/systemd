@@ -54,7 +54,7 @@ static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
 
                 r = sd_bus_reply_method_return(m, NULL);
                 if (r < 0) {
-                        log_error("Failed to send reply: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to send reply: %m");
                         return r;
                 }
 
@@ -74,19 +74,19 @@ static int server_init(sd_bus **_bus) {
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
-                log_error("Failed to connect to user bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to user bus: %m");
                 goto fail;
         }
 
         r = sd_bus_get_owner_id(bus, &id);
         if (r < 0) {
-                log_error("Failed to get server ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get server ID: %m");
                 goto fail;
         }
 
         r = sd_bus_get_unique_name(bus, &unique);
         if (r < 0) {
-                log_error("Failed to get unique name: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get unique name: %m");
                 goto fail;
         }
 
@@ -96,25 +96,25 @@ static int server_init(sd_bus **_bus) {
 
         r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", 0);
         if (r < 0) {
-                log_error("Failed to acquire name: %s", strerror(-r));
+                log_error_errno(-r, "Failed to acquire name: %m");
                 goto fail;
         }
 
         r = sd_bus_add_fallback(bus, NULL, "/foo/bar", object_callback, NULL);
         if (r < 0) {
-                log_error("Failed to add object: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add object: %m");
                 goto fail;
         }
 
         r = sd_bus_add_match(bus, NULL, "type='signal',interface='foo.bar',member='Notify'", match_callback, NULL);
         if (r < 0) {
-                log_error("Failed to add match: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add match: %m");
                 goto fail;
         }
 
         r = sd_bus_add_match(bus, NULL, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
         if (r < 0) {
-                log_error("Failed to add match: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add match: %m");
                 goto fail;
         }
 
@@ -141,14 +141,14 @@ static int server(sd_bus *bus) {
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0) {
-                        log_error("Failed to process requests: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to process requests: %m");
                         goto fail;
                 }
 
                 if (r == 0) {
                         r = sd_bus_wait(bus, (uint64_t) -1);
                         if (r < 0) {
-                                log_error("Failed to wait: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to wait: %m");
                                 goto fail;
                         }
 
@@ -173,7 +173,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_message_read(m, "s", &hello);
                         if (r < 0) {
-                                log_error("Failed to get parameter: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to get parameter: %m");
                                 goto fail;
                         }
 
@@ -187,14 +187,14 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_return(m, "s", lowercase);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
                         r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
 
@@ -203,7 +203,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
 
@@ -214,7 +214,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
 
@@ -224,7 +224,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_message_read(m, "h", &fd);
                         if (r < 0) {
-                                log_error("Failed to get parameter: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to get parameter: %m");
                                 goto fail;
                         }
 
@@ -238,7 +238,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
 
@@ -248,7 +248,7 @@ static int server(sd_bus *bus) {
                                         m,
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
-                                log_error("Failed to send reply: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to send reply: %m");
                                 goto fail;
                         }
                 }
@@ -276,7 +276,7 @@ static void* client1(void*p) {
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
-                log_error("Failed to connect to user bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to user bus: %m");
                 goto finish;
         }
 
@@ -291,13 +291,13 @@ static void* client1(void*p) {
                         "s",
                         "HELLO");
         if (r < 0) {
-                log_error("Failed to issue method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to issue method call: %m");
                 goto finish;
         }
 
         r = sd_bus_message_read(reply, "s", &hello);
         if (r < 0) {
-                log_error("Failed to get string: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get string: %m");
                 goto finish;
         }
 
@@ -322,7 +322,7 @@ static void* client1(void*p) {
                         "h",
                         pp[1]);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to issue method call: %m");
                 goto finish;
         }
 
@@ -346,7 +346,7 @@ finish:
                                 "org.freedesktop.systemd.test",
                                 "ExitClient1");
                 if (r < 0)
-                        log_error("Failed to allocate method call: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to allocate method call: %m");
                 else
                         sd_bus_send(bus, q, NULL);
 
@@ -380,7 +380,7 @@ static void* client2(void*p) {
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
-                log_error("Failed to connect to user bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to user bus: %m");
                 goto finish;
         }
 
@@ -392,7 +392,7 @@ static void* client2(void*p) {
                         "org.object.test",
                         "Foobar");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate method call: %m");
                 goto finish;
         }
 
@@ -412,7 +412,7 @@ static void* client2(void*p) {
                         "foo.bar",
                         "Notify");
         if (r < 0) {
-                log_error("Failed to allocate signal: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate signal: %m");
                 goto finish;
         }
 
@@ -433,7 +433,7 @@ static void* client2(void*p) {
                         "org.freedesktop.DBus.Peer",
                         "GetMachineId");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate method call: %m");
                 goto finish;
         }
 
@@ -445,7 +445,7 @@ static void* client2(void*p) {
 
         r = sd_bus_message_read(reply, "s", &mid);
         if (r < 0) {
-                log_error("Failed to parse machine ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to parse machine ID: %m");
                 goto finish;
         }
 
@@ -462,7 +462,7 @@ static void* client2(void*p) {
                         "org.freedesktop.systemd.test",
                         "Slow");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate method call: %m");
                 goto finish;
         }
 
@@ -486,7 +486,7 @@ static void* client2(void*p) {
                         "org.freedesktop.systemd.test",
                         "Slow");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate method call: %m");
                 goto finish;
         }
 
@@ -499,13 +499,13 @@ static void* client2(void*p) {
         while (!quit) {
                 r = sd_bus_process(bus, NULL);
                 if (r < 0) {
-                        log_error("Failed to process requests: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to process requests: %m");
                         goto finish;
                 }
                 if (r == 0) {
                         r = sd_bus_wait(bus, (uint64_t) -1);
                         if (r < 0) {
-                                log_error("Failed to wait: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to wait: %m");
                                 goto finish;
                         }
                 }
@@ -525,7 +525,7 @@ finish:
                                 "org.freedesktop.systemd.test",
                                 "ExitClient2");
                 if (r < 0) {
-                        log_error("Failed to allocate method call: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to allocate method call: %m");
                         goto finish;
                 }
 

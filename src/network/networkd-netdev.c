@@ -744,7 +744,7 @@ int netdev_load(Manager *manager) {
 
         r = conf_files_list_strv(&files, ".netdev", NULL, network_dirs);
         if (r < 0) {
-                log_error("Failed to enumerate netdev files: %s", strerror(-r));
+                log_error_errno(-r, "Failed to enumerate netdev files: %m");
                 return r;
         }
 

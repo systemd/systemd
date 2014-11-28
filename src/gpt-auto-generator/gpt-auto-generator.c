@@ -205,7 +205,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
                         "[Unit]\n"
                         "JobTimeoutSec=0\n"); /* the binary handles timeouts anyway */
         if (r < 0) {
-                log_error("Failed to write device drop-in: %s", strerror(-r));
+                log_error_errno(-r, "Failed to write device drop-in: %m");
                 return r;
         }
 
@@ -488,7 +488,7 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0) {
-                log_error("Failed to enumerate partitions on %s: %s", node, strerror(-r));
+                log_error_errno(-r, "Failed to enumerate partitions on %s: %m", node);
                 return r;
         }
 
@@ -713,7 +713,7 @@ static int add_root_mount(void) {
                 log_debug("EFI loader partition unknown, exiting.");
                 return 0;
         } else if (r < 0) {
-                log_error("Failed to read ESP partition UUID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to read ESP partition UUID: %m");
                 return r;
         }
 
@@ -740,7 +740,7 @@ static int add_mounts(void) {
 
         r = get_block_device("/", &devno);
         if (r < 0) {
-                log_error("Failed to determine block device of root file system: %s", strerror(-r));
+                log_error_errno(-r, "Failed to determine block device of root file system: %m");
                 return r;
         } else if (r == 0) {
                 log_debug("Root file system not on a (single) block device.");
@@ -774,7 +774,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_proc_cmdline(parse_proc_cmdline_item);
         if (r < 0)
-                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to parse kernel command line, ignoring: %m");
 
         if (!arg_enabled) {
                 log_debug("Disabled, exiting.");

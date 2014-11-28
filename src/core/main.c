@@ -175,7 +175,7 @@ noreturn static void crash(int sig) {
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
-                                log_emergency("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
+                                log_emergency_errno(-r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
                         else if (status.si_code != CLD_DUMPED)
                                 log_emergency("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
@@ -232,7 +232,7 @@ static int console_setup(void) {
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0) {
-                log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
+                log_error_errno(-tty_fd, "Failed to open /dev/console: %m");
                 return tty_fd;
         }
 
@@ -240,7 +240,7 @@ static int console_setup(void) {
          * pictures already from initrd. */
         r = reset_terminal_fd(tty_fd, false);
         if (r < 0) {
-                log_error("Failed to reset /dev/console: %s", strerror(-r));
+                log_error_errno(-r, "Failed to reset /dev/console: %m");
                 return r;
         }
 
@@ -807,7 +807,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = set_default_unit(optarg);
                         if (r < 0) {
-                                log_error("Failed to set default unit %s: %s", optarg, strerror(-r));
+                                log_error_errno(-r, "Failed to set default unit %s: %m", optarg);
                                 return r;
                         }
 
@@ -990,7 +990,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 
         r = manager_open_serialization(m, &f);
         if (r < 0) {
-                log_error("Failed to create serialization file: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create serialization file: %m");
                 goto fail;
         }
 
@@ -1001,13 +1001,13 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         fds = fdset_new();
         if (!fds) {
                 r = -ENOMEM;
-                log_error("Failed to allocate fd set: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate fd set: %m");
                 goto fail;
         }
 
         r = manager_serialize(m, f, fds, switching_root);
         if (r < 0) {
-                log_error("Failed to serialize state: %s", strerror(-r));
+                log_error_errno(-r, "Failed to serialize state: %m");
                 goto fail;
         }
 
@@ -1018,13 +1018,13 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0) {
-                log_error("Failed to disable O_CLOEXEC for serialization: %s", strerror(-r));
+                log_error_errno(-r, "Failed to disable O_CLOEXEC for serialization: %m");
                 goto fail;
         }
 
         r = fdset_cloexec(fds, false);
         if (r < 0) {
-                log_error("Failed to disable O_CLOEXEC for serialization fds: %s", strerror(-r));
+                log_error_errno(-r, "Failed to disable O_CLOEXEC for serialization fds: %m");
                 goto fail;
         }
 
@@ -1071,7 +1071,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         nl.rlim_cur = nl.rlim_max = 64*1024;
         r = setrlimit_closest(RLIMIT_NOFILE, &nl);
         if (r < 0) {
-                log_error("Setting RLIMIT_NOFILE failed: %s", strerror(-r));
+                log_error_errno(-r, "Setting RLIMIT_NOFILE failed: %m");
                 return r;
         }
 
@@ -1154,20 +1154,20 @@ static int enforce_syscall_archs(Set *archs) {
                 if (r == -EEXIST)
                         continue;
                 if (r < 0) {
-                        log_error("Failed to add architecture to seccomp: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to add architecture to seccomp: %m");
                         goto finish;
                 }
         }
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0) {
-                log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
+                log_error_errno(-r, "Failed to unset NO_NEW_PRIVS: %m");
                 goto finish;
         }
 
         r = seccomp_load(seccomp);
         if (r < 0)
-                log_error("Failed to add install architecture seccomp: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add install architecture seccomp: %m");
 
 finish:
         seccomp_release(seccomp);
@@ -1193,7 +1193,7 @@ static int status_welcome(void) {
         }
 
         if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read os-release file: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to read os-release file: %m");
 
         return status_printf(NULL, false, false,
                              "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
@@ -1324,7 +1324,7 @@ int main(int argc, char *argv[]) {
                                  */
                                 r = clock_set_timezone(&min);
                                 if (r < 0)
-                                        log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to apply local time delta, ignoring: %m");
                                 else
                                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                         } else if (!in_initrd()) {
@@ -1383,7 +1383,7 @@ int main(int argc, char *argv[]) {
         /* Initialize default unit */
         r = set_default_unit(SPECIAL_DEFAULT_TARGET);
         if (r < 0) {
-                log_emergency("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
+                log_emergency_errno(-r, "Failed to set default unit %s: %m", SPECIAL_DEFAULT_TARGET);
                 error_message = "Failed to set default unit";
                 goto finish;
         }
@@ -1422,7 +1422,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_SYSTEM) {
                 r = parse_proc_cmdline(parse_proc_cmdline_item);
                 if (r < 0)
-                        log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
+                        log_warning_errno(-r, "Failed to parse kernel command line, ignoring: %m");
         }
 
         /* Note that this also parses bits from the kernel command
@@ -1488,7 +1488,7 @@ int main(int argc, char *argv[]) {
         /* Remember open file descriptors for later deserialization */
         r = fdset_new_fill(&fds);
         if (r < 0) {
-                log_emergency("Failed to allocate fd set: %s", strerror(-r));
+                log_emergency_errno(-r, "Failed to allocate fd set: %m");
                 error_message = "Failed to allocate fd set";
                 goto finish;
         } else
@@ -1591,13 +1591,13 @@ int main(int argc, char *argv[]) {
         if (arg_capability_bounding_set_drop) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
                 if (r < 0) {
-                        log_emergency("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
+                        log_emergency_errno(-r, "Failed to drop capability bounding set of usermode helpers: %m");
                         error_message = "Failed to drop capability bounding set of usermode helpers";
                         goto finish;
                 }
                 r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
                 if (r < 0) {
-                        log_emergency("Failed to drop capability bounding set: %s", strerror(-r));
+                        log_emergency_errno(-r, "Failed to drop capability bounding set: %m");
                         error_message = "Failed to drop capability bounding set";
                         goto finish;
                 }
@@ -1626,7 +1626,7 @@ int main(int argc, char *argv[]) {
                 if (empty_etc) {
                         r = unit_file_preset_all(UNIT_FILE_SYSTEM, false, NULL, UNIT_FILE_PRESET_FULL, false, NULL, 0);
                         if (r < 0)
-                                log_warning("Failed to populate /etc with preset unit settings, ignoring: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to populate /etc with preset unit settings, ignoring: %m");
                         else
                                 log_info("Populated /etc with preset unit settings.");
                 }
@@ -1634,7 +1634,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(arg_running_as, arg_action == ACTION_TEST, &m);
         if (r < 0) {
-                log_emergency("Failed to allocate manager object: %s", strerror(-r));
+                log_emergency_errno(-r, "Failed to allocate manager object: %m");
                 error_message = "Failed to allocate manager object";
                 goto finish;
         }
@@ -1672,7 +1672,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m, arg_serialization, fds);
         if (r < 0)
-                log_error("Failed to fully start up daemon: %s", strerror(-r));
+                log_error_errno(-r, "Failed to fully start up daemon: %m");
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
@@ -1759,7 +1759,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 r = manager_loop(m);
                 if (r < 0) {
-                        log_emergency("Failed to run main loop: %s", strerror(-r));
+                        log_emergency_errno(-r, "Failed to run main loop: %m");
                         error_message = "Failed to run main loop";
                         goto finish;
                 }
@@ -1775,7 +1775,7 @@ int main(int argc, char *argv[]) {
                         log_info("Reloading.");
                         r = manager_reload(m);
                         if (r < 0)
-                                log_error("Failed to reload: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to reload: %m");
                         break;
 
                 case MANAGER_REEXECUTE:
@@ -1876,7 +1876,7 @@ finish:
                         /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                         r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
                         if (r < 0)
-                                log_error("Failed to switch root, trying to continue: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to switch root, trying to continue: %m");
                 }
 
                 args_size = MAX(6, argc+1);

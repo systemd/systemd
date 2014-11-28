@@ -151,13 +151,13 @@ static int spawn_getter(const char *getter, const char *url) {
         assert(getter);
         r = strv_split_quoted(&words, getter, false);
         if (r < 0) {
-                log_error("Failed to split getter option: %s", strerror(-r));
+                log_error_errno(-r, "Failed to split getter option: %m");
                 return r;
         }
 
         r = strv_extend(&words, url);
         if (r < 0) {
-                log_error("Failed to create command line: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create command line: %m");
                 return r;
         }
 
@@ -400,7 +400,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
         r = sd_event_source_set_description(source->event, name);
         if (r < 0) {
-                log_error("Failed to set source name for fd:%d: %s", fd, strerror(-r));
+                log_error_errno(-r, "Failed to set source name for fd:%d: %m", fd);
                 goto error;
         }
 
@@ -662,7 +662,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         r = fd_nonblock(fd, true);
         if (r < 0) {
-                log_error("Failed to make fd:%d nonblocking: %s", fd, strerror(-r));
+                log_error_errno(-r, "Failed to make fd:%d nonblocking: %m", fd);
                 return r;
         }
 
@@ -720,13 +720,13 @@ static int setup_microhttpd_server(RemoteServer *s,
                             epoll_fd, EPOLLIN,
                             dispatch_http_event, d);
         if (r < 0) {
-                log_error("Failed to add event callback: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add event callback: %m");
                 goto error;
         }
 
         r = sd_event_source_set_description(d->event, "epoll-fd");
         if (r < 0) {
-                log_error("Failed to set source name: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set source name: %m");
                 goto error;
         }
 
@@ -738,7 +738,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         r = hashmap_put(s->daemons, &d->fd, d);
         if (r < 0) {
-                log_error("Failed to add daemon to hashmap: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add daemon to hashmap: %m");
                 goto error;
         }
 
@@ -841,7 +841,7 @@ static int remoteserver_init(RemoteServer *s,
 
         r = sd_event_default(&s->events);
         if (r < 0) {
-                log_error("Failed to allocate event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate event loop: %m");
                 return r;
         }
 
@@ -882,7 +882,7 @@ static int remoteserver_init(RemoteServer *s,
 
                         r = getnameinfo_pretty(fd, &hostname);
                         if (r < 0) {
-                                log_error("Failed to retrieve remote name: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to retrieve remote name: %m");
                                 return r;
                         }
 
@@ -1051,7 +1051,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
-                log_info("Closing connection: %s", strerror(-r));
+                log_info_errno(-r, "Closing connection: %m");
                 remove_source(server, fd);
                 return 0;
         } else
@@ -1084,7 +1084,7 @@ static int accept_connection(const char* type, int fd,
 
                 r = socket_address_print(addr, &a);
                 if (r < 0) {
-                        log_error("socket_address_print(): %s", strerror(-r));
+                        log_error_errno(-r, "socket_address_print(): %m");
                         close(fd2);
                         return r;
                 }
@@ -1542,7 +1542,7 @@ int main(int argc, char **argv) {
 
         r = sd_event_set_watchdog(s.events, true);
         if (r < 0)
-                log_error("Failed to enable watchdog: %s", strerror(-r));
+                log_error_errno(-r, "Failed to enable watchdog: %m");
         else
                 log_debug("Watchdog is %s.", r > 0 ? "enabled" : "disabled");
 
@@ -1561,7 +1561,7 @@ int main(int argc, char **argv) {
 
                 r = sd_event_run(s.events, -1);
                 if (r < 0) {
-                        log_error("Failed to run event loop: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to run event loop: %m");
                         break;
                 }
         }

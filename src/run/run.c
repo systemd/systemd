@@ -499,7 +499,7 @@ static int start_transient_scope(
 
                 r = get_group_creds(&arg_exec_group, &gid);
                 if (r < 0) {
-                        log_error("Failed to resolve group %s: %s", arg_exec_group, strerror(-r));
+                        log_error_errno(-r, "Failed to resolve group %s: %m", arg_exec_group);
                         return r;
                 }
 
@@ -516,7 +516,7 @@ static int start_transient_scope(
 
                 r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell);
                 if (r < 0) {
-                        log_error("Failed to resolve user %s: %s", arg_exec_user, strerror(-r));
+                        log_error_errno(-r, "Failed to resolve user %s: %m", arg_exec_user);
                         return r;
                 }
 
@@ -595,7 +595,7 @@ int main(int argc, char* argv[]) {
 
         r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

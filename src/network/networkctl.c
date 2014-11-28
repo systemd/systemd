@@ -191,7 +191,7 @@ static int list_links(char **args, unsigned n) {
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
-                log_error("Failed to connect to netlink: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to netlink: %m");
                 return r;
         }
 
@@ -211,7 +211,7 @@ static int list_links(char **args, unsigned n) {
 
         r = sd_rtnl_call(rtnl, req, 0, &reply);
         if (r < 0) {
-                log_error("Failed to enumerate links: %s", strerror(-r));
+                log_error_errno(-r, "Failed to enumerate links: %m");
                 return r;
         }
 
@@ -323,7 +323,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         r = sd_rtnl_call(rtnl, req, 0, &reply);
         if (r < 0) {
-                log_error("Failed to query link: %s", strerror(-r));
+                log_error_errno(-r, "Failed to query link: %m");
                 return r;
         }
 
@@ -448,7 +448,7 @@ static int link_status(char **args, unsigned n) {
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0) {
-                log_error("Failed to connect to netlink: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to netlink: %m");
                 return r;
         }
 
@@ -514,7 +514,7 @@ static int link_status(char **args, unsigned n) {
 
                 r = sd_rtnl_call(rtnl, req, 0, &reply);
                 if (r < 0) {
-                        log_error("Failed to enumerate links: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to enumerate links: %m");
                         return r;
                 }
 

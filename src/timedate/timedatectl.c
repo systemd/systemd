@@ -232,7 +232,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    map,
                                    &info);
         if (r < 0) {
-                log_error("Failed to query server: %s", strerror(-r));
+                log_error_errno(-r, "Failed to query server: %m");
                 goto fail;
         }
 
@@ -364,7 +364,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
 
         r = get_timezones(&zones);
         if (r < 0) {
-                log_error("Failed to read list of time zones: %s", strerror(-r));
+                log_error_errno(-r, "Failed to read list of time zones: %m");
                 return r;
         }
 
@@ -558,7 +558,7 @@ int main(int argc, char *argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to create bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

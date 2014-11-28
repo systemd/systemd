@@ -1160,31 +1160,31 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
 
         r = sd_bus_message_new_method_return(m, &n);
         if (r < 0) {
-                log_error("Failed to generate HELLO reply: %s", strerror(-r));
+                log_error_errno(-r, "Failed to generate HELLO reply: %m");
                 return r;
         }
 
         r = sd_bus_message_append(n, "s", a->unique_name);
         if (r < 0) {
-                log_error("Failed to append unique name to HELLO reply: %s", strerror(-r));
+                log_error_errno(-r, "Failed to append unique name to HELLO reply: %m");
                 return r;
         }
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
         if (r < 0) {
-                log_error("Failed to append sender to HELLO reply: %s", strerror(-r));
+                log_error_errno(-r, "Failed to append sender to HELLO reply: %m");
                 return r;
         }
 
         r = bus_seal_synthetic_message(b, n);
         if (r < 0) {
-                log_error("Failed to seal HELLO reply: %s", strerror(-r));
+                log_error_errno(-r, "Failed to seal HELLO reply: %m");
                 return r;
         }
 
         r = sd_bus_send(b, n, NULL);
         if (r < 0) {
-                log_error("Failed to send HELLO reply: %s", strerror(-r));
+                log_error_errno(-r, "Failed to send HELLO reply: %m");
                 return r;
         }
 
@@ -1196,31 +1196,31 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
                         "org.freedesktop.DBus",
                         "NameAcquired");
         if (r < 0) {
-                log_error("Failed to allocate initial NameAcquired message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate initial NameAcquired message: %m");
                 return r;
         }
 
         r = sd_bus_message_append(n, "s", a->unique_name);
         if (r < 0) {
-                log_error("Failed to append unique name to NameAcquired message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to append unique name to NameAcquired message: %m");
                 return r;
         }
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
         if (r < 0) {
-                log_error("Failed to append sender to NameAcquired message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to append sender to NameAcquired message: %m");
                 return r;
         }
 
         r = bus_seal_synthetic_message(b, n);
         if (r < 0) {
-                log_error("Failed to seal NameAcquired message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to seal NameAcquired message: %m");
                 return r;
         }
 
         r = sd_bus_send(b, n, NULL);
         if (r < 0) {
-                log_error("Failed to send NameAcquired message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to send NameAcquired message: %m");
                 return r;
         }
 
@@ -1305,7 +1305,7 @@ int main(int argc, char *argv[]) {
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL);
                 if (r < 0) {
-                        log_error("Cannot resolve user name %s: %s", user, strerror(-r));
+                        log_error_errno(-r, "Cannot resolve user name %s: %m", user);
                         goto finish;
                 }
 
@@ -1322,31 +1322,31 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_new(&a);
         if (r < 0) {
-                log_error("Failed to allocate bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate bus: %m");
                 goto finish;
         }
 
         r = sd_bus_set_description(a, "sd-proxy");
         if (r < 0) {
-                log_error("Failed to set bus name: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set bus name: %m");
                 goto finish;
         }
 
         r = sd_bus_set_address(a, arg_address);
         if (r < 0) {
-                log_error("Failed to set address to connect to: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set address to connect to: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_fds(a, is_unix);
         if (r < 0) {
-                log_error("Failed to set FD negotiation: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set FD negotiation: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_creds(a, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0) {
-                log_error("Failed to set credential negotiation: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set credential negotiation: %m");
                 goto finish;
         }
 
@@ -1374,13 +1374,13 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_start(a);
         if (r < 0) {
-                log_error("Failed to start bus client: %s", strerror(-r));
+                log_error_errno(-r, "Failed to start bus client: %m");
                 goto finish;
         }
 
         r = sd_bus_get_owner_id(a, &server_id);
         if (r < 0) {
-                log_error("Failed to get server ID: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get server ID: %m");
                 goto finish;
         }
 
@@ -1390,13 +1390,13 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_get_owner_creds(a, SD_BUS_CREDS_UID, &bus_creds);
                 if (r < 0) {
-                        log_error("Failed to get bus creds: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get bus creds: %m");
                         goto finish;
                 }
 
                 r = sd_bus_creds_get_uid(bus_creds, &bus_uid);
                 if (r < 0) {
-                        log_error("Failed to get bus owner UID: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get bus owner UID: %m");
                         goto finish;
                 }
 
@@ -1406,7 +1406,7 @@ int main(int argc, char *argv[]) {
 
                         r = policy_load(&policy_buffer, arg_configuration);
                         if (r < 0) {
-                                log_error("Failed to load policy: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to load policy: %m");
                                 goto finish;
                         }
 
@@ -1423,37 +1423,37 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_new(&b);
         if (r < 0) {
-                log_error("Failed to allocate bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate bus: %m");
                 goto finish;
         }
 
         r = sd_bus_set_fd(b, in_fd, out_fd);
         if (r < 0) {
-                log_error("Failed to set fds: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set fds: %m");
                 goto finish;
         }
 
         r = sd_bus_set_server(b, 1, server_id);
         if (r < 0) {
-                log_error("Failed to set server mode: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set server mode: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_fds(b, is_unix);
         if (r < 0) {
-                log_error("Failed to set FD negotiation: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set FD negotiation: %m");
                 goto finish;
         }
 
         r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0) {
-                log_error("Failed to set credential negotiation: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set credential negotiation: %m");
                 goto finish;
         }
 
         r = sd_bus_set_anonymous(b, true);
         if (r < 0) {
-                log_error("Failed to set anonymous authentication: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set anonymous authentication: %m");
                 goto finish;
         }
 
@@ -1461,13 +1461,13 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_start(b);
         if (r < 0) {
-                log_error("Failed to start bus client: %s", strerror(-r));
+                log_error_errno(-r, "Failed to start bus client: %m");
                 goto finish;
         }
 
         r = rename_service(a, b);
         if (r < 0)
-                log_debug("Failed to rename process: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to rename process: %m");
 
         if (a->is_kernel) {
                 _cleanup_free_ char *match = NULL;
@@ -1475,7 +1475,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_get_unique_name(a, &unique);
                 if (r < 0) {
-                        log_error("Failed to get unique name: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get unique name: %m");
                         goto finish;
                 }
 
@@ -1495,7 +1495,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
-                        log_error("Failed to add match for NameLost: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to add match for NameLost: %m");
                         goto finish;
                 }
 
@@ -1516,7 +1516,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_add_match(a, NULL, match, NULL, NULL);
                 if (r < 0) {
-                        log_error("Failed to add match for NameAcquired: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to add match for NameAcquired: %m");
                         goto finish;
                 }
         }
@@ -1538,7 +1538,7 @@ int main(int argc, char *argv[]) {
                                 if (r == -ECONNRESET)
                                         r = 0;
                                 else
-                                        log_error("Failed to process bus a: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to process bus a: %m");
 
                                 goto finish;
                         }
@@ -1555,7 +1555,7 @@ int main(int argc, char *argv[]) {
                                 k = synthesize_name_acquired(a, b, m);
                                 if (k < 0) {
                                         r = k;
-                                        log_error("Failed to synthesize message: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to synthesize message: %m");
                                         goto finish;
                                 }
 
@@ -1565,7 +1565,7 @@ int main(int argc, char *argv[]) {
                                         k = process_policy(a, b, m, policy, &ucred, owned_names);
                                         if (k < 0) {
                                                 r = k;
-                                                log_error("Failed to process policy: %s", strerror(-r));
+                                                log_error_errno(-r, "Failed to process policy: %m");
                                                 goto finish;
                                         } else if (k > 0) {
                                                 r = 1;
@@ -1580,7 +1580,7 @@ int main(int argc, char *argv[]) {
                                                         r = 0;
                                                 else {
                                                         r = k;
-                                                        log_error("Failed to send message to client: %s", strerror(-r));
+                                                        log_error_errno(-r, "Failed to send message to client: %m");
                                                 }
 
                                                 goto finish;
@@ -1600,7 +1600,7 @@ int main(int argc, char *argv[]) {
                         if (r == -ECONNRESET)
                                 r = 0;
                         else
-                                log_error("Failed to process bus b: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to process bus b: %m");
 
                         goto finish;
                 }
@@ -1617,7 +1617,7 @@ int main(int argc, char *argv[]) {
                         k = process_hello(a, b, m, &got_hello);
                         if (k < 0) {
                                 r = k;
-                                log_error("Failed to process HELLO: %s", strerror(-r));
+                                log_error_errno(-r, "Failed to process HELLO: %m");
                                 goto finish;
                         } else if (k > 0) {
                                 processed = true;
@@ -1628,7 +1628,7 @@ int main(int argc, char *argv[]) {
                                 k = process_driver(a, b, m, policy, &ucred, owned_names);
                                 if (k < 0) {
                                         r = k;
-                                        log_error("Failed to process driver calls: %s", strerror(-r));
+                                        log_error_errno(-r, "Failed to process driver calls: %m");
                                         goto finish;
                                 } else if (k > 0) {
                                         processed = true;
@@ -1642,7 +1642,7 @@ int main(int argc, char *argv[]) {
                                                         k = process_policy(b, a, m, policy, &ucred, owned_names);
                                                         if (k < 0) {
                                                                 r = k;
-                                                                log_error("Failed to process policy: %s", strerror(-r));
+                                                                log_error_errno(-r, "Failed to process policy: %m");
                                                                 goto finish;
                                                         } else if (k > 0) {
                                                                 processed = true;
@@ -1660,7 +1660,7 @@ int main(int argc, char *argv[]) {
                                                                 r = 0;
                                                         else {
                                                                 r = k;
-                                                                log_error("Failed to send message to bus: %s", strerror(-r));
+                                                                log_error_errno(-r, "Failed to send message to bus: %m");
                                                         }
 
                                                         goto finish;
@@ -1678,31 +1678,31 @@ int main(int argc, char *argv[]) {
 
                 fd = sd_bus_get_fd(a);
                 if (fd < 0) {
-                        log_error("Failed to get fd: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get fd: %m");
                         goto finish;
                 }
 
                 events_a = sd_bus_get_events(a);
                 if (events_a < 0) {
-                        log_error("Failed to get events mask: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get events mask: %m");
                         goto finish;
                 }
 
                 r = sd_bus_get_timeout(a, &timeout_a);
                 if (r < 0) {
-                        log_error("Failed to get timeout: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get timeout: %m");
                         goto finish;
                 }
 
                 events_b = sd_bus_get_events(b);
                 if (events_b < 0) {
-                        log_error("Failed to get events mask: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get events mask: %m");
                         goto finish;
                 }
 
                 r = sd_bus_get_timeout(b, &timeout_b);
                 if (r < 0) {
-                        log_error("Failed to get timeout: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to get timeout: %m");
                         goto finish;
                 }
 

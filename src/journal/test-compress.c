@@ -63,7 +63,7 @@ static void test_compress_decompress(int compression,
 
         r = compress(data, data_len, compressed, &csize);
         if (r == -ENOBUFS) {
-                log_info("compression failed: %s", strerror(-r));
+                log_info_errno(-r, "compression failed: %m");
                 assert(may_fail);
         } else {
                 assert(r == 0);
@@ -108,7 +108,7 @@ static void test_decompress_startswith(int compression,
 
         r = compress(data, data_len, compressed, &csize);
         if (r == -ENOBUFS) {
-                log_info("compression failed: %s", strerror(-r));
+                log_info_errno(-r, "compression failed: %m");
                 assert(may_fail);
                 return;
         }

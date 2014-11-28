@@ -126,7 +126,7 @@ static int output_flush(Output *o) {
 
         len = loop_write(o->fd, o->obuf, o->n_obuf, false);
         if (len < 0) {
-                log_error("error: cannot write to TTY (%zd): %s", len, strerror(-len));
+                log_error_errno(-len, "error: cannot write to TTY (%zd): %m", len);
                 return len;
         }
 
@@ -157,7 +157,7 @@ static int output_write(Output *o, const void *buf, size_t size) {
 
         len = loop_write(o->fd, buf, size, false);
         if (len < 0) {
-                log_error("error: cannot write to TTY (%zd): %s", len, strerror(-len));
+                log_error_errno(-len, "error: cannot write to TTY (%zd): %m", len);
                 return len;
         }
 
@@ -612,12 +612,12 @@ static int terminal_winch_fn(sd_event_source *source, const struct signalfd_sigi
         if (t->pty) {
                 r = pty_resize(t->pty, t->output->in_width, t->output->in_height);
                 if (r < 0)
-                        log_error("error: pty_resize() (%d): %s", r, strerror(-r));
+                        log_error_errno(-r, "error: pty_resize() (%d): %m", r);
         }
 
         r = term_screen_resize(t->screen, t->output->in_width, t->output->in_height);
         if (r < 0)
-                log_error("error: term_screen_resize() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: term_screen_resize() (%d): %m", r);
 
         terminal_dirty(t);
 
@@ -657,7 +657,7 @@ static int terminal_write_tmp(Terminal *t) {
                 for (i = 0; i < num; ++i) {
                         r = pty_write(t->pty, vec[i].iov_base, vec[i].iov_len);
                         if (r < 0) {
-                                log_error("error: cannot write to PTY (%d): %s", r, strerror(-r));
+                                log_error_errno(-r, "error: cannot write to PTY (%d): %m", r);
                                 return r;
                         }
                 }
@@ -726,7 +726,7 @@ static int terminal_io_fn(sd_event_source *source, int fd, uint32_t revents, voi
                 for (j = 0; j < n_str; ++j) {
                         type = term_parser_feed(t->parser, &seq, str[j]);
                         if (type < 0) {
-                                log_error("error: term_parser_feed() (%d): %s", type, strerror(-type));
+                                log_error_errno(-type, "error: term_parser_feed() (%d): %m", type);
                                 return type;
                         }
 
@@ -778,7 +778,7 @@ static int terminal_pty_fn(Pty *pty, void *userdata, unsigned int event, const v
         case PTY_DATA:
                 r = term_screen_feed_text(t->screen, ptr, size);
                 if (r < 0) {
-                        log_error("error: term_screen_feed_text() (%d): %s", r, strerror(-r));
+                        log_error_errno(-r, "error: term_screen_feed_text() (%d): %m", r);
                         return r;
                 }
 
@@ -857,49 +857,49 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
 
         r = tcsetattr(t->in_fd, TCSANOW, &in_attr);
         if (r < 0) {
-                log_error("error: tcsetattr() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: tcsetattr() (%d): %m", r);
                 goto error;
         }
 
         r = tcsetattr(t->out_fd, TCSANOW, &out_attr);
         if (r < 0) {
-                log_error("error: tcsetattr() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: tcsetattr() (%d): %m", r);
                 goto error;
         }
 
         r = sd_event_default(&t->event);
         if (r < 0) {
-                log_error("error: sd_event_default() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_default() (%d): %m", r);
                 goto error;
         }
 
         r = sigprocmask_many(SIG_BLOCK, SIGINT, SIGQUIT, SIGTERM, SIGWINCH, SIGCHLD, -1);
         if (r < 0) {
-                log_error("error: sigprocmask_many() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sigprocmask_many() (%d): %m", r);
                 goto error;
         }
 
         r = sd_event_add_signal(t->event, NULL, SIGINT, NULL, NULL);
         if (r < 0) {
-                log_error("error: sd_event_add_signal() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_add_signal() (%d): %m", r);
                 goto error;
         }
 
         r = sd_event_add_signal(t->event, NULL, SIGQUIT, NULL, NULL);
         if (r < 0) {
-                log_error("error: sd_event_add_signal() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_add_signal() (%d): %m", r);
                 goto error;
         }
 
         r = sd_event_add_signal(t->event, NULL, SIGTERM, NULL, NULL);
         if (r < 0) {
-                log_error("error: sd_event_add_signal() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_add_signal() (%d): %m", r);
                 goto error;
         }
 
         r = sd_event_add_signal(t->event, NULL, SIGWINCH, terminal_winch_fn, t);
         if (r < 0) {
-                log_error("error: sd_event_add_signal() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_add_signal() (%d): %m", r);
                 goto error;
         }
 
@@ -907,7 +907,7 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
         t->is_dirty = true;
         r = sd_event_add_time(t->event, &t->frame_timer, CLOCK_MONOTONIC, 0, 0, terminal_frame_timer_fn, t);
         if (r < 0) {
-                log_error("error: sd_event_add_time() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: sd_event_add_time() (%d): %m", r);
                 goto error;
         }
 
@@ -929,7 +929,7 @@ static int terminal_new(Terminal **out, int in_fd, int out_fd) {
 
         r = term_screen_resize(t->screen, t->output->in_width, t->output->in_height);
         if (r < 0) {
-                log_error("error: term_screen_resize() (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: term_screen_resize() (%d): %m", r);
                 goto error;
         }
 
@@ -952,7 +952,7 @@ static int terminal_run(Terminal *t) {
 
         pid = pty_fork(&t->pty, t->event, terminal_pty_fn, t, t->output->in_width, t->output->in_height);
         if (pid < 0) {
-                log_error("error: cannot fork PTY (%d): %s", pid, strerror(-pid));
+                log_error_errno(-pid, "error: cannot fork PTY (%d): %m", pid);
                 return pid;
         } else if (pid == 0) {
                 /* child */
@@ -993,7 +993,7 @@ int main(int argc, char *argv[]) {
 
 out:
         if (r < 0)
-                log_error("error: terminal failed (%d): %s", r, strerror(-r));
+                log_error_errno(-r, "error: terminal failed (%d): %m", r);
         terminal_free(t);
         return -r;
 }

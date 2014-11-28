@@ -103,7 +103,7 @@ static int create_dbus_files(
 
                 r = fflush_and_check(f);
                 if (r < 0) {
-                        log_error("Failed to write %s: %s", a, strerror(-r));
+                        log_error_errno(-r, "Failed to write %s: %m", a);
                         return r;
                 }
 
@@ -140,7 +140,7 @@ static int create_dbus_files(
 
         r = fflush_and_check(f);
         if (r < 0) {
-                log_error("Failed to write %s: %s", b, strerror(-r));
+                log_error_errno(-r, "Failed to write %s: %m", b);
                 return r;
         }
 
@@ -332,7 +332,7 @@ int main(int argc, char *argv[]) {
                 type = "system";
                 units = SYSTEM_DATA_UNIT_PATH;
         } else {
-                log_error("Failed to determine whether we are running as user or system instance: %s", strerror(-r));
+                log_error_errno(-r, "Failed to determine whether we are running as user or system instance: %m");
                 return r;
         }
 

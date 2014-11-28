@@ -125,7 +125,7 @@ int address_drop(Address *address, Link *link,
 
         r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
         if (r < 0) {
-                log_error("Could not set prefixlen: %s", strerror(-r));
+                log_error_errno(-r, "Could not set prefixlen: %m");
                 return r;
         }
 
@@ -141,7 +141,7 @@ int address_drop(Address *address, Link *link,
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_errno(-r, "Could not send rtnetlink message: %m");
                 return r;
         }
 
@@ -171,19 +171,19 @@ int address_update(Address *address, Link *link,
 
         r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
         if (r < 0) {
-                log_error("Could not set prefixlen: %s", strerror(-r));
+                log_error_errno(-r, "Could not set prefixlen: %m");
                 return r;
         }
 
         r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
         if (r < 0) {
-                log_error("Could not set flags: %s", strerror(-r));
+                log_error_errno(-r, "Could not set flags: %m");
                 return r;
         }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0) {
-                log_error("Could not set scope: %s", strerror(-r));
+                log_error_errno(-r, "Could not set scope: %m");
                 return r;
         }
 
@@ -224,7 +224,7 @@ int address_update(Address *address, Link *link,
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_errno(-r, "Could not send rtnetlink message: %m");
                 return r;
         }
 
@@ -320,19 +320,19 @@ int address_configure(Address *address, Link *link,
 
         r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
         if (r < 0) {
-                log_error("Could not set prefixlen: %s", strerror(-r));
+                log_error_errno(-r, "Could not set prefixlen: %m");
                 return r;
         }
 
         r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
         if (r < 0) {
-                log_error("Could not set flags: %s", strerror(-r));
+                log_error_errno(-r, "Could not set flags: %m");
                 return r;
         }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0) {
-                log_error("Could not set scope: %s", strerror(-r));
+                log_error_errno(-r, "Could not set scope: %m");
                 return r;
         }
 
@@ -386,7 +386,7 @@ int address_configure(Address *address, Link *link,
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_error_errno(-r, "Could not send rtnetlink message: %m");
                 return r;
         }
 

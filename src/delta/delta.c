@@ -227,7 +227,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
 
         r = get_files_in_directory(path, &list);
         if (r < 0){
-                log_error("Failed to enumerate %s: %s", path, strerror(-r));
+                log_error_errno(-r, "Failed to enumerate %s: %m", path);
                 return r;
         }
 

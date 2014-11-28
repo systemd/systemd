@@ -884,7 +884,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
                 r = next_beyond_location(j, f, direction, &o, &p);
                 if (r < 0) {
-                        log_debug("Can't iterate through %s, ignoring: %s", f->path, strerror(-r));
+                        log_debug_errno(-r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
                         continue;
                 } else if (r == 0)
@@ -1567,7 +1567,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                         r = add_directory(j, m->path, de->d_name);
                         if (r < 0)
-                                log_debug("Failed to add directory %s/%s: %s", m->path, de->d_name, strerror(-r));
+                                log_debug_errno(-r, "Failed to add directory %s/%s: %m", m->path, de->d_name);
                 }
         }
 
@@ -1810,7 +1810,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         STRV_FOREACH(path, paths) {
                 r = add_any_file(j, *path);
                 if (r < 0) {
-                        log_error("Failed to open %s: %s", *path, strerror(-r));
+                        log_error_errno(-r, "Failed to open %s: %m", *path);
                         goto fail;
                 }
         }
@@ -2227,7 +2227,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
 
                                 r = remove_file(j, d->path, e->name);
                                 if (r < 0)
-                                        log_debug("Failed to remove file %s/%s: %s", d->path, e->name, strerror(-r));
+                                        log_debug_errno(-r, "Failed to remove file %s/%s: %m", d->path, e->name);
                         }
 
                 } else if (!d->is_root && e->len == 0) {
@@ -2237,7 +2237,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT)) {
                                 r = remove_directory(j, d);
                                 if (r < 0)
-                                        log_debug("Failed to remove directory %s: %s", d->path, strerror(-r));
+                                        log_debug_errno(-r, "Failed to remove directory %s: %m", d->path);
                         }
 
 
@@ -2248,7 +2248,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB)) {
                                 r = add_directory(j, d->path, e->name);
                                 if (r < 0)
-                                        log_debug("Failed to add directory %s/%s: %s", d->path, e->name, strerror(-r));
+                                        log_debug_errno(-r, "Failed to add directory %s/%s: %m", d->path, e->name);
                         }
                 }
 

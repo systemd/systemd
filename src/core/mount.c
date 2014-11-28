@@ -1627,7 +1627,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
-                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
+                log_error_errno(-r, "Failed to reread /proc/self/mountinfo: %m");
 
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {

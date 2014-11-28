@@ -303,7 +303,7 @@ static int manager_watch_idle_pipe(Manager *m) {
 
         r = sd_event_add_io(m->event, &m->idle_pipe_event_source, m->idle_pipe[2], EPOLLIN, manager_dispatch_idle_pipe_fd, m);
         if (r < 0) {
-                log_error("Failed to watch idle pipe: %s", strerror(-r));
+                log_error_errno(-r, "Failed to watch idle pipe: %m");
                 return r;
         }
 
@@ -349,7 +349,7 @@ static int manager_setup_time_change(Manager *m) {
 
         r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
         if (r < 0) {
-                log_error("Failed to create time change event source: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create time change event source: %m");
                 return r;
         }
 
@@ -697,7 +697,7 @@ static int manager_setup_notify(Manager *m) {
         if (!m->notify_event_source) {
                 r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m);
                 if (r < 0) {
-                        log_error("Failed to allocate notify event source: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to allocate notify event source: %m");
                         return -errno;
                 }
 
@@ -705,7 +705,7 @@ static int manager_setup_notify(Manager *m) {
                  * still identify to which service an exit message belongs */
                 r = sd_event_source_set_priority(m->notify_event_source, -7);
                 if (r < 0) {
-                        log_error("Failed to set priority of notify event source: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to set priority of notify event source: %m");
                         return r;
                 }
         }
@@ -1060,7 +1060,7 @@ static void manager_build_unit_path_cache(Manager *m) {
         return;
 
 fail:
-        log_error("Failed to build unit path cache: %s", strerror(-r));
+        log_error_errno(-r, "Failed to build unit path cache: %m");
 
         set_free_free(m->unit_path_cache);
         m->unit_path_cache = NULL;
@@ -1989,7 +1989,7 @@ int manager_loop(Manager *m) {
 
                 r = sd_event_run(m->event, wait_usec);
                 if (r < 0) {
-                        log_error("Failed to run event loop: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to run event loop: %m");
                         return r;
                 }
         }

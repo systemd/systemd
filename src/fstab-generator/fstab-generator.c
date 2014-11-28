@@ -134,7 +134,7 @@ static int add_swap(
 
         r = fflush_and_check(f);
         if (r < 0) {
-                log_error("Failed to write unit file %s: %s", unit, strerror(-r));
+                log_error_errno(-r, "Failed to write unit file %s: %m", unit);
                 return r;
         }
 
@@ -600,7 +600,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_proc_cmdline(parse_proc_cmdline_item);
         if (r < 0)
-                log_warning("Failed to parse kernel command line, ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to parse kernel command line, ignoring: %m");
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {

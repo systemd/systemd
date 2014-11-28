@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 
         r = on_ac_power();
         if (r < 0) {
-                log_error("Failed to read AC status: %s", strerror(-r));
+                log_error_errno(-r, "Failed to read AC status: %m");
                 return EXIT_FAILURE;
         }
 

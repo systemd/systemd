@@ -263,7 +263,7 @@ int button_open(Button *b) {
 
         r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
         if (r < 0) {
-                log_error("Failed to add button event: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add button event: %m");
                 goto fail;
         }
 

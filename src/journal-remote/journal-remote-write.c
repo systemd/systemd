@@ -153,7 +153,7 @@ int writer_write(Writer *w,
                 return 1;
         }
 
-        log_debug("%s: Write failed, rotating: %s", w->journal->path, strerror(-r));
+        log_debug_errno(-r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, compress, seal);
         if (r < 0)
                 return r;

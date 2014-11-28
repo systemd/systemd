@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0) {
-                log_error("Failed to connect to bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to connect to bus: %m");
                 return EXIT_FAILURE;
         }
 

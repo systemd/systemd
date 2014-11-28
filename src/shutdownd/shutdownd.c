@@ -204,7 +204,7 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
 
         r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
         if (r < 0) {
-                log_error("Failed to create shutdown subdirectory: %s", strerror(-r));
+                log_error_errno(-r, "Failed to create shutdown subdirectory: %m");
                 return r;
         }
 
@@ -214,7 +214,7 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0) {
-                log_error("Failed to save information about scheduled shutdowns: %s", strerror(-r));
+                log_error_errno(-r, "Failed to save information about scheduled shutdowns: %m");
                 return r;
         }
 
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
 
         n_fds = sd_listen_fds(true);
         if (n_fds < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
+                log_error_errno(-r, "Failed to read listening file descriptors from environment: %m");
                 return EXIT_FAILURE;
         }
 
@@ -410,7 +410,7 @@ int main(int argc, char *argv[]) {
 
                         e = write_string_file_atomic("/run/nologin", "System is going down.");
                         if (e < 0)
-                                log_error("Failed to create /run/nologin: %s", strerror(-e));
+                                log_error_errno(-e, "Failed to create /run/nologin: %m");
                         else
                                 unlink_nologin = true;
 

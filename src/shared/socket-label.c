@@ -162,12 +162,12 @@ int make_socket_fd(int log_level, const char* address, int flags) {
 
                 r = socket_address_print(&a, &p);
                 if (r < 0) {
-                        log_error("socket_address_print(): %s", strerror(-r));
+                        log_error_errno(-r, "socket_address_print(): %m");
                         return r;
                 }
 
                 if (fd < 0)
-                        log_error("Failed to listen on %s: %s", p, strerror(-fd));
+                        log_error_errno(-fd, "Failed to listen on %s: %m", p);
                 else
                         log_full(log_level, "Listening on %s", p);
         }

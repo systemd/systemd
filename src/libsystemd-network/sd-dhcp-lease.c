@@ -685,7 +685,7 @@ int sd_dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save lease data %s: %s", lease_file, strerror(-r));
+                log_error_errno(-r, "Failed to save lease data %s: %m", lease_file);
 
         return r;
 }
@@ -725,7 +725,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error("Failed to read %s: %s", lease_file, strerror(-r));
+                log_error_errno(-r, "Failed to read %s: %m", lease_file);
                 return r;
         }
 

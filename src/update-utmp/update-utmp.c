@@ -144,7 +144,7 @@ static int on_reboot(Context *c) {
 
         q = utmp_put_reboot(t);
         if (q < 0) {
-                log_error("Failed to write utmp record: %s", strerror(-q));
+                log_error_errno(-q, "Failed to write utmp record: %m");
                 r = q;
         }
 
@@ -170,7 +170,7 @@ static int on_shutdown(Context *c) {
 
         q = utmp_put_shutdown();
         if (q < 0) {
-                log_error("Failed to write utmp record: %s", strerror(-q));
+                log_error_errno(-q, "Failed to write utmp record: %m");
                 r = q;
         }
 
@@ -190,7 +190,7 @@ static int on_runlevel(Context *c) {
 
         if (q < 0) {
                 if (q != -ESRCH && q != -ENOENT) {
-                        log_error("Failed to get current runlevel: %s", strerror(-q));
+                        log_error_errno(-q, "Failed to get current runlevel: %m");
                         return q;
                 }
 
@@ -225,7 +225,7 @@ static int on_runlevel(Context *c) {
 
         q = utmp_put_runlevel(runlevel, previous);
         if (q < 0 && q != -ESRCH && q != -ENOENT) {
-                log_error("Failed to write utmp record: %s", strerror(-q));
+                log_error_errno(-q, "Failed to write utmp record: %m");
                 r = q;
         }
 
@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
 #endif
         r = bus_open_system_systemd(&c.bus);
         if (r < 0) {
-                log_error("Failed to get D-Bus connection: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get D-Bus connection: %m");
                 r = -EIO;
                 goto finish;
         }

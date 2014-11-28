@@ -258,7 +258,7 @@ static void test_nameinfo_pretty(void) {
 
         _cleanup_close_ int sfd = -1, cfd = -1;
         r = getnameinfo_pretty(STDIN_FILENO, &stdin_name);
-        log_info("No connection remote: %s", strerror(-r));
+        log_info_errno(-r, "No connection remote: %m");
 
         assert_se(r < 0);
 

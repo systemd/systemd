@@ -216,7 +216,7 @@ finish:
                 if (temp_path)
                         unlink(temp_path);
 
-                log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
+                log_error_errno(-r, "Failed to save machine data %s: %m", m->state_file);
         }
 
         return r;
@@ -259,7 +259,7 @@ int machine_load(Machine *m) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error("Failed to read %s: %s", m->state_file, strerror(-r));
+                log_error_errno(-r, "Failed to read %s: %m", m->state_file);
                 return r;
         }
 

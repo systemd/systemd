@@ -405,7 +405,7 @@ void server_process_native_file(
 
                 n = pread(fd, p, st.st_size, 0);
                 if (n < 0)
-                        log_error("Failed to read file, ignoring: %s", strerror(-n));
+                        log_error_errno(-n, "Failed to read file, ignoring: %m");
                 else if (n > 0)
                         server_process_native_message(s, p, n, ucred, tv, label, label_len);
         }
@@ -463,7 +463,7 @@ int server_open_native_socket(Server*s) {
 
         r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
         if (r < 0) {
-                log_error("Failed to add native server fd to event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add native server fd to event loop: %m");
                 return r;
         }
 

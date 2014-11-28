@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(&m);
         if (r < 0) {
-                log_error("Could not create manager: %s", strerror(-r));
+                log_error_errno(-r, "Could not create manager: %m");
                 goto out;
         }
 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_run(m);
         if (r < 0) {
-                log_error("Cannot run manager: %s", strerror(-r));
+                log_error_errno(-r, "Cannot run manager: %m");
                 goto out;
         }
 

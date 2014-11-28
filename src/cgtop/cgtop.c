@@ -748,7 +748,7 @@ int main(int argc, char *argv[]) {
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0) {
-                                log_error("Couldn't read key: %s", strerror(-r));
+                                log_error_errno(-r, "Couldn't read key: %m");
                                 goto finish;
                         }
                 }
@@ -842,7 +842,7 @@ finish:
         group_hashmap_free(b);
 
         if (r < 0) {
-                log_error("Exiting with failure: %s", strerror(-r));
+                log_error_errno(-r, "Exiting with failure: %m");
                 return EXIT_FAILURE;
         }
 

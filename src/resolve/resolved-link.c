@@ -88,7 +88,7 @@ static void link_allocate_scopes(Link *l) {
                 if (!l->unicast_scope) {
                         r = dns_scope_new(l->manager, &l->unicast_scope, l, DNS_PROTOCOL_DNS, AF_UNSPEC);
                         if (r < 0)
-                                log_warning("Failed to allocate DNS scope: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to allocate DNS scope: %m");
                 }
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
@@ -99,7 +99,7 @@ static void link_allocate_scopes(Link *l) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
-                                log_warning("Failed to allocate LLMNR IPv4 scope: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to allocate LLMNR IPv4 scope: %m");
                 }
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
@@ -111,7 +111,7 @@ static void link_allocate_scopes(Link *l) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
-                                log_warning("Failed to allocate LLMNR IPv6 scope: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to allocate LLMNR IPv6 scope: %m");
                 }
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
@@ -439,11 +439,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, true);
                         if (r < 0)
-                                log_warning("Failed to add A record to LLMNR zone: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to add A record to LLMNR zone: %m");
 
                         r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, false);
                         if (r < 0)
-                                log_warning("Failed to add IPv6 PTR record to LLMNR zone: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv4_scope)
@@ -496,11 +496,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
                         r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_address_rr, true);
                         if (r < 0)
-                                log_warning("Failed to add AAAA record to LLMNR zone: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to add AAAA record to LLMNR zone: %m");
 
                         r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_ptr_rr, false);
                         if (r < 0)
-                                log_warning("Failed to add IPv6 PTR record to LLMNR zone: %s", strerror(-r));
+                                log_warning_errno(-r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv6_scope)
@@ -519,7 +519,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         return;
 
 fail:
-        log_debug("Failed to update address RRs: %s", strerror(-r));
+        log_debug_errno(-r, "Failed to update address RRs: %m");
 }
 
 int link_address_update_rtnl(LinkAddress *a, sd_rtnl_message *m) {

@@ -134,7 +134,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
+                log_error_errno(-r, "Failed to open file '%s', ignoring: %m", path);
                 return r;
         }
 
@@ -196,7 +196,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
 
                 k = hashmap_put(sysctl_options, property, new_value);
                 if (k < 0) {
-                        log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-k));
+                        log_error_errno(-k, "Failed to add sysctl variable %s to hashmap: %m", property);
                         free(property);
                         free(new_value);
                         return k;
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
-                        log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to enumerate sysctl.d files: %m");
                         goto finish;
                 }
 

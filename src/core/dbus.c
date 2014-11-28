@@ -64,7 +64,7 @@ int bus_send_queued_message(Manager *m) {
 
         r = sd_bus_send(m->queued_message_bus, m->queued_message, NULL);
         if (r < 0)
-                log_warning("Failed to send queued message: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to send queued message: %m");
 
         m->queued_message = sd_bus_message_unref(m->queued_message);
         m->queued_message_bus = sd_bus_unref(m->queued_message_bus);
@@ -95,7 +95,7 @@ static int signal_agent_released(sd_bus *bus, sd_bus_message *message, void *use
 
                 r = sd_bus_send(m->system_bus, message, NULL);
                 if (r < 0)
-                        log_warning("Failed to forward Released message: %s", strerror(-r));
+                        log_warning_errno(-r, "Failed to forward Released message: %m");
         }
 
         return 0;
@@ -203,7 +203,7 @@ failed:
 
         r = sd_bus_send_to(bus, reply, "org.freedesktop.DBus", NULL);
         if (r < 0) {
-                log_error("Failed to respond with to bus activation request: %s", strerror(-r));
+                log_error_errno(-r, "Failed to respond with to bus activation request: %m");
                 return r;
         }
 
@@ -538,58 +538,58 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
 #ifdef HAVE_SELINUX
         r = sd_bus_add_filter(bus, NULL, mac_selinux_filter, m);
         if (r < 0) {
-                log_error("Failed to add SELinux access filter: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add SELinux access filter: %m");
                 return r;
         }
 #endif
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
         if (r < 0) {
-                log_error("Failed to register Manager vtable: %s", strerror(-r));
+                log_error_errno(-r, "Failed to register Manager vtable: %m");
                 return r;
         }
 
         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
         if (r < 0) {
-                log_error("Failed to register Job vtable: %s", strerror(-r));
+                log_error_errno(-r, "Failed to register Job vtable: %m");
                 return r;
         }
 
         r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/job", bus_job_enumerate, m);
         if (r < 0) {
-                log_error("Failed to add job enumerator: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add job enumerator: %m");
                 return r;
         }
 
         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
         if (r < 0) {
-                log_error("Failed to register Unit vtable: %s", strerror(-r));
+                log_error_errno(-r, "Failed to register Unit vtable: %m");
                 return r;
         }
 
         r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/unit", bus_unit_enumerate, m);
         if (r < 0) {
-                log_error("Failed to add job enumerator: %s", strerror(-r));
+                log_error_errno(-r, "Failed to add job enumerator: %m");
                 return r;
         }
 
         for (t = 0; t < _UNIT_TYPE_MAX; t++) {
                 r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
                 if (r < 0)  {
-                        log_error("Failed to register type specific vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
+                        log_error_errno(-r, "Failed to register type specific vtable for %s: %m", unit_vtable[t]->bus_interface);
                         return r;
                 }
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
                         if (r < 0) {
-                                log_error("Failed to register control group unit vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
+                                log_error_errno(-r, "Failed to register control group unit vtable for %s: %m", unit_vtable[t]->bus_interface);
                                 return r;
                         }
 
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
                         if (r < 0) {
-                                log_error("Failed to register control group vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
+                                log_error_errno(-r, "Failed to register control group vtable for %s: %m", unit_vtable[t]->bus_interface);
                                 return r;
                         }
                 }
@@ -597,7 +597,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 if (unit_vtable[t]->exec_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
                         if (r < 0) {
-                                log_error("Failed to register execute vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
+                                log_error_errno(-r, "Failed to register execute vtable for %s: %m", unit_vtable[t]->bus_interface);
                                 return r;
                         }
                 }
@@ -605,7 +605,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
                 if (unit_vtable[t]->kill_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
                         if (r < 0) {
-                                log_error("Failed to register kill vtable for %s: %s", unit_vtable[t]->bus_interface, strerror(-r));
+                                log_error_errno(-r, "Failed to register kill vtable for %s: %m", unit_vtable[t]->bus_interface);
                                 return r;
                         }
                 }
@@ -631,7 +631,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
                         signal_disconnected, m);
 
         if (r < 0) {
-                log_error("Failed to register match for Disconnected message: %s", strerror(-r));
+                log_error_errno(-r, "Failed to register match for Disconnected message: %m");
                 return r;
         }
 
@@ -667,13 +667,13 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = sd_bus_new(&bus);
         if (r < 0) {
-                log_warning("Failed to allocate new private connection bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to allocate new private connection bus: %m");
                 return 0;
         }
 
         r = sd_bus_set_fd(bus, nfd, nfd);
         if (r < 0) {
-                log_warning("Failed to set fd on new connection bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to set fd on new connection bus: %m");
                 return 0;
         }
 
@@ -681,7 +681,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = bus_check_peercred(bus);
         if (r < 0) {
-                log_warning("Incoming private connection from unprivileged client, refusing: %s", strerror(-r));
+                log_warning_errno(-r, "Incoming private connection from unprivileged client, refusing: %m");
                 return 0;
         }
 
@@ -689,19 +689,19 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = sd_bus_set_server(bus, 1, id);
         if (r < 0) {
-                log_warning("Failed to enable server support for new connection bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to enable server support for new connection bus: %m");
                 return 0;
         }
 
         r = sd_bus_start(bus);
         if (r < 0) {
-                log_warning("Failed to start new connection bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to start new connection bus: %m");
                 return 0;
         }
 
         r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0) {
-                log_warning("Failed to attach new connection bus to event loop: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to attach new connection bus to event loop: %m");
                 return 0;
         }
 
@@ -719,7 +719,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                                 signal_agent_released, m);
 
                 if (r < 0) {
-                        log_warning("Failed to register Released match on new connection bus: %s", strerror(-r));
+                        log_warning_errno(-r, "Failed to register Released match on new connection bus: %m");
                         return 0;
                 }
         }
@@ -730,13 +730,13 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = bus_setup_api_vtables(m, bus);
         if (r < 0) {
-                log_warning("Failed to set up API vtables on new connection bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to set up API vtables on new connection bus: %m");
                 return 0;
         }
 
         r = set_put(m->private_buses, bus);
         if (r < 0) {
-                log_warning("Failed to add new conenction bus to set: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to add new conenction bus to set: %m");
                 return 0;
         }
 
@@ -757,7 +757,7 @@ static int bus_list_names(Manager *m, sd_bus *bus) {
 
         r = sd_bus_list_names(bus, &names, NULL);
         if (r < 0) {
-                log_error("Failed to get initial list of names: %s", strerror(-r));
+                log_error_errno(-r, "Failed to get initial list of names: %m");
                 return r;
         }
 
@@ -782,7 +782,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                                    SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
                                    SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0)
-                log_warning("Failed to enable credential passing, ignoring: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to enable credential passing, ignoring: %m");
 
         r = bus_setup_api_vtables(m, bus);
         if (r < 0)
@@ -798,7 +798,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                         "member='NameOwnerChanged'",
                         signal_name_owner_changed, m);
         if (r < 0)
-                log_warning("Failed to subscribe to NameOwnerChanged signal: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to subscribe to NameOwnerChanged signal: %m");
 
         r = sd_bus_add_match(
                         bus,
@@ -810,7 +810,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                         "member='ActivationRequest'",
                         signal_activation_request, m);
         if (r < 0)
-                log_warning("Failed to subscribe to activation signal: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to subscribe to activation signal: %m");
 
         /* Allow replacing of our name, to ease implementation of
          * reexecution, where we keep the old connection open until
@@ -819,7 +819,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
          * finish */
         r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT);
         if (r < 0) {
-                log_error("Failed to register name: %s", strerror(-r));
+                log_error_errno(-r, "Failed to register name: %m");
                 return r;
         }
 
@@ -852,7 +852,7 @@ static int bus_init_api(Manager *m) {
 
                 r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
                 if (r < 0) {
-                        log_error("Failed to attach API bus to event loop: %s", strerror(-r));
+                        log_error_errno(-r, "Failed to attach API bus to event loop: %m");
                         return 0;
                 }
 
@@ -863,7 +863,7 @@ static int bus_init_api(Manager *m) {
 
         r = bus_setup_api(m, bus);
         if (r < 0) {
-                log_error("Failed to set up API bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set up API bus: %m");
                 return 0;
         }
 
@@ -894,7 +894,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
                         signal_agent_released, m);
 
         if (r < 0)
-                log_warning("Failed to register Released match on system bus: %s", strerror(-r));
+                log_warning_errno(-r, "Failed to register Released match on system bus: %m");
 
         log_debug("Successfully connected to system bus.");
         return 0;
@@ -925,13 +925,13 @@ static int bus_init_system(Manager *m) {
 
         r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0) {
-                log_error("Failed to attach system bus to event loop: %s", strerror(-r));
+                log_error_errno(-r, "Failed to attach system bus to event loop: %m");
                 return 0;
         }
 
         r = bus_setup_system(m, bus);
         if (r < 0) {
-                log_error("Failed to set up system bus: %s", strerror(-r));
+                log_error_errno(-r, "Failed to set up system bus: %m");
                 return 0;
         }
 
@@ -1007,7 +1007,7 @@ static int bus_init_private(Manager *m) {
 
         r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
         if (r < 0) {
-                log_error("Failed to allocate event source: %s", strerror(-r));
+                log_error_errno(-r, "Failed to allocate event source: %m");
                 return r;
         }
 

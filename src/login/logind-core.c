@@ -551,7 +551,7 @@ bool manager_is_docked_or_multiple_displays(Manager *m) {
          * assume that we are docked. */
         n = manager_count_displays(m);
         if (n < 0)
-                log_warning("Display counting failed: %s", strerror(-n));
+                log_warning_errno(-n, "Display counting failed: %m");
         else if (n > 1) {
                 log_debug("Multiple (%i) displays connected.", n);
                 return true;

@@ -1514,7 +1514,7 @@ static int reply_unit_file_changes_and_free(
         if (n_changes > 0) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
-                        log_debug("Failed to send UnitFilesChanged signal: %s", strerror(-r));
+                        log_debug_errno(-r, "Failed to send UnitFilesChanged signal: %m");
         }
 
         r = sd_bus_message_new_method_return(message, &reply);
@@ -1998,7 +1998,7 @@ void bus_manager_send_finished(
                                 total_usec
                         });
         if (r < 0)
-                log_debug("Failed to send finished signal: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to send finished signal: %m");
 }
 
 static int send_reloading(sd_bus *bus, void *userdata) {
@@ -2025,6 +2025,6 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
-                log_debug("Failed to send reloading signal: %s", strerror(-r));
+                log_debug_errno(-r, "Failed to send reloading signal: %m");
 
 }

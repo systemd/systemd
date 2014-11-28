@@ -88,7 +88,7 @@ static int list_homes(void) {
                 if (q == -ENXIO)
                         continue;
                 if (q < 0) {
-                        log_error("Failed to query %s: %s", path_table[i], strerror(-r));
+                        log_error_errno(-r, "Failed to query %s: %m", path_table[i]);
                         r = q;
                         continue;
                 }
@@ -109,7 +109,7 @@ static int print_home(const char *n) {
 
                         r = sd_path_home(i, arg_suffix, &p);
                         if (r < 0) {
-                                log_error("Failed to query %s: %s", n, strerror(-r));
+                                log_error_errno(-r, "Failed to query %s: %m", n);
                                 return r;
                         }
 

@@ -171,14 +171,14 @@ static int verify_cert_authorized(gnutls_session_t session) {
 
         r = gnutls_certificate_verify_peers2(session, &status);
         if (r < 0) {
-                log_error("gnutls_certificate_verify_peers2 failed: %s", strerror(-r));
+                log_error_errno(-r, "gnutls_certificate_verify_peers2 failed: %m");
                 return r;
         }
 
         type = gnutls_certificate_type_get(session);
         r = gnutls_certificate_verification_status_print(status, type, &out, 0);
         if (r < 0) {
-                log_error("gnutls_certificate_verification_status_print failed: %s", strerror(-r));
+                log_error_errno(-r, "gnutls_certificate_verification_status_print failed: %m");
                 return r;
         }
 
