@@ -100,8 +100,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
-                        log_error_errno(fd, "Failed to open '%s': %m", *address);
-                        return fd;
+                        return log_error_errno(fd, "Failed to open '%s': %m", *address);
                 }
 
                 assert(fd == SD_LISTEN_FDS_START + count);

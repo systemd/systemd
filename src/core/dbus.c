@@ -202,10 +202,8 @@ failed:
         }
 
         r = sd_bus_send_to(bus, reply, "org.freedesktop.DBus", NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to respond with to bus activation request: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to respond with to bus activation request: %m");
 
         return 0;
 }
@@ -537,77 +535,55 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
 
 #ifdef HAVE_SELINUX
         r = sd_bus_add_filter(bus, NULL, mac_selinux_filter, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add SELinux access filter: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add SELinux access filter: %m");
 #endif
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register Manager vtable: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register Manager vtable: %m");
 
         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register Job vtable: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register Job vtable: %m");
 
         r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/job", bus_job_enumerate, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add job enumerator: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add job enumerator: %m");
 
         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register Unit vtable: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register Unit vtable: %m");
 
         r = sd_bus_add_node_enumerator(bus, NULL, "/org/freedesktop/systemd1/unit", bus_unit_enumerate, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add job enumerator: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add job enumerator: %m");
 
         for (t = 0; t < _UNIT_TYPE_MAX; t++) {
                 r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to register type specific vtable for %s: %m", unit_vtable[t]->bus_interface);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register type specific vtable for %s: %m", unit_vtable[t]->bus_interface);
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to register control group unit vtable for %s: %m", unit_vtable[t]->bus_interface);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", unit_vtable[t]->bus_interface);
 
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to register control group vtable for %s: %m", unit_vtable[t]->bus_interface);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to register control group vtable for %s: %m", unit_vtable[t]->bus_interface);
                 }
 
                 if (unit_vtable[t]->exec_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_exec_vtable, bus_exec_context_find, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to register execute vtable for %s: %m", unit_vtable[t]->bus_interface);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to register execute vtable for %s: %m", unit_vtable[t]->bus_interface);
                 }
 
                 if (unit_vtable[t]->kill_context_offset > 0) {
                         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", unit_vtable[t]->bus_interface, bus_kill_vtable, bus_kill_context_find, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to register kill vtable for %s: %m", unit_vtable[t]->bus_interface);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to register kill vtable for %s: %m", unit_vtable[t]->bus_interface);
                 }
         }
 
@@ -630,10 +606,8 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
                         "member='Disconnected'",
                         signal_disconnected, m);
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to register match for Disconnected message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register match for Disconnected message: %m");
 
         return 0;
 }
@@ -756,10 +730,8 @@ static int bus_list_names(Manager *m, sd_bus *bus) {
         assert(bus);
 
         r = sd_bus_list_names(bus, &names, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get initial list of names: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get initial list of names: %m");
 
         /* This is a bit hacky, we say the owner of the name is the
          * name itself, because we don't want the extra traffic to
@@ -818,10 +790,8 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
          * to allow clients to synchronously wait for reexecution to
          * finish */
         r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT);
-        if (r < 0) {
-                log_error_errno(r, "Failed to register name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
 
         bus_list_names(m, bus);
 
@@ -1006,10 +976,8 @@ static int bus_init_private(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event source: %m");
 
         m->private_listen_fd = fd;
         m->private_listen_event_source = s;

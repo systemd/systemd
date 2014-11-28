@@ -308,10 +308,8 @@ static int map_all_fields(
                                 continue;
 
                         r = m->map(m->journal_field, &v, iov, n_iov_allocated, n_iov);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to parse audit array: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse audit array: %m");
 
                         if (r > 0) {
                                 mapped = true;
@@ -322,10 +320,8 @@ static int map_all_fields(
 
                 if (!mapped) {
                         r = map_generic_field(prefix, &p, iov, n_iov_allocated, n_iov);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to parse audit array: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse audit array: %m");
 
                         if (r == 0) {
                                 /* Couldn't process as generic field, let's just skip over it */
@@ -547,10 +543,8 @@ int server_open_audit(Server *s) {
         }
 
         r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, process_datagram, s);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add audit fd to event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
         /* We are listening now, try to enable audit */
         r = enable_audit(s->audit_fd, true);

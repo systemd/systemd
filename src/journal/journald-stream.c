@@ -464,16 +464,12 @@ int server_open_stdout_socket(Server *s) {
                 fd_nonblock(s->stdout_fd, 1);
 
         r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add stdout server fd to event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
         r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
-        if (r < 0) {
-                log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 
         return 0;
 }

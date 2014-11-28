@@ -116,8 +116,7 @@ static int add_match(Set *set, const char *match) {
 
         return 0;
 fail:
-        log_error_errno(r, "Failed to add match: %m");
-        return r;
+        return log_error_errno(r, "Failed to add match: %m");
 }
 
 static void help(void) {
@@ -326,10 +325,8 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         }
 
         r = sd_journal_get_realtime_usec(j, &t);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get realtime timestamp: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         format_timestamp(buf, sizeof(buf), t);
         present = filename && access(filename, F_OK) == 0;
@@ -521,10 +518,8 @@ static int focus(sd_journal *j) {
         r = sd_journal_seek_tail(j);
         if (r == 0)
                 r = sd_journal_previous(j);
-        if (r < 0) {
-                log_error_errno(r, "Failed to search journal: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to search journal: %m");
         if (r == 0) {
                 log_error("No match found.");
                 return -ESRCH;
@@ -704,10 +699,8 @@ static int dump_core(sd_journal* j) {
         }
 
         r = save_core(j, output ? fileno(output) : STDOUT_FILENO, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Coredump retrieval failed: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Coredump retrieval failed: %m");
 
         r = sd_journal_previous(j);
         if (r >= 0)
@@ -735,10 +728,8 @@ static int run_gdb(sd_journal *j) {
         fputs("\n", stdout);
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
-        if (r < 0) {
-                log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
         assert(len > strlen("COREDUMP_EXE="));
         data += strlen("COREDUMP_EXE=");
@@ -759,10 +750,8 @@ static int run_gdb(sd_journal *j) {
         }
 
         r = save_core(j, -1, &path, &unlink_path);
-        if (r < 0) {
-                log_error_errno(r, "Failed to retrieve core: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve core: %m");
 
         pid = fork();
         if (pid < 0) {

@@ -303,10 +303,8 @@ static int busname_open_fd(BusName *n) {
 
         mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
         n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
-        if (n->starter_fd < 0) {
-                log_unit_warning_errno(UNIT(n)->id, n->starter_fd, "Failed to open %s: %m", path ?: "kdbus");
-                return n->starter_fd;
-        }
+        if (n->starter_fd < 0)
+                return log_unit_warning_errno(UNIT(n)->id, n->starter_fd, "Failed to open %s: %m", path ?: "kdbus");
 
         return 0;
 }

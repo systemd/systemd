@@ -137,16 +137,12 @@ static int evcat_new(Evcat **out) {
                 return log_oom();
 
         r = sd_pid_get_session(getpid(), &e->session);
-        if (r < 0) {
-                log_error_errno(r, "Cannot retrieve logind session: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot retrieve logind session: %m");
 
         r = sd_session_get_seat(e->session, &e->seat);
-        if (r < 0) {
-                log_error_errno(r, "Cannot retrieve seat of logind session: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot retrieve seat of logind session: %m");
 
         e->managed = is_managed(e->session);
 
@@ -318,17 +314,13 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                                      name,
                                      evcat_idev_fn,
                                      e);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot create idev session: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Cannot create idev session: %m");
 
                 if (e->managed) {
                         r = sysview_session_take_control(ev->session_add.session);
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot request session control: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot request session control: %m");
                 }
 
                 idev_session_enable(e->idev_session);
@@ -345,10 +337,8 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                 type = sysview_device_get_type(d);
                 if (type == SYSVIEW_DEVICE_EVDEV) {
                         r = idev_session_add_evdev(e->idev_session, sysview_device_get_ud(d));
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot add evdev device to idev: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot add evdev device to idev: %m");
                 }
 
                 break;
@@ -357,19 +347,15 @@ static int evcat_sysview_fn(sysview_context *c, void *userdata, sysview_event *e
                 type = sysview_device_get_type(d);
                 if (type == SYSVIEW_DEVICE_EVDEV) {
                         r = idev_session_remove_evdev(e->idev_session, sysview_device_get_ud(d));
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot remove evdev device from idev: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot remove evdev device from idev: %m");
                 }
 
                 break;
         case SYSVIEW_EVENT_SESSION_CONTROL:
                 r = ev->session_control.error;
-                if (r < 0) {
-                        log_error_errno(r, "Cannot acquire session control: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Cannot acquire session control: %m");
 
                 r = ioctl(1, KDSKBMODE, K_UNICODE);
                 if (r < 0) {

@@ -89,10 +89,8 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 arg_unique = arg_acquired = arg_activatable = true;
 
         r = sd_bus_list_names(bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to list names: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to list names: %m");
 
         pager_open_if_enabled();
 
@@ -104,20 +102,16 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 max_i = MAX(max_i, strlen(*i));
 
                 r = hashmap_put(names, *i, NAME_IS_ACQUIRED);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add to hashmap: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add to hashmap: %m");
         }
 
         STRV_FOREACH(i, activatable) {
                 max_i = MAX(max_i, strlen(*i));
 
                 r = hashmap_put(names, *i, NAME_IS_ACTIVATABLE);
-                if (r < 0 && r != -EEXIST) {
-                        log_error_errno(r, "Failed to add to hashmap: %m");
-                        return r;
-                }
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to add to hashmap: %m");
         }
 
         merged = new(char*, hashmap_size(names) + 1);
@@ -438,10 +432,8 @@ static int tree(sd_bus *bus, char **argv) {
                 bool not_first = false;
 
                 r = sd_bus_list_names(bus, &names, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get name list: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get name list: %m");
 
                 pager_open_if_enabled();
 
@@ -1095,40 +1087,32 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         return log_oom();
 
                 r = sd_bus_add_match(bus, NULL, m, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add match: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
 
                 added_something = true;
         }
 
         STRV_FOREACH(i, arg_matches) {
                 r = sd_bus_add_match(bus, NULL, *i, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add match: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
 
                 added_something = true;
         }
 
         if (!added_something) {
                 r = sd_bus_add_match(bus, NULL, "", NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add match: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
         }
 
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
 
                 r = sd_bus_process(bus, &m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to process bus: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process bus: %m");
 
                 if (m) {
                         dump(m, stdout);
@@ -1139,10 +1123,8 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         continue;
 
                 r = sd_bus_wait(bus, (uint64_t) -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to wait for bus: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for bus: %m");
         }
 }
 
@@ -1206,10 +1188,8 @@ static int status(sd_bus *bus, char *argv[]) {
                                 &creds);
         }
 
-        if (r < 0) {
-                log_error_errno(r, "Failed to get credentials: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials: %m");
 
         bus_creds_dump(creds, NULL, false);
         return 0;

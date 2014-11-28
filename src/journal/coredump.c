@@ -312,10 +312,8 @@ static int save_external_coredump(
         assert(ret_size);
 
         r = make_filename(info, &fn);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine coredump file name: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine coredump file name: %m");
 
         tmp = tempfn_random(fn);
         if (!tmp)
@@ -445,10 +443,8 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         memcpy(field, "COREDUMP=", 9);
 
         n = read(fd, field + 9, size);
-        if (n < 0) {
-                log_error_errno(n, "Failed to read core data: %m");
-                return (int) n;
-        }
+        if (n < 0)
+                return log_error_errno((int) n, "Failed to read core data: %m");
         if ((size_t) n < size) {
                 log_error("Core data too short.");
                 return -EIO;

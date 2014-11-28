@@ -102,10 +102,8 @@ static int create_dbus_files(
                 }
 
                 r = fflush_and_check(f);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to write %s: %m", a);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write %s: %m", a);
 
                 fclose(f);
                 f = NULL;
@@ -139,10 +137,8 @@ static int create_dbus_files(
                 service);
 
         r = fflush_and_check(f);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write %s: %m", b);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", b);
 
         lnk = strjoin(arg_dest_late, "/" SPECIAL_BUSNAMES_TARGET ".wants/", name, ".busname", NULL);
         if (!lnk)
@@ -331,10 +327,8 @@ int main(int argc, char *argv[]) {
                 path = "/usr/share/dbus-1/system-services";
                 type = "system";
                 units = SYSTEM_DATA_UNIT_PATH;
-        } else {
-                log_error_errno(r, "Failed to determine whether we are running as user or system instance: %m");
-                return r;
-        }
+        } else
+                return log_error_errno(r, "Failed to determine whether we are running as user or system instance: %m");
 
         r = parse_dbus_fragments(path, type);
 

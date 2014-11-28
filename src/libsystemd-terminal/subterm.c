@@ -125,10 +125,8 @@ static int output_flush(Output *o) {
                 return 0;
 
         len = loop_write(o->fd, o->obuf, o->n_obuf, false);
-        if (len < 0) {
-                log_error_errno(len, "error: cannot write to TTY (%zd): %m", len);
-                return len;
-        }
+        if (len < 0)
+                return log_error_errno(len, "error: cannot write to TTY (%zd): %m", len);
 
         o->n_obuf = 0;
 
@@ -156,10 +154,8 @@ static int output_write(Output *o, const void *buf, size_t size) {
                 return r;
 
         len = loop_write(o->fd, buf, size, false);
-        if (len < 0) {
-                log_error_errno(len, "error: cannot write to TTY (%zd): %m", len);
-                return len;
-        }
+        if (len < 0)
+                return log_error_errno(len, "error: cannot write to TTY (%zd): %m", len);
 
         return 0;
 }
@@ -656,10 +652,8 @@ static int terminal_write_tmp(Terminal *t) {
         if (t->pty) {
                 for (i = 0; i < num; ++i) {
                         r = pty_write(t->pty, vec[i].iov_base, vec[i].iov_len);
-                        if (r < 0) {
-                                log_error_errno(r, "error: cannot write to PTY (%d): %m", r);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "error: cannot write to PTY (%d): %m", r);
                 }
         }
 
@@ -725,10 +719,8 @@ static int terminal_io_fn(sd_event_source *source, int fd, uint32_t revents, voi
                 n_str = term_utf8_decode(&t->utf8, &str, buf[i]);
                 for (j = 0; j < n_str; ++j) {
                         type = term_parser_feed(t->parser, &seq, str[j]);
-                        if (type < 0) {
-                                log_error_errno(type, "error: term_parser_feed() (%d): %m", type);
-                                return type;
-                        }
+                        if (type < 0)
+                                return log_error_errno(type, "error: term_parser_feed() (%d): %m", type);
 
                         if (!t->is_menu) {
                                 r = terminal_push_tmp(t, str[j]);
@@ -777,10 +769,8 @@ static int terminal_pty_fn(Pty *pty, void *userdata, unsigned int event, const v
                 break;
         case PTY_DATA:
                 r = term_screen_feed_text(t->screen, ptr, size);
-                if (r < 0) {
-                        log_error_errno(r, "error: term_screen_feed_text() (%d): %m", r);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "error: term_screen_feed_text() (%d): %m", r);
 
                 terminal_dirty(t);
                 break;
@@ -951,10 +941,9 @@ static int terminal_run(Terminal *t) {
         assert_return(t, -EINVAL);
 
         pid = pty_fork(&t->pty, t->event, terminal_pty_fn, t, t->output->in_width, t->output->in_height);
-        if (pid < 0) {
-                log_error_errno(pid, "error: cannot fork PTY (%d): %m", pid);
-                return pid;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(pid, "error: cannot fork PTY (%d): %m", pid);
+        else if (pid == 0) {
                 /* child */
 
                 char **argv = (char*[]){

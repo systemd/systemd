@@ -65,15 +65,11 @@ static int iterate_dir(
         for (;;) {
                 struct dirent *de;
                 _cleanup_free_ char *f = NULL;
-                int k;
 
                 errno = 0;
                 de = readdir(d);
-                if (!de && errno != 0) {
-                        k = errno;
-                        log_error_errno(k, "Failed to read directory %s: %m", path);
-                        return -k;
-                }
+                if (!de && errno != 0)
+                        return log_error_errno(errno, "Failed to read directory %s: %m", path);
 
                 if (!de)
                         break;

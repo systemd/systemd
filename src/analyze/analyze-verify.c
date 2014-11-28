@@ -221,18 +221,14 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
 
         /* set the path */
         r = generate_path(&var, filenames);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate unit load path: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit load path: %m");
 
         assert_se(set_unit_path(var) >= 0);
 
         r = manager_new(running_as, true, &m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to initalize manager: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to initalize manager: %m");
 
         log_debug("Starting manager...");
 

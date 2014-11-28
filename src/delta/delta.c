@@ -226,10 +226,8 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
         *c = 0;
 
         r = get_files_in_directory(path, &list);
-        if (r < 0){
-                log_error_errno(r, "Failed to enumerate %s: %m", path);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate %s: %m", path);
 
         STRV_FOREACH(file, list) {
                 Hashmap *h;

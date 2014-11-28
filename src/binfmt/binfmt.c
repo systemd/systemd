@@ -64,10 +64,8 @@ static int apply_rule(const char *rule) {
         delete_rule(rule);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add binary format: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add binary format: %m");
 
         return 0;
 }
@@ -83,8 +81,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
-                return r;
+                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
         log_debug("apply: %s", path);

@@ -909,10 +909,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
                         r = read_full_file(optarg, &key_pem, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read key file: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read key file: %m");
                         assert(key_pem);
                         break;
 
@@ -922,10 +920,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
                         r = read_full_file(optarg, &cert_pem, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read certificate file: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read certificate file: %m");
                         assert(cert_pem);
                         break;
 
@@ -936,10 +932,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
                         r = read_full_file(optarg, &trust_pem, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read CA certificate file: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(trust_pem);
                         break;
 #else

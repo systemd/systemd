@@ -1263,13 +1263,11 @@ int bus_property_get_ulong(
 #endif
 
 int bus_log_parse_error(int r) {
-        log_error_errno(r, "Failed to parse bus message: %m");
-        return r;
+        return log_error_errno(r, "Failed to parse bus message: %m");
 }
 
 int bus_log_create_error(int r) {
-        log_error_errno(r, "Failed to create bus message: %m");
-        return r;
+        return log_error_errno(r, "Failed to create bus message: %m");
 }
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {

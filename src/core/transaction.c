@@ -722,10 +722,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
 
         /* Tenth step: apply changes */
         r = transaction_apply(tr, m, mode);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to apply transaction: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to apply transaction: %m");
 
         assert(hashmap_isempty(tr->jobs));
 

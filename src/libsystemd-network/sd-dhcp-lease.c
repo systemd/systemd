@@ -725,8 +725,7 @@ int sd_dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to read %s: %m", lease_file);
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", lease_file);
         }
 
         r = inet_pton(AF_INET, address, &addr);

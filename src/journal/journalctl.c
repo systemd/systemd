@@ -501,10 +501,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to add paths: %m");
-                                return r;
-                        };
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case ARG_ROOT:
@@ -749,10 +747,8 @@ static int generate_new_id128(void) {
         unsigned i;
 
         r = sd_id128_randomize(&id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate ID: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate ID: %m");
 
         printf("As string:\n"
                SD_ID128_FORMAT_STR "\n\n"
@@ -851,10 +847,8 @@ static int add_matches(sd_journal *j, char **args) {
                         have_term = true;
                 }
 
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add match '%s': %m", *i);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match '%s': %m", *i);
         }
 
         if (!strv_isempty(args) && !have_term) {
@@ -1040,10 +1034,8 @@ static int add_boot(sd_journal *j) {
         sd_id128_to_string(arg_boot_id, match + 9);
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
@@ -1060,10 +1052,8 @@ static int add_dmesg(sd_journal *j) {
                 return 0;
 
         r = sd_journal_add_match(j, "_TRANSPORT=kernel", strlen("_TRANSPORT=kernel"));
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
@@ -1263,10 +1253,8 @@ static int add_priorities(sd_journal *j) {
                         match[sizeof(match)-2] = '0' + i;
 
                         r = sd_journal_add_match(j, match, strlen(match));
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to add match: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add match: %m");
                 }
 
         r = sd_journal_add_conjunction(j);
@@ -1327,16 +1315,12 @@ static int setup_keys(void) {
         }
 
         r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get machine ID: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine ID: %m");
 
         r = sd_id128_get_boot(&boot);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get boot ID: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get boot ID: %m");
 
         if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
                      SD_ID128_FORMAT_VAL(machine)) < 0)
@@ -1681,10 +1665,8 @@ static int flush_to_var(void) {
         /* OK, let's actually do the full logic, send SIGUSR1 to the
          * daemon and set up inotify to wait for the flushed file to appear */
         r = bus_open_system_systemd(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get D-Bus connection: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -1724,16 +1706,12 @@ static int flush_to_var(void) {
                 }
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to wait for event: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for event: %m");
 
                 r = flush_fd(watch_fd);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to flush inotify events: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to flush inotify events: %m");
         }
 
         return 0;

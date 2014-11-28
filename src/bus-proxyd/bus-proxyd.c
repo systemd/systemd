@@ -1155,34 +1155,24 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
                 return 0;
 
         r = sd_bus_message_new_method_return(m, &n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate HELLO reply: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate HELLO reply: %m");
 
         r = sd_bus_message_append(n, "s", a->unique_name);
-        if (r < 0) {
-                log_error_errno(r, "Failed to append unique name to HELLO reply: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append unique name to HELLO reply: %m");
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error_errno(r, "Failed to append sender to HELLO reply: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append sender to HELLO reply: %m");
 
         r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to seal HELLO reply: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to seal HELLO reply: %m");
 
         r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to send HELLO reply: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to send HELLO reply: %m");
 
         n = sd_bus_message_unref(n);
         r = sd_bus_message_new_signal(
@@ -1191,34 +1181,24 @@ static int process_hello(sd_bus *a, sd_bus *b, sd_bus_message *m, bool *got_hell
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "NameAcquired");
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate initial NameAcquired message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate initial NameAcquired message: %m");
 
         r = sd_bus_message_append(n, "s", a->unique_name);
-        if (r < 0) {
-                log_error_errno(r, "Failed to append unique name to NameAcquired message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append unique name to NameAcquired message: %m");
 
         r = bus_message_append_sender(n, "org.freedesktop.DBus");
-        if (r < 0) {
-                log_error_errno(r, "Failed to append sender to NameAcquired message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to append sender to NameAcquired message: %m");
 
         r = bus_seal_synthetic_message(b, n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to seal NameAcquired message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to seal NameAcquired message: %m");
 
         r = sd_bus_send(b, n, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to send NameAcquired message: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to send NameAcquired message: %m");
 
         return 1;
 }

@@ -280,10 +280,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         id = strappenda("cryptsetup:", escaped_name);
 
         r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
-        if (r < 0) {
-                log_error_errno(r, "Failed to query password: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
                 _cleanup_strv_free_ char **passwords2 = NULL;
@@ -296,10 +294,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
                 id = strappenda("cryptsetup-verification:", escaped_name);
 
                 r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to query verification password: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query verification password: %m");
 
                 assert(strv_length(passwords2) == 1);
 
@@ -438,10 +434,8 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 pass_volume_key = (params.hash == NULL);
         }
 
-        if (r < 0) {
-                log_error_errno(r, "Loading of cryptographic parameters failed: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
                  crypt_get_cipher(cd),

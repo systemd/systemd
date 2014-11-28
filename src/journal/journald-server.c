@@ -927,10 +927,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
         char ids[33];
 
         r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get machine id: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine id: %m");
 
         sd_id128_to_string(machine, ids);
 
@@ -999,10 +997,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
 
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to open runtime journal: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
 
                 if (s->runtime_journal)
@@ -1045,10 +1041,8 @@ int server_flush_to_var(Server *s) {
                 return r;
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read runtime journal: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read runtime journal: %m");
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -1453,15 +1447,12 @@ static int server_open_hostname(Server *s) {
                         return 0;
                 }
 
-                log_error_errno(r, "Failed to register hostname fd in event loop: %m");
-                return r;
+                return log_error_errno(r, "Failed to register hostname fd in event loop: %m");
         }
 
         r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
-        if (r < 0) {
-                log_error_errno(r, "Failed to adjust priority of host name event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of host name event source: %m");
 
         return 0;
 }
@@ -1514,18 +1505,14 @@ int server_init(Server *s) {
                 return log_oom();
 
         r = sd_event_default(&s->event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create event loop: %m");
 
         sd_event_set_watchdog(s->event, true);
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
-                return n;
-        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
 

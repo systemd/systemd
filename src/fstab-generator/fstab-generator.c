@@ -133,10 +133,8 @@ static int add_swap(
                 fprintf(f, "Options=%s\n", me->mnt_opts);
 
         r = fflush_and_check(f);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write unit file %s: %m", unit);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         /* use what as where, to have a nicer error message */
         r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);

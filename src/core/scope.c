@@ -289,10 +289,8 @@ static int scope_start(Unit *u) {
                 return -ENOENT;
 
         r = unit_realize_cgroup(u);
-        if (r < 0) {
-                log_error_errno(r, "Failed to realize cgroup: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to realize cgroup: %m");
 
         r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, UNIT(s)->pids);
         if (r < 0)

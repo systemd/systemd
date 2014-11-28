@@ -630,10 +630,8 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
 
         /* First, create our own group */
         r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create cgroup %s: %m", u->cgroup_path);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create cgroup %s: %m", u->cgroup_path);
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
@@ -857,10 +855,8 @@ int manager_setup_cgroup(Manager *m) {
         m->cgroup_root = NULL;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
-        if (r < 0) {
-                log_error_errno(r, "Cannot determine cgroup we are running in: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
         /* LEGACY: Already in /system.slice? If so, let's cut this
          * off. This is to support live upgrades from older systemd
@@ -883,10 +879,8 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
-        if (r < 0) {
-                log_error_errno(r, "Cannot find cgroup mount point: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot find cgroup mount point: %m");
 
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
         if (!m->test_run) {
@@ -904,10 +898,8 @@ int manager_setup_cgroup(Manager *m) {
 
                 /* 4. Make sure we are in the root cgroup */
                 r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create root cgroup hierarchy: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create root cgroup hierarchy: %m");
 
                 /* 5. And pin it, so that it cannot be unmounted */
                 safe_close(m->pin_cgroupfs_fd);

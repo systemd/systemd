@@ -147,10 +147,8 @@ static int timer_setup_persistent(Timer *t) {
                         _cleanup_free_ char *h = NULL;
 
                         r = get_home_dir(&h);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to determine home directory: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine home directory: %m");
 
                         t->stamp_path = strjoin(h, "/.local/share/systemd/timers/stamp-", UNIT(t)->id, NULL);
                 }

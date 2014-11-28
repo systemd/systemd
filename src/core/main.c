@@ -231,18 +231,14 @@ static int console_setup(void) {
         int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (tty_fd < 0) {
-                log_error_errno(tty_fd, "Failed to open /dev/console: %m");
-                return tty_fd;
-        }
+        if (tty_fd < 0)
+                return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
 
         /* We don't want to force text mode.  plymouth may be showing
          * pictures already from initrd. */
         r = reset_terminal_fd(tty_fd, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to reset /dev/console: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset /dev/console: %m");
 
         return 0;
 }
@@ -806,10 +802,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_UNIT:
 
                         r = set_default_unit(optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to set default unit %s: %m", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
 
                         break;
 
@@ -1070,10 +1064,8 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         /* Bump up the resource limit for ourselves substantially */
         nl.rlim_cur = nl.rlim_max = 64*1024;
         r = setrlimit_closest(RLIMIT_NOFILE, &nl);
-        if (r < 0) {
-                log_error_errno(r, "Setting RLIMIT_NOFILE failed: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Setting RLIMIT_NOFILE failed: %m");
 
         return 0;
 }

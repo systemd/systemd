@@ -125,10 +125,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         }
 
         r = sd_bus_message_rewind(m, !(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY));
-        if (r < 0) {
-                log_error_errno(r, "Failed to rewind: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %m");
 
         if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
                 fprintf(f, "%sMESSAGE \"%s\" {\n", indent(0, flags), strempty(m->root_container.signature));
@@ -151,20 +149,16 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 } basic;
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to peek type: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to peek type: %m");
 
                 if (r == 0) {
                         if (level <= 1)
                                 break;
 
                         r = sd_bus_message_exit_container(m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to exit container: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to exit container: %m");
 
                         level--;
 
@@ -182,10 +176,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
                 if (bus_type_is_container(type) > 0) {
                         r = sd_bus_message_enter_container(m, type, contents);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to enter container: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to enter container: %m");
 
                         if (type == SD_BUS_TYPE_ARRAY)
                                 fprintf(f, "%sARRAY \"%s\" {\n", prefix, contents);
@@ -202,10 +194,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 }
 
                 r = sd_bus_message_read_basic(m, type, &basic);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get basic: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get basic: %m");
 
                 assert(r > 0);
 

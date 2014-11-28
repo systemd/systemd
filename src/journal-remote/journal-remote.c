@@ -150,16 +150,12 @@ static int spawn_getter(const char *getter, const char *url) {
 
         assert(getter);
         r = strv_split_quoted(&words, getter, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to split getter option: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to split getter option: %m");
 
         r = strv_extend(&words, url);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create command line: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create command line: %m");
 
         r = spawn_child(words[0], words);
         if (r < 0)
@@ -836,10 +832,8 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         r = sd_event_default(&s->events);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         setup_signals(s);
 
@@ -875,10 +869,8 @@ static int remoteserver_init(RemoteServer *s,
                         char *hostname;
 
                         r = getnameinfo_pretty(fd, &hostname);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to retrieve remote name: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to retrieve remote name: %m");
 
                         log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
 
@@ -889,11 +881,9 @@ static int remoteserver_init(RemoteServer *s,
                         return -EINVAL;
                 }
 
-                if(r < 0) {
-                        log_error_errno(r, "Failed to register socket (fd:%d): %m",
-                                        fd);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register socket (fd:%d): %m",
+                                               fd);
         }
 
         if (arg_url) {

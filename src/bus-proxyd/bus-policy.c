@@ -95,8 +95,7 @@ static int file_load(Policy *p, const char *path) {
                 if (r == -EISDIR)
                         return r;
 
-                log_error_errno(r, "Failed to load %s: %m", path);
-                return r;
+                return log_error_errno(r, "Failed to load %s: %m", path);
         }
 
         q = c;
@@ -105,10 +104,8 @@ static int file_load(Policy *p, const char *path) {
                 int t;
 
                 t = xml_tokenize(&q, &name, &xml_state, &line);
-                if (t < 0) {
-                        log_error_errno(t, "XML parse failure in %s: %m", path);
-                        return t;
-                }
+                if (t < 0)
+                        return log_error_errno(t, "XML parse failure in %s: %m", path);
 
                 switch (state) {
 
@@ -894,10 +891,8 @@ int policy_load(Policy *p, char **files) {
                         char **j;
 
                         r = conf_files_list(&l, ".conf", NULL, *i, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get configuration file list: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get configuration file list: %m");
 
                         STRV_FOREACH(j, l)
                                 file_load(p, *j);

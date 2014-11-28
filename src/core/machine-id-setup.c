@@ -141,10 +141,8 @@ static int generate(char id[34], const char *root) {
 
         /* If that didn't work, generate a random machine id */
         r = sd_id128_randomize(&buf);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open /dev/urandom: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /dev/urandom: %m");
 
         for (p = buf.bytes, q = id; p < buf.bytes + sizeof(buf); p++, q += 2) {
                 q[0] = hexchar(*p >> 4);

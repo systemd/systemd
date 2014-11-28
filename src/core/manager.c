@@ -302,10 +302,8 @@ static int manager_watch_idle_pipe(Manager *m) {
                 return 0;
 
         r = sd_event_add_io(m->event, &m->idle_pipe_event_source, m->idle_pipe[2], EPOLLIN, manager_dispatch_idle_pipe_fd, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to watch idle pipe: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch idle pipe: %m");
 
         return 0;
 }
@@ -348,10 +346,8 @@ static int manager_setup_time_change(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create time change event source: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create time change event source: %m");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
 
@@ -704,10 +700,8 @@ static int manager_setup_notify(Manager *m) {
                 /* Process signals a bit earlier than SIGCHLD, so that we can
                  * still identify to which service an exit message belongs */
                 r = sd_event_source_set_priority(m->notify_event_source, -7);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set priority of notify event source: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set priority of notify event source: %m");
         }
 
         return 0;
@@ -1986,10 +1980,8 @@ int manager_loop(Manager *m) {
                         wait_usec = USEC_INFINITY;
 
                 r = sd_event_run(m->event, wait_usec);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to run event loop: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
         }
 
         return m->exit_code;

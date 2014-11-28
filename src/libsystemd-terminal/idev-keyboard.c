@@ -445,8 +445,7 @@ static int kbdctx_query_locale(kbdctx *kc) {
         return 0;
 
 error:
-        log_debug_errno(r, "idev-keyboard: cannot send GetAll to locale1: %m");
-        return r;
+        return log_debug_errno(r, "idev-keyboard: cannot send GetAll to locale1: %m");
 }
 
 static int kbdctx_locale_props_changed_fn(sd_bus *bus,
@@ -477,8 +476,7 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
         return 0;
 
 error:
-        log_debug_errno(r, "idev-keyboard: cannot handle PropertiesChanged from locale1: %m");
-        return r;
+        return log_debug_errno(r, "idev-keyboard: cannot handle PropertiesChanged from locale1: %m");
 }
 
 static int kbdctx_setup_bus(kbdctx *kc) {
@@ -493,10 +491,8 @@ static int kbdctx_setup_bus(kbdctx *kc) {
                              "path='/org/freedesktop/locale1'",
                              kbdctx_locale_props_changed_fn,
                              kc);
-        if (r < 0) {
-                log_debug_errno(r, "idev-keyboard: cannot setup locale1 link: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "idev-keyboard: cannot setup locale1 link: %m");
 
         return kbdctx_query_locale(kc);
 }
@@ -1125,9 +1121,8 @@ static int keyboard_update_kbdmap(idev_keyboard *k) {
         return 0;
 
 error:
-        log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new keymap: %m",
-                        d->session->name, d->name);
-        return r;
+        return log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new keymap: %m",
+                               d->session->name, d->name);
 }
 
 static int keyboard_update_kbdtbl(idev_keyboard *k) {
