@@ -61,7 +61,7 @@ static int help(void) {
                "     --configuration=PATH Configuration file or directory\n"
                "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
-               "                          (default: " DEFAULT_SYSTEM_BUS_PATH ")\n",
+               "                          (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")\n",
                program_invocation_short_name);
 
         return 0;
@@ -166,7 +166,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_address) {
-                arg_address = strdup(DEFAULT_SYSTEM_BUS_PATH);
+                arg_address = strdup(DEFAULT_SYSTEM_BUS_ADDRESS);
                 if (!arg_address)
                         return log_oom();
         }

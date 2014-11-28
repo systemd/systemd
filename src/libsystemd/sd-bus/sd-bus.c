@@ -1119,7 +1119,7 @@ int bus_set_address_system(sd_bus *b) {
         if (e)
                 return sd_bus_set_address(b, e);
 
-        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_PATH);
+        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_ADDRESS);
 }
 
 _public_ int sd_bus_open_system(sd_bus **ret) {
@@ -1175,13 +1175,13 @@ int bus_set_address_user(sd_bus *b) {
                         return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, getuid(), ee);
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT ";" UNIX_USER_BUS_ADDRESS_FMT, getuid(), ee);
 #else
-                (void) asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
+                (void) asprintf(&b->address, UNIX_USER_BUS_ADDRESS_FMT, ee);
 #endif
         } else {
 #ifdef ENABLE_KDBUS
-                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
+                (void) asprintf(&b->address, KERNEL_USER_BUS_ADDRESS_FMT, getuid());
 #else
                 return -ECONNREFUSED;
 #endif
