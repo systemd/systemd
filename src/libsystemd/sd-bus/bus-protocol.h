@@ -23,6 +23,22 @@
 
 #include <endian.h>
 
+/* Packet header */
+
+struct bus_header {
+        uint8_t endian;
+        uint8_t type;
+        uint8_t flags;
+        uint8_t version;
+        uint32_t body_size;
+
+        /* Note that what the bus spec calls "serial" we'll call
+        "cookie" instead, because we don't want to imply that the
+        cookie was in any way monotonically increasing. */
+        uint32_t serial;
+        uint32_t fields_size;
+} _packed_;
+
 /* Endianness */
 
 enum {
