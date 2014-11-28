@@ -313,7 +313,7 @@ static int save_external_coredump(
 
         r = make_filename(info, &fn);
         if (r < 0) {
-                log_error_errno(-r, "Failed to determine coredump file name: %m");
+                log_error_errno(r, "Failed to determine coredump file name: %m");
                 return r;
         }
 
@@ -337,7 +337,7 @@ static int save_external_coredump(
                 log_error("Not enough disk space for coredump of %s (%s), refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
         } else if (r < 0) {
-                log_error_errno(-r, "Failed to dump coredump to file: %m");
+                log_error_errno(r, "Failed to dump coredump to file: %m");
                 goto fail;
         }
 
@@ -379,7 +379,7 @@ static int save_external_coredump(
 
                 r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to compress %s: %m", tmp_compressed);
+                        log_error_errno(r, "Failed to compress %s: %m", tmp_compressed);
                         goto fail_compressed;
                 }
 
@@ -446,7 +446,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 
         n = read(fd, field + 9, size);
         if (n < 0) {
-                log_error_errno(-n, "Failed to read core data: %m");
+                log_error_errno(n, "Failed to read core data: %m");
                 return (int) n;
         }
         if ((size_t) n < size) {
@@ -841,7 +841,7 @@ int main(int argc, char* argv[]) {
                 else if (r == -EINVAL)
                         log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
-                        log_warning_errno(-r, "Failed to generate stack trace: %m");
+                        log_warning_errno(r, "Failed to generate stack trace: %m");
         }
 
         if (!core_message)
@@ -868,7 +868,7 @@ log:
 
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error_errno(-r, "Failed to log coredump: %m");
+                log_error_errno(r, "Failed to log coredump: %m");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

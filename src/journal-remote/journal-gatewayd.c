@@ -155,14 +155,14 @@ static ssize_t request_reader_entries(
                         r = sd_journal_next(m->journal);
 
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to advance journal pointer: %m");
+                        log_error_errno(r, "Failed to advance journal pointer: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 } else if (r == 0) {
 
                         if (m->follow) {
                                 r = sd_journal_wait(m->journal, (uint64_t) -1);
                                 if (r < 0) {
-                                        log_error_errno(-r, "Couldn't wait for journal event: %m");
+                                        log_error_errno(r, "Couldn't wait for journal event: %m");
                                         return MHD_CONTENT_READER_END_WITH_ERROR;
                                 }
 
@@ -177,7 +177,7 @@ static ssize_t request_reader_entries(
 
                         r = sd_journal_test_cursor(m->journal, m->cursor);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to test cursor: %m");
+                                log_error_errno(r, "Failed to test cursor: %m");
                                 return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
 
@@ -205,7 +205,7 @@ static ssize_t request_reader_entries(
 
                 r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to serialize item: %m");
+                        log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
@@ -394,7 +394,7 @@ static int request_parse_arguments_iterator(
 
                         r = sd_id128_get_boot(&bid);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get boot ID: %m");
+                                log_error_errno(r, "Failed to get boot ID: %m");
                                 return MHD_NO;
                         }
 
@@ -543,7 +543,7 @@ static ssize_t request_reader_fields(
 
                 r = sd_journal_enumerate_unique(m->journal, &d, &l);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to advance field index: %m");
+                        log_error_errno(r, "Failed to advance field index: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 } else if (r == 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
@@ -566,7 +566,7 @@ static ssize_t request_reader_fields(
 
                 r = output_field(m->tmp, m->mode, d, l);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to serialize item: %m");
+                        log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
@@ -910,7 +910,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         r = read_full_file(optarg, &key_pem, NULL);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to read key file: %m");
+                                log_error_errno(r, "Failed to read key file: %m");
                                 return r;
                         }
                         assert(key_pem);
@@ -923,7 +923,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         r = read_full_file(optarg, &cert_pem, NULL);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to read certificate file: %m");
+                                log_error_errno(r, "Failed to read certificate file: %m");
                                 return r;
                         }
                         assert(cert_pem);
@@ -937,7 +937,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         r = read_full_file(optarg, &trust_pem, NULL);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to read CA certificate file: %m");
+                                log_error_errno(r, "Failed to read CA certificate file: %m");
                                 return r;
                         }
                         assert(trust_pem);
@@ -992,7 +992,7 @@ int main(int argc, char *argv[]) {
 
         n = sd_listen_fds(1);
         if (n < 0) {
-                log_error_errno(-n, "Failed to determine passed sockets: %m");
+                log_error_errno(n, "Failed to determine passed sockets: %m");
                 goto finish;
         } else if (n > 1) {
                 log_error("Can't listen on more than one socket.");

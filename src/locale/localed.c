@@ -375,7 +375,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
-                log_error_errno(-r, "Failed to update the manager environment: %m");
+                log_error_errno(r, "Failed to update the manager environment: %m");
 
         return 0;
 }
@@ -611,7 +611,7 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
 
                 r = x11_write_data(c);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to set X11 keyboard layout: %m");
+                        log_error_errno(r, "Failed to set X11 keyboard layout: %m");
                         return r;
                 }
 
@@ -790,7 +790,7 @@ static int x11_convert_to_vconsole(Context *c, sd_bus *bus) {
         if (modified) {
                 r = vconsole_write_data(c);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to set virtual console keymap: %m");
+                        log_error_errno(r, "Failed to set virtual console keymap: %m");
 
                 log_info("Changed virtual console keymap to '%s' toggle '%s'",
                          strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
@@ -923,7 +923,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 
                 r = locale_write_data(c, &settings);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to set locale: %m");
+                        log_error_errno(r, "Failed to set locale: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set locale: %s", strerror(-r));
                 }
 
@@ -983,7 +983,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 r = vconsole_write_data(c);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to set virtual console keymap: %m");
+                        log_error_errno(r, "Failed to set virtual console keymap: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %s", strerror(-r));
                 }
 
@@ -992,7 +992,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 r = vconsole_reload(bus);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to request keymap reload: %m");
+                        log_error_errno(r, "Failed to request keymap reload: %m");
 
                 sd_bus_emit_properties_changed(bus,
                                 "/org/freedesktop/locale1",
@@ -1002,7 +1002,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                 if (convert) {
                         r = vconsole_convert_to_x11(c, bus);
                         if (r < 0)
-                                log_error_errno(-r, "Failed to convert keymap data: %m");
+                                log_error_errno(r, "Failed to convert keymap data: %m");
                 }
         }
 
@@ -1106,7 +1106,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
 
                 r = x11_write_data(c);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to set X11 keyboard layout: %m");
+                        log_error_errno(r, "Failed to set X11 keyboard layout: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
                 }
 
@@ -1124,7 +1124,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 if (convert) {
                         r = x11_convert_to_vconsole(c, bus);
                         if (r < 0)
-                                log_error_errno(-r, "Failed to convert keymap data: %m");
+                                log_error_errno(r, "Failed to convert keymap data: %m");
                 }
         }
 
@@ -1156,25 +1156,25 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get system bus connection: %m");
+                log_error_errno(r, "Failed to get system bus connection: %m");
                 return r;
         }
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to register object: %m");
+                log_error_errno(r, "Failed to register object: %m");
                 return r;
         }
 
         r = sd_bus_request_name(bus, "org.freedesktop.locale1", 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to register name: %m");
+                log_error_errno(r, "Failed to register name: %m");
                 return r;
         }
 
         r = sd_bus_attach_event(bus, event, 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to attach bus to event loop: %m");
+                log_error_errno(r, "Failed to attach bus to event loop: %m");
                 return r;
         }
 
@@ -1205,7 +1205,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_default(&event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to allocate event loop: %m");
+                log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
@@ -1217,13 +1217,13 @@ int main(int argc, char *argv[]) {
 
         r = context_read_data(&context);
         if (r < 0) {
-                log_error_errno(-r, "Failed to read locale data: %m");
+                log_error_errno(r, "Failed to read locale data: %m");
                 goto finish;
         }
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0) {
-                log_error_errno(-r, "Failed to run event loop: %m");
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

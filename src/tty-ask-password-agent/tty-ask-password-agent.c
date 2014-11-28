@@ -339,7 +339,7 @@ static int parse_password(const char *filename, char **wall) {
                         return 0;
 
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to query password: %m");
+                        log_error_errno(r, "Failed to query password: %m");
                         return r;
                 }
 
@@ -504,7 +504,7 @@ static int watch_passwords(void) {
         for (;;) {
                 r = show_passwords();
                 if (r < 0)
-                        log_error_errno(-r, "Failed to show password: %m");
+                        log_error_errno(r, "Failed to show password: %m");
 
                 if (poll(pollfd, _FD_MAX, -1) < 0) {
                         if (errno == EINTR)
@@ -642,7 +642,7 @@ int main(int argc, char *argv[]) {
                 r = show_passwords();
 
         if (r < 0)
-                log_error_errno(-r, "Error: %m");
+                log_error_errno(r, "Error: %m");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

@@ -618,7 +618,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                 err = conf_files_list_strv(&files, ".hwdb", root, conf_file_dirs);
                 if (err < 0) {
-                        log_error_errno(-err, "failed to enumerate hwdb files: %m");
+                        log_error_errno(err, "failed to enumerate hwdb files: %m");
                         rc = EXIT_FAILURE;
                         goto out;
                 }
@@ -652,7 +652,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 mkdir_parents(hwdb_bin, 0755);
                 err = trie_store(trie, hwdb_bin);
                 if (err < 0) {
-                        log_error_errno(-err, "Failure writing database %s: %m", hwdb_bin);
+                        log_error_errno(err, "Failure writing database %s: %m", hwdb_bin);
                         rc = EXIT_FAILURE;
                 }
         }

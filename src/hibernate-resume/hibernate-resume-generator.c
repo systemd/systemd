@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_proc_cmdline(parse_proc_cmdline_item);
         if (r < 0)
-                log_warning_errno(-r, "Failed to parse kernel command line, ignoring: %m");
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         r = process_resume();
         free(arg_resume_dev);

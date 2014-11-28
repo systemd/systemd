@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
                 log_debug("EFI loader partition unknown, exiting.");
                 return EXIT_SUCCESS;
         } else if (r < 0) {
-                log_error_errno(-r, "Failed to read ESP partition UUID: %m");
+                log_error_errno(r, "Failed to read ESP partition UUID: %m");
                 return EXIT_FAILURE;
         }
 

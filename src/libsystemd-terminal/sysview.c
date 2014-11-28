@@ -1498,7 +1498,7 @@ static int context_scan_fn(sd_event_source *s, void *userdata) {
         if (!c->scanned) {
                 r = context_ld_scan(c);
                 if (r < 0) {
-                        log_debug_errno(-r, "sysview: logind scan failed: %m");
+                        log_debug_errno(r, "sysview: logind scan failed: %m");
                         return r;
                 }
         }
@@ -1507,7 +1507,7 @@ static int context_scan_fn(sd_event_source *s, void *userdata) {
         if (hashmap_size(c->session_map) > 0) {
                 r = context_ud_scan(c);
                 if (r < 0) {
-                        log_debug_errno(-r, "sysview: udev scan failed: %m");
+                        log_debug_errno(r, "sysview: udev scan failed: %m");
                         return r;
                 }
 

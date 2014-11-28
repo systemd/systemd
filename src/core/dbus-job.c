@@ -154,7 +154,7 @@ void bus_job_send_change_signal(Job *j) {
 
         r = bus_foreach_bus(j->manager, j->clients, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
         if (r < 0)
-                log_debug_errno(-r, "Failed to send job change signal for %u: %m", j->id);
+                log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
         j->sent_dbus_new_signal = true;
 }
@@ -198,5 +198,5 @@ void bus_job_send_removed_signal(Job *j) {
 
         r = bus_foreach_bus(j->manager, j->clients, send_removed_signal, j);
         if (r < 0)
-                log_debug_errno(-r, "Failed to send job remove signal for %u: %m", j->id);
+                log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
 }

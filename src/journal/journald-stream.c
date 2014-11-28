@@ -408,13 +408,13 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         r = sd_event_add_io(s->event, &stream->event_source, fd, EPOLLIN, stdout_stream_process, stream);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add stream to event loop: %m");
+                log_error_errno(r, "Failed to add stream to event loop: %m");
                 goto fail;
         }
 
         r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0) {
-                log_error_errno(-r, "Failed to adjust stdout event source priority: %m");
+                log_error_errno(r, "Failed to adjust stdout event source priority: %m");
                 goto fail;
         }
 
@@ -465,13 +465,13 @@ int server_open_stdout_socket(Server *s) {
 
         r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add stdout server fd to event source: %m");
+                log_error_errno(r, "Failed to add stdout server fd to event source: %m");
                 return r;
         }
 
         r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
         if (r < 0) {
-                log_error_errno(-r, "Failed to adjust priority of stdout server event source: %m");
+                log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
                 return r;
         }
 

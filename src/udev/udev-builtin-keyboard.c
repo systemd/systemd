@@ -62,7 +62,7 @@ static int install_force_release(struct udev_device *dev, const unsigned int *re
         log_debug("keyboard: updating force-release list with '%s'", codes);
         ret = udev_device_set_sysattr_value(atkbd, "force_release", codes);
         if (ret < 0)
-                log_error_errno(-ret, "Error writing force-release attribute: %m");
+                log_error_errno(ret, "Error writing force-release attribute: %m");
         return ret;
 }
 

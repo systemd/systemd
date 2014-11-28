@@ -668,7 +668,7 @@ static int create_item(Item *i) {
                         struct stat a, b;
 
                         if (r != -EEXIST) {
-                                log_error_errno(-r, "Failed to copy files to %s: %m", i->path);
+                                log_error_errno(r, "Failed to copy files to %s: %m", i->path);
                                 return -r;
                         }
 
@@ -711,7 +711,7 @@ static int create_item(Item *i) {
 
                 if (r < 0) {
                         if (r != -EEXIST) {
-                                log_error_errno(-r, "Failed to create directory %s: %m", i->path);
+                                log_error_errno(r, "Failed to create directory %s: %m", i->path);
                                 return r;
                         }
 
@@ -762,7 +762,7 @@ static int create_item(Item *i) {
                                         }
 
                                         if (r < 0) {
-                                                log_error_errno(-r, "Failed to create fifo %s: %m", i->path);
+                                                log_error_errno(r, "Failed to create fifo %s: %m", i->path);
                                                 return r;
                                         }
                                 } else {
@@ -801,7 +801,7 @@ static int create_item(Item *i) {
                                         mac_selinux_create_file_clear();
 
                                         if (r < 0) {
-                                                log_error_errno(-r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                                log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
                                                 return r;
                                         }
                                 } else {
@@ -863,7 +863,7 @@ static int create_item(Item *i) {
                                         }
 
                                         if (r < 0) {
-                                                log_error_errno(-r, "Failed to create device node %s: %m", i->path);
+                                                log_error_errno(r, "Failed to create device node %s: %m", i->path);
                                                 return r;
                                         }
                                 } else {
@@ -939,7 +939,7 @@ static int remove_item_instance(Item *i, const char *instance) {
                  * instead of rm_rf() so that 'x' is honoured. */
                 r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
                 if (r < 0 && r != -ENOENT) {
-                        log_error_errno(-r, "rm_rf(%s): %m", instance);
+                        log_error_errno(r, "rm_rf(%s): %m", instance);
                         return r;
                 }
 
@@ -1398,7 +1398,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         r = hashmap_put(h, i->path, i);
         if (r < 0) {
-                log_error_errno(-r, "Failed to insert item %s: %m", i->path);
+                log_error_errno(r, "Failed to insert item %s: %m", i->path);
                 return r;
         }
 
@@ -1531,7 +1531,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(-r, "Failed to open '%s', ignoring: %m", fn);
+                log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
                 return r;
         }
 
@@ -1629,7 +1629,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to enumerate tmpfiles.d files: %m");
+                        log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
                         goto finish;
                 }
 

@@ -529,7 +529,7 @@ int main(int argc, char *argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to create bus connection: %m");
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 

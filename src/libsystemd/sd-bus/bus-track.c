@@ -309,7 +309,7 @@ void bus_track_dispatch(sd_bus_track *track) {
 
         r = track->handler(track, track->userdata);
         if (r < 0)
-                log_debug_errno(-r, "Failed to process track handler: %m");
+                log_debug_errno(r, "Failed to process track handler: %m");
         else if (r == 0)
                 bus_track_add_to_queue(track);
 

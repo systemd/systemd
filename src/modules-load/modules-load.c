@@ -82,7 +82,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
 
         r = kmod_module_new_from_lookup(ctx, m, &modlist);
         if (r < 0) {
-                log_error_errno(-r, "Failed to lookup alias '%s': %m", m);
+                log_error_errno(r, "Failed to lookup alias '%s': %m", m);
                 return r;
         }
 
@@ -142,7 +142,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(-r, "Failed to open %s, ignoring: %m", path);
+                log_error_errno(r, "Failed to open %s, ignoring: %m", path);
                 return r;
         }
 
@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_proc_cmdline(parse_proc_cmdline_item);
         if (r < 0)
-                log_warning_errno(-r, "Failed to parse kernel command line, ignoring: %m");
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         ctx = kmod_new(NULL, NULL);
         if (!ctx) {
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (k < 0) {
-                        log_error_errno(-k, "Failed to enumerate modules-load.d files: %m");
+                        log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
                         if (r == 0)
                                 r = k;
                         goto finish;

@@ -1263,12 +1263,12 @@ int bus_property_get_ulong(
 #endif
 
 int bus_log_parse_error(int r) {
-        log_error_errno(-r, "Failed to parse bus message: %m");
+        log_error_errno(r, "Failed to parse bus message: %m");
         return r;
 }
 
 int bus_log_create_error(int r) {
-        log_error_errno(-r, "Failed to create bus message: %m");
+        log_error_errno(r, "Failed to create bus message: %m");
         return r;
 }
 

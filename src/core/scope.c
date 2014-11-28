@@ -290,7 +290,7 @@ static int scope_start(Unit *u) {
 
         r = unit_realize_cgroup(u);
         if (r < 0) {
-                log_error_errno(-r, "Failed to realize cgroup: %m");
+                log_error_errno(r, "Failed to realize cgroup: %m");
                 return r;
         }
 

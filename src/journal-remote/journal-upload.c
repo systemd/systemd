@@ -147,7 +147,7 @@ static int update_cursor_state(Uploader *u) {
 
 finish:
         if (r < 0)
-                log_error_errno(-r, "Failed to save state %s: %m", u->state_file);
+                log_error_errno(r, "Failed to save state %s: %m", u->state_file);
 
         return r;
 }
@@ -375,7 +375,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
                         if (r != -EPERM || arg_follow > 0) {
-                                log_error_errno(-r, "Failed to register input event: %m");
+                                log_error_errno(r, "Failed to register input event: %m");
                                 return r;
                         }
 
@@ -459,13 +459,13 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         r = sd_event_default(&u->events);
         if (r < 0) {
-                log_error_errno(-r, "sd_event_default failed: %m");
+                log_error_errno(r, "sd_event_default failed: %m");
                 return r;
         }
 
         r = setup_signals(u);
         if (r < 0) {
-                log_error_errno(-r, "Failed to set up signals: %m");
+                log_error_errno(r, "Failed to set up signals: %m");
                 return r;
         }
 
@@ -702,7 +702,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to add paths: %m");
+                                log_error_errno(r, "Failed to add paths: %m");
                                 return r;
                         };
                         break;
@@ -869,7 +869,7 @@ int main(int argc, char **argv) {
 
                 r = sd_event_run(u.events, u.timeout);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to run event loop: %m");
+                        log_error_errno(r, "Failed to run event loop: %m");
                         break;
                 }
         }

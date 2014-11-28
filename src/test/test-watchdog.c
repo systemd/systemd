@@ -35,13 +35,13 @@ int main(int argc, char *argv[]) {
 
         r = watchdog_set_timeout(&t);
         if (r < 0)
-                log_warning_errno(-r, "Failed to open watchdog: %m");
+                log_warning_errno(r, "Failed to open watchdog: %m");
 
         for (i = 0; i < 5; i++) {
                 log_info("Pinging...");
                 r = watchdog_ping();
                 if (r < 0)
-                        log_warning_errno(-r, "Failed to ping watchdog: %m");
+                        log_warning_errno(r, "Failed to ping watchdog: %m");
 
                 usleep(t/2);
         }

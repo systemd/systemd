@@ -342,7 +342,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
 
         r = mkdir_p(d, 0775);
         if (r < 0) {
-                log_error_errno(-r, "Recursive mkdir %s: %m", d);
+                log_error_errno(r, "Recursive mkdir %s: %m", d);
                 return r;
         }
 
@@ -422,7 +422,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         r = conf_files_list_strv(&files, ".catalog", root, dirs);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get catalog files: %m");
+                log_error_errno(r, "Failed to get catalog files: %m");
                 goto finish;
         }
 
@@ -463,7 +463,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         r = write_catalog(database, h, sb, items, n);
         if (r < 0)
-                log_error_errno(-r, "Failed to write %s: %m", database);
+                log_error_errno(r, "Failed to write %s: %m", database);
         else
                 log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
                           database, n, sb->len, r);

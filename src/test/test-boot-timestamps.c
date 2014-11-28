@@ -37,7 +37,7 @@ static int test_acpi_fpdt(void) {
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_error_errno(-r, "Failed to read ACPI FPDT: %m");
+                        log_error_errno(r, "Failed to read ACPI FPDT: %m");
                 return r;
         }
 
@@ -60,7 +60,7 @@ static int test_efi_loader(void) {
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_error_errno(-r, "Failed to read EFI loader data: %m");
+                        log_error_errno(r, "Failed to read EFI loader data: %m");
                 return r;
         }
 
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
         r = boot_timestamps(NULL, &fw, &l);
         if (r < 0) {
-                log_error_errno(-r, "Failed to read variables: %m");
+                log_error_errno(r, "Failed to read variables: %m");
                 return 1;
         }
 

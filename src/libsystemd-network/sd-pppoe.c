@@ -422,7 +422,7 @@ static int pppoe_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         case PPPOE_STATE_INITIALIZING:
                 r = pppoe_send_initiation(ppp);
                 if (r < 0)
-                        log_warning_errno(-r, "PPPoE: sending PADI failed: %m");
+                        log_warning_errno(r, "PPPoE: sending PADI failed: %m");
 
                 break;
         case PPPOE_STATE_REQUESTING:
@@ -431,14 +431,14 @@ static int pppoe_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
                         r = pppoe_send_initiation(ppp);
                         if (r < 0)
-                                log_warning_errno(-r, "PPPoE: sending PADI failed: %m");
+                                log_warning_errno(r, "PPPoE: sending PADI failed: %m");
 
                         ppp->padr_resend_count = PPPOE_MAX_PADR_RESEND;
                         ppp->state = PPPOE_STATE_INITIALIZING;
                 } else {
                         r = pppoe_send_request(ppp);
                         if (r < 0)
-                                log_warning_errno(-r, "PPPoE: sending PADR failed: %m");
+                                log_warning_errno(r, "PPPoE: sending PADR failed: %m");
                 }
 
                 break;
@@ -716,7 +716,7 @@ static int pppoe_receive_message(sd_event_source *s, int fd, uint32_t revents, v
 
         len = recvfrom(fd, packet, buflen, 0, &link.sa, &addrlen);
         if (len < 0) {
-                log_warning_errno(-r, "PPPoE: could not receive message from raw socket: %m");
+                log_warning_errno(r, "PPPoE: could not receive message from raw socket: %m");
                 return 0;
         } else if ((size_t)len < sizeof(struct pppoe_hdr))
                 return 0;

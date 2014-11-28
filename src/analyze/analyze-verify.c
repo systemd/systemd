@@ -222,7 +222,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
         /* set the path */
         r = generate_path(&var, filenames);
         if (r < 0) {
-                log_error_errno(-r, "Failed to generate unit load path: %m");
+                log_error_errno(r, "Failed to generate unit load path: %m");
                 return r;
         }
 
@@ -230,7 +230,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
 
         r = manager_new(running_as, true, &m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to initalize manager: %m");
+                log_error_errno(r, "Failed to initalize manager: %m");
                 return r;
         }
 
@@ -238,7 +238,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
 
         r = manager_startup(m, serial, fdset);
         if (r < 0) {
-                log_error_errno(-r, "Failed to start manager: %m");
+                log_error_errno(r, "Failed to start manager: %m");
                 goto finish;
         }
 
@@ -260,7 +260,7 @@ int verify_units(char **filenames, SystemdRunningAs running_as, bool check_man) 
                 } else
                         k = manager_load_unit(m, NULL, *filename, &err, &units[count]);
                 if (k < 0) {
-                        log_error_errno(-k, "Failed to load %s: %m", *filename);
+                        log_error_errno(k, "Failed to load %s: %m", *filename);
                         if (r == 0)
                                 r = k;
                 } else

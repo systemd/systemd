@@ -62,7 +62,7 @@ static int disable_utf8(int fd) {
                 r = k;
 
         if (r < 0)
-                log_warning_errno(-r, "Failed to disable UTF-8: %m");
+                log_warning_errno(r, "Failed to disable UTF-8: %m");
 
         return r;
 }
@@ -94,7 +94,7 @@ static int enable_utf8(int fd) {
                 r = k;
 
         if (r < 0)
-                log_warning_errno(-r, "Failed to enable UTF-8: %m");
+                log_warning_errno(r, "Failed to enable UTF-8: %m");
 
         return r;
 }
@@ -282,7 +282,7 @@ int main(int argc, char **argv) {
                            NULL);
 
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(-r, "Failed to read /etc/vconsole.conf: %m");
+                log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 
         /* Let the kernel command line override /etc/vconsole.conf */
         if (detect_container(NULL) <= 0) {
@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
                                    NULL);
 
                 if (r < 0 && r != -ENOENT)
-                        log_warning_errno(-r, "Failed to read /proc/cmdline: %m");
+                        log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
         if (utf8)
@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
 
         r = font_load(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid);
         if (r < 0) {
-                log_error_errno(-r, "Failed to start " KBD_SETFONT ": %m");
+                log_error_errno(r, "Failed to start " KBD_SETFONT ": %m");
                 return EXIT_FAILURE;
         }
 
@@ -314,7 +314,7 @@ int main(int argc, char **argv) {
 
         r = keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid);
         if (r < 0) {
-                log_error_errno(-r, "Failed to start " KBD_LOADKEYS ": %m");
+                log_error_errno(r, "Failed to start " KBD_LOADKEYS ": %m");
                 return EXIT_FAILURE;
         }
 

@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
         r = hostname_setup();
         if (r < 0)
-                log_error_errno(-r, "hostname: %m");
+                log_error_errno(r, "hostname: %m");
 
         return 0;
 }

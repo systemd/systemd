@@ -138,7 +138,7 @@ int inhibitor_save(Inhibitor *i) {
 
 finish:
         if (r < 0)
-                log_error_errno(-r, "Failed to save inhibit data %s: %m", i->state_file);
+                log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 
         return r;
 }

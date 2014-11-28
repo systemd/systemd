@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 
         r = mac_selinux_init(NULL);
         if (r < 0) {
-                log_error_errno(-r, "SELinux setup failed: %m");
+                log_error_errno(r, "SELinux setup failed: %m");
                 goto finish;
         }
 

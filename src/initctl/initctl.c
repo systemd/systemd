@@ -328,7 +328,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         r = bus_open_system_systemd(&s->bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get D-Bus connection: %m");
+                log_error_errno(r, "Failed to get D-Bus connection: %m");
                 r = -EIO;
                 goto fail;
         }
@@ -355,7 +355,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
         f = (Fifo*) ev->data.ptr;
         r = fifo_process(f);
         if (r < 0) {
-                log_info_errno(-r, "Got error on fifo: %m");
+                log_info_errno(r, "Got error on fifo: %m");
                 fifo_free(f);
                 return r;
         }
@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
 
         n = sd_listen_fds(true);
         if (n < 0) {
-                log_error_errno(-r, "Failed to read listening file descriptors from environment: %m");
+                log_error_errno(r, "Failed to read listening file descriptors from environment: %m");
                 return EXIT_FAILURE;
         }
 

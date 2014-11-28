@@ -54,7 +54,7 @@ static void start_target(const char *target) {
 
         r = bus_open_system_systemd(&bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get D-Bus connection: %m");
+                log_error_errno(r, "Failed to get D-Bus connection: %m");
                 return;
         }
 
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
 
         q = parse_proc_cmdline(parse_proc_cmdline_item);
         if (q < 0)
-                log_warning_errno(-q, "Failed to parse kernel command line, ignoring: %m");
+                log_warning_errno(q, "Failed to parse kernel command line, ignoring: %m");
 
         test_files();
 
@@ -309,7 +309,7 @@ int main(int argc, char *argv[]) {
                         log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
                         return EXIT_SUCCESS;
                 } else if (r < 0)
-                        log_warning_errno(-r, "fsck.%s cannot be used for %s: %m", type, device);
+                        log_warning_errno(r, "fsck.%s cannot be used for %s: %m", type, device);
         }
 
         if (arg_show_progress)
@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
 
         q = wait_for_terminate(pid, &status);
         if (q < 0) {
-                log_error_errno(-q, "waitid(): %m");
+                log_error_errno(q, "waitid(): %m");
                 goto finish;
         }
 

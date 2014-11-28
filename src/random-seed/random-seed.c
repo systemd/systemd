@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_parents_label(RANDOM_SEED, 0755);
         if (r < 0) {
-                log_error_errno(-r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
+                log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
                 goto finish;
         }
 

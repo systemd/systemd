@@ -194,7 +194,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         /* check peer credential of connection */
         r = getpeercred(conn->sock, &ucred);
         if (r < 0) {
-                log_error_errno(-r, "unable to receive credentials of ctrl connection: %m");
+                log_error_errno(r, "unable to receive credentials of ctrl connection: %m");
                 goto err;
         }
         if (ucred.uid > 0) {

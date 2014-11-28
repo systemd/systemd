@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 
         r = get_user_creds(&user, &uid, &gid, NULL, NULL);
         if (r < 0) {
-                log_error_errno(-r, "Cannot resolve user name %s: %m", user);
+                log_error_errno(r, "Cannot resolve user name %s: %m", user);
                 goto out;
         }
 
@@ -79,37 +79,37 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(&m);
         if (r < 0) {
-                log_error_errno(-r, "Could not create manager: %m");
+                log_error_errno(r, "Could not create manager: %m");
                 goto out;
         }
 
         r = manager_udev_listen(m);
         if (r < 0) {
-                log_error_errno(-r, "Could not connect to udev: %m");
+                log_error_errno(r, "Could not connect to udev: %m");
                 goto out;
         }
 
         r = manager_rtnl_listen(m);
         if (r < 0) {
-                log_error_errno(-r, "Could not connect to rtnl: %m");
+                log_error_errno(r, "Could not connect to rtnl: %m");
                 goto out;
         }
 
         r = manager_bus_listen(m);
         if (r < 0) {
-                log_error_errno(-r, "Could not connect to system bus: %m");
+                log_error_errno(r, "Could not connect to system bus: %m");
                 goto out;
         }
 
         r = manager_load_config(m);
         if (r < 0) {
-                log_error_errno(-r, "Could not load configuration files: %m");
+                log_error_errno(r, "Could not load configuration files: %m");
                 goto out;
         }
 
         r = manager_rtnl_enumerate_links(m);
         if (r < 0) {
-                log_error_errno(-r, "Could not enumerate links: %m");
+                log_error_errno(r, "Could not enumerate links: %m");
                 goto out;
         }
 
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(m->event);
         if (r < 0) {
-                log_error_errno(-r, "Event loop failed: %m");
+                log_error_errno(r, "Event loop failed: %m");
                 goto out;
         }
 

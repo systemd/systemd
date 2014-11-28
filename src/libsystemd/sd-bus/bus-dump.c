@@ -126,7 +126,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
         r = sd_bus_message_rewind(m, !(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY));
         if (r < 0) {
-                log_error_errno(-r, "Failed to rewind: %m");
+                log_error_errno(r, "Failed to rewind: %m");
                 return r;
         }
 
@@ -152,7 +152,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to peek type: %m");
+                        log_error_errno(r, "Failed to peek type: %m");
                         return r;
                 }
 
@@ -162,7 +162,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to exit container: %m");
+                                log_error_errno(r, "Failed to exit container: %m");
                                 return r;
                         }
 
@@ -183,7 +183,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 if (bus_type_is_container(type) > 0) {
                         r = sd_bus_message_enter_container(m, type, contents);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to enter container: %m");
+                                log_error_errno(r, "Failed to enter container: %m");
                                 return r;
                         }
 
@@ -203,7 +203,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
                 r = sd_bus_message_read_basic(m, type, &basic);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to get basic: %m");
+                        log_error_errno(r, "Failed to get basic: %m");
                         return r;
                 }
 

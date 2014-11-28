@@ -65,7 +65,7 @@ static int apply_rule(const char *rule) {
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add binary format: %m");
+                log_error_errno(r, "Failed to add binary format: %m");
                 return r;
         }
 
@@ -83,7 +83,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(-r, "Failed to open file '%s', ignoring: %m", path);
+                log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
                 return r;
         }
 
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to enumerate binfmt.d files: %m");
+                        log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
                         goto finish;
                 }
 

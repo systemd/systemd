@@ -87,7 +87,7 @@ static int iterate_dir(
 
                 r = unit_add_dependency_by_name(u, dependency, de->d_name, f, true);
                 if (r < 0)
-                        log_error_errno(-r, "Cannot add dependency %s to %s, ignoring: %m", de->d_name, u->id);
+                        log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", de->d_name, u->id);
         }
 
         return 0;
@@ -155,7 +155,7 @@ char **unit_find_dropin_paths(Unit *u) {
 
         r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get list of configuration files: %m");
+                log_error_errno(r, "Failed to get list of configuration files: %m");
                 strv_free(configs);
                 return NULL;
         }

@@ -211,7 +211,7 @@ static unsigned get_max_brightness(struct udev_device *device) {
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0) {
-                log_warning_errno(-r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
+                log_warning_errno(r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
                 return 0;
         }
 
@@ -235,7 +235,7 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
 
         r = safe_atou(*value, &brightness);
         if (r < 0) {
-                log_warning_errno(-r, "Failed to parse brightness \"%s\": %m", *value);
+                log_warning_errno(r, "Failed to parse brightness \"%s\": %m", *value);
                 return;
         }
 
@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
                         if (r == -ENOENT)
                                 return EXIT_SUCCESS;
 
-                        log_error_errno(-r, "Failed to read %s: %m", saved);
+                        log_error_errno(r, "Failed to read %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
 
                 r = write_string_file(saved, value);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to write %s: %m", saved);
+                        log_error_errno(r, "Failed to write %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 

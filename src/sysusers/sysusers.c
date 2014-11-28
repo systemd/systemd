@@ -920,7 +920,7 @@ static int add_user(Item *i) {
         if (i->uid_set) {
                 r = uid_is_ok(i->uid, i->name);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                         return r;
                 }
                 if (r == 0) {
@@ -940,7 +940,7 @@ static int add_user(Item *i) {
                         else {
                                 r = uid_is_ok(c, i->name);
                                 if (r < 0) {
-                                        log_error_errno(-r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                                         return r;
                                 } else if (r > 0) {
                                         i->uid = c;
@@ -955,7 +955,7 @@ static int add_user(Item *i) {
         if (!i->uid_set && i->gid_set) {
                 r = uid_is_ok((uid_t) i->gid, i->name);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                        log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                         return r;
                 }
                 if (r > 0) {
@@ -975,7 +975,7 @@ static int add_user(Item *i) {
 
                         r = uid_is_ok(search_uid, i->name);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                                 return r;
                         } else if (r > 0)
                                 break;
@@ -1072,7 +1072,7 @@ static int add_group(Item *i) {
         if (i->gid_set) {
                 r = gid_is_ok(i->gid);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                         return r;
                 }
                 if (r == 0) {
@@ -1085,7 +1085,7 @@ static int add_group(Item *i) {
         if (!i->gid_set && i->uid_set) {
                 r = gid_is_ok((gid_t) i->uid);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                         return r;
                 }
                 if (r > 0) {
@@ -1105,7 +1105,7 @@ static int add_group(Item *i) {
                         else {
                                 r = gid_is_ok(c);
                                 if (r < 0) {
-                                        log_error_errno(-r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                        log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                                         return r;
                                 } else if (r > 0) {
                                         i->gid = c;
@@ -1128,7 +1128,7 @@ static int add_group(Item *i) {
 
                         r = gid_is_ok(search_uid);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                                 return r;
                         } else if (r > 0)
                                 break;
@@ -1721,7 +1721,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
 
-                        log_error_errno(-r, "Failed to open '%s', ignoring: %m", fn);
+                        log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
                         return r;
                 }
 
@@ -1853,7 +1853,7 @@ int main(int argc, char *argv[]) {
 
         r = mac_selinux_init(NULL);
         if (r < 0) {
-                log_error_errno(-r, "SELinux setup failed: %m");
+                log_error_errno(r, "SELinux setup failed: %m");
                 goto finish;
         }
 
@@ -1871,7 +1871,7 @@ int main(int argc, char *argv[]) {
 
                 r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to enumerate sysusers.d files: %m");
+                        log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
                         goto finish;
                 }
 
@@ -1897,19 +1897,19 @@ int main(int argc, char *argv[]) {
 
         lock = take_password_lock(arg_root);
         if (lock < 0) {
-                log_error_errno(-lock, "Failed to take lock: %m");
+                log_error_errno(lock, "Failed to take lock: %m");
                 goto finish;
         }
 
         r = load_user_database();
         if (r < 0) {
-                log_error_errno(-r, "Failed to load user database: %m");
+                log_error_errno(r, "Failed to load user database: %m");
                 goto finish;
         }
 
         r = load_group_database();
         if (r < 0) {
-                log_error_errno(-r, "Failed to read group database: %m");
+                log_error_errno(r, "Failed to read group database: %m");
                 goto finish;
         }
 
@@ -1921,7 +1921,7 @@ int main(int argc, char *argv[]) {
 
         r = write_files();
         if (r < 0)
-                log_error_errno(-r, "Failed to write files: %m");
+                log_error_errno(r, "Failed to write files: %m");
 
 finish:
         while ((i = hashmap_steal_first(groups)))

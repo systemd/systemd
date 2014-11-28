@@ -409,7 +409,7 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
 
         fail_child:
                 log_open();
-                log_error_errno(-r, "Failed to create starter connection at step %s: %m", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD));
+                log_error_errno(r, "Failed to create starter connection at step %s: %m", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD));
 
                 _exit(ret);
         }

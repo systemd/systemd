@@ -204,7 +204,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         r = fchmod(f->fd, 0640);
         if (r < 0)
-                log_warning_errno(-r, "Failed to fix access mode on %s, ignoring: %m", f->path);
+                log_warning_errno(r, "Failed to fix access mode on %s, ignoring: %m", f->path);
 
 #ifdef HAVE_ACL
         if (uid <= SYSTEM_UID_MAX)
@@ -348,19 +348,19 @@ void server_sync(Server *s) {
         if (s->system_journal) {
                 r = journal_file_set_offline(s->system_journal);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to sync system journal: %m");
+                        log_error_errno(r, "Failed to sync system journal: %m");
         }
 
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to sync user journal: %m");
+                        log_error_errno(r, "Failed to sync user journal: %m");
         }
 
         if (s->sync_event_source) {
                 r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to disable sync timer source: %m");
+                        log_error_errno(r, "Failed to disable sync timer source: %m");
         }
 
         s->sync_scheduled = false;
@@ -377,7 +377,7 @@ static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
         p = strappenda(path, ids);
         r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
-                log_error_errno(-r, "Failed to vacuum %s: %m", p);
+                log_error_errno(r, "Failed to vacuum %s: %m", p);
 }
 
 void server_vacuum(Server *s) {
@@ -391,7 +391,7 @@ void server_vacuum(Server *s) {
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get machine ID: %m");
+                log_error_errno(r, "Failed to get machine ID: %m");
                 return;
         }
         sd_id128_to_string(machine, ids);
@@ -511,7 +511,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 for (i = 0; i < n; i++)
                         size += iovec[i].iov_len;
 
-                log_error_errno(-r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, size);
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, size);
                 return;
         }
 
@@ -530,7 +530,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 for (i = 0; i < n; i++)
                         size += iovec[i].iov_len;
 
-                log_error_errno(-r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, size);
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, size);
         } else
                 server_schedule_sync(s, priority);
 }
@@ -928,7 +928,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get machine id: %m");
+                log_error_errno(r, "Failed to get machine id: %m");
                 return r;
         }
 
@@ -958,7 +958,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         server_fix_perms(s, s->system_journal, 0);
                 else if (r < 0) {
                         if (r != -ENOENT && r != -EROFS)
-                                log_warning_errno(-r, "Failed to open system journal: %m");
+                                log_warning_errno(r, "Failed to open system journal: %m");
 
                         r = 0;
                 }
@@ -982,7 +982,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        log_warning_errno(-r, "Failed to open runtime journal: %m");
+                                        log_warning_errno(r, "Failed to open runtime journal: %m");
 
                                 r = 0;
                         }
@@ -1000,7 +1000,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         free(fn);
 
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to open runtime journal: %m");
+                                log_error_errno(r, "Failed to open runtime journal: %m");
                                 return r;
                         }
                 }
@@ -1046,7 +1046,7 @@ int server_flush_to_var(Server *s) {
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0) {
-                log_error_errno(-r, "Failed to read runtime journal: %m");
+                log_error_errno(r, "Failed to read runtime journal: %m");
                 return r;
         }
 
@@ -1063,7 +1063,7 @@ int server_flush_to_var(Server *s) {
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 if (r < 0) {
-                        log_error_errno(-r, "Can't read entry: %m");
+                        log_error_errno(r, "Can't read entry: %m");
                         goto finish;
                 }
 
@@ -1072,7 +1072,7 @@ int server_flush_to_var(Server *s) {
                         continue;
 
                 if (!shall_try_append_again(s->system_journal, r)) {
-                        log_error_errno(-r, "Can't write entry: %m");
+                        log_error_errno(r, "Can't write entry: %m");
                         goto finish;
                 }
 
@@ -1088,7 +1088,7 @@ int server_flush_to_var(Server *s) {
                 log_debug("Retrying write.");
                 r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
                 if (r < 0) {
-                        log_error_errno(-r, "Can't write entry: %m");
+                        log_error_errno(r, "Can't write entry: %m");
                         goto finish;
                 }
         }
@@ -1311,7 +1311,7 @@ static int server_parse_proc_cmdline(Server *s) {
 
         r = proc_cmdline(&line);
         if (r < 0) {
-                log_warning_errno(-r, "Failed to read /proc/cmdline, ignoring: %m");
+                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return 0;
         }
 
@@ -1453,13 +1453,13 @@ static int server_open_hostname(Server *s) {
                         return 0;
                 }
 
-                log_error_errno(-r, "Failed to register hostname fd in event loop: %m");
+                log_error_errno(r, "Failed to register hostname fd in event loop: %m");
                 return r;
         }
 
         r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
         if (r < 0) {
-                log_error_errno(-r, "Failed to adjust priority of host name event source: %m");
+                log_error_errno(r, "Failed to adjust priority of host name event source: %m");
                 return r;
         }
 
@@ -1515,7 +1515,7 @@ int server_init(Server *s) {
 
         r = sd_event_default(&s->event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to create event loop: %m");
+                log_error_errno(r, "Failed to create event loop: %m");
                 return r;
         }
 
@@ -1523,7 +1523,7 @@ int server_init(Server *s) {
 
         n = sd_listen_fds(true);
         if (n < 0) {
-                log_error_errno(-n, "Failed to read listening file descriptors from environment: %m");
+                log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
                 return n;
         }
 

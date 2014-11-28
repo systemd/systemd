@@ -113,7 +113,7 @@ int manager_enumerate_machines(Manager *m) {
 
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
-                        log_error_errno(-k, "Failed to add machine by file name %s: %m", de->d_name);
+                        log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
 
                         r = k;
                         continue;
@@ -138,25 +138,25 @@ static int manager_connect_bus(Manager *m) {
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to connect to system bus: %m");
+                log_error_errno(r, "Failed to connect to system bus: %m");
                 return r;
         }
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add manager object vtable: %m");
+                log_error_errno(r, "Failed to add manager object vtable: %m");
                 return r;
         }
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add machine object vtable: %m");
+                log_error_errno(r, "Failed to add machine object vtable: %m");
                 return r;
         }
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add machine enumerator: %m");
+                log_error_errno(r, "Failed to add machine enumerator: %m");
                 return r;
         }
 
@@ -170,7 +170,7 @@ static int manager_connect_bus(Manager *m) {
                              match_job_removed,
                              m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add match for JobRemoved: %m");
+                log_error_errno(r, "Failed to add match for JobRemoved: %m");
                 return r;
         }
 
@@ -184,7 +184,7 @@ static int manager_connect_bus(Manager *m) {
                              match_unit_removed,
                              m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add match for UnitRemoved: %m");
+                log_error_errno(r, "Failed to add match for UnitRemoved: %m");
                 return r;
         }
 
@@ -197,7 +197,7 @@ static int manager_connect_bus(Manager *m) {
                              match_properties_changed,
                              m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add match for PropertiesChanged: %m");
+                log_error_errno(r, "Failed to add match for PropertiesChanged: %m");
                 return r;
         }
 
@@ -211,7 +211,7 @@ static int manager_connect_bus(Manager *m) {
                              match_reloading,
                              m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add match for Reloading: %m");
+                log_error_errno(r, "Failed to add match for Reloading: %m");
                 return r;
         }
 
@@ -230,13 +230,13 @@ static int manager_connect_bus(Manager *m) {
 
         r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to register name: %m");
+                log_error_errno(r, "Failed to register name: %m");
                 return r;
         }
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to attach bus to event loop: %m");
+                log_error_errno(r, "Failed to attach bus to event loop: %m");
                 return r;
         }
 
@@ -335,7 +335,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to fully start up daemon: %m");
+                log_error_errno(r, "Failed to fully start up daemon: %m");
                 goto finish;
         }
 

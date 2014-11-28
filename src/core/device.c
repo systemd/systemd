@@ -334,7 +334,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         return 0;
 
 fail:
-        log_warning_errno(-r, "Failed to load device unit: %m");
+        log_warning_errno(r, "Failed to load device unit: %m");
 
         if (delete && u)
                 unit_free(u);
@@ -650,20 +650,20 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (streq(action, "remove") || !device_is_ready(dev))  {
                 r = device_process_removed_device(m, dev);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to process device remove event: %m");
+                        log_error_errno(r, "Failed to process device remove event: %m");
 
                 r = swap_process_removed_device(m, dev);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to process swap device remove event: %m");
+                        log_error_errno(r, "Failed to process swap device remove event: %m");
 
         } else {
                 r = device_process_new_device(m, dev);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to process device new event: %m");
+                        log_error_errno(r, "Failed to process device new event: %m");
 
                 r = swap_process_new_device(m, dev);
                 if (r < 0)
-                        log_error_errno(-r, "Failed to process swap device new event: %m");
+                        log_error_errno(r, "Failed to process swap device new event: %m");
 
                 manager_dispatch_load_queue(m);
 

@@ -570,7 +570,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
         i->state = DNS_ZONE_ITEM_VERIFYING;
         r = dns_zone_item_probe_start(i);
         if (r < 0) {
-                log_error_errno(-r, "Failed to start probing for verifying RR: %m");
+                log_error_errno(r, "Failed to start probing for verifying RR: %m");
                 i->state = DNS_ZONE_ITEM_ESTABLISHED;
                 return r;
         }

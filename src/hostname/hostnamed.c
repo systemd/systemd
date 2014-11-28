@@ -442,7 +442,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to set host name: %m");
+                log_error_errno(r, "Failed to set host name: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
         }
 
@@ -494,13 +494,13 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to set host name: %m");
+                log_error_errno(r, "Failed to set host name: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
         }
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to write static host name: %m");
+                log_error_errno(r, "Failed to write static host name: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %s", strerror(-r));
         }
 
@@ -573,7 +573,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
 
         r = context_write_data_machine_info(c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to write machine info: %m");
+                log_error_errno(r, "Failed to write machine info: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %s", strerror(-r));
         }
 
@@ -646,25 +646,25 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to get system bus connection: %m");
+                log_error_errno(r, "Failed to get system bus connection: %m");
                 return r;
         }
 
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", hostname_vtable, c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to register object: %m");
+                log_error_errno(r, "Failed to register object: %m");
                 return r;
         }
 
         r = sd_bus_request_name(bus, "org.freedesktop.hostname1", 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to register name: %m");
+                log_error_errno(r, "Failed to register name: %m");
                 return r;
         }
 
         r = sd_bus_attach_event(bus, event, 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to attach bus to event loop: %m");
+                log_error_errno(r, "Failed to attach bus to event loop: %m");
                 return r;
         }
 
@@ -701,7 +701,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_default(&event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to allocate event loop: %m");
+                log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
@@ -713,13 +713,13 @@ int main(int argc, char *argv[]) {
 
         r = context_read_data(&context);
         if (r < 0) {
-                log_error_errno(-r, "Failed to read hostname and machine information: %m");
+                log_error_errno(r, "Failed to read hostname and machine information: %m");
                 goto finish;
         }
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0) {
-                log_error_errno(-r, "Failed to run event loop: %m");
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

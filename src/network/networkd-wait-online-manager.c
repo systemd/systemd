@@ -134,7 +134,7 @@ static int manager_process_link(sd_rtnl *rtnl, sd_rtnl_message *mm, void *userda
         return 0;
 
 fail:
-        log_warning_errno(-r, "Failed to process RTNL link message: %m");
+        log_warning_errno(r, "Failed to process RTNL link message: %m");
         return 0;
 }
 
@@ -211,7 +211,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
         HASHMAP_FOREACH(l, m->links, i) {
                 r = link_update_monitor(l);
                 if (r < 0)
-                        log_warning_errno(-r, "Failed to update monitor information for %i: %m", l->ifindex);
+                        log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex);
         }
 
         if (manager_all_configured(m))

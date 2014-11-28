@@ -693,7 +693,7 @@ void bus_unit_send_change_signal(Unit *u) {
 
         r = bus_foreach_bus(u->manager, NULL, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
         if (r < 0)
-                log_debug_errno(-r, "Failed to send unit change signal for %s: %m", u->id);
+                log_debug_errno(r, "Failed to send unit change signal for %s: %m", u->id);
 
         u->sent_dbus_new_signal = true;
 }
@@ -739,7 +739,7 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         r = bus_foreach_bus(u->manager, NULL, send_removed_signal, u);
         if (r < 0)
-                log_debug_errno(-r, "Failed to send unit remove signal for %s: %m", u->id);
+                log_debug_errno(r, "Failed to send unit remove signal for %s: %m", u->id);
 }
 
 int bus_unit_queue_job(

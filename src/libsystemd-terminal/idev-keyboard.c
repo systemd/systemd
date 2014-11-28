@@ -377,7 +377,7 @@ static int kbdctx_set_locale(sd_bus *bus, const char *member, sd_bus_message *m,
 
 error:
         if (r < 0)
-                log_debug_errno(-r, "idev-keyboard: cannot parse locale property from locale1: %m");
+                log_debug_errno(r, "idev-keyboard: cannot parse locale property from locale1: %m");
 
         return r;
 }
@@ -448,7 +448,7 @@ static int kbdctx_query_locale(kbdctx *kc) {
         return 0;
 
 error:
-        log_debug_errno(-r, "idev-keyboard: cannot send GetAll to locale1: %m");
+        log_debug_errno(r, "idev-keyboard: cannot send GetAll to locale1: %m");
         return r;
 }
 
@@ -480,7 +480,7 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
         return 0;
 
 error:
-        log_debug_errno(-r, "idev-keyboard: cannot handle PropertiesChanged from locale1: %m");
+        log_debug_errno(r, "idev-keyboard: cannot handle PropertiesChanged from locale1: %m");
         return r;
 }
 
@@ -497,7 +497,7 @@ static int kbdctx_setup_bus(kbdctx *kc) {
                              kbdctx_locale_props_changed_fn,
                              kc);
         if (r < 0) {
-                log_debug_errno(-r, "idev-keyboard: cannot setup locale1 link: %m");
+                log_debug_errno(r, "idev-keyboard: cannot setup locale1 link: %m");
                 return r;
         }
 

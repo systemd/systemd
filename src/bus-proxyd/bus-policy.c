@@ -95,7 +95,7 @@ static int file_load(Policy *p, const char *path) {
                 if (r == -EISDIR)
                         return r;
 
-                log_error_errno(-r, "Failed to load %s: %m", path);
+                log_error_errno(r, "Failed to load %s: %m", path);
                 return r;
         }
 
@@ -106,7 +106,7 @@ static int file_load(Policy *p, const char *path) {
 
                 t = xml_tokenize(&q, &name, &xml_state, &line);
                 if (t < 0) {
-                        log_error_errno(-t, "XML parse failure in %s: %m", path);
+                        log_error_errno(t, "XML parse failure in %s: %m", path);
                         return t;
                 }
 
@@ -358,7 +358,7 @@ static int file_load(Policy *p, const char *path) {
 
                                         r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
                                         if (r < 0) {
-                                                log_error_errno(-r, "Failed to resolve user %s, ignoring policy: %m", u);
+                                                log_error_errno(r, "Failed to resolve user %s, ignoring policy: %m", u);
                                                 free(i);
                                         } else {
                                                 PolicyItem *first;
@@ -390,7 +390,7 @@ static int file_load(Policy *p, const char *path) {
 
                                         r = get_group_creds(&g, &i->gid);
                                         if (r < 0) {
-                                                log_error_errno(-r, "Failed to resolve group %s, ignoring policy: %m", g);
+                                                log_error_errno(r, "Failed to resolve group %s, ignoring policy: %m", g);
                                                 free(i);
                                         } else {
                                                 PolicyItem *first;
@@ -533,7 +533,7 @@ static int file_load(Policy *p, const char *path) {
 
                                                 r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
                                                 if (r < 0)
-                                                        log_error_errno(-r, "Failed to resolve user %s: %m", name);
+                                                        log_error_errno(r, "Failed to resolve user %s: %m", name);
                                                 else
                                                         i->uid_valid = true;
                                         }
@@ -544,7 +544,7 @@ static int file_load(Policy *p, const char *path) {
 
                                                 r = get_group_creds(&g, &i->gid);
                                                 if (r < 0)
-                                                        log_error_errno(-r, "Failed to resolve group %s: %m", name);
+                                                        log_error_errno(r, "Failed to resolve group %s: %m", name);
                                                 else
                                                         i->gid_valid = true;
                                         }
@@ -895,7 +895,7 @@ int policy_load(Policy *p, char **files) {
 
                         r = conf_files_list(&l, ".conf", NULL, *i, NULL);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get configuration file list: %m");
+                                log_error_errno(r, "Failed to get configuration file list: %m");
                                 return r;
                         }
 

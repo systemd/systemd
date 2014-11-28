@@ -68,7 +68,7 @@ int main(int argc, char*argv[]) {
 
                 r = write_string_file_atomic("/run/nologin", "System is going down.");
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to create /run/nologin: %m");
+                        log_error_errno(r, "Failed to create /run/nologin: %m");
                         return EXIT_FAILURE;
                 }
 

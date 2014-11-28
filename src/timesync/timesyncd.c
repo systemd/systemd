@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 
         r = get_user_creds(&user, &uid, &gid, NULL, NULL);
         if (r < 0) {
-                log_error_errno(-r, "Cannot resolve user name %s: %m", user);
+                log_error_errno(r, "Cannot resolve user name %s: %m", user);
                 goto finish;
         }
 
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(&m);
         if (r < 0) {
-                log_error_errno(-r, "Failed to allocate manager: %m");
+                log_error_errno(r, "Failed to allocate manager: %m");
                 goto finish;
         }
 
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(-r, "Failed to parse configuration file: %m");
+                log_warning_errno(r, "Failed to parse configuration file: %m");
 
         log_debug("systemd-timesyncd running as pid %lu", (unsigned long) getpid());
         sd_notify(false,
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(m->event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to run event loop: %m");
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

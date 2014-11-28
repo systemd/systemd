@@ -46,14 +46,14 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                         log_debug("No matching link configuration found.");
                         return EXIT_SUCCESS;
                 } else {
-                        log_error_errno(-r, "Could not get link config: %m");
+                        log_error_errno(r, "Could not get link config: %m");
                         return EXIT_FAILURE;
                 }
         }
 
         r = link_config_apply(ctx, link, dev, &name);
         if (r < 0) {
-                log_error_errno(-r, "Could not apply link config to %s: %m", udev_device_get_sysname(dev));
+                log_error_errno(r, "Could not apply link config to %s: %m", udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
 

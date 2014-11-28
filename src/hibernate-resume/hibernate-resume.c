@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 
         r = write_string_file("/sys/power/resume", major_minor);
         if (r < 0) {
-                log_error_errno(-r, "Failed to write '%s' to /sys/power/resume: %m", major_minor);
+                log_error_errno(r, "Failed to write '%s' to /sys/power/resume: %m", major_minor);
                 return EXIT_FAILURE;
         }
 

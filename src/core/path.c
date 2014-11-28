@@ -250,7 +250,7 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
 
         r = mkdir_p_label(s->path, mode);
         if (r < 0)
-                log_warning_errno(-r, "mkdir(%s) failed: %m", s->path);
+                log_warning_errno(r, "mkdir(%s) failed: %m", s->path);
 }
 
 static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {

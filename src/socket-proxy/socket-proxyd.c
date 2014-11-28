@@ -266,7 +266,7 @@ static int connection_enable_event_sources(Connection *c) {
                 r = 0;
 
         if (r < 0) {
-                log_error_errno(-r, "Failed to set up server event source: %m");
+                log_error_errno(r, "Failed to set up server event source: %m");
                 return r;
         }
 
@@ -278,7 +278,7 @@ static int connection_enable_event_sources(Connection *c) {
                 r = 0;
 
         if (r < 0) {
-                log_error_errno(-r, "Failed to set up client event source: %m");
+                log_error_errno(r, "Failed to set up client event source: %m");
                 return r;
         }
 
@@ -357,13 +357,13 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
                 if (errno == EINPROGRESS) {
                         r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to add connection socket: %m");
+                                log_error_errno(r, "Failed to add connection socket: %m");
                                 goto fail;
                         }
 
                         r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to enable oneshot event source: %m");
+                                log_error_errno(r, "Failed to enable oneshot event source: %m");
                                 goto fail;
                         }
                 } else {
@@ -449,7 +449,7 @@ static int resolve_remote(Connection *c) {
         log_debug("Looking up address info for %s:%s", node, service);
         r = sd_resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_cb, c);
         if (r < 0) {
-                log_error_errno(-r, "Failed to resolve remote host: %m");
+                log_error_errno(r, "Failed to resolve remote host: %m");
                 goto fail;
         }
 
@@ -521,14 +521,14 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 r = add_connection_socket(context, nfd);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to accept connection, ignoring: %m");
+                        log_error_errno(r, "Failed to accept connection, ignoring: %m");
                         safe_close(fd);
                 }
         }
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
         if (r < 0) {
-                log_error_errno(-r, "Error while re-enabling listener with ONESHOT: %m");
+                log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
                 sd_event_exit(context->event, r);
                 return r;
         }
@@ -551,7 +551,7 @@ static int add_listen_socket(Context *context, int fd) {
 
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
         if (r < 0) {
-                log_error_errno(-r, "Failed to determine socket type: %m");
+                log_error_errno(r, "Failed to determine socket type: %m");
                 return r;
         }
         if (r == 0) {
@@ -561,19 +561,19 @@ static int add_listen_socket(Context *context, int fd) {
 
         r = fd_nonblock(fd, true);
         if (r < 0) {
-                log_error_errno(-r, "Failed to mark file descriptor non-blocking: %m");
+                log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
                 return r;
         }
 
         r = sd_event_add_io(context->event, &source, fd, EPOLLIN, accept_cb, context);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add event source: %m");
+                log_error_errno(r, "Failed to add event source: %m");
                 return r;
         }
 
         r = set_put(context->listen, source);
         if (r < 0) {
-                log_error_errno(-r, "Failed to add source to set: %m");
+                log_error_errno(r, "Failed to add source to set: %m");
                 sd_event_source_unref(source);
                 return r;
         }
@@ -582,7 +582,7 @@ static int add_listen_socket(Context *context, int fd) {
          * watching to accept(). */
         r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
         if (r < 0) {
-                log_error_errno(-r, "Failed to enable oneshot mode: %m");
+                log_error_errno(r, "Failed to enable oneshot mode: %m");
                 return r;
         }
 
@@ -663,19 +663,19 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_default(&context.event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to allocate event loop: %m");
+                log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
         r = sd_resolve_default(&context.resolve);
         if (r < 0) {
-                log_error_errno(-r, "Failed to allocate resolver: %m");
+                log_error_errno(r, "Failed to allocate resolver: %m");
                 goto finish;
         }
 
         r = sd_resolve_attach_event(context.resolve, context.event, 0);
         if (r < 0) {
-                log_error_errno(-r, "Failed to attach resolver: %m");
+                log_error_errno(r, "Failed to attach resolver: %m");
                 goto finish;
         }
 
@@ -700,7 +700,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(context.event);
         if (r < 0) {
-                log_error_errno(-r, "Failed to run event loop: %m");
+                log_error_errno(r, "Failed to run event loop: %m");
                 goto finish;
         }
 

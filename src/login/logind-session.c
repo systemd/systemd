@@ -292,7 +292,7 @@ int session_save(Session *s) {
 
 finish:
         if (r < 0)
-                log_error_errno(-r, "Failed to save session data %s: %m", s->state_file);
+                log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 
         return r;
 }
@@ -338,7 +338,7 @@ int session_load(Session *s) {
                            NULL);
 
         if (r < 0) {
-                log_error_errno(-r, "Failed to read %s: %m", s->state_file);
+                log_error_errno(r, "Failed to read %s: %m", s->state_file);
                 return r;
         }
 

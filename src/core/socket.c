@@ -1506,7 +1506,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
 
         fail_child:
                 log_open();
-                log_error_errno(-r, "Failed to chown socket at step %s: %m", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD));
+                log_error_errno(r, "Failed to chown socket at step %s: %m", exit_status_to_string(ret, EXIT_STATUS_SYSTEMD));
 
                 _exit(ret);
         }

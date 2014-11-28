@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_p("/var/lib/systemd/rfkill", 0755);
         if (r < 0) {
-                log_error_errno(-r, "Failed to create rfkill directory: %m");
+                log_error_errno(r, "Failed to create rfkill directory: %m");
                 return EXIT_FAILURE;
         }
 
@@ -107,13 +107,13 @@ int main(int argc, char *argv[]) {
                         if (r == -ENOENT)
                                 return EXIT_SUCCESS;
 
-                        log_error_errno(-r, "Failed to read %s: %m", saved);
+                        log_error_errno(r, "Failed to read %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
                 r = udev_device_set_sysattr_value(device, "soft", value);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to write system attribute: %m");
+                        log_error_errno(r, "Failed to write system attribute: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -122,13 +122,13 @@ int main(int argc, char *argv[]) {
 
                 value = udev_device_get_sysattr_value(device, "soft");
                 if (!value) {
-                        log_error_errno(-r, "Failed to read system attribute: %m");
+                        log_error_errno(r, "Failed to read system attribute: %m");
                         return EXIT_FAILURE;
                 }
 
                 r = write_string_file(saved, value);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to write %s: %m", saved);
+                        log_error_errno(r, "Failed to write %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 

@@ -148,7 +148,7 @@ static int timer_setup_persistent(Timer *t) {
 
                         r = get_home_dir(&h);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to determine home directory: %m");
+                                log_error_errno(r, "Failed to determine home directory: %m");
                                 return r;
                         }
 

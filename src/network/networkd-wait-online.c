@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(&m, arg_interfaces);
         if (r < 0) {
-                log_error_errno(-r, "Could not create manager: %m");
+                log_error_errno(r, "Could not create manager: %m");
                 goto finish;
         }
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_event_loop(m->event);
         if (r < 0) {
-                log_error_errno(-r, "Event loop failed: %m");
+                log_error_errno(r, "Event loop failed: %m");
                 goto finish;
         }
 

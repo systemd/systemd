@@ -49,7 +49,7 @@ int ask_password_agent_open(void) {
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, "--watch", NULL);
         if (r < 0)
-                log_error_errno(-r, "Failed to fork TTY ask password agent: %m");
+                log_error_errno(r, "Failed to fork TTY ask password agent: %m");
 
         return r;
 }

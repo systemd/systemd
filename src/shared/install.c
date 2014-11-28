@@ -1554,7 +1554,7 @@ int unit_file_add_dependency(
 
                 state = unit_file_get_state(scope, root_dir, *i);
                 if (state < 0) {
-                        log_error_errno(-state, "Failed to get unit file state for %s: %m", *i);
+                        log_error_errno(state, "Failed to get unit file state for %s: %m", *i);
                         return state;
                 }
 

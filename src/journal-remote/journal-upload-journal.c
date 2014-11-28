@@ -26,7 +26,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         r = sd_journal_get_cursor(u->journal, &u->current_cursor);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get cursor: %m");
+                                log_error_errno(r, "Failed to get cursor: %m");
                                 return r;
                         }
 
@@ -52,7 +52,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         r = sd_journal_get_realtime_usec(u->journal, &realtime);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get realtime timestamp: %m");
+                                log_error_errno(r, "Failed to get realtime timestamp: %m");
                                 return r;
                         }
 
@@ -79,7 +79,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         r = sd_journal_get_monotonic_usec(u->journal, &monotonic, &boot_id);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get monotonic timestamp: %m");
+                                log_error_errno(r, "Failed to get monotonic timestamp: %m");
                                 return r;
                         }
 
@@ -106,7 +106,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         r = sd_journal_get_monotonic_usec(u->journal, NULL, &boot_id);
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to get monotonic timestamp: %m");
+                                log_error_errno(r, "Failed to get monotonic timestamp: %m");
                                 return r;
                         }
 
@@ -305,7 +305,7 @@ static int process_journal_input(Uploader *u, int skip) {
 
         r = sd_journal_next_skip(u->journal, skip);
         if (r < 0) {
-                log_error_errno(-r, "Failed to skip to next entry: %m");
+                log_error_errno(r, "Failed to skip to next entry: %m");
                 return r;
         } else if (r < skip)
                 return 0;
@@ -321,7 +321,7 @@ int check_journal_input(Uploader *u) {
 
                 r = sd_journal_process(u->journal);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to process journal: %m");
+                        log_error_errno(r, "Failed to process journal: %m");
                         close_journal_input(u);
                         return r;
                 }
@@ -364,7 +364,7 @@ int open_journal_for_upload(Uploader *u,
         if (follow) {
                 fd = sd_journal_get_fd(j);
                 if (fd < 0) {
-                        log_error_errno(-fd, "sd_journal_get_fd failed: %m");
+                        log_error_errno(fd, "sd_journal_get_fd failed: %m");
                         return fd;
                 }
 
@@ -380,7 +380,7 @@ int open_journal_for_upload(Uploader *u,
                 r = sd_event_add_io(u->events, &u->input_event,
                                     fd, events, dispatch_journal_input, u);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to register input event: %m");
+                        log_error_errno(r, "Failed to register input event: %m");
                         return r;
                 }
 

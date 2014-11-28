@@ -157,11 +157,11 @@ bool rtnl_message_type_is_addr(uint16_t type) {
 }
 
 int rtnl_log_parse_error(int r) {
-        log_error_errno(-r, "Failed to parse netlink message: %m");
+        log_error_errno(r, "Failed to parse netlink message: %m");
         return r;
 }
 
 int rtnl_log_create_error(int r) {
-        log_error_errno(-r, "Failed to create netlink message: %m");
+        log_error_errno(r, "Failed to create netlink message: %m");
         return r;
 }

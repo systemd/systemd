@@ -65,5 +65,5 @@ void server_forward_wall(
 
         r = utmp_wall(l, "systemd-journald", NULL);
         if (r < 0)
-                log_debug_errno(-r, "Failed to send wall message: %m");
+                log_debug_errno(r, "Failed to send wall message: %m");
 }

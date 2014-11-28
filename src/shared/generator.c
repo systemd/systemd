@@ -52,10 +52,10 @@ int generator_write_fsck_deps(
                 r = fsck_exists(fstype);
                 if (r == -ENOENT) {
                         /* treat missing check as essentially OK */
-                        log_debug_errno(-r, "Checking was requested for %s, but fsck.%s does not exist: %m", what, fstype);
+                        log_debug_errno(r, "Checking was requested for %s, but fsck.%s does not exist: %m", what, fstype);
                         return 0;
                 } else if (r < 0) {
-                        log_warning_errno(-r, "Checking was requested for %s, but fsck.%s cannot be used: %m", what, fstype);
+                        log_warning_errno(r, "Checking was requested for %s, but fsck.%s cannot be used: %m", what, fstype);
                         return r;
                 }
         }

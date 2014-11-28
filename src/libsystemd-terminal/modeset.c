@@ -147,13 +147,13 @@ static int modeset_new(Modeset **out) {
 
         r = sd_pid_get_session(getpid(), &m->session);
         if (r < 0) {
-                log_error_errno(-r, "Cannot retrieve logind session: %m");
+                log_error_errno(r, "Cannot retrieve logind session: %m");
                 return r;
         }
 
         r = sd_session_get_seat(m->session, &m->seat);
         if (r < 0) {
-                log_error_errno(-r, "Cannot retrieve seat of logind session: %m");
+                log_error_errno(r, "Cannot retrieve seat of logind session: %m");
                 return r;
         }
 
@@ -310,14 +310,14 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
                                       modeset_grdev_fn,
                                       m);
                 if (r < 0) {
-                        log_error_errno(-r, "Cannot create grdev session: %m");
+                        log_error_errno(r, "Cannot create grdev session: %m");
                         return r;
                 }
 
                 if (m->managed) {
                         r = sysview_session_take_control(ev->session_add.session);
                         if (r < 0) {
-                                log_error_errno(-r, "Cannot request session control: %m");
+                                log_error_errno(r, "Cannot request session control: %m");
                                 return r;
                         }
                 }
@@ -359,7 +359,7 @@ static int modeset_sysview_fn(sysview_context *c, void *userdata, sysview_event 
         case SYSVIEW_EVENT_SESSION_CONTROL:
                 r = ev->session_control.error;
                 if (r < 0) {
-                        log_error_errno(-r, "Cannot acquire session control: %m");
+                        log_error_errno(r, "Cannot acquire session control: %m");
                         return r;
                 }
 

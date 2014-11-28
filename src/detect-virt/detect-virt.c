@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
 
                 v = detect_virtualization(&id);
                 if (v < 0) {
-                        log_error_errno(-v, "Failed to check for virtualization: %m");
+                        log_error_errno(v, "Failed to check for virtualization: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         case ONLY_CONTAINER:
                 r = detect_container(&id);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to check for container: %m");
+                        log_error_errno(r, "Failed to check for container: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
         case ONLY_VM:
                 r = detect_vm(&id);
                 if (r < 0) {
-                        log_error_errno(-r, "Failed to check for vm: %m");
+                        log_error_errno(r, "Failed to check for vm: %m");
                         return EXIT_FAILURE;
                 }
 

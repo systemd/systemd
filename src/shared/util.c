@@ -2214,7 +2214,7 @@ int acquire_terminal(
 
         r = reset_terminal_fd(fd, true);
         if (r < 0)
-                log_warning_errno(-r, "Failed to reset terminal: %m");
+                log_warning_errno(r, "Failed to reset terminal: %m");
 
         return fd;
 
@@ -3796,7 +3796,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 
         r = wait_for_terminate(pid, &status);
         if (r < 0) {
-                log_warning_errno(-r, "Failed to wait for %s: %m", name);
+                log_warning_errno(r, "Failed to wait for %s: %m", name);
                 return r;
         }
 
@@ -5507,13 +5507,13 @@ int make_console_stdio(void) {
 
         fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
         if (fd < 0) {
-                log_error_errno(-fd, "Failed to acquire terminal: %m");
+                log_error_errno(fd, "Failed to acquire terminal: %m");
                 return fd;
         }
 
         r = make_stdio(fd);
         if (r < 0) {
-                log_error_errno(-r, "Failed to duplicate terminal fd: %m");
+                log_error_errno(r, "Failed to duplicate terminal fd: %m");
                 return r;
         }
 

@@ -135,7 +135,7 @@ static void test_route(void) {
 
         r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
         if (r < 0) {
-                log_error_errno(-r, "Could not create RTM_NEWROUTE message: %m");
+                log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
                 return;
         }
 
@@ -143,13 +143,13 @@ static void test_route(void) {
 
         r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &addr);
         if (r < 0) {
-                log_error_errno(-r, "Could not append RTA_GATEWAY attribute: %m");
+                log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
                 return;
         }
 
         r = sd_rtnl_message_append_u32(req, RTA_OIF, index);
         if (r < 0) {
-                log_error_errno(-r, "Could not append RTA_OIF attribute: %m");
+                log_error_errno(r, "Could not append RTA_OIF attribute: %m");
                 return;
         }
 
@@ -223,7 +223,7 @@ static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
 
-        log_info_errno(-r, "%d left in pipe. got reply: %m", *counter);
+        log_info_errno(r, "%d left in pipe. got reply: %m", *counter);
 
         assert_se(r >= 0);
 

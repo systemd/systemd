@@ -231,7 +231,7 @@ void session_dirty(Session *s) {
 
         r = sd_event_source_set_enabled(s->redraw_src, SD_EVENT_ONESHOT);
         if (r < 0)
-                log_error_errno(-r, "Cannot enable redraw-source: %m");
+                log_error_errno(r, "Cannot enable redraw-source: %m");
 }
 
 void session_add_device(Session *s, sysview_device *device) {

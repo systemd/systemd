@@ -64,7 +64,7 @@ int hostname_setup(void) {
                 if (r == -ENOENT)
                         enoent = true;
                 else
-                        log_warning_errno(-r, "Failed to read configured hostname: %m");
+                        log_warning_errno(r, "Failed to read configured hostname: %m");
 
                 hn = NULL;
         } else

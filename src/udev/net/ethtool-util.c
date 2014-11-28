@@ -76,7 +76,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         if (*fd < 0) {
                 r = ethtool_connect(fd);
                 if (r < 0) {
-                        log_warning_errno(-r, "link_config: could not connect to ethtool: %m");
+                        log_warning_errno(r, "link_config: could not connect to ethtool: %m");
                         return r;
                 }
         }
@@ -112,7 +112,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex du
         if (*fd < 0) {
                 r = ethtool_connect(fd);
                 if (r < 0) {
-                        log_warning_errno(-r, "link_config: could not connect to ethtool: %m");
+                        log_warning_errno(r, "link_config: could not connect to ethtool: %m");
                         return r;
                 }
         }
@@ -172,7 +172,7 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         if (*fd < 0) {
                 r = ethtool_connect(fd);
                 if (r < 0) {
-                        log_warning_errno(-r, "link_config: could not connect to ethtool: %m");
+                        log_warning_errno(r, "link_config: could not connect to ethtool: %m");
                         return r;
                 }
         }

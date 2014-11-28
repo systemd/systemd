@@ -186,7 +186,7 @@ int show_man_page(const char *desc, bool null_stdio) {
                 if (null_stdio) {
                         r = make_null_stdio();
                         if (r < 0) {
-                                log_error_errno(-r, "Failed to kill stdio: %m");
+                                log_error_errno(r, "Failed to kill stdio: %m");
                                 _exit(EXIT_FAILURE);
                         }
                 }

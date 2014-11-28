@@ -110,7 +110,7 @@ static void print_overriden_variables(void) {
                            NULL);
 
         if (r < 0 && r != -ENOENT) {
-                log_warning_errno(-r, "Failed to read /proc/cmdline: %m");
+                log_warning_errno(r, "Failed to read /proc/cmdline: %m");
                 goto finish;
         }
 
@@ -178,7 +178,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    map,
                                    &info);
         if (r < 0) {
-                log_error_errno(-r, "Could not get properties: %m");
+                log_error_errno(r, "Could not get properties: %m");
                 goto fail;
         }
 
@@ -235,7 +235,7 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
 
         r = get_locales(&l);
         if (r < 0) {
-                log_error_errno(-r, "Failed to read list of locales: %m");
+                log_error_errno(r, "Failed to read list of locales: %m");
                 return r;
         }
 
@@ -310,7 +310,7 @@ static int nftw_cb(
 
         r = set_consume(keymaps, p);
         if (r < 0 && r != -EEXIST) {
-                log_error_errno(-r, "Can't add keymap: %m");
+                log_error_errno(r, "Can't add keymap: %m");
                 return r;
         }
 
@@ -683,7 +683,7 @@ int main(int argc, char*argv[]) {
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error_errno(-r, "Failed to create bus connection: %m");
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 
