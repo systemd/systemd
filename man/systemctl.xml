@@ -705,7 +705,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Start the unit specified on the command line and its
-            dependencies and stop all others.</para>
+            dependencies and stop all others. If a unit name with no
+            extension is given, an extension of
+            <literal>.target</literal> will be assumed.</para>
 
             <para>This is similar to changing the runlevel in a
             traditional init system. The <command>isolate</command>
@@ -1597,9 +1599,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <programlisting># systemctl start sshd</programlisting> and
       <programlisting># systemctl start sshd.service</programlisting>
       are equivalent, as are
-      <programlisting># systemctl isolate snapshot-11</programlisting>
+      <programlisting># systemctl isolate default</programlisting>
       and
-      <programlisting># systemctl isolate snapshot-11.snapshot</programlisting>
+      <programlisting># systemctl isolate default.target</programlisting>
       Note that (absolute) paths to device nodes are automatically
       converted to device unit names, and other (absolute) paths to
       mount unit names.
