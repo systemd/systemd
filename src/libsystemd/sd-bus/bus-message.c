@@ -5333,35 +5333,57 @@ _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
         return 1;
 }
 
-const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
-        int r;
-        const char *t = NULL;
+int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str, char ***strv) {
+        const char *contents;
         unsigned j;
+        char type;
+        int r;
 
         assert(m);
+        assert(str);
+        assert(strv);
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0)
-                return NULL;
+                return r;
 
-        for (j = 0; j <= i; j++) {
-                char type;
-
-                r = sd_bus_message_peek_type(m, &type, NULL);
+        for (j = 0;; j++) {
+                r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
-                        return NULL;
+                        return r;
+                if (r == 0)
+                        return -ENXIO;
 
-                if (type != SD_BUS_TYPE_STRING &&
-                    type != SD_BUS_TYPE_OBJECT_PATH &&
-                    type != SD_BUS_TYPE_SIGNATURE)
-                        return NULL;
+                /* Don't match against arguments after the first one we don't understand */
+                if (!IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE) &&
+                    !(type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")))
+                        return -ENXIO;
 
-                r = sd_bus_message_read_basic(m, type, &t);
+                if (j >= i)
+                        break;
+
+                r = sd_bus_message_skip(m, NULL);
                 if (r < 0)
-                        return NULL;
+                        return r;
         }
 
-        return t;
+        if (type == SD_BUS_TYPE_ARRAY) {
+
+                r = sd_bus_message_read_strv(m, strv);
+                if (r < 0)
+                        return r;
+
+                *str = NULL;
+
+        } else {
+                r = sd_bus_message_read_basic(m, type, str);
+                if (r < 0)
+                        return r;
+
+                *strv = NULL;
+        }
+
+        return 0;
 }
 
 bool bus_header_is_complete(struct bus_header *h, size_t size) {

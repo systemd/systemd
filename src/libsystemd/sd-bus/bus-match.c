@@ -134,6 +134,7 @@ static bool value_node_test(
                 enum bus_match_node_type parent_type,
                 uint8_t value_u8,
                 const char *value_str,
+                char **value_strv,
                 sd_bus_message *m) {
 
         assert(node);
@@ -179,17 +180,46 @@ static bool value_node_test(
         case BUS_MATCH_INTERFACE:
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:
-        case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                return streq_ptr(node->value.str, value_str);
+        case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST: {
+                char **i;
 
-        case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
-                return namespace_simple_pattern(node->value.str, value_str);
+                if (value_str)
+                        return streq_ptr(node->value.str, value_str);
+
+                STRV_FOREACH(i, value_strv)
+                        if (streq_ptr(node->value.str, *i))
+                                return true;
+
+                return false;
+        }
+
+        case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST: {
+                char **i;
+
+                if (value_str)
+                        return namespace_simple_pattern(node->value.str, value_str);
+
+                STRV_FOREACH(i, value_strv)
+                        if (namespace_simple_pattern(node->value.str, *i))
+                                return true;
+                return false;
+        }
 
         case BUS_MATCH_PATH_NAMESPACE:
                 return path_simple_pattern(node->value.str, value_str);
 
-        case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
-                return path_complex_pattern(node->value.str, value_str);
+        case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST: {
+                char **i;
+
+                if (value_str)
+                        return path_complex_pattern(node->value.str, value_str);
+
+                STRV_FOREACH(i, value_strv)
+                        if (path_complex_pattern(node->value.str, *i))
+                                return true;
+
+                return false;
+        }
 
         default:
                 assert_not_reached("Invalid node type");
@@ -235,7 +265,7 @@ int bus_match_run(
                 struct bus_match_node *node,
                 sd_bus_message *m) {
 
-
+        _cleanup_strv_free_ char **test_strv = NULL;
         const char *test_str = NULL;
         uint8_t test_u8 = 0;
         int r;
@@ -343,15 +373,15 @@ int bus_match_run(
                 break;
 
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                test_str = bus_message_get_arg(m, node->type - BUS_MATCH_ARG);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG, &test_str, &test_strv);
                 break;
 
         case BUS_MATCH_ARG_PATH ... BUS_MATCH_ARG_PATH_LAST:
-                test_str = bus_message_get_arg(m, node->type - BUS_MATCH_ARG_PATH);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_PATH, &test_str, &test_strv);
                 break;
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
-                test_str = bus_message_get_arg(m, node->type - BUS_MATCH_ARG_NAMESPACE);
+                (void) bus_message_get_arg(m, node->type - BUS_MATCH_ARG_NAMESPACE, &test_str, &test_strv);
                 break;
 
         default:
@@ -365,7 +395,20 @@ int bus_match_run(
 
                 if (test_str)
                         found = hashmap_get(node->compare.children, test_str);
-                else if (node->type == BUS_MATCH_MESSAGE_TYPE)
+                else if (test_strv) {
+                        char **i;
+
+                        STRV_FOREACH(i, test_strv) {
+                                found = hashmap_get(node->compare.children, *i);
+                                if (found) {
+                                        r = bus_match_run(bus, found, m);
+                                        if (r != 0)
+                                                return r;
+                                }
+                        }
+
+                        found = NULL;
+                } else if (node->type == BUS_MATCH_MESSAGE_TYPE)
                         found = hashmap_get(node->compare.children, UINT_TO_PTR(test_u8));
                 else
                         found = NULL;
@@ -381,7 +424,7 @@ int bus_match_run(
                 /* No hash table, so let's iterate manually... */
 
                 for (c = node->child; c; c = c->next) {
-                        if (!value_node_test(c, node->type, test_u8, test_str, m))
+                        if (!value_node_test(c, node->type, test_u8, test_str, test_strv, m))
                                 continue;
 
                         r = bus_match_run(bus, c, m);
