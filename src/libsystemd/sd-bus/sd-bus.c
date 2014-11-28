@@ -1283,6 +1283,7 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
 
         bus->bus_client = true;
         bus->trusted = false;
+        bus->is_system = true;
 
         r = sd_bus_start(bus);
         if (r < 0)
@@ -1335,6 +1336,7 @@ _public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
 
         bus->bus_client = true;
         bus->trusted = false;
+        bus->is_system = true;
 
         r = sd_bus_start(bus);
         if (r < 0)
@@ -3375,4 +3377,44 @@ int bus_get_root_path(sd_bus *bus) {
         }
 
         return r;
+}
+
+_public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(scope, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (bus->is_kernel) {
+                _cleanup_free_ char *n = NULL;
+                const char *dash;
+
+                r = bus_kernel_get_bus_name(bus, &n);
+                if (r < 0)
+                        return r;
+
+                if (streq(n, "0-system")) {
+                        *scope = "system";
+                        return 1;
+                }
+
+                dash = strchr(n, '-');
+                if (streq(dash, "-user")) {
+                        *scope = "user";
+                        return 1;
+                }
+        }
+
+        if (bus->is_user) {
+                *scope = "user";
+                return 1;
+        }
+
+        if (bus->is_system) {
+                *scope = "system";
+                return 1;
+        }
+
+        return -ENODATA;
 }

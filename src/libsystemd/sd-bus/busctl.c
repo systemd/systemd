@@ -1193,11 +1193,18 @@ static int status(sd_bus *bus, char *argv[]) {
                                         &creds,
                                         pid,
                                         _SD_BUS_CREDS_ALL);
-        } else
+        } else {
+                const char *scope;
+
+                r = sd_bus_get_scope(bus, &scope);
+                if (r >= 0)
+                        printf("Scope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
+
                 r = sd_bus_get_owner_creds(
                                 bus,
                                 (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
                                 &creds);
+        }
 
         if (r < 0) {
                 log_error_errno(r, "Failed to get credentials: %m");
@@ -2006,10 +2013,13 @@ int main(int argc, char *argv[]) {
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
-                        if (arg_user)
+                        if (arg_user) {
+                                bus->is_user = true;
                                 r = bus_set_address_user(bus);
-                        else
+                        } else {
+                                bus->is_system = true;
                                 r = bus_set_address_system(bus);
+                        }
                         break;
 
                 case BUS_TRANSPORT_REMOTE:

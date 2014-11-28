@@ -33,7 +33,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;
-        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
+        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL, *bname = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
@@ -101,6 +101,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_get_description(b, &nn);
         assert_se(r >= 0);
         printf("name of b: %s\n", nn);
+
+        assert_se(bus_kernel_get_bus_name(b, &bname) >= 0);
+        assert_se(endswith(bname, name));
 
         r = sd_bus_call_method(a, "this.doesnt.exist", "/foo", "meh.mah", "muh", &error, NULL, "s", "yayayay");
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN));

@@ -1845,3 +1845,39 @@ int bus_kernel_fix_attach_mask(void) {
 
         return 0;
 }
+
+int bus_kernel_get_bus_name(sd_bus *bus, char **name) {
+        struct kdbus_cmd_info cmd = {
+                .size = sizeof(struct kdbus_cmd_info),
+        };
+        struct kdbus_info *info;
+        struct kdbus_item *item;
+        char *n = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(bus->is_kernel);
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
+        if (r < 0)
+                return -errno;
+
+        info = (struct kdbus_info*) ((uint8_t*) bus->kdbus_buffer + cmd.offset);
+
+        KDBUS_ITEM_FOREACH(item, info, items)
+                if (item->type == KDBUS_ITEM_MAKE_NAME) {
+                        r = free_and_strdup(&n, item->str);
+                        break;
+                }
+
+        bus_kernel_cmd_free(bus, cmd.offset);
+
+        if (r < 0)
+                return r;
+        if (!n)
+                return -EIO;
+
+        *name = n;
+        return 0;
+}
