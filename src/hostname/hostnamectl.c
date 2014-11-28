@@ -536,5 +536,5 @@ int main(int argc, char *argv[]) {
         r = hostnamectl_main(bus, argc, argv);
 
 finish:
-        return r < 0 ? EXIT_FAILURE : r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
