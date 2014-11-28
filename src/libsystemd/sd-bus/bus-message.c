@@ -4450,12 +4450,31 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
-        assert_return(types, -EINVAL);
 
-        if (isempty(types))
-                return 0;
+        /* If types is NULL, read exactly one element */
+        if (!types) {
+                struct bus_container *c;
+                size_t l;
+
+                if (message_end_of_signature(m))
+                        return -ENXIO;
+
+                if (message_end_of_array(m, m->rindex))
+                        return 0;
+
+                c = message_get_container(m);
+
+                r = signature_element_length(c->signature + c->index, &l);
+                if (r < 0)
+                        return r;
+
+                types = strndupa(c->signature + c->index, l);
+        }
 
         switch (*types) {
+
+        case 0: /* Nothing to drop */
+                return 0;
 
         case SD_BUS_TYPE_BYTE:
         case SD_BUS_TYPE_BOOLEAN:
