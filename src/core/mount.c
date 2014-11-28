@@ -1535,14 +1535,21 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         if (!tb || !itr)
                 return log_oom();
 
-        mnt_table_parse_mtab(tb, NULL);
-        if (r)
+        r = mnt_table_parse_mtab(tb, NULL);
+        if (r < 0)
                 return r;
 
-        while (mnt_table_next_fs(tb, itr, &fs) == 0) {
+        r = 0;
+        for (;;) {
                 const char *device, *path, *options, *fstype;
                 _cleanup_free_ const char *d = NULL, *p = NULL;
                 int k;
+
+                k = mnt_table_next_fs(tb, itr, &fs);
+                if (k == 1)
+                        break;
+                else if (k < 0)
+                        return log_error_errno(k, "Failed to get next entry from /etc/fstab: %m");
 
                 device = mnt_fs_get_source(fs);
                 path = mnt_fs_get_target(fs);
@@ -1555,7 +1562,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         return log_oom();
 
                 k = mount_add_one(m, d, p, options, fstype, set_flags);
-                if (k < 0)
+                if (r == 0 && k < 0)
                         r = k;
         }
 
