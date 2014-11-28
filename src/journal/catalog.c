@@ -341,17 +341,13 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
                 return log_oom();
 
         r = mkdir_p(d, 0775);
-        if (r < 0) {
-                log_error_errno(r, "Recursive mkdir %s: %m", d);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Recursive mkdir %s: %m", d);
 
         r = fopen_temporary(database, &w, &p);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open database for writing: %s: %m",
-                                database);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open database for writing: %s: %m",
+                                       database);
 
         zero(header);
         memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));

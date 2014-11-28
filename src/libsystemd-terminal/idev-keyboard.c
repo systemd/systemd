@@ -332,10 +332,8 @@ static int kbdctx_refresh_keymap(kbdctx *kc) {
         /* TODO: add a fallback keymap that's compiled-in */
         r = kbdmap_new_from_names(&km, kc, kc->last_x11_model, kc->last_x11_layout,
                                   kc->last_x11_variant, kc->last_x11_options);
-        if (r < 0) {
-                log_debug_errno(r, "idev-keyboard: cannot create keymap from locale1: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "idev-keyboard: cannot create keymap from locale1: %m");
 
         kbdmap_unref(kc->kbdmap);
         kc->kbdmap = km;
@@ -1161,9 +1159,8 @@ static int keyboard_update_kbdtbl(idev_keyboard *k) {
         return 0;
 
 error:
-        log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new compose table: %m",
-                        d->session->name, d->name);
-        return r;
+        return log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new compose table: %m",
+                               d->session->name, d->name);
 }
 
 static const idev_device_vtable keyboard_vtable = {

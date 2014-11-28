@@ -103,18 +103,14 @@ static int check_cursor_updating(Uploader *u) {
                 return 0;
 
         r = mkdir_parents(u->state_file, 0755);
-        if (r < 0) {
-                log_error_errno(r, "Cannot create parent directory of state file %s: %m",
-                                u->state_file);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot create parent directory of state file %s: %m",
+                                       u->state_file);
 
         r = fopen_temporary(u->state_file, &f, &temp_path);
-        if (r < 0) {
-                log_error_errno(r, "Cannot save state to %s: %m",
-                                u->state_file);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot save state to %s: %m",
+                                       u->state_file);
         unlink(temp_path);
 
         return 0;
@@ -164,11 +160,10 @@ static int load_cursor_state(Uploader *u) {
 
         if (r == -ENOENT)
                 log_debug("State file %s is not present.", u->state_file);
-        else if (r < 0) {
-                log_error_errno(r, "Failed to read state file %s: %m",
-                                u->state_file);
-                return r;
-        } else
+        else if (r < 0)
+                return log_error_errno(r, "Failed to read state file %s: %m",
+                                       u->state_file);
+        else
                 log_debug("Last cursor was %s", u->last_cursor);
 
         return 0;
@@ -374,10 +369,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                 r = sd_event_add_io(u->events, &u->input_event,
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
-                        if (r != -EPERM || arg_follow > 0) {
-                                log_error_errno(r, "Failed to register input event: %m");
-                                return r;
-                        }
+                        if (r != -EPERM || arg_follow > 0)
+                                return log_error_errno(r, "Failed to register input event: %m");
 
                         /* Normal files should just be consumed without polling. */
                         r = start_upload(u, fd_input_callback, u);
@@ -458,16 +451,12 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         u->state_file = state_file;
 
         r = sd_event_default(&u->events);
-        if (r < 0) {
-                log_error_errno(r, "sd_event_default failed: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "sd_event_default failed: %m");
 
         r = setup_signals(u);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up signals: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up signals: %m");
 
         return load_cursor_state(u);
 }
@@ -701,10 +690,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to add paths: %m");
-                                return r;
-                        };
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case ARG_CURSOR:

@@ -729,10 +729,8 @@ static int manager_setup_kdbus(Manager *m) {
                         m->running_as == SYSTEMD_SYSTEM ? "system" : "user",
                         m->running_as == SYSTEMD_SYSTEM, &p);
 
-        if (m->kdbus_fd < 0) {
-                log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
-                return m->kdbus_fd;
-        }
+        if (m->kdbus_fd < 0)
+                return log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
 
         log_debug("Successfully set up kdbus on %s", p);
 #endif

@@ -975,11 +975,9 @@ static int context_ud_hotplug(sysview_context *c, struct udev_device *d) {
                         return 0;
 
                 r = device_new_ud(&device, seat, type, d);
-                if (r < 0) {
-                        log_debug_errno(r, "sysview: cannot create device for udev-device '%s': %m",
-                                        syspath);
-                        return r;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "sysview: cannot create device for udev-device '%s': %m",
+                                               syspath);
 
                 context_add_device(c, device);
         }
@@ -1102,10 +1100,8 @@ static int context_ld_seat_new(sysview_context *c, sd_bus_message *signal) {
         int r;
 
         r = sd_bus_message_read(signal, "so", &id, &path);
-        if (r < 0) {
-                log_debug_errno(r, "sysview: cannot parse SeatNew from logind: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "sysview: cannot parse SeatNew from logind: %m");
 
         context_add_seat(c, id);
         return 0;
@@ -1117,10 +1113,8 @@ static int context_ld_seat_removed(sysview_context *c, sd_bus_message *signal) {
         int r;
 
         r = sd_bus_message_read(signal, "so", &id, &path);
-        if (r < 0) {
-                log_debug_errno(r, "sysview: cannot parse SeatRemoved from logind: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "sysview: cannot parse SeatRemoved from logind: %m");
 
         seat = sysview_find_seat(c, id);
         if (!seat)
@@ -1138,10 +1132,8 @@ static int context_ld_session_new(sysview_context *c, sd_bus_message *signal) {
         int r;
 
         r = sd_bus_message_read(signal, "so", &id, &path);
-        if (r < 0) {
-                log_debug_errno(r, "sysview: cannot parse SessionNew from logind: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "sysview: cannot parse SessionNew from logind: %m");
 
         /*
          * As the dbus message didn't contain enough information, we
@@ -1182,9 +1174,8 @@ static int context_ld_session_new(sysview_context *c, sd_bus_message *signal) {
         return 0;
 
 error:
-        log_debug_errno(r, "sysview: failed retrieving information for new session '%s': %m",
-                        id);
-        return r;
+        return log_debug_errno(r, "sysview: failed retrieving information for new session '%s': %m",
+                               id);
 }
 
 static int context_ld_session_removed(sysview_context *c, sd_bus_message *signal) {
@@ -1193,10 +1184,8 @@ static int context_ld_session_removed(sysview_context *c, sd_bus_message *signal
         int r;
 
         r = sd_bus_message_read(signal, "so", &id, &path);
-        if (r < 0) {
-                log_debug_errno(r, "sysview: cannot parse SessionRemoved from logind: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "sysview: cannot parse SessionRemoved from logind: %m");
 
         session = sysview_find_session(c, id);
         if (!session)
@@ -1295,8 +1284,7 @@ static int context_ld_list_seats_fn(sd_bus *bus,
         return 0;
 
 error:
-        log_debug_errno(r, "sysview: erroneous ListSeats response from logind: %m");
-        return r;
+        return log_debug_errno(r, "sysview: erroneous ListSeats response from logind: %m");
 }
 
 static int context_ld_list_sessions_fn(sd_bus *bus,
@@ -1360,8 +1348,7 @@ static int context_ld_list_sessions_fn(sd_bus *bus,
         return 0;
 
 error:
-        log_debug_errno(r, "sysview: erroneous ListSessions response from logind: %m");
-        return r;
+        return log_debug_errno(r, "sysview: erroneous ListSessions response from logind: %m");
 }
 
 static int context_ld_scan(sysview_context *c) {
@@ -1491,19 +1478,15 @@ static int context_scan_fn(sd_event_source *s, void *userdata) {
 
         if (!c->scanned) {
                 r = context_ld_scan(c);
-                if (r < 0) {
-                        log_debug_errno(r, "sysview: logind scan failed: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "sysview: logind scan failed: %m");
         }
 
         /* skip device scans if no sessions are available */
         if (hashmap_size(c->session_map) > 0) {
                 r = context_ud_scan(c);
-                if (r < 0) {
-                        log_debug_errno(r, "sysview: udev scan failed: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "sysview: udev scan failed: %m");
 
                 HASHMAP_FOREACH(seat, c->seat_map, i)
                         seat->scanned = true;

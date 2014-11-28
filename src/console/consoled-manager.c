@@ -141,11 +141,9 @@ static int manager_sysview_session_add(Manager *m, sysview_event *event) {
         int r;
 
         r = sysview_session_take_control(session);
-        if (r < 0) {
-                log_error_errno(r, "Cannot request session control on '%s': %m",
-                                sysview_session_get_name(session));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Cannot request session control on '%s': %m",
+                                       sysview_session_get_name(session));
 
         r = session_new(&s, m, session);
         if (r < 0) {

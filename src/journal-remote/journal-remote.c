@@ -320,11 +320,9 @@ static int get_source_for_fd(RemoteServer *s,
                 return log_oom();
 
         r = get_writer(s, name, &writer);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get writer for source %s: %m",
-                                  name);
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                         name);
 
         if (s->sources[fd] == NULL) {
                 s->sources[fd] = source_new(fd, false, name, writer);
@@ -459,11 +457,9 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
                 return 0;
 
         r = get_writer(server, hostname, &writer);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get writer for source %s: %m",
-                                  hostname);
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                         hostname);
 
         source = source_new(fd, true, hostname, writer);
         if (!source) {
@@ -855,10 +851,9 @@ static int remoteserver_init(RemoteServer *s,
                 return r;
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
-                return n;
-        } else
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
+        else
                 log_info("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n) {
@@ -1460,28 +1455,22 @@ static int load_certificates(char **key, char **cert, char **trust) {
         int r;
 
         r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read key from file '%s': %m",
-                                arg_key ?: PRIV_KEY_FILE);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key from file '%s': %m",
+                                       arg_key ?: PRIV_KEY_FILE);
 
         r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read certificate from file '%s': %m",
-                                arg_cert ?: CERT_FILE);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read certificate from file '%s': %m",
+                                       arg_cert ?: CERT_FILE);
 
         if (arg_trust_all)
                 log_info("Certificate checking disabled.");
         else {
                 r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read CA certificate file '%s': %m",
-                                        arg_trust ?: TRUST_FILE);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read CA certificate file '%s': %m",
+                                               arg_trust ?: TRUST_FILE);
         }
 
         return 0;
