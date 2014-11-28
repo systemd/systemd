@@ -120,7 +120,7 @@ int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t owner_id);
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t bus_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_set_trusted(sd_bus *bus, int b);
 int sd_bus_set_description(sd_bus *bus, const char *description);
@@ -138,6 +138,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
+int sd_bus_get_address(sd_bus *bus, const char **address);
 int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_scope(sd_bus *bus, const char **scope);

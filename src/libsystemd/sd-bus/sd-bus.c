@@ -3396,24 +3396,38 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
 
                 if (streq(n, "0-system")) {
                         *scope = "system";
-                        return 1;
+                        return 0;
                 }
 
                 dash = strchr(n, '-');
                 if (streq(dash, "-user")) {
                         *scope = "user";
-                        return 1;
+                        return 0;
                 }
         }
 
         if (bus->is_user) {
                 *scope = "user";
-                return 1;
+                return 0;
         }
 
         if (bus->is_system) {
                 *scope = "system";
-                return 1;
+                return 0;
+        }
+
+        return -ENODATA;
+}
+
+_public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
+
+        assert_return(bus, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (bus->address) {
+                *address = bus->address;
+                return 0;
         }
 
         return -ENODATA;

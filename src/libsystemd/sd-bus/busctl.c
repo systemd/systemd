@@ -1176,12 +1176,16 @@ static int status(sd_bus *bus, char *argv[]) {
                                         pid,
                                         _SD_BUS_CREDS_ALL);
         } else {
-                const char *scope;
+                const char *scope, *address;
                 sd_id128_t bus_id;
+
+                r = sd_bus_get_address(bus, &address);
+                if (r >= 0)
+                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_highlight_off());
 
                 r = sd_bus_get_scope(bus, &scope);
                 if (r >= 0)
-                        printf("Scope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
+                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
 
                 r = sd_bus_get_bus_id(bus, &bus_id);
                 if (r >= 0)
