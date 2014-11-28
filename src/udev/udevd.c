@@ -1211,6 +1211,8 @@ int main(int argc, char *argv[]) {
                         goto exit;
                 }
                 fd_netlink = udev_monitor_get_fd(monitor);
+
+                udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
         }
 
         if (udev_monitor_enable_receiving(monitor) < 0) {
@@ -1224,8 +1226,6 @@ int main(int argc, char *argv[]) {
                 rc = 1;
                 goto exit;
         }
-
-        udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
         log_info("starting version " VERSION);
 
