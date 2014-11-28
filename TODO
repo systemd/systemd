@@ -257,6 +257,11 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - add sd_bus_get_address() call
+  - s/owner_id/bus_id/?
+  - how can we make the xml enforcement for native clients unnecessary?
+  - replace "container" by "machine" in sd_bus_open_system_container()
+  - add "as" (array of strings) support to bloom filter
   - bus-proxy: fix how we detect whether we are connected to a system bus
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
   - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
