@@ -1624,6 +1624,8 @@ static int mount_enumerate(Manager *m) {
                 if (m->utab_inotify_fd < 0)
                         goto fail_with_errno;
 
+                (void) mkdir_p_label("/run/mount", 0755);
+
                 r = inotify_add_watch(m->utab_inotify_fd, "/run/mount", IN_MOVED_TO);
                 if (r < 0)
                         goto fail_with_errno;
