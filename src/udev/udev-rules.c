@@ -1068,13 +1068,13 @@ static int add_rule(struct udev_rules *rules, char *line,
                         /* If we aren't at the end of the line, this is a parsing error.
                          * Make a best effort to describe where the problem is. */
                         if (*linepos != '\n') {
-                                char buf[2] = {linepos[1]};
+                                char buf[2] = {*linepos};
                                 _cleanup_free_ char *tmp;
 
                                 tmp = cescape(buf);
                                 log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')",
                                           filename, lineno, linepos - line + 1, tmp);
-                                if (linepos[1] == '#')
+                                if (*linepos == '#')
                                         log_error("hint: comments can only start at beginning of line");
                         }
                         break;
