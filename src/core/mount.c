@@ -74,13 +74,13 @@ static bool mount_needs_network(const char *options, const char *fstype) {
         return false;
 }
 
-static bool mount_is_network(MountParameters *p) {
+static bool mount_is_network(const MountParameters *p) {
         assert(p);
 
         return mount_needs_network(p->options, p->fstype);
 }
 
-static bool mount_is_bind(MountParameters *p) {
+static bool mount_is_bind(const MountParameters *p) {
         assert(p);
 
         if (mount_test_option(p->options, "bind"))
@@ -98,13 +98,13 @@ static bool mount_is_bind(MountParameters *p) {
         return false;
 }
 
-static bool mount_is_auto(MountParameters *p) {
+static bool mount_is_auto(const MountParameters *p) {
         assert(p);
 
         return !mount_test_option(p->options, "noauto");
 }
 
-static bool needs_quota(MountParameters *p) {
+static bool needs_quota(const MountParameters *p) {
         assert(p);
 
         if (mount_is_network(p))
