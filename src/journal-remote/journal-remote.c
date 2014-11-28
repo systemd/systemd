@@ -210,8 +210,8 @@ static int open_output(Writer *w, const char* host) {
                                        w->mmap,
                                        NULL, &w->journal);
         if (r < 0)
-                log_error("Failed to open output journal %s: %s",
-                          output, strerror(-r));
+                log_error_errno(r, "Failed to open output journal %s: %m",
+                                output);
         else
                 log_info("Opened output file %s", w->journal->path);
         return r;
@@ -321,8 +321,8 @@ static int get_source_for_fd(RemoteServer *s,
 
         r = get_writer(s, name, &writer);
         if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            name, strerror(-r));
+                log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                  name);
                 return r;
         }
 
@@ -376,8 +376,8 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
         r = get_source_for_fd(s, fd, name, &source);
         if (r < 0) {
-                log_error("Failed to create source for fd:%d (%s): %s",
-                          fd, name, strerror(-r));
+                log_error_errno(r, "Failed to create source for fd:%d (%s): %m",
+                                fd, name);
                 free(name);
                 return r;
         }
@@ -393,8 +393,8 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
                         sd_event_source_set_enabled(source->event, SD_EVENT_ON);
         }
         if (r < 0) {
-                log_error("Failed to register event source for fd:%d: %s",
-                          fd, strerror(-r));
+                log_error_errno(r, "Failed to register event source for fd:%d: %m",
+                                fd);
                 goto error;
         }
 
@@ -460,8 +460,8 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
 
         r = get_writer(server, hostname, &writer);
         if (r < 0) {
-                log_warning("Failed to get writer for source %s: %s",
-                            hostname, strerror(-r));
+                log_warning_errno(r, "Failed to get writer for source %s: %m",
+                                  hostname);
                 return r;
         }
 
@@ -856,8 +856,7 @@ static int remoteserver_init(RemoteServer *s,
 
         n = sd_listen_fds(true);
         if (n < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s",
-                          strerror(-n));
+                log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
                 return n;
         } else
                 log_info("Received %d descriptors", n);
@@ -896,8 +895,8 @@ static int remoteserver_init(RemoteServer *s,
                 }
 
                 if(r < 0) {
-                        log_error("Failed to register socket (fd:%d): %s",
-                                  fd, strerror(-r));
+                        log_error_errno(r, "Failed to register socket (fd:%d): %m",
+                                        fd);
                         return r;
                 }
         }
@@ -1462,15 +1461,15 @@ static int load_certificates(char **key, char **cert, char **trust) {
 
         r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
         if (r < 0) {
-                log_error("Failed to read key from file '%s': %s",
-                          arg_key ?: PRIV_KEY_FILE, strerror(-r));
+                log_error_errno(r, "Failed to read key from file '%s': %m",
+                                arg_key ?: PRIV_KEY_FILE);
                 return r;
         }
 
         r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
         if (r < 0) {
-                log_error("Failed to read certificate from file '%s': %s",
-                          arg_cert ?: CERT_FILE, strerror(-r));
+                log_error_errno(r, "Failed to read certificate from file '%s': %m",
+                                arg_cert ?: CERT_FILE);
                 return r;
         }
 
@@ -1479,8 +1478,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
         else {
                 r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
                 if (r < 0) {
-                        log_error("Failed to read CA certificate file '%s': %s",
-                                  arg_trust ?: TRUST_FILE, strerror(-r));
+                        log_error_errno(r, "Failed to read CA certificate file '%s': %m",
+                                        arg_trust ?: TRUST_FILE);
                         return r;
                 }
         }

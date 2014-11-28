@@ -1095,8 +1095,8 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
 
                 r = verify_xkb_rmlvo(model, layout, variant, options);
                 if (r < 0)
-                        log_warning("Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %s",
-                                    strempty(model), strempty(layout), strempty(variant), strempty(options), strerror(-r));
+                        log_warning_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                                          strempty(model), strempty(layout), strempty(variant), strempty(options));
 
                 if (free_and_strdup(&c->x11_layout, layout) < 0 ||
                     free_and_strdup(&c->x11_model, model) < 0 ||

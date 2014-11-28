@@ -48,15 +48,14 @@ static int write_mode(char **modes) {
                 if (k == 0)
                         return 0;
 
-                log_debug("Failed to write '%s' to /sys/power/disk: %s",
-                          *mode, strerror(-k));
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m",
+                                *mode);
                 if (r == 0)
                         r = k;
         }
 
         if (r < 0)
-                log_error("Failed to write mode to /sys/power/disk: %s",
-                          strerror(-r));
+                log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
 
         return r;
 }
@@ -71,8 +70,8 @@ static int write_state(FILE **f, char **states) {
                 k = write_string_stream(*f, *state);
                 if (k == 0)
                         return 0;
-                log_debug("Failed to write '%s' to /sys/power/state: %s",
-                          *state, strerror(-k));
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m",
+                                *state);
                 if (r == 0)
                         r = k;
 

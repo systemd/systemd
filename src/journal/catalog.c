@@ -348,8 +348,8 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
 
         r = fopen_temporary(database, &w, &p);
         if (r < 0) {
-                log_error("Failed to open database for writing: %s: %s",
-                          database, strerror(-r));
+                log_error_errno(r, "Failed to open database for writing: %s: %m",
+                                database);
                 return r;
         }
 
@@ -687,8 +687,8 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
 
                 k = sd_id128_from_string(*item, &id);
                 if (k < 0) {
-                        log_error("Failed to parse id128 '%s': %s",
-                                  *item, strerror(-k));
+                        log_error_errno(k, "Failed to parse id128 '%s': %m",
+                                        *item);
                         if (r == 0)
                                 r = k;
                         continue;

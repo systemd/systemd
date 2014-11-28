@@ -451,8 +451,8 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
         r = writer_write(source->writer, &source->iovw, &source->ts, compress, seal);
         if (r < 0)
-                log_error("Failed to write entry of %zu bytes: %s",
-                          iovw_size(&source->iovw), strerror(-r));
+                log_error_errno(r, "Failed to write entry of %zu bytes: %m",
+                                iovw_size(&source->iovw));
         else
                 r = 1;
 

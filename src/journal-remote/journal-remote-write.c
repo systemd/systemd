@@ -59,11 +59,9 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         int r = journal_file_rotate(f, compress, seal);
         if (r < 0) {
                 if (*f)
-                        log_error("Failed to rotate %s: %s", (*f)->path,
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error("Failed to create rotated journal: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to create rotated journal: %m");
         }
 
         return r;

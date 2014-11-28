@@ -426,8 +426,7 @@ static int output_verbose(
                 else {
                         r = safe_atou64(value, &realtime);
                         if (r < 0)
-                                log_debug("Failed to parse realtime timestamp: %s",
-                                          strerror(-r));
+                                log_debug_errno(r, "Failed to parse realtime timestamp: %m");
                 }
         }
 

@@ -118,8 +118,8 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                 if (r == -ENOMEM) {
                         return r;
                 } else if (r < 0)
-                        log_debug("Failed to search for files in %s: %s",
-                                  *p, strerror(-r));
+                        log_debug_errno(r, "Failed to search for files in %s: %m",
+                                        *p);
         }
 
         files = hashmap_get_strv(fh);

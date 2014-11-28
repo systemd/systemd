@@ -106,8 +106,8 @@ static void session_grdev_fn(grdev_session *grdev, void *userdata, grdev_event *
 
                 r = display_new(&d, s, display);
                 if (r < 0) {
-                        log_error("Cannot create display '%s' on '%s': %s",
-                                  grdev_display_get_name(display), sysview_session_get_name(s->sysview), strerror(-r));
+                        log_error_errno(r, "Cannot create display '%s' on '%s': %m",
+                                        grdev_display_get_name(display), sysview_session_get_name(s->sysview));
                         break;
                 }
 

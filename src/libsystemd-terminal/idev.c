@@ -351,8 +351,8 @@ static int session_add_device(idev_session *s, idev_device *d) {
 
 error:
         if (r < 0)
-                log_debug("idev: %s: error while adding device '%s': %s",
-                          s->name, d->name, strerror(-r));
+                log_debug_errno(r, "idev: %s: error while adding device '%s': %m",
+                                s->name, d->name);
         return r;
 }
 
@@ -372,8 +372,8 @@ static int session_remove_device(idev_session *s, idev_device *d) {
         idev_device_disable(d);
 
         if (error < 0)
-                log_debug("idev: %s: error while removing device '%s': %s",
-                          s->name, d->name, strerror(-error));
+                log_debug_errno(error, "idev: %s: error while removing device '%s': %m",
+                                s->name, d->name);
         idev_device_free(d);
         return error;
 }
@@ -420,8 +420,8 @@ static int session_remove_element(idev_session *s, idev_element *e) {
         element_disable(e);
 
         if (error < 0)
-                log_debug("idev: %s: error while removing element '%s': %s",
-                          s->name, e->name, strerror(-r));
+                log_debug_errno(r, "idev: %s: error while removing element '%s': %m",
+                                s->name, e->name);
         idev_element_free(e);
         return error;
 }

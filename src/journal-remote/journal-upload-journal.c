@@ -134,8 +134,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                                       &u->field_data,
                                                       &u->field_length);
                         if (r < 0) {
-                                log_error("Failed to move to next field in entry: %s",
-                                          strerror(-r));
+                                log_error_errno(r, "Failed to move to next field in entry: %m");
                                 return r;
                         } else if (r == 0) {
                                 u->entry_state = ENTRY_OUTRO;
@@ -250,8 +249,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
                         if (r < 0) {
-                                log_error("Failed to move to next entry in journal: %s",
-                                          strerror(-r));
+                                log_error_errno(r, "Failed to move to next entry in journal: %m");
                                 return CURL_READFUNC_ABORT;
                         } else if (r == 0) {
                                 if (u->input_event)
@@ -392,8 +390,8 @@ int open_journal_for_upload(Uploader *u,
         if (cursor) {
                 r = sd_journal_seek_cursor(j, cursor);
                 if (r < 0) {
-                        log_error("Failed to seek to cursor %s: %s",
-                                  cursor, strerror(-r));
+                        log_error_errno(r, "Failed to seek to cursor %s: %m",
+                                        cursor);
                         return r;
                 }
         }

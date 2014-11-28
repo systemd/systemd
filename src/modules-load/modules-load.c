@@ -116,8 +116,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                         else {
-                                log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
-                                          strerror(-err));
+                                log_error_errno(err, "Failed to insert '%s': %m", kmod_module_get_name(mod));
                                 r = err;
                         }
                 }

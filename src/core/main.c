@@ -1695,7 +1695,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_error("Failed to load default target: %s", bus_error_message(&error, r));
                 else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
-                        log_error("Failed to load default target: %s", strerror(-target->load_error));
+                        log_error_errno(target->load_error, "Failed to load default target: %m");
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
 
@@ -1708,7 +1708,7 @@ int main(int argc, char *argv[]) {
                                 error_message = "Failed to load rescue target";
                                 goto finish;
                         } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
-                                log_emergency("Failed to load rescue target: %s", strerror(-target->load_error));
+                                log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
                                 error_message = "Failed to load rescue target";
                                 goto finish;
                         } else if (target->load_state == UNIT_MASKED) {

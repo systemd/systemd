@@ -118,8 +118,7 @@ int address_drop(Address *address, Link *link,
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
         if (r < 0) {
-                log_error("Could not allocate RTM_DELADDR message: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not allocate RTM_DELADDR message: %m");
                 return r;
         }
 
@@ -134,8 +133,7 @@ int address_drop(Address *address, Link *link,
         else if (address->family == AF_INET6)
                 r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
-                log_error("Could not append IFA_LOCAL attribute: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
                 return r;
         }
 
@@ -164,8 +162,7 @@ int address_update(Address *address, Link *link,
         r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
                                      link->ifindex, address->family);
         if (r < 0) {
-                log_error("Could not allocate RTM_NEWADDR message: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
                 return r;
         }
 
@@ -192,16 +189,14 @@ int address_update(Address *address, Link *link,
         else if (address->family == AF_INET6)
                 r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
-                log_error("Could not append IFA_LOCAL attribute: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
                 return r;
         }
 
         if (address->family == AF_INET) {
                 r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0) {
-                        log_error("Could not append IFA_BROADCAST attribute: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
                         return r;
                 }
         }
@@ -209,16 +204,14 @@ int address_update(Address *address, Link *link,
         if (address->label) {
                 r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0) {
-                        log_error("Could not append IFA_LABEL attribute: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
                         return r;
                 }
         }
 
         r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
         if (r < 0) {
-                log_error("Could not append IFA_CACHEINFO attribute: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
                 return r;
         }
 
@@ -313,8 +306,7 @@ int address_configure(Address *address, Link *link,
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
                                      link->ifindex, address->family);
         if (r < 0) {
-                log_error("Could not allocate RTM_NEWADDR message: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
                 return r;
         }
 
@@ -341,8 +333,7 @@ int address_configure(Address *address, Link *link,
         else if (address->family == AF_INET6)
                 r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
-                log_error("Could not append IFA_LOCAL attribute: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
                 return r;
         }
 
@@ -352,16 +343,14 @@ int address_configure(Address *address, Link *link,
                 else if (address->family == AF_INET6)
                         r = sd_rtnl_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
                 if (r < 0) {
-                        log_error("Could not append IFA_ADDRESS attribute: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
                         return r;
                 }
         } else {
                 if (address->family == AF_INET) {
                         r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                         if (r < 0) {
-                                log_error("Could not append IFA_BROADCAST attribute: %s",
-                                          strerror(-r));
+                                log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
                                 return r;
                         }
                 }
@@ -370,8 +359,7 @@ int address_configure(Address *address, Link *link,
         if (address->label) {
                 r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0) {
-                        log_error("Could not append IFA_LABEL attribute: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
                         return r;
                 }
         }
@@ -379,8 +367,7 @@ int address_configure(Address *address, Link *link,
         r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO,
                                               &address->cinfo);
         if (r < 0) {
-                log_error("Could not append IFA_CACHEINFO attribute: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
                 return r;
         }
 

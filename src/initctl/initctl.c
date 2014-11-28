@@ -290,8 +290,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 r = sd_is_fifo(fd, NULL);
                 if (r < 0) {
-                        log_error("Failed to determine file descriptor type: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to determine file descriptor type: %m");
                         goto fail;
                 }
 

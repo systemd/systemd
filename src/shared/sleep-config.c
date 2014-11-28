@@ -233,8 +233,8 @@ static bool enough_memory_for_hibernation(void) {
 
         r = safe_atollu(active, &act);
         if (r < 0) {
-                log_error("Failed to parse Active(anon) from /proc/meminfo: %s: %s",
-                          active, strerror(-r));
+                log_error_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m",
+                                active);
                 return false;
         }
 

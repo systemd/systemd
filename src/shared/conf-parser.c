@@ -428,8 +428,8 @@ int config_parse(const char *unit,
 
                 if (r < 0) {
                         if (warn)
-                                log_warning("Failed to parse file '%s': %s",
-                                            filename, strerror(-r));
+                                log_warning_errno(r, "Failed to parse file '%s': %m",
+                                                  filename);
                         return r;
                 }
         }

@@ -66,8 +66,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         n = sd_listen_fds(true);
         if (n < 0) {
-                log_error("Failed to read listening file descriptors from environment: %s",
-                          strerror(-n));
+                log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
                 return n;
         }
         if (n > 0) {

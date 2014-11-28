@@ -308,11 +308,11 @@ static int do_rotate(Server *s, JournalFile **f, const char* name,
         r = journal_file_rotate(f, s->compress, seal);
         if (r < 0)
                 if (*f)
-                        log_error("Failed to rotate %s: %s",
-                                  (*f)->path, strerror(-r));
+                        log_error_errno(r, "Failed to rotate %s: %m",
+                                        (*f)->path);
                 else
-                        log_error("Failed to create new %s journal: %s",
-                                  name, strerror(-r));
+                        log_error_errno(r, "Failed to create new %s journal: %m",
+                                        name);
         else
                 server_fix_perms(s, *f, uid);
         return r;

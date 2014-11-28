@@ -284,8 +284,8 @@ static int kbdctx_refresh_compose_table(kbdctx *kc, const char *lang) {
                  * it as a hard-failure but just continue. Preferably, we want
                  * xkb to tell us exactly whether compilation failed or whether
                  * there is no compose file available for this locale. */
-                log_debug("idev-keyboard: cannot load compose-table for '%s': %s",
-                          lang, strerror(-r));
+                log_debug_errno(r, "idev-keyboard: cannot load compose-table for '%s': %m",
+                                lang);
                 r = 0;
                 kt = NULL;
         }
@@ -333,8 +333,7 @@ static int kbdctx_refresh_keymap(kbdctx *kc) {
         r = kbdmap_new_from_names(&km, kc, kc->last_x11_model, kc->last_x11_layout,
                                   kc->last_x11_variant, kc->last_x11_options);
         if (r < 0) {
-                log_debug("idev-keyboard: cannot create keymap from locale1: %s",
-                          strerror(-r));
+                log_debug_errno(r, "idev-keyboard: cannot create keymap from locale1: %m");
                 return r;
         }
 
@@ -648,8 +647,8 @@ static int keyboard_raise_data(idev_keyboard *k, idev_data *data) {
 
         r = idev_session_raise_device_data(d->session, d, data);
         if (r < 0)
-                log_debug("idev-keyboard: %s/%s: error while raising data event: %s",
-                          d->session->name, d->name, strerror(-r));
+                log_debug_errno(r, "idev-keyboard: %s/%s: error while raising data event: %m",
+                                d->session->name, d->name);
 
         return r;
 }
@@ -952,8 +951,8 @@ static void keyboard_repeat(idev_keyboard *k) {
                         r = keyboard_fill(k, repdata, false, evkbd->keycode, KBDKEY_REPEAT, num, keysyms);
 
                 if (r < 0) {
-                        log_debug("idev-keyboard: %s/%s: cannot set key-repeat: %s",
-                                  d->session->name, d->name, strerror(-r));
+                        log_debug_errno(r, "idev-keyboard: %s/%s: cannot set key-repeat: %m",
+                                        d->session->name, d->name);
                         k->repeating = false;
                         keyboard_arm(k, 0);
                 } else {
@@ -977,8 +976,8 @@ static void keyboard_repeat(idev_keyboard *k) {
                         r = keyboard_fill(k, repdata, false, repkbd->keycode, KBDKEY_REPEAT, num, keysyms);
 
                 if (r < 0) {
-                        log_debug("idev-keyboard: %s/%s: cannot update key-repeat: %s",
-                                  d->session->name, d->name, strerror(-r));
+                        log_debug_errno(r, "idev-keyboard: %s/%s: cannot update key-repeat: %m",
+                                        d->session->name, d->name);
                         k->repeating = false;
                         keyboard_arm(k, 0);
                 }
@@ -1067,8 +1066,8 @@ static int keyboard_feed_evdev(idev_keyboard *k, idev_data *data) {
         return keyboard_raise_data(k, &k->evdata);
 
 error:
-        log_debug("idev-keyboard: %s/%s: cannot handle event: %s",
-                  d->session->name, d->name, strerror(-r));
+        log_debug_errno(r, "idev-keyboard: %s/%s: cannot handle event: %m",
+                        d->session->name, d->name);
         k->repeating = false;
         keyboard_arm(k, 0);
         return 0;
@@ -1128,8 +1127,8 @@ static int keyboard_update_kbdmap(idev_keyboard *k) {
         return 0;
 
 error:
-        log_debug("idev-keyboard: %s/%s: cannot adopt new keymap: %s",
-                  d->session->name, d->name, strerror(-r));
+        log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new keymap: %m",
+                        d->session->name, d->name);
         return r;
 }
 
@@ -1162,8 +1161,8 @@ static int keyboard_update_kbdtbl(idev_keyboard *k) {
         return 0;
 
 error:
-        log_debug("idev-keyboard: %s/%s: cannot adopt new compose table: %s",
-                  d->session->name, d->name, strerror(-r));
+        log_debug_errno(r, "idev-keyboard: %s/%s: cannot adopt new compose table: %m",
+                        d->session->name, d->name);
         return r;
 }
 

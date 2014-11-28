@@ -830,8 +830,8 @@ int main(int argc, char *argv[]) {
         SET_FOREACH(match, matches, it) {
                 r = sd_journal_add_match(j, match, strlen(match));
                 if (r != 0) {
-                        log_error("Failed to add match '%s': %s",
-                                  match, strerror(-r));
+                        log_error_errno(r, "Failed to add match '%s': %m",
+                                        match);
                         goto end;
                 }
         }

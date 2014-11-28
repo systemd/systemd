@@ -285,8 +285,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
         if (r < 0) {
-                log_error("Failed to create backlight directory /var/lib/systemd/backlight: %s",
-                          strerror(-r));
+                log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
                 return EXIT_FAILURE;
         }
 
@@ -395,8 +394,7 @@ int main(int argc, char *argv[]) {
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
-                        log_error("Failed to write system 'brightness' attribute: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Failed to write system 'brightness' attribute: %m");
                         return EXIT_FAILURE;
                 }
 

@@ -2186,8 +2186,8 @@ static void grdrm_card_hotplug(grdrm_card *card) {
         card->ready = false;
         r = grdrm_card_resync(card);
         if (r < 0) {
-                log_debug("grdrm: %s/%s: cannot re-sync card: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot re-sync card: %m",
+                                card->base.session->name, card->base.name);
                 return;
         }
 
@@ -2415,8 +2415,8 @@ static int grdrm_card_open(grdrm_card *card, int dev_fd) {
         r = ioctl(card->fd, DRM_IOCTL_GET_CAP, &cap);
         card->cap_dumb = r >= 0 && cap.value;
         if (r < 0)
-                log_debug("grdrm: %s/%s: cannot retrieve DUMB_BUFFER capability: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot retrieve DUMB_BUFFER capability: %m",
+                                card->base.session->name, card->base.name);
         else if (!card->cap_dumb)
                 log_debug("grdrm: %s/%s: DUMB_BUFFER capability not supported",
                           card->base.session->name, card->base.name);
@@ -2427,8 +2427,8 @@ static int grdrm_card_open(grdrm_card *card, int dev_fd) {
         r = ioctl(card->fd, DRM_IOCTL_GET_CAP, &cap);
         card->cap_monotonic = r >= 0 && cap.value;
         if (r < 0)
-                log_debug("grdrm: %s/%s: cannot retrieve TIMESTAMP_MONOTONIC capability: %s",
-                          card->base.session->name, card->base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot retrieve TIMESTAMP_MONOTONIC capability: %m",
+                                card->base.session->name, card->base.name);
         else if (!card->cap_monotonic)
                 log_debug("grdrm: %s/%s: TIMESTAMP_MONOTONIC is disabled globally, fix this NOW!",
                           card->base.session->name, card->base.name);
@@ -2507,8 +2507,8 @@ static void unmanaged_card_enable(grdev_card *basecard) {
 
                 r = grdrm_card_open(&cu->card, fd);
                 if (r < 0) {
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  basecard->session->name, basecard->name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        basecard->session->name, basecard->name);
                         return;
                 }
         }
@@ -2580,8 +2580,8 @@ static int unmanaged_card_new(grdev_card **out, grdev_session *session, struct u
 
                 r = grdrm_card_open(&cu->card, fd);
                 if (r < 0)
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  basecard->session->name, basecard->name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        basecard->session->name, basecard->name);
         }
 
         if (out)
@@ -2724,8 +2724,8 @@ static int managed_card_pause_device_fn(sd_bus *bus,
                 }
 
                 if (r < 0)
-                        log_debug("grdrm: %s/%s: cannot send PauseDeviceComplete: %s",
-                                  session->name, cm->card.base.name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot send PauseDeviceComplete: %m",
+                                        session->name, cm->card.base.name);
         }
 
         return 0;
@@ -2778,8 +2778,8 @@ static int managed_card_resume_device_fn(sd_bus *bus,
 
                 r = grdrm_card_open(&cm->card, fd);
                 if (r < 0) {
-                        log_debug("grdrm: %s/%s: cannot open: %s",
-                                  session->name, cm->card.base.name, strerror(-r));
+                        log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                        session->name, cm->card.base.name);
                         return 0;
                 }
         }
@@ -2870,8 +2870,8 @@ static int managed_card_take_device_fn(sd_bus *bus,
 
         r = grdrm_card_open(&cm->card, fd);
         if (r < 0) {
-                log_debug("grdrm: %s/%s: cannot open: %s",
-                          session->name, cm->card.base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot open: %m",
+                                session->name, cm->card.base.name);
                 return 0;
         }
 
@@ -2912,8 +2912,8 @@ static void managed_card_take_device(managed_card *cm) {
         return;
 
 error:
-        log_debug("grdrm: %s/%s: cannot send TakeDevice request: %s",
-                  session->name, cm->card.base.name, strerror(-r));
+        log_debug_errno(r, "grdrm: %s/%s: cannot send TakeDevice request: %m",
+                        session->name, cm->card.base.name);
 }
 
 static void managed_card_release_device(managed_card *cm) {
@@ -2955,8 +2955,8 @@ static void managed_card_release_device(managed_card *cm) {
         }
 
         if (r < 0 && r != -ENOTCONN)
-                log_debug("grdrm: %s/%s: cannot send ReleaseDevice: %s",
-                          session->name, cm->card.base.name, strerror(-r));
+                log_debug_errno(r, "grdrm: %s/%s: cannot send ReleaseDevice: %m",
+                                session->name, cm->card.base.name);
 }
 
 static int managed_card_new(grdev_card **out, grdev_session *session, struct udev_device *ud) {

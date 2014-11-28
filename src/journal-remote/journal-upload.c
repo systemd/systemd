@@ -87,8 +87,8 @@ static size_t output_callback(char *buf,
         if (nmemb && !u->answer) {
                 u->answer = strndup(buf, size*nmemb);
                 if (!u->answer)
-                        log_warning("Failed to store server answer (%zu bytes): %s",
-                                    size*nmemb, strerror(ENOMEM));
+                        log_warning_errno(ENOMEM, "Failed to store server answer (%zu bytes): %m",
+                                          size*nmemb);
         }
 
         return size * nmemb;
@@ -104,15 +104,15 @@ static int check_cursor_updating(Uploader *u) {
 
         r = mkdir_parents(u->state_file, 0755);
         if (r < 0) {
-                log_error("Cannot create parent directory of state file %s: %s",
-                          u->state_file, strerror(-r));
+                log_error_errno(r, "Cannot create parent directory of state file %s: %m",
+                                u->state_file);
                 return r;
         }
 
         r = fopen_temporary(u->state_file, &f, &temp_path);
         if (r < 0) {
-                log_error("Cannot save state to %s: %s",
-                          u->state_file, strerror(-r));
+                log_error_errno(r, "Cannot save state to %s: %m",
+                                u->state_file);
                 return r;
         }
         unlink(temp_path);
@@ -165,8 +165,8 @@ static int load_cursor_state(Uploader *u) {
         if (r == -ENOENT)
                 log_debug("State file %s is not present.", u->state_file);
         else if (r < 0) {
-                log_error("Failed to read state file %s: %s",
-                          u->state_file, strerror(-r));
+                log_error_errno(r, "Failed to read state file %s: %m",
+                                u->state_file);
                 return r;
         } else
                 log_debug("Last cursor was %s", u->last_cursor);
@@ -786,9 +786,8 @@ static int open_journal(sd_journal **j) {
         else
                 r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0)
-                log_error("Failed to open %s: %s",
-                          arg_directory ? arg_directory : arg_file ? "files" : "journal",
-                          strerror(-r));
+                log_error_errno(r, "Failed to open %s: %m",
+                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
         return r;
 }
 

@@ -238,7 +238,7 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
         if (m->have_ask_password < 0)
                 /* Log error but continue. Negative have_ask_password
                  * is treated as unknown status. */
-                log_error("Failed to list /run/systemd/ask-password: %s", strerror(m->have_ask_password));
+                log_error_errno(m->have_ask_password, "Failed to list /run/systemd/ask-password: %m");
 
         return 0;
 }
@@ -730,7 +730,7 @@ static int manager_setup_kdbus(Manager *m) {
                         m->running_as == SYSTEMD_SYSTEM, &p);
 
         if (m->kdbus_fd < 0) {
-                log_debug("Failed to set up kdbus: %s", strerror(-m->kdbus_fd));
+                log_debug_errno(m->kdbus_fd, "Failed to set up kdbus: %m");
                 return m->kdbus_fd;
         }
 
@@ -2699,8 +2699,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
 
                 r = mkdir_p_label(p, 0755);
                 if (r < 0) {
-                        log_error("Failed to create generator directory %s: %s",
-                                  p, strerror(-r));
+                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
                         free(p);
                         return r;
                 }
@@ -2716,8 +2715,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
 
                 r = mkdir_p_label(p, 0755);
                 if (r < 0) {
-                        log_error("Failed to create generator directory %s: %s",
-                                  p, strerror(-r));
+                        log_error_errno(r, "Failed to create generator directory %s: %m", p);
                         free(p);
                         return r;
                 }

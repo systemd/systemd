@@ -246,8 +246,8 @@ int main(int argc, char *argv[]) {
                         } else
                                 r = cg_get_root_path(&root);
                         if (r < 0) {
-                                log_error("Failed to get %s path: %s",
-                                          arg_machine ? "machine" : "root", strerror(-r));
+                                log_error_errno(r, "Failed to get %s path: %m",
+                                                arg_machine ? "machine" : "root");
                                 goto finish;
                         }
 

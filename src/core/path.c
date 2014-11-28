@@ -562,8 +562,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s",
-                    UNIT(p)->id, strerror(-r));
+        log_warning_errno(r, "%s failed to enter waiting state: %m", UNIT(p)->id);
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 

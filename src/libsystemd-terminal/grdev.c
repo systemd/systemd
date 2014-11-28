@@ -577,8 +577,8 @@ static bool display_cache(grdev_display *display) {
 
 out:
         if (r < 0)
-                log_debug("grdev: %s/%s: cannot cache pipes: %s",
-                          display->session->name, display->name, strerror(-r));
+                log_debug_errno(r, "grdev: %s/%s: cannot cache pipes: %m",
+                                display->session->name, display->name);
         return true;
 }
 
@@ -772,8 +772,8 @@ void grdev_pipe_schedule(grdev_pipe *pipe, uint64_t frames) {
         return;
 
 error:
-        log_debug("grdev: %s/%s/%s: cannot schedule vsync timer: %s",
-                  pipe->card->session->name, pipe->card->name, pipe->name, strerror(-r));
+        log_debug_errno(r, "grdev: %s/%s/%s: cannot schedule vsync timer: %m",
+                        pipe->card->session->name, pipe->card->name, pipe->name);
 }
 
 /*
@@ -1176,8 +1176,8 @@ void grdev_session_add_drm(grdev_session *session, struct udev_device *ud) {
 
         r = grdev_drm_card_new(&card, session, ud);
         if (r < 0) {
-                log_debug("grdev: %s: cannot add DRM device for %s: %s",
-                          session->name, udev_device_get_syspath(ud), strerror(-r));
+                log_debug_errno(r, "grdev: %s: cannot add DRM device for %s: %m",
+                                session->name, udev_device_get_syspath(ud));
                 return;
         }
 
@@ -1269,8 +1269,8 @@ static void session_configure(grdev_session *session) {
                         } else if (!display) {
                                 r = grdev_display_new(&display, session, pipe->name);
                                 if (r < 0) {
-                                        log_debug("grdev: %s/%s: cannot create display for pipe %s: %s",
-                                                  session->name, card->name, pipe->name, strerror(-r));
+                                        log_debug_errno(r, "grdev: %s/%s: cannot create display for pipe %s: %m",
+                                                        session->name, card->name, pipe->name);
                                         continue;
                                 }
                         }

@@ -1662,8 +1662,7 @@ static int access_check(sd_journal *j) {
                 assert(err > 0);
 
                 if (err != EACCES)
-                        log_warning("Error was encountered while opening journal files: %s",
-                                    strerror(err));
+                        log_warning_errno(err, "Error was encountered while opening journal files: %m");
         }
 
         return r;
@@ -1814,9 +1813,8 @@ int main(int argc, char *argv[]) {
         else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
-                log_error("Failed to open %s: %s",
-                          arg_directory ? arg_directory : arg_file ? "files" : "journal",
-                          strerror(-r));
+                log_error_errno(r, "Failed to open %s: %m",
+                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
                 return EXIT_FAILURE;
         }
 

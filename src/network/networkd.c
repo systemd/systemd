@@ -54,18 +54,15 @@ int main(int argc, char *argv[]) {
          * watches in. */
         r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory: %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory: %m");
 
         r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory 'links': %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory 'links': %m");
 
         r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid);
         if (r < 0)
-                log_error("Could not create runtime directory 'leases': %s",
-                          strerror(-r));
+                log_error_errno(r, "Could not create runtime directory 'leases': %m");
 
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |

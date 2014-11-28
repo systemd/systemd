@@ -189,8 +189,7 @@ static void terminal_feed_keyboard(Terminal *t, idev_data *data) {
                                               kdata->codepoints,
                                               kdata->mods);
                 if (r < 0)
-                        log_error("Cannot feed keyboard data to screen: %s",
-                                  strerror(-r));
+                        log_error_errno(r, "Cannot feed keyboard data to screen: %m");
         }
 }
 
