@@ -400,9 +400,9 @@ int seat_start(Seat *s) {
                 return 0;
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SEAT_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SEAT_START),
                    "SEAT_ID=%s", s->id,
-                   "MESSAGE=New seat %s.", s->id,
+                   LOG_MESSAGE("New seat %s.", s->id),
                    NULL);
 
         /* Initialize VT magic stuff */
@@ -428,9 +428,9 @@ int seat_stop(Seat *s, bool force) {
 
         if (s->started)
                 log_struct(LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
                            "SEAT_ID=%s", s->id,
-                           "MESSAGE=Removed seat %s.", s->id,
+                           LOG_MESSAGE("Removed seat %s.", s->id),
                            NULL);
 
         seat_stop_sessions(s, force);

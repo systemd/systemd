@@ -88,10 +88,16 @@ static int write_state(FILE **f, char **states) {
 }
 
 static int execute(char **modes, char **states) {
-        char* arguments[4];
+
+        char *arguments[] = {
+                NULL,
+                (char*) "pre",
+                arg_verb,
+                NULL
+        };
+
         int r;
         _cleanup_fclose_ FILE *f = NULL;
-        const char* note = strappenda("SLEEP=", arg_verb);
 
         /* This file is opened first, so that if we hit an error,
          * we can abort before modifying any state. */
@@ -106,16 +112,12 @@ static int execute(char **modes, char **states) {
         if (r < 0)
                 return r;
 
-        arguments[0] = NULL;
-        arguments[1] = (char*) "pre";
-        arguments[2] = arg_verb;
-        arguments[3] = NULL;
         execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SLEEP_START),
-                   "MESSAGE=Suspending system...",
-                   note,
+                   LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_START),
+                   LOG_MESSAGE("Suspending system..."),
+                   "SLEEP=%s", arg_verb,
                    NULL);
 
         r = write_state(&f, states);
@@ -123,9 +125,9 @@ static int execute(char **modes, char **states) {
                 return r;
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SLEEP_STOP),
-                   "MESSAGE=System resumed.",
-                   note,
+                   LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP),
+                   LOG_MESSAGE("MESSAGE=System resumed."),
+                   "SLEEP=%s", arg_verb,
                    NULL);
 
         arguments[1] = (char*) "post";

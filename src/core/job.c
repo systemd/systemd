@@ -730,28 +730,28 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 sd_id128_t mid;
 
                 mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
-                log_unit_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           u->id,
-                           MESSAGE_ID(mid),
-                           "RESULT=%s", job_result_to_string(result),
-                           "MESSAGE=%s", buf,
-                           NULL);
+                log_unit_struct(u->id,
+                                result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                                LOG_MESSAGE_ID(mid),
+                                LOG_MESSAGE("%s", buf),
+                                "RESULT=%s", job_result_to_string(result),
+                                NULL);
 
         } else if (t == JOB_STOP)
-                log_unit_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           u->id,
-                           MESSAGE_ID(SD_MESSAGE_UNIT_STOPPED),
-                           "RESULT=%s", job_result_to_string(result),
-                           "MESSAGE=%s", buf,
-                           NULL);
+                log_unit_struct(u->id,
+                                result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_UNIT_STOPPED),
+                                LOG_MESSAGE("%s", buf),
+                                "RESULT=%s", job_result_to_string(result),
+                                NULL);
 
         else if (t == JOB_RELOAD)
-                log_unit_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           u->id,
-                           MESSAGE_ID(SD_MESSAGE_UNIT_RELOADED),
-                           "RESULT=%s", job_result_to_string(result),
-                           "MESSAGE=%s", buf,
-                           NULL);
+                log_unit_struct(u->id,
+                                result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_UNIT_RELOADED),
+                                LOG_MESSAGE("%s", buf),
+                                "RESULT=%s", job_result_to_string(result),
+                                NULL);
 }
 
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
@@ -837,15 +837,15 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
         if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
-                log_unit_struct(LOG_NOTICE,
-                           u->id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           "Job %s/%s failed with result '%s'.",
-                           u->id,
-                           job_type_to_string(t),
-                           job_result_to_string(result),
-                           NULL);
+                log_unit_struct(u->id,
+                                LOG_NOTICE,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_MESSAGE("Job %s/%s failed with result '%s'.",
+                                            u->id,
+                                            job_type_to_string(t),
+                                            job_result_to_string(result)),
+                                NULL);
 
                 unit_start_on_failure(u);
         }

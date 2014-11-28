@@ -64,19 +64,19 @@ int log_syntax_internal(
                                         error > 0 ? error : EINVAL,
                                         file, line, func,
                                         getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
-                                        MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
                                         "CONFIG_LINE=%u", config_line,
-                                        "MESSAGE=[%s:%u] %s", config_file, config_line, msg,
+                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
                                         NULL);
         else
                 r = log_struct_internal(level,
                                         error > 0 ? error : EINVAL,
                                         file, line, func,
-                                        MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
                                         "CONFIG_LINE=%u", config_line,
-                                        "MESSAGE=[%s:%u] %s", config_file, config_line, msg,
+                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
                                         NULL);
 
         return r;

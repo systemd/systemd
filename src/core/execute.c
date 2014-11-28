@@ -426,12 +426,13 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 r = connect_logger_as(context, o, ident, unit_id, fileno);
                 if (r < 0) {
-                        log_unit_struct(LOG_CRIT, unit_id,
-                                "MESSAGE=Failed to connect std%s of %s to the journal socket: %s",
-                                fileno == STDOUT_FILENO ? "out" : "err",
-                                unit_id, strerror(-r),
-                                "ERRNO=%d", -r,
-                                NULL);
+                        log_unit_struct(unit_id,
+                                        LOG_CRIT,
+                                        LOG_MESSAGE("Failed to connect %s of %s to the journal socket: %s",
+                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr",
+                                                    unit_id, strerror(-r)),
+                                        LOG_ERRNO(-r),
+                                        NULL);
                         r = open_null_as(O_WRONLY, fileno);
                 }
                 return r;
@@ -1751,10 +1752,10 @@ static int exec_child(ExecCommand *command,
                 line = exec_command_line(final_argv);
                 if (line) {
                         log_open();
-                        log_unit_struct(LOG_DEBUG,
-                                        params->unit_id,
+                        log_unit_struct(params->unit_id,
+                                        LOG_DEBUG,
                                         "EXECUTABLE=%s", command->path,
-                                        "MESSAGE=Executing: %s", line,
+                                        LOG_MESSAGE("Executing: %s", line),
                                         NULL);
                         log_close();
                 }
@@ -1799,11 +1800,11 @@ int exec_spawn(ExecCommand *command,
 
         err = exec_context_load_environment(context, params->unit_id, &files_env);
         if (err < 0) {
-                log_unit_struct(LOG_ERR,
-                           params->unit_id,
-                           "MESSAGE=Failed to load environment files: %s", strerror(-err),
-                           "ERRNO=%d", -err,
-                           NULL);
+                log_unit_struct(params->unit_id,
+                                LOG_ERR,
+                                LOG_MESSAGE("Failed to load environment files: %s", strerror(-err)),
+                                LOG_ERRNO(-err),
+                                NULL);
                 return err;
         }
 
@@ -1813,10 +1814,10 @@ int exec_spawn(ExecCommand *command,
         if (!line)
                 return log_oom();
 
-        log_unit_struct(LOG_DEBUG,
-                        params->unit_id,
+        log_unit_struct(params->unit_id,
+                        LOG_DEBUG,
                         "EXECUTABLE=%s", command->path,
-                        "MESSAGE=About to execute: %s", line,
+                        LOG_MESSAGE("About to execute: %s", line),
                         NULL);
         free(line);
 
@@ -1838,12 +1839,13 @@ int exec_spawn(ExecCommand *command,
                                  &r);
                 if (r != 0) {
                         log_open();
-                        log_struct(LOG_ERR, MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                        log_struct(LOG_ERR,
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
                                    "EXECUTABLE=%s", command->path,
-                                   "MESSAGE=Failed at step %s spawning %s: %s",
-                                          exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
-                                          command->path, strerror(-err),
-                                   "ERRNO=%d", -err,
+                                   LOG_MESSAGE("Failed at step %s spawning %s: %s",
+                                               exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
+                                               command->path, strerror(-err)),
+                                   LOG_ERRNO(-err),
                                    NULL);
                         log_close();
                 }
@@ -1851,10 +1853,10 @@ int exec_spawn(ExecCommand *command,
                 _exit(r);
         }
 
-        log_unit_struct(LOG_DEBUG,
-                        params->unit_id,
-                        "MESSAGE=Forked %s as "PID_FMT,
-                        command->path, pid,
+        log_unit_struct(params->unit_id,
+                        LOG_DEBUG,
+                        LOG_MESSAGE("Forked %s as "PID_FMT,
+                                    command->path, pid),
                         NULL);
 
         /* We add the new process to the cgroup both in the child (so

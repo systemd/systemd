@@ -377,10 +377,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_MACHINE_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_START),
                    "NAME=%s", m->name,
                    "LEADER="PID_FMT, m->leader,
-                   "MESSAGE=New machine %s.", m->name,
+                   LOG_MESSAGE("New machine %s.", m->name),
                    NULL);
 
         if (!dual_timestamp_is_set(&m->timestamp))
@@ -426,10 +426,10 @@ int machine_stop(Machine *m) {
 
         if (m->started)
                 log_struct(LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
-                           "MESSAGE=Machine %s terminated.", m->name,
+                           LOG_MESSAGE("Machine %s terminated.", m->name),
                            NULL);
 
         /* Kill cgroup */

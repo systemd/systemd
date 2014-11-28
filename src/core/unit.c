@@ -1394,10 +1394,10 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
               t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
                                SD_MESSAGE_UNIT_RELOADING;
 
-        log_unit_struct(LOG_INFO,
-                        u->id,
-                        MESSAGE_ID(mid),
-                        "MESSAGE=%s", buf,
+        log_unit_struct(u->id,
+                        LOG_INFO,
+                        LOG_MESSAGE_ID(mid),
+                        LOG_MESSAGE("%s", buf),
                         NULL);
 }
 

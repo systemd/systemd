@@ -823,12 +823,12 @@ void warn_if_dir_nonempty(const char *unit, const char* where) {
         if (r > 0)
                 return;
         else if (r == 0)
-                log_unit_struct(LOG_NOTICE,
-                                unit,
-                                "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
-                                unit, where,
+                log_unit_struct(unit,
+                                LOG_NOTICE,
+                                LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                                LOG_MESSAGE("%s: Directory %s to mount over is not empty, mounting anyway.",
+                                            unit, where),
                                 "WHERE=%s", where,
-                                MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
                                 NULL);
         else
                 log_unit_warning(unit,
@@ -840,12 +840,12 @@ static int fail_if_symlink(const char *unit, const char* where) {
         assert(where);
 
         if (is_symlink(where) > 0) {
-                log_unit_struct(LOG_WARNING,
-                                unit,
-                                "MESSAGE=%s: Mount on symlink %s not allowed.",
-                                unit, where,
+                log_unit_struct(unit,
+                                LOG_ERR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                                LOG_MESSAGE("%s: Mount on symlink %s not allowed.",
+                                            unit, where),
                                 "WHERE=%s", where,
-                                MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
                                 NULL);
 
                 return -ELOOP;

@@ -2205,16 +2205,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_unit_struct(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                           u->id,
-                           "MESSAGE=%s: main process exited, code=%s, status=%i/%s",
-                                  u->id, sigchld_code_to_string(code), status,
-                                  strna(code == CLD_EXITED
-                                        ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                        : signal_to_string(status)),
-                           "EXIT_CODE=%s", sigchld_code_to_string(code),
-                           "EXIT_STATUS=%i", status,
-                           NULL);
+                log_unit_struct(u->id,
+                                f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                LOG_MESSAGE("%s: main process exited, code=%s, status=%i/%s",
+                                            u->id, sigchld_code_to_string(code), status,
+                                            strna(code == CLD_EXITED
+                                                  ? exit_status_to_string(status, EXIT_STATUS_FULL)
+                                                  : signal_to_string(status))),
+                                "EXIT_CODE=%s", sigchld_code_to_string(code),
+                                "EXIT_STATUS=%i", status,
+                                NULL);
 
                 if (f != SERVICE_SUCCESS)
                         s->result = f;

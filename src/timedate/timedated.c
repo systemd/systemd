@@ -429,9 +429,9 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         }
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE),
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE),
                    "TIMEZONE=%s", c->zone,
-                   "MESSAGE=Changed time zone to '%s'.", c->zone,
+                   LOG_MESSAGE("Changed time zone to '%s'.", c->zone),
                    NULL);
 
         sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
@@ -581,9 +581,9 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         clock_set_hwclock(tm);
 
         log_struct(LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
+                   LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)),
                    NULL);
 
         return sd_bus_reply_method_return(m, NULL);

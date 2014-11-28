@@ -159,8 +159,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_POWER:
                 case KEY_POWER2:
                         log_struct(LOG_INFO,
-                                   "MESSAGE=Power key pressed.",
-                                   MESSAGE_ID(SD_MESSAGE_POWER_KEY),
+                                   LOG_MESSAGE("Power key pressed."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_POWER_KEY),
                                    NULL);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
@@ -174,8 +174,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_SLEEP:
                         log_struct(LOG_INFO,
-                                   "MESSAGE=Suspend key pressed.",
-                                   MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY),
+                                   LOG_MESSAGE("Suspend key pressed."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY),
                                    NULL);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
@@ -183,8 +183,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_SUSPEND:
                         log_struct(LOG_INFO,
-                                   "MESSAGE=Hibernate key pressed.",
-                                   MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY),
+                                   LOG_MESSAGE("Hibernate key pressed."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY),
                                    NULL);
 
                         manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
@@ -195,8 +195,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
-                                   "MESSAGE=Lid closed.",
-                                   MESSAGE_ID(SD_MESSAGE_LID_CLOSED),
+                                   LOG_MESSAGE("Lid closed."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_LID_CLOSED),
                                    NULL);
 
                         b->lid_closed = true;
@@ -205,8 +205,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
-                                   "MESSAGE=System docked.",
-                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_DOCKED),
+                                   LOG_MESSAGE("System docked."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_DOCKED),
                                    NULL);
 
                         b->docked = true;
@@ -216,8 +216,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
-                                   "MESSAGE=Lid opened.",
-                                   MESSAGE_ID(SD_MESSAGE_LID_OPENED),
+                                   LOG_MESSAGE("Lid opened."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_LID_OPENED),
                                    NULL);
 
                         b->lid_closed = false;
@@ -225,8 +225,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
-                                   "MESSAGE=System undocked.",
-                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_UNDOCKED),
+                                   LOG_MESSAGE("System undocked."),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_UNDOCKED),
                                    NULL);
 
                         b->docked = false;

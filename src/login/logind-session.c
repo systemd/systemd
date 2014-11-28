@@ -549,11 +549,11 @@ int session_start(Session *s) {
                 return r;
 
         log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
-                   MESSAGE_ID(SD_MESSAGE_SESSION_START),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SESSION_START),
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
                    "LEADER="PID_FMT, s->leader,
-                   "MESSAGE=New session %s of user %s.", s->id, s->user->name,
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name),
                    NULL);
 
         if (!dual_timestamp_is_set(&s->timestamp))
@@ -652,11 +652,11 @@ int session_finalize(Session *s) {
 
         if (s->started)
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
-                           MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER="PID_FMT, s->leader,
-                           "MESSAGE=Removed session %s.", s->id,
+                           LOG_MESSAGE("Removed session %s.", s->id),
                            NULL);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);

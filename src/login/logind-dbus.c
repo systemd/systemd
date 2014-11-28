@@ -1300,9 +1300,11 @@ static int bus_manager_log_shutdown(
                 q = NULL;
         }
 
-        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
+        return log_struct(LOG_NOTICE,
+                          LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
                           p,
-                          q, NULL);
+                          q,
+                          NULL);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
