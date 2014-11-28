@@ -1042,11 +1042,11 @@ static int add_rule(struct udev_rules *rules, char *line,
                     const char *filename, unsigned int filename_off, unsigned int lineno) {
         char *linepos;
         const char *attr;
-        struct rule_tmp rule_tmp;
+        struct rule_tmp rule_tmp = {
+                .rules = rules,
+                .rule.type = TK_RULE,
+        };
 
-        memzero(&rule_tmp, sizeof(struct rule_tmp));
-        rule_tmp.rules = rules;
-        rule_tmp.rule.type = TK_RULE;
         /* the offset in the rule is limited to unsigned short */
         if (filename_off < USHRT_MAX)
                 rule_tmp.rule.rule.filename_off = filename_off;
