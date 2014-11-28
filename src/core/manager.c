@@ -692,10 +692,8 @@ static int manager_setup_notify(Manager *m) {
 
         if (!m->notify_event_source) {
                 r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate notify event source: %m");
-                        return -errno;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate notify event source: %m");
 
                 /* Process signals a bit earlier than SIGCHLD, so that we can
                  * still identify to which service an exit message belongs */
