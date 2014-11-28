@@ -326,7 +326,7 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         }
 
         if (error != 0) {
-                log_error("Failed to connect to remote host: %s", strerror(error));
+                log_error_errno(error, "Failed to connect to remote host: %m");
                 goto fail;
         }
 

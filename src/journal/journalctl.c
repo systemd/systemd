@@ -1382,7 +1382,7 @@ static int setup_keys(void) {
         log_info("Generating seed...");
         l = loop_read(fd, seed, seed_size, true);
         if (l < 0 || (size_t) l != seed_size) {
-                log_error("Failed to read random seed: %s", strerror(EIO));
+                log_error_errno(EIO, "Failed to read random seed: %m");
                 r = -EIO;
                 goto finish;
         }
@@ -1428,14 +1428,14 @@ static int setup_keys(void) {
 
         l = loop_write(fd, &h, sizeof(h), false);
         if (l < 0 || (size_t) l != sizeof(h)) {
-                log_error("Failed to write header: %s", strerror(EIO));
+                log_error_errno(EIO, "Failed to write header: %m");
                 r = -EIO;
                 goto finish;
         }
 
         l = loop_write(fd, state, state_size, false);
         if (l < 0 || (size_t) l != state_size) {
-                log_error("Failed to write state: %s", strerror(EIO));
+                log_error_errno(EIO, "Failed to write state: %m");
                 r = -EIO;
                 goto finish;
         }

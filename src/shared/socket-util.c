@@ -641,7 +641,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
                         return r;
                 }
 
-                log_debug("getnameinfo(%s) failed: %s", ret, strerror(saved_errno));
+                log_debug_errno(saved_errno, "getnameinfo(%s) failed: %m", ret);
         } else {
                 ret = strdup(host);
                 if (!ret)

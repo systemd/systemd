@@ -476,7 +476,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                 if (r == -ENOENT || r == -ESRCH)
                         log_error("specified user '%s' unknown", owner);
                 else
-                        log_error("error resolving user '%s': %s", owner, strerror(-r));
+                        log_error_errno(r, "error resolving user '%s': %m", owner);
         }
 
         /* grow buffer if needed */
@@ -523,7 +523,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                 if (r == -ENOENT || r == -ESRCH)
                         log_error("specified group '%s' unknown", group);
                 else
-                        log_error("error resolving group '%s': %s", group, strerror(-r));
+                        log_error_errno(r, "error resolving group '%s': %m", group);
         }
 
         /* grow buffer if needed */
@@ -2279,7 +2279,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                 if (r == -ENOENT || r == -ESRCH)
                                         log_error("specified user '%s' unknown", owner);
                                 else
-                                        log_error("error resolving user '%s': %s", owner, strerror(-r));
+                                        log_error_errno(r, "error resolving user '%s': %m", owner);
 
                                 event->uid = 0;
                         }
@@ -2305,7 +2305,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                 if (r == -ENOENT || r == -ESRCH)
                                         log_error("specified group '%s' unknown", group);
                                 else
-                                        log_error("error resolving group '%s': %s", group, strerror(-r));
+                                        log_error_errno(r, "error resolving group '%s': %m", group);
 
                                 event->gid = 0;
                         }

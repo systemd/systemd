@@ -354,7 +354,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         if (env)
                                 arg_default_environment = env;
                         else
-                                log_warning("Setting environment variable '%s' failed, ignoring: %s", value, strerror(ENOMEM));
+                                log_warning_errno(ENOMEM, "Setting environment variable '%s' failed, ignoring: %m", value);
                 } else
                         log_warning("Environment variable name '%s' is not valid. Ignoring.", value);
 

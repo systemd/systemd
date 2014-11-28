@@ -146,18 +146,18 @@ int main(int argc, char *argv[]) {
         /* Make a name -> address query */
         r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_getaddrinfo(): %s", strerror(-r));
+                log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make an address -> name query */
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
         r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr*) &sa, sizeof(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_getnameinfo(): %s", strerror(-r));
+                log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 
         /* Make a res_query() call */
         r = sd_resolve_res_query(resolve, &q3, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV, res_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_res_query(): %s", strerror(-r));
+                log_error_errno(r, "sd_resolve_res_query(): %m");
 
         /* Wait until the three queries are completed */
         while (sd_resolve_query_is_done(q1) == 0 ||
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_resolve_wait(resolve, (uint64_t) -1);
                 if (r < 0) {
-                        log_error("sd_resolve_wait(): %s", strerror(-r));
+                        log_error_errno(r, "sd_resolve_wait(): %m");
                         assert_not_reached("sd_resolve_wait() failed");
                 }
         }
