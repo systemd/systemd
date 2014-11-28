@@ -474,9 +474,9 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        log_error("specified user '%s' unknown\n", owner);
+                        log_error("specified user '%s' unknown", owner);
                 else
-                        log_error("error resolving user '%s': %s\n", owner, strerror(-r));
+                        log_error("error resolving user '%s': %s", owner, strerror(-r));
         }
 
         /* grow buffer if needed */
@@ -521,9 +521,9 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         r = get_group_creds(&group, &gid);
         if (r < 0) {
                 if (r == -ENOENT || r == -ESRCH)
-                        log_error("specified group '%s' unknown\n", group);
+                        log_error("specified group '%s' unknown", group);
                 else
-                        log_error("error resolving group '%s': %s\n", group, strerror(-r));
+                        log_error("error resolving group '%s': %s", group, strerror(-r));
         }
 
         /* grow buffer if needed */
@@ -1072,7 +1072,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 _cleanup_free_ char *tmp;
 
                                 tmp = cescape(buf);
-                                log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')\n",
+                                log_error("invalid key/value pair in file %s on line %u, starting at character %tu ('%s')",
                                           filename, lineno, linepos - line + 1, tmp);
                                 if (linepos[1] == '#')
                                         log_error("hint: comments can only start at beginning of line");
@@ -2277,9 +2277,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        log_error("specified user '%s' unknown\n", owner);
+                                        log_error("specified user '%s' unknown", owner);
                                 else
-                                        log_error("error resolving user '%s': %s\n", owner, strerror(-r));
+                                        log_error("error resolving user '%s': %s", owner, strerror(-r));
 
                                 event->uid = 0;
                         }
@@ -2303,9 +2303,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         r = get_group_creds(&gr, &event->gid);
                         if (r < 0) {
                                 if (r == -ENOENT || r == -ESRCH)
-                                        log_error("specified group '%s' unknown\n", group);
+                                        log_error("specified group '%s' unknown", group);
                                 else
-                                        log_error("error resolving group '%s': %s\n", group, strerror(-r));
+                                        log_error("error resolving group '%s': %s", group, strerror(-r));
 
                                 event->gid = 0;
                         }

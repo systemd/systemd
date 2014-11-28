@@ -124,7 +124,7 @@ _public_ struct udev *udev_new(void) {
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                log_debug("/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
+                                log_debug("/etc/udev/udev.conf:%u: missing assignment,  skipping line.", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -156,7 +156,7 @@ _public_ struct udev *udev_new(void) {
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        log_debug("/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
+                                        log_debug("/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';
@@ -168,7 +168,7 @@ _public_ struct udev *udev_new(void) {
 
                                 prio = util_log_priority(val);
                                 if (prio < 0)
-                                        log_debug("/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.\n", line_nr, val);
+                                        log_debug("/etc/udev/udev.conf:%u: invalid log level '%s', ignoring.", line_nr, val);
                                 else
                                         log_set_max_level(prio);
                                 continue;

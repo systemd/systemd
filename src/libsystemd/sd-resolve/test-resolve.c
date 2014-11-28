@@ -43,7 +43,7 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
         assert(q);
 
         if (ret != 0) {
-                log_error("getaddrinfo error: %s %i\n", gai_strerror(ret), ret);
+                log_error("getaddrinfo error: %s %i", gai_strerror(ret), ret);
                 return 0;
         }
 
@@ -63,7 +63,7 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
         assert(q);
 
         if (ret != 0) {
-                log_error("getnameinfo error: %s %i\n", gai_strerror(ret), ret);
+                log_error("getnameinfo error: %s %i", gai_strerror(ret), ret);
                 return 0;
         }
 
@@ -80,12 +80,12 @@ static int res_handler(sd_resolve_query *q, int ret, unsigned char *answer, void
         assert(q);
 
         if (ret < 0) {
-                log_error("res_query() error: %s %i\n", strerror(errno), errno);
+                log_error("res_query() error: %s %i", strerror(errno), errno);
                 return 0;
         }
 
         if (ret == 0) {
-                log_error("No reply for SRV lookup\n");
+                log_error("No reply for SRV lookup");
                 return 0;
         }
 
@@ -146,18 +146,18 @@ int main(int argc, char *argv[]) {
         /* Make a name -> address query */
         r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_getaddrinfo(): %s\n", strerror(-r));
+                log_error("sd_resolve_getaddrinfo(): %s", strerror(-r));
 
         /* Make an address -> name query */
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
         r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr*) &sa, sizeof(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_getnameinfo(): %s\n", strerror(-r));
+                log_error("sd_resolve_getnameinfo(): %s", strerror(-r));
 
         /* Make a res_query() call */
         r = sd_resolve_res_query(resolve, &q3, "_xmpp-client._tcp.gmail.com", C_IN, T_SRV, res_handler, NULL);
         if (r < 0)
-                log_error("sd_resolve_res_query(): %s\n", strerror(-r));
+                log_error("sd_resolve_res_query(): %s", strerror(-r));
 
         /* Wait until the three queries are completed */
         while (sd_resolve_query_is_done(q1) == 0 ||
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_resolve_wait(resolve, (uint64_t) -1);
                 if (r < 0) {
-                        log_error("sd_resolve_wait(): %s\n", strerror(-r));
+                        log_error("sd_resolve_wait(): %s", strerror(-r));
                         assert_not_reached("sd_resolve_wait() failed");
                 }
         }

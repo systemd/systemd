@@ -353,7 +353,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 4;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
-                log_debug("  adjust (slew): %+.3f sec\n", offset);
+                log_debug("  adjust (slew): %+.3f sec", offset);
         } else {
                 tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET;
 
@@ -368,7 +368,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 }
 
                 m->jumped = true;
-                log_debug("  adjust (jump): %+.3f sec\n", offset);
+                log_debug("  adjust (jump): %+.3f sec", offset);
         }
 
         /*

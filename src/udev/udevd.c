@@ -1227,7 +1227,7 @@ int main(int argc, char *argv[]) {
 
         udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
-        log_info("starting version " VERSION "\n");
+        log_info("starting version " VERSION);
 
         udev_builtin_init(udev);
 

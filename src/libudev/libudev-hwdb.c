@@ -322,12 +322,12 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 return NULL;
         }
 
-        log_debug("=== trie on-disk ===\n");
+        log_debug("=== trie on-disk ===");
         log_debug("tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));
-        log_debug("file size:        %8"PRIu64" bytes\n", hwdb->st.st_size);
-        log_debug("header size       %8"PRIu64" bytes\n", le64toh(hwdb->head->header_size));
-        log_debug("strings           %8"PRIu64" bytes\n", le64toh(hwdb->head->strings_len));
-        log_debug("nodes             %8"PRIu64" bytes\n", le64toh(hwdb->head->nodes_len));
+        log_debug("file size:        %8"PRIu64" bytes", hwdb->st.st_size);
+        log_debug("header size       %8"PRIu64" bytes", le64toh(hwdb->head->header_size));
+        log_debug("strings           %8"PRIu64" bytes", le64toh(hwdb->head->strings_len));
+        log_debug("nodes             %8"PRIu64" bytes", le64toh(hwdb->head->nodes_len));
         return hwdb;
 }
 
