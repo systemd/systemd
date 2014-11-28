@@ -1800,9 +1800,14 @@ int bus_kernel_realize_attach_flags(sd_bus *bus) {
 
 int bus_kernel_fix_attach_mask(void) {
         _cleanup_free_ char *mask = NULL;
-        uint64_t m = (uint32_t) -1;
+        uint64_t m = (uint64_t) -1;
         char buf[2+16+2];
         int r;
+
+        /* By default we don't want any kdbus metadata fields to be
+         * suppressed, hence we reset the kernel mask for it to
+         * (uint64_t) -1. This is overridable via a kernel command
+         * line option, however. */
 
         r = get_proc_cmdline_key("systemd.kdbus_attach_flags_mask=", &mask);
         if (r < 0) {
