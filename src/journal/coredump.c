@@ -459,12 +459,13 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
  * EOF
  */
 static int compose_open_fds(pid_t pid, char **open_fds) {
-        _cleanup_fclose_ FILE *stream = NULL;
-        size_t ignored_size;
-        const char *fddelim = "", *path;
-        struct dirent *dent = NULL;
         _cleanup_closedir_ DIR *proc_fd_dir = NULL;
         _cleanup_close_ int proc_fdinfo_fd = -1;
+        _cleanup_free_ char *buffer = NULL;
+        _cleanup_fclose_ FILE *stream = NULL;
+        const char *fddelim = "", *path;
+        struct dirent *dent = NULL;
+        size_t size = 0;
         int r = 0;
 
         assert(pid >= 0);
@@ -475,23 +476,19 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (!proc_fd_dir)
                 return -errno;
 
-        proc_fdinfo_fd = openat(dirfd(proc_fd_dir), "../fdinfo",
-                                O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        proc_fdinfo_fd = openat(dirfd(proc_fd_dir), "../fdinfo", O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (proc_fdinfo_fd < 0)
                 return -errno;
 
-        stream = open_memstream(open_fds, &ignored_size);
+        stream = open_memstream(&buffer, &size);
         if (!stream)
                 return -ENOMEM;
 
-        for (dent = readdir(proc_fd_dir); dent != NULL; dent = readdir(proc_fd_dir)) {
-                _cleanup_free_ char *fdname = NULL;
-                int fd;
+        FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
+                _cleanup_free_ char *fdname = NULL;
                 char line[LINE_MAX];
-
-                if (dent->d_name[0] == '.' || strcmp(dent->d_name, "..") == 0)
-                        continue;
+                int fd;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
                 if (r < 0)
@@ -511,10 +508,22 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                         continue;
                 }
 
-                while(fgets(line, sizeof(line), fdinfo) != NULL)
-                        fprintf(stream, "%s%s",
-                                line, strchr(line, '\n') == NULL ? "\n" : "");
+                FOREACH_LINE(line, fdinfo, break) {
+                        fputs(line, stream);
+                        if (!endswith(line, "\n"))
+                                fputc('\n', stream);
+                }
         }
+
+        errno = 0;
+        fclose(stream);
+        stream = NULL;
+
+        if (errno != 0)
+                return -errno;
+
+        *open_fds = buffer;
+        buffer = NULL;
 
         return 0;
 }
