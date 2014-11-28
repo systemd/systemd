@@ -259,7 +259,10 @@ Features:
 * sd-bus:
   - bus-proxy: fix how we detect whether we are connected to a system bus
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
-  - kdbus: busnames.target should get pulled in by basic.target
+  - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
+  - kdbus: timestamps on kernel's NameOwnerChanged messages?
+  - kdbus: busctl monitor message ordering is wildly out-of-order?
+  - kdbus' busnames.target should get pulled in by basic.target
   - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
     without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
     pull-in the policy.
@@ -286,8 +289,6 @@ Features:
     253 messages)
   - kdbus: introduce a concept of "send-only" connections
   - kdbus: add counter for refused unicast messages that is passed out via the RECV ioctl. SImilar to the counter for dropped multicast messages we already have.
-  - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
-  - kdbus: attach mask kmod parameter should be 64bit not 32bit
 
 * sd-event
   - allow multiple signal handlers per signal?
