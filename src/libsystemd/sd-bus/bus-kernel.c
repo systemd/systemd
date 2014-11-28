@@ -1810,10 +1810,8 @@ int bus_kernel_fix_attach_mask(void) {
          * line option, however. */
 
         r = get_proc_cmdline_key("systemd.kdbus_attach_flags_mask=", &mask);
-        if (r < 0) {
-                log_warning_errno(-r, "Failed to read kernel command line: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read kernel command line: %m");
 
         if (mask) {
                 const char *p = mask;
@@ -1827,10 +1825,10 @@ int bus_kernel_fix_attach_mask(void) {
 
         sprintf(buf, "0x%" PRIx64 "\n", m);
         r = write_string_file("/sys/module/kdbus/parameters/attach_flags_mask", buf);
-        if (r < 0) {
-                log_warning_errno(-r, "Failed to write kdbus attach mask: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_full_errno(
+                                r == -EROFS ? LOG_DEBUG : LOG_WARNING, r,
+                                "Failed to write kdbus attach mask: %m");
 
         return 0;
 }
