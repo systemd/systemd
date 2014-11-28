@@ -540,10 +540,10 @@ static int log_dispatch(
                 const char *object,
                 char *buffer) {
 
-        int r = 0;
+        assert(buffer);
 
         if (log_target == LOG_TARGET_NULL)
-                return 0;
+                return -error;
 
         /* Patch in LOG_DAEMON facility if necessary */
         if ((level & LOG_FACMASK) == 0)
@@ -573,8 +573,7 @@ static int log_dispatch(
                                 if (k != -EAGAIN)
                                         log_close_journal();
                                 log_open_kmsg();
-                        } else if (k > 0)
-                                r++;
+                        }
                 }
 
                 if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
@@ -585,8 +584,7 @@ static int log_dispatch(
                                 if (k != -EAGAIN)
                                         log_close_syslog();
                                 log_open_kmsg();
-                        } else if (k > 0)
-                                r++;
+                        }
                 }
 
                 if (k <= 0 &&
@@ -600,26 +598,22 @@ static int log_dispatch(
                         if (k < 0) {
                                 log_close_kmsg();
                                 log_open_console();
-                        } else if (k > 0)
-                                r++;
+                        }
                 }
 
-                if (k <= 0) {
-                        k = write_to_console(level, error, file, line, func, object_field, object, buffer);
-                        if (k < 0)
-                                return k;
-                }
+                if (k <= 0)
+                        (void) write_to_console(level, error, file, line, func, object_field, object, buffer);
 
                 buffer = e;
         } while (buffer);
 
-        return r;
+        return -error;
 }
 
 int log_dump_internal(
         int level,
         int error,
-        const char*file,
+        const char *file,
         int line,
         const char *func,
         char *buffer) {
@@ -628,8 +622,11 @@ int log_dump_internal(
 
         /* This modifies the buffer... */
 
+        if (error < 0)
+                error = -error;
+
         if (_likely_(LOG_PRI(level) > log_max_level))
-                return 0;
+                return -error;
 
         return log_dispatch(level, error, file, line, func, NULL, NULL, buffer);
 }
@@ -646,12 +643,15 @@ int log_internalv(
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
 
+        if (error < 0)
+                error = -error;
+
         if (_likely_(LOG_PRI(level) > log_max_level))
-                return 0;
+                return -error;
 
         /* Make sure that %m maps to the specified error */
         if (error != 0)
-                errno = abs(error);
+                errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
@@ -667,8 +667,8 @@ int log_internal(
                 const char *func,
                 const char *format, ...) {
 
-        int r;
         va_list ap;
+        int r;
 
         va_start(ap, format);
         r = log_internalv(level, error, file, line, func, format, ap);
@@ -691,12 +691,15 @@ int log_object_internalv(
         PROTECT_ERRNO;
         char buffer[LINE_MAX];
 
+        if (error < 0)
+                error = -error;
+
         if (_likely_(LOG_PRI(level) > log_max_level))
-                return 0;
+                return -error;
 
         /* Make sure that %m maps to the specified error */
         if (error != 0)
-                errno = abs(error);
+                errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
@@ -714,8 +717,8 @@ int log_object_internal(
                 const char *object,
                 const char *format, ...) {
 
-        int r;
         va_list ap;
+        int r;
 
         va_start(ap, format);
         r = log_object_internalv(level, error, file, line, func, object_field, object, format, ap);
@@ -775,27 +778,27 @@ int log_struct_internal(
                 const char *func,
                 const char *format, ...) {
 
+        char buf[LINE_MAX];
+        bool found = false;
         PROTECT_ERRNO;
         va_list ap;
-        int r;
-
-        if (_likely_(LOG_PRI(level) > log_max_level))
-                return 0;
-
-        if (log_target == LOG_TARGET_NULL)
-                return 0;
-
-        if ((level & LOG_FACMASK) == 0)
-                level = log_facility | LOG_PRI(level);
 
         if (error < 0)
                 error = -error;
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return -error;
+
+        if (log_target == LOG_TARGET_NULL)
+                return -error;
+
+        if ((level & LOG_FACMASK) == 0)
+                level = log_facility | LOG_PRI(level);
 
         if ((log_target == LOG_TARGET_AUTO ||
              log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
              log_target == LOG_TARGET_JOURNAL) &&
             journal_fd >= 0) {
-
                 char header[LINE_MAX];
                 struct iovec iovec[17] = {};
                 unsigned n = 0, i;
@@ -803,6 +806,7 @@ int log_struct_internal(
                         .msg_iov = iovec,
                 };
                 static const char nl = '\n';
+                bool fallback = false;
 
                 /* If the journal is available do structured logging */
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL);
@@ -810,8 +814,8 @@ int log_struct_internal(
 
                 va_start(ap, format);
                 while (format && n + 1 < ELEMENTSOF(iovec)) {
-                        char *buf;
                         va_list aq;
+                        char *m;
 
                         /* We need to copy the va_list structure,
                          * since vasprintf() leaves it afterwards at
@@ -821,9 +825,9 @@ int log_struct_internal(
                                 errno = error;
 
                         va_copy(aq, ap);
-                        if (vasprintf(&buf, format, aq) < 0) {
+                        if (vasprintf(&m, format, aq) < 0) {
                                 va_end(aq);
-                                r = -ENOMEM;
+                                fallback = true;
                                 goto finish;
                         }
                         va_end(aq);
@@ -832,7 +836,7 @@ int log_struct_internal(
                          * the next format string */
                         VA_FORMAT_ADVANCE(format, ap);
 
-                        IOVEC_SET_STRING(iovec[n++], buf);
+                        IOVEC_SET_STRING(iovec[n++], m);
 
                         iovec[n].iov_base = (char*) &nl;
                         iovec[n].iov_len = 1;
@@ -843,52 +847,46 @@ int log_struct_internal(
 
                 mh.msg_iovlen = n;
 
-                if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)
-                        r = -errno;
-                else
-                        r = 1;
+                (void) sendmsg(journal_fd, &mh, MSG_NOSIGNAL);
 
         finish:
                 va_end(ap);
                 for (i = 1; i < n; i += 2)
                         free(iovec[i].iov_base);
 
-        } else {
-                char buf[LINE_MAX];
-                bool found = false;
-
-                /* Fallback if journal logging is not available */
-
-                va_start(ap, format);
-                while (format) {
-                        va_list aq;
-
-                        if (error != 0)
-                                errno = error;
-
-                        va_copy(aq, ap);
-                        vsnprintf(buf, sizeof(buf), format, aq);
-                        va_end(aq);
-                        char_array_0(buf);
-
-                        if (startswith(buf, "MESSAGE=")) {
-                                found = true;
-                                break;
-                        }
-
-                        VA_FORMAT_ADVANCE(format, ap);
-
-                        format = va_arg(ap, char *);
-                }
-                va_end(ap);
-
-                if (found)
-                        r = log_dispatch(level, error, file, line, func, NULL, NULL, buf + 8);
-                else
-                        r = -EINVAL;
+                if (!fallback)
+                        return -error;
         }
 
-        return r;
+        /* Fallback if journal logging is not available or didn't work. */
+
+        va_start(ap, format);
+        while (format) {
+                va_list aq;
+
+                if (error != 0)
+                        errno = error;
+
+                va_copy(aq, ap);
+                vsnprintf(buf, sizeof(buf), format, aq);
+                va_end(aq);
+                char_array_0(buf);
+
+                if (startswith(buf, "MESSAGE=")) {
+                        found = true;
+                        break;
+                }
+
+                VA_FORMAT_ADVANCE(format, ap);
+
+                format = va_arg(ap, char *);
+        }
+        va_end(ap);
+
+        if (!found)
+                return -error;
+
+        return log_dispatch(level, error, file, line, func, NULL, NULL, buf + 8);
 }
 
 int log_set_target_from_string(const char *e) {
