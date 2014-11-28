@@ -444,6 +444,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
 }
 
 int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) {
+        PROTECT_ERRNO;
         int r;
 
         if (error < 0)
@@ -477,8 +478,9 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
         if (format) {
                 char *m;
 
-                /* First, let's try to fill in the supplied message */
+                /* Then, let's try to fill in the supplied message */
 
+                errno = error; /* Make sure that %m resolves to the specified error */
                 r = vasprintf(&m, format, ap);
                 if (r >= 0) {
 
