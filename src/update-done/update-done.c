@@ -46,13 +46,10 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
                 if (utimensat(AT_FDCWD, path, twice, AT_SYMLINK_NOFOLLOW) < 0) {
 
-                        if (errno == EROFS) {
-                                log_debug("Can't update timestamp file %s, file system is read-only.", path);
-                                return 0;
-                        }
+                        if (errno == EROFS)
+                                return log_debug("Can't update timestamp file %s, file system is read-only.", path);
 
-                        log_error("Failed to update timestamp on %s: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to update timestamp on %s: %m", path);
                 }
 
         } else if (errno == ENOENT) {
@@ -62,24 +59,17 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 /* The timestamp file doesn't exist yet? Then let's create it. */
 
                 r = mac_selinux_create_file_prepare(path, S_IFREG);
-                if (r < 0) {
-                        log_error("Failed to set SELinux context for %s: %s",
-                                  path, strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set SELinux context for %s: %m", path);
 
                 fd = open(path, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
                 mac_selinux_create_file_clear();
 
                 if (fd < 0) {
+                        if (errno == EROFS)
+                                return log_debug("Can't create timestamp file %s, file system is read-only.", path);
 
-                        if (errno == EROFS) {
-                                log_debug("Can't create timestamp file %s, file system is read-only.", path);
-                                return 0;
-                        }
-
-                        log_error("Failed to create timestamp file %s: %m", path);
-                        return -errno;
+                        return log_error_errno(errno, "Failed to create timestamp file %s: %m", path);
                 }
 
                 (void) loop_write(fd, MESSAGE, strlen(MESSAGE), false);
@@ -87,14 +77,10 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 twice[0] = *ts;
                 twice[1] = *ts;
 
-                if (futimens(fd, twice) < 0) {
-                        log_error("Failed to update timestamp on %s: %m", path);
-                        return -errno;
-                }
-        } else {
-                log_error("Failed to stat() timestamp file %s: %m", path);
-                return -errno;
-        }
+                if (futimens(fd, twice) < 0)
+                        return log_error_errno(errno, "Failed to update timestamp on %s: %m", path);
+        } else
+                log_error_errno(errno, "Failed to stat() timestamp file %s: %m", path);
 
         return 0;
 }
@@ -108,7 +94,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         if (stat("/usr", &st) < 0) {
-                log_error("Failed to stat /usr: %m");
+                log_error_errno(errno, "Failed to stat /usr: %m");
                 return EXIT_FAILURE;
         }
 

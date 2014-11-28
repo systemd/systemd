@@ -342,14 +342,14 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = ethtool_set_speed(&ctx->ethtool_fd, old_name, config->speed / 1024,
                               config->duplex);
         if (r < 0)
-                log_warning("Could not set speed or duplex of %s to %u Mbps (%s): %s",
-                            old_name, config->speed / 1024,
-                            duplex_to_string(config->duplex), strerror(-r));
+                log_warning_errno(r, "Could not set speed or duplex of %s to %u Mbps (%s): %m",
+                                  old_name, config->speed / 1024,
+                                  duplex_to_string(config->duplex));
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
-                log_warning("Could not set WakeOnLan of %s to %s: %s",
-                            old_name, wol_to_string(config->wol), strerror(-r));
+                log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m",
+                                  old_name, wol_to_string(config->wol));
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
@@ -422,8 +422,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac,
                                      config->mtu);
         if (r < 0) {
-                log_warning("Could not set Alias, MACAddress or MTU on %s: %s",
-                            old_name, strerror(-r));
+                log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
                 return r;
         }
 

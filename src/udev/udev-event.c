@@ -776,8 +776,7 @@ static int rename_netif(struct udev_event *event) {
 
         r = rtnl_set_link_name(&event->rtnl, udev_device_get_ifindex(dev), name);
         if (r < 0) {
-                log_error("error changing net interface name '%s' to '%s': %s",
-                          oldname, name, strerror(-r));
+                log_error_errno(r, "Error changing net interface name '%s' to '%s': %m", oldname, name);
                 return r;
         }
 
