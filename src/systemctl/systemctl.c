@@ -2701,10 +2701,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         STRV_FOREACH(name, names) {
                 char *t;
 
-                if (suffix)
-                        t = unit_name_mangle_with_suffix(*name, MANGLE_GLOB, suffix);
-                else
-                        t = unit_name_mangle(*name, MANGLE_GLOB);
+                t = unit_name_mangle_with_suffix(*name, MANGLE_GLOB, suffix);
                 if (!t)
                         return log_oom();
 

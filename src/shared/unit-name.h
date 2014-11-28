@@ -156,8 +156,10 @@ enum unit_name_mangle {
         MANGLE_GLOB,
 };
 
-char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs);
 char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix);
+static inline char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
+        return unit_name_mangle_with_suffix(name, allow_globs, ".service");
+}
 
 int build_subslice(const char *slice, const char*name, char **subslice);
 
