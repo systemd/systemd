@@ -530,13 +530,20 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 
 int main(int argc, char* argv[]) {
 
-        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
-                *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL,
-                *core_slice = NULL, *core_cgroup = NULL, *core_owner_uid = NULL, *core_open_fds = NULL,
-                *core_proc_status = NULL, *core_proc_maps = NULL, *core_proc_limits = NULL, *core_proc_cgroup = NULL,
-                *core_cwd = NULL, *core_root = NULL, *core_environ = NULL,
-                *exe = NULL, *comm = NULL, *filename = NULL;
+        /* The small core field we allocate on the stack, to keep things simple */
+        char
+                *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+                *core_session = NULL, *core_exe = NULL, *core_comm = NULL, *core_cmdline = NULL,
+                *core_cgroup = NULL, *core_cwd = NULL, *core_root = NULL, *core_unit = NULL,
+                *core_slice = NULL;
+
+        /* The larger ones we allocate on the heap */
+        _cleanup_free_ char
+                *core_timestamp = NULL,  *core_message = NULL, *coredump_data = NULL, *core_owner_uid = NULL,
+                *core_open_fds = NULL, *core_proc_status = NULL, *core_proc_maps = NULL, *core_proc_limits = NULL,
+                *core_proc_cgroup = NULL, *core_environ = NULL;
+
+        _cleanup_free_ char *exe = NULL, *comm = NULL, *filename = NULL;
         const char *info[_INFO_LEN];
 
         _cleanup_close_ int coredump_fd = -1;
@@ -609,6 +616,7 @@ int main(int argc, char* argv[]) {
         if (cg_pid_get_unit(pid, &t) >= 0) {
 
                 if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
+                        free(t);
 
                         /* If we are journald, we cut things short,
                          * don't write to the journal, but still
@@ -629,9 +637,13 @@ int main(int argc, char* argv[]) {
                         goto finish;
                 }
 
-                core_unit = strappend("COREDUMP_UNIT=", t);
-        } else if (cg_pid_get_user_unit(pid, &t) >= 0)
-                core_unit = strappend("COREDUMP_USER_UNIT=", t);
+                core_unit = strappenda("COREDUMP_UNIT=", t);
+                free(t);
+
+        } else if (cg_pid_get_user_unit(pid, &t) >= 0) {
+                core_unit = strappenda("COREDUMP_USER_UNIT=", t);
+                free(t);
+        }
 
         if (core_unit)
                 IOVEC_SET_STRING(iovec[j++], core_unit);
@@ -641,28 +653,23 @@ int main(int argc, char* argv[]) {
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_open();
 
-        core_pid = strappend("COREDUMP_PID=", info[INFO_PID]);
-        if (core_pid)
-                IOVEC_SET_STRING(iovec[j++], core_pid);
+        core_pid = strappenda("COREDUMP_PID=", info[INFO_PID]);
+        IOVEC_SET_STRING(iovec[j++], core_pid);
 
-        core_uid = strappend("COREDUMP_UID=", info[INFO_UID]);
-        if (core_uid)
-                IOVEC_SET_STRING(iovec[j++], core_uid);
+        core_uid = strappenda("COREDUMP_UID=", info[INFO_UID]);
+        IOVEC_SET_STRING(iovec[j++], core_uid);
 
-        core_gid = strappend("COREDUMP_GID=", info[INFO_GID]);
-        if (core_gid)
-                IOVEC_SET_STRING(iovec[j++], core_gid);
+        core_gid = strappenda("COREDUMP_GID=", info[INFO_GID]);
+        IOVEC_SET_STRING(iovec[j++], core_gid);
 
-        core_signal = strappend("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
-        if (core_signal)
-                IOVEC_SET_STRING(iovec[j++], core_signal);
+        core_signal = strappenda("COREDUMP_SIGNAL=", info[INFO_SIGNAL]);
+        IOVEC_SET_STRING(iovec[j++], core_signal);
 
         if (sd_pid_get_session(pid, &t) >= 0) {
-                core_session = strappend("COREDUMP_SESSION=", t);
+                core_session = strappenda("COREDUMP_SESSION=", t);
                 free(t);
 
-                if (core_session)
-                        IOVEC_SET_STRING(iovec[j++], core_session);
+                IOVEC_SET_STRING(iovec[j++], core_session);
         }
 
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
@@ -673,39 +680,34 @@ int main(int argc, char* argv[]) {
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0) {
-                core_slice = strappend("COREDUMP_SLICE=", t);
+                core_slice = strappenda("COREDUMP_SLICE=", t);
                 free(t);
 
-                if (core_slice)
-                        IOVEC_SET_STRING(iovec[j++], core_slice);
+                IOVEC_SET_STRING(iovec[j++], core_slice);
         }
 
         if (comm) {
-                core_comm = strappend("COREDUMP_COMM=", comm);
-                if (core_comm)
-                        IOVEC_SET_STRING(iovec[j++], core_comm);
+                core_comm = strappenda("COREDUMP_COMM=", comm);
+                IOVEC_SET_STRING(iovec[j++], core_comm);
         }
 
         if (exe) {
-                core_exe = strappend("COREDUMP_EXE=", exe);
-                if (core_exe)
-                        IOVEC_SET_STRING(iovec[j++], core_exe);
+                core_exe = strappenda("COREDUMP_EXE=", exe);
+                IOVEC_SET_STRING(iovec[j++], core_exe);
         }
 
         if (get_process_cmdline(pid, 0, false, &t) >= 0) {
-                core_cmdline = strappend("COREDUMP_CMDLINE=", t);
+                core_cmdline = strappenda("COREDUMP_CMDLINE=", t);
                 free(t);
 
-                if (core_cmdline)
-                        IOVEC_SET_STRING(iovec[j++], core_cmdline);
+                IOVEC_SET_STRING(iovec[j++], core_cmdline);
         }
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0) {
-                core_cgroup = strappend("COREDUMP_CGROUP=", t);
+                core_cgroup = strappenda("COREDUMP_CGROUP=", t);
                 free(t);
 
-                if (core_cgroup)
-                        IOVEC_SET_STRING(iovec[j++], core_cgroup);
+                IOVEC_SET_STRING(iovec[j++], core_cgroup);
         }
 
         if (compose_open_fds(pid, &t) >= 0) {
@@ -753,19 +755,17 @@ int main(int argc, char* argv[]) {
         }
 
         if (get_process_cwd(pid, &t) >= 0) {
-                core_cwd = strappend("COREDUMP_CWD=", t);
+                core_cwd = strappenda("COREDUMP_CWD=", t);
                 free(t);
 
-                if (core_cwd)
-                        IOVEC_SET_STRING(iovec[j++], core_cwd);
+                IOVEC_SET_STRING(iovec[j++], core_cwd);
         }
 
         if (get_process_root(pid, &t) >= 0) {
-                core_root = strappend("COREDUMP_ROOT=", t);
+                core_root = strappenda("COREDUMP_ROOT=", t);
                 free(t);
 
-                if (core_root)
-                        IOVEC_SET_STRING(iovec[j++], core_root);
+                IOVEC_SET_STRING(iovec[j++], core_root);
         }
 
         if (get_process_environ(pid, &t) >= 0) {
