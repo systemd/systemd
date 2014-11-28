@@ -135,6 +135,32 @@ static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
+static void add_bloom_arg(void *data, size_t size, unsigned n_hash, unsigned i, const char *t) {
+        char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+        char *e;
+
+        assert(data);
+        assert(size > 0);
+        assert(i < 64);
+        assert(t);
+
+        e = stpcpy(buf, "arg");
+        if (i < 10)
+                *(e++) = '0' + (char) i;
+        else {
+                *(e++) = '0' + (char) (i / 10);
+                *(e++) = '0' + (char) (i % 10);
+        }
+
+        *e = 0;
+        bloom_add_pair(data, size, n_hash, buf, t);
+
+        strcpy(e, "-dot-prefix");
+        bloom_add_prefixes(data, size, n_hash, buf, t, '.');
+        strcpy(e, "-slash-prefix");
+        bloom_add_prefixes(data, size, n_hash, buf, t, '/');
+}
+
 static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter *bloom) {
         void *data;
         unsigned i;
@@ -164,39 +190,42 @@ static int bus_message_setup_bloom(sd_bus_message *m, struct kdbus_bloom_filter 
                 return r;
 
         for (i = 0; i < 64; i++) {
+                const char *t, *contents;
                 char type;
-                const char *t;
-                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
-                char *e;
 
-                r = sd_bus_message_peek_type(m, &type, NULL);
+                r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
                         return r;
 
-                if (type != SD_BUS_TYPE_STRING &&
-                    type != SD_BUS_TYPE_OBJECT_PATH &&
-                    type != SD_BUS_TYPE_SIGNATURE)
+                if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE)) {
+
+                        /* The bloom filter includes simple strings of any kind */
+                        r = sd_bus_message_read_basic(m, type, &t);
+                        if (r < 0)
+                                return r;
+
+                        add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
+                } if (type == SD_BUS_TYPE_ARRAY && STR_IN_SET(contents, "s", "o", "g")) {
+
+                        /* As well as array of simple strings of any kinds */
+                        r = sd_bus_message_enter_container(m, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        while ((r = sd_bus_message_read_basic(m, contents[0], &t)) > 0)
+                                add_bloom_arg(data, m->bus->bloom_size, m->bus->bloom_n_hash, i, t);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                } else
+                        /* Stop adding to bloom filter as soon as we
+                         * run into the first argument we cannot add
+                         * to it. */
                         break;
-
-                r = sd_bus_message_read_basic(m, type, &t);
-                if (r < 0)
-                        return r;
-
-                e = stpcpy(buf, "arg");
-                if (i < 10)
-                        *(e++) = '0' + (char) i;
-                else {
-                        *(e++) = '0' + (char) (i / 10);
-                        *(e++) = '0' + (char) (i % 10);
-                }
-
-                *e = 0;
-                bloom_add_pair(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t);
-
-                strcpy(e, "-dot-prefix");
-                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '.');
-                strcpy(e, "-slash-prefix");
-                bloom_add_prefixes(data, m->bus->bloom_size, m->bus->bloom_n_hash, buf, t, '/');
         }
 
         return 0;
