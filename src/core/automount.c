@@ -744,7 +744,10 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
         l = loop_read(a->pipe_fd, &packet, sizeof(packet), true);
         if (l != sizeof(packet)) {
-                log_unit_error(UNIT(a)->id, "Invalid read from pipe: %s", l < 0 ? strerror(-l) : "short read");
+                if (l < 0)
+                        log_unit_error_errno(UNIT(a)->id, l, "Invalid read from pipe: %m");
+                else
+                        log_unit_error(UNIT(a)->id, "Invalid read from pipe: short read");
                 goto fail;
         }
 
