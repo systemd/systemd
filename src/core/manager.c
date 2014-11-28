@@ -722,7 +722,8 @@ static int manager_setup_kdbus(Manager *m) {
         if (m->test_run || m->kdbus_fd >= 0)
                 return 0;
 
-        bus_kernel_fix_attach_mask();
+        if (getpid() == 1)
+                bus_kernel_fix_attach_mask();
 
         m->kdbus_fd = bus_kernel_create_bus(
                         m->running_as == SYSTEMD_SYSTEM ? "system" : "user",
