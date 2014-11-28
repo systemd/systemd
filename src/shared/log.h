@@ -179,7 +179,7 @@ void log_assert_failed_return(
 #define log_notice_errno(error, ...)    log_full_errno(LOG_NOTICE,  error, __VA_ARGS__)
 #define log_warning_errno(error, ...)   log_full_errno(LOG_WARNING, error, __VA_ARGS__)
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
-#define log_emergency_errno(error, ...) log_full_errno(getpid() == 1 ? LOG_EMERG : LOG_ERR, __VA_ARGS__)
+#define log_emergency_errno(error, ...) log_full_errno(getpid() == 1 ? LOG_EMERG : LOG_ERR, error, __VA_ARGS__)
 
 #ifdef LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)
