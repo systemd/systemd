@@ -605,4 +605,11 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 #define log_unit_warning(unit, ...)     log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
 #define log_unit_error(unit, ...)       log_unit_full(unit, LOG_ERR, __VA_ARGS__)
 
+#define log_unit_debug_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_DEBUG, error, __VA_ARGS__)
+#define log_unit_info_errno(unit, error, ...)        log_unit_full_errno(unit, LOG_INFO, error, __VA_ARGS__)
+#define log_unit_notice_errno(unit, error, ...)      log_unit_full_errno(unit, LOG_NOTICE, error, __VA_ARGS__)
+#define log_unit_warning_errno(unit, error, ...)     log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
+#define log_unit_error_errno(unit, error, ...)       log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
+
 #define log_unit_struct(unit, level, ...) log_struct(level, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
+#define log_unit_struct_errno(unit, level, error, ...) log_struct_errno(level, error, getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit, __VA_ARGS__)
