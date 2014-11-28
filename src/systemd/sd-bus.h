@@ -116,18 +116,29 @@ int sd_bus_open_system_remote(sd_bus **ret, const char *host);
 int sd_bus_open_system_container(sd_bus **ret, const char *machine);
 
 int sd_bus_new(sd_bus **ret);
+
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
+int sd_bus_get_address(sd_bus *bus, const char **address);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
+int sd_bus_is_bus_client(sd_bus *bus);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t bus_id);
+int sd_bus_is_server(sd_bus *bus);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
+int sd_bus_is_anonymous(sd_bus *bus);
 int sd_bus_set_trusted(sd_bus *bus, int b);
-int sd_bus_set_description(sd_bus *bus, const char *description);
+int sd_bus_is_trusted(sd_bus *bus);
 int sd_bus_set_monitor(sd_bus *bus, int b);
+int sd_bus_is_monitor(sd_bus *bus);
+int sd_bus_set_description(sd_bus *bus, const char *description);
+int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
 int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
+int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
+
 int sd_bus_start(sd_bus *ret);
 
 int sd_bus_try_close(sd_bus *bus);
@@ -137,13 +148,11 @@ sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
-int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_address(sd_bus *bus, const char **address);
+
 int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id);
-int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_scope(sd_bus *bus, const char **scope);
-int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
+int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
