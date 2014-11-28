@@ -1442,7 +1442,7 @@ _public_ int sd_bus_can_send(sd_bus *bus, char type) {
         return bus_type_is_valid(type);
 }
 
-_public_ int sd_bus_get_owner_id(sd_bus *bus, sd_id128_t *id) {
+_public_ int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id) {
         int r;
 
         assert_return(bus, -EINVAL);

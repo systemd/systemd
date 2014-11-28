@@ -625,7 +625,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 if (!sd_bus_message_has_signature(m, ""))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
-                r = sd_bus_get_owner_id(a, &server_id);
+                r = sd_bus_get_bus_id(a, &server_id);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -1354,7 +1354,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_get_owner_id(a, &server_id);
+        r = sd_bus_get_bus_id(a, &server_id);
         if (r < 0) {
                 log_error_errno(r, "Failed to get server ID: %m");
                 goto finish;

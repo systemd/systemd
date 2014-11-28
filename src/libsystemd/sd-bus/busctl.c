@@ -1177,10 +1177,15 @@ static int status(sd_bus *bus, char *argv[]) {
                                         _SD_BUS_CREDS_ALL);
         } else {
                 const char *scope;
+                sd_id128_t bus_id;
 
                 r = sd_bus_get_scope(bus, &scope);
                 if (r >= 0)
                         printf("Scope=%s%s%s\n", ansi_highlight(), scope, ansi_highlight_off());
+
+                r = sd_bus_get_bus_id(bus, &bus_id);
+                if (r >= 0)
+                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_highlight_off());
 
                 r = sd_bus_get_owner_creds(
                                 bus,

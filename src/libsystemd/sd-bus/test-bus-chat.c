@@ -76,7 +76,7 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_get_owner_id(bus, &id);
+        r = sd_bus_get_bus_id(bus, &id);
         if (r < 0) {
                 log_error_errno(r, "Failed to get server ID: %m");
                 goto fail;

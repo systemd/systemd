@@ -138,7 +138,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_owner_id(sd_bus *bus, sd_id128_t *id);
+int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id);
 int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_scope(sd_bus *bus, const char **scope);
 int sd_bus_get_description(sd_bus *bus, const char **description);
