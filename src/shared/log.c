@@ -106,8 +106,8 @@ void log_close_syslog(void) {
 }
 
 static int create_log_socket(int type) {
-        int fd;
         struct timeval tv;
+        int fd;
 
         fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -128,11 +128,13 @@ static int create_log_socket(int type) {
 }
 
 static int log_open_syslog(void) {
-        int r;
-        union sockaddr_union sa = {
+
+        static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/dev/log",
         };
+
+        int r;
 
         if (syslog_fd >= 0)
                 return 0;
@@ -176,10 +178,12 @@ void log_close_journal(void) {
 }
 
 static int log_open_journal(void) {
-        union sockaddr_union sa = {
+
+        static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/socket",
         };
+
         int r;
 
         if (journal_fd >= 0)
@@ -303,7 +307,7 @@ void log_set_facility(int facility) {
 static int write_to_console(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
@@ -359,7 +363,7 @@ static int write_to_console(
 static int write_to_syslog(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
@@ -529,7 +533,7 @@ static int write_to_journal(
 static int log_dispatch(
                 int level,
                 int error,
-                const char*file,
+                const char *file,
                 int line,
                 const char *func,
                 const char *object_field,
