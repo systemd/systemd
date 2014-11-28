@@ -1662,8 +1662,8 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting
-         * table changes
-         * This may also be called for /run/mount events */
+         * table changes, and for /run/mount events which we watch
+         * for mount options. */
 
         if (fd == m->utab_inotify_fd) {
                 char inotify_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
@@ -1671,18 +1671,18 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                 char *p;
                 int rescan = 0;
 
-                while ((r = read(fd, inotify_buffer, sizeof(inotify_buffer))) > 0) {
+                while ((r = read(fd, inotify_buffer, sizeof(inotify_buffer))) > 0)
                         for (p = inotify_buffer; p < inotify_buffer + r; ) {
                                 event = (struct inotify_event *) p;
                                 /* only care about changes to utab, but we have
                                  * to monitor the directory to reliably get
                                  * notifications about when utab is replaced
                                  * using rename(2) */
-                                if (strcmp(event->name, "utab") == 0)
+                                if ((event->mask & IN_Q_OVERFLOW) || streq(event->name, "utab"))
                                         rescan = 1;
                                 p += sizeof(struct inotify_event) + event->len;
                         }
-                }
+
                 if (!rescan)
                         return 0;
         }
