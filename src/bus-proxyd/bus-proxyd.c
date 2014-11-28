@@ -689,7 +689,6 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
                 struct kdbus_cmd_name_list cmd = {};
                 struct kdbus_name_list *name_list;
-                struct kdbus_cmd_free cmd_free;
                 struct kdbus_name_info *name;
                 _cleanup_strv_free_ char **owners = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -742,10 +741,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                         }
                 }
 
-                cmd_free.flags = 0;
-                cmd_free.offset = cmd.offset;
-
-                r = ioctl(a->input_fd, KDBUS_CMD_FREE, &cmd_free);
+                r = bus_kernel_cmd_free(a, cmd.offset);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 

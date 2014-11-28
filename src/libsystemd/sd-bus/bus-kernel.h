@@ -91,3 +91,5 @@ int bus_kernel_drop_one(int fd);
 int bus_kernel_realize_attach_flags(sd_bus *bus);
 
 int bus_kernel_fix_attach_mask(void);
+
+int bus_kernel_cmd_free(sd_bus *bus, uint64_t offset);

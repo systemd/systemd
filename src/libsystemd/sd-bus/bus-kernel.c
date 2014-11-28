@@ -954,24 +954,37 @@ int bus_kernel_connect(sd_bus *b) {
         return bus_kernel_take_fd(b);
 }
 
+int bus_kernel_cmd_free(sd_bus *bus, uint64_t offset) {
+        struct kdbus_cmd_free cmd = {
+                .flags = 0,
+                .offset = offset,
+        };
+        int r;
+
+        assert(bus);
+        assert(bus->is_kernel);
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
-        struct kdbus_cmd_free cmd = {};
         struct kdbus_item *d;
 
         assert(bus);
         assert(k);
 
-        cmd.offset = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
-
         KDBUS_ITEM_FOREACH(d, k, items) {
-
                 if (d->type == KDBUS_ITEM_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
                 else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
                         safe_close(d->memfd.fd);
         }
 
-        (void) ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd);
+        bus_kernel_cmd_free(bus, (uint8_t*) k - (uint8_t*) bus->kdbus_buffer);
 }
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
