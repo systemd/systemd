@@ -984,6 +984,7 @@ have_timesyncd=no
 AC_ARG_ENABLE(timesyncd, AS_HELP_STRING([--disable-timesyncd], [disable timesync daemon]))
 if test "x$enable_timesyncd" != "xno"; then
         have_timesyncd=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_TIMESYNCD"
 fi
 AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
 
@@ -1073,6 +1074,7 @@ AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd])
 AS_IF([test "x$enable_networkd" != "xno"], [
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_NETWORKD"
 ])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
