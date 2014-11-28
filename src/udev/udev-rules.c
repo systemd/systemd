@@ -1067,7 +1067,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 
                         /* If we aren't at the end of the line, this is a parsing error.
                          * Make a best effort to describe where the problem is. */
-                        if (*linepos != '\n') {
+                        if (!strchr(NEWLINE "\0", *linepos)) {
                                 char buf[2] = {*linepos};
                                 _cleanup_free_ char *tmp;
 
