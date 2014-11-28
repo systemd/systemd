@@ -1709,8 +1709,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
 
-                        log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
-                        return r;
+                        return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
                 }
 
                 f = rf;

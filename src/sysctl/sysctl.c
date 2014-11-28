@@ -134,8 +134,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
-                return r;
+                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
         log_debug("parse: %s", path);

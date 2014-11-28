@@ -259,8 +259,7 @@ int machine_load(Machine *m) {
                 if (r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to read %s: %m", m->state_file);
-                return r;
+                return log_error_errno(r, "Failed to read %s: %m", m->state_file);
         }
 
         if (id)

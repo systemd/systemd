@@ -667,10 +667,8 @@ static int create_item(Item *i) {
                 if (r < 0) {
                         struct stat a, b;
 
-                        if (r != -EEXIST) {
-                                log_error_errno(r, "Failed to copy files to %s: %m", i->path);
-                                return -r;
-                        }
+                        if (r != -EEXIST)
+                                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
                         if (stat(i->argument, &a) < 0) {
                                 log_error("stat(%s) failed: %m", i->argument);
@@ -1519,8 +1517,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
-                return r;
+                return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
         }
 
         FOREACH_LINE(line, f, break) {

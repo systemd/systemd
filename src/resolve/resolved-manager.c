@@ -379,10 +379,8 @@ static int manager_watch_hostname(Manager *m) {
                 if (r == -EPERM)
                         /* kernels prior to 3.2 don't support polling this file. Ignore the failure. */
                         m->hostname_fd = safe_close(m->hostname_fd);
-                else {
-                        log_error_errno(r, "Failed to add hostname event source: %m");
-                        return r;
-                }
+                else
+                        return log_error_errno(r, "Failed to add hostname event source: %m");
         }
 
         r = determine_hostname(&m->hostname);

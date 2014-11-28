@@ -139,8 +139,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to open %s, ignoring: %m", path);
-                return r;
+                return log_error_errno(r, "Failed to open %s, ignoring: %m", path);
         }
 
         log_debug("apply: %s", path);

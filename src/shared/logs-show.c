@@ -858,8 +858,7 @@ static int output_cat(
                 if (r == -ENOENT)
                         return 0;
 
-                log_error_errno(r, "Failed to get data: %m");
-                return r;
+                return log_error_errno(r, "Failed to get data: %m");
         }
 
         assert(l >= 8);
