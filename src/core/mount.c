@@ -45,6 +45,9 @@
 #include "exit-status.h"
 #include "def.h"
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
+
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
         [MOUNT_MOUNTING] = UNIT_ACTIVATING,
@@ -1514,17 +1517,9 @@ fail:
         return r;
 }
 
-static inline void mnt_free_table_p(struct libmnt_table **tb) {
-        mnt_free_table(*tb);
-}
-
-static inline void mnt_free_iter_p(struct libmnt_iter **itr) {
-        mnt_free_iter(*itr);
-}
-
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-        _cleanup_(mnt_free_table_p) struct libmnt_table *tb = NULL;
-        _cleanup_(mnt_free_iter_p) struct libmnt_iter *itr = NULL;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *tb = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *itr = NULL;
         struct libmnt_fs *fs;
         int r = 0;
 
