@@ -97,8 +97,9 @@ int config_parse_servers(
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse(NULL, "/etc/systemd/timesyncd.conf", NULL,
-                            "Time\0",
-                            config_item_perf_lookup, timesyncd_gperf_lookup,
-                            false, false, true, m);
+        return config_parse_many("/etc/systemd/timesyncd.conf",
+                                 CONF_DIRS_NULSTR("systemd/timesyncd.conf"),
+                                 "Time\0",
+                                 config_item_perf_lookup, timesyncd_gperf_lookup,
+                                 false, m);
 }

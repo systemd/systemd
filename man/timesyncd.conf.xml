@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="timesyncd.conf" conditional='ENABLE_TIMESYNCD'>
+<refentry id="timesyncd.conf" conditional='ENABLE_TIMESYNCD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>timesyncd.conf</title>
                 <productname>systemd</productname>
@@ -44,23 +45,27 @@
 
         <refnamediv>
                 <refname>timesyncd.conf</refname>
-                <refpurpose>Network Time Synchronization configuration file</refpurpose>
+                <refname>timesyncd.conf.d</refname>
+                <refpurpose>Network Time Synchronization configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/timesyncd.conf</filename></para>
+                <para><filename>/etc/systemd/timesyncd.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/timesyncd.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/timesyncd.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>When starting, systemd-timesyncd will read the
-                configuration file
-                <filename>timesyncd.conf</filename>.  This
-                configuration file controls NTP network time
+                <para>These configuration files control NTP network time
                 synchronization.</para>
 
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

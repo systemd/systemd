@@ -1244,9 +1244,14 @@ MANPAGES += \
 	man/systemd-timesyncd.service.8 \
 	man/timesyncd.conf.5
 MANPAGES_ALIAS += \
-	man/systemd-timesyncd.8
+	man/systemd-timesyncd.8 \
+	man/timesyncd.conf.d.5
 man/systemd-timesyncd.8: man/systemd-timesyncd.service.8
+man/timesyncd.conf.d.5: man/timesyncd.conf.5
 man/systemd-timesyncd.html: man/systemd-timesyncd.service.html
+	$(html-alias)
+
+man/timesyncd.conf.d.html: man/timesyncd.conf.html
 	$(html-alias)
 
 endif
