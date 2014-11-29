@@ -532,10 +532,10 @@ static int parse_config(void) {
                 { "Upload",  "TrustedCertificateFile", config_parse_path,   0, &arg_trust  },
                 {}};
 
-        return config_parse(NULL, PKGSYSCONFDIR "/journal-upload.conf", NULL,
-                            "Upload\0",
-                            config_item_table_lookup, items,
-                            false, false, true, NULL);
+        return config_parse_many(PKGSYSCONFDIR "/journal-upload.conf",
+                                 CONF_DIRS_NULSTR("systemd/journal-upload.conf"),
+                                 "Upload\0", config_item_table_lookup, items,
+                                 false, NULL);
 }
 
 static void help(void) {
