@@ -2078,7 +2078,14 @@ static int dissect_image(
                 bool *secondary) {
 
 #ifdef HAVE_BLKID
-        int home_nr = -1, root_nr = -1, secondary_root_nr = -1, srv_nr = -1;
+        int home_nr = -1, srv_nr = -1;
+#ifdef GPT_ROOT_NATIVE
+        int root_nr = -1;
+#endif
+#ifdef GPT_ROOT_SECONDARY
+        int secondary_root_nr = -1;
+#endif
+
         _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
