@@ -114,7 +114,8 @@
                 <filename>/sys/power/state</filename>, to trigger the
                 actual system suspend. What exactly is written
                 where can be configured in the <literal>[Sleep]</literal>
-                section of <filename>/etc/systemd/sleep.conf</filename>.
+                section of <filename>/etc/systemd/sleep.conf</filename> or a
+                <filename>sleep.conf.d</filename> file.
                 See <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                 </para>
         </refsect1>

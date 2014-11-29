@@ -48,9 +48,10 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 {}
         };
 
-        config_parse(NULL, PKGSYSCONFDIR "/sleep.conf", NULL,
-                     "Sleep\0",
-                     config_item_table_lookup, items, false, false, true, NULL);
+        config_parse_many(PKGSYSCONFDIR "/sleep.conf",
+                          CONF_DIRS_NULSTR("systemd/sleep.conf"),
+                          "Sleep\0", config_item_table_lookup, items,
+                          false, NULL);
 
         if (streq(verb, "suspend")) {
                 /* empty by default */

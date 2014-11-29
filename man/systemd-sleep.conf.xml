@@ -22,7 +22,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-sleep.conf">
+<refentry id="systemd-sleep.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd-sleep.conf</title>
     <productname>systemd</productname>
@@ -44,11 +45,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>systemd-sleep.conf</refname>
+    <refname>sleep.conf.d</refname>
     <refpurpose>Suspend and hibernation configuration file</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/etc/systemd/sleep.conf</filename></para>
+    <para><filename>/etc/systemd/sleep.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/sleep.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/sleep.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -98,7 +103,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
     </variablelist>
 
-    <para>Settings in this file determine what strings
+    <para>Settings in these files determine what strings
     will be written to
     <filename>/sys/power/disk</filename> and
     <filename>/sys/power/state</filename> by
@@ -108,12 +113,16 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     attempts to suspend or hibernate the machine.</para>
   </refsect1>
 
+  <xi:include href="standard-conf.xml" xpointer="confd" />
+  <xi:include href="standard-conf.xml" xpointer="conf" />
+
   <refsect1>
     <title>Options</title>
 
     <para>The following options can be configured in the
     <literal>[Sleep]</literal> section of
-    <filename>/etc/systemd/sleep.conf</filename>:</para>
+    <filename>/etc/systemd/sleep.conf</filename> or a
+    <filename>sleep.conf.d</filename> file:</para>
 
     <variablelist class='systemd-directives'>
       <varlistentry>
