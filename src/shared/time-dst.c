@@ -244,6 +244,8 @@ read_again:
         if (fread(zone_names, 1, chars, f) != chars)
                 return -EINVAL;
 
+        zone_names[chars] = '\0';
+
         for (i = 0; i < num_isstd; ++i) {
                 int c = getc(f);
                 if (c == EOF)
