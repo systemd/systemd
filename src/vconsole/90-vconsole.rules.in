@@ -8,4 +8,4 @@
 # Kernel resets vconsole state when changing console drivers so run
 # systemd-vconsole-setup when fbcon loads
 
-ACTION=="add", SUBSYSTEM=="graphics", KERNEL=="fbcon", RUN+="/usr/lib/systemd/systemd-vconsole-setup"
+ACTION=="add", SUBSYSTEM=="graphics", KERNEL=="fbcon", RUN+="@rootlibexecdir@/systemd-vconsole-setup"
