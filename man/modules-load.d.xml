@@ -19,7 +19,8 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="modules-load.d" conditional='HAVE_KMOD'>
+<refentry id="modules-load.d" conditional='HAVE_KMOD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>modules-load.d</title>
@@ -74,28 +75,9 @@
                 list of kernel module names to load, separated by
                 newlines. Empty lines and lines whose first
                 non-whitespace character is # or ; are ignored.</para>
-
-                <para>Each configuration file shall be named in the
-                style of <filename><replaceable>program</replaceable>.conf</filename>.
-                Files in <filename>/etc/</filename> override files
-                with the same name in <filename>/usr/lib/</filename>
-                and <filename>/run/</filename>. Files in
-                <filename>/run/</filename> override files with the
-                same name in <filename>/usr/lib/</filename>. Packages
-                should install their configuration files in
-                <filename>/usr/lib/</filename>, files in
-                <filename>/etc/</filename> are reserved for the local
-                administrator, who may use this logic to override the
-                configuration files installed from vendor
-                packages.</para>
-
-                <para>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <filename>/dev/null</filename> in
-                <filename>/etc/modules-load.d/</filename> bearing the
-                same filename.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
 
         <refsect1>
                 <title>Example</title>

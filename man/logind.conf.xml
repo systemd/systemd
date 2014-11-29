@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="logind.conf" conditional='ENABLE_LOGIND'>
+<refentry id="logind.conf" conditional='ENABLE_LOGIND'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>logind.conf</title>
                 <productname>systemd</productname>
@@ -59,28 +60,10 @@
                 <title>Description</title>
 
                 <para>These files configure various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
-
-                <para>Each configuration file shall be named in the style of
-                <filename><replaceable>filename</replaceable>.conf</filename>.
-                Files in <filename>/etc/</filename> override files with the
-                same name in <filename>/usr/lib/</filename> and
-                <filename>/run/</filename>.  Files in
-                <filename>/run/</filename> override files with the same name in
-                <filename>/usr/lib/</filename>. Packages should install their
-                configuration files in <filename>/usr/lib/</filename>. Files in
-                <filename>/etc/</filename> are reserved for the local
-                administrator, who may use this logic to override the
-                configuration files installed by vendor packages. All
-                configuration files are sorted by their filename in
-                lexicographic order, regardless of which of the directories
-                they reside in. If multiple files specify the same option, the
-                entry in the file with the lexicographically latest name will
-                be applied; entries in any <filename>logind.conf.d</filename>
-                file override entries in
-                <filename>/etc/systemd/logind.conf</filename>. It is
-                recommended to prefix all filenames with a two-digit number and
-                a dash, to simplify the ordering of the files.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

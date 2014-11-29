@@ -19,7 +19,8 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="sysusers.d">
+<refentry id="sysusers.d"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sysusers.d</title>
@@ -239,8 +240,10 @@ u root 0 "Superuser" /root</programlisting>
 
         </refsect1>
 
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+
         <refsect1>
-                <title>Overriding vendor configuration</title>
+                <title>Idempotence</title>
 
                 <para>Note that <command>systemd-sysusers</command>
                 will do nothing if the specified users or groups
@@ -248,31 +251,13 @@ u root 0 "Superuser" /root</programlisting>
                 <filename>sysusers.d</filename> vendor configuration,
                 except to block certain users or groups from being
                 created.</para>
-
-                <para>Files in <filename>/etc/sysusers.d</filename>
-                override files with the same name in
-                <filename>/usr/lib/sysusers.d</filename> and
-                <filename>/run/sysusers.d</filename>. Files in
-                <filename>/run/sysusers.d</filename> override files
-                with the same name in
-                <filename>/usr/lib/sysusers.d</filename>. The scheme is the same as for
-                <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                except for the directory name.</para>
-
-                <para>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <filename>/dev/null</filename> in
-                <filename>/etc/sysusers.d/</filename> bearing the
-                same filename.</para>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

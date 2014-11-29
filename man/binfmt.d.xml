@@ -19,7 +19,8 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="binfmt.d" conditional='ENABLE_BINFMT'>
+<refentry id="binfmt.d" conditional='ENABLE_BINFMT'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>binfmt.d</title>
@@ -74,32 +75,9 @@
                 <para>Empty lines and lines beginning with ; and # are
                 ignored. Note that this means you may not use ; and #
                 as delimiter in binary format rules.</para>
-
-                <para>Each configuration file shall be named in the
-                style of <filename><replaceable>program</replaceable>.conf</filename>.
-                Files in <filename>/etc/</filename> override files
-                with the same name in <filename>/usr/lib/</filename>
-                and <filename>/run/</filename>. Files in
-                <filename>/run/</filename> override files with the
-                same name in <filename>/usr/lib/</filename>. Packages
-                should install their configuration files in
-                <filename>/usr/lib/</filename>, files in
-                <filename>/etc/</filename> are reserved for the local
-                administrator, who may use this logic to override the
-                configuration files installed from vendor
-                packages. All files are sorted by their filename in
-                lexicographic order, regardless of which of the
-                directories they reside in. If multiple files specify
-                the same binary type name, the entry in the file with
-                the lexicographically latest name will be applied.</para>
-
-                <para>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <filename>/dev/null</filename> in
-                <filename>/etc/binfmt.d/</filename> bearing the
-                same filename.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
 
         <refsect1>
                 <title>Example</title>

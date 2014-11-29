@@ -1638,6 +1638,7 @@ EXTRA_DIST += \
 	man/sd_uid_get_state.xml \
 	man/sd_watchdog_enabled.xml \
 	man/shutdown.xml \
+	man/standard-conf.xml \
 	man/standard-options.xml \
 	man/sysctl.d.xml \
 	man/systemctl.xml \
