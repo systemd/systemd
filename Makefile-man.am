@@ -1204,8 +1204,13 @@ MANPAGES += \
 	man/resolved.conf.5 \
 	man/systemd-resolved.service.8
 MANPAGES_ALIAS += \
+	man/resolved.conf.d.5 \
 	man/systemd-resolved.8
+man/resolved.conf.d.5: man/resolved.conf.5
 man/systemd-resolved.8: man/systemd-resolved.service.8
+man/resolved.conf.d.html: man/resolved.conf.html
+	$(html-alias)
+
 man/systemd-resolved.html: man/systemd-resolved.service.html
 	$(html-alias)
 

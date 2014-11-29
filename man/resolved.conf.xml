@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="resolved.conf" conditional='ENABLE_RESOLVED'>
+<refentry id="resolved.conf" conditional='ENABLE_RESOLVED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>resolved.conf</title>
                 <productname>systemd</productname>
@@ -44,22 +45,27 @@
 
         <refnamediv>
                 <refname>resolved.conf</refname>
-                <refpurpose>Network Name Resolution configuration file</refpurpose>
+                <refname>resolved.conf.d</refname>
+                <refpurpose>Network Name Resolution configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/resolved.conf</filename></para>
+                <para><filename>/etc/systemd/resolved.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/resolved.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>When starting, systemd-resolved will read the
-                configuration file <filename>resolved.conf</filename>.
-                This configuration file controls local DNS and LLMNR
+                <para>These configuration files control local DNS and LLMNR
                 name resolving.</para>
 
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

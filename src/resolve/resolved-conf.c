@@ -147,8 +147,9 @@ int config_parse_support(
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse(NULL, "/etc/systemd/resolved.conf", NULL,
-                            "Resolve\0",
-                            config_item_perf_lookup, resolved_gperf_lookup,
-                            false, false, true, m);
+        return config_parse_many("/etc/systemd/resolved.conf",
+                                 CONF_DIRS_NULSTR("systemd/resolved.conf"),
+                                 "Resolve\0",
+                                 config_item_perf_lookup, resolved_gperf_lookup,
+                                 false, m);
 }
