@@ -367,7 +367,7 @@ int main(int argc, char *argv[]) {
                                 execv(args[0], (char * const *) args);
                                 _exit(EXIT_FAILURE);
                         } else
-                                wait_for_terminate_and_warn("kexec", pid);
+                                wait_for_terminate_and_warn("kexec", pid, true);
                 }
 
                 cmd = RB_AUTOBOOT;

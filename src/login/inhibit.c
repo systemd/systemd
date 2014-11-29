@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_warn(argv[optind], pid);
+                r = wait_for_terminate_and_warn(argv[optind], pid, true);
                 return r < 0 ? EXIT_FAILURE : r;
         }
 

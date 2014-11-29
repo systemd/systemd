@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
                 _exit(1); /* Operational error */
         }
 
-        r = wait_for_terminate_and_warn("quotacheck", pid);
+        r = wait_for_terminate_and_warn("quotacheck", pid, true);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

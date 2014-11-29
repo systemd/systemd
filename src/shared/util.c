@@ -3786,8 +3786,11 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
  *
  * That is, success is indicated by a return value of zero, and an
  * error is indicated by a non-zero value.
+ *
+ * A warning is emitted if the process terminates abnormally,
+ * and also if it returns non-zero unless check_exit_code is true.
  */
-int wait_for_terminate_and_warn(const char *name, pid_t pid) {
+int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code) {
         int r;
         siginfo_t status;
 
@@ -3799,14 +3802,13 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
                 return log_warning_errno(r, "Failed to wait for %s: %m", name);
 
         if (status.si_code == CLD_EXITED) {
-                if (status.si_status != 0) {
-                        log_warning("%s failed with error code %i.", name, status.si_status);
-                        return status.si_status;
-                }
+                if (status.si_status != 0)
+                        log_full(check_exit_code ? LOG_WARNING : LOG_DEBUG,
+                                 "%s failed with error code %i.", name, status.si_status);
+                else
+                        log_debug("%s succeeded.", name);
 
-                log_debug("%s succeeded.", name);
-                return 0;
-
+                return status.si_status;
         } else if (status.si_code == CLD_KILLED ||
                    status.si_code == CLD_DUMPED) {
 
@@ -4161,13 +4163,13 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                         path = hashmap_remove(pids, UINT_TO_PTR(pid));
                         assert(path);
 
-                        wait_for_terminate_and_warn(path, pid);
+                        wait_for_terminate_and_warn(path, pid, true);
                 }
 
                 _exit(EXIT_SUCCESS);
         }
 
-        wait_for_terminate_and_warn(directory, executor_pid);
+        wait_for_terminate_and_warn(directory, executor_pid, true);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {

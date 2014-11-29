@@ -513,7 +513,7 @@ char *unquote(const char *s, const char *quotes);
 char *normalize_env_assignment(const char *s);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid);
+int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
 
 noreturn void freeze(void);
 

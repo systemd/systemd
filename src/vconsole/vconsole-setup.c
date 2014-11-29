@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
         }
 
         if (font_pid > 0)
-                wait_for_terminate_and_warn(KBD_SETFONT, font_pid);
+                wait_for_terminate_and_warn(KBD_SETFONT, font_pid, true);
 
         r = keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid);
         if (r < 0) {
@@ -317,7 +317,7 @@ int main(int argc, char **argv) {
         }
 
         if (keymap_pid > 0)
-                wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid);
+                wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid, true);
 
         /* Only copy the font when we started setfont successfully */
         if (font_copy && font_pid > 0)
