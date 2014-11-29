@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-system.conf">
+<refentry id="systemd-system.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>systemd-system.conf</title>
                 <productname>systemd</productname>
@@ -44,24 +45,38 @@
 
         <refnamediv>
                 <refname>systemd-system.conf</refname>
+                <refname>system.conf.d</refname>
                 <refname>systemd-user.conf</refname>
-                <refpurpose>System and session service manager configuration file</refpurpose>
+                <refname>user.conf.d</refname>
+                <refpurpose>System and session service manager configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/system.conf</filename></para>
+                <para><filename>/etc/systemd/system.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/system.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
                 <para><filename>/etc/systemd/user.conf</filename></para>
+                <para><filename>/etc/systemd/user.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/user.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>When run as system instance systemd reads the
-                configuration file <filename>system.conf</filename>,
-                otherwise <filename>user.conf</filename>. These
+                <para>When run as a system instance, systemd interprets the
+                configuration file <filename>system.conf</filename> and the
+                files in <filename>system.conf.d</filename> directories; when
+                run as a user instance, systemd interprets the configuration
+                file <filename>user.conf</filename> and the files in
+                <filename>user.conf.d</filename> directories. These
                 configuration files contain a few settings controlling
                 basic manager operations.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

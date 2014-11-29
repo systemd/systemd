@@ -195,6 +195,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_wait.3 \
 	man/sd_machine_get_ifindices.3 \
 	man/sd_notifyf.3 \
+	man/system.conf.d.5 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-ask-password-wall.service.8 \
@@ -227,7 +228,8 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd-kernel.socket.8 \
 	man/systemd-udevd.8 \
 	man/systemd-update-done.8 \
-	man/systemd-user.conf.5
+	man/systemd-user.conf.5 \
+	man/user.conf.d.5
 man/SD_ALERT.3: man/sd-daemon.3
 man/SD_CRIT.3: man/sd-daemon.3
 man/SD_DEBUG.3: man/sd-daemon.3
@@ -301,6 +303,7 @@ man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
 man/sd_machine_get_ifindices.3: man/sd_machine_get_class.3
 man/sd_notifyf.3: man/sd_notify.3
+man/system.conf.d.5: man/systemd-system.conf.5
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
@@ -334,6 +337,7 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-done.8: man/systemd-update-done.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/user.conf.d.5: man/systemd-system.conf.5
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
 
@@ -553,6 +557,9 @@ man/sd_machine_get_ifindices.html: man/sd_machine_get_class.html
 man/sd_notifyf.html: man/sd_notify.html
 	$(html-alias)
 
+man/system.conf.d.html: man/systemd-system.conf.html
+	$(html-alias)
+
 man/systemd-ask-password-console.path.html: man/systemd-ask-password-console.service.html
 	$(html-alias)
 
@@ -650,6 +657,9 @@ man/systemd-update-done.html: man/systemd-update-done.service.html
 	$(html-alias)
 
 man/systemd-user.conf.html: man/systemd-system.conf.html
+	$(html-alias)
+
+man/user.conf.d.html: man/systemd-system.conf.html
 	$(html-alias)
 
 

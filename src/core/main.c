@@ -667,13 +667,12 @@ static int parse_config_file(void) {
                 {}
         };
 
-        const char *fn;
+        const char *fn, *conf_dirs_nulstr;
 
         fn = arg_running_as == SYSTEMD_SYSTEM ? PKGSYSCONFDIR "/system.conf" : PKGSYSCONFDIR "/user.conf";
-        config_parse(NULL, fn, NULL,
-                     "Manager\0",
-                     config_item_table_lookup, items,
-                     false, false, true, NULL);
+        conf_dirs_nulstr = arg_running_as == SYSTEMD_SYSTEM ? CONF_DIRS_NULSTR("systemd/system.conf") : CONF_DIRS_NULSTR("systemd/user.conf");
+        config_parse_many(fn, conf_dirs_nulstr, "Manager\0",
+                          config_item_table_lookup, items, false, NULL);
 
         return 0;
 }
