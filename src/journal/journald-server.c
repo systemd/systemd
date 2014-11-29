@@ -1552,8 +1552,16 @@ int server_init(Server *s) {
 
                         s->audit_fd = fd;
 
-                } else
-                        log_error("Unknown socket passed as file descriptor %d, ignoring.", fd);
+                } else {
+                        log_warning("Unknown socket passed as file descriptor %d, ignoring.", fd);
+
+                        /* Let's close the fd, better be safe than
+                           sorry. The fd might reference some resource
+                           that we really want to release if we don't
+                           make use of it. */
+
+                        safe_close(fd);
+                }
         }
 
         r = server_open_syslog_socket(s);
