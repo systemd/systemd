@@ -25,7 +25,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="bootchart.conf" conditional='ENABLE_BOOTCHART'>
+<refentry id="bootchart.conf" conditional='ENABLE_BOOTCHART'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>bootchart.conf</title>
                 <productname>systemd</productname>
@@ -47,22 +48,30 @@
 
         <refnamediv>
                 <refname>bootchart.conf</refname>
-                <refpurpose>Boot performance analysis graphing tool configuration file</refpurpose>
+                <refname>bootchart.conf.d</refname>
+                <refpurpose>Boot performance analysis graphing tool configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/bootchart.conf</filename></para>
+                <para><filename>/etc/systemd/bootchart.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/bootchart.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/bootchart.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
                 <para>When starting, systemd-bootchart will read the
-                configuration file <filename>bootchart.conf</filename>.
-                This configuration file determines logging parameters and
-                graph output.</para>
-
+                configuration file
+                <filename>/etc/systemd/bootchart.conf</filename>, followed by
+                the files in the <filename>bootchart.conf.d</filename>
+                directories.  These configuration files determine logging
+                parameters and graph output.</para>
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

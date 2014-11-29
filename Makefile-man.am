@@ -701,8 +701,10 @@ MANPAGES += \
 	man/bootchart.conf.5 \
 	man/systemd-bootchart.1
 MANPAGES_ALIAS += \
-	#
-
+	man/bootchart.conf.d.5
+man/bootchart.conf.d.5: man/bootchart.conf.5
+man/bootchart.conf.d.html: man/bootchart.conf.html
+	$(html-alias)
 
 endif
 

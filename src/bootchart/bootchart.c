@@ -125,10 +125,9 @@ static void parse_conf(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        config_parse(NULL, BOOTCHART_CONF, NULL,
-                     NULL,
-                     config_item_table_lookup, items,
-                     true, false, true, NULL);
+        config_parse_many(BOOTCHART_CONF,
+                          CONF_DIRS_NULSTR("systemd/bootchart.conf"),
+                          NULL, config_item_table_lookup, items, true, NULL);
 
         if (init != NULL)
                 strscpy(arg_init_path, sizeof(arg_init_path), init);
