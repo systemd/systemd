@@ -120,10 +120,11 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse(NULL, "/etc/systemd/coredump.conf", NULL,
-                            "Coredump\0",
-                            config_item_table_lookup, items,
-                            false, false, true, NULL);
+        return config_parse_many("/etc/systemd/coredump.conf",
+                                 CONF_DIRS_NULSTR("systemd/coredump.conf"),
+                                 "Coredump\0",
+                                 config_item_table_lookup, items,
+                                 false, NULL);
 }
 
 static int fix_acl(int fd, uid_t uid) {

@@ -714,8 +714,10 @@ MANPAGES += \
 	man/coredumpctl.1 \
 	man/systemd-coredump.8
 MANPAGES_ALIAS += \
-	#
-
+	man/coredump.conf.d.5
+man/coredump.conf.d.5: man/coredump.conf.5
+man/coredump.conf.d.html: man/coredump.conf.html
+	$(html-alias)
 
 endif
 
