@@ -5735,7 +5735,6 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 }
 
 static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
-        _cleanup_close_ int fd = -1;
         int r;
         char *t;
 
