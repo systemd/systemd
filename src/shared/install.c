@@ -662,7 +662,7 @@ int unit_file_unmask(
                 goto finish;
 
         STRV_FOREACH(i, files) {
-                char *path;
+                _cleanup_free_ char *path = NULL;
 
                 if (!unit_name_is_valid(*i, TEMPLATE_VALID)) {
                         if (r == 0)
@@ -678,21 +678,16 @@ int unit_file_unmask(
 
                 q = null_or_empty_path(path);
                 if (q > 0) {
-                        if (unlink(path) >= 0) {
-                                mark_symlink_for_removal(&remove_symlinks_to, path);
+                        if (unlink(path) < 0)
+                                q = -errno;
+                        else {
+                                q = mark_symlink_for_removal(&remove_symlinks_to, path);
                                 add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-
-                                free(path);
-                                continue;
                         }
-
-                        q = -errno;
                 }
 
                 if (q != -ENOENT && r == 0)
                         r = q;
-
-                free(path);
         }
 
 
