@@ -22,7 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="journald.conf">
+<refentry id="journald.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
         <refentryinfo>
                 <title>journald.conf</title>
                 <productname>systemd</productname>
@@ -44,21 +45,28 @@
 
         <refnamediv>
                 <refname>journald.conf</refname>
-                <refpurpose>Journal service configuration file</refpurpose>
+                <refname>journald.conf.d</refname>
+                <refpurpose>Journal service configuration files</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>/etc/systemd/journald.conf</filename></para>
+                <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
+                <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
+                <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>This file configures various parameters of the
+                <para>These files configure various parameters of the
                 systemd journal service,
                 <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         </refsect1>
+
+        <xi:include href="standard-conf.xml" xpointer="confd" />
+        <xi:include href="standard-conf.xml" xpointer="conf" />
 
         <refsect1>
                 <title>Options</title>

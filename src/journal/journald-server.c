@@ -1351,10 +1351,11 @@ static int server_parse_proc_cmdline(Server *s) {
 static int server_parse_config_file(Server *s) {
         assert(s);
 
-        return config_parse(NULL, "/etc/systemd/journald.conf", NULL,
-                            "Journal\0",
-                            config_item_perf_lookup, journald_gperf_lookup,
-                            false, false, true, s);
+        return config_parse_many("/etc/systemd/journald.conf",
+                                 CONF_DIRS_NULSTR("systemd/journald.conf"),
+                                 "Journal\0",
+                                 config_item_perf_lookup, journald_gperf_lookup,
+                                 false, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {

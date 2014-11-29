@@ -148,6 +148,7 @@ MANPAGES_ALIAS += \
 	man/SD_NOTICE.3 \
 	man/SD_WARNING.3 \
 	man/init.1 \
+	man/journald.conf.d.5 \
 	man/poweroff.8 \
 	man/reboot.8 \
 	man/sd_id128_equal.3 \
@@ -256,6 +257,7 @@ man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
 man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
+man/journald.conf.d.5: man/journald.conf.5
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
 man/sd_id128_equal.3: man/sd-id128.3
@@ -414,6 +416,9 @@ man/SD_WARNING.html: man/sd-daemon.html
 	$(html-alias)
 
 man/init.html: man/systemd.html
+	$(html-alias)
+
+man/journald.conf.d.html: man/journald.conf.html
 	$(html-alias)
 
 man/poweroff.html: man/halt.html
