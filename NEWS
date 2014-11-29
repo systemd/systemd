@@ -7,6 +7,19 @@ CHANGES WITH 218:
           will spew out warnings if the compilation fails. This
           requires libxkbcommon to be installed.
 
+        * All systemd programs that read standalone configuration files
+          in /etc now also support a corresponding series of
+          .conf.d configuration directories in /etc/, /run/,
+          /usr/local/lib/, /usr/lib/, and (if configured with
+          --enable-split-usr) /lib/.  In particular, the following
+          configuration files now have corresponding configuration
+          directories: system.conf user.conf, logind.conf,
+          journald.conf, sleep.conf, bootchart.conf, coredump.conf,
+          resolved.conf, timesyncd.conf, journal-remote.conf, and
+          journal-upload.conf.  Note that distributions should use the
+          configuration directories in /usr/lib/; the directories in
+          /etc/ are reserved for the system administrator.
+
 CHANGES WITH 217:
 
         * journalctl gained the new options -t/--identifier= to match
