@@ -1110,8 +1110,13 @@ MANPAGES += \
 	man/logind.conf.5 \
 	man/systemd-logind.service.8
 MANPAGES_ALIAS += \
+	man/logind.conf.d.5 \
 	man/systemd-logind.8
+man/logind.conf.d.5: man/logind.conf.5
 man/systemd-logind.8: man/systemd-logind.service.8
+man/logind.conf.d.html: man/logind.conf.html
+	$(html-alias)
+
 man/systemd-logind.html: man/systemd-logind.service.html
 	$(html-alias)
 
