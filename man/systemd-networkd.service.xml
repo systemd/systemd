@@ -95,7 +95,7 @@
                         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-network-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
