@@ -549,7 +549,6 @@ static int screen_LF(term_screen *screen, const term_seq *seq);
 
 static int screen_GRAPHIC(term_screen *screen, const term_seq *seq) {
         term_char_t ch = TERM_CHAR_NULL;
-        uint32_t c;
 
         if (screen->state.cursor_x + 1 == screen->page->width
             && screen->flags & TERM_FLAG_PENDING_WRAP
@@ -560,8 +559,7 @@ static int screen_GRAPHIC(term_screen *screen, const term_seq *seq) {
 
         screen_cursor_clear_wrap(screen);
 
-        c = screen_map(screen, seq->terminator);
-        ch = term_char_merge(ch, screen_map(screen, c));
+        ch = term_char_merge(ch, screen_map(screen, seq->terminator));
         term_page_write(screen->page, screen->state.cursor_x, screen->state.cursor_y, ch, 1, &screen->state.attr, screen->age, false);
 
         if (screen->state.cursor_x + 1 == screen->page->width)
