@@ -76,10 +76,19 @@ int config_parse_warn_compat(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        Disabled reason = ltype;
 
-        log_syntax(unit, LOG_DEBUG, filename, line, EINVAL,
-                   "Support for option %s= has been disabled at compile time and is ignored",
-                   lvalue);
+        switch(reason) {
+        case DISABLED_CONFIGURATION:
+                log_syntax(unit, LOG_DEBUG, filename, line, EINVAL,
+                           "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
+                break;
+        case DISABLED_EXPERIMENTAL:
+                log_syntax(unit, LOG_INFO, filename, line, EINVAL,
+                           "Support for option %s= has not yet been enabled and it is ignored", lvalue);
+                break;
+        };
+
         return 0;
 }
 #endif

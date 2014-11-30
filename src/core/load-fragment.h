@@ -107,3 +107,8 @@ int config_parse_protect_system(const char* unit, const char *filename, unsigned
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, unsigned length);
 extern const char load_fragment_gperf_nulstr[];
+
+typedef enum Disabled {
+        DISABLED_CONFIGURATION,
+        DISABLED_EXPERIMENTAL,
+} Disabled;

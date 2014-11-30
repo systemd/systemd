@@ -54,10 +54,10 @@ m4_ifdef(`HAVE_SECCOMP',
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
 $1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)
 $1.RestrictAddressFamilies,      config_parse_address_families,      0,                             offsetof($1, exec_context)',
-`$1.SystemCallFilter,            config_parse_warn_compat,           0,                             0
-$1.SystemCallArchitectures,      config_parse_warn_compat,           0,                             0
-$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0
-$1.RestrictAddressFamilies,      config_parse_warn_compat,           0,                             0')
+`$1.SystemCallFilter,            config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.SystemCallArchitectures,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.SystemCallErrorNumber,        config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.RestrictAddressFamilies,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)
@@ -88,18 +88,18 @@ $1.RuntimeDirectoryMode,         config_parse_mode,                  0,         
 $1.RuntimeDirectory,             config_parse_runtime_directory,     0,                             offsetof($1, exec_context.runtime_directory)
 m4_ifdef(`HAVE_PAM',
 `$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)',
-`$1.PAMName,                     config_parse_warn_compat,           0,                             0')
+`$1.PAMName,                     config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
 m4_ifdef(`HAVE_SELINUX',
 `$1.SELinuxContext,              config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)',
-`$1.SELinuxContext,              config_parse_warn_compat,           0,                             0')
+`$1.SELinuxContext,              config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 m4_ifdef(`HAVE_APPARMOR',
 `$1.AppArmorProfile,             config_parse_exec_apparmor_profile, 0,                             offsetof($1, exec_context)',
-`$1.AppArmorProfile,             config_parse_warn_compat,           0,                             0')
+`$1.AppArmorProfile,             config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 m4_ifdef(`HAVE_SMACK',
 `$1.SmackProcessLabel,           config_parse_exec_smack_process_label, 0,                          offsetof($1, exec_context)',
-`$1.SmackProcessLabel,           config_parse_warn_compat,           0,                             0')'
+`$1.SmackProcessLabel,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 `$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
@@ -225,14 +225,14 @@ Service.RestartForceExitStatus,  config_parse_set_status,            0,         
 Service.SuccessExitStatus,       config_parse_set_status,            0,                             offsetof(Service, success_status)
 m4_ifdef(`HAVE_SYSV_COMPAT',
 `Service.SysVStartPriority,      config_parse_sysv_priority,         0,                             offsetof(Service, sysv_start_priority)',
-`Service.SysVStartPriority,      config_parse_warn_compat,           0,                             0')
+`Service.SysVStartPriority,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 Service.NonBlocking,             config_parse_bool,                  0,                             offsetof(Service, exec_context.non_blocking)
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 m4_ifdef(`ENABLE_KDBUS',
 `Service.BusPolicy,              config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)',
-`Service.BusPolicy,              config_parse_warn_compat,           0,                             0')
+`Service.BusPolicy,              config_parse_warn_compat,           DISABLED_EXPERIMENTAL,         0')
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -287,12 +287,12 @@ m4_ifdef(`HAVE_SMACK',
 `Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)
 Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
 Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)',
-`Socket.SmackLabel,              config_parse_warn_compat,           0,                             0
-Socket.SmackLabelIPIn,           config_parse_warn_compat,           0,                             0
-Socket.SmackLabelIPOut,          config_parse_warn_compat,           0,                             0')
+`Socket.SmackLabel,              config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+Socket.SmackLabelIPIn,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+Socket.SmackLabelIPOut,          config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 m4_ifdef(`HAVE_SELINUX',
 `Socket.SELinuxContextFromNet,   config_parse_bool,                  0,                             offsetof(Socket, selinux_context_from_net)',
-`Socket.SELinuxContextFromNet,   config_parse_warn_compat,           0,                             0')
+`Socket.SELinuxContextFromNet,   config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
