@@ -716,6 +716,87 @@
                                 <varname>infinity</varname> to
                                 configure no limit on a specific
                                 resource.</para></listitem>
+
+                                <table>
+                                        <title>Limit directives and their equivalent with ulimit</title>
+
+                                        <tgroup cols='2'>
+                                                <colspec colname='directive' />
+                                                <colspec colname='equivalent' />
+                                                <thead>
+                                                        <row>
+                                                                <entry>Directive</entry>
+                                                                <entry>ulimit equivalent</entry>
+                                                        </row>
+                                                </thead>
+                                                <tbody>
+                                                        <row>
+                                                                <entry>LimitCPU</entry>
+                                                                <entry>ulimit -t</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitFSIZE</entry>
+                                                                <entry>ulimit -f</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitDATA</entry>
+                                                                <entry>ulimit -d</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitSTACK</entry>
+                                                                <entry>ulimit -s</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitCORE</entry>
+                                                                <entry>ulimit -c</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRSS</entry>
+                                                                <entry>ulimit -m</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNOFILE</entry>
+                                                                <entry>ulimit -n</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitAS</entry>
+                                                                <entry>ulimit -v</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNPROC</entry>
+                                                                <entry>ulimit -u</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitMEMLOCK</entry>
+                                                                <entry>ulimit -l</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitLOCKS</entry>
+                                                                <entry>ulimit -x</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitSIGPENDING</entry>
+                                                                <entry>ulimit -i</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitMSGQUEUE</entry>
+                                                                <entry>ulimit -q</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitNICE</entry>
+                                                                <entry>ulimit -e</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRTPRIO</entry>
+                                                                <entry>ulimit -r</entry>
+                                                        </row>
+                                                        <row>
+                                                                <entry>LimitRTTIME</entry>
+                                                                <entry>No equivalent</entry>
+                                                        </row>
+                                                </tbody>
+                                        </tgroup>
+                                </table>
                         </varlistentry>
 
                         <varlistentry>
