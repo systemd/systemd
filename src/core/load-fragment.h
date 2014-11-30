@@ -110,5 +110,6 @@ extern const char load_fragment_gperf_nulstr[];
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
+        DISABLED_LEGACY,
         DISABLED_EXPERIMENTAL,
 } Disabled;

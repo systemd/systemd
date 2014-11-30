@@ -174,9 +174,6 @@ static int generate_unit_file(SysvStub *s) {
                 "RemainAfterExit=%s\n",
                 yes_no(!s->pid_file));
 
-        if (s->sysv_start_priority > 0)
-                fprintf(f, "SysVStartPriority=%d\n", s->sysv_start_priority);
-
         if (s->pid_file)
                 fprintf(f, "PIDFile=%s\n", s->pid_file);
 

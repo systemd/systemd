@@ -83,6 +83,10 @@ int config_parse_warn_compat(
                 log_syntax(unit, LOG_DEBUG, filename, line, EINVAL,
                            "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
                 break;
+        case DISABLED_LEGACY:
+                log_syntax(unit, LOG_INFO, filename, line, EINVAL,
+                           "Support for option %s= has been removed and it is ignored", lvalue);
+                break;
         case DISABLED_EXPERIMENTAL:
                 log_syntax(unit, LOG_INFO, filename, line, EINVAL,
                            "Support for option %s= has not yet been enabled and it is ignored", lvalue);

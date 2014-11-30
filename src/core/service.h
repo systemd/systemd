@@ -180,9 +180,6 @@ struct Service {
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool start_timeout_defined:1;
-#ifdef HAVE_SYSV_COMPAT
-        int sysv_start_priority;
-#endif
 
         char *bus_name;
 

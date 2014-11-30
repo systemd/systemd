@@ -1131,40 +1131,6 @@
         </refsect1>
 
         <refsect1>
-                <title>Compatibility Options</title>
-
-                <para>The following options are also available in the
-                <literal>[Service]</literal> section, but exist purely
-                for compatibility reasons and should not be used in
-                newly written service files.</para>
-
-                <variablelist class='unit-directives'>
-                        <varlistentry>
-                                <term><varname>SysVStartPriority=</varname></term>
-                                <listitem><para>Set the SysV start
-                                priority to use to order this service
-                                in relation to SysV services lacking
-                                LSB headers. This option is only
-                                necessary to fix ordering in relation
-                                to legacy SysV services that have no
-                                ordering information encoded in the
-                                script headers. As such, it should only
-                                be used as a temporary compatibility
-                                option and should not be used in new unit
-                                files. Almost always, it is a better
-                                choice to add explicit ordering
-                                directives via
-                                <varname>After=</varname> or
-                                <varname>Before=</varname>,
-                                instead. For more details, see
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-                                If used, pass an integer value in the
-                                range 0-99.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
-
-        <refsect1>
                 <title>Command lines</title>
 
                 <para>This section describes command line parsing and

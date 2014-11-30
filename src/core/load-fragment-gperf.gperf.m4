@@ -223,9 +223,7 @@ Service.GuessMainPID,            config_parse_bool,                  0,         
 Service.RestartPreventExitStatus, config_parse_set_status,           0,                             offsetof(Service, restart_prevent_status)
 Service.RestartForceExitStatus,  config_parse_set_status,            0,                             offsetof(Service, restart_force_status)
 Service.SuccessExitStatus,       config_parse_set_status,            0,                             offsetof(Service, success_status)
-m4_ifdef(`HAVE_SYSV_COMPAT',
-`Service.SysVStartPriority,      config_parse_sysv_priority,         0,                             offsetof(Service, sysv_start_priority)',
-`Service.SysVStartPriority,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
+Service.SysVStartPriority,       config_parse_warn_compat,           DISABLED_LEGACY,               0
 Service.NonBlocking,             config_parse_bool,                  0,                             offsetof(Service, exec_context.non_blocking)
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)

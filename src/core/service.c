@@ -546,13 +546,6 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
-#ifdef HAVE_SYSV_COMPAT
-        if (s->sysv_start_priority >= 0)
-                fprintf(f,
-                        "%sSysVStartPriority: %i\n",
-                        prefix, s->sysv_start_priority);
-#endif
-
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
