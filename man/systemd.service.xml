@@ -301,9 +301,7 @@
                                 as. This option is mandatory for
                                 services where
                                 <varname>Type=</varname> is set to
-                                <option>dbus</option>, but its use
-                                is otherwise recommended if the process
-                                takes a name on the D-Bus bus.</para>
+                                <option>dbus</option>.</para>
                                 </listitem>
                         </varlistentry>
 
