@@ -133,6 +133,7 @@ struct ntp_msg {
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
 static int manager_listen_setup(Manager *m);
+static void manager_listen_stop(Manager *m);
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -185,11 +186,9 @@ static int manager_send_request(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        if (m->server_socket < 0) {
-                r = manager_listen_setup(m);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to setup connection socket: %m");
-        }
+        r = manager_listen_setup(m);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to setup connection socket: %m");
 
         /*
          * Set transmit timestamp, remember it; the server will send that back
@@ -607,8 +606,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->retry_interval = 0;
 
         /* Stop listening */
-        m->event_receive = sd_event_source_unref(m->event_receive);
-        m->server_socket = safe_close(m->server_socket);
+        manager_listen_stop(m);
 
         /* announce leap seconds */
         if (NTP_FIELD_LEAP(ntpmsg.field) & NTP_LEAP_PLUSSEC)
@@ -700,7 +698,9 @@ static int manager_listen_setup(Manager *m) {
 
         assert(m);
 
-        assert(m->server_socket < 0);
+        if (m->server_socket >= 0)
+                return 0;
+
         assert(!m->event_receive);
         assert(m->current_server_address);
 
@@ -721,6 +721,13 @@ static int manager_listen_setup(Manager *m) {
         (void) setsockopt(m->server_socket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
+}
+
+static void manager_listen_stop(Manager *m) {
+        assert(m);
+
+        m->event_receive = sd_event_source_unref(m->event_receive);
+        m->server_socket = safe_close(m->server_socket);
 }
 
 static int manager_begin(Manager *m) {
@@ -952,8 +959,7 @@ void manager_disconnect(Manager *m) {
 
         m->event_timer = sd_event_source_unref(m->event_timer);
 
-        m->event_receive = sd_event_source_unref(m->event_receive);
-        m->server_socket = safe_close(m->server_socket);
+        manager_listen_stop(m);
 
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
         m->clock_watch_fd = safe_close(m->clock_watch_fd);
