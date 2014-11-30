@@ -1382,6 +1382,40 @@ EXTRA_DIST += \
 	test/testsuite.target \
 	test/timers.target \
 	test/unstoppable.service \
+	test/path-changed.service \
+	test/path-directorynotempty.service \
+	test/path-existsglob.service \
+	test/path-exists.service \
+	test/path-makedirectory.service \
+	test/path-modified.service \
+	test/path-mycustomunit.service \
+	test/path-service.service \
+	test/path-changed.path \
+	test/path-directorynotempty.path \
+	test/path-existsglob.path \
+	test/path-exists.path \
+	test/path-makedirectory.path \
+	test/path-modified.path \
+	test/path-unit.path \
+	test/exec-environment-empty.service \
+	test/exec-environment-multiple.service \
+	test/exec-environment.service \
+	test/exec-group.service \
+	test/exec-ignoresigpipe-no.service \
+	test/exec-ignoresigpipe-yes.service \
+	test/exec-personality-x86-64.service \
+	test/exec-personality-x86.service \
+	test/exec-privatedevices-no.service \
+	test/exec-privatedevices-yes.service \
+	test/exec-privatetmp-no.service \
+	test/exec-privatetmp-yes.service \
+	test/exec-systemcallerrornumber.service \
+	test/exec-systemcallfilter-failing2.service \
+	test/exec-systemcallfilter-failing.service \
+	test/exec-systemcallfilter-not-failing2.service \
+	test/exec-systemcallfilter-not-failing.service \
+	test/exec-user.service \
+	test/exec-workingdirectory.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
