@@ -36,13 +36,13 @@ static int test_fd[2];
 
 static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
                              void *userdata) {
-        assert(false);
+        assert_se(false);
 
         return 0;
 }
 
 int dhcp_network_icmp6_bind_router_solicitation(int index) {
-        assert(index == 42);
+        assert_se(index == 42);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, test_fd) < 0)
                 return -errno;
@@ -69,7 +69,7 @@ static int send_ra(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        assert(write(test_fd[1], advertisement, sizeof(advertisement)) ==
+        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
                sizeof(advertisement));
 
         if (verbose)
@@ -93,9 +93,9 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
                 { ND_RA_FLAG_OTHER, ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER },
                 { ND_RA_FLAG_MANAGED, ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED }
         };
-        assert(nd);
+        assert_se(nd);
 
-        assert(event == flag_event[idx].event);
+        assert_se(event == flag_event[idx].event);
         idx++;
 
         if (verbose)
@@ -114,31 +114,31 @@ static void test_rs(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
-        assert(sd_icmp6_nd_new(&nd) >= 0);
-        assert(nd);
+        assert_se(sd_icmp6_nd_new(&nd) >= 0);
+        assert_se(nd);
 
-        assert(sd_icmp6_nd_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_icmp6_nd_attach_event(nd, e, 0) >= 0);
 
-        assert(sd_icmp6_nd_set_index(nd, 42) >= 0);
-        assert(sd_icmp6_nd_set_mac(nd, &mac_addr) >= 0);
-        assert(sd_icmp6_nd_set_callback(nd, test_rs_done, e) >= 0);
+        assert_se(sd_icmp6_nd_set_index(nd, 42) >= 0);
+        assert_se(sd_icmp6_nd_set_mac(nd, &mac_addr) >= 0);
+        assert_se(sd_icmp6_nd_set_callback(nd, test_rs_done, e) >= 0);
 
-        assert(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
                                  time_now + 2 *USEC_PER_SEC, 0,
                                  test_rs_hangcheck, NULL) >= 0);
 
-        assert(sd_icmp6_nd_stop(nd) >= 0);
-        assert(sd_icmp6_router_solicitation_start(nd) >= 0);
-        assert(sd_icmp6_nd_stop(nd) >= 0);
+        assert_se(sd_icmp6_nd_stop(nd) >= 0);
+        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert_se(sd_icmp6_nd_stop(nd) >= 0);
 
-        assert(sd_icmp6_router_solicitation_start(nd) >= 0);
+        assert_se(sd_icmp6_router_solicitation_start(nd) >= 0);
 
         sd_event_loop(e);
 
         test_hangcheck = sd_event_source_unref(test_hangcheck);
 
         nd = sd_icmp6_nd_unref(nd);
-        assert(!nd);
+        assert_se(!nd);
 
         close(test_fd[1]);
 }
@@ -146,7 +146,7 @@ static void test_rs(sd_event *e) {
 int main(int argc, char *argv[]) {
         sd_event *e;
 
-        assert(sd_event_new(&e) >= 0);
+        assert_se(sd_event_new(&e) >= 0);
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();

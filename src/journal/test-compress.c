@@ -64,28 +64,28 @@ static void test_compress_decompress(int compression,
         r = compress(data, data_len, compressed, &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert(may_fail);
+                assert_se(may_fail);
         } else {
-                assert(r == 0);
+                assert_se(r == 0);
                 r = decompress(compressed, csize,
                                (void **) &decompressed, &usize, &csize, 0);
-                assert(r == 0);
+                assert_se(r == 0);
                 assert_se(decompressed);
                 assert_se(memcmp(decompressed, data, data_len) == 0);
         }
 
         r = decompress("garbage", 7,
                        (void **) &decompressed, &usize, &csize, 0);
-        assert(r < 0);
+        assert_se(r < 0);
 
         /* make sure to have the minimal lz4 compressed size */
         r = decompress("00000000\1g", 9,
                        (void **) &decompressed, &usize, &csize, 0);
-        assert(r < 0);
+        assert_se(r < 0);
 
         r = decompress("\100000000g", 9,
                        (void **) &decompressed, &usize, &csize, 0);
-        assert(r < 0);
+        assert_se(r < 0);
 
         memzero(decompressed, usize);
 }
@@ -109,10 +109,10 @@ static void test_decompress_startswith(int compression,
         r = compress(data, data_len, compressed, &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert(may_fail);
+                assert_se(may_fail);
                 return;
         }
-        assert(r == 0);
+        assert_se(r == 0);
 
         assert_se(decompress_sw(compressed,
                                 csize,
@@ -184,7 +184,7 @@ static void test_compress_stream(int compression,
 
         assert_se(lseek(dst, 1, SEEK_SET) == 1);
         r = decompress(dst, dst2, st.st_size);
-        assert(r == -EBADMSG);
+        assert_se(r == -EBADMSG);
 
         assert_se(lseek(dst, 0, SEEK_SET) == 0);
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);

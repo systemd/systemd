@@ -30,9 +30,9 @@ static void test_syslog_parse_identifier(const char* str,
 
         ret2 = syslog_parse_identifier(&buf, &ident2, &pid2);
 
-        assert(ret == ret2);
-        assert(ident == ident2 || streq_ptr(ident, ident2));
-        assert(pid == pid2 || streq_ptr(pid, pid2));
+        assert_se(ret == ret2);
+        assert_se(ident == ident2 || streq_ptr(ident, ident2));
+        assert_se(pid == pid2 || streq_ptr(pid, pid2));
 }
 
 int main(void) {

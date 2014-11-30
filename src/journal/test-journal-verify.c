@@ -38,15 +38,15 @@ static void bit_toggle(const char *fn, uint64_t p) {
         int fd;
 
         fd = open(fn, O_RDWR|O_CLOEXEC);
-        assert(fd >= 0);
+        assert_se(fd >= 0);
 
         r = pread(fd, &b, 1, p/8);
-        assert(r == 1);
+        assert_se(r == 1);
 
         b ^= 1 << (p % 8);
 
         r = pwrite(fd, &b, 1, p/8);
-        assert(r == 1);
+        assert_se(r == 1);
 
         safe_close(fd);
 }
