@@ -171,16 +171,7 @@ static void tuntap_done(NetDev *netdev) {
 }
 
 static int tuntap_verify(NetDev *netdev, const char *filename) {
-        TunTap *t = NULL;
-
         assert(netdev);
-
-        if (netdev->kind == NETDEV_KIND_TUN)
-                t = TUN(netdev);
-        else
-                t = TAP(netdev);
-
-        assert(t);
 
         if (netdev->mtu) {
                 log_warning_netdev(netdev, "MTU configured for %s, ignoring",
