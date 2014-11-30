@@ -2487,7 +2487,6 @@ int config_parse_address_families(
                 void *userdata) {
 
         ExecContext *c = data;
-        Unit *u = userdata;
         bool invert = false;
         const char *word, *state;
         size_t l;
@@ -2496,7 +2495,6 @@ int config_parse_address_families(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(u);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */

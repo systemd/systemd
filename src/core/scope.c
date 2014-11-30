@@ -382,15 +382,14 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
 }
 
 static bool scope_check_gc(Unit *u) {
-        Scope *s = SCOPE(u);
-        int r;
-
-        assert(s);
+        assert(u);
 
         /* Never clean up scopes that still have a process around,
          * even if the scope is formally dead. */
 
         if (u->cgroup_path) {
+                int r;
+
                 r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
                 if (r <= 0)
                         return true;
