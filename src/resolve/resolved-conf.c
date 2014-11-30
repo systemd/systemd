@@ -120,14 +120,12 @@ int config_parse_support(
                 void *data,
                 void *userdata) {
 
-        Manager *m = userdata;
         Support support, *v = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(m);
 
         support = support_from_string(rvalue);
         if (support < 0) {
