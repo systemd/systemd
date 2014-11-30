@@ -708,9 +708,9 @@
                                 <term><varname>LimitNICE=</varname></term>
                                 <term><varname>LimitRTPRIO=</varname></term>
                                 <term><varname>LimitRTTIME=</varname></term>
-                                <listitem><para>These settings control
-                                various resource limits for executed
-                                processes. See
+                                <listitem><para>These settings set both
+                                soft and hard limits of various resources for
+                                executed processes. See
                                 <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Use the string
                                 <varname>infinity</varname> to
