@@ -250,7 +250,7 @@
                                 processes. Takes a space-separated
                                 list of CPU indices. This option may
                                 be specified more than once in which
-                                case the specificed CPU affinity masks
+                                case the specified CPU affinity masks
                                 are merged. If the empty string is
                                 assigned, the mask is reset, all
                                 assignments prior to this will have no
@@ -1196,7 +1196,7 @@
                                 process. If set, this will override
                                 the automated domain
                                 transition. However, the policy still
-                                needs to autorize the transition. This
+                                needs to authorize the transition. This
                                 directive is ignored if SELinux is
                                 disabled. If prefixed by
                                 <literal>-</literal>, all errors will
@@ -1521,7 +1521,7 @@
                                 <term><varname>$PATH</varname></term>
 
                                 <listitem><para>Colon-separated list
-                                of directiories to use when launching
+                                of directories to use when launching
                                 executables. Systemd uses a fixed
                                 value of
                                 <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.
