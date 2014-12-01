@@ -2289,7 +2289,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t id;
 
                         if (safe_atou32(l+15, &id) < 0)
-                                log_warning("Failed to parse current job id value %s", l+15);
+                                log_debug("Failed to parse current job id value %s", l+15);
                         else
                                 m->current_job_id = MAX(m->current_job_id, id);
 
@@ -2297,7 +2297,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(l+17, &n) < 0)
-                                log_warning("Failed to parse installed jobs counter %s", l+17);
+                                log_debug("Failed to parse installed jobs counter %s", l+17);
                         else
                                 m->n_installed_jobs += n;
 
@@ -2305,7 +2305,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(l+14, &n) < 0)
-                                log_warning("Failed to parse failed jobs counter %s", l+14);
+                                log_debug("Failed to parse failed jobs counter %s", l+14);
                         else
                                 m->n_failed_jobs += n;
 
@@ -2314,7 +2314,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(l+10);
                         if (b < 0)
-                                log_warning("Failed to parse taint /usr flag %s", l+10);
+                                log_debug("Failed to parse taint /usr flag %s", l+10);
                         else
                                 m->taint_usr = m->taint_usr || b;
 
@@ -2365,7 +2365,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd;
 
                         if (safe_atoi(l + 10, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_warning("Failed to parse notify fd: %s", l + 10);
+                                log_debug("Failed to parse notify fd: %s", l + 10);
                         else {
                                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
@@ -2388,7 +2388,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd;
 
                         if (safe_atoi(l + 9, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_warning("Failed to parse kdbus fd: %s", l + 9);
+                                log_debug("Failed to parse kdbus fd: %s", l + 9);
                         else {
                                 safe_close(m->kdbus_fd);
                                 m->kdbus_fd = fdset_remove(fds, fd);
