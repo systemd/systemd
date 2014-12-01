@@ -1144,15 +1144,20 @@ void bus_track_serialize(sd_bus_track *t, FILE *f) {
 
 int bus_track_deserialize_item(char ***l, const char *line) {
         const char *e;
+        int r;
 
         assert(l);
         assert(line);
 
         e = startswith(line, "subscribed=");
         if (!e)
-                return -EINVAL;
+                return 0;
 
-        return strv_extend(l, e);
+        r = strv_extend(l, e);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
