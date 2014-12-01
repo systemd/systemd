@@ -35,6 +35,8 @@ External:
 
 Features:
 
+* figure out what to do with libmount and utab?
+
 * We really should have a FOREACH macro to iterate through inotify events we read, similar to KDBUS_FOREACH_ITEM
 
 * figure out when we can use the coarse timers
