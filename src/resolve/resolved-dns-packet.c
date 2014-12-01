@@ -547,10 +547,19 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
         case DNS_TYPE_TXT: {
                 char **s;
 
-                STRV_FOREACH(s, rr->txt.strings) {
-                        r = dns_packet_append_string(p, *s, NULL);
+                if (strv_isempty(rr->txt.strings)) {
+                        /* RFC 6763, section 6.1 suggests to generate
+                         * single empty string for an empty array. */
+
+                        r = dns_packet_append_string(p, "", NULL);
                         if (r < 0)
                                 goto fail;
+                } else {
+                        STRV_FOREACH(s, rr->txt.strings) {
+                                r = dns_packet_append_string(p, *s, NULL);
+                                if (r < 0)
+                                        goto fail;
+                        }
                 }
 
                 r = 0;
@@ -1111,29 +1120,31 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
-        case DNS_TYPE_TXT: {
-                char *s;
+        case DNS_TYPE_TXT:
+                if (rdlength <= 0) {
+                        /* RFC 6763, section 6.1 suggests to treat
+                         * empty TXT RRs as equivalent to a TXT record
+                         * with a single empty string. */
 
-                /* RFC 1035 says that TXT must be at least one
-                   string. Reject empty records. */
-                if (!rdlength) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
-
-                while (p->rindex < offset + rdlength) {
-                        r = dns_packet_read_string(p, &s, NULL);
+                        r = strv_extend(&rr->txt.strings, "");
                         if (r < 0)
                                 goto fail;
+                } else {
+                        while (p->rindex < offset + rdlength) {
+                                char *s;
 
-                        r = strv_consume(&rr->txt.strings, s);
-                        if (r < 0)
-                                goto fail;
+                                r = dns_packet_read_string(p, &s, NULL);
+                                if (r < 0)
+                                        goto fail;
+
+                                r = strv_consume(&rr->txt.strings, s);
+                                if (r < 0)
+                                        goto fail;
+                        }
                 }
 
                 r = 0;
                 break;
-        }
 
         case DNS_TYPE_A:
                 r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
