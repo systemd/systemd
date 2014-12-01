@@ -1306,8 +1306,10 @@ int socket_read_message(sd_rtnl *rtnl) {
                 }
 
                 /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(nl_type->size))
+                if (new_msg->nlmsg_len < NLMSG_LENGTH(nl_type->size)) {
+                        log_debug("sd-rtnl: message larger than expected, dropping");
                         continue;
+                }
 
                 r = message_new_empty(rtnl, &m);
                 if (r < 0)
