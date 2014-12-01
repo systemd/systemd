@@ -830,6 +830,8 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, const c
         int r;
         void *attr_data;
 
+        assert_return(m, -EINVAL);
+
         r = message_attribute_has_type(m, type, NLA_STRING);
         if (r < 0)
                 return r;
@@ -840,7 +842,8 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, const c
         else if (strnlen(attr_data, r) >= (size_t) r)
                 return -EIO;
 
-        *data = (const char *) attr_data;
+        if (data)
+                *data = (const char *) attr_data;
 
         return 0;
 }
@@ -848,6 +851,8 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, const c
 int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_U8);
         if (r < 0)
@@ -859,7 +864,8 @@ int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *da
         else if ((size_t) r < sizeof(uint8_t))
                 return -EIO;
 
-        *data = *(uint8_t *) attr_data;
+        if (data)
+                *data = *(uint8_t *) attr_data;
 
         return 0;
 }
@@ -867,6 +873,8 @@ int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *da
 int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_U16);
         if (r < 0)
@@ -878,7 +886,8 @@ int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *
         else if ((size_t) r < sizeof(uint16_t))
                 return -EIO;
 
-        *data = *(uint16_t *) attr_data;
+        if (data)
+                *data = *(uint16_t *) attr_data;
 
         return 0;
 }
@@ -886,6 +895,8 @@ int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *
 int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_U32);
         if (r < 0)
@@ -897,7 +908,8 @@ int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *
         else if ((size_t)r < sizeof(uint32_t))
                 return -EIO;
 
-        *data = *(uint32_t *) attr_data;
+        if (data)
+                *data = *(uint32_t *) attr_data;
 
         return 0;
 }
@@ -905,6 +917,8 @@ int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *
 int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, struct ether_addr *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_ETHER_ADDR);
         if (r < 0)
@@ -916,7 +930,8 @@ int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, str
         else if ((size_t)r < sizeof(struct ether_addr))
                 return -EIO;
 
-        memcpy(data, attr_data, sizeof(struct ether_addr));
+        if (data)
+                memcpy(data, attr_data, sizeof(struct ether_addr));
 
         return 0;
 }
@@ -924,6 +939,8 @@ int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, str
 int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, struct ifa_cacheinfo *info) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_CACHE_INFO);
         if (r < 0)
@@ -935,7 +952,8 @@ int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, str
         else if ((size_t)r < sizeof(struct ifa_cacheinfo))
                 return -EIO;
 
-        memcpy(info, attr_data, sizeof(struct ifa_cacheinfo));
+        if (info)
+                memcpy(info, attr_data, sizeof(struct ifa_cacheinfo));
 
         return 0;
 }
@@ -943,6 +961,8 @@ int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, str
 int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct in_addr *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_IN_ADDR);
         if (r < 0)
@@ -954,7 +974,8 @@ int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct
         else if ((size_t)r < sizeof(struct in_addr))
                 return -EIO;
 
-        memcpy(data, attr_data, sizeof(struct in_addr));
+        if (data)
+                memcpy(data, attr_data, sizeof(struct in_addr));
 
         return 0;
 }
@@ -962,6 +983,8 @@ int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct
 int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struct in6_addr *data) {
         int r;
         void *attr_data;
+
+        assert_return(m, -EINVAL);
 
         r = message_attribute_has_type(m, type, NLA_IN_ADDR);
         if (r < 0)
@@ -973,7 +996,8 @@ int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struc
         else if ((size_t)r < sizeof(struct in6_addr))
                 return -EIO;
 
-        memcpy(data, attr_data, sizeof(struct in6_addr));
+        if (data)
+                memcpy(data, attr_data, sizeof(struct in6_addr));
 
         return 0;
 }
