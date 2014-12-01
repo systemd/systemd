@@ -99,7 +99,7 @@
       <varlistentry>
         <term><varname>Compress=</varname></term>
 
-        <listitem><para>Controls the type of compression for external
+        <listitem><para>Controls compression for external
         storage. Takes a boolean argument, defaults to
         <literal>yes</literal>.</para>
         </listitem>

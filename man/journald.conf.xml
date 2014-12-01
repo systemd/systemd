@@ -123,9 +123,8 @@
                                 value. If enabled (the default), data
                                 objects that shall be stored in the
                                 journal and are larger than a certain
-                                threshold are compressed with the XZ
-                                compression algorithm before they are
-                                written to the file
+                                threshold are compressed before they
+                                are written to the file
                                 system.</para></listitem>
                         </varlistentry>
 
