@@ -1934,9 +1934,13 @@ int main(int argc, char *argv[]) {
                 else
                         r = sd_journal_previous_skip(j, 1 + !!arg_after_cursor);
 
-                if (arg_after_cursor && r < 2 && !arg_follow)
+                if (arg_after_cursor && r < 2) {
                         /* We couldn't find the next entry after the cursor. */
-                        arg_lines = 0;
+                        if (arg_follow)
+                                need_seek = true;
+                        else
+                                arg_lines = 0;
+                }
 
         } else if (arg_since_set && !arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_since);
