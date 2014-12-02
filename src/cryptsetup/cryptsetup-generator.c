@@ -36,6 +36,7 @@
 
 typedef struct crypto_device {
         char *uuid;
+        char *keyfile;
         char *options;
         bool create;
 } crypto_device;
@@ -264,6 +265,7 @@ static void free_arg_disks(void) {
 
         while ((d = hashmap_steal_first(arg_disks))) {
                 free(d->uuid);
+                free(d->keyfile);
                 free(d->options);
                 free(d);
         }
@@ -284,7 +286,7 @@ static crypto_device *get_crypto_device(const char *uuid) {
                         return NULL;
 
                 d->create = false;
-                d->options = NULL;
+                d->keyfile = d->options = NULL;
 
                 d->uuid = strdup(uuid);
                 if (!d->uuid) {
@@ -348,7 +350,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (STR_IN_SET(key, "luks.key", "rd.luks.key") && value) {
 
-                if (free_and_strdup(&arg_default_keyfile, value))
+                r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
+                if (r == 2) {
+                        d = get_crypto_device(uuid);
+                        if (!d)
+                                return log_oom();
+
+                        free(d->keyfile);
+                        d->keyfile = uuid_value;
+                        uuid_value = NULL;
+                } else if (free_and_strdup(&arg_default_keyfile, value))
                         return log_oom();
 
         }
@@ -455,7 +466,7 @@ static int add_proc_cmdline_devices(void) {
                 else
                         options = "timeout=0";
 
-                r = create_disk(name, device, arg_default_keyfile, options);
+                r = create_disk(name, device, d->keyfile ?: arg_default_keyfile, options);
                 if (r < 0)
                         return r;
         }

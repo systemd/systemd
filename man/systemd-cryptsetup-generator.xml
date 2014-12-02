@@ -165,11 +165,16 @@
                                 <term><varname>luks.key=</varname></term>
                                 <term><varname>rd.luks.key=</varname></term>
 
-                                <listitem><para>Takes a password file as argument.</para>
+                                <listitem><para>Takes a password file name as argument or
+                                a LUKS super block UUID followed by a '=' and a password
+                                file name.</para>
+
                                 <para>For those entries specified with
                                 <varname>rd.luks.uuid=</varname> or <varname>luks.uuid=</varname>,
-                                the password file will be set to the password file specified by
-                                <varname>rd.luks.key=</varname> or <varname>luks.key</varname></para>
+                                the password file will be set to the one specified by
+                                <varname>rd.luks.key=</varname> or <varname>luks.key=</varname>
+                                of the corresponding UUID, or the password file that was specified
+                                without a UUID.</para>
                                 <para><varname>rd.luks.key=</varname>
                                 is honored only by initial RAM disk
                                 (initrd) while
