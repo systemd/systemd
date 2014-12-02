@@ -19,26 +19,34 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "log.h"
-#include "util.h"
-#include "unit-name.h"
-#include "mkdir.h"
-#include "strv.h"
-#include "fileio.h"
-#include "path-util.h"
 #include "dropin.h"
+#include "fileio.h"
 #include "generator.h"
+#include "hashmap.h"
+#include "log.h"
+#include "mkdir.h"
+#include "path-util.h"
+#include "strv.h"
+#include "unit-name.h"
+#include "util.h"
+
+typedef struct crypto_device {
+        char *uuid;
+        char *options;
+        bool create;
+} crypto_device;
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
-static char **arg_disks = NULL;
-static char **arg_options = NULL;
-static char *arg_keyfile = NULL;
+static bool arg_whitelist = false;
+static Hashmap *arg_disks = NULL;
+static char *arg_default_options = NULL;
+static char *arg_default_keyfile = NULL;
 
 static bool has_option(const char *haystack, const char *needle) {
         const char *f = haystack;
@@ -251,8 +259,54 @@ static int create_disk(
         return 0;
 }
 
+static void free_arg_disks(void) {
+        crypto_device *d;
+
+        while ((d = hashmap_steal_first(arg_disks))) {
+                free(d->uuid);
+                free(d->options);
+                free(d);
+        }
+
+        hashmap_free(arg_disks);
+}
+
+static crypto_device *get_crypto_device(const char *uuid) {
+        int r;
+        crypto_device *d;
+
+        assert(uuid);
+
+        d = hashmap_get(arg_disks, uuid);
+        if (!d) {
+                d = new0(struct crypto_device, 1);
+                if (!d)
+                        return NULL;
+
+                d->create = false;
+                d->options = NULL;
+
+                d->uuid = strdup(uuid);
+                if (!d->uuid) {
+                        free(d);
+                        return NULL;
+                }
+
+                r = hashmap_put(arg_disks, d->uuid, d);
+                if (r < 0) {
+                        free(d->uuid);
+                        free(d);
+                        return NULL;
+                }
+        }
+
+        return d;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
+        crypto_device *d;
+        _cleanup_free_ char *uuid = NULL, *uuid_value = NULL;
 
         if (STR_IN_SET(key, "luks", "rd.luks") && value) {
 
@@ -272,19 +326,29 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (STR_IN_SET(key, "luks.uuid", "rd.luks.uuid") && value) {
 
-                if (strv_extend(&arg_disks, value) < 0)
+                d = get_crypto_device(startswith(value, "luks-") ? value+5 : value);
+                if (!d)
                         return log_oom();
+
+                d->create = arg_whitelist = true;
 
         } else if (STR_IN_SET(key, "luks.options", "rd.luks.options") && value) {
 
-                if (strv_extend(&arg_options, value) < 0)
+                r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
+                if (r == 2) {
+                        d = get_crypto_device(uuid);
+                        if (!d)
+                                return log_oom();
+
+                        free(d->options);
+                        d->options = uuid_value;
+                        uuid_value = NULL;
+                } else if (free_and_strdup(&arg_default_options, value) < 0)
                         return log_oom();
 
         } else if (STR_IN_SET(key, "luks.key", "rd.luks.key") && value) {
 
-                free(arg_keyfile);
-                arg_keyfile = strdup(value);
-                if (!arg_keyfile)
+                if (free_and_strdup(&arg_default_keyfile, value))
                         return log_oom();
 
         }
@@ -292,12 +356,115 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **disks_done = NULL;
+static int add_crypttab_devices(void) {
+        struct stat st;
+        unsigned crypttab_line = 0;
         _cleanup_fclose_ FILE *f = NULL;
-        unsigned n = 0;
-        int r = EXIT_FAILURE, r2 = EXIT_FAILURE, z;
-        char **i;
+
+        if (!arg_read_crypttab)
+                return 0;
+
+        f = fopen("/etc/crypttab", "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        log_error_errno(errno, "Failed to open /etc/crypttab: %m");
+                return 0;
+        }
+
+        if (fstat(fileno(f), &st) < 0) {
+                log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
+                return 0;
+        }
+
+        /* If we readd support for specifying passphrases
+         * directly in crypttab we should upgrade the warning
+         * below, though possibly only if a passphrase is
+         * specified directly. */
+        if (st.st_mode & 0005)
+                log_debug("/etc/crypttab is world-readable. This is usually not a good idea.");
+
+        for (;;) {
+                int r, k;
+                char line[LINE_MAX], *l, *uuid;
+                crypto_device *d = NULL;
+                _cleanup_free_ char *name = NULL, *device = NULL, *keyfile = NULL, *options = NULL;
+
+                if (!fgets(line, sizeof(line), f))
+                        break;
+
+                crypttab_line++;
+
+                l = strstrip(line);
+                if (*l == '#' || *l == 0)
+                        continue;
+
+                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyfile, &options);
+                if (k < 2 || k > 4) {
+                        log_error("Failed to parse /etc/crypttab:%u, ignoring.", crypttab_line);
+                        continue;
+                }
+
+                uuid = startswith(device, "UUID=");
+                if (!uuid)
+                        uuid = path_startswith(device, "/dev/disk/by-uuid/");
+                if (!uuid)
+                        uuid = startswith(name, "luks-");
+                if (uuid)
+                        d = hashmap_get(arg_disks, uuid);
+
+                if (arg_whitelist && !d) {
+                        log_info("Not creating device '%s' because it was not specified on the kernel command line.", name);
+                        continue;
+                }
+
+                r = create_disk(name, device, keyfile, (d && d->options) ? d->options : options);
+                if (r < 0)
+                        return r;
+
+                if (d)
+                        d->create = false;
+        }
+
+        return 0;
+}
+
+static int add_proc_cmdline_devices(void) {
+        int r;
+        Iterator i;
+        crypto_device *d;
+
+        HASHMAP_FOREACH(d, arg_disks, i) {
+                const char *options;
+                _cleanup_free_ char *name = NULL, *device = NULL;
+
+                if (!d->create)
+                        continue;
+
+                name = strappend("luks-", d->uuid);
+                if (!name)
+                        return log_oom();
+
+                device = strappend("UUID=", d->uuid);
+                if (!device)
+                        return log_oom();
+
+                if (d->options)
+                        options = d->options;
+                else if (arg_default_options)
+                        options = arg_default_options;
+                else
+                        options = "timeout=0";
+
+                r = create_disk(name, device, arg_default_keyfile, options);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        int r = EXIT_FAILURE;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -313,192 +480,33 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        z = parse_proc_cmdline(parse_proc_cmdline_item);
-        if (z < 0)
-                log_warning_errno(z, "Failed to parse kernel command line, ignoring: %m");
+        arg_disks = hashmap_new(&string_hash_ops);
+        if (!arg_disks)
+                goto cleanup;
+
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+                r = EXIT_FAILURE;
+        }
 
         if (!arg_enabled) {
-                r = r2 = EXIT_SUCCESS;
+                r = EXIT_SUCCESS;
                 goto cleanup;
         }
 
-        strv_uniq(arg_disks);
+        if (add_crypttab_devices() < 0)
+                goto cleanup;
 
-        if (arg_read_crypttab) {
-                struct stat st;
-
-                f = fopen("/etc/crypttab", "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                r = EXIT_SUCCESS;
-                        else
-                                log_error_errno(errno, "Failed to open /etc/crypttab: %m");
-
-                        goto next;
-                }
-
-                if (fstat(fileno(f), &st) < 0) {
-                        log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
-                        goto next;
-                }
-
-                /* If we readd support for specifying passphrases
-                 * directly in crypttabe we should upgrade the warning
-                 * below, though possibly only if a passphrase is
-                 * specified directly. */
-                if (st.st_mode & 0005)
-                        log_debug("/etc/crypttab is world-readable. This is usually not a good idea.");
-
-                for (;;) {
-                        char line[LINE_MAX], *l;
-                        _cleanup_free_ char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
-                        int k;
-
-                        if (!fgets(line, sizeof(line), f))
-                                break;
-
-                        n++;
-
-                        l = strstrip(line);
-                        if (*l == '#' || *l == 0)
-                                continue;
-
-                        k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options);
-                        if (k < 2 || k > 4) {
-                                log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
-                                continue;
-                        }
-
-                        /*
-                          If options are specified on the kernel command line, let them override
-                          the ones from crypttab.
-                        */
-                        STRV_FOREACH(i, arg_options) {
-                                _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
-                                const char *p = *i;
-
-                                k = sscanf(p, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
-                                if (k == 2 && streq(proc_uuid, device + 5)) {
-                                        free(options);
-                                        options = strdup(p);
-                                        if (!options) {
-                                                log_oom();
-                                                goto cleanup;
-                                        }
-                                }
-                        }
-
-                        if (arg_disks) {
-                                /*
-                                  If luks UUIDs are specified on the kernel command line, use them as a filter
-                                  for /etc/crypttab and only generate units for those.
-                                */
-                                STRV_FOREACH(i, arg_disks) {
-                                        _cleanup_free_ char *proc_device = NULL, *proc_name = NULL;
-                                        const char *p = *i;
-
-                                        if (startswith(p, "luks-"))
-                                                p += 5;
-
-                                        proc_name = strappend("luks-", p);
-                                        proc_device = strappend("UUID=", p);
-
-                                        if (!proc_name || !proc_device) {
-                                                log_oom();
-                                                goto cleanup;
-                                        }
-
-                                        if (streq(proc_device, device) || streq(proc_name, name)) {
-                                                if (create_disk(name, device, password, options) < 0)
-                                                        goto cleanup;
-
-                                                if (strv_extend(&disks_done, p) < 0) {
-                                                        log_oom();
-                                                        goto cleanup;
-                                                }
-                                        }
-                                }
-                        } else if (create_disk(name, device, password, options) < 0)
-                                goto cleanup;
-
-                }
-        }
+        if (add_proc_cmdline_devices() < 0)
+                goto cleanup;
 
         r = EXIT_SUCCESS;
 
-next:
-        STRV_FOREACH(i, arg_disks) {
-                /*
-                  Generate units for those UUIDs, which were specified
-                  on the kernel command line and not yet written.
-                */
-
-                _cleanup_free_ char *name = NULL, *device = NULL, *options = NULL;
-                const char *p = *i;
-
-                if (startswith(p, "luks-"))
-                        p += 5;
-
-                if (strv_contains(disks_done, p))
-                        continue;
-
-                name = strappend("luks-", p);
-                device = strappend("UUID=", p);
-
-                if (!name || !device) {
-                        log_oom();
-                        goto cleanup;
-                }
-
-                if (arg_options) {
-                        /*
-                          If options are specified on the kernel command line, use them.
-                        */
-                        char **j;
-
-                        STRV_FOREACH(j, arg_options) {
-                                _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
-                                const char *s = *j;
-                                int k;
-
-                                k = sscanf(s, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
-                                if (k == 2) {
-                                        if (streq(proc_uuid, device + 5)) {
-                                                free(options);
-                                                options = proc_options;
-                                                proc_options = NULL;
-                                        }
-                                } else if (!options) {
-                                        /*
-                                          Fall back to options without a specified UUID
-                                        */
-                                        options = strdup(s);
-                                        if (!options) {
-                                                log_oom();
-                                                goto cleanup;
-                                        };
-                                }
-                        }
-                }
-
-                if (!options) {
-                        options = strdup("timeout=0");
-                        if (!options) {
-                                log_oom();
-                                goto cleanup;
-                        }
-                }
-
-                if (create_disk(name, device, arg_keyfile, options) < 0)
-                        goto cleanup;
-        }
-
-        r2 = EXIT_SUCCESS;
-
 cleanup:
-        strv_free(arg_disks);
-        strv_free(arg_options);
-        free(arg_keyfile);
+        free_arg_disks();
+        free(arg_default_options);
+        free(arg_default_keyfile);
 
-        return r != EXIT_SUCCESS ? r : r2;
+        return r;
 }
