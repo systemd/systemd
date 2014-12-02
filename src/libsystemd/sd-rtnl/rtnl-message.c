@@ -150,7 +150,8 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_route(nlmsg_type), -EINVAL);
-        assert_return(rtm_family == AF_INET || rtm_family == AF_INET6, -EINVAL);
+        assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) ||
+                      rtm_family == AF_INET || rtm_family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
