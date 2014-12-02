@@ -538,7 +538,7 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                                 fprintf(f, "%s", contents);
                         }
 
-                        r = format_cmdline(m, f, true);
+                        r = format_cmdline(m, f, needs_space || IN_SET(type, SD_BUS_TYPE_ARRAY, SD_BUS_TYPE_VARIANT));
                         if (r < 0)
                                 return r;
 
@@ -614,6 +614,7 @@ static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
                         assert_not_reached("Unknown basic type.");
                 }
 
+                needs_space = true;
         }
 }
 
