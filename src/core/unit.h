@@ -179,8 +179,9 @@ struct Unit {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
-        /* Cached unit file state */
+        /* Cached unit file state and preset */
         UnitFileState unit_file_state;
+        int unit_file_preset;
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
@@ -560,6 +561,7 @@ void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
+int unit_get_unit_file_preset(Unit *u);
 
 Unit* unit_ref_set(UnitRef *ref, Unit *u);
 void unit_ref_unset(UnitRef *ref);

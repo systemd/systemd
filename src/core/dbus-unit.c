@@ -169,6 +169,29 @@ static int property_get_sub_state(
         return sd_bus_message_append(reply, "s", unit_sub_state_to_string(u));
 }
 
+static int property_get_unit_file_preset(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        r = unit_get_unit_file_preset(u);
+
+        return sd_bus_message_append(reply, "s",
+                                     r < 0 ? "":
+                                     r > 0 ? "enabled" : "disabled");
+}
+
 static int property_get_unit_file_state(
                 sd_bus *bus,
                 const char *path,
@@ -184,7 +207,7 @@ static int property_get_unit_file_state(
         assert(reply);
         assert(u);
 
-        return sd_bus_message_append(reply, "s", unit_file_state_to_string(unit_get_unit_file_state(u)));
+        return sd_bus_message_append(reply, "s", unit_file_state_to_string(unit_get_unit_file_preset(u)));
 }
 
 static int property_get_can_start(
@@ -552,6 +575,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Unit, source_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DropInPaths", "as", NULL, offsetof(Unit, dropin_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UnitFileState", "s", property_get_unit_file_state, 0, 0),
+        SD_BUS_PROPERTY("UnitFilePreset", "s", property_get_unit_file_preset, 0, 0),
         BUS_PROPERTY_DUAL_TIMESTAMP("InactiveExitTimestamp", offsetof(Unit, inactive_exit_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ActiveEnterTimestamp", offsetof(Unit, active_enter_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ActiveExitTimestamp", offsetof(Unit, active_exit_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),

@@ -92,6 +92,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->deserialized_job = _JOB_TYPE_INVALID;
         u->default_dependencies = true;
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
+        u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
 
         return u;
@@ -3088,6 +3089,17 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
                                 NULL, basename(u->fragment_path));
 
         return u->unit_file_state;
+}
+
+int unit_get_unit_file_preset(Unit *u) {
+        assert(u);
+
+        if (u->unit_file_preset < 0 && u->fragment_path)
+                u->unit_file_preset = unit_file_query_preset(
+                                u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                NULL, basename(u->fragment_path));
+
+        return u->unit_file_preset;
 }
 
 Unit* unit_ref_set(UnitRef *ref, Unit *u) {

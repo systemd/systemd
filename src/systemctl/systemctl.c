@@ -3221,6 +3221,7 @@ typedef struct UnitStatusInfo {
         const char *active_state;
         const char *sub_state;
         const char *unit_file_state;
+        const char *unit_file_preset;
 
         const char *description;
         const char *following;
@@ -3344,7 +3345,10 @@ static void print_status_info(
         if (i->load_error)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
-        else if (path && i->unit_file_state)
+        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
+                printf("   Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
+                       on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
+        else if (path && !isempty(i->unit_file_state))
                 printf("   Loaded: %s%s%s (%s; %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state);
         else if (path)
@@ -3669,6 +3673,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                                 i->following = s;
                         else if (streq(name, "UnitFileState"))
                                 i->unit_file_state = s;
+                        else if (streq(name, "UnitFilePreset"))
+                                i->unit_file_preset = s;
                         else if (streq(name, "Result"))
                                 i->result = s;
                 }
