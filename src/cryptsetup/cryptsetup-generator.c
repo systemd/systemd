@@ -37,6 +37,7 @@
 typedef struct crypto_device {
         char *uuid;
         char *keyfile;
+        char *name;
         char *options;
         bool create;
 } crypto_device;
@@ -266,6 +267,7 @@ static void free_arg_disks(void) {
         while ((d = hashmap_steal_first(arg_disks))) {
                 free(d->uuid);
                 free(d->keyfile);
+                free(d->name);
                 free(d->options);
                 free(d);
         }
@@ -286,7 +288,7 @@ static crypto_device *get_crypto_device(const char *uuid) {
                         return NULL;
 
                 d->create = false;
-                d->keyfile = d->options = NULL;
+                d->keyfile = d->options = d->name = NULL;
 
                 d->uuid = strdup(uuid);
                 if (!d->uuid) {
@@ -361,6 +363,22 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         uuid_value = NULL;
                 } else if (free_and_strdup(&arg_default_keyfile, value))
                         return log_oom();
+
+        } else if (STR_IN_SET(key, "luks.name", "rd.luks.name") && value) {
+
+                r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
+                if (r == 2) {
+                        d = get_crypto_device(uuid);
+                        if (!d)
+                                return log_oom();
+
+                        d->create = arg_whitelist = true;
+
+                        free(d->name);
+                        d->name = uuid_value;
+                        uuid_value = NULL;
+                } else
+                        log_warning("Failed to parse luks name switch %s. Ignoring.", value);
 
         }
 
@@ -446,14 +464,16 @@ static int add_proc_cmdline_devices(void) {
 
         HASHMAP_FOREACH(d, arg_disks, i) {
                 const char *options;
-                _cleanup_free_ char *name = NULL, *device = NULL;
+                _cleanup_free_ char *device = NULL;
 
                 if (!d->create)
                         continue;
 
-                name = strappend("luks-", d->uuid);
-                if (!name)
-                        return log_oom();
+                if (!d->name) {
+                        d->name = strappend("luks-", d->uuid);
+                        if (!d->name)
+                                return log_oom();
+                }
 
                 device = strappend("UUID=", d->uuid);
                 if (!device)
@@ -466,7 +486,7 @@ static int add_proc_cmdline_devices(void) {
                 else
                         options = "timeout=0";
 
-                r = create_disk(name, device, d->keyfile ?: arg_default_keyfile, options);
+                r = create_disk(d->name, device, d->keyfile ?: arg_default_keyfile, options);
                 if (r < 0)
                         return r;
         }

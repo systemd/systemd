@@ -283,6 +283,8 @@
                                 <term><varname>rd.luks=</varname></term>
                                 <term><varname>luks.crypttab=</varname></term>
                                 <term><varname>rd.luks.crypttab=</varname></term>
+                                <term><varname>luks.name=</varname></term>
+                                <term><varname>rd.luks.name=</varname></term>
                                 <term><varname>luks.uuid=</varname></term>
                                 <term><varname>rd.luks.uuid=</varname></term>
                                 <term><varname>luks.options=</varname></term>

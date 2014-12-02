@@ -140,6 +140,25 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>luks.name=</varname></term>
+                                <term><varname>rd.luks.name=</varname></term>
+
+                                <listitem><para>Takes a LUKS super
+                                block UUID followed by an '=' and a name. This implies
+                                <varname>rd.luks.uuid=</varname> or <varname>luks.uuid=</varname>
+                                and will additionally make the LUKS device given by
+                                the UUID appear under the provided name.</para>
+
+                                <para><varname>rd.luks.name=</varname>
+                                is honored only by initial RAM disk
+                                (initrd) while
+                                <varname>luks.name=</varname> is
+                                honored by both the main system and
+                                the initrd.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>luks.options=</varname></term>
                                 <term><varname>rd.luks.options=</varname></term>
 
