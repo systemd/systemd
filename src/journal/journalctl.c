@@ -1406,17 +1406,15 @@ static int setup_keys(void) {
         h.fsprg_secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
         h.fsprg_state_size = htole64(state_size);
 
-        l = loop_write(fd, &h, sizeof(h), false);
-        if (l < 0 || (size_t) l != sizeof(h)) {
-                log_error_errno(EIO, "Failed to write header: %m");
-                r = -EIO;
+        r = loop_write(fd, &h, sizeof(h), false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write header: %m");
                 goto finish;
         }
 
-        l = loop_write(fd, state, state_size, false);
-        if (l < 0 || (size_t) l != state_size) {
-                log_error_errno(EIO, "Failed to write state: %m");
-                r = -EIO;
+        r = loop_write(fd, state, state_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write state: %m");
                 goto finish;
         }
 

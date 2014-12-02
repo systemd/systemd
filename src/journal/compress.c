@@ -400,12 +400,9 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
                         n = sizeof(out) - s.avail_out;
 
-                        errno = 0;
                         k = loop_write(fdt, out, n, false);
                         if (k < 0)
                                 return k;
-                        if (k != n)
-                                return errno ? -errno : -EIO;
 
                         if (ret == LZMA_STREAM_END) {
                                 log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
@@ -478,8 +475,6 @@ int compress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                 n = loop_write(fdt, out, r, false);
                 if (n < 0)
                         return n;
-                if (n != r)
-                        return errno ? -errno : -EIO;
 
                 total_out += sizeof(header) + r;
 
@@ -559,12 +554,9 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
                                 max_bytes -= n;
                         }
 
-                        errno = 0;
                         k = loop_write(fdt, out, n, false);
                         if (k < 0)
                                 return k;
-                        if (k != n)
-                                return errno ? -errno : -EIO;
 
                         if (ret == LZMA_STREAM_END) {
                                 log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
@@ -645,12 +637,9 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                         return -EFBIG;
                 }
 
-                errno = 0;
                 n = loop_write(fdt, out, r, false);
                 if (n < 0)
                         return n;
-                if (n != r)
-                        return errno ? -errno : -EIO;
         }
 
         log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",

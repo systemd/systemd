@@ -117,14 +117,14 @@ static int output_winch(Output *o) {
 }
 
 static int output_flush(Output *o) {
-        ssize_t len;
+        int r;
 
         if (o->n_obuf < 1)
                 return 0;
 
-        len = loop_write(o->fd, o->obuf, o->n_obuf, false);
-        if (len < 0)
-                return log_error_errno(len, "error: cannot write to TTY (%zd): %m", len);
+        r = loop_write(o->fd, o->obuf, o->n_obuf, false);
+        if (r < 0)
+                return log_error_errno(r, "error: cannot write to TTY: %m");
 
         o->n_obuf = 0;
 

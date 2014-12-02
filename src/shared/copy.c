@@ -63,7 +63,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                 /* As a fallback just copy bits by hand */
                 {
                         char buf[m];
-                        ssize_t k;
+                        int r;
 
                         n = read(fdf, buf, m);
                         if (n < 0)
@@ -71,12 +71,9 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                         if (n == 0) /* EOF */
                                 break;
 
-                        errno = 0;
-                        k = loop_write(fdt, buf, n, false);
-                        if (k < 0)
-                                return k;
-                        if (k != n)
-                                return errno ? -errno : -EIO;
+                        r = loop_write(fdt, buf, n, false);
+                        if (r < 0)
+                                return r;
 
                 }
 

@@ -54,8 +54,9 @@ static int disable_utf8(int fd) {
         if (ioctl(fd, KDSKBMODE, K_XLATE) < 0)
                 r = -errno;
 
-        if (loop_write(fd, "\033%@", 3, false) < 0)
-                r = -errno;
+        k = loop_write(fd, "\033%@", 3, false);
+        if (k < 0)
+                r = k;
 
         k = write_string_file("/sys/module/vt/parameters/default_utf8", "0");
         if (k < 0)
@@ -86,8 +87,9 @@ static int enable_utf8(int fd) {
                         r = -errno;
         }
 
-        if (loop_write(fd, "\033%G", 3, false) < 0)
-                r = -errno;
+        k = loop_write(fd, "\033%G", 3, false);
+        if (k < 0)
+                r = k;
 
         k = write_string_file("/sys/module/vt/parameters/default_utf8", "1");
         if (k < 0)

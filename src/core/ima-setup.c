@@ -42,13 +42,13 @@
 #define IMA_POLICY_PATH "/etc/ima/ima-policy"
 
 int ima_setup(void) {
+        int r = 0;
 
 #ifdef HAVE_IMA
         struct stat st;
-        ssize_t policy_size = 0, written = 0;
+        ssize_t policy_size = 0;
         char *policy;
         _cleanup_close_ int policyfd = -1, imafd = -1;
-        int result = 0;
 
         if (stat(IMA_POLICY_PATH, &st) < 0)
                 return 0;
@@ -81,13 +81,13 @@ int ima_setup(void) {
         policy = mmap(NULL, policy_size, PROT_READ, MAP_PRIVATE, policyfd, 0);
         if (policy == MAP_FAILED) {
                 log_error_errno(errno, "mmap() failed (%m), freezing");
-                result = -errno;
+                r = -errno;
                 goto out;
         }
 
-        written = loop_write(imafd, policy, (size_t)policy_size, false);
-        if (written != policy_size) {
-                log_error_errno(errno, "Failed to load the IMA custom policy file %s (%m), ignoring.",
+        r = loop_write(imafd, policy, (size_t)policy_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to load the IMA custom policy file %s (%m), ignoring.",
                                 IMA_POLICY_PATH);
                 goto out_mmap;
         }
@@ -97,9 +97,6 @@ int ima_setup(void) {
 out_mmap:
         munmap(policy, policy_size);
 out:
-        if (result)
-                 return result;
 #endif /* HAVE_IMA */
-
-        return 0;
+        return r;
 }

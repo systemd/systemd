@@ -103,9 +103,9 @@ static int ask_password_plymouth(
         if (!packet)
                 return log_oom();
 
-        k = loop_write(fd, packet, n + 1, true);
-        if (k != n + 1)
-                return k < 0 ? (int) k : -EIO;
+        r = loop_write(fd, packet, n + 1, true);
+        if (r < 0)
+                return r;
 
         pollfd[POLL_SOCKET].fd = fd;
         pollfd[POLL_SOCKET].events = POLLIN;
@@ -165,9 +165,9 @@ static int ask_password_plymouth(
                                 if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
                                         return -ENOMEM;
 
-                                k = loop_write(fd, packet, n+1, true);
-                                if (k != n + 1)
-                                        return k < 0 ? (int) k : -EIO;
+                                r = loop_write(fd, packet, n+1, true);
+                                if (r < 0)
+                                        return r;
 
                                 accept_cached = false;
                                 p = 0;

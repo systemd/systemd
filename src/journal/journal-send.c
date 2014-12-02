@@ -453,12 +453,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         header[l++] = '0';
         header[l++] = '\n';
 
-        r = (int) loop_write(fd, header, l, false);
+        r = loop_write(fd, header, l, false);
         if (r < 0)
                 return r;
-
-        if ((size_t) r != l)
-                return -errno;
 
         r = fd;
         fd = -1;

@@ -182,7 +182,7 @@ static int write_machine_id(int fd, char id[34]) {
         assert(id);
         lseek(fd, 0, SEEK_SET);
 
-        if (loop_write(fd, id, 33, false) == 33)
+        if (loop_write(fd, id, 33, false) == 0)
                 return 0;
 
         return -errno;
@@ -329,10 +329,9 @@ int machine_id_setup(const char *root) {
         if (r < 0)
                 return r;
 
-        if (S_ISREG(st.st_mode) && writable) {
+        if (S_ISREG(st.st_mode) && writable)
                 if (write_machine_id(fd, id) == 0)
                         return 0;
-        }
 
         fd = safe_close(fd);
 

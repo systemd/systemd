@@ -2292,12 +2292,14 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         return n;
 }
 
-ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         const uint8_t *p = buf;
         ssize_t n = 0;
 
         assert(fd >= 0);
         assert(buf);
+
+        errno = 0;
 
         while (nbytes > 0) {
                 ssize_t k;
@@ -2317,14 +2319,15 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                 }
 
                 if (k <= 0)
-                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                        /* We were not done yet, and a write error occured. */
+                        return errno ? -errno : -EIO;
 
                 p += k;
                 nbytes -= k;
                 n += k;
         }
 
-        return n;
+        return 0;
 }
 
 int parse_size(const char *t, off_t base, off_t *size) {
