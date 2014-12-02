@@ -17,4 +17,3 @@ Type=forking
 ExecStart=@RC_LOCAL_SCRIPT_PATH_START@ start
 TimeoutSec=0
 RemainAfterExit=yes
-SysVStartPriority=99
