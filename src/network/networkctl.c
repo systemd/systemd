@@ -34,6 +34,7 @@
 #include "arphrd-list.h"
 #include "local-addresses.h"
 #include "socket-util.h"
+#include "ether-addr-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -251,14 +252,13 @@ static int list_links(char **args, unsigned n) {
 static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) {
         struct udev_list_entry *entry;
         char *description;
-        char str[32];
+        char str[strlen("OUI:XXYYXXYYXXYY") + 1];
 
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        snprintf(str, sizeof(str), "OUI:%02X%02X%02X%02X%02X%02X", mac->ether_addr_octet[0], mac->ether_addr_octet[1], mac->ether_addr_octet[2],
-                                                                   mac->ether_addr_octet[3], mac->ether_addr_octet[4], mac->ether_addr_octet[5]);
+        snprintf(str, sizeof(str), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
 
         udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, str, 0))
                 if (strcmp(udev_list_entry_get_name(entry), "ID_OUI_FROM_DATABASE") == 0) {
