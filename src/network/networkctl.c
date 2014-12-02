@@ -247,6 +247,251 @@ static int list_links(char **args, unsigned n) {
         return 0;
 }
 
+/* IEEE Organizationally Unique Identifier vendor string */
+static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) {
+        struct udev_list_entry *entry;
+        char *description;
+        char str[32];
+
+        /* skip commonly misused 00:00:00 (Xerox) prefix */
+        if (memcmp(mac, "\0\0\0", 3) == 0)
+                return -EINVAL;
+
+        snprintf(str, sizeof(str), "OUI:%02X%02X%02X%02X%02X%02X", mac->ether_addr_octet[0], mac->ether_addr_octet[1], mac->ether_addr_octet[2],
+                                                                   mac->ether_addr_octet[3], mac->ether_addr_octet[4], mac->ether_addr_octet[5]);
+
+        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, str, 0))
+                if (strcmp(udev_list_entry_get_name(entry), "ID_OUI_FROM_DATABASE") == 0) {
+                        description = strdup(udev_list_entry_get_value(entry));
+                        if (!description)
+                                return -ENOMEM;
+
+                        *ret = description;
+                        return 0;
+                }
+
+        return -ENODATA;
+}
+
+static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int ifindex, int family,
+                                   union in_addr_union *gateway, char **gateway_description) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *m;
+        int r;
+
+        assert(rtnl);
+        assert(ifindex >= 0);
+        assert(family == AF_INET || family == AF_INET6);
+        assert(gateway);
+        assert(gateway_description);
+
+        r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_GETNEIGH, ifindex, family);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                union in_addr_union gw = {};
+                struct ether_addr mac = {};
+                uint16_t type;
+                int ifi, fam;
+
+                r = sd_rtnl_message_get_errno(m);
+                if (r < 0) {
+                        log_error_errno(r, "got error: %m");
+                        continue;
+                }
+
+                r = sd_rtnl_message_get_type(m, &type);
+                if (r < 0) {
+                        log_error_errno(r, "could not get type: %m");
+                        continue;
+                }
+
+                if (type != RTM_NEWNEIGH) {
+                        log_error("type is not RTM_NEWNEIGH");
+                        continue;
+                }
+
+                r = sd_rtnl_message_neigh_get_family(m, &fam);
+                if (r < 0) {
+                        log_error_errno(r, "could not get family: %m");
+                        continue;
+                }
+
+                if (fam != family) {
+                        log_error("family is not correct");
+                        continue;
+                }
+
+                r = sd_rtnl_message_neigh_get_ifindex(m, &ifi);
+                if (r < 0) {
+                        log_error_errno(r, "colud not get ifindex: %m");
+                        continue;
+                }
+
+                if (ifindex > 0 && ifi != ifindex)
+                        continue;
+
+                switch (fam) {
+                case AF_INET:
+                        r = sd_rtnl_message_read_in_addr(m, NDA_DST, &gw.in);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                case AF_INET6:
+                        r = sd_rtnl_message_read_in6_addr(m, NDA_DST, &gw.in6);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                default:
+                        continue;
+                }
+
+                if (!in_addr_equal(fam, &gw, gateway))
+                        continue;
+
+                r = sd_rtnl_message_read_ether_addr(m, NDA_LLADDR, &mac);
+                if (r < 0)
+                        continue;
+
+                r = ieee_oui(hwdb, &mac, gateway_description);
+                if (r < 0)
+                        continue;
+
+                return 0;
+        }
+
+        return -ENODATA;
+}
+
+static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *prefix, int ifindex) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *m;
+        bool first = true;
+        int r;
+
+        assert(rtnl);
+        assert(ifindex >= 0);
+
+        r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, AF_UNSPEC, RTPROT_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                _cleanup_free_ char *gateway = NULL, *gateway_description = NULL;
+                union in_addr_union gw = {};
+                uint16_t type;
+                uint32_t ifi;
+                int family;
+
+                r = sd_rtnl_message_get_errno(m);
+                if (r < 0) {
+                        log_error_errno(r, "got error: %m");
+                        continue;
+                }
+
+                r = sd_rtnl_message_get_type(m, &type);
+                if (r < 0) {
+                        log_error_errno(r, "could not get type: %m");
+                        continue;
+                }
+
+                if (type != RTM_NEWROUTE) {
+                        log_error("type is not RTM_NEWROUTE");
+                        continue;
+                }
+
+                r = sd_rtnl_message_route_get_family(m, &family);
+                if (r < 0) {
+                        log_error_errno(r, "could not get family: %m");
+                        continue;
+                }
+
+                r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);
+                if (r < 0) {
+                        log_error_errno(r, "colud not get RTA_OIF: %m");
+                        continue;
+                }
+
+                if (ifindex > 0 && ifi != (unsigned) ifindex)
+                        continue;
+
+                switch (family) {
+                case AF_INET:
+                        r = sd_rtnl_message_read_in_addr(m, RTA_GATEWAY, &gw.in);
+                        if (r < 0)
+                                continue;
+
+                        r = sd_rtnl_message_read_in_addr(m, RTA_DST, NULL);
+                        if (r >= 0)
+                                continue;
+
+                        r = sd_rtnl_message_read_in_addr(m, RTA_SRC, NULL);
+                        if (r >= 0)
+                                continue;
+
+                        break;
+                case AF_INET6:
+                        r = sd_rtnl_message_read_in6_addr(m, RTA_GATEWAY, &gw.in6);
+                        if (r < 0)
+                                continue;
+
+                        r = sd_rtnl_message_read_in6_addr(m, RTA_DST, NULL);
+                        if (r >= 0)
+                                continue;
+
+                        r = sd_rtnl_message_read_in6_addr(m, RTA_SRC, NULL);
+                        if (r >= 0)
+                                continue;
+
+                        break;
+                default:
+                        continue;
+                }
+
+                r = in_addr_to_string(family, &gw, &gateway);
+                if (r < 0)
+                        continue;
+
+                r = get_gateway_description(rtnl, hwdb, ifi, family, &gw, &gateway_description);
+                if (r < 0)
+                        log_debug("could not get description of gateway: %s", strerror(-r));
+
+                if (gateway_description)
+                        printf("%*s%s (%s)\n",
+                               (int) strlen(prefix),
+                               first ? prefix : "",
+                               gateway, gateway_description);
+                else
+                        printf("%*s%s\n",
+                               (int) strlen(prefix),
+                               first ? prefix : "",
+                               gateway);
+
+                first = false;
+        }
+
+        return 0;
+}
+
 static int dump_addresses(sd_rtnl *rtnl, const char *prefix, int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
@@ -284,9 +529,11 @@ static void dump_list(const char *prefix, char **l) {
 
 static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *gateway = NULL, *gateway_description = NULL,
+                            *gateway6 = NULL, *gateway6_description = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -419,6 +666,10 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 
         if (mtu > 0)
                 printf("         MTU: %u\n", mtu);
+
+        hwdb = udev_hwdb_new(udev);
+
+        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
 
         dump_addresses(rtnl, "     Address: ", ifindex);
 
