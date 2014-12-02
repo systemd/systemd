@@ -75,6 +75,7 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_
                              int family);
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlmsg_type,
                               int rtm_family, unsigned char rtm_protocol);
+int sd_rtnl_message_new_neigh(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index, int nda_family);
 
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
@@ -103,6 +104,9 @@ int sd_rtnl_message_link_get_type(sd_rtnl_message *m, unsigned *type);
 int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope);
 int sd_rtnl_message_route_get_family(sd_rtnl_message *m, int *family);
+
+int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family);
+int sd_rtnl_message_neigh_get_ifindex(sd_rtnl_message *m, int *family);
 
 int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const char *data);
 int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t data);

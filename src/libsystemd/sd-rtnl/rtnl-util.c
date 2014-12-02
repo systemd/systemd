@@ -122,6 +122,17 @@ int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message
         return 0;
 }
 
+bool rtnl_message_type_is_neigh(uint16_t type) {
+        switch (type) {
+                case RTM_NEWNEIGH:
+                case RTM_GETNEIGH:
+                case RTM_DELNEIGH:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
 bool rtnl_message_type_is_route(uint16_t type) {
         switch (type) {
                 case RTM_NEWROUTE:

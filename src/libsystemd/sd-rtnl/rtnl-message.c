@@ -171,6 +171,59 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(family, -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+
+        *family = ndm->ndm_family;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_get_ifindex(sd_rtnl_message *m, int *index) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(index, -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+
+        *index = ndm->ndm_ifindex;
+
+        return 0;
+}
+
+int sd_rtnl_message_new_neigh(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlmsg_type, int index, int ndm_family) {
+        struct ndmsg *ndm;
+        int r;
+
+        assert_return(rtnl_message_type_is_neigh(nlmsg_type), -EINVAL);
+        assert_return(ndm_family == AF_INET || ndm_family == AF_INET6, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        if (nlmsg_type == RTM_NEWNEIGH)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+
+        ndm = NLMSG_DATA((*ret)->hdr);
+
+        ndm->ndm_family = ndm_family;
+        ndm->ndm_ifindex = index;
+
+        return 0;
+}
+
 int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned change) {
         struct ifinfomsg *ifi;
 
@@ -242,9 +295,10 @@ int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret,
 int sd_rtnl_message_request_dump(sd_rtnl_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
-        assert_return(m->hdr->nlmsg_type == RTM_GETLINK ||
-                      m->hdr->nlmsg_type == RTM_GETADDR ||
-                      m->hdr->nlmsg_type == RTM_GETROUTE,
+        assert_return(m->hdr->nlmsg_type == RTM_GETLINK  ||
+                      m->hdr->nlmsg_type == RTM_GETADDR  ||
+                      m->hdr->nlmsg_type == RTM_GETROUTE ||
+                      m->hdr->nlmsg_type == RTM_GETNEIGH,
                       -EINVAL);
 
         if (dump)
