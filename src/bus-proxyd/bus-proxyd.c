@@ -1400,7 +1400,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 policy = &policy_buffer;
-                policy_dump(policy);
+                /* policy_dump(policy); */
 
                 if (!policy_check_hello(policy, ucred.uid, ucred.gid)) {
                         r = log_error_errno(EPERM, "Policy denied connection.");
