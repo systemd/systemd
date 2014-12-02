@@ -329,6 +329,25 @@ static const NLTypeSystem rtnl_route_type_system = {
         .types = rtnl_route_types,
 };
 
+static const NLType rtnl_neigh_types[NDA_MAX + 1] = {
+        [NDA_DST]               = { .type = NLA_IN_ADDR },
+        [NDA_LLADDR]            = { .type = NLA_ETHER_ADDR },
+/*
+        NDA_CACHEINFO,
+        NDA_PROBES,
+        NDA_VLAN,
+        NDA_PORT
+        NDA_VNI
+        NDA_IFINDEX
+        NDA_MASTER
+*/
+};
+
+static const NLTypeSystem rtnl_neigh_type_system = {
+        .max = ELEMENTSOF(rtnl_neigh_types) - 1,
+        .types = rtnl_neigh_types,
+};
+
 static const NLType rtnl_types[RTM_MAX + 1] = {
         [NLMSG_ERROR]  = { .type = NLA_META, .size = sizeof(struct nlmsgerr) },
         [RTM_NEWLINK]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
@@ -341,6 +360,9 @@ static const NLType rtnl_types[RTM_MAX + 1] = {
         [RTM_NEWROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
         [RTM_DELROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
         [RTM_GETROUTE] = { .type = NLA_NESTED, .type_system = &rtnl_route_type_system, .size = sizeof(struct rtmsg) },
+        [RTM_NEWNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_DELNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
+        [RTM_GETNEIGH] = { .type = NLA_NESTED, .type_system = &rtnl_neigh_type_system, .size = sizeof(struct ndmsg) },
 };
 
 const NLTypeSystem rtnl_type_system = {
