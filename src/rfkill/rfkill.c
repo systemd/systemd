@@ -28,8 +28,8 @@
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL, *escaped_name = NULL, *escaped_path_id = NULL;
-        const char *name, *path_id;
+        _cleanup_free_ char *saved = NULL, *escaped_type = NULL, *escaped_path_id = NULL;
+        const char *name, *type, *path_id;
         int r;
 
         if (argc != 3) {
@@ -55,25 +55,28 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        errno = 0;
         device = udev_device_new_from_subsystem_sysname(udev, "rfkill", argv[2]);
         if (!device) {
-                if (errno != 0)
-                        log_error_errno(errno, "Failed to get rfkill device '%s': %m", argv[2]);
-                else
-                        log_oom();
-
-                return EXIT_FAILURE;
+                log_debug_errno(errno, "Failed to get rfkill device '%s', ignoring: %m", argv[2]);
+                return EXIT_SUCCESS;
         }
 
         name = udev_device_get_sysattr_value(device, "name");
         if (!name) {
-                log_error("rfkill device has no name?");
-                return EXIT_FAILURE;
+                log_error("rfkill device has no name? Ignoring device.");
+                return EXIT_SUCCESS;
         }
 
-        escaped_name = cescape(name);
-        if (!escaped_name) {
+        log_debug("Operating on rfkill device '%s'.", name);
+
+        type = udev_device_get_sysattr_value(device, "type");
+        if (!type) {
+                log_error("rfkill device has no type? Ignoring device.");
+                return EXIT_SUCCESS;
+        }
+
+        escaped_type = cescape(type);
+        if (!escaped_type) {
                 log_oom();
                 return EXIT_FAILURE;
         }
@@ -86,9 +89,9 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                saved = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, ":", escaped_name, NULL);
+                saved = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, ":", escaped_type, NULL);
         } else
-                saved = strjoin("/var/lib/systemd/rfkill/", escaped_name, NULL);
+                saved = strjoin("/var/lib/systemd/rfkill/", escaped_type, NULL);
 
         if (!saved) {
                 log_oom();
@@ -102,19 +105,17 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
 
                 r = read_one_line_file(saved, &value);
+                if (r == -ENOENT)
+                        return EXIT_SUCCESS;
                 if (r < 0) {
-
-                        if (r == -ENOENT)
-                                return EXIT_SUCCESS;
-
                         log_error_errno(r, "Failed to read %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
                 r = udev_device_set_sysattr_value(device, "soft", value);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to write system attribute: %m");
-                        return EXIT_FAILURE;
+                        log_debug_errno(r, "Failed to write 'soft' attribute on rfkill device, ignoring: %m");
+                        return EXIT_SUCCESS;
                 }
 
         } else if (streq(argv[1], "save")) {
@@ -122,8 +123,8 @@ int main(int argc, char *argv[]) {
 
                 value = udev_device_get_sysattr_value(device, "soft");
                 if (!value) {
-                        log_error_errno(r, "Failed to read system attribute: %m");
-                        return EXIT_FAILURE;
+                        log_debug_errno(r, "Failed to read system attribute, ignoring device: %m");
+                        return EXIT_SUCCESS;
                 }
 
                 r = write_string_file(saved, value);
