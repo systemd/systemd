@@ -723,8 +723,13 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                         return NULL;
         } else {
                 /* everything else just needs to be a directory */
-                if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode))
+                if (stat(path, &statbuf) != 0)
                         return NULL;
+
+                if (!S_ISDIR(statbuf.st_mode)) {
+                        errno = EISDIR;
+                        return NULL;
+                }
         }
 
         udev_device = udev_device_new(udev);
