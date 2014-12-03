@@ -808,8 +808,8 @@ static int mount_tmpfs(const char *dest) {
                         return log_oom();
 
                 r = mkdir_label(where, 0755);
-                if (r < 0 && errno != EEXIST)
-                        return log_error_errno(r, "creating mount point for tmpfs %s failed: %m", where);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
 
                 if (mount("tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, *o) < 0)
                         return log_error_errno(errno, "tmpfs mount to %s failed: %m", where);
