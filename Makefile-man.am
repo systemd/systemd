@@ -76,6 +76,7 @@ MANPAGES += \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
 	man/systemd-machine-id-commit.1 \
+	man/systemd-machine-id-commit.service.8 \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
@@ -214,7 +215,6 @@ MANPAGES_ALIAS += \
 	man/systemd-journald.8 \
 	man/systemd-journald.socket.8 \
 	man/systemd-kexec.service.8 \
-	man/systemd-machine-id-commit.service.8 \
 	man/systemd-poweroff.service.8 \
 	man/systemd-reboot.service.8 \
 	man/systemd-remount-fs.8 \
@@ -1715,6 +1715,8 @@ EXTRA_DIST += \
 	man/systemd-journald.service.xml \
 	man/systemd-localed.service.xml \
 	man/systemd-logind.service.xml \
+	man/systemd-machine-id-commit.service.xml \
+	man/systemd-machine-id-commit.xml \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
