@@ -217,6 +217,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-event \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
 	-I $(top_srcdir)/src/libsystemd/sd-network \
+	-I $(top_srcdir)/src/libsystemd/sd-hwdb \
 	-I $(top_srcdir)/src/libsystemd-network \
 	-I $(top_srcdir)/src/libsystemd-terminal \
 	$(OUR_CPPFLAGS)
@@ -2642,6 +2643,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-daemon.h \
 	src/systemd/sd-path.h \
 	src/systemd/sd-network.h \
+	src/systemd/sd-hwdb.h \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2702,7 +2704,10 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-path/sd-path.c \
 	src/libsystemd/sd-network/sd-network.c \
 	src/libsystemd/sd-network/network-util.h \
-	src/libsystemd/sd-network/network-util.c
+	src/libsystemd/sd-network/network-util.c \
+	src/libsystemd/sd-hwdb/sd-hwdb.c \
+	src/libsystemd/sd-hwdb/hwdb-util.h \
+	src/libsystemd/sd-hwdb/hwdb-intenal.h
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym
