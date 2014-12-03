@@ -25,6 +25,8 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
+#define MMAP_CACHE_MAX_CONTEXTS 8
+
 typedef struct MMapCache MMapCache;
 
 MMapCache* mmap_cache_new(void);

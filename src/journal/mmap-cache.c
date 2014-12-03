@@ -76,7 +76,7 @@ struct MMapCache {
 
 
         Hashmap *fds;
-        Hashmap *contexts;
+        Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
 
         LIST_HEAD(Window, unused);
         Window *last_unused;
@@ -231,17 +231,12 @@ static void context_attach_window(Context *c, Window *w) {
 
 static Context *context_add(MMapCache *m, unsigned id) {
         Context *c;
-        int r;
 
         assert(m);
 
-        c = hashmap_get(m->contexts, UINT_TO_PTR(id + 1));
+        c = m->contexts[id];
         if (c)
                 return c;
-
-        r = hashmap_ensure_allocated(&m->contexts, NULL);
-        if (r < 0)
-                return NULL;
 
         c = new0(Context, 1);
         if (!c)
@@ -250,11 +245,8 @@ static Context *context_add(MMapCache *m, unsigned id) {
         c->cache = m;
         c->id = id;
 
-        r = hashmap_put(m->contexts, UINT_TO_PTR(id + 1), c);
-        if (r < 0) {
-                free(c);
-                return NULL;
-        }
+        assert(!m->contexts[id]);
+        m->contexts[id] = c;
 
         return c;
 }
@@ -264,8 +256,10 @@ static void context_free(Context *c) {
 
         context_detach_window(c);
 
-        if (c->cache)
-                assert_se(hashmap_remove(c->cache->contexts, UINT_TO_PTR(c->id + 1)));
+        if (c->cache) {
+                assert(c->cache->contexts[c->id] == c);
+                c->cache->contexts[c->id] = NULL;
+        }
 
         free(c);
 }
@@ -314,15 +308,14 @@ static FileDescriptor* fd_add(MMapCache *m, int fd) {
 }
 
 static void mmap_cache_free(MMapCache *m) {
-        Context *c;
         FileDescriptor *f;
+        int i;
 
         assert(m);
 
-        while ((c = hashmap_first(m->contexts)))
-                context_free(c);
-
-        hashmap_free(m->contexts);
+        for (i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
+                if (m->contexts[i])
+                        context_free(m->contexts[i]);
 
         while ((f = hashmap_first(m->fds)))
                 fd_free(f);
@@ -374,7 +367,7 @@ static int try_context(
         assert(size > 0);
         assert(ret);
 
-        c = hashmap_get(m->contexts, UINT_TO_PTR(context+1));
+        c = m->contexts[context];
         if (!c)
                 return 0;
 
@@ -557,6 +550,7 @@ int mmap_cache_get(
         assert(fd >= 0);
         assert(size > 0);
         assert(ret);
+        assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
         /* Check whether the current context is the right one already */
         r = try_context(m, fd, prot, context, keep_always, offset, size, ret);

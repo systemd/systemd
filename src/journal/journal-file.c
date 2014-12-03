@@ -376,6 +376,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
 static unsigned type_to_context(ObjectType type) {
         /* One context for each type, plus one catch-all for the rest */
+        assert_cc(_OBJECT_TYPE_MAX <= MMAP_CACHE_MAX_CONTEXTS);
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
