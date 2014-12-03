@@ -28,7 +28,7 @@
 #include "conf-files.h"
 
 #include "udev.h"
-#include "libudev-hwdb-def.h"
+#include "hwdb-internal.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.

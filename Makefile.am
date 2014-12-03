@@ -3605,7 +3605,8 @@ test_libudev_SOURCES = \
 test_libudev_LDADD = \
 	libsystemd-label.la \
 	libudev-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-internal.la
 
 test_udev_SOURCES = \
 	src/test/test-udev.c
