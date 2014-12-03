@@ -453,6 +453,23 @@ static void test_strv_push_prepend(void) {
         assert_se(!a[5]);
 }
 
+static void test_strv_push(void) {
+        _cleanup_strv_free_ char **a = NULL;
+        char *i, *j;
+
+        assert_se(i = strdup("foo"));
+        assert_se(strv_push(&a, i) >= 0);
+
+        assert_se(i = strdup("a"));
+        assert_se(j = strdup("b"));
+        assert_se(strv_push_pair(&a, i, j) >= 0);
+
+        assert_se(streq_ptr(a[0], "foo"));
+        assert_se(streq_ptr(a[1], "a"));
+        assert_se(streq_ptr(a[2], "b"));
+        assert_se(streq_ptr(a[3], NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -501,6 +518,7 @@ int main(int argc, char *argv[]) {
         test_strv_extendf();
         test_strv_from_stdarg_alloca();
         test_strv_push_prepend();
+        test_strv_push();
 
         return 0;
 }

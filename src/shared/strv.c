@@ -388,7 +388,7 @@ int strv_push(char ***l, char *value) {
 
         n = strv_length(*l);
 
-        /* increase and check for overflow */
+        /* Increase and check for overflow */
         m = n + 2;
         if (m < n)
                 return -ENOMEM;
@@ -399,6 +399,34 @@ int strv_push(char ***l, char *value) {
 
         c[n] = value;
         c[n+1] = NULL;
+
+        *l = c;
+        return 0;
+}
+
+int strv_push_pair(char ***l, char *a, char *b) {
+        char **c;
+        unsigned n, m;
+
+        if (!a && !b)
+                return 0;
+
+        n = strv_length(*l);
+
+        /* increase and check for overflow */
+        m = n + !!a + !!b + 1;
+        if (m < n)
+                return -ENOMEM;
+
+        c = realloc_multiply(*l, sizeof(char*), m);
+        if (!c)
+                return -ENOMEM;
+
+        if (a)
+                c[n++] = a;
+        if (b)
+                c[n++] = b;
+        c[n] = NULL;
 
         *l = c;
         return 0;
@@ -440,6 +468,18 @@ int strv_consume(char ***l, char *value) {
         r = strv_push(l, value);
         if (r < 0)
                 free(value);
+
+        return r;
+}
+
+int strv_consume_pair(char ***l, char *a, char *b) {
+        int r;
+
+        r = strv_push_pair(l, a, b);
+        if (r < 0) {
+                free(a);
+                free(b);
+        }
 
         return r;
 }
