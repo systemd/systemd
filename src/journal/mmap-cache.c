@@ -591,18 +591,6 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
         fd_free(f);
 }
 
-void mmap_cache_close_context(MMapCache *m, unsigned context) {
-        Context *c;
-
-        assert(m);
-
-        c = hashmap_get(m->contexts, UINT_TO_PTR(context + 1));
-        if (!c)
-                return;
-
-        context_free(c);
-}
-
 unsigned mmap_cache_get_hit(MMapCache *m) {
         assert(m);
 

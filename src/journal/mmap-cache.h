@@ -42,7 +42,6 @@ int mmap_cache_get(
         struct stat *st,
         void **ret);
 void mmap_cache_close_fd(MMapCache *m, int fd);
-void mmap_cache_close_context(MMapCache *m, unsigned context);
 
 unsigned mmap_cache_get_hit(MMapCache *m);
 unsigned mmap_cache_get_missed(MMapCache *m);
