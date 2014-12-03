@@ -197,7 +197,7 @@ int local_gateways(sd_rtnl *context, int ifindex, struct local_address **ret) {
         for (m = reply; m; m = sd_rtnl_message_next(m)) {
                 struct local_address *a;
                 uint16_t type;
-                unsigned char dst_len;
+                unsigned char dst_len, src_len;
                 uint32_t ifi;
 
                 r = sd_rtnl_message_get_errno(m);
@@ -211,12 +211,17 @@ int local_gateways(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 if (type != RTM_NEWROUTE)
                         continue;
 
+                /* We only care for default routes */
                 r = sd_rtnl_message_route_get_dst_len(m, &dst_len);
                 if (r < 0)
                         return r;
-
-                /* We only care for default routes */
                 if (dst_len != 0)
+                        continue;
+
+                r = sd_rtnl_message_route_get_src_len(m, &src_len);
+                if (r < 0)
+                        return r;
+                if (src_len != 0)
                         continue;
 
                 r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);

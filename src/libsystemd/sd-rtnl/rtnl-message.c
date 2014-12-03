@@ -158,6 +158,21 @@ int sd_rtnl_message_route_get_dst_len(sd_rtnl_message *m, unsigned char *dst_len
         return 0;
 }
 
+int sd_rtnl_message_route_get_src_len(sd_rtnl_message *m, unsigned char *src_len) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(src_len, -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        *src_len = rtm->rtm_src_len;
+
+        return 0;
+}
+
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
                               uint16_t nlmsg_type, int rtm_family,
                               unsigned char rtm_protocol) {
