@@ -77,6 +77,18 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
+
+        } else if (streq(name, "gateway")) {
+
+                n_addresses = local_gateways(NULL, 0, &addresses);
+                if (n_addresses <= 0) {
+                        *errnop = ENOENT;
+                        *h_errnop = HOST_NOT_FOUND;
+                        return NSS_STATUS_NOTFOUND;
+                }
+
+                canonical = "gateway";
+
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
@@ -314,7 +326,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         _cleanup_free_ struct local_address *addresses = NULL;
         const char *canonical, *additional = NULL;
         _cleanup_free_ char *hn = NULL;
-        uint32_t local_address_ipv4;
+        uint32_t local_address_ipv4 = 0;
         int n_addresses = 0;
 
         assert(name);
@@ -335,6 +347,18 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         if (is_localhost(name)) {
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
+
+        } else if (streq(name, "gateway")) {
+
+                n_addresses = local_gateways(NULL, af, &addresses);
+                if (n_addresses <= 0) {
+                        *errnop = ENOENT;
+                        *h_errnop = HOST_NOT_FOUND;
+                        return NSS_STATUS_NOTFOUND;
+                }
+
+                canonical = "gateway";
+
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
@@ -349,7 +373,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                n_addresses = local_addresses(NULL, 0, &addresses);
+                n_addresses = local_addresses(NULL, af, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -426,15 +450,41 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         }
 
         n_addresses = local_addresses(NULL, 0, &addresses);
-        if (n_addresses < 0)
-                n_addresses = 0;
+        if (n_addresses > 0) {
+                for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
+                        if (af != a->family)
+                                continue;
 
-        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
-                if (af != a->family)
-                        continue;
+                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
 
-                if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
-                        goto found;
+                                hn = gethostname_malloc();
+                                if (!hn) {
+                                        *errnop = ENOMEM;
+                                        *h_errnop = NO_RECOVERY;
+                                        return NSS_STATUS_TRYAGAIN;
+                                }
+
+                                canonical = hn;
+                                goto found;
+                        }
+                }
+        }
+
+        free(addresses);
+        addresses = NULL;
+
+        n_addresses = local_gateways(NULL, 0, &addresses);
+        if (n_addresses > 0) {
+                for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
+                        if (af != a->family)
+                                continue;
+
+                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
+
+                                canonical = "gateway";
+                                goto found;
+                        }
+                }
         }
 
         *errnop = ENOENT;
@@ -443,16 +493,6 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         return NSS_STATUS_NOTFOUND;
 
 found:
-        if (!canonical) {
-                hn = gethostname_malloc();
-                if (!hn) {
-                        *errnop = ENOMEM;
-                        *h_errnop = NO_RECOVERY;
-                        return NSS_STATUS_TRYAGAIN;
-                }
-
-                canonical = hn;
-        }
 
         return fill_in_hostent(
                         canonical, additional,

@@ -2782,6 +2782,7 @@ tests += \
 	test-bus-gvariant \
 	test-event \
 	test-rtnl \
+	test-local-addresses \
 	test-resolve
 
 bin_PROGRAMS += \
@@ -2937,6 +2938,13 @@ test_rtnl_SOURCES = \
 	src/libsystemd/sd-rtnl/test-rtnl.c
 
 test_rtnl_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
+
+test_local_addresses_SOURCES = \
+	src/libsystemd/sd-rtnl/test-local-addresses.c
+
+test_local_addresses_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 

@@ -203,6 +203,7 @@
 /test-list
 /test-unaligned
 /test-locale-util
+/test-local-addresses
 /test-log
 /test-login
 /test-login-shared

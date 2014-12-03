@@ -30,14 +30,19 @@ static int address_compare(const void *_a, const void *_b) {
 
         /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
 
+        if (a->family == AF_INET && b->family == AF_INET6)
+                return -1;
+        if (a->family == AF_INET6 && b->family == AF_INET)
+                return 1;
+
         if (a->scope < b->scope)
                 return -1;
         if (a->scope > b->scope)
                 return 1;
 
-        if (a->family == AF_INET && b->family == AF_INET6)
+        if (a->metric < b->metric)
                 return -1;
-        if (a->family == AF_INET6 && b->family == AF_INET)
+        if (a->metric > b->metric)
                 return 1;
 
         if (a->ifindex < b->ifindex)
@@ -105,7 +110,7 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 if (flags & IFA_F_DEPRECATED)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n_list+1))
+                if (!GREEDY_REALLOC0(list, n_allocated, n_list+1))
                         return -ENOMEM;
 
                 a = list + n_list;
@@ -150,7 +155,111 @@ int local_addresses(sd_rtnl *context, int ifindex, struct local_address **ret) {
                 n_list++;
         };
 
-        if (n_list)
+        if (n_list > 0)
+                qsort(list, n_list, sizeof(struct local_address), address_compare);
+
+        *ret = list;
+        list = NULL;
+
+        return (int) n_list;
+}
+
+int local_gateways(sd_rtnl *context, int ifindex, struct local_address **ret) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_free_ struct local_address *list = NULL;
+        sd_rtnl_message *m = NULL;
+        size_t n_list = 0, n_allocated = 0;
+        int r;
+
+        assert(ret);
+
+        if (context)
+                rtnl = sd_rtnl_ref(context);
+        else {
+                r = sd_rtnl_open(&rtnl, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, AF_UNSPEC, RTPROT_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                struct local_address *a;
+                uint16_t type;
+                unsigned char dst_len;
+                uint32_t ifi;
+
+                r = sd_rtnl_message_get_errno(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_get_type(m, &type);
+                if (r < 0)
+                        return r;
+
+                if (type != RTM_NEWROUTE)
+                        continue;
+
+                r = sd_rtnl_message_route_get_dst_len(m, &dst_len);
+                if (r < 0)
+                        return r;
+
+                /* We only care for default routes */
+                if (dst_len != 0)
+                        continue;
+
+                r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);
+                if (r < 0)
+                        return r;
+
+                if (ifindex > 0 && (int) ifi != ifindex)
+                        continue;
+
+                if (!GREEDY_REALLOC0(list, n_allocated, n_list + 1))
+                        return -ENOMEM;
+
+                a = list + n_list;
+
+                r = sd_rtnl_message_route_get_family(m, &a->family);
+                if (r < 0)
+                        return r;
+
+                switch (a->family) {
+                case AF_INET:
+                        r = sd_rtnl_message_read_in_addr(m, RTA_GATEWAY, &a->address.in);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                case AF_INET6:
+                        r = sd_rtnl_message_read_in6_addr(m, RTA_GATEWAY, &a->address.in6);
+                        if (r < 0)
+                                continue;
+
+                        break;
+                default:
+                        continue;
+                }
+
+                sd_rtnl_message_read_u32(m, RTA_PRIORITY, &a->metric);
+
+                a->ifindex = ifi;
+                n_list++;
+
+        }
+
+        if (n_list > 0)
                 qsort(list, n_list, sizeof(struct local_address), address_compare);
 
         *ret = list;
