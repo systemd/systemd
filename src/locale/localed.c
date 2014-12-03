@@ -1009,7 +1009,10 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
 #ifdef HAVE_XKBCOMMON
 static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
-        /* suppress xkb messages for now */
+        const char *fmt;
+
+        fmt = strappenda("libxkbcommon: ", format);
+        log_internalv(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, fmt, args);
 }
 
 static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
@@ -1092,9 +1095,11 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
                 r = verify_xkb_rmlvo(model, layout, variant, options);
-                if (r < 0)
-                        log_warning_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                          strempty(model), strempty(layout), strempty(variant), strempty(options));
+                if (r < 0) {
+                        log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                                        strempty(model), strempty(layout), strempty(variant), strempty(options));
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot compile XKB keymap, refusing");
+                }
 
                 if (free_and_strdup(&c->x11_layout, layout) < 0 ||
                     free_and_strdup(&c->x11_model, model) < 0 ||
