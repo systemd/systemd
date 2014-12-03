@@ -529,8 +529,7 @@ static void dump_list(const char *prefix, char **l) {
 
 static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *gateway = NULL, *gateway_description = NULL,
-                            *gateway6 = NULL, *gateway6_description = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
