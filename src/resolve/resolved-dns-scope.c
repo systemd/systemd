@@ -334,7 +334,8 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
                 if (dns_name_endswith(domain, "in-addr.arpa") > 0 ||
                     dns_name_endswith(domain, "ip6.arpa") > 0 ||
-                    dns_name_single_label(domain) > 0)
+                    (dns_name_single_label(domain) > 0 &&
+                     dns_name_equal(domain, "gateway") <= 0))  /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
