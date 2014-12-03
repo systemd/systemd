@@ -333,7 +333,7 @@ static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int if
 
                 r = sd_rtnl_message_neigh_get_ifindex(m, &ifi);
                 if (r < 0) {
-                        log_error_errno(r, "colud not get ifindex: %m");
+                        log_error_errno(r, "could not get ifindex: %m");
                         continue;
                 }
 
@@ -427,7 +427,7 @@ static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *pref
 
                 r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);
                 if (r < 0) {
-                        log_error_errno(r, "colud not get RTA_OIF: %m");
+                        log_error_errno(r, "could not get RTA_OIF: %m");
                         continue;
                 }
 

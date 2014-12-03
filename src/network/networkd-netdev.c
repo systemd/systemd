@@ -503,7 +503,7 @@ static int netdev_create(NetDev *netdev, Link *link,
                         r = sd_rtnl_message_append_u32(m, IFLA_LINK, link->ifindex);
                         if (r < 0) {
                                 log_netdev_error(netdev,
-                                                 "Colud not append IFLA_LINK attribute: %s",
+                                                 "Could not append IFLA_LINK attribute: %s",
                                                  strerror(-r));
                                 return r;
                         }
