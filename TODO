@@ -35,6 +35,8 @@ External:
 
 Features:
 
+* set $REMOTE_IP (or $REMOTE_ADDR/$REMOTE_PORT) environment variable when doing per-connection socket activation. use format introduced by xinetd or CGI for this
+
 * the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
 
 * revisit rfkill. the rfkill device names are counted up, and not stable. instead: store per kind of device together with PCI path, ignore the device name.
