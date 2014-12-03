@@ -3400,7 +3400,7 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
                 }
 
                 dash = strchr(n, '-');
-                if (streq(dash, "-user")) {
+                if (streq_ptr(dash, "-user")) {
                         *scope = "user";
                         return 0;
                 }
