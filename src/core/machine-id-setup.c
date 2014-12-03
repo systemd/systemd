@@ -200,11 +200,13 @@ int machine_id_setup(const char *root) {
                 etc_machine_id = "/etc/machine-id";
                 run_machine_id = "/run/machine-id";
         } else {
-                etc_machine_id = strappenda(root, "/etc/machine-id");
-                path_kill_slashes((char*) etc_machine_id);
+                char *x;
 
-                run_machine_id = strappenda(root, "/run/machine-id");
-                path_kill_slashes((char*) run_machine_id);
+                x = strappenda(root, "/etc/machine-id");
+                etc_machine_id = path_kill_slashes(x);
+
+                x = strappenda(root, "/run/machine-id");
+                run_machine_id = path_kill_slashes(x);
         }
 
         RUN_WITH_UMASK(0000) {
