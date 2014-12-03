@@ -109,6 +109,8 @@ static void test_find_binary(const char *self, bool local) {
 
         assert_se(find_binary("/some/dir/xxxx-xxxx", local, &p) ==
                   (local ? -ENOENT : 0));
+        if (!local)
+                free(p);
 }
 
 static void test_prefixes(void) {
