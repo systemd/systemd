@@ -315,8 +315,9 @@ static void worker_new(struct event *event) {
                                                arg_event_timeout_usec, arg_event_timeout_warn_usec,
                                                &sigmask_orig);
 
-                        /* in case rtnl was initialized */
-                        rtnl = sd_rtnl_ref(udev_event->rtnl);
+                        if (udev_event->rtnl)
+                                /* in case rtnl was initialized */
+                                rtnl = sd_rtnl_ref(udev_event->rtnl);
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
