@@ -2063,6 +2063,7 @@ static int bus_message_close_variant(sd_bus_message *m, struct bus_container *c)
 
         assert(m);
         assert(c);
+        assert(c->signature);
 
         if (!BUS_MESSAGE_IS_GVARIANT(m))
                 return 0;
