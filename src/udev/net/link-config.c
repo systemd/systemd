@@ -20,6 +20,7 @@
 ***/
 
 #include <netinet/ether.h>
+#include <linux/netdevice.h>
 
 #include "sd-id128.h"
 
@@ -95,6 +96,7 @@ static void link_configs_free(link_config_ctx *ctx) {
 
         LIST_FOREACH_SAFE(links, link, link_next, ctx->links) {
                 free(link->filename);
+                free(link->name);
                 free(link->match_path);
                 free(link->match_driver);
                 free(link->match_type);
@@ -223,17 +225,25 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
         link_config *link;
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char* attr_value = udev_device_get_sysattr_value(device, "address");
+                const char* attr_value;
+                unsigned char name_assign_type = NET_NAME_UNKNOWN;
+
+                attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
+                if (attr_value)
+                        (void)safe_atou8(attr_value, &name_assign_type);
+
+                attr_value = udev_device_get_sysattr_value(device, "address");
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, NULL, link->match_host,
+                                     link->match_type, link->match_name, link->match_host,
                                      link->match_virt, link->match_kernel, link->match_arch,
                                      attr_value ? ether_aton(attr_value) : NULL,
                                      udev_device_get_property_value(device, "ID_PATH"),
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
-                                     NULL)) {
+                                     udev_device_get_sysname(device),
+                                     name_assign_type == NET_NAME_RENAMED)) {
                         log_debug("Config file %s applies to device %s",
                                   link->filename,
                                   udev_device_get_sysname(device));

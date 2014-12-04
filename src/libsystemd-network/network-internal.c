@@ -96,40 +96,47 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
-                      const char *dev_name) {
+                      const char *dev_name,
+                      bool ignore_name_match) {
 
         if (match_host && !condition_test(match_host))
-                return 0;
+                return false;
 
         if (match_virt && !condition_test(match_virt))
-                return 0;
+                return false;
 
         if (match_kernel && !condition_test(match_kernel))
-                return 0;
+                return false;
 
         if (match_arch && !condition_test(match_arch))
-                return 0;
+                return false;
 
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
-                return 0;
+                return false;
 
         if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
-                return 0;
+                return false;
 
         if (match_driver) {
                 if (dev_parent_driver && !streq(match_driver, dev_parent_driver))
-                        return 0;
+                        return false;
                 else if (!streq_ptr(match_driver, dev_driver))
-                        return 0;
+                        return false;
         }
 
         if (match_type && !streq_ptr(match_type, dev_type))
-                return 0;
+                return false;
 
-        if (match_name && (!dev_name || fnmatch(match_name, dev_name, 0)))
-                return 0;
+        if (match_name) {
+                if (!dev_name || fnmatch(match_name, dev_name, 0))
+                        return false;
+                else if (ignore_name_match) {
+                        log_warning("ifname (%s) matched config, but is ignored as it is not the original name", dev_name);
+                        return false;
+                }
+        }
 
-        return 1;
+        return true;
 }
 
 int config_parse_net_condition(const char *unit,
