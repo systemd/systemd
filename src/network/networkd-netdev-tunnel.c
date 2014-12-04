@@ -262,11 +262,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->local.in.s_addr == INADDR_ANY) {
-               log_warning("Tunnel without local address configured in %s. Ignoring", filename);
-               return -EINVAL;
-        }
-
         if (t->remote.in.s_addr == INADDR_ANY) {
                log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
                return -EINVAL;
