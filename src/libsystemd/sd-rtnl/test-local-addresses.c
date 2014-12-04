@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         int n;
 
         a = NULL;
-        n = local_addresses(NULL, 0, &a);
+        n = local_addresses(NULL, 0, AF_UNSPEC, &a);
         assert_se(n >= 0);
 
         printf("Local Addresses:\n");
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         free(a);
 
         a = NULL;
-        n = local_gateways(NULL, 0, &a);
+        n = local_gateways(NULL, 0, AF_UNSPEC, &a);
         assert_se(n >= 0);
 
         printf("Local Gateways:\n");

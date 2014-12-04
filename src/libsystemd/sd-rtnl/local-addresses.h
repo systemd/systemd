@@ -36,6 +36,6 @@ struct local_address {
         union in_addr_union address;
 };
 
-int local_addresses(sd_rtnl *rtnl, int ifindex, struct local_address **ret);
+int local_addresses(sd_rtnl *rtnl, int ifindex, int af, struct local_address **ret);
 
-int local_gateways(sd_rtnl *rtnl, int ifindex, struct local_address **ret);
+int local_gateways(sd_rtnl *rtnl, int ifindex, int af, struct local_address **ret);

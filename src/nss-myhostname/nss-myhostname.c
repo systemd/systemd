@@ -80,7 +80,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         } else if (streq(name, "gateway")) {
 
-                n_addresses = local_gateways(NULL, 0, &addresses);
+                n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0) {
                         *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
@@ -104,7 +104,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                n_addresses = local_addresses(NULL, 0, &addresses);
+                n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -350,7 +350,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
 
         } else if (streq(name, "gateway")) {
 
-                n_addresses = local_gateways(NULL, af, &addresses);
+                n_addresses = local_gateways(NULL, 0, af, &addresses);
                 if (n_addresses <= 0) {
                         *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
@@ -373,7 +373,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         return NSS_STATUS_NOTFOUND;
                 }
 
-                n_addresses = local_addresses(NULL, af, &addresses);
+                n_addresses = local_addresses(NULL, 0, af, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -449,7 +449,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
 
         }
 
-        n_addresses = local_addresses(NULL, 0, &addresses);
+        n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
         if (n_addresses > 0) {
                 for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
                         if (af != a->family)
@@ -473,7 +473,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         free(addresses);
         addresses = NULL;
 
-        n_addresses = local_gateways(NULL, 0, &addresses);
+        n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
         if (n_addresses > 0) {
                 for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
                         if (af != a->family)

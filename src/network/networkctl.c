@@ -496,7 +496,7 @@ static int dump_addresses(sd_rtnl *rtnl, const char *prefix, int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
-        n = local_addresses(rtnl, ifindex, &local);
+        n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
         if (n < 0)
                 return n;
 
@@ -708,7 +708,7 @@ static int link_status(char **args, unsigned n) {
 
                 printf("       State: %s%s%s\n", on_color_operational, strna(operational_state), off_color_operational);
 
-                c = local_addresses(rtnl, 0, &addresses);
+                c = local_addresses(rtnl, 0, AF_UNSPEC, &addresses);
                 for (i = 0; i < c; i++) {
                         _cleanup_free_ char *pretty = NULL;
 
