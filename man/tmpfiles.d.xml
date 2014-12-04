@@ -343,6 +343,25 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         normal path
                                         names.</para></listitem>
                                 </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>t</varname></term>
+                                        <listitem><para>Set extended
+                                        attributes on item. It may be
+                                        used in conjunction with other
+                                        types (only <varname>d</varname>,
+                                        <varname>D</varname>, <varname>f</varname>,
+                                        <varname>F</varname>, <varname>L</varname>,
+                                        <varname>p</varname>, <varname>c</varname>,
+                                        <varname>b</varname>, makes sense).
+                                        If used as a standalone line, then
+                                        <command>systemd-tmpfiles</command>
+                                        will try to set extended
+                                        attributes on specified path.
+                                        This can be especially used to set
+                                        SMACK labels.
+                                        </para></listitem>
+                                </varlistentry>
                         </variablelist>
 
                         <para>If the exclamation mark is used, this
@@ -430,7 +449,7 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         will not be modified. This parameter is
                         ignored for <varname>x</varname>,
                         <varname>r</varname>, <varname>R</varname>,
-                        <varname>L</varname> lines.</para>
+                        <varname>L</varname>, <varname>t</varname> lines.</para>
 
                         <para>Optionally, if prefixed with
                         <literal>~</literal>, the access mode is masked
@@ -462,8 +481,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         ownership will not be modified. These
                         parameters are ignored for
                         <varname>x</varname>, <varname>r</varname>,
-                        <varname>R</varname>, <varname>L</varname>
-                        lines.</para>
+                        <varname>R</varname>, <varname>L</varname>,
+                        <varname>t</varname> lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -527,8 +546,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         specify a short string that is written to the
                         file, suffixed by a newline. For
                         <varname>C</varname>, specifies the source file
-                        or directory. Ignored for all other
-                        lines.</para>
+                        or directory. For <varname>t</varname> determines
+                        extended attributes to be set. Ignored for all other lines.</para>
                 </refsect2>
 
         </refsect1>
@@ -540,7 +559,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
                         <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
 
                         <programlisting>d /run/screens  1777 root root 10d
-d /run/uscreens 0755 root root 10d12h</programlisting>
+d /run/uscreens 0755 root root 10d12h
+t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
                 </example>
                 <example>
                         <title>/etc/tmpfiles.d/abrt.conf example</title>

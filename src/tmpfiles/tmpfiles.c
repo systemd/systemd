@@ -39,6 +39,7 @@
 #include <glob.h>
 #include <fnmatch.h>
 #include <sys/capability.h>
+#include <sys/xattr.h>
 
 #include "log.h"
 #include "util.h"
@@ -71,6 +72,7 @@ typedef enum ItemType {
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
         COPY_FILES = 'C',
+        SET_XATTR = 't',
 
         /* These ones take globs */
         WRITE_FILE = 'w',
@@ -88,6 +90,7 @@ typedef struct Item {
 
         char *path;
         char *argument;
+        char **xattrs;
         uid_t uid;
         gid_t gid;
         mode_t mode;
@@ -487,6 +490,67 @@ static int item_set_perms(Item *i, const char *path) {
         return label_fix(path, false, false);
 }
 
+static int get_xattrs_from_arg(Item *i) {
+        char *xattr;
+        const char *p;
+        int r;
+
+        assert(i);
+
+        if (!i->argument) {
+                log_error("%s: Argument can't be empty!", i->path);
+                return -EBADMSG;
+        }
+        p = i->argument;
+
+        while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
+                _cleanup_free_ char *tmp = NULL, *name = NULL, *value = NULL;
+                r = split_pair(xattr, "=", &name, &value);
+                if (r < 0) {
+                        log_warning("Illegal xattr found: \"%s\" - ignoring.", xattr);
+                        free(xattr);
+                        continue;
+                }
+                free(xattr);
+                if (streq(name, "") || streq(value, "")) {
+                        log_warning("Malformed xattr found: \"%s=%s\" - ignoring.", name, value);
+                        continue;
+                }
+                tmp = unquote(value, "\"");
+                if (!tmp)
+                        return log_oom();
+                free(value);
+                value = cunescape(tmp);
+                if (!value)
+                        return log_oom();
+                if (strv_consume_pair(&i->xattrs, name, value) < 0)
+                        return log_oom();
+                name = value = NULL;
+        }
+
+        return r;
+}
+
+static int item_set_xattrs(Item *i, const char *path) {
+        char **name, **value;
+
+        assert(i);
+        assert(path);
+
+        if (strv_isempty(i->xattrs))
+                return 0;
+
+        STRV_FOREACH_PAIR(name, value, i->xattrs) {
+                int n;
+                n = strlen(*value);
+                if (lsetxattr(path, *name, *value, n, 0) < 0) {
+                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
+                        return -errno;
+                }
+        }
+        return 0;
+}
+
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
         int flags, r = 0;
@@ -541,6 +605,10 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         r = item_set_perms(i, path);
+        if (r < 0)
+                return r;
+
+        r = item_set_xattrs(i, i->path);
         if (r < 0)
                 return r;
 
@@ -716,6 +784,10 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                        return r;
+
                 break;
 
         case CREATE_FIFO:
@@ -756,6 +828,10 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                        return r;
+
                 break;
 
         case CREATE_SYMLINK:
@@ -786,6 +862,10 @@ static int create_item(Item *i) {
                                 }
                         }
                 }
+
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                       return r;
 
                 break;
 
@@ -847,6 +927,10 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                        return r;
+
                 break;
         }
 
@@ -863,7 +947,12 @@ static int create_item(Item *i) {
                 r = glob_item(i, item_set_perms_recursive);
                 if (r < 0)
                         return r;
+                break;
 
+        case SET_XATTR:
+                r = item_set_xattrs(i, i->path);
+                if (r < 0)
+                        return r;
                 break;
         }
 
@@ -893,6 +982,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
+        case SET_XATTR:
                 break;
 
         case REMOVE_PATH:
@@ -936,6 +1026,7 @@ static int remove_item(Item *i) {
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
         case COPY_FILES:
+        case SET_XATTR:
                 break;
 
         case REMOVE_PATH:
@@ -1059,6 +1150,7 @@ static void item_free(Item *i) {
 
         free(i->path);
         free(i->argument);
+        strv_free(i->xattrs);
         free(i);
 }
 
@@ -1257,6 +1349,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
         }
 
+        case SET_XATTR:
+                if (!i->argument) {
+                        log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
+                        return -EBADMSG;
+                }
+                r = get_xattrs_from_arg(i);
+                if (r < 0)
+                        return r;
+                break;
+
         default:
                 log_error("[%s:%u] Unknown command type '%c'.", fname, line, type);
                 return -EBADMSG;
@@ -1350,17 +1452,34 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         existing = hashmap_get(h, i->path);
         if (existing) {
-
-                /* Two identical items are fine */
-                if (!item_equal(existing, i))
-                        log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
-
-                return 0;
+                if (i->type == SET_XATTR) {
+                        r = strv_extend_strv(&existing->xattrs, i->xattrs);
+                        if (r < 0)
+                                return log_oom();
+                        return 0;
+                } else if (existing->type == SET_XATTR) {
+                        r = strv_extend_strv(&i->xattrs, existing->xattrs);
+                        if (r < 0)
+                                return log_oom();
+                        r = hashmap_replace(h, i->path, i);
+                        if (r < 0) {
+                                log_error("Failed to replace item for %s.", i->path);
+                                return r;
+                        }
+                        item_free(existing);
+                } else {
+                        /* Two identical items are fine */
+                        if (!item_equal(existing, i))
+                                log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
+                        return 0;
+                }
+        } else {
+                r = hashmap_put(h, i->path, i);
+                if (r < 0) {
+                        log_error("Failed to insert item %s: %s", i->path, strerror(-r));
+                        return r;
+                }
         }
-
-        r = hashmap_put(h, i->path, i);
-        if (r < 0)
-                return log_error_errno(r, "Failed to insert item %s: %m", i->path);
 
         i = NULL; /* avoid cleanup */
 
