@@ -375,118 +375,34 @@ static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int if
 }
 
 static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *prefix, int ifindex) {
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        sd_rtnl_message *m;
-        bool first = true;
-        int r;
+        _cleanup_free_ struct local_address *local = NULL;
+        int r, n, i;
 
-        assert(rtnl);
-        assert(ifindex >= 0);
+        n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
+        if (n < 0)
+                return n;
 
-        r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, AF_UNSPEC, RTPROT_UNSPEC);
-        if (r < 0)
-                return r;
+        for (i = 0; i < n; i++) {
+                _cleanup_free_ char *gateway = NULL, *description = NULL;
 
-        r = sd_rtnl_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_call(rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (m = reply; m; m = sd_rtnl_message_next(m)) {
-                _cleanup_free_ char *gateway = NULL, *gateway_description = NULL;
-                union in_addr_union gw = {};
-                uint16_t type;
-                uint32_t ifi;
-                int family;
-
-                r = sd_rtnl_message_get_errno(m);
-                if (r < 0) {
-                        log_error_errno(r, "got error: %m");
-                        continue;
-                }
-
-                r = sd_rtnl_message_get_type(m, &type);
-                if (r < 0) {
-                        log_error_errno(r, "could not get type: %m");
-                        continue;
-                }
-
-                if (type != RTM_NEWROUTE) {
-                        log_error("type is not RTM_NEWROUTE");
-                        continue;
-                }
-
-                r = sd_rtnl_message_route_get_family(m, &family);
-                if (r < 0) {
-                        log_error_errno(r, "could not get family: %m");
-                        continue;
-                }
-
-                r = sd_rtnl_message_read_u32(m, RTA_OIF, &ifi);
-                if (r < 0) {
-                        log_error_errno(r, "could not get RTA_OIF: %m");
-                        continue;
-                }
-
-                if (ifindex > 0 && ifi != (unsigned) ifindex)
-                        continue;
-
-                switch (family) {
-                case AF_INET:
-                        r = sd_rtnl_message_read_in_addr(m, RTA_GATEWAY, &gw.in);
-                        if (r < 0)
-                                continue;
-
-                        r = sd_rtnl_message_read_in_addr(m, RTA_DST, NULL);
-                        if (r >= 0)
-                                continue;
-
-                        r = sd_rtnl_message_read_in_addr(m, RTA_SRC, NULL);
-                        if (r >= 0)
-                                continue;
-
-                        break;
-                case AF_INET6:
-                        r = sd_rtnl_message_read_in6_addr(m, RTA_GATEWAY, &gw.in6);
-                        if (r < 0)
-                                continue;
-
-                        r = sd_rtnl_message_read_in6_addr(m, RTA_DST, NULL);
-                        if (r >= 0)
-                                continue;
-
-                        r = sd_rtnl_message_read_in6_addr(m, RTA_SRC, NULL);
-                        if (r >= 0)
-                                continue;
-
-                        break;
-                default:
-                        continue;
-                }
-
-                r = in_addr_to_string(family, &gw, &gateway);
+                r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
-                        continue;
+                        return r;
 
-                r = get_gateway_description(rtnl, hwdb, ifi, family, &gw, &gateway_description);
+                r = get_gateway_description(rtnl, hwdb, ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
-                        log_debug("could not get description of gateway: %s", strerror(-r));
+                        log_debug_errno(r, "Could not get description of gateway: %m");
 
-                if (gateway_description)
+                if (description)
                         printf("%*s%s (%s)\n",
                                (int) strlen(prefix),
-                               first ? prefix : "",
-                               gateway, gateway_description);
+                               i == 0 ? prefix : "",
+                               gateway, description);
                 else
                         printf("%*s%s\n",
                                (int) strlen(prefix),
-                               first ? prefix : "",
+                               i == 0 ? prefix : "",
                                gateway);
-
-                first = false;
         }
 
         return 0;
