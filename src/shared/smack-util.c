@@ -125,8 +125,11 @@ int mac_smack_apply_ip_in_fd(int fd, const char *label) {
 }
 
 int mac_smack_apply_pid(pid_t pid, const char *label) {
-        int r = 0;
+
+#ifdef HAVE_SMACK
         const char *p;
+#endif
+        int r = 0;
 
         assert(label);
 
@@ -144,13 +147,15 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
 }
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
-        int r = 0;
 
 #ifdef HAVE_SMACK
         struct stat st;
+#endif
+        int r = 0;
 
         assert(path);
 
+#ifdef HAVE_SMACK
         if (!mac_smack_use())
                 return 0;
 
@@ -194,8 +199,7 @@ int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
                 if (ignore_erofs && errno == EROFS)
                         return 0;
 
-                log_debug_errno(errno, "Unable to fix SMACK label of %s: %m", path);
-                r = -errno;
+                r = log_debug_errno(errno, "Unable to fix SMACK label of %s: %m", path);
         }
 #endif
 
