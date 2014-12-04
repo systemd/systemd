@@ -138,6 +138,19 @@ int route_drop(Route *route, Link *link,
                         return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
+        if (route->src_prefixlen) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_SRC, &route->src_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_SRC, &route->src_addr.in6);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_DST attribute: %m");
+
+                r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set source prefix length: %m");
+        }
+
         if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
                 if (route->family == AF_INET)
                         r = sd_rtnl_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc_addr.in);
@@ -205,6 +218,19 @@ int route_configure(Route *route, Link *link,
                 r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
                 if (r < 0)
                         return log_error_errno(r, "Could not set destination prefix length: %m");
+        }
+
+        if (route->src_prefixlen) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_SRC, &route->src_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_SRC, &route->src_addr.in6);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_SRC attribute: %m");
+
+                r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set source prefix length: %m");
         }
 
         if (!in_addr_is_null(route->family, &route->prefsrc_addr)) {
@@ -298,6 +324,7 @@ int config_parse_destination(const char *unit,
         _cleanup_route_free_ Route *n = NULL;
         const char *address, *e;
         union in_addr_union buffer;
+        unsigned char prefixlen;
         int r, f;
 
         assert(filename);
@@ -310,7 +337,7 @@ int config_parse_destination(const char *unit,
         if (r < 0)
                 return r;
 
-        /* Destination=address/prefixlen */
+        /* Destination|Source=address/prefixlen */
 
         /* address */
         e = strchr(rvalue, '/');
@@ -328,29 +355,33 @@ int config_parse_destination(const char *unit,
 
         /* prefixlen */
         if (e) {
-                unsigned i;
-
-                r = safe_atou(e + 1, &i);
+                r = safe_atou8(e + 1, &prefixlen);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Route destination prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
-
-                n->dst_prefixlen = (unsigned char) i;
         } else {
                 switch (n->family) {
                         case AF_INET:
-                                n->dst_prefixlen = 32;
+                                prefixlen = 32;
                                 break;
                         case AF_INET6:
-                                n->dst_prefixlen = 128;
+                                prefixlen = 128;
                                 break;
                 }
         }
 
         n->family = f;
-        n->dst_addr = buffer;
+        if (streq(lvalue, "Destination")) {
+                n->dst_addr = buffer;
+                n->dst_prefixlen = prefixlen;
+        } else if (streq(lvalue, "Source")) {
+                n->src_addr = buffer;
+                n->src_prefixlen = prefixlen;
+        } else
+                assert_not_reached(lvalue);
+
         n = NULL;
 
         return 0;

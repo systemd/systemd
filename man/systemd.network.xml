@@ -416,6 +416,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>Source=</varname></term>
+                                        <listitem>
+                                                <para>The source prefix of the route. Possibly followed by a slash and the
+                                                prefixlength. If omitted, a full-length host route is assumed.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Metric=</varname></term>
                                         <listitem>
                                                 <para>The metric of the route. An unsigned integer</para>

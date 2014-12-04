@@ -147,12 +147,14 @@ struct Route {
 
         int family;
         unsigned char dst_prefixlen;
+        unsigned char src_prefixlen;
         unsigned char scope;
         uint32_t metrics;
         unsigned char protocol;  /* RTPROT_* */
 
         union in_addr_union in_addr;
         union in_addr_union dst_addr;
+        union in_addr_union src_addr;
         union in_addr_union prefsrc_addr;
 
         LIST_FIELDS(Route, routes);

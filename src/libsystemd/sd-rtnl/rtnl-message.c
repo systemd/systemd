@@ -114,6 +114,24 @@ int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char pr
         return 0;
 }
 
+int sd_rtnl_message_route_set_src_prefixlen(sd_rtnl_message *m, unsigned char prefixlen) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
+            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
+                return -ERANGE;
+
+        rtm->rtm_src_len = prefixlen;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope) {
         struct rtmsg *rtm;
 
