@@ -35,6 +35,10 @@ External:
 
 Features:
 
+* resolved should optionally register additional per-interface LLMNR
+  names, so that for the container case we can establish the same name
+  (maybe "host") for referencing the server, everywhere.
+
 * systemd-journal-upload (or a new, related tool): allow pushing out
   journal messages onto the network in BSD syslog protocol,
   continously. Default to some link-local IP mcast group, to make this
