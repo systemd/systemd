@@ -50,7 +50,7 @@ static int address_compare(const void *_a, const void *_b) {
         if (a->ifindex > b->ifindex)
                 return 1;
 
-        return 0;
+        return memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
 }
 
 int local_addresses(sd_rtnl *context, int ifindex, int af, struct local_address **ret) {
