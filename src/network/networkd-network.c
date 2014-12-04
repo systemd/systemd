@@ -90,7 +90,14 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->llmnr = LLMNR_SUPPORT_YES;
 
         r = config_parse(NULL, filename, file,
-                         "Match\0Network\0Address\0Route\0DHCP\0DHCPv4\0BridgePort\0",
+                         "Match\0"
+                         "Link\0"
+                         "Network\0"
+                         "Address\0"
+                         "Route\0"
+                         "DHCP\0"
+                         "DHCPv4\0"
+                         "BridgePort\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
                          false, false, true, network);
         if (r < 0)
@@ -162,6 +169,8 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+
+        free(network->mac);
 
         strv_free(network->ntp);
         strv_free(network->dns);

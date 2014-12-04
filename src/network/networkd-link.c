@@ -1074,6 +1074,7 @@ static int link_up(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
         assert(link->manager);
         assert(link->manager->rtnl);
 
@@ -1091,6 +1092,22 @@ static int link_up(Link *link) {
                 log_link_error(link, "Could not set link flags: %s",
                                strerror(-r));
                 return r;
+        }
+
+        if (link->network->mac) {
+                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
+                if (r < 0) {
+                        log_link_error(link, "Could not set MAC address: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        if (link->network->mtu) {
+                r = sd_rtnl_message_append_u32(req, IFLA_MTU, link->network->mtu);
+                if (r < 0) {
+                        log_link_error(link, "Could not set MTU: %s", strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link,

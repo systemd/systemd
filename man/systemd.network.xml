@@ -180,6 +180,30 @@
         </refsect1>
 
         <refsect1>
+                <title>[Link] Section Options</title>
+
+                <para> The <literal>[Link]</literal> section accepts the following keys:</para>
+
+                <variablelist class='network-directives'>
+                        <varlistentry>
+                                <term><varname>MACAddress=</varname></term>
+                                <listitem>
+                                        <para>The hardware address.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>MTUBytes=</varname></term>
+                                <listitem>
+                                        <para>The maximum transmission unit in bytes to
+                                        set for the device. The usual suffixes K, M, G,
+                                        are supported and are understood to the base of
+                                        1024.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>[Network] Section Options</title>
 
                         <para>The <literal>[Network]</literal> section accepts the following keys:</para>

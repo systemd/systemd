@@ -108,6 +108,9 @@ struct Network {
 
         unsigned cost;
 
+        struct ether_addr *mac;
+        unsigned mtu;
+
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
 
