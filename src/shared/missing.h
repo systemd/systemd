@@ -566,6 +566,10 @@ static inline int setns(int fd, int nstype) {
 #  define NET_ADDR_RANDOM 1
 #endif
 
+#ifndef NET_NAME_UNKNOWN
+#  define NET_NAME_UNKNOWN 0
+#endif
+
 #ifndef NET_NAME_ENUM
 #  define NET_NAME_ENUM 1
 #endif
