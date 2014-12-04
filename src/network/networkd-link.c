@@ -689,11 +689,11 @@ static int link_set_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
-        log_debug_link(link, "set link");
+        log_link_debug(link, "set link");
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_struct_link(LOG_ERR, link,
+                log_link_struct(link, LOG_ERR,
                                 "MESSAGE=%-*s: could not join netdev: %s",
                                 IFNAMSIZ,
                                 link->ifname, strerror(-r),
@@ -836,20 +836,20 @@ static int link_set_bridge(Link *link) {
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
                                      RTM_SETLINK, link->ifindex);
         if (r < 0) {
-                log_error_link(link, "Could not allocate RTM_SETLINK message");
+                log_link_error(link, "Could not allocate RTM_SETLINK message");
                 return r;
         }
 
         r = sd_rtnl_message_link_set_family(req, PF_BRIDGE);
         if (r < 0) {
-                log_error_link(link,
+                log_link_error(link,
                                "Could not set message family %s", strerror(-r));
                 return r;
         }
 
         r = sd_rtnl_message_open_container(req, IFLA_PROTINFO);
         if (r < 0) {
-                log_error_link(link,
+                log_link_error(link,
                                "Could not append IFLA_PROTINFO attribute: %s",
                                strerror(-r));
                 return r;
@@ -858,7 +858,7 @@ static int link_set_bridge(Link *link) {
         if(link->network->cost != 0) {
                 r = sd_rtnl_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
                 if (r < 0) {
-                        log_error_link(link,
+                        log_link_error(link,
                                        "Could not append IFLA_BRPORT_COST attribute: %s",
                                        strerror(-r));
                         return r;
@@ -867,7 +867,7 @@ static int link_set_bridge(Link *link) {
 
         r = sd_rtnl_message_close_container(req);
         if (r < 0) {
-                log_error_link(link,
+                log_link_error(link,
                                "Could not append IFLA_LINKINFO attribute: %s",
                                strerror(-r));
                 return r;
@@ -875,7 +875,7 @@ static int link_set_bridge(Link *link) {
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_set_handler, link, 0, NULL);
         if (r < 0) {
-                log_error_link(link,
+                log_link_error(link,
                                "Could not send rtnetlink message: %s",
                                strerror(-r));
                 return r;
@@ -1124,7 +1124,7 @@ static int link_joined(Link *link) {
         if(link->network->bridge) {
                 r = link_set_bridge(link);
                 if (r < 0) {
-                        log_error_link(link,
+                        log_link_error(link,
                                        "Could not set bridge message: %s",
                                        strerror(-r));
                 }

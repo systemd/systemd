@@ -95,7 +95,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_RSC attribute: %s",
                                  strerror(-r));
                 return r;
@@ -103,7 +103,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_PROXY, v->arp_proxy);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_PROXY attribute: %s",
                                  strerror(-r));
                 return r;
@@ -111,7 +111,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L2MISS, v->l2miss);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_L2MISS attribute: %s",
                                  strerror(-r));
                 return r;
@@ -119,7 +119,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
 
         r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_L3MISS, v->l3miss);
         if (r < 0) {
-                log_error_netdev(netdev,
+                log_netdev_error(netdev,
                                  "Could not append IFLA_VXLAN_L3MISS attribute: %s",
                                  strerror(-r));
                 return r;
@@ -128,7 +128,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
         if(v->fdb_ageing) {
                 r = sd_rtnl_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0) {
-                        log_error_netdev(netdev,
+                        log_netdev_error(netdev,
                                          "Could not append IFLA_VXLAN_AGEING attribute: %s",
                                          strerror(-r));
                         return r;
