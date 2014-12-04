@@ -202,7 +202,7 @@ char *utf8_escape_invalid(const char *str) {
                         s = mempcpy(s, str, len);
                         str += len;
                 } else {
-                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
+                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
                         str += 1;
                 }
         }
@@ -230,18 +230,18 @@ char *utf8_escape_non_printable(const char *str) {
                                 s = mempcpy(s, str, len);
                                 str += len;
                         } else {
-                                if ((*str < ' ') || (*str >= 127)) {
+                                while (len > 0) {
                                         *(s++) = '\\';
                                         *(s++) = 'x';
                                         *(s++) = hexchar((int) *str >> 4);
                                         *(s++) = hexchar((int) *str);
-                                } else
-                                        *(s++) = *str;
 
-                                str += 1;
+                                        str += 1;
+                                        len --;
+                                }
                         }
                 } else {
-                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
+                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
                         str += 1;
                 }
         }

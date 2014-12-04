@@ -47,7 +47,6 @@ static void test_utf8_encoded_valid_unichar(void) {
         assert_se(utf8_encoded_valid_unichar("a") == 1);
         assert_se(utf8_encoded_valid_unichar("\341\204") < 0);
         assert_se(utf8_encoded_valid_unichar("\341\204\341\204") < 0);
-
 }
 
 static void test_utf8_escaping(void) {
@@ -67,7 +66,7 @@ static void test_utf8_escaping(void) {
 }
 
 static void test_utf8_escaping_printable(void) {
-        _cleanup_free_ char *p1, *p2, *p3, *p4, *p5;
+        _cleanup_free_ char *p1, *p2, *p3, *p4, *p5, *p6;
 
         p1 = utf8_escape_non_printable("goo goo goo");
         puts(p1);
@@ -88,6 +87,10 @@ static void test_utf8_escaping_printable(void) {
         p5 = utf8_escape_non_printable("\001 \019\20\a");
         puts(p5);
         assert_se(utf8_is_valid(p5));
+
+        p6 = utf8_escape_non_printable("\xef\xbf\x30\x13");
+        puts(p6);
+        assert_se(utf8_is_valid(p6));
 }
 
 int main(int argc, char *argv[]) {
