@@ -161,7 +161,7 @@ int sd_rtnl_message_route_get_family(sd_rtnl_message *m, int *family) {
         return 0;
 }
 
-int sd_rtnl_message_route_get_dst_len(sd_rtnl_message *m, unsigned char *dst_len) {
+int sd_rtnl_message_route_get_dst_prefixlen(sd_rtnl_message *m, unsigned char *dst_len) {
         struct rtmsg *rtm;
 
         assert_return(m, -EINVAL);
@@ -176,7 +176,7 @@ int sd_rtnl_message_route_get_dst_len(sd_rtnl_message *m, unsigned char *dst_len
         return 0;
 }
 
-int sd_rtnl_message_route_get_src_len(sd_rtnl_message *m, unsigned char *src_len) {
+int sd_rtnl_message_route_get_src_prefixlen(sd_rtnl_message *m, unsigned char *src_len) {
         struct rtmsg *rtm;
 
         assert_return(m, -EINVAL);

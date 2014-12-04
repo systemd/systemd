@@ -212,13 +212,13 @@ int local_gateways(sd_rtnl *context, int ifindex, int af, struct local_address *
                         continue;
 
                 /* We only care for default routes */
-                r = sd_rtnl_message_route_get_dst_len(m, &dst_len);
+                r = sd_rtnl_message_route_get_dst_prefixlen(m, &dst_len);
                 if (r < 0)
                         return r;
                 if (dst_len != 0)
                         continue;
 
-                r = sd_rtnl_message_route_get_src_len(m, &src_len);
+                r = sd_rtnl_message_route_get_src_prefixlen(m, &src_len);
                 if (r < 0)
                         return r;
                 if (src_len != 0)
