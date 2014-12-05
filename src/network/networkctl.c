@@ -26,7 +26,7 @@
 #include "sd-network.h"
 #include "sd-rtnl.h"
 #include "sd-hwdb.h"
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "strv.h"
 #include "build.h"
@@ -34,7 +34,7 @@
 #include "pager.h"
 #include "lldp.h"
 #include "rtnl-util.h"
-#include "udev-util.h"
+#include "device-util.h"
 #include "hwdb-util.h"
 #include "arphrd-list.h"
 #include "local-addresses.h"
@@ -54,9 +54,11 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int link_get_type_string(int iftype, struct udev_device *d, char **ret) {
+static int link_get_type_string(int iftype, sd_device *d, char **ret) {
         const char *t;
         char *p;
+
+        assert(ret);
 
         if (iftype == ARPHRD_ETHER && d) {
                 const char *devtype, *id = NULL;
@@ -64,7 +66,8 @@ static int link_get_type_string(int iftype, struct udev_device *d, char **ret) {
                  * to show a more useful type string for
                  * them */
 
-                devtype = udev_device_get_devtype(d);
+                (void)sd_device_get_devtype(d, &devtype);
+
                 if (streq_ptr(devtype, "wlan"))
                         id = "wlan";
                 else if (streq_ptr(devtype, "wwan"))
@@ -189,7 +192,6 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 
 static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
@@ -199,10 +201,6 @@ static int list_links(int argc, char *argv[], void *userdata) {
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
-
-        udev = udev_new();
-        if (!udev)
-                return log_error_errno(errno, "Failed to connect to udev: %m");
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
         if (r < 0)
@@ -225,7 +223,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                _cleanup_device_unref_ sd_device *d = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
                  char devid[2 + DECIMAL_STR_MAX(int)];
@@ -238,7 +236,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
                 sprintf(devid, "n%i", links[i].ifindex);
-                d = udev_device_new_from_device_id(udev, devid);
+                (void)sd_device_new_from_device_id(&d, devid);
 
                 link_get_type_string(links[i].iftype, d, &t);
 
@@ -495,14 +493,12 @@ static void dump_list(const char *prefix, char **l) {
 
 static int link_status_one(
                 sd_rtnl *rtnl,
-                struct udev *udev,
                 sd_hwdb *hwdb,
                 const char *name) {
-
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_device_unref_ sd_device *d = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -517,7 +513,6 @@ static int link_status_one(
         uint32_t mtu;
 
         assert(rtnl);
-        assert(udev);
         assert(name);
 
         if (safe_atoi(name, &ifindex) >= 0 && ifindex > 0)
@@ -589,19 +584,21 @@ static int link_status_one(
         }
 
         sprintf(devid, "n%i", ifindex);
-        d = udev_device_new_from_device_id(udev, devid);
+
+        (void)sd_device_new_from_device_id(&d, devid);
+
         if (d) {
-                link = udev_device_get_property_value(d, "ID_NET_LINK_FILE");
-                driver = udev_device_get_property_value(d, "ID_NET_DRIVER");
-                path = udev_device_get_property_value(d, "ID_PATH");
+                (void)sd_device_get_property_value(d, "ID_NET_LINK_FILE", &link);
+                (void)sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
+                (void)sd_device_get_property_value(d, "ID_PATH", &path);
 
-                vendor = udev_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE");
-                if (!vendor)
-                        vendor = udev_device_get_property_value(d, "ID_VENDOR");
+                r = sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor);
+                if (r < 0)
+                        (void)sd_device_get_property_value(d, "ID_VENDOR", &vendor);
 
-                model = udev_device_get_property_value(d, "ID_MODEL_FROM_DATABASE");
-                if (!model)
-                        model = udev_device_get_property_value(d, "ID_MODEL");
+                r = sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model);
+                if (r < 0)
+                        (void)sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
         link_get_type_string(iftype, d, &t);
@@ -668,7 +665,6 @@ static int link_status_one(
 
 static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **name;
         int r;
@@ -676,10 +672,6 @@ static int link_status(int argc, char *argv[], void *userdata) {
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
-
-        udev = udev_new();
-        if (!udev)
-                return log_error_errno(errno, "Failed to connect to udev: %m");
 
         r = sd_hwdb_new(&hwdb);
         if (r < 0)
@@ -742,14 +734,14 @@ static int link_status(int argc, char *argv[], void *userdata) {
                         if (i > 0)
                                 fputc('\n', stdout);
 
-                        link_status_one(rtnl, udev, hwdb, links[i].name);
+                        link_status_one(rtnl, hwdb, links[i].name);
                 }
         } else {
                 STRV_FOREACH(name, argv + 1) {
                         if (name != argv + 1)
                                 fputc('\n', stdout);
 
-                        link_status_one(rtnl, udev, hwdb, *name);
+                        link_status_one(rtnl, hwdb, *name);
                 }
         }
 
