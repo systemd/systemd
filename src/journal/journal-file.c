@@ -1657,7 +1657,7 @@ static int generic_array_bisect(
                         }
                 }
 
-                if (k > n) {
+                if (k >= n) {
                         if (direction == DIRECTION_UP) {
                                 i = n;
                                 subtract_one = true;
