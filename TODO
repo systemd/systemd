@@ -35,6 +35,11 @@ External:
 
 Features:
 
+* "systemctl preset-all" should probably order the unit files it
+  operates on lexicographically before starting to work, in order to
+  ensure deterministic behaviour if two unit files conflict (like DMs
+  do, for example)
+
 * resolved should optionally register additional per-interface LLMNR
   names, so that for the container case we can establish the same name
   (maybe "host") for referencing the server, everywhere.
