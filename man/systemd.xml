@@ -681,7 +681,7 @@
                                 received the systemd manager will log
                                 its complete state in human readable
                                 form. The data logged is the same as
-                                printed by <command>systemctl
+                                printed by <command>systemd-analyze
                                 dump</command>.</para></listitem>
                         </varlistentry>
 
