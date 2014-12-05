@@ -225,9 +225,22 @@ int network_get(Manager *manager, struct udev_device *device,
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
-                                     ifname, false)) {
-                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname,
-                                  network->filename);
+                                     ifname)) {
+                        const char *attr;
+                        uint8_t name_assign_type = NET_NAME_UNKNOWN;
+
+                        if (network->match_name) {
+                                attr = udev_device_get_sysattr_value(device, "name_assign_type");
+                                (void)safe_atou8(attr, &name_assign_type);
+
+                                if (name_assign_type == NET_NAME_ENUM)
+                                        log_warning("%-*s: found matching network '%s', based on potentially unstable ifname",
+                                                    IFNAMSIZ, ifname, network->filename);
+                                else
+                                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+                        } else
+                                log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname, network->filename);
+
                         *ret = network;
                         return 0;
                 }

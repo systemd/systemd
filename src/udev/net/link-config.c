@@ -226,11 +226,6 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
 
         LIST_FOREACH(links, link, ctx->links) {
                 const char* attr_value;
-                unsigned char name_assign_type = NET_NAME_UNKNOWN;
-
-                attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
-                if (attr_value)
-                        (void)safe_atou8(attr_value, &name_assign_type);
 
                 attr_value = udev_device_get_sysattr_value(device, "address");
 
@@ -242,13 +237,39 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
-                                     udev_device_get_sysname(device),
-                                     name_assign_type == NET_NAME_RENAMED)) {
-                        log_debug("Config file %s applies to device %s",
-                                  link->filename,
-                                  udev_device_get_sysname(device));
-                        *ret = link;
-                        return 0;
+                                     udev_device_get_sysname(device))) {
+                        if (link->match_name) {
+                                unsigned char name_assign_type = NET_NAME_UNKNOWN;
+
+                                attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
+                                if (attr_value)
+                                        (void)safe_atou8(attr_value, &name_assign_type);
+
+                                if (name_assign_type == NET_NAME_ENUM) {
+                                        log_warning("Config file %s applies to device based on potentially unstable interface name '%s'",
+                                                  link->filename, udev_device_get_sysname(device));
+                                        *ret = link;
+
+                                        return 0;
+                                } else if (name_assign_type == NET_NAME_RENAMED) {
+                                        log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
+                                                  link->filename, udev_device_get_sysname(device));
+                                } else {
+                                        log_debug("Config file %s applies to device %s",
+                                                  link->filename, udev_device_get_sysname(device));
+
+                                        *ret = link;
+
+                                        return 0;
+                                }
+                        } else {
+                                log_debug("Config file %s applies to device %s",
+                                          link->filename,  udev_device_get_sysname(device));
+
+                                *ret = link;
+
+                                return 0;
+                        }
                 }
         }
 

@@ -96,8 +96,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
-                      const char *dev_name,
-                      bool ignore_name_match) {
+                      const char *dev_name) {
 
         if (match_host && !condition_test(match_host))
                 return false;
@@ -127,14 +126,8 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_type && !streq_ptr(match_type, dev_type))
                 return false;
 
-        if (match_name) {
-                if (!dev_name || fnmatch(match_name, dev_name, 0))
+        if (match_name && (!dev_name || fnmatch(match_name, dev_name, 0)))
                         return false;
-                else if (ignore_name_match) {
-                        log_warning("ifname (%s) matched config, but is ignored as it is not the original name", dev_name);
-                        return false;
-                }
-        }
 
         return true;
 }

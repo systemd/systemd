@@ -42,8 +42,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
-                      const char *dev_name,
-                      bool ignore_name_match);
+                      const char *dev_name);
 
 int config_parse_net_condition(const char *unit, const char *filename, unsigned line,
                                const char *section, unsigned section_line, const char *lvalue,
