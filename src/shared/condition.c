@@ -33,7 +33,6 @@
 #include "fileio.h"
 #include "unit.h"
 #include "architecture.h"
-#include "virt.h"
 #include "smack-util.h"
 #include "apparmor-util.h"
 #include "ima-util.h"
