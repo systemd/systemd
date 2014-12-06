@@ -32,61 +32,54 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 
-#define BUS_ERROR_OOM SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_MEMORY, "Out of memory")
-#define BUS_ERROR_FAILED SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed")
-
-SD_BUS_ERROR_MAPPING(sd_bus_standard) = {
-        {"org.freedesktop.DBus.Error.Failed",                           EACCES},
-        {"org.freedesktop.DBus.Error.NoMemory",                         ENOMEM},
-        {"org.freedesktop.DBus.Error.ServiceUnknown",                   EHOSTUNREACH},
-        {"org.freedesktop.DBus.Error.NameHasNoOwner",                   ENXIO},
-        {"org.freedesktop.DBus.Error.NoReply",                          ETIMEDOUT},
-        {"org.freedesktop.DBus.Error.IOError",                          EIO},
-        {"org.freedesktop.DBus.Error.BadAddress",                       EADDRNOTAVAIL},
-        {"org.freedesktop.DBus.Error.NotSupported",                     ENOTSUP},
-        {"org.freedesktop.DBus.Error.LimitsExceeded",                   ENOBUFS},
-        {"org.freedesktop.DBus.Error.AccessDenied",                     EACCES},
-        {"org.freedesktop.DBus.Error.AuthFailed",                       EACCES},
-        {"org.freedesktop.DBus.Error.InteractiveAuthorizationRequired", EACCES},
-        {"org.freedesktop.DBus.Error.NoServer",                         EHOSTDOWN},
-        {"org.freedesktop.DBus.Error.Timeout",                          ETIMEDOUT},
-        {"org.freedesktop.DBus.Error.NoNetwork",                        ENONET},
-        {"org.freedesktop.DBus.Error.AddressInUse",                     EADDRINUSE},
-        {"org.freedesktop.DBus.Error.Disconnected",                     ECONNRESET},
-        {"org.freedesktop.DBus.Error.InvalidArgs",                      EINVAL},
-        {"org.freedesktop.DBus.Error.FileNotFound",                     ENOENT},
-        {"org.freedesktop.DBus.Error.FileExists",                       EEXIST},
-        {"org.freedesktop.DBus.Error.UnknownMethod",                    EBADR},
-        {"org.freedesktop.DBus.Error.UnknownObject",                    EBADR},
-        {"org.freedesktop.DBus.Error.UnknownInterface",                 EBADR},
-        {"org.freedesktop.DBus.Error.UnknownProperty",                  EBADR},
-        {"org.freedesktop.DBus.Error.PropertyReadOnly",                 EROFS},
-        {"org.freedesktop.DBus.Error.UnixProcessIdUnknown",             ESRCH},
-        {"org.freedesktop.DBus.Error.InvalidSignature",                 EINVAL},
-        {"org.freedesktop.DBus.Error.InconsistentMessage",              EBADMSG},
-
-        {"org.freedesktop.DBus.Error.TimedOut",                         ETIMEDOUT},
-        {"org.freedesktop.DBus.Error.MatchRuleInvalid",                 EINVAL},
-        {"org.freedesktop.DBus.Error.InvalidFileContent",               EINVAL},
-        {"org.freedesktop.DBus.Error.MatchRuleNotFound",                ENOENT},
-        {"org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown",    ESRCH},
-        {"org.freedesktop.DBus.Error.ObjectPathInUse",                  EBUSY},
+BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map standard_errors[] = {
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Failed",                           EACCES),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoMemory",                         ENOMEM),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.ServiceUnknown",                   EHOSTUNREACH),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NameHasNoOwner",                   ENXIO),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoReply",                          ETIMEDOUT),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.IOError",                          EIO),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.BadAddress",                       EADDRNOTAVAIL),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NotSupported",                     ENOTSUP),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.LimitsExceeded",                   ENOBUFS),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.AccessDenied",                     EACCES),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.AuthFailed",                       EACCES),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.InteractiveAuthorizationRequired", EACCES),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoServer",                         EHOSTDOWN),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Timeout",                          ETIMEDOUT),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoNetwork",                        ENONET),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.AddressInUse",                     EADDRINUSE),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Disconnected",                     ECONNRESET),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.InvalidArgs",                      EINVAL),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.FileNotFound",                     ENOENT),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.FileExists",                       EEXIST),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.UnknownMethod",                    EBADR),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.UnknownObject",                    EBADR),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.UnknownInterface",                 EBADR),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.UnknownProperty",                  EBADR),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.PropertyReadOnly",                 EROFS),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.UnixProcessIdUnknown",             ESRCH),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.InvalidSignature",                 EINVAL),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.InconsistentMessage",              EBADMSG),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.TimedOut",                         ETIMEDOUT),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.MatchRuleInvalid",                 EINVAL),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.InvalidFileContent",               EINVAL),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.MatchRuleNotFound",                ENOENT),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown",    ESRCH),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.ObjectPathInUse",                  EBUSY),
+        SD_BUS_ERROR_MAP_END
 };
 
-extern const sd_bus_name_error_mapping __start_sd_bus_errnomap[];
-extern const sd_bus_name_error_mapping __stop_sd_bus_errnomap[];
+/* GCC maps this magically to the beginning and end of the BUS_ERROR_MAP section */
+extern const sd_bus_error_map __start_BUS_ERROR_MAP[];
+extern const sd_bus_error_map __stop_BUS_ERROR_MAP[];
 
-static int bus_error_mapping_lookup(const char *name, size_t len) {
-        const sd_bus_name_error_mapping *m;
-
-        for (m = __start_sd_bus_errnomap; m < __stop_sd_bus_errnomap; m++)
-                if (m->name && strneq(m->name, name, len))
-                        return m->code;
-
-        return EIO;
-}
+/* Additional maps registered with sd_bus_error_add_map() are in this
+ * NULL terminated array */
+static const sd_bus_error_map **additional_error_maps = NULL;
 
 static int bus_error_name_to_errno(const char *name) {
+        const sd_bus_error_map **map, *m;
         const char *p;
         int r;
 
@@ -102,7 +95,39 @@ static int bus_error_name_to_errno(const char *name) {
                 return r;
         }
 
-        return bus_error_mapping_lookup(name, strlen(name));
+        if (additional_error_maps) {
+                for (map = additional_error_maps; *map; map++) {
+                        for (m = *map;; m++) {
+                                /* For additional error maps the end marker is actually the end marker */
+                                if (m->code == BUS_ERROR_MAP_END_MARKER)
+                                        break;
+
+                                if (streq(m->name, name))
+                                        return m->code;
+                        }
+                }
+        }
+
+        m = __start_BUS_ERROR_MAP;
+        while (m < __stop_BUS_ERROR_MAP) {
+                /* For magic ELF error maps, the end marker might
+                 * appear in the middle of things, since multiple maps
+                 * might appear in the same section. Hence, let's skip
+                 * over it, but realign the pointer to the netx 8byte
+                 * boundary, which is the selected alignment for the
+                 * arrays. */
+                if (m->code == BUS_ERROR_MAP_END_MARKER) {
+                        m = ALIGN8_PTR(m+1);
+                        continue;
+                }
+
+                if (streq(m->name, name))
+                        return m->code;
+
+                m++;
+        }
+
+        return EIO;
 }
 
 static sd_bus_error errno_to_bus_error_const(int error) {
@@ -551,4 +576,32 @@ const char *bus_error_message(const sd_bus_error *e, int error) {
                 error = -error;
 
         return strerror(error);
+}
+
+_public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
+        const sd_bus_error_map **maps = NULL;
+        unsigned n = 0;
+
+        assert_return(map, -EINVAL);
+
+        if (additional_error_maps) {
+                for (;; n++) {
+                        if (additional_error_maps[n] == NULL)
+                                break;
+
+                        if (additional_error_maps[n] == map)
+                                return 0;
+                }
+        }
+
+        maps = realloc_multiply(additional_error_maps, sizeof(struct sd_bus_error_map*), n + 2);
+        if (!maps)
+                return -ENOMEM;
+
+
+        maps[n] = map;
+        maps[n+1] = NULL;
+
+        additional_error_maps = maps;
+        return 1;
 }

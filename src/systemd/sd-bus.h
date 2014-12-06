@@ -46,6 +46,11 @@ typedef struct {
         int _need_free;
 } sd_bus_error;
 
+typedef struct {
+        const char* name;
+        int code;
+} sd_bus_error_map;
+
 /* Flags */
 
 enum {
@@ -356,31 +361,8 @@ int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 
 /* Error structures */
 
-struct sd_bus_name_error_mapping {
-        const char* name;
-        int code;
-};
-typedef struct sd_bus_name_error_mapping sd_bus_name_error_mapping;
-
 #define SD_BUS_ERROR_MAKE_CONST(name, message) ((const sd_bus_error) {(name), (message), 0})
 #define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE_CONST(NULL, NULL)
-
-#ifndef SD_BUS_ERROR_MAPPING
-#  define _SD_BUS_ERROR_XCONCAT(x, y) x ## y
-#  define _SD_BUS_ERROR_CONCAT(x, y) _SD_BUS_ERROR_XCONCAT(x, y)
-#  define SD_BUS_ERROR_MAPPING(name)                                    \
-        __attribute((__section__("sd_bus_errnomap")))                   \
-        __attribute((__used__))                                         \
-        const sd_bus_name_error_mapping _SD_BUS_ERROR_CONCAT(_sd_bus_errno_mapping_, name)[]
-#  define SD_BUS_ERROR_MAPPING_USE(name)                                \
-        extern                                                          \
-        const sd_bus_name_error_mapping _SD_BUS_ERROR_CONCAT(_sd_bus_errno_mapping_, name)[]; \
-        __attribute((__used__))                                         \
-        static const sd_bus_name_error_mapping*                         \
-        _SD_BUS_ERROR_CONCAT(sd_bus_name_error_mapping_ref, __COUNTER__) \
-        = _SD_BUS_ERROR_CONCAT(_sd_bus_errno_mapping_, name);
-#endif
-
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
@@ -392,6 +374,19 @@ int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+
+#define SD_BUS_ERROR_MAP(_name, _code)          \
+        {                                       \
+                .name = _name,                  \
+                .code = _code,                  \
+        }
+#define SD_BUS_ERROR_MAP_END                    \
+        {                                       \
+                .name = NULL,                   \
+                .code = - 'x',                  \
+        }
+
+int sd_bus_error_add_map(const sd_bus_error_map *map);
 
 /* Auxiliary macros */
 

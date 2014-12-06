@@ -38,14 +38,16 @@
 #include "fileio-label.h"
 #include "label.h"
 #include "bus-util.h"
+#include "bus-error.h"
 #include "bus-errors.h"
 #include "event-util.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
-SD_BUS_ERROR_MAPPING(timedated) = {
-        {"org.freedesktop.timedate1.NoNTPSupport", ENOTSUP},
+static BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map timedated_errors[] = {
+        SD_BUS_ERROR_MAP("org.freedesktop.timedate1.NoNTPSupport", ENOTSUP),
+        SD_BUS_ERROR_MAP_END
 };
 
 typedef struct Context {

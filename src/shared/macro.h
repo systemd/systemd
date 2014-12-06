@@ -95,15 +95,15 @@
 #error "Wut? Pointers are neither 4 nor 8 bytes long?"
 #endif
 
-#define ALIGN_PTR(p) ((void*) ALIGN((unsigned long) p))
-#define ALIGN4_PTR(p) ((void*) ALIGN4((unsigned long) p))
-#define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) p))
+#define ALIGN_PTR(p) ((void*) ALIGN((unsigned long) (p)))
+#define ALIGN4_PTR(p) ((void*) ALIGN4((unsigned long) (p)))
+#define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) (p)))
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }
 
-#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) p, ali))
+#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) (p), (ali)))
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
