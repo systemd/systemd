@@ -59,8 +59,6 @@ Features:
 
 * the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
 
-* revisit rfkill. the rfkill device names are counted up, and not stable. instead: store per kind of device together with PCI path, ignore the device name.
-
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
 
 * we should try harder to collapse start jobs for swaps that end up being the same:
@@ -295,12 +293,10 @@ Features:
 
 * sd-bus:
   - xml policy inforcement and bus activated services is broken?
-  - rework errno registration logic
   - how can we make the xml enforcement for native clients unnecessary?
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
   - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
   - kdbus: timestamps on kernel's NameOwnerChanged messages?
-  - kdbus: busctl monitor message ordering is wildly out-of-order?
   - kdbus' busnames.target should get pulled in by basic.target
   - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
     without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
