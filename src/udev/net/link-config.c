@@ -246,7 +246,7 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
                                         (void)safe_atou8(attr_value, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM) {
-                                        log_warning("Config file %s applies to device based on potentially unstable interface name '%s'",
+                                        log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
                                                   link->filename, udev_device_get_sysname(device));
                                         *ret = link;
 
@@ -254,22 +254,17 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
                                         log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
                                                   link->filename, udev_device_get_sysname(device));
-                                } else {
-                                        log_debug("Config file %s applies to device %s",
-                                                  link->filename, udev_device_get_sysname(device));
 
-                                        *ret = link;
-
-                                        return 0;
+                                        continue;
                                 }
-                        } else {
-                                log_debug("Config file %s applies to device %s",
-                                          link->filename,  udev_device_get_sysname(device));
-
-                                *ret = link;
-
-                                return 0;
                         }
+
+                        log_debug("Config file %s applies to device %s",
+                                  link->filename,  udev_device_get_sysname(device));
+
+                        *ret = link;
+
+                        return 0;
                 }
         }
 
