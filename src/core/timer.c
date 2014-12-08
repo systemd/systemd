@@ -748,6 +748,7 @@ const UnitVTable timer_vtable = {
                 "Unit\0"
                 "Timer\0"
                 "Install\0",
+        .private_section = "Timer",
 
         .init = timer_init,
         .done = timer_done,
@@ -773,4 +774,7 @@ const UnitVTable timer_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Timer",
         .bus_vtable = bus_timer_vtable,
+        .bus_set_property = bus_timer_set_property,
+
+        .can_transient = true,
 };

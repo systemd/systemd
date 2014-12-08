@@ -24,6 +24,8 @@
 #include "dbus-unit.h"
 #include "dbus-timer.h"
 #include "bus-util.h"
+#include "errno-list.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, timer_result, TimerResult);
 
@@ -183,3 +185,144 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
+
+static int bus_timer_set_transient_property(
+                Timer *t,
+                const char *name,
+                sd_bus_message *message,
+                UnitSetPropertiesMode mode,
+                sd_bus_error *error) {
+
+        int r;
+
+        assert(t);
+        assert(name);
+        assert(message);
+
+        if (STR_IN_SET(name,
+                       "OnActiveSec",
+                       "OnBootSec",
+                       "OnStartupSec",
+                       "OnUnitActiveSec",
+                       "OnUnitInactiveSec")) {
+
+                TimerValue *v;
+                TimerBase b = _TIMER_BASE_INVALID;
+                usec_t u = 0;
+
+                b = timer_base_from_string(name);
+                if (b < 0)
+                        return -EINVAL;
+
+                r = sd_bus_message_read(message, "t", &u);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        char time[FORMAT_TIMESPAN_MAX];
+
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+
+                        v = new0(TimerValue, 1);
+                        if (!v)
+                                return -ENOMEM;
+
+                        v->base = b;
+                        v->value = u;
+
+                        LIST_PREPEND(value, t->values, v);
+                }
+
+                return 1;
+
+        } else if (streq(name, "OnCalendar")) {
+
+                TimerValue *v;
+                CalendarSpec *c = NULL;
+                const char *str;
+
+                r = sd_bus_message_read(message, "s", &str);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        r = calendar_spec_from_string(str, &c);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, str);
+
+                        v = new0(TimerValue, 1);
+                        if (!v) {
+                                if (c)
+                                        calendar_spec_free(c);
+                                return -ENOMEM;
+                        }
+
+                        v->base = TIMER_CALENDAR;
+                        v->calendar_spec = c;
+
+                        LIST_PREPEND(value, t->values, v);
+                }
+
+                return 1;
+
+        } else if (streq(name, "AccuracySec")) {
+
+                usec_t u = 0;
+
+                r = sd_bus_message_read(message, "t", &u);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        char time[FORMAT_TIMESPAN_MAX];
+
+                        t->accuracy_usec = u;
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, format_timespan(time, sizeof(time), u, USEC_PER_MSEC));
+                }
+
+                return 1;
+
+        } else if (streq(name, "WakeSystem")) {
+
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        t->wake_system = b;
+                        unit_write_drop_in_private_format(UNIT(t), mode, name, "%s=%s\n", name, yes_no(t->wake_system));
+                }
+
+                return 1;
+
+        }
+
+        return 0;
+}
+
+int bus_timer_set_property(
+                Unit *u,
+                const char *name,
+                sd_bus_message *message,
+                UnitSetPropertiesMode mode,
+                sd_bus_error *error) {
+
+        Timer *t = TIMER(u);
+        int r;
+
+        assert(t);
+        assert(name);
+        assert(message);
+
+        if (u->transient && u->load_state == UNIT_STUB) {
+                r = bus_timer_set_transient_property(t, name, message, mode, error);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
