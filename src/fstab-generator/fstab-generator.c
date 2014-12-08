@@ -476,7 +476,7 @@ static int add_usr_mount(void) {
                         return log_oom();
         }
 
-        if (!arg_usr_what || !arg_usr_options)
+        if (!arg_usr_what)
                 return 0;
 
         what = fstab_node_to_udev_node(arg_usr_what);
@@ -485,7 +485,13 @@ static int add_usr_mount(void) {
                 return -1;
         }
 
-        opts = arg_usr_options;
+        if (!arg_usr_options)
+                opts = arg_root_rw > 0 ? "rw" : "ro";
+        else if (!mount_test_option(arg_usr_options, "ro") &&
+                 !mount_test_option(arg_usr_options, "rw"))
+                opts = strappenda(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+        else
+                opts = arg_usr_options;
 
         log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
         return add_mount(what,
