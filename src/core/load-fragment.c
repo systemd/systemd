@@ -64,7 +64,6 @@
 #include "seccomp-util.h"
 #endif
 
-#if !defined(HAVE_SYSV_COMPAT) || !defined(HAVE_SECCOMP) || !defined(HAVE_PAM) || !defined(HAVE_SELINUX) || !defined(HAVE_SMACK) || !defined(HAVE_APPARMOR)
 int config_parse_warn_compat(
                 const char *unit,
                 const char *filename,
@@ -95,7 +94,6 @@ int config_parse_warn_compat(
 
         return 0;
 }
-#endif
 
 int config_parse_unit_deps(const char *unit,
                            const char *filename,
