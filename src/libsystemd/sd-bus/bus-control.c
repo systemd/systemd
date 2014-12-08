@@ -1180,6 +1180,10 @@ int bus_add_match_internal_kernel(
 
         assert(bus);
 
+        /* Monitor streams don't support matches, make this a NOP */
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
+
         bloom = alloca0(bus->bloom_size);
 
         sz = ALIGN8(offsetof(struct kdbus_cmd_match, items));
@@ -1391,6 +1395,10 @@ int bus_remove_match_internal_kernel(
         int r;
 
         assert(bus);
+
+        /* Monitor streams don't support matches, make this a NOP */
+        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+                return 0;
 
         zero(m);
         m.size = offsetof(struct kdbus_cmd_match, items);
