@@ -45,6 +45,7 @@
 #include "def.h"
 #include "capability.h"
 #include "bus-policy.h"
+#include "bus-control.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
@@ -1002,7 +1003,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                 }
 
                 if (granted) {
-                        /* Then check whether us, the recipient can recieve from the sender's name */
+                        /* Then check whether us (the recipient) can recieve from the sender's name */
                         if (strv_isempty(sender_names)) {
                                 if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
                                         return 0;
@@ -1038,9 +1039,10 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* The message came from the legacy client, and is sent to kdbus. */
                 if (m->destination) {
-                        r = sd_bus_get_name_creds(to, m->destination,
-                                                  SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME|
-                                                  SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID, &destination_creds);
+                        r = bus_get_name_creds_kdbus(to, m->destination,
+                                                     SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME|
+                                                     SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID,
+                                                     true, &destination_creds);
                         if (r < 0)
                                 return r;
 
@@ -1056,7 +1058,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                         (void) sd_bus_creds_get_gid(destination_creds, &destination_gid);
                 }
 
-                /* First check if we, the sender can send to this name */
+                /* First check if we (the sender) can send to this name */
                 if (strv_isempty(destination_names)) {
                         if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
                                 granted = true;

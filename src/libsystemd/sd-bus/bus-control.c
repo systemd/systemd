@@ -600,10 +600,11 @@ static int bus_populate_creds_from_items(
         return 0;
 }
 
-static int bus_get_name_creds_kdbus(
+int bus_get_name_creds_kdbus(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
+                bool allow_activator,
                 sd_bus_creds **creds) {
 
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
@@ -652,7 +653,7 @@ static int bus_get_name_creds_kdbus(
         conn_info = (struct kdbus_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
         /* Non-activated names are considered not available */
-        if (conn_info->flags & KDBUS_HELLO_ACTIVATOR) {
+        if (!allow_activator && (conn_info->flags & KDBUS_HELLO_ACTIVATOR)) {
                 if (name[0] == ':')
                         r = -ENXIO;
                 else
@@ -875,7 +876,7 @@ _public_ int sd_bus_get_name_creds(
                 return -ENOTCONN;
 
         if (bus->is_kernel)
-                return bus_get_name_creds_kdbus(bus, name, mask, creds);
+                return bus_get_name_creds_kdbus(bus, name, mask, false, creds);
         else
                 return bus_get_name_creds_dbus1(bus, name, mask, creds);
 }
