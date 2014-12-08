@@ -576,32 +576,6 @@ int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         return 1;
 }
 
-int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
-        int r;
-
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->manager);
-
-        for (; m; m = sd_rtnl_message_next(m)) {
-                r = sd_rtnl_message_get_errno(m);
-                if (r < 0) {
-                        log_link_debug(link, "getting address failed: %s",
-                                       strerror(-r));
-                        continue;
-                }
-
-                r = link_rtnl_process_address(rtnl, m, link->manager);
-                if (r < 0)
-                        log_link_warning(link, "could not process address: %s",
-                                         strerror(-r));
-        }
-
-        return 1;
-}
-
 static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
@@ -622,11 +596,8 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, -r, "%-*s: could not set address: %m", IFNAMSIZ, link->ifname);
-        else if (r >= 0) {
-                /* calling handler directly so take a ref */
-                link_ref(link);
-                link_get_address_handler(rtnl, m, link);
-        }
+        else if (r >= 0)
+                link_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->link_messages == 0) {
                 log_link_debug(link, "addresses set");
@@ -1417,8 +1388,7 @@ int link_initialized(Link *link, struct udev_device *device) {
         return 0;
 }
 
-int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
-                              void *userdata) {
+int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link = NULL;
         uint16_t type;
@@ -1434,6 +1404,14 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
         assert(message);
         assert(m);
 
+        if (sd_rtnl_message_is_error(message)) {
+                r = sd_rtnl_message_get_errno(message);
+                if (r < 0)
+                        log_warning_errno(r, "rtnl: failed to receive address: %m");
+
+                return 0;
+        }
+
         r = sd_rtnl_message_get_type(message, &type);
         if (r < 0) {
                 log_warning("rtnl: could not get message type");
@@ -1441,8 +1419,11 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message,
         }
 
         r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
-        if (r < 0 || ifindex <= 0) {
-                log_warning("rtnl: received address message without valid ifindex, ignoring");
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
                 return 0;
         } else {
                 r = link_get(m, ifindex, &link);
@@ -1593,18 +1574,6 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
         link = *ret;
 
         log_link_debug(link, "link %d added", link->ifindex);
-
-        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, link->ifindex,
-                                     0);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_call_async(m->rtnl, req, link_get_address_handler, link, 0,
-                               NULL);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
 
         if (detect_container(NULL) <= 0) {
                 /* not in a container, udev will be around */

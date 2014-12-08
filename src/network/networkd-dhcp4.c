@@ -296,11 +296,8 @@ static int dhcp4_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
                 log_link_error(link, "could not set DHCPv4 address: %s",
                                strerror(-r));
                 link_enter_failed(link);
-        } else if (r >= 0) {
-                /* calling handler directly so take a ref */
-                link_ref(link);
-                link_get_address_handler(rtnl, m, link);
-        }
+        } else if (r >= 0)
+                link_rtnl_process_address(rtnl, m, link->manager);
 
         link_set_dhcp_routes(link);
 

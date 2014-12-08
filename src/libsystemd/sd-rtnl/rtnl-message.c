@@ -1194,13 +1194,20 @@ uint32_t rtnl_message_get_serial(sd_rtnl_message *m) {
         return m->hdr->nlmsg_seq;
 }
 
+int sd_rtnl_message_is_error(sd_rtnl_message *m) {
+        assert_return(m, 0);
+        assert_return(m->hdr, 0);
+
+        return m->hdr->nlmsg_type == NLMSG_ERROR;
+}
+
 int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
         struct nlmsgerr *err;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
 
-        if (m->hdr->nlmsg_type != NLMSG_ERROR)
+        if (!sd_rtnl_message_is_error(m))
                 return 0;
 
         err = NLMSG_DATA(m->hdr);

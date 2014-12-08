@@ -203,6 +203,7 @@ int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
 int manager_rtnl_enumerate_links(Manager *m);
+int manager_rtnl_enumerate_addresses(Manager *m);
 
 int manager_rtnl_listen(Manager *m);
 int manager_udev_listen(Manager *m);

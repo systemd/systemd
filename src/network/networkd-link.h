@@ -99,7 +99,6 @@ int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_rtnl_message *message, Link **ret);
 void link_drop(Link *link);
 
-int link_get_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 int link_route_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 
