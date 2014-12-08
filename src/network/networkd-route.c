@@ -353,6 +353,12 @@ int config_parse_destination(const char *unit,
                 return 0;
         }
 
+        if (f != AF_INET && f != AF_INET6) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Unknown address family, ignoring assignment: %s", address);
+                return 0;
+        }
+
         /* prefixlen */
         if (e) {
                 r = safe_atou8(e + 1, &prefixlen);
@@ -362,7 +368,7 @@ int config_parse_destination(const char *unit,
                         return 0;
                 }
         } else {
-                switch (n->family) {
+                switch (f) {
                         case AF_INET:
                                 prefixlen = 32;
                                 break;
