@@ -1,3 +1,13 @@
+Preparations for 218:
+
+* port libmount hookup to use API's own inotify interface
+
+* rhbz
+
+* fdobz
+
+* Backport: git notes
+
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
@@ -292,10 +302,8 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
-  - xml policy inforcement and bus activated services is broken?
-  - how can we make the xml enforcement for native clients unnecessary?
+  - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
-  - kdbus: when we fake creds euid being (uint32_t) -1 is weirdly translated
   - kdbus: timestamps on kernel's NameOwnerChanged messages?
   - kdbus' busnames.target should get pulled in by basic.target
   - Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
