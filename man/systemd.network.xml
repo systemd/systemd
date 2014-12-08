@@ -429,7 +429,7 @@
                                 <varlistentry>
                                         <term><varname>Gateway=</varname></term>
                                         <listitem>
-                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
+                                                <para>As in the <literal>[Network]</literal> section.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
