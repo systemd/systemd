@@ -302,6 +302,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
   - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
   - kdbus: timestamps on kernel's NameOwnerChanged messages?
