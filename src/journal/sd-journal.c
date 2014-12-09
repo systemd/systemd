@@ -517,6 +517,27 @@ static bool whole_file_precedes_location(JournalFile *f, Location *l, direction_
         return false;
 }
 
+static bool file_may_have_preceding_entry(JournalFile *f, JournalFile *of, uint64_t op, direction_t direction) {
+        Object *o;
+        int r;
+
+        assert(f);
+        assert(of);
+
+        r = journal_file_move_to_object(of, OBJECT_ENTRY, op, &o);
+        if (r < 0)
+                return true;
+
+        if (sd_id128_equal(f->header->seqnum_id, of->header->seqnum_id))
+                return direction == DIRECTION_DOWN ?
+                        le64toh(o->entry.seqnum) >= le64toh(f->header->head_entry_seqnum) :
+                        le64toh(o->entry.seqnum) <= le64toh(f->header->tail_entry_seqnum);
+
+        return direction == DIRECTION_DOWN ?
+                le64toh(o->entry.realtime) >= le64toh(f->header->head_entry_realtime) :
+                le64toh(o->entry.realtime) <= le64toh(f->header->tail_entry_realtime);
+}
+
 _pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         uint64_t a;
 
@@ -903,6 +924,9 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 bool found;
 
                 if (whole_file_precedes_location(f, &j->current_location, direction))
+                        continue;
+
+                if (new_file && !file_may_have_preceding_entry(f, new_file, new_offset, direction))
                         continue;
 
                 r = next_beyond_location(j, f, direction, &o, &p);
