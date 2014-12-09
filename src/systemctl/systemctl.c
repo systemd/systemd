@@ -5143,7 +5143,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
-        unsigned f = 1, t = 1;
+        unsigned f = 0;
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
         if (arg_scope != UNIT_FILE_SYSTEM)
@@ -5162,7 +5162,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 return r;
 
         r = 0;
-        for (f = 0; args[f]; f++) {
+        while (args[f]) {
                 const char *name;
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
@@ -5173,7 +5173,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 pid_t pid;
                 siginfo_t status;
 
-                name = args[f];
+                name = args[f++];
 
                 if (!endswith(name, ".service"))
                         continue;
@@ -5204,9 +5204,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                 found_sysv = access(p, F_OK) >= 0;
                 if (!found_sysv)
                         continue;
-
-                /* Mark this entry, so that we don't try enabling it as native unit */
-                args[f] = (char*) "";
 
                 log_info("%s is not a native service, redirecting to /sbin/chkconfig.", name);
 
@@ -5256,18 +5253,11 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 return -EINVAL;
                 } else
                         return -EPROTO;
+
+                /* Remove this entry, so that we don't try enabling it as native unit */
+                assert(f > 0 && streq(args[f-1], name));
+                assert_se(strv_remove(args + f - 1, name));
         }
-
-        /* Drop all SysV units */
-        for (f = 0, t = 0; args[f]; f++) {
-
-                if (isempty(args[f]))
-                        continue;
-
-                args[t++] = args[f];
-        }
-
-        args[t] = NULL;
 
 #endif
         return r;
