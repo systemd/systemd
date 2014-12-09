@@ -2,8 +2,6 @@ Preparations for 218:
 
 * port libmount hookup to use API's own inotify interface
 
-* rhbz
-
 * Backport: git notes
 
 * cgroup delegation issues
