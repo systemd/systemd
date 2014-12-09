@@ -497,6 +497,26 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
         return 0;
 }
 
+static bool whole_file_precedes_location(JournalFile *f, Location *l, direction_t direction) {
+        assert(f);
+        assert(l);
+
+        if (l->type != LOCATION_DISCRETE && l->type != LOCATION_SEEK)
+                return false;
+
+        if (l->seqnum_set && sd_id128_equal(l->seqnum_id, f->header->seqnum_id))
+                return direction == DIRECTION_DOWN ?
+                        l->seqnum > le64toh(f->header->tail_entry_seqnum) :
+                        l->seqnum < le64toh(f->header->head_entry_seqnum);
+
+        if (l->realtime_set)
+                return direction == DIRECTION_DOWN ?
+                        l->realtime > le64toh(f->header->tail_entry_realtime) :
+                        l->realtime < le64toh(f->header->head_entry_realtime);
+
+        return false;
+}
+
 _pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         uint64_t a;
 
@@ -881,6 +901,9 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
         ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 bool found;
+
+                if (whole_file_precedes_location(f, &j->current_location, direction))
+                        continue;
 
                 r = next_beyond_location(j, f, direction, &o, &p);
                 if (r < 0) {
