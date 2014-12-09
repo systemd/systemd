@@ -1783,7 +1783,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                unit_destroy_cgroup(u);
+                unit_destroy_cgroup_if_empty(u);
 
         /* Note that this doesn't apply to RemainAfterExit services exiting
          * successfully, since there's no change of state in that case. Which is

@@ -109,7 +109,7 @@ CGroupControllerMask unit_get_target_mask(Unit *u);
 
 void unit_update_cgroup_members_masks(Unit *u);
 int unit_realize_cgroup(Unit *u);
-void unit_destroy_cgroup(Unit *u);
+void unit_destroy_cgroup_if_empty(Unit *u);
 
 int manager_setup_cgroup(Manager *m);
 void manager_shutdown_cgroup(Manager *m, bool delete);

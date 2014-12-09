@@ -782,7 +782,7 @@ int unit_realize_cgroup(Unit *u) {
         return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
-void unit_destroy_cgroup(Unit *u) {
+void unit_destroy_cgroup_if_empty(Unit *u) {
         int r;
 
         assert(u);
@@ -802,7 +802,6 @@ void unit_destroy_cgroup(Unit *u) {
         u->cgroup_path = NULL;
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
-
 }
 
 pid_t unit_search_main_pid(Unit *u) {
