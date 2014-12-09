@@ -1126,7 +1126,7 @@ static int part_make_space(
 
                         psz = PAGE_ALIGN(sz > 0 ? sz : 1);
                         if (part->mapped <= 0)
-                                n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, 0);
+                                n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, part->memfd_offset);
                         else
                                 n = mremap(part->data, part->mapped, psz, MREMAP_MAYMOVE);
 
@@ -2620,6 +2620,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
                 return -ENOMEM;
 
         part->memfd = copy_fd;
+        part->memfd_offset = 0;
         part->sealed = true;
         part->size = size;
         copy_fd = -1;
@@ -2695,6 +2696,7 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
                 return -ENOMEM;
 
         part->memfd = copy_fd;
+        part->memfd_offset = 0;
         part->sealed = true;
         part->size = size;
         copy_fd = -1;
@@ -2878,7 +2880,7 @@ int bus_body_part_map(struct bus_body_part *part) {
         psz = PAGE_ALIGN(part->size);
 
         if (part->memfd >= 0)
-                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, 0);
+                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, part->memfd_offset);
         else if (part->is_zero)
                 p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         else

@@ -58,6 +58,7 @@ struct bus_body_part {
         size_t size;
         size_t mapped;
         size_t allocated;
+        size_t memfd_offset;
         int memfd;
         bool free_this:1;
         bool munmap_this:1;

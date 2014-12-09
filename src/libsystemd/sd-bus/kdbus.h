@@ -183,7 +183,8 @@ struct kdbus_bloom_filter {
 
 /**
  * struct kdbus_memfd - a kdbus memfd
- * @size:		The memfd's size
+ * @start:		The offset into the memfd where the segment starts
+ * @size:		The size of the memfd segment
  * @fd:			The file descriptor number
  * @__pad:		Padding to ensure proper alignment and size
  *
@@ -191,6 +192,7 @@ struct kdbus_bloom_filter {
  *   KDBUS_ITEM_PAYLOAD_MEMFD
  */
 struct kdbus_memfd {
+	__u64 start;
 	__u64 size;
 	int fd;
 	__u32 __pad;
@@ -583,12 +585,15 @@ enum kdbus_policy_type {
  *				a service
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic
+ * @KDBUS_HELLO_UNPRIVILEGED:	Don't treat this connection as privileged once
+ *				the bus connection was established.
  */
 enum kdbus_hello_flags {
 	KDBUS_HELLO_ACCEPT_FD		=  1ULL <<  0,
 	KDBUS_HELLO_ACTIVATOR		=  1ULL <<  1,
 	KDBUS_HELLO_POLICY_HOLDER	=  1ULL <<  2,
 	KDBUS_HELLO_MONITOR		=  1ULL <<  3,
+	KDBUS_HELLO_UNPRIVILEGED	=  1ULL <<  4,
 };
 
 /**

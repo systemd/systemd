@@ -78,7 +78,7 @@ static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
+static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t start, size_t sz) {
         assert(d);
         assert(memfd >= 0);
         assert(sz > 0);
@@ -87,6 +87,7 @@ static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
         (*d)->size = offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd);
         (*d)->type = KDBUS_ITEM_PAYLOAD_MEMFD;
         (*d)->memfd.fd = memfd;
+        (*d)->memfd.start = start;
         (*d)->memfd.size = sz;
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -263,12 +264,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         sz = offsetof(struct kdbus_msg, items);
 
-        assert_cc(ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec)) ==
-                  ALIGN8(offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd)));
-
         /* Add in fixed header, fields header and payload */
-        sz += (1 + m->n_body_parts) *
-                ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
+        sz += (1 + m->n_body_parts) * ALIGN8(offsetof(struct kdbus_item, vec) +
+                                             MAX(sizeof(struct kdbus_vec),
+                                                 sizeof(struct kdbus_memfd)));
 
         /* Add space for bloom filter */
         sz += ALIGN8(offsetof(struct kdbus_item, bloom_filter) +
@@ -343,7 +342,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                         /* Try to send a memfd, if the part is
                          * sealed and this is not a broadcast. Since we can only  */
 
-                        append_payload_memfd(&d, part->memfd, part->size);
+                        append_payload_memfd(&d, part->memfd, part->memfd_offset, part->size);
                         continue;
                 }
 
@@ -544,6 +543,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         }
 
                         part->memfd = d->memfd.fd;
+                        part->memfd_offset = d->memfd.start;
                         part->size = d->memfd.size;
                         part->sealed = true;
 
