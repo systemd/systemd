@@ -617,6 +617,12 @@ int main(int argc, char *argv[]) {
         }
 
         free(arg_root_what);
+        free(arg_root_fstype);
+        free(arg_root_options);
+
+        free(arg_usr_what);
+        free(arg_usr_fstype);
+        free(arg_usr_options);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
