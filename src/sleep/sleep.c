@@ -121,7 +121,7 @@ static int execute(char **modes, char **states) {
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP),
-                   LOG_MESSAGE("MESSAGE=System resumed."),
+                   LOG_MESSAGE("System resumed."),
                    "SLEEP=%s", arg_verb,
                    NULL);
 
