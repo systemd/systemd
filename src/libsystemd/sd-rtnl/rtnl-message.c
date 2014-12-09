@@ -700,8 +700,8 @@ int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const
                 size = (size_t)r;
 
         if (size) {
-                length = strnlen(data, size);
-                if (length >= size)
+                length = strnlen(data, size+1);
+                if (length > size)
                         return -EINVAL;
         } else
                 length = strlen(data);
