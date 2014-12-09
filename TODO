@@ -2,9 +2,9 @@ Preparations for 218:
 
 * port libmount hookup to use API's own inotify interface
 
-* Backport: git notes
-
 * cgroup delegation issues
+
+* should networkd's [BridgePort] section really be called like that?
 
 Bugfixes:
 
@@ -42,6 +42,8 @@ External:
   compress coredumps in a way compatible with /usr/bin/lz4.
 
 Features:
+
+* bash completion for busctl, to make it truly useful
 
 * journald: broken file systems are real (btrfs), we need to handle
   SIGBUS in some way if we cannot write or read from the disk.
@@ -305,6 +307,7 @@ Features:
 
 * sd-bus:
   - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
+  - kdbus: remove NameOwnerChanged kernel messages for monitors
   - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
   - kdbus: the kernel should not allow messages to be delivered that have a reply serial != 0, reply-expect unset, but no appropriate window
   - kdbus: timestamps on kernel's NameOwnerChanged messages?

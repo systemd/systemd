@@ -2,13 +2,132 @@ systemd System and Service Manager
 
 CHANGES WITH 218:
 
+        * When querying unit file enablement status (for example via
+          "systemctl is-enabled"), a new state "indirect" is now known
+          which indicates that a unit might not be enabled itself, but
+          another unit listed in its Alias= setting might be.
+
+        * Similar to the various existing ConditionXYZ= settings for
+          units there are now matching AssertXYZ= settings. While
+          failing conditions cause a unit to be skipped, but its job
+          to succeed, failing assertions declared like this will cause
+          a unit start operation and its job to fail.
+
+        * hostnamed now knows a new chassis type "embedded".
+
+        * systemctl gained a new "edit" command. When used on a unit
+          file this allows extending unit files with .d/ drop-in
+          configuration snippets or editing the full file (after
+          copying it from /usr/lib to /etc). This will invoke the
+          user's editor (as configured with $EDITOR), and reload the
+          modified configuration after editing.
+
+        * "systemctl status" now shows the suggested enablement state
+          for a unit, as declared in the (usually vendor-supplied)
+          system preset files.
+
+        * nss-myhostname will now resolve the single-label host name
+          "gateway" to the locally configured default IP routing
+          gateways, ordered by their metrics. This assigns a stable
+          name to the used gateways, regardless which ones are
+          currently configured. Note that the name will only be
+          resolved after all other name sources (if nss-myhostname is
+          configured properly) and should hence not negatively impact
+          systems that use the single-label host name "gateway" in
+          other contexts.
+
+        * systemd-inhibit now allows filtering by mode when listing
+          inhibitors.
+
+        * Units with resource management gained a new "Delegate"
+          boolean property, which when set allows processes running
+          inside the unit to further partition resources. This is
+          primarily useful for systemd user instances as well as
+          container managers.
+
+        * journald will now pick up audit messages directly from
+          the kernel, and log them like any other log message. The
+          audit fields are split up and fully indexed. This means that
+          journalctl in many ways is now a (nicer!) alternative to
+          ausearch, the traditional audit client. Note that this
+          implements only a minimal audit client, if you want the
+          special audit modes like reboot-on-log-overflow, please use
+          the traditional auditd instead, which can be used in
+          parallel to journald.
+
+        * The ConditionSecurity= unit file option now understands the
+          special string "audit" to check whether auditing is
+          available.
+
+        * journalctl gained two new commands --vacuum-size= and
+          --vacuum-time= to delete old journal files until the
+          remaining ones take up no more the specified size on disk,
+          or are not older than the specified time.
+
+        * A new, native PPPoE library has been added to sd-network,
+          systemd's library of light-weight networking protocols. This
+          library will be used in a future version of networkd to
+          enable PPPoE communication without an external pppd daemon.
+
+        * The busctl tool now understands a new "capture" verb that
+          works similar to "monitor", but writes a packet capture
+          trace to STDOUT that can be redirected to a file which is
+          compatible with libcap's capture file format. This can then
+          be loaded in Wireshark and similar tools to inspect bus
+          communication.
+
+        * The busctl tool now understands a new "tree" verb that shows
+          the object trees of a specific service on the bus, or of all
+          services.
+
+        * The busctl tool now understands a new "introspect" verb that
+          shows all interfaces and members of objects on the bus,
+          including their signature and values. This is particularly
+          useful to get more information about bus objects shown by
+          the new "busctl tree" command.
+
+        * The busctl tool now understands new verbs "call",
+          "set-property" and "get-property" for invoking bus method
+          calls, setting and getting bus object properties in a
+          friendly way.
+
+        * busctl gained a new --augment-creds= argument that controls
+          whether the tool shall augment credential information it
+          gets from the bus with data from /proc, in a possibly
+          race-ful way.
+
+        * nspawn's --link-journal= switch gained two new values
+          "try-guest" and "try-host" that work like "guest" and
+          "host", but do not fail if the host has no persistant
+          journalling enabled. -j is now equivalent to
+          --link-journal=try-guest.
+
+        * macvlan network devices created by nspawn will now have
+          stable MAC addresses.
+
+        * A new SmackProcessLabel= unit setting has been added, which
+          controls the SMACK security label processes forked off by
+          the respective unit shall use.
+
         * If compiled with --enable-xkbcommon, systemd-localed will
           verify x11 keymap settings by compiling the given keymap. It
           will spew out warnings if the compilation fails. This
           requires libxkbcommon to be installed.
 
-        * All systemd programs that read standalone configuration files
-          in /etc now also support a corresponding series of
+        * When a coredump is collected a larger number of metadata
+          fields is now collected and included in the journal records
+          created for it. More specifically control group membership,
+          environment variables, memory maps, working directory,
+          chroot directory, /proc/$PID/status, and a list of open file
+          descriptors is now stored in the log entry.
+
+        * The udev hwdb now containes DPI information for mice. For
+          details see:
+
+          http://who-t.blogspot.de/2014/12/building-a-dpi-database-for-mice.html
+
+        * All systemd programs that read standalone configuration
+          files in /etc now also support a corresponding series of
           .conf.d configuration directories in /etc/, /run/,
           /usr/local/lib/, /usr/lib/, and (if configured with
           --enable-split-usr) /lib/.  In particular, the following
@@ -19,6 +138,49 @@ CHANGES WITH 218:
           journal-upload.conf.  Note that distributions should use the
           configuration directories in /usr/lib/; the directories in
           /etc/ are reserved for the system administrator.
+
+        * systemd-rfkill will no longer take the rfkill device name
+          into account when storing rfkill state on disk, as the name
+          might be dynamically assigned and not stable. Instead, the
+          ID_PATH udev variable combined with the rfkill type (wlan,
+          bluetooth, ...) is used.
+
+        * A new service systemd-machine-id-commit.service has been
+          added. When used on systems where /etc is read-only during
+          boot, and /etc/machine-id is not initialized (but an empty
+          file), this service will copy the temporary machine ID
+          created as replacement into /etc after the system is fully
+          booted up. This is useful for systems that are freshly
+          installed with a non-initialized machine ID, but should get
+          a fixed machine ID for subsequent boots.
+
+        * networkd's .netdev files now provide a large set of
+          configuration parameters for VXLAN devices. Similar, the
+          bridge port cost parameter is now configurable in .network
+          files. There's also new support for configuring IP source
+          routing. networkd .link files gained support for a new
+          OriginalName= match that is useful to match against the
+          original interface name the kernel assigned. .network files
+          may include MTU= and MACAddress= fields for altering the MTU
+          and MAC address while being connected to a specific network
+          interface.
+
+        * The LUKS logic gained supported for configuring
+          UUID-specific key files. There's also new support for naming
+          LUKS device from the kernel command line, using the new
+          luks.name= argument.
+
+        * Timer units may now be transiently created via the bus API
+          (this was previously already available for scope and service
+          units). In addition it is now possible to create multiple
+          transient units at the same time with a single bus call. The
+          "systemd-run" tool has been updated to make use of this for
+          running commands on a specified time, in at(1)-style.
+
+        * tmpfiles gained support for "t" lines, for assigning
+          extended attributes to files. Among other uses this may be
+          used to assign SMACK labels to files.
+
 
 CHANGES WITH 217:
 
