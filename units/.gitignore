@@ -1,3 +1,5 @@
+/systemd-bus-proxyd@.service.m4
+/user@.service.m4
 /console-getty.service
 /console-getty.service.m4
 /console-shell.service
