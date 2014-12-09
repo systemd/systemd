@@ -1664,7 +1664,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                 char inotify_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
                 struct inotify_event *event;
                 char *p;
-                int rescan = 0;
+                bool rescan = false;
 
                 while ((r = read(fd, inotify_buffer, sizeof(inotify_buffer))) > 0)
                         for (p = inotify_buffer; p < inotify_buffer + r; ) {
@@ -1674,7 +1674,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                  * notifications about when utab is replaced
                                  * using rename(2) */
                                 if ((event->mask & IN_Q_OVERFLOW) || streq(event->name, "utab"))
-                                        rescan = 1;
+                                        rescan = true;
                                 p += sizeof(struct inotify_event) + event->len;
                         }
 
