@@ -1557,7 +1557,6 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
 
 int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
         Link *link;
-        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         int r;
