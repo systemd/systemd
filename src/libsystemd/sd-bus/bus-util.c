@@ -1372,7 +1372,8 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
         if (STR_IN_SET(field,
                        "CPUAccounting", "MemoryAccounting", "BlockIOAccounting",
-                       "SendSIGHUP", "SendSIGKILL")) {
+                       "SendSIGHUP", "SendSIGKILL",
+                       "WakeSystem")) {
 
                 r = parse_boolean(eq);
                 if (r < 0) {
@@ -1532,6 +1533,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "i", sig);
+
+        } else if (streq(field, "AccuracySec")) {
+                usec_t u;
+
+                r = parse_sec(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "t", u);
 
         } else {
                 log_error("Unknown assignment %s.", assignment);

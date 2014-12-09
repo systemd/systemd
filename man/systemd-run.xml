@@ -45,7 +45,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>systemd-run</refname>
-    <refpurpose>Run programs in transient scope or service units</refpurpose>
+    <refpurpose>Run programs in transient scope or service or timer units</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -56,15 +56,23 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <arg choice="opt" rep="repeat">ARGS</arg>
       </arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-run</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">TIMER OPTIONS</arg>
+      <arg choice="req"><replaceable>COMMAND</replaceable></arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used to create and start
-    a transient <filename>.service</filename> or a
-    <filename>.scope</filename> unit and run the specified
-    <replaceable>COMMAND</replaceable> in it.</para>
+    <para><command>systemd-run</command> may be used to create and
+    start a transient <filename>.service</filename> or a transient
+    <filename>.timer</filename> or a <filename>.scope</filename> unit
+    and run the specified <replaceable>COMMAND</replaceable> in
+    it.</para>
 
     <para>If a command is run as transient service unit, it will be
     started and managed by the service manager like any other service,
@@ -73,6 +81,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     and detached execution environment. <command>systemd-run</command>
     will start the service asynchronously in the background and
     immediately return.</para>
+
+    <para>If a command is run with timer options, transient timer unit
+    also be created with transient service unit. But the transient
+    timer unit is only started immediately. The transient service unit
+    will be started when the transient timer is elapsed. If
+    <option>--unit=</option> is specified with timer options, the
+    <replaceable>COMMAND</replaceable> can be omitted. In this case,
+    <command>systemd-run</command> assumes service unit is already
+    loaded and creates transient timer unit only. To successfully
+    create timer unit, already loaded service unit should be specified
+    with <option>--unit=</option>. This transient timer unit can
+    activate the existing service unit like any other timer.</para>
 
     <para>If a command is run as transient scope unit, it will be
     started directly by <command>systemd-run</command> and thus
@@ -210,6 +230,54 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <varlistentry>
+        <term><option>--on-active=</option></term>
+        <term><option>--on-boot=</option></term>
+        <term><option>--on-startup=</option></term>
+        <term><option>--on-unit-active=</option></term>
+        <term><option>--on-unit-inactive=</option></term>
+
+        <listitem><para>Defines monotonic timers relative to different
+        starting points. Also see <varname>OnActiveSec=</varname>,
+        <varname>OnBootSec=</varname>,
+        <varname>OnStartupSec=</varname>,
+        <varname>OnUnitActiveSec=</varname> and
+        <varname>OnUnitInactiveSec=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        options have no effect in conjunction with
+        <option>--scope</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--on-calendar=</option></term>
+
+        <listitem><para>Defines realtime (i.e. wallclock) timers with
+        calendar event expressions. Also see
+        <varname>OnCalendar=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timer-property=</option></term>
+
+        <listitem><para>Sets a timer unit property for the timer unit
+        that is created. It is similar with
+        <option>--property</option> but only for created timer
+        unit. This option only has effect in conjunction with
+        <option>--on-active=</option>, <option>--on-boot=</option>,
+        <option>--on-startup=</option>,
+        <option>--on-unit-active=</option>,
+        <option>--on-unit-inactive=</option>,
+        <option>--on-calendar=</option>. This takes an assignment in
+        the same format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para> </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -250,6 +318,21 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
     property.</para>
 
     <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
+
+    <para>The following command will touch a file after 30 seconds.</para>
+
+    <programlisting># date; systemd-run --on-active=30 --timer-property=AccuracySec=100ms /bin/touch /tmp/foo
+Mon Dec  8 20:44:24 KST 2014
+Running as unit run-71.timer.
+Will run as unit run-71.service.
+# journalctl -b -u run-73.timer
+-- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
+Dec 08 20:44:38 container systemd[1]: Starting /bin/touch /tmp/foo.
+Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
+# journalctl -b -u run-73.service
+-- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
+Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
+Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisting>
   </refsect1>
 
   <refsect1>
@@ -263,6 +346,7 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>

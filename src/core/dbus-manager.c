@@ -681,9 +681,11 @@ static int transient_aux_units_from_message(
                 if (r < 0 && r != -EEXIST)
                         return r;
 
-                r = unit_load(u);
-                if (r < 0)
-                        return r;
+                if (r != -EEXIST) {
+                        r = unit_load(u);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
