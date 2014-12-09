@@ -2584,7 +2584,7 @@ EXTRA_DIST += \
 
 if HAVE_SMACK
 bus-proxyd-set-cap-hook:
-	$(SETCAP) cap_mac_admin+ei $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd
+	-$(SETCAP) cap_mac_admin+ei $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd
 
 INSTALL_EXEC_HOOKS += bus-proxyd-set-cap-hook
 endif
