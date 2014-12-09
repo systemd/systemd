@@ -55,10 +55,11 @@ struct bus_container {
 struct bus_body_part {
         struct bus_body_part *next;
         void *data;
+        void *mmap_begin;
         size_t size;
         size_t mapped;
         size_t allocated;
-        size_t memfd_offset;
+        uint64_t memfd_offset;
         int memfd;
         bool free_this:1;
         bool munmap_this:1;
