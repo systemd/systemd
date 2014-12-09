@@ -6,6 +6,8 @@ Preparations for 218:
 
 * Backport: git notes
 
+* cgroup delegation issues
+
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
@@ -42,6 +44,10 @@ External:
   compress coredumps in a way compatible with /usr/bin/lz4.
 
 Features:
+
+* journald: broken file systems are real (btrfs), we need to handle
+  SIGBUS in some way if we cannot write or read from the disk.
+  https://bugzilla.redhat.com/show_bug.cgi?id=1151848
 
 * "systemctl preset-all" should probably order the unit files it
   operates on lexicographically before starting to work, in order to
