@@ -405,11 +405,6 @@ static int bus_populate_creds_from_items(
                                 c->mask |= SD_BUS_CREDS_TID;
                         }
 
-                        if (mask & SD_BUS_CREDS_PID_STARTTIME && item->pids.starttime > 0) {
-                                c->pid_starttime = item->pids.starttime;
-                                c->mask |= SD_BUS_CREDS_PID_STARTTIME;
-                        }
-
                         break;
 
                 case KDBUS_ITEM_CREDS:
@@ -751,8 +746,7 @@ static int bus_get_name_creds_dbus1(
 
                 if ((mask & SD_BUS_CREDS_PID) ||
                     ((mask & SD_BUS_CREDS_AUGMENT) &&
-                     (mask & (SD_BUS_CREDS_PID_STARTTIME|
-                              SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                     (mask & (SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                               SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                               SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                               SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|

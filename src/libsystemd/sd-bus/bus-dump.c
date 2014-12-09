@@ -346,12 +346,10 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (c->mask & SD_BUS_CREDS_PID)
                 fprintf(f, "%sPID=%s"PID_FMT"%s", prefix, color, c->pid, suffix);
-        if (c->mask & SD_BUS_CREDS_PID_STARTTIME)
-                fprintf(f, "%sPIDStartTime=%s"USEC_FMT"%s", prefix, color, c->pid_starttime, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
                 fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
 
-        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))))
+        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID))))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_UID)

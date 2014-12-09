@@ -44,7 +44,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>sd_bus_creds_get_pid</refname>
-    <refname>sd_bus_creds_get_pid_starttime</refname>
     <refname>sd_bus_creds_get_tid</refname>
     <refname>sd_bus_creds_get_uid</refname>
     <refname>sd_bus_creds_get_gid</refname>
@@ -80,12 +79,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>pid_t *<parameter>pid</parameter></paramdef>
-      </funcprototype>
-
-      <funcprototype>
-        <funcdef>int <function>sd_bus_creds_get_pid_starttime</function></funcdef>
-        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -244,10 +237,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><function>sd_bus_creds_get_pid()</function> will retrieve the
     PID (process identifier).</para>
-
-    <para><function>sd_bus_creds_get_pid_starttime()</function> will
-    retrieve the time since the start of the epoch in microseconds
-    since the process was started.</para>
 
     <para><function>sd_bus_creds_get_tid()</function> will retrieve the
     TID (thread identifier).</para>

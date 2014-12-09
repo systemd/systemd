@@ -553,20 +553,15 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_PIDS:
 
-                        /* The PID starttime/TID might be missing,
-                         * when the data is faked by some data bus
-                         * proxy and it lacks that information about
-                         * the real client since SO_PEERCRED is used
-                         * for that. */
+                        /* The PID/TID might be missing, when the data
+                         * is faked by some data bus proxy and it
+                         * lacks that information about the real
+                         * client since SO_PEERCRED is used for
+                         * that. */
 
                         if (d->pids.pid > 0) {
                                 m->creds.pid = (pid_t) d->pids.pid;
                                 m->creds.mask |= SD_BUS_CREDS_PID & bus->creds_mask;
-                        }
-
-                        if (d->pids.starttime > 0) {
-                                m->creds.pid_starttime = d->pids.starttime / NSEC_PER_USEC;
-                                m->creds.mask |= SD_BUS_CREDS_PID_STARTTIME & bus->creds_mask;
                         }
 
                         if (d->pids.tid > 0) {
@@ -1421,7 +1416,7 @@ uint64_t attach_flags_to_kdbus(uint64_t mask) {
                     SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID))
                 m |= KDBUS_ATTACH_CREDS;
 
-        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
+        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID))
                 m |= KDBUS_ATTACH_PIDS;
 
         if (mask & SD_BUS_CREDS_COMM)

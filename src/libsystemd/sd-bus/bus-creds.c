@@ -294,18 +294,6 @@ _public_ int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid) {
         return 0;
 }
 
-_public_ int sd_bus_creds_get_pid_starttime(sd_bus_creds *c, uint64_t *usec) {
-        assert_return(c, -EINVAL);
-        assert_return(usec, -EINVAL);
-
-        if (!(c->mask & SD_BUS_CREDS_PID_STARTTIME))
-                return -ENODATA;
-
-        assert(c->pid_starttime > 0);
-        *usec = c->pid_starttime;
-        return 0;
-}
-
 _public_ int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
 
@@ -859,19 +847,6 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 }
         }
 
-        if (missing & (SD_BUS_CREDS_PID_STARTTIME)) {
-                unsigned long long st;
-
-                r = get_starttime_of_pid(pid, &st);
-                if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
-                                return r;
-                } else {
-                        c->pid_starttime = ((usec_t) st * USEC_PER_SEC) / (usec_t) sysconf(_SC_CLK_TCK);
-                        c->mask |= SD_BUS_CREDS_PID_STARTTIME;
-                }
-        }
-
         if (missing & SD_BUS_CREDS_SELINUX_CONTEXT) {
                 const char *p;
 
@@ -1050,11 +1025,6 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & SD_BUS_CREDS_TID) {
                 n->tid = c->tid;
                 n->mask |= SD_BUS_CREDS_TID;
-        }
-
-        if (c->mask & mask & SD_BUS_CREDS_PID_STARTTIME) {
-                n->pid_starttime = c->pid_starttime;
-                n->mask |= SD_BUS_CREDS_PID_STARTTIME;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_COMM) {

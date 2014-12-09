@@ -44,7 +44,6 @@ struct sd_bus_creds {
         unsigned n_supplementary_gids;
 
         pid_t pid;
-        usec_t pid_starttime;
         pid_t tid;
 
         char *comm;

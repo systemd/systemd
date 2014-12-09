@@ -80,7 +80,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>
       <constant>SD_BUS_CREDS_PID</constant>,
-      <constant>SD_BUS_CREDS_PID_STARTTIME</constant>,
       <constant>SD_BUS_CREDS_TID</constant>,
       <constant>SD_BUS_CREDS_UID</constant>,
       <constant>SD_BUS_CREDS_GID</constant>,
@@ -118,7 +117,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The information that will be stored is determined by
     <parameter>creds_mask</parameter>. It may contain a subset of ORed
     constants <constant>SD_BUS_CREDS_PID</constant>,
-    <constant>SD_BUS_CREDS_PID_STARTTIME</constant>,
     <constant>SD_BUS_CREDS_TID</constant>,
     <constant>SD_BUS_CREDS_UID</constant>,
     <constant>SD_BUS_CREDS_GID</constant>,
@@ -246,7 +244,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>sd_bus_creds_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_creds_get_pid_starttime</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_creds_get_tid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_creds_get_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_creds_get_gid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

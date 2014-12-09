@@ -84,12 +84,8 @@ struct kdbus_creds {
  * struct kdbus_pids - process identifiers
  * @pid:		Process ID
  * @tid:		Thread ID
- * @starttime:		Starttime of the process
  *
- * The PID, TID and starttime of a process. The start tmie is useful to detect
- * PID overruns from the client side. i.e. if you use the PID to look something
- * up in /proc/$PID/ you can afterwards check the starttime field of it, to
- * ensure you didn't run into a PID overrun.
+ * The PID and TID of a process.
  *
  * Attached to:
  *   KDBUS_ITEM_PIDS
@@ -97,7 +93,6 @@ struct kdbus_creds {
 struct kdbus_pids {
 	__u64 pid;
 	__u64 tid;
-	__u64 starttime;
 };
 
 /**
@@ -773,6 +768,7 @@ enum kdbus_name_list_flags {
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
  *			allocated memory.
+ * @size:		Output buffer to report size of data at @offset.
  *
  * This structure is used with the KDBUS_CMD_NAME_LIST ioctl.
  */
@@ -780,6 +776,7 @@ struct kdbus_cmd_name_list {
 	__u64 flags;
 	__u64 kernel_flags;
 	__u64 offset;
+	__u64 size;
 } __attribute__((aligned(8)));
 
 /**
@@ -806,6 +803,7 @@ struct kdbus_name_list {
  * @offset:		Returned offset in the caller's pool buffer where the
  *			kdbus_info struct result is stored. The user must
  *			use KDBUS_CMD_FREE to free the allocated memory.
+ * @info_size:		Output buffer to report size of data at @offset.
  * @items:		The optional item list, containing the
  *			well-known name to look up as a KDBUS_ITEM_NAME.
  *			Only needed in case @id is zero.
@@ -820,6 +818,7 @@ struct kdbus_cmd_info {
 	__u64 kernel_flags;
 	__u64 id;
 	__u64 offset;
+	__u64 info_size;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 

@@ -492,7 +492,6 @@ static void test_get_process_comm(void) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL, *cwd = NULL, *root = NULL;
         _cleanup_free_ char *env = NULL;
-        unsigned long long b;
         pid_t e;
         uid_t u;
         gid_t g;
@@ -506,9 +505,6 @@ static void test_get_process_comm(void) {
         } else {
                 log_warning("/proc/1/comm does not exist.");
         }
-
-        assert_se(get_starttime_of_pid(1, &b) >= 0);
-        log_info("pid1 starttime: '%llu'", b);
 
         assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
         log_info("pid1 cmdline: '%s'", c);

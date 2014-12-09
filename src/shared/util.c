@@ -618,56 +618,6 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         return 0;
 }
 
-int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
-        int r;
-        _cleanup_free_ char *line = NULL;
-        const char *p;
-
-        assert(pid >= 0);
-        assert(st);
-
-        p = procfs_file_alloca(pid, "stat");
-        r = read_one_line_file(p, &line);
-        if (r < 0)
-                return r;
-
-        /* Let's skip the pid and comm fields. The latter is enclosed
-         * in () but does not escape any () in its value, so let's
-         * skip over it manually */
-
-        p = strrchr(line, ')');
-        if (!p)
-                return -EIO;
-
-        p++;
-
-        if (sscanf(p, " "
-                   "%*c "  /* state */
-                   "%*d "  /* ppid */
-                   "%*d "  /* pgrp */
-                   "%*d "  /* session */
-                   "%*d "  /* tty_nr */
-                   "%*d "  /* tpgid */
-                   "%*u "  /* flags */
-                   "%*u "  /* minflt */
-                   "%*u "  /* cminflt */
-                   "%*u "  /* majflt */
-                   "%*u "  /* cmajflt */
-                   "%*u "  /* utime */
-                   "%*u "  /* stime */
-                   "%*d "  /* cutime */
-                   "%*d "  /* cstime */
-                   "%*d "  /* priority */
-                   "%*d "  /* nice */
-                   "%*d "  /* num_threads */
-                   "%*d "  /* itrealvalue */
-                   "%llu "  /* starttime */,
-                   st) != 1)
-                return -EIO;
-
-        return 0;
-}
-
 int fchmod_umask(int fd, mode_t m) {
         mode_t u;
         int r;
