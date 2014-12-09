@@ -181,6 +181,26 @@ CHANGES WITH 218:
           extended attributes to files. Among other uses this may be
           used to assign SMACK labels to files.
 
+        Contributions from: Alin Rauta, Alison Chaiken, Andrej
+        Manduch, Bastien Nocera, Chris Atkinson, Chris Leech, Chris
+        Mayo, Colin Guthrie, Colin Walters, Cristian Rodríguez,
+        Daniele Medri, Daniel Mack, Dan Williams, Dan Winship, Dave
+        Reisner, David Herrmann, Didier Roche, Felipe Sateler, Gavin
+        Li, Hans de Goede, Harald Hoyer, Iago López Galeiras, Ivan
+        Shapovalov, Jakub Filak, Jan Janssen, Jan Synacek, Joe
+        Lawrence, Josh Triplett, Kay Sievers, Lennart Poettering,
+        Lukas Nykryn, Łukasz Stelmach, Maciej Wereski, Mantas
+        Mikulėnas, Marcel Holtmann, Martin Pitt, Maurizio Lombardi,
+        Michael Biebl, Michael Chapman, Michael Marineau, Michal
+        Schmidt, Michal Sekletar, Olivier Brunel, Peter Hutterer,
+        Przemyslaw Kedzierski, Rami Rosen, Ray Strode, Richard Schütz,
+        Richard W.M. Jones, Ronny Chevalier, Ross Lagerwall, Sean
+        Young, Stanisław Pitucha, Susant Sahani, Thomas Haller, Thomas
+        Hindoe Paaboel Andersen, Tom Gundersen, Torstein Husebø, Umut
+        Tezduyar Lindskog, Vicente Olivert Riera, WaLyong Cho, Wesley
+        Dawson, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-12-10
 
 CHANGES WITH 217:
 
@@ -390,7 +410,7 @@ CHANGES WITH 217:
         Sahani, Sylvain Plantefève, Thomas Hindoe Paaboel Andersen,
         Timofey Titovets, Tobias Hunger, Tom Gundersen, Torstein
         Husebø, Umut Tezduyar Lindskog, WaLyong Cho, Zbigniew
-        Jędrzejewski-Szmek.
+        Jędrzejewski-Szmek
 
         -- Berlin, 2014-10-28
 
