@@ -3272,7 +3272,7 @@ static int unit_drop_in_file(Unit *u,
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
 
-        _cleanup_free_ char *dir = NULL;
+        _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
         int r;
 
         assert(u);
@@ -3284,7 +3284,24 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         if (r < 0)
                 return r;
 
-        return write_drop_in(dir, u->id, 50, name, data);
+        r = write_drop_in(dir, u->id, 50, name, data);
+        if (r < 0)
+                return r;
+
+        r = drop_in_file(dir, u->id, 50, name, &p, &q);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&u->dropin_paths, q);
+        if (r < 0)
+                return r;
+
+        strv_sort(u->dropin_paths);
+        strv_uniq(u->dropin_paths);
+
+        u->dropin_mtime = now(CLOCK_REALTIME);
+
+        return 0;
 }
 
 int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
