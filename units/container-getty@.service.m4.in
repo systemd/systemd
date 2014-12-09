@@ -14,6 +14,7 @@ After=rc-local.service
 )m4_dnl
 Before=getty.target
 IgnoreOnIsolate=yes
+ConditionPathExists=/dev/pts/%I
 
 [Service]
 ExecStart=-/sbin/agetty --noclear --keep-baud pts/%I 115200,38400,9600 $TERM
