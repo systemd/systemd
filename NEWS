@@ -98,7 +98,7 @@ CHANGES WITH 218:
 
         * nspawn's --link-journal= switch gained two new values
           "try-guest" and "try-host" that work like "guest" and
-          "host", but do not fail if the host has no persistant
+          "host", but do not fail if the host has no persistent
           journalling enabled. -j is now equivalent to
           --link-journal=try-guest.
 
@@ -121,7 +121,7 @@ CHANGES WITH 218:
           chroot directory, /proc/$PID/status, and a list of open file
           descriptors is now stored in the log entry.
 
-        * The udev hwdb now containes DPI information for mice. For
+        * The udev hwdb now contains DPI information for mice. For
           details see:
 
           http://who-t.blogspot.de/2014/12/building-a-dpi-database-for-mice.html
