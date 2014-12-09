@@ -1591,17 +1591,17 @@ static int reset_audit_loginuid(void) {
 #define CONTAINER_HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
 
-static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key, unsigned idx) {
-        int r;
-
+static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key, uint64_t idx) {
         uint8_t result[8];
         size_t l, sz;
-        uint8_t *v;
+        uint8_t *v, *i;
+        int r;
 
         l = strlen(arg_machine);
         sz = sizeof(sd_id128_t) + l;
         if (idx > 0)
                 sz += sizeof(idx);
+
         v = alloca(sz);
 
         /* fetch some persistent data unique to the host */
@@ -1611,7 +1611,11 @@ static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key, unsigned id
 
         /* combine with some data unique (on this host) to this
          * container instance */
-        memcpy(mempcpy(v + sizeof(sd_id128_t), arg_machine, l), &idx, sizeof(idx));
+        i = mempcpy(v + sizeof(sd_id128_t), arg_machine, l);
+        if (idx > 0) {
+                idx = htole64(idx);
+                memcpy(i, &idx, sizeof(idx));
+        }
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
