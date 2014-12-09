@@ -1589,8 +1589,9 @@ static int reset_audit_loginuid(void) {
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
 #define CONTAINER_HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
+#define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
 
-static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key) {
+static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key, unsigned idx) {
         int r;
 
         uint8_t result[8];
@@ -1599,6 +1600,8 @@ static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key) {
 
         l = strlen(arg_machine);
         sz = sizeof(sd_id128_t) + l;
+        if (idx > 0)
+                sz += sizeof(idx);
         v = alloca(sz);
 
         /* fetch some persistent data unique to the host */
@@ -1608,7 +1611,7 @@ static int generate_mac(struct ether_addr *mac, sd_id128_t hash_key) {
 
         /* combine with some data unique (on this host) to this
          * container instance */
-        memcpy(v + sizeof(sd_id128_t), arg_machine, l);
+        memcpy(mempcpy(v + sizeof(sd_id128_t), arg_machine, l), &idx, sizeof(idx));
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */
@@ -1641,17 +1644,13 @@ static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ], int *ifi) {
         snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
                  arg_network_bridge ? "vb" : "ve", arg_machine);
 
-        r = generate_mac(&mac_container, CONTAINER_HASH_KEY);
-        if (r < 0) {
-                log_error("Failed to generate predictable MAC address for container side");
-                return r;
-        }
+        r = generate_mac(&mac_container, CONTAINER_HASH_KEY, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
 
-        r = generate_mac(&mac_host, HOST_HASH_KEY);
-        if (r < 0) {
-                log_error("Failed to generate predictable MAC address for host side");
-                return r;
-        }
+        r = generate_mac(&mac_host, HOST_HASH_KEY, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
         r = sd_rtnl_open(&rtnl, 0);
         if (r < 0)
@@ -1836,6 +1835,7 @@ static int move_network_interfaces(pid_t pid) {
 static int setup_macvlan(pid_t pid) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        unsigned idx = 0;
         char **i;
         int r;
 
@@ -1858,11 +1858,16 @@ static int setup_macvlan(pid_t pid) {
         STRV_FOREACH(i, arg_network_macvlan) {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
+                struct ether_addr mac;
                 int ifi;
 
                 ifi = parse_interface(udev, *i);
                 if (ifi < 0)
                         return ifi;
+
+                r = generate_mac(&mac, MACVLAN_HASH_KEY, idx++);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create MACVLAN MAC address: %m");
 
                 r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
                 if (r < 0)
@@ -1881,6 +1886,10 @@ static int setup_macvlan(pid_t pid) {
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface name: %m");
+
+                r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
                 r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
                 if (r < 0)
