@@ -46,6 +46,7 @@
 #include "capability.h"
 #include "bus-policy.h"
 #include "bus-control.h"
+#include "smack-util.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
@@ -1235,6 +1236,23 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
         return 0;
 }
 
+static int mac_smack_apply_label_and_drop_cap_mac_admin(pid_t its_pid, const char *new_label) {
+#ifdef HAVE_SMACK
+        int r = 0, k;
+
+        if (!mac_smack_use())
+                return 0;
+
+        if (new_label && its_pid > 0)
+                r = mac_smack_apply_pid(its_pid, new_label);
+
+        k = drop_capability(CAP_MAC_ADMIN);
+        return r < 0 ? r : k;
+#else
+        return 0;
+#endif
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
@@ -1274,6 +1292,10 @@ int main(int argc, char *argv[]) {
         if (is_unix) {
                 (void) getpeercred(in_fd, &ucred);
                 (void) getpeersec(in_fd, &peersec);
+
+                r = mac_smack_apply_label_and_drop_cap_mac_admin(getpid(), peersec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SMACK label (%s) and drop CAP_MAC_ADMIN: %m", peersec);
         }
 
         if (arg_drop_privileges) {

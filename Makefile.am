@@ -591,7 +591,7 @@ EXTRA_DIST += \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/systemd-machine-id-commit.service.in \
-	units/user@.service.in \
+	units/user@.service.m4.in \
 	units/debug-shell.service.in \
 	units/systemd-suspend.service.in \
 	units/quotaon.service.in \
@@ -2579,8 +2579,15 @@ dist_userunit_DATA += \
 endif
 
 EXTRA_DIST += \
-	units/systemd-bus-proxyd@.service.in \
+	units/systemd-bus-proxyd@.service.m4.in \
 	units/user/systemd-bus-proxyd@.service.in
+
+if HAVE_SMACK
+bus-proxyd-set-cap-hook:
+	$(SETCAP) cap_mac_admin+ei $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd
+
+INSTALL_EXEC_HOOKS += bus-proxyd-set-cap-hook
+endif
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \

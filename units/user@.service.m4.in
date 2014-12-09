@@ -17,3 +17,7 @@ ExecStart=-@rootlibexecdir@/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=yes
+m4_ifdef(`HAVE_SMACK',
+Capabilities=cap_mac_admin=i
+SecureBits=keep-caps
+)

@@ -90,6 +90,8 @@ AC_PATH_PROG([XSLTPROC], [xsltproc])
 AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
 AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
 
+AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap], [$PATH:/usr/sbin:/sbin])
+
 AC_PATH_PROG([KILL], [kill], [/usr/bin/kill], [$PATH:/usr/sbin:/sbin])
 
 AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
@@ -673,6 +675,8 @@ AS_HELP_STRING([--with-smack-run-label=STRING],
 if test "x${have_smack}" = xyes ; then
         AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
 fi
+
+AM_CONDITIONAL([HAVE_SMACK], [test "x$have_smack" = "xyes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
