@@ -93,6 +93,10 @@ mouse:usb:v046dpc063:name:DELL DELL USB Laser Mouse:
 mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
  MOUSE_DPI=1000@125
 
+# ThinkPad USB Laser Mouse
+mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
+ MOUSE_DPI=1200@125
+
 ##########################################
 # Logitech
 ##########################################
@@ -151,6 +155,10 @@ mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=600@125
+
+# Logitech USB-PS/2 M-BT58
+mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125
 
 ##########################################
 # Microsoft
