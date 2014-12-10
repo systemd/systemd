@@ -97,7 +97,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                          "Route\0"
                          "DHCP\0"
                          "DHCPv4\0"
-                         "BridgePort\0",
+                         "Bridge\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
                          false, false, true, network);
         if (r < 0)

@@ -536,8 +536,8 @@
         </refsect1>
 
         <refsect1>
-                <title>[BridgePort] Section Options</title>
-                        <para>The <literal>[BridgePort]</literal> section accepts the following keys.</para>
+                <title>[Bridge] Section Options</title>
+                        <para>The <literal>[Bridge]</literal> section accepts the following keys.</para>
                         <variablelist class='network-directives'>
                                 <varlistentry>
                                         <term><varname>Cost=</varname></term>
