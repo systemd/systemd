@@ -293,8 +293,26 @@ int detect_container(const char **id) {
 
                 r = read_one_line_file("/run/systemd/container", &m);
                 if (r == -ENOENT) {
-                        r = 0;
-                        goto finish;
+
+                        /* Fallback for cases where PID 1 was not
+                         * systemd (for example, cases where
+                         * init=/bin/sh is used. */
+
+                        r = getenv_for_pid(1, "container", &m);
+                        if (r <= 0) {
+
+                                /* If that didn't work, give up,
+                                 * assume no container manager.
+                                 *
+                                 * Note: This means we still cannot
+                                 * detect containers if init=/bin/sh
+                                 * is passed but privileges dropped,
+                                 * as /proc/1/environ is only readable
+                                 * with privileges. */
+
+                                r = 0;
+                                goto finish;
+                        }
                 }
                 if (r < 0)
                         return r;
