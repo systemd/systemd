@@ -811,7 +811,7 @@ static void dispatch_message_real(
                  * realuid is not root, in order not to accidentally
                  * leak privileged information to the user that is
                  * logged by a privileged process that is part of an
-                 * unprivileged session.*/
+                 * unprivileged session. */
                 journal_uid = owner;
         else
                 journal_uid = 0;
@@ -1131,7 +1131,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                          * the SELinux people this will change and it
                          * will probably be identical to NAME_MAX. For
                          * now we use that, but this should be updated
-                         * one day when the final limit is known.*/
+                         * one day when the final limit is known. */
                         uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
                                     CMSG_SPACE(sizeof(struct timeval)) +
                                     CMSG_SPACE(sizeof(int)) + /* fd */
@@ -1158,7 +1158,7 @@ int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userda
                  * don't rely on it. */
                 (void) ioctl(fd, SIOCINQ, &v);
 
-                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful!*/
+                /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
                 m = PAGE_ALIGN(MAX3((size_t) v + 1,
                                     (size_t) LINE_MAX,
                                     ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);

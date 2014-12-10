@@ -427,7 +427,7 @@ static int entry_points_to_data(
 
         /* Check if this entry is also in main entry array. Since the
          * main entry array has already been verified we can rely on
-         * its consistency.*/
+         * its consistency. */
 
         i = 0;
         n = le64toh(f->header->n_entries);

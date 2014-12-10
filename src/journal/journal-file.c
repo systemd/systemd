@@ -2527,7 +2527,7 @@ int journal_file_open(
                  * currently no usable API to query this, hence let's
                  * emulate this via extended attributes. If extended
                  * attributes are not supported we'll just skip this,
-                 * and rely solely on mtime/atime/ctime of the file.*/
+                 * and rely solely on mtime/atime/ctime of the file. */
 
                 crtime = htole64((uint64_t) now(CLOCK_REALTIME));
                 fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
