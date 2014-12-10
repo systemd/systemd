@@ -6,6 +6,8 @@ Preparations for 218:
 
 * test-bus-kernel-bloom is borked
 
+* systemctl status reports all services as runtime-enabled?
+
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
