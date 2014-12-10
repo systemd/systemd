@@ -47,7 +47,7 @@
 #include "mkdir.h"
 #include "label.h"
 #include "fileio-label.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "dbus.h"
 #include "execute.h"
 #include "virt.h"

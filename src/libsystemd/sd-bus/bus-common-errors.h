@@ -71,4 +71,4 @@
 #define BUS_ERROR_ABORTED "org.freedesktop.resolve1.Aborted"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
-BUS_ERROR_MAP_ELF_USE(shared_errors);
+BUS_ERROR_MAP_ELF_USE(bus_common_errors);

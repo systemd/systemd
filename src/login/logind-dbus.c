@@ -41,7 +41,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "udev-util.h"
 
 static int property_get_idle_hint(

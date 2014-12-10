@@ -33,7 +33,7 @@
 
 #include "sd-bus.h"
 #include "bus-util.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "util.h"

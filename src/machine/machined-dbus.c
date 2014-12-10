@@ -36,7 +36,7 @@
 #include "utf8.h"
 #include "unit-name.h"
 #include "bus-util.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "time-util.h"
 #include "cgroup-util.h"
 #include "machined.h"

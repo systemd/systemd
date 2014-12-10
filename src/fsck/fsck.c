@@ -35,7 +35,7 @@
 #include "special.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "fileio.h"
 #include "udev-util.h"
 #include "path-util.h"

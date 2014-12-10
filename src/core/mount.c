@@ -41,7 +41,7 @@
 #include "unit-name.h"
 #include "dbus-mount.h"
 #include "special.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "exit-status.h"
 #include "def.h"
 

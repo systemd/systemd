@@ -72,7 +72,7 @@
 #include "bus-util.h"
 #include "bus-message.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "mkdir.h"
 
 static char **arg_types = NULL;

@@ -35,7 +35,7 @@
 #include "unit-name.h"
 #include "dbus-swap.h"
 #include "special.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "exit-status.h"
 #include "def.h"
 #include "path-util.h"

@@ -69,7 +69,7 @@
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "env-util.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus.h"

@@ -27,7 +27,7 @@
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "copy.h"
 #include "fileio.h"
 #include "in-addr-util.h"

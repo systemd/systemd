@@ -28,7 +28,7 @@
 #include "dbus.h"
 #include "bus-util.h"
 #include "bus-internal.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 
 static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Scope *s = userdata;

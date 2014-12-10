@@ -32,7 +32,7 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map standard_errors[] = {
+BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Failed",                           EACCES),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoMemory",                         ENOMEM),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.ServiceUnknown",                   EHOSTUNREACH),

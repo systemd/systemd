@@ -39,7 +39,7 @@
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
 #include "dbus-execute.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 
 static int property_get_version(
                 sd_bus *bus,

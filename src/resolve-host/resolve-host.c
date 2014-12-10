@@ -26,7 +26,7 @@
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "in-addr-util.h"
 #include "af-list.h"
 #include "build.h"

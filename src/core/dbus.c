@@ -39,7 +39,7 @@
 #include "dbus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "strxcpyx.h"
 #include "bus-internal.h"
 #include "selinux-access.h"

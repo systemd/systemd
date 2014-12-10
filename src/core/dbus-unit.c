@@ -26,7 +26,7 @@
 #include "strv.h"
 #include "path-util.h"
 #include "fileio.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"

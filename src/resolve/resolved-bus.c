@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
 
 #include "resolved-dns-domain.h"

@@ -23,9 +23,9 @@
 
 #include "sd-bus.h"
 #include "bus-error.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map shared_errors[] = {
+BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_UNIT,                 ENOENT),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_UNIT_FOR_PID,              ESRCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_EXISTS,                  EEXIST),

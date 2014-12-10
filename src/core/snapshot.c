@@ -25,7 +25,7 @@
 #include "snapshot.h"
 #include "unit-name.h"
 #include "dbus-snapshot.h"
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 
 static const UnitActiveState state_translation_table[_SNAPSHOT_STATE_MAX] = {
         [SNAPSHOT_DEAD] = UNIT_INACTIVE,

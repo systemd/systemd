@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "bus-errors.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "transaction.h"

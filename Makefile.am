@@ -757,8 +757,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/sparse-endian.h \
 	src/shared/refcnt.h \
 	src/shared/udev-util.h \
-	src/shared/bus-errors.h \
-	src/shared/bus-errors.c \
 	src/shared/device-nodes.c \
 	src/shared/device-nodes.h \
 	src/shared/util.c \
@@ -2646,6 +2644,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-bus/bus-control.h \
 	src/libsystemd/sd-bus/bus-error.c \
 	src/libsystemd/sd-bus/bus-error.h \
+	src/libsystemd/sd-bus/bus-common-errors.h \
+	src/libsystemd/sd-bus/bus-common-errors.c \
 	src/libsystemd/sd-bus/bus-internal.c \
 	src/libsystemd/sd-bus/bus-internal.h \
 	src/libsystemd/sd-bus/bus-socket.c \
