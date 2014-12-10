@@ -6259,10 +6259,13 @@ doc-sync: all destdir-sphinx
 	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
 	rsync -rlv --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 
-.PHONY: tango
-tango: upload
+.PHONY: gardel
+gardel: upload
+	scp man/*.html gardel:public/systemd-man/
+
+.PHONY: lennart-fedora
+lennart-fedora:
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
-	scp man/*.html tango:public/systemd-man/
 
 .PHONY: install-tree
 install-tree: all
