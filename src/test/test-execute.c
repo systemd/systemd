@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
         r = manager_new(SYSTEMD_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
-                return -EXIT_TEST_SKIP;
+                return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);

@@ -27,6 +27,7 @@ my $udev_dev            = "test/dev";
 my $udev_run            = "test/run";
 my $udev_rules_dir      = "$udev_run/udev/rules.d";
 my $udev_rules          = "$udev_rules_dir/udev-test.rules";
+my $EXIT_TEST_SKIP      = 77;
 
 my @tests = (
         {
@@ -1483,6 +1484,13 @@ sub run_test {
 if (!($<==0)) {
         print "Must have root permissions to run properly.\n";
         exit;
+}
+
+# skip the test when running in a container
+system("systemd-detect-virt", "-c", "-q");
+if ($? >> 8 == 0) {
+    print "Running in a container, skipping the test.\n";
+    exit($EXIT_TEST_SKIP);
 }
 
 udev_setup();

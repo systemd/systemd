@@ -35,6 +35,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "conf-parser.h"
+#include "virt.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -544,7 +545,8 @@ static void test_get_process_comm(void) {
         assert_se(r >= 0 || r == -EACCES);
         log_info("self strlen(environ): '%zd'", strlen(env));
 
-        assert_se(get_ctty_devnr(1, &h) == -ENOENT);
+        if (!detect_container(NULL))
+                assert_se(get_ctty_devnr(1, &h) == -ENOENT);
 
         getenv_for_pid(1, "PATH", &i);
         log_info("pid1 $PATH: '%s'", strna(i));
