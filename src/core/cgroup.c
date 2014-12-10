@@ -605,7 +605,6 @@ static const char *migrate_callback(CGroupControllerMask mask, void *userdata) {
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
-        _cleanup_free_ char *path = NULL;
         CGroupContext *c;
         int r;
 
@@ -615,18 +614,22 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         if (!c)
                 return 0;
 
-        path = unit_default_cgroup_path(u);
-        if (!path)
-                return log_oom();
+        if (!u->cgroup_path) {
+                _cleanup_free_ char *path = NULL;
 
-        r = hashmap_put(u->manager->cgroup_unit, path, u);
-        if (r < 0) {
-                log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
-                return r;
-        }
-        if (r > 0) {
-                u->cgroup_path = path;
-                path = NULL;
+                path = unit_default_cgroup_path(u);
+                if (!path)
+                        return log_oom();
+
+                r = hashmap_put(u->manager->cgroup_unit, path, u);
+                if (r < 0) {
+                        log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
+                        return r;
+                }
+                if (r > 0) {
+                        u->cgroup_path = path;
+                        path = NULL;
+                }
         }
 
         /* First, create our own group */
@@ -647,6 +650,21 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to migrate cgroup from to %s: %m", u->cgroup_path);
         }
+
+        return 0;
+}
+
+int unit_attach_pids_to_cgroup(Unit *u) {
+        int r;
+        assert(u);
+
+        r = unit_realize_cgroup(u);
+        if (r < 0)
+                return r;
+
+        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->pids, migrate_callback, u);
+        if (r < 0)
+                return r;
 
         return 0;
 }

@@ -1624,7 +1624,7 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
         return 0;
 }
 
-int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid) {
+int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1634,8 +1634,18 @@ int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t
                 return r;
 
         NULSTR_FOREACH(n, mask_names) {
-                if (supported & bit)
+
+                if (supported & bit) {
+                        const char *p = NULL;
+
+                        if (path_callback)
+                                p = path_callback(bit, userdata);
+
+                        if (!p)
+                                p = path;
+
                         cg_attach_fallback(n, path, pid);
+                }
 
                 bit <<= 1;
         }
@@ -1643,7 +1653,7 @@ int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t
         return 0;
 }
 
-int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids) {
+int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids, cg_migrate_callback_t path_callback, void *userdata) {
         Iterator i;
         void *pidp;
         int r = 0;
@@ -1652,7 +1662,7 @@ int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, 
                 pid_t pid = PTR_TO_LONG(pidp);
                 int q;
 
-                q = cg_attach_everywhere(supported, path, pid);
+                q = cg_attach_everywhere(supported, path, pid, path_callback, userdata);
                 if (q < 0)
                         r = q;
         }

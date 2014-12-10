@@ -288,11 +288,7 @@ static int scope_start(Unit *u) {
         if (!u->transient && UNIT(s)->manager->n_reloading <= 0)
                 return -ENOENT;
 
-        r = unit_realize_cgroup(u);
-        if (r < 0)
-                return log_error_errno(r, "Failed to realize cgroup: %m");
-
-        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, UNIT(s)->pids);
+        r = unit_attach_pids_to_cgroup(u);
         if (r < 0)
                 return r;
 

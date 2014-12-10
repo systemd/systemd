@@ -126,8 +126,8 @@ int cg_slice_to_path(const char *unit, char **ret);
 typedef const char* (*cg_migrate_callback_t)(CGroupControllerMask mask, void *userdata);
 
 int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
-int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid);
-int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids);
+int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
+int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
 int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
 

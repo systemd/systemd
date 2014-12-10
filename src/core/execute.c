@@ -1351,7 +1351,7 @@ static int exec_child(ExecCommand *command,
         }
 
         if (params->cgroup_path) {
-                err = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0);
+                err = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0, NULL, NULL);
                 if (err < 0) {
                         *error = EXIT_CGROUP;
                         return err;
