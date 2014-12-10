@@ -51,6 +51,8 @@ enum {
         DHCP6_PORT_CLIENT                       = 546,
 };
 
+#define DHCP6_INF_TIMEOUT                       1 * USEC_PER_SEC
+#define DHCP6_INF_MAX_RT                        120 * USEC_PER_SEC
 #define DHCP6_SOL_MAX_DELAY                     1 * USEC_PER_SEC
 #define DHCP6_SOL_TIMEOUT                       1 * USEC_PER_SEC
 #define DHCP6_SOL_MAX_RT                        120 * USEC_PER_SEC
@@ -71,6 +73,7 @@ enum {
 
 enum DHCP6State {
         DHCP6_STATE_STOPPED                     = 0,
+        DHCP6_STATE_INFORMATION_REQUEST         = 1,
         DHCP6_STATE_SOLICITATION                = 2,
         DHCP6_STATE_REQUEST                     = 3,
         DHCP6_STATE_BOUND                       = 4,

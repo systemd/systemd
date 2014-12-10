@@ -33,6 +33,7 @@ enum {
         DHCP6_EVENT_RESEND_EXPIRE               = 10,
         DHCP6_EVENT_RETRANS_MAX                 = 11,
         DHCP6_EVENT_IP_ACQUIRE                  = 12,
+        DHCP6_EVENT_INFORMATION_REQUEST         = 13,
 };
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;
@@ -47,6 +48,10 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client, const uint8_t *addr,
                             size_t addr_len, uint16_t arp_type);
 int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *duid,
                              size_t duid_len);
+int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client,
+                                            bool enabled);
+int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client,
+                                            bool *enabled);
 int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client,
                                        uint16_t option);
 
