@@ -2610,6 +2610,9 @@ EXTRA_DIST += \
 	units/systemd-bus-proxyd@.service.m4.in \
 	units/user/systemd-bus-proxyd@.service.in
 
+CLEANFILES += \
+	units/systemd-bus-proxyd@.service.m4
+
 if HAVE_SMACK
 bus-proxyd-set-cap-hook:
 	-$(SETCAP) cap_mac_admin+ei $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd
