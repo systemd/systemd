@@ -1864,7 +1864,7 @@ int bus_kernel_fix_attach_mask(void) {
         r = write_string_file("/sys/module/kdbus/parameters/attach_flags_mask", buf);
         if (r < 0)
                 return log_full_errno(
-                                r == -EROFS ? LOG_DEBUG : LOG_WARNING, r,
+                                IN_SET(r, -ENOENT, -EROFS) ? LOG_DEBUG : LOG_WARNING, r,
                                 "Failed to write kdbus attach mask: %m");
 
         return 0;
