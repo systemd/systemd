@@ -43,7 +43,7 @@
         <refnamediv>
                 <refname>systemd-modules-load.service</refname>
                 <refname>systemd-modules-load</refname>
-                <refpurpose>Configure kernel modules to load at boot</refpurpose>
+                <refpurpose>Load kernel modules at boot</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -56,7 +56,7 @@
 
                 <para><filename>systemd-modules-load.service</filename>
                 is an early-boot service that loads kernel modules
-                from static configuration.</para>
+                based on static configuration.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
