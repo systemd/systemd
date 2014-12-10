@@ -4,6 +4,8 @@ Preparations for 218:
 
 * should networkd's [BridgePort] section really be called like that?
 
+* test-bus-kernel-bloom is borked
+
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
