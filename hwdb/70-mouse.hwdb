@@ -148,6 +148,10 @@ mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
  MOUSE_DPI=1000@125
 
+# Logitech USB-PS/2 M-BZ96C
+mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=600@125
+
 ##########################################
 # Microsoft
 ##########################################
