@@ -142,7 +142,6 @@ _filter_units_by_property() {
   done
 }
 
-_systemctl_all_units() { { __systemctl list-unit-files; __systemctl list-units --all; } | { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; } }
 _systemctl_get_template_names() { __systemctl list-unit-files | { while read -r a b; do  [[ $a =~ @\. ]] && echo -E - " ${a%%@.*}@"; done; } }
 
 
