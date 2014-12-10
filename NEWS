@@ -39,11 +39,11 @@ CHANGES WITH 218:
         * systemd-inhibit now allows filtering by mode when listing
           inhibitors.
 
-        * Units with resource management gained a new "Delegate"
-          boolean property, which when set allows processes running
-          inside the unit to further partition resources. This is
-          primarily useful for systemd user instances as well as
-          container managers.
+        * Scope and service units gained a new "Delegate" boolean
+          property, which when set allows processes running inside the
+          unit to further partition resources. This is primarily
+          useful for systemd user instances as well as container
+          managers.
 
         * journald will now pick up audit messages directly from
           the kernel, and log them like any other log message. The
