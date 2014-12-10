@@ -1025,6 +1025,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state)
         assert_return(client->index > 0, -EINVAL);
         assert_return(client->state != state, -EINVAL);
 
+        log_dhcp6_client(client, "client state %d new state %d", client->state, state);
         client->timeout_resend_expire =
                 sd_event_source_unref(client->timeout_resend_expire);
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
