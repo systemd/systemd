@@ -752,7 +752,7 @@ struct socket_info {
 
         /* Note: triggered is a list here, although it almost certainly
          * will always be one unit. Nevertheless, dbus API allows for multiple
-         * values, so let's follow that.*/
+         * values, so let's follow that. */
         char** triggered;
 
         /* The strv above is shared. free is set only in the first one. */

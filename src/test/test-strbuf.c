@@ -48,7 +48,7 @@ static void test_strbuf(void) {
         /* check the content of the buffer directly */
         l = strv_parse_nulstr(sb->buf, sb->len);
 
-        assert_se(streq(l[0], "")); /* root*/
+        assert_se(streq(l[0], "")); /* root */
         assert_se(streq(l[1], "waldo"));
         assert_se(streq(l[2], "foo"));
         assert_se(streq(l[3], "bar"));

@@ -472,7 +472,7 @@ enum {
         TERM_CMD_VPR,                           /* vertical-line-position-relative */
         TERM_CMD_VT,                            /* vertical-tab */
         TERM_CMD_XTERM_CLLHP,                   /* xterm-cursor-lower-left-hp-bugfix */
-        TERM_CMD_XTERM_IHMT,                    /* xterm-initiate-highlight-mouse-tracking*/
+        TERM_CMD_XTERM_IHMT,                    /* xterm-initiate-highlight-mouse-tracking */
         TERM_CMD_XTERM_MLHP,                    /* xterm-memory-lock-hp-bugfix */
         TERM_CMD_XTERM_MUHP,                    /* xterm-memory-unlock-hp-bugfix */
         TERM_CMD_XTERM_RPM,                     /* xterm-restore-private-mode */

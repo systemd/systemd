@@ -727,7 +727,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
 
         /* Now, let's wait until the slice unit and stuff got
          * created. We send the reply back from
-         * session_send_create_reply().*/
+         * session_send_create_reply(). */
 
         return 1;
 

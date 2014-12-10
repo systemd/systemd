@@ -307,7 +307,7 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
         s[0] = '\0';
         interf = s+1;
 
-        /* prefix every port number in the chain with "u"*/
+        /* prefix every port number in the chain with "u" */
         s = ports;
         while ((s = strchr(s, '.')))
                 s[0] = 'u';

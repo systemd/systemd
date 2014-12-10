@@ -276,7 +276,7 @@ static int context_update_kernel_hostname(Context *c) {
         if (hostname_is_useful(static_hn))
                 hn = static_hn;
 
-        /* ... the transient host name, (ie: DHCP) comes next ...*/
+        /* ... the transient host name, (ie: DHCP) comes next ... */
         else if (!isempty(c->data[PROP_HOSTNAME]))
                 hn = c->data[PROP_HOSTNAME];
 

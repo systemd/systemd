@@ -119,7 +119,7 @@ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions);
 
 /* Return seats of user is on. If require_active is true, this will look for
  * active seats only. Returns the number of seats.
- * If seats is NULL, this will just return the number of seats.*/
+ * If seats is NULL, this will just return the number of seats. */
 int sd_uid_get_seats(uid_t uid, int require_active, char ***seats);
 
 /* Return 1 if the session is active. */
