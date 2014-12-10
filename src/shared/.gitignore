@@ -1,3 +1,7 @@
+/cap-from-name.gperf
+/cap-from-name.h
+/cap-list.txt
+/cap-to-name.h
 /errno-from-name.gperf
 /errno-from-name.h
 /errno-list.txt

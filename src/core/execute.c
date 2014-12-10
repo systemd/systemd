@@ -86,6 +86,7 @@
 #include "smack-util.h"
 #include "bus-kernel.h"
 #include "label.h"
+#include "cap-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -2296,13 +2297,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (l = 0; l <= cap_last_cap(); l++)
-                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l))) {
-                                _cleanup_cap_free_charp_ char *t;
-
-                                t = cap_to_name(l);
-                                if (t)
-                                        fprintf(f, " %s", t);
-                        }
+                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l)))
+                                fprintf(f, " %s", strna(capability_to_name(l)));
 
                 fputs("\n", f);
         }

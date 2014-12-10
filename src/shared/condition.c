@@ -39,6 +39,7 @@
 #include "selinux-util.h"
 #include "audit.h"
 #include "condition.h"
+#include "cap-list.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -235,7 +236,7 @@ static int condition_test_security(Condition *c) {
 
 static int condition_test_capability(Condition *c) {
         _cleanup_fclose_ FILE *f = NULL;
-        cap_value_t value;
+        int value;
         char line[LINE_MAX];
         unsigned long long capabilities = -1;
 
@@ -244,8 +245,8 @@ static int condition_test_capability(Condition *c) {
         assert(c->type == CONDITION_CAPABILITY);
 
         /* If it's an invalid capability, we don't have it */
-
-        if (cap_from_name(c->parameter, &value) < 0)
+        value = capability_from_name(c->parameter);
+        if (value < 0)
                 return -EINVAL;
 
         /* If it's a valid capability we default to assume

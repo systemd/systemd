@@ -34,6 +34,7 @@
 #include <linux/if_link.h>
 #include <linux/loop.h>
 #include <linux/audit.h>
+#include <linux/capability.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -605,4 +606,28 @@ static inline int setns(int fd, int nstype) {
 
 #ifndef AUDIT_NLGRP_MAX
 #define AUDIT_NLGRP_READLOG 1
+#endif
+
+#ifndef CAP_MAC_OVERRIDE
+#define CAP_MAC_OVERRIDE 32
+#endif
+
+#ifndef CAP_MAC_ADMIN
+#define CAP_MAC_ADMIN 33
+#endif
+
+#ifndef CAP_SYSLOG
+#define CAP_SYSLOG 34
+#endif
+
+#ifndef CAP_WAKE_ALARM
+#define CAP_WAKE_ALARM 35
+#endif
+
+#ifndef CAP_BLOCK_SUSPEND
+#define CAP_BLOCK_SUSPEND 36
+#endif
+
+#ifndef CAP_AUDIT_READ
+#define CAP_AUDIT_READ 37
 #endif

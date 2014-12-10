@@ -152,6 +152,7 @@
 /test-bus-zero-copy
 /test-calendarspec
 /test-capability
+/test-cap-list
 /test-catalog
 /test-cgroup
 /test-cgroup-mask

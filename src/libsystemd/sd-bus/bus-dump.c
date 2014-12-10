@@ -24,6 +24,7 @@
 #include "strv.h"
 #include "audit.h"
 #include "macro.h"
+#include "cap-list.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"
@@ -290,15 +291,13 @@ static void dump_capabilities(
 
         for (;;) {
                 if (r > 0) {
-                        _cleanup_cap_free_charp_ char *t;
 
                         if (n > 0)
                                 fputc(' ', f);
                         if (n % 4 == 3)
                                 fprintf(f, terse ? "\n          " : "\n        ");
 
-                        t = cap_to_name(i);
-                        fprintf(f, "%s", t);
+                        fprintf(f, "%s", strna(capability_to_name(i)));
                         n++;
                 }
 

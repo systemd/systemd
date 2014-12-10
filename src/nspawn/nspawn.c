@@ -90,6 +90,7 @@
 #include "base-filesystem.h"
 #include "barrier.h"
 #include "event-util.h"
+#include "cap-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -401,7 +402,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
                                 _cleanup_free_ char *t;
-                                cap_value_t cap;
 
                                 t = strndup(word, length);
                                 if (!t)
@@ -413,7 +413,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         else
                                                 minus = (uint64_t) -1;
                                 } else {
-                                        if (cap_from_name(t, &cap) < 0) {
+                                        int cap;
+
+                                        cap = capability_from_name(t);
+                                        if (cap < 0) {
                                                 log_error("Failed to parse capability %s.", t);
                                                 return -EINVAL;
                                         }

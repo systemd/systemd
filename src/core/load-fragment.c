@@ -59,6 +59,7 @@
 #include "bus-error.h"
 #include "errno-list.h"
 #include "af-list.h"
+#include "cap-list.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -1040,17 +1041,15 @@ int config_parse_bounding_set(const char *unit,
 
         FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                 _cleanup_free_ char *t = NULL;
-                int r;
-                cap_value_t cap;
+                int cap;
 
                 t = strndup(word, l);
                 if (!t)
                         return log_oom();
 
-                r = cap_from_name(t, &cap);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, errno,
-                                   "Failed to parse capability in bounding set, ignoring: %s", t);
+                cap = capability_from_name(t);
+                if (cap < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse capability in bounding set, ignoring: %s", t);
                         continue;
                 }
 

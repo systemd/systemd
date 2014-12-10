@@ -863,6 +863,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/af-list.h \
 	src/shared/arphrd-list.c \
 	src/shared/arphrd-list.h \
+	src/shared/cap-list.c \
+	src/shared/cap-list.h \
 	src/shared/audit.c \
 	src/shared/audit.h \
 	src/shared/xml.c \
@@ -903,7 +905,9 @@ nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/af-from-name.h \
 	src/shared/af-to-name.h \
 	src/shared/arphrd-from-name.h \
-	src/shared/arphrd-to-name.h
+	src/shared/arphrd-to-name.h \
+	src/shared/cap-from-name.h \
+	src/shared/cap-to-name.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1191,6 +1195,8 @@ CLEANFILES += \
 	src/shared/af-from-name.gperf \
 	src/shared/arphrd-list.txt \
 	src/shared/arphrd-from-name.gperf \
+	src/shared/cap-list.txt \
+	src/shared/cap-from-name.gperf \
 	src/resolve/dns_type-list.txt \
 	src/resolve/dns_type-from-name.gperf
 
@@ -1201,6 +1207,8 @@ BUILT_SOURCES += \
 	src/shared/af-to-name.h \
 	src/shared/arphrd-from-name.h \
 	src/shared/arphrd-to-name.h \
+	src/shared/cap-from-name.h \
+	src/shared/cap-to-name.h \
 	src/resolve/dns_type-from-name.h \
 	src/resolve/dns_type-to-name.h
 
@@ -1226,6 +1234,7 @@ src/shared/af-list.txt:
 src/shared/af-to-name.h: src/shared/af-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const af_names[] = { "} !/AF_FILE/ && !/AF_ROUTE/ && !/AF_LOCAL/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
 
+
 src/shared/arphrd-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include net/if_arp.h - </dev/null | $(AWK) '/^#define[ \t]+ARPHRD_[^ \t]+[ \t]+[^ \t]/ { print $$2; }' | sed -e 's/ARPHRD_//' >$@
@@ -1235,6 +1244,20 @@ src/shared/arphrd-to-name.h: src/shared/arphrd-list.txt
 
 src/shared/arphrd-from-name.gperf: src/shared/arphrd-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct arphrd_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, ARPHRD_%s\n", $$1, $$1 }' <$< >$@
+
+
+src/shared/cap-list.txt:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/capability.h -include missing.h - </dev/null | $(AWK) '/^#define[ \t]+CAP_[A-Z_]+[ \t]+/ { print $$2; }' | grep -v CAP_LAST_CAP >$@
+
+src/shared/cap-to-name.h: src/shared/cap-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const capability_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' <$< >$@
+
+src/shared/cap-from-name.gperf: src/shared/cap-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct capability_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' <$< >$@
+
+src/shared/cap-from-name.h: src/shared/cap-from-name.gperf
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_capability -H hash_capability_name -p -C <$< >$@
 
 
 src/resolve/dns_type-list.txt: src/resolve/dns-type.h
@@ -1353,7 +1376,8 @@ tests += \
 	test-bus-policy \
 	test-locale-util \
 	test-execute \
-	test-copy
+	test-copy \
+	test-cap-list
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1577,6 +1601,12 @@ test_uid_range_SOURCES = \
 	src/test/test-uid-range.c
 
 test_uid_range_LDADD = \
+	libsystemd-shared.la
+
+test_cap_list_SOURCES = \
+	src/test/test-cap-list.c
+
+test_cap_list_LDADD = \
 	libsystemd-shared.la
 
 test_socket_util_SOURCES = \
