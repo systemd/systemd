@@ -2100,9 +2100,9 @@ int acquire_terminal(
                 assert(notify >= 0);
 
                 for (;;) {
-                        uint8_t inotify_buffer[sizeof(struct inotify_event) + FILENAME_MAX];
-                        ssize_t l;
+                        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
                         struct inotify_event *e;
+                        ssize_t l;
 
                         if (timeout != USEC_INFINITY) {
                                 usec_t n;
@@ -2123,9 +2123,8 @@ int acquire_terminal(
                                 }
                         }
 
-                        l = read(notify, inotify_buffer, sizeof(inotify_buffer));
+                        l = read(notify, buffer, sizeof(buffer));
                         if (l < 0) {
-
                                 if (errno == EINTR || errno == EAGAIN)
                                         continue;
 
@@ -2133,21 +2132,11 @@ int acquire_terminal(
                                 goto fail;
                         }
 
-                        e = (struct inotify_event*) inotify_buffer;
-
-                        while (l > 0) {
-                                size_t step;
-
+                        FOREACH_INOTIFY_EVENT(e, buffer, l) {
                                 if (e->wd != wd || !(e->mask & IN_CLOSE)) {
                                         r = -EIO;
                                         goto fail;
                                 }
-
-                                step = sizeof(struct inotify_event) + e->len;
-                                assert(step <= (size_t) l);
-
-                                e = (struct inotify_event*) ((uint8_t*) e + step);
-                                l -= step;
                         }
 
                         break;

@@ -2320,7 +2320,6 @@ static int determine_change(sd_journal *j) {
 }
 
 _public_ int sd_journal_process(sd_journal *j) {
-        uint8_t buffer[sizeof(struct inotify_event) + FILENAME_MAX] _alignas_(struct inotify_event);
         bool got_something = false;
 
         assert_return(j, -EINVAL);
@@ -2329,6 +2328,7 @@ _public_ int sd_journal_process(sd_journal *j) {
         j->last_process_usec = now(CLOCK_MONOTONIC);
 
         for (;;) {
+                uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
                 struct inotify_event *e;
                 ssize_t l;
 
@@ -2342,18 +2342,8 @@ _public_ int sd_journal_process(sd_journal *j) {
 
                 got_something = true;
 
-                e = (struct inotify_event*) buffer;
-                while (l > 0) {
-                        size_t step;
-
+                FOREACH_INOTIFY_EVENT(e, buffer, l)
                         process_inotify_event(j, e);
-
-                        step = sizeof(struct inotify_event) + e->len;
-                        assert(step <= (size_t) l);
-
-                        e = (struct inotify_event*) ((uint8_t*) e + step);
-                        l -= step;
-                }
         }
 }
 

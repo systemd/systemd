@@ -1616,14 +1616,18 @@ static int mount_enumerate(Manager *m) {
 
         if (m->utab_inotify_fd < 0) {
                 m->utab_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-                if (m->utab_inotify_fd < 0)
-                        goto fail_with_errno;
+                if (m->utab_inotify_fd < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 (void) mkdir_p_label("/run/mount", 0755);
 
                 r = inotify_add_watch(m->utab_inotify_fd, "/run/mount", IN_MOVED_TO);
-                if (r < 0)
-                        goto fail_with_errno;
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 r = sd_event_add_io(m->event, &m->mount_utab_event_source, m->utab_inotify_fd, EPOLLIN, mount_dispatch_io, m);
                 if (r < 0)
@@ -1640,8 +1644,6 @@ static int mount_enumerate(Manager *m) {
 
         return 0;
 
-fail_with_errno:
-        r = -errno;
 fail:
         mount_shutdown(m);
         return r;
@@ -1661,22 +1663,32 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
          * for mount options. */
 
         if (fd == m->utab_inotify_fd) {
-                char inotify_buffer[sizeof(struct inotify_event) + NAME_MAX + 1];
-                struct inotify_event *event;
-                char *p;
                 bool rescan = false;
 
-                while ((r = read(fd, inotify_buffer, sizeof(inotify_buffer))) > 0)
-                        for (p = inotify_buffer; p < inotify_buffer + r; ) {
-                                event = (struct inotify_event *) p;
-                                /* only care about changes to utab, but we have
-                                 * to monitor the directory to reliably get
-                                 * notifications about when utab is replaced
-                                 * using rename(2) */
-                                if ((event->mask & IN_Q_OVERFLOW) || streq(event->name, "utab"))
-                                        rescan = true;
-                                p += sizeof(struct inotify_event) + event->len;
+                for (;;) {
+                        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+                        struct inotify_event *e;
+                        ssize_t l;
+
+                        l = read(fd, buffer, sizeof(buffer));
+                        if (l < 0) {
+                                if (errno == EAGAIN || errno == EINTR)
+                                        break;
+
+                                log_error_errno(errno, "Failed to read utab inotify: %m");
+                                break;
                         }
+
+                        FOREACH_INOTIFY_EVENT(e, buffer, l) {
+                                /* Only care about changes to utab,
+                                 * but we have to monitor the
+                                 * directory to reliably get
+                                 * notifications about when utab is
+                                 * replaced using rename(2) */
+                                if ((e->mask & IN_Q_OVERFLOW) || streq(e->name, "utab"))
+                                        rescan = true;
+                        }
+                }
 
                 if (!rescan)
                         return 0;

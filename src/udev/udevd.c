@@ -816,41 +816,34 @@ static int synthesize_change(struct udev_device *dev) {
 }
 
 static int handle_inotify(struct udev *udev) {
-        int nbytes, pos;
-        char *buf;
-        struct inotify_event *ev;
-        int r;
+        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+        struct inotify_event *e;
+        ssize_t l;
 
-        r = ioctl(fd_inotify, FIONREAD, &nbytes);
-        if (r < 0 || nbytes <= 0)
-                return -errno;
+        l = read(fd_inotify, buffer, sizeof(buffer));
+        if (l < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
 
-        buf = malloc(nbytes);
-        if (!buf) {
-                log_error("error getting buffer for inotify");
-                return -ENOMEM;
+                return log_error_errno(errno, "Failed to read inotify fd: %m");
         }
 
-        nbytes = read(fd_inotify, buf, nbytes);
-
-        for (pos = 0; pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
+        FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 struct udev_device *dev;
 
-                ev = (struct inotify_event *)(buf + pos);
-                dev = udev_watch_lookup(udev, ev->wd);
+                dev = udev_watch_lookup(udev, e->wd);
                 if (!dev)
                         continue;
 
-                log_debug("inotify event: %x for %s", ev->mask, udev_device_get_devnode(dev));
-                if (ev->mask & IN_CLOSE_WRITE)
+                log_debug("inotify event: %x for %s", e->mask, udev_device_get_devnode(dev));
+                if (e->mask & IN_CLOSE_WRITE)
                         synthesize_change(dev);
-                else if (ev->mask & IN_IGNORED)
+                else if (e->mask & IN_IGNORED)
                         udev_watch_end(udev, dev);
 
                 udev_device_unref(dev);
         }
 
-        free(buf);
         return 0;
 }
 

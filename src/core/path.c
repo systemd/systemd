@@ -157,10 +157,9 @@ void path_spec_unwatch(PathSpec *s) {
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
-        _cleanup_free_ uint8_t *buf = NULL;
+        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
         struct inotify_event *e;
-        ssize_t k;
-        int l;
+        ssize_t l;
         int r = 0;
 
         if (revents != EPOLLIN) {
@@ -168,33 +167,18 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return -EINVAL;
         }
 
-        if (ioctl(s->inotify_fd, FIONREAD, &l) < 0)
-                return log_error_errno(errno, "FIONREAD failed: %m");
+        l = read(s->inotify_fd, buffer, sizeof(buffer));
+        if (l < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
 
-        assert(l > 0);
-
-        buf = malloc(l);
-        if (!buf)
-                return log_oom();
-
-        k = read(s->inotify_fd, buf, l);
-        if (k < 0)
                 return log_error_errno(errno, "Failed to read inotify event: %m");
+        }
 
-        e = (struct inotify_event*) buf;
-
-        while (k > 0) {
-                size_t step;
-
+        FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 if ((s->type == PATH_CHANGED || s->type == PATH_MODIFIED) &&
                     s->primary_wd == e->wd)
                         r = 1;
-
-                step = sizeof(struct inotify_event) + e->len;
-                assert(step <= (size_t) k);
-
-                e = (struct inotify_event*) ((uint8_t*) e + step);
-                k -= step;
         }
 
         return r;
