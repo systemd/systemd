@@ -52,7 +52,7 @@ typedef struct HashItem HashItem;
 typedef struct FSSHeader FSSHeader;
 
 /* Object types */
-enum {
+typedef enum ObjectType {
         OBJECT_UNUSED, /* also serves as "any type" or "additional context" */
         OBJECT_DATA,
         OBJECT_FIELD,
@@ -62,7 +62,7 @@ enum {
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
         _OBJECT_TYPE_MAX
-};
+} ObjectType;
 
 /* Object flags */
 enum {

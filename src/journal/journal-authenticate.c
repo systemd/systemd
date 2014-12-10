@@ -229,7 +229,7 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         return 0;
 }
 
-int journal_file_hmac_put_object(JournalFile *f, int type, Object *o, uint64_t p) {
+int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p) {
         int r;
 
         assert(f);

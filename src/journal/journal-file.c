@@ -374,7 +374,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return 0;
 }
 
-static unsigned type_to_context(int type) {
+static unsigned type_to_context(ObjectType type) {
         /* One context for each type, plus one catch-all for the rest */
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
@@ -417,7 +417,7 @@ static uint64_t minimum_header_size(Object *o) {
         return table[o->object.type];
 }
 
-int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret) {
+int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
         void *t;
         Object *o;
@@ -487,7 +487,7 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         return r;
 }
 
-int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset) {
+int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset) {
         int r;
         uint64_t p;
         Object *tail, *o;
