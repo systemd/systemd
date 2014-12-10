@@ -770,7 +770,10 @@ static int client_parse_message(sd_dhcp6_client *client,
                 }
         }
 
-        if ((r < 0 && r != -ENOMSG) || !clientid) {
+        if (r == -ENOMSG)
+                r = 0;
+
+        if (r < 0 || !clientid) {
                 log_dhcp6_client(client, "%s has incomplete options",
                                  dhcp6_message_type_to_string(message->type));
                 return -EINVAL;
