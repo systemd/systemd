@@ -423,7 +423,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 printf("\t    Seat: %s", i.seat);
 
                 if (i.vtnr > 0)
-                        printf("; vc%i", i.vtnr);
+                        printf("; vc%u", i.vtnr);
 
                 printf("\n");
         }

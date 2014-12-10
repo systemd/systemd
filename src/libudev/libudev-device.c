@@ -139,7 +139,7 @@ static int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
         char num[32];
 
         udev_device->ifindex = ifindex;
-        snprintf(num, sizeof(num), "%u", ifindex);
+        snprintf(num, sizeof(num), "%d", ifindex);
         udev_device_add_property(udev_device, "IFINDEX", num);
         return 0;
 }

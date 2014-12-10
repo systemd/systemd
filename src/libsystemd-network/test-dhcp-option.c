@@ -344,7 +344,7 @@ static void test_option_set(void)
 
         for (i = 0; i < 9; i++) {
                 if (verbose)
-                        printf("%2d: 0x%02x(0x%02x) (options)\n", i, result->options[i],
+                        printf("%2u: 0x%02x(0x%02x) (options)\n", i, result->options[i],
                                options[i]);
                 assert_se(result->options[i] == options[i]);
         }
@@ -363,7 +363,7 @@ static void test_option_set(void)
 
         for (i = 0; i < pos - 8; i++) {
                 if (verbose)
-                        printf("%2d: 0x%02x(0x%02x) (sname)\n", i, result->sname[i],
+                        printf("%2u: 0x%02x(0x%02x) (sname)\n", i, result->sname[i],
                                options[i + 9]);
                 assert_se(result->sname[i] == options[i + 9]);
         }

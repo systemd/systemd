@@ -1063,17 +1063,17 @@ work:
         if (cd_media_state != NULL)
                 printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
         if (cd_media_session_next > 0)
-                printf("ID_CDROM_MEDIA_SESSION_NEXT=%d\n", cd_media_session_next);
+                printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", cd_media_session_next);
         if (cd_media_session_count > 0)
-                printf("ID_CDROM_MEDIA_SESSION_COUNT=%d\n", cd_media_session_count);
+                printf("ID_CDROM_MEDIA_SESSION_COUNT=%u\n", cd_media_session_count);
         if (cd_media_session_count > 1 && cd_media_session_last_offset > 0)
                 printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%llu\n", cd_media_session_last_offset);
         if (cd_media_track_count > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT=%d\n", cd_media_track_count);
+                printf("ID_CDROM_MEDIA_TRACK_COUNT=%u\n", cd_media_track_count);
         if (cd_media_track_count_audio > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%d\n", cd_media_track_count_audio);
+                printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%u\n", cd_media_track_count_audio);
         if (cd_media_track_count_data > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%d\n", cd_media_track_count_data);
+                printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%u\n", cd_media_track_count_data);
 exit:
         if (fd >= 0)
                 close(fd);

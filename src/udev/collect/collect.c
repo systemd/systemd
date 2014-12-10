@@ -153,7 +153,7 @@ static int checkout(int fd)
                         if (!ptr && word < (buf + len)) {
                                 bufsize = bufsize << 1;
                                 if (debug)
-                                        fprintf(stderr, "ID overflow, restarting with size %zi\n", bufsize);
+                                        fprintf(stderr, "ID overflow, restarting with size %zu\n", bufsize);
                                 free(buf);
                                 lseek(fd, 0, SEEK_SET);
                                 goto restart;
