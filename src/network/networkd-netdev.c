@@ -275,7 +275,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
                 if (r < 0)
                         return r;
         } else {
-                /* the netdev is not yet read, save this request for when it is*/
+                /* the netdev is not yet read, save this request for when it is */
                 netdev_join_callback *cb;
 
                 cb = new0(netdev_join_callback, 1);

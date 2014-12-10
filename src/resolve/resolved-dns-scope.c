@@ -529,7 +529,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (p->ipproto == IPPROTO_UDP) {
                 /* Don't accept UDP queries directed to anything but
                  * the LLMNR multicast addresses. See RFC 4795,
-                 * section 2.5.*/
+                 * section 2.5. */
 
                 if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV4_ADDRESS))
                         return;

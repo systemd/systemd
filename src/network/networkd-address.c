@@ -227,7 +227,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         }
 
         if (original->family == AF_INET) {
-                /* Pick first address in range for ourselves ...*/
+                /* Pick first address in range for ourselves ... */
                 in_addr.in.s_addr = in_addr.in.s_addr | htobe32(1);
 
                 /* .. and use last as broadcast address */
