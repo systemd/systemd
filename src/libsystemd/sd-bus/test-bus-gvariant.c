@@ -140,7 +140,7 @@ static void test_marshal(void) {
         if (r < 0)
                 exit(EXIT_TEST_SKIP);
 
-        bus->message_version = 2; /* dirty hack to enable gvariant*/
+        bus->message_version = 2; /* dirty hack to enable gvariant */
 
         assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName") >= 0);
 

@@ -234,7 +234,7 @@ static bool value_node_same(
 
         /* Tests parameters against this value node, not doing prefix
          * magic and stuff, i.e. this one actually compares the match
-         * itself.*/
+         * itself. */
 
         assert(node);
         assert(node->type == BUS_MATCH_VALUE);

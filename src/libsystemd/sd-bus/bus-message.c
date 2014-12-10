@@ -1350,7 +1350,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         } else {
                 char *e;
 
-                /* Maybe we can append to the signature? But only if this is the top-level container*/
+                /* Maybe we can append to the signature? But only if this is the top-level container */
                 if (c->enclosing != 0)
                         return -ENXIO;
 
@@ -1543,7 +1543,7 @@ _public_ int sd_bus_message_append_string_space(
         } else {
                 char *e;
 
-                /* Maybe we can append to the signature? But only if this is the top-level container*/
+                /* Maybe we can append to the signature? But only if this is the top-level container */
                 if (c->enclosing != 0)
                         return -ENXIO;
 
@@ -2697,7 +2697,7 @@ _public_ int sd_bus_message_append_string_memfd(
         } else {
                 char *e;
 
-                /* Maybe we can append to the signature? But only if this is the top-level container*/
+                /* Maybe we can append to the signature? But only if this is the top-level container */
                 if (c->enclosing != 0)
                         return -ENXIO;
 
