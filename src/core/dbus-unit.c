@@ -207,7 +207,7 @@ static int property_get_unit_file_state(
         assert(reply);
         assert(u);
 
-        return sd_bus_message_append(reply, "s", unit_file_state_to_string(unit_get_unit_file_preset(u)));
+        return sd_bus_message_append(reply, "s", unit_file_state_to_string(unit_get_unit_file_state(u)));
 }
 
 static int property_get_can_start(

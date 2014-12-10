@@ -538,7 +538,6 @@ static int find_symlinks_in_scope(
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(name);
 
-
         /* First look in runtime config path */
         r = get_config_path(scope, true, root_dir, &path);
         if (r < 0)
