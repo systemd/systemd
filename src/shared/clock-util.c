@@ -121,7 +121,7 @@ int clock_set_timezone(int *min) {
         minutesdelta = tm->tm_gmtoff / 60;
 
         tz.tz_minuteswest = -minutesdelta;
-        tz.tz_dsttime = 0; /* DST_NONE*/
+        tz.tz_dsttime = 0; /* DST_NONE */
 
         /*
          * If the RTC does not run in UTC but in local time, the very first
@@ -141,7 +141,7 @@ int clock_reset_timewarp(void) {
         struct timezone tz;
 
         tz.tz_minuteswest = 0;
-        tz.tz_dsttime = 0; /* DST_NONE*/
+        tz.tz_dsttime = 0; /* DST_NONE */
 
         /*
          * The very first call to settimeofday() does time warp magic. Do a

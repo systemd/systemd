@@ -558,7 +558,7 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 *l = strcspn_escaped(current + 1, quotechars);
                 if (current[*l + 1] == '\0' ||
                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
-                        /* right quote missing or garbage at the end*/
+                        /* right quote missing or garbage at the end */
                         *state = current;
                         return NULL;
                 }
@@ -1436,7 +1436,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 }
 
                 case 0:
-                        /* premature end of string.*/
+                        /* premature end of string. */
                         *(t++) = '\\';
                         goto finish;
 
@@ -3662,7 +3662,7 @@ char *unquote(const char *s, const char* quotes) {
         /* This is rather stupid, simply removes the heading and
          * trailing quotes if there is one. Doesn't care about
          * escaping or anything. We should make this smarter one
-         * day...*/
+         * day... */
 
         l = strlen(s);
         if (l < 2)
