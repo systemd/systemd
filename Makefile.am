@@ -1191,8 +1191,8 @@ CLEANFILES += \
 	src/shared/af-from-name.gperf \
 	src/shared/arphrd-list.txt \
 	src/shared/arphrd-from-name.gperf \
-	src/shared/dns_type-list.txt \
-	src/shared/dns_type-from-name.gperf
+	src/resolve/dns_type-list.txt \
+	src/resolve/dns_type-from-name.gperf
 
 BUILT_SOURCES += \
 	src/shared/errno-from-name.h \
