@@ -1665,6 +1665,10 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         if (fd == m->utab_inotify_fd) {
                 bool rescan = false;
 
+                /* FIXME: We *really* need to replace this with
+                 * libmount's own API for this, we should not hardcode
+                 * internal behaviour of libmount here. */
+
                 for (;;) {
                         uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
                         struct inotify_event *e;

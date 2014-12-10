@@ -1,7 +1,5 @@
 Preparations for 218:
 
-* port libmount hookup to use API's own inotify interface
-
 * cgroup delegation issues
 
 * should networkd's [BridgePort] section really be called like that?
@@ -42,6 +40,8 @@ External:
   compress coredumps in a way compatible with /usr/bin/lz4.
 
 Features:
+
+* port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
 
 * bash completion for busctl, to make it truly useful
 
