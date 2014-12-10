@@ -246,7 +246,7 @@ int journal_file_hmac_put_object(JournalFile *f, int type, Object *o, uint64_t p
                 if (r < 0)
                         return r;
         } else {
-                if (type >= 0 && o->object.type != type)
+                if (type > 0 && o->object.type != type)
                         return -EBADMSG;
         }
 
