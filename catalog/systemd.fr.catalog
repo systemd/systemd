@@ -60,7 +60,7 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Des messages du noyau ont été manqués car le journal système n'a pas été
-capable de les traiter suffisament vite.
+capable de les traiter suffisamment vite.
 
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Le processus @COREDUMP_PID@ (@COREDUMP_COMM@) a généré un fichier « core »
@@ -217,7 +217,7 @@ Subject: Le processus @EXECUTABLE@ n'a pas pu être exécuté
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Le processus @EXECUTABLE@ n'a pas pu être exécuté, et a donc echoué.
+Le processus @EXECUTABLE@ n'a pas pu être exécuté, et a donc échoué.
 
 Le code d'erreur renvoyé est @ERRNO@.
 
