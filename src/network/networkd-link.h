@@ -119,6 +119,7 @@ int link_set_hostname(Link *link, const char *hostname);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
+int icmp6_configure(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;

@@ -857,106 +857,6 @@ static int link_set_bridge(Link *link) {
         return r;
 }
 
-static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
-        Link *link = userdata;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return;
-
-        switch(event) {
-        case DHCP6_EVENT_STOP:
-        case DHCP6_EVENT_RESEND_EXPIRE:
-        case DHCP6_EVENT_RETRANS_MAX:
-        case DHCP6_EVENT_IP_ACQUIRE:
-                log_link_debug(link, "DHCPv6 event %d", event);
-
-                break;
-
-        default:
-                if (event < 0)
-                        log_link_warning(link, "DHCPv6 error: %s",
-                                         strerror(-event));
-                else
-                        log_link_warning(link, "DHCPv6 unknown event: %d",
-                                         event);
-                return;
-        }
-}
-
-static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return;
-
-        switch(event) {
-        case ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE:
-        case ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER:
-                return;
-
-        case ICMP6_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
-        case ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED:
-                break;
-
-        default:
-                if (event < 0)
-                        log_link_warning(link, "ICMPv6 error: %s",
-                                         strerror(-event));
-                else
-                        log_link_warning(link, "ICMPv6 unknown event: %d",
-                                         event);
-
-                return;
-        }
-
-        if (link->dhcp6_client)
-                return;
-
-        r = sd_dhcp6_client_new(&link->dhcp6_client);
-        if (r < 0)
-                return;
-
-        r = sd_dhcp6_client_attach_event(link->dhcp6_client, NULL, 0);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return;
-        }
-
-        r = sd_dhcp6_client_set_mac(link->dhcp6_client,
-                                    (const uint8_t *) &link->mac,
-                                    sizeof (link->mac), ARPHRD_ETHER);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return;
-        }
-
-        r = sd_dhcp6_client_set_index(link->dhcp6_client, link->ifindex);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return;
-        }
-
-        r = sd_dhcp6_client_set_callback(link->dhcp6_client, dhcp6_handler,
-                                         link);
-        if (r < 0) {
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-                return;
-        }
-
-        r = sd_dhcp6_client_start(link->dhcp6_client);
-        if (r < 0)
-                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
-}
-
 static int link_acquire_conf(Link *link) {
         int r;
 
@@ -1270,27 +1170,7 @@ static int link_configure(Link *link) {
         }
 
         if (link_dhcp6_enabled(link)) {
-                r = sd_icmp6_nd_new(&link->icmp6_router_discovery);
-                if (r < 0)
-                        return r;
-
-                r = sd_icmp6_nd_attach_event(link->icmp6_router_discovery,
-                                             NULL, 0);
-                if (r < 0)
-                        return r;
-
-                r = sd_icmp6_nd_set_mac(link->icmp6_router_discovery,
-                                        &link->mac);
-                if (r < 0)
-                        return r;
-
-                r = sd_icmp6_nd_set_index(link->icmp6_router_discovery,
-                                          link->ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_icmp6_nd_set_callback(link->icmp6_router_discovery,
-                                             icmp6_router_handler, link);
+                r = icmp6_configure(link);
                 if (r < 0)
                         return r;
         }

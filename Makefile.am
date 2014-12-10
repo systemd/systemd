@@ -5247,6 +5247,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-link.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
+	src/network/networkd-dhcp6.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
