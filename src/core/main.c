@@ -1543,7 +1543,7 @@ int main(int argc, char *argv[]) {
                  * managers and installers to provision a couple of
                  * files already. If the container manager wants to
                  * provision the machine ID itself it should pass
-                 * $container_uuid to PID 1.*/
+                 * $container_uuid to PID 1. */
 
                 empty_etc = access("/etc/machine-id", F_OK) < 0;
                 if (empty_etc)

@@ -440,7 +440,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
                         SIGRTMIN+27, /* systemd: set log target to console */
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
-                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete)*/
+                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
                         /* ... one free signal here SIGRTMIN+30 ... */
 #endif

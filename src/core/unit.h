@@ -284,7 +284,7 @@ struct UnitVTable {
          * that */
         size_t exec_runtime_offset;
 
-        /* The name of the configuration file section with the private settings of this unit*/
+        /* The name of the configuration file section with the private settings of this unit */
         const char *private_section;
 
         /* Config file sections this unit type understands, separated

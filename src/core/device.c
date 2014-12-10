@@ -382,7 +382,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
                  * same /dev/disk/by-label/xxx link because they have
                  * the same label. We want to make sure that the same
                  * device that won the symlink wins in systemd, so we
-                 * check the device node major/minor*/
+                 * check the device node major/minor */
                 if (stat(p, &st) >= 0)
                         if ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
                             st.st_rdev != udev_device_get_devnum(dev))

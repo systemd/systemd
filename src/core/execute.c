@@ -130,7 +130,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         fds[i] = nfd;
 
                         /* Hmm, the fd we wanted isn't free? Then
-                         * let's remember that and try again from here*/
+                         * let's remember that and try again from here */
                         if (nfd != i+3 && restart_from < 0)
                                 restart_from = i;
                 }
