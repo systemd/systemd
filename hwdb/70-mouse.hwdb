@@ -40,7 +40,7 @@
 #   or, if the frequency is known:
 #   MOUSE_DPI=800@120
 # - a space-separated list of resolutions for multi-resolution mice.
-#   The default resolution must be prefixed by an asterisk, the resultions
+#   The default resolution must be prefixed by an asterisk, the resolutions
 #   in the database must be as shipped by the manufacturer. e.g.
 #   MOUSE_DPI=400 *800 2000
 #
