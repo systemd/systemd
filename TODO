@@ -2,8 +2,6 @@ Preparations for 218:
 
 * cgroup delegation issues
 
-* should networkd's [BridgePort] section really be called like that?
-
 * test-bus-kernel-bloom is borked
 
 * systemctl status reports all services as runtime-enabled?
