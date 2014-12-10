@@ -813,7 +813,7 @@ External:
 
 * zsh shell completion:
   - <command> <verb> -<TAB> should complete options, but currently does not
-  - systemctl add-wants,add-requires, edit
+  - systemctl add-wants,add-requires
 
 
 Regularly:
