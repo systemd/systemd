@@ -110,8 +110,10 @@ int dhcp6_lease_set_preference(sd_dhcp6_lease *lease, uint8_t preference) {
 }
 
 int dhcp6_lease_get_preference(sd_dhcp6_lease *lease, uint8_t *preference) {
-        assert_return(lease, -EINVAL);
         assert_return(preference, -EINVAL);
+
+        if (!lease)
+                return -EINVAL;
 
         *preference = lease->preference;
 
