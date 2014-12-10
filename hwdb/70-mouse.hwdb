@@ -136,6 +136,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
  MOUSE_DPI=1200@250
 
+# Logitech Wirless Mouse M325
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
+ MOUSE_DPI=600@166
+
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
  MOUSE_DPI=1000@1000
