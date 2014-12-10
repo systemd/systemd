@@ -1,9 +1,3 @@
-Preparations for 218:
-
-* cgroup delegation issues
-
-* test-bus-kernel-bloom is borked
-
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
