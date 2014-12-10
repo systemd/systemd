@@ -4,8 +4,6 @@ Preparations for 218:
 
 * test-bus-kernel-bloom is borked
 
-* systemctl status reports all services as runtime-enabled?
-
 Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
@@ -308,6 +306,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - kdbus: process fd=-1 for incoming msgs
   - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
   - kdbus: remove NameOwnerChanged kernel messages for monitors
   - kdbus: PID/TID goes missing for method calls from outside the PID namespace?
