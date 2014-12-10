@@ -56,7 +56,7 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
 
 #define BUS_ERROR_MAP_ELF_USE(errors)                                   \
         extern const sd_bus_error_map errors[];                         \
-        __attribute__ ((used)) static const sd_bus_error_map * CONCATENATE(errors ## _copy_, __COUNTER__) = errors;
+        __attribute__ ((used)) static const sd_bus_error_map * const CONCATENATE(errors ## _copy_, __COUNTER__) = errors;
 
 /* We use something exotic as end marker, to ensure people build the
  * maps using the macsd-ros. */
