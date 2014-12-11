@@ -65,9 +65,11 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                 /* If we can reuse the memfd, try that. For that it
                  * can't be sealed yet. */
 
-                if (!part->sealed)
+                if (!part->sealed) {
+                        assert(part->memfd_offset == 0);
+                        assert(part->data == part->mmap_begin);
                         bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped, part->allocated);
-                else {
+                } else {
                         if (part->mapped > 0)
                                 assert_se(munmap(part->mmap_begin, part->mapped) == 0);
 
@@ -1103,8 +1105,10 @@ static int part_make_space(
         if (m->poisoned)
                 return -ENOMEM;
 
-        if (!part->data && part->memfd < 0)
+        if (!part->data && part->memfd < 0) {
                 part->memfd = bus_kernel_pop_memfd(m->bus, &part->data, &part->mapped, &part->allocated);
+                part->mmap_begin = part->data;
+        }
 
         if (part->memfd >= 0) {
 
