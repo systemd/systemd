@@ -152,14 +152,14 @@
                                 <term><command>set-keymap MAP [TOGGLEMAP]</command></term>
 
                                 <listitem><para>Set the system
-                                keyboard mapping for the console. This
-                                takes a keyboard mapping name (such as
-                                "de" or "us"), and possibly a second
-                                one to define a toggle keyboard
+                                keyboard mapping for the console and
+                                X11. This takes a mapping name (such
+                                as "de" or "us"), and possibly a
+                                second one to define a toggle keyboard
                                 mapping. Unless
                                 <option>--no-convert</option> is
                                 passed, the selected setting is also
-                                applied to the default keyboard
+                                applied as the default system keyboard
                                 mapping of X11, after converting it to
                                 the closest matching X11 keyboard
                                 mapping. Use
@@ -181,15 +181,17 @@
                                 <term><command>set-x11-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]</command></term>
 
                                 <listitem><para>Set the system default
-                                keyboard mapping for X11. This takes a
-                                keyboard mapping name (such as "de" or
-                                "us"), and possibly a model, variant
-                                and options, see
+                                keyboard mapping for X11 and the
+                                virtual console. This takes a keyboard
+                                mapping name (such as
+                                <literal>de</literal> or
+                                <literal>us</literal>), and possibly a
+                                model, variant, and options, see
                                 <citerefentry><refentrytitle>kbd</refentrytitle><manvolnum>4</manvolnum></citerefentry>
                                 for details. Unless
                                 <option>--no-convert</option> is
                                 passed, the selected setting is also
-                                applied to the system console keyboard
+                                applied as the system console keyboard
                                 mapping, after converting it to the
                                 closest matching console keyboard
                                 mapping.</para></listitem>
