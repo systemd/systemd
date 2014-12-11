@@ -937,7 +937,7 @@ bluetooth:v0135*
  ID_VENDOR_FROM_DATABASE=Airewear LLC
 
 bluetooth:v0136*
- ID_VENDOR_FROM_DATABASE=ETC sp. z.o.o.
+ ID_VENDOR_FROM_DATABASE=Seed Labs, Inc. (formerly ETC sp. z.o.o.)
 
 bluetooth:v0137*
  ID_VENDOR_FROM_DATABASE=Prestigio Plaza Ltd.
@@ -1277,3 +1277,27 @@ bluetooth:v01A6*
 
 bluetooth:v01A7*
  ID_VENDOR_FROM_DATABASE=ENERGOUS CORPORATION
+
+bluetooth:v01A8*
+ ID_VENDOR_FROM_DATABASE=Taobao
+
+bluetooth:v01A9*
+ ID_VENDOR_FROM_DATABASE=Canon Inc.
+
+bluetooth:v01AA*
+ ID_VENDOR_FROM_DATABASE=Geophysical Technology Inc.
+
+bluetooth:v01AB*
+ ID_VENDOR_FROM_DATABASE=Facebook, Inc.
+
+bluetooth:v01AC*
+ ID_VENDOR_FROM_DATABASE=Nipro Diagnostics, Inc.
+
+bluetooth:v01AD*
+ ID_VENDOR_FROM_DATABASE=FlightSafety International
+
+bluetooth:v01AE*
+ ID_VENDOR_FROM_DATABASE=Earlens Corporation
+
+bluetooth:v01AF*
+ ID_VENDOR_FROM_DATABASE=Sunrise Micro Devices, Inc.
