@@ -23,8 +23,13 @@
 #include "log.h"
 #include "architecture.h"
 #include "sd-id128.h"
+#include "selinux-util.h"
+#include "audit.h"
+#include "ima-util.h"
+#include "apparmor-util.h"
+#include "smack-util.h"
 
-static void test_condition_test_path_exists(void) {
+static void test_condition_test_path(void) {
         Condition *condition;
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false);
@@ -81,6 +86,14 @@ static void test_condition_test_path_exists(void) {
 
         condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/bin", false, false);
         assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_READ_WRITE, "/tmp", false, false);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false);
+        assert_se(condition_test(condition));
         condition_free(condition);
 }
 
@@ -179,16 +192,46 @@ static void test_condition_test_null(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_security(void) {
+        Condition *condition;
+
+        condition = condition_new(CONDITION_SECURITY, "garbage oifdsjfoidsjoj", false, false);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "selinux", false, true);
+        assert_se(condition_test(condition) != mac_selinux_use());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "ima", false, false);
+        assert_se(condition_test(condition) == use_ima());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "apparmor", false, false);
+        assert_se(condition_test(condition) == mac_apparmor_use());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "smack", false, false);
+        assert_se(condition_test(condition) == mac_smack_use());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "audit", false, false);
+        assert_se(condition_test(condition) == use_audit());
+        condition_free(condition);
+}
+
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        test_condition_test_path_exists();
+        test_condition_test_path();
         test_condition_test_ac_power();
         test_condition_test_host();
         test_condition_test_architecture();
         test_condition_test_kernel_command_line();
         test_condition_test_null();
+        test_condition_test_security();
 
         return 0;
 }
