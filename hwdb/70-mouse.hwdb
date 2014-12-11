@@ -180,6 +180,13 @@ mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
 # Microsoft
 ##########################################
 
+# Note: unsure that these work, it's likely that all devices on these
+# receivers show up with the same vid/pid/name
+
+# Microsoft Sculpt Ergonomic Mouse
+mouse:usb:v045ep07a5:name:Microsoft Microsoft® 2.4GHz Transceiver v9.0:
+ MOUSE_DPI=1000@142
+
 # Microsoft Arc Touch Mouse USB
 mouse:usb:v045ep07b1:name:Microsoft Microsoft® Nano Transceiver v1.0:
  MOUSE_DPI=1400@142
