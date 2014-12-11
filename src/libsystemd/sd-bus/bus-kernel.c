@@ -294,8 +294,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         memzero(m->kdbus, sz);
 
         m->kdbus->flags =
-                ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
-                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
+                ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_EXPECT_REPLY) |
+                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_NO_AUTO_START : 0);
 
         if (well_known)
                 /* verify_destination_id will usually be 0, which makes the kernel driver only look
@@ -761,7 +761,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         }
 
         /* Refuse messages where the reply flag doesn't match up */
-        if (!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) != !!(k->flags & KDBUS_MSG_FLAGS_EXPECT_REPLY)) {
+        if (!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) != !!(k->flags & KDBUS_MSG_EXPECT_REPLY)) {
                 r = -EBADMSG;
                 goto fail;
         }
@@ -773,7 +773,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         }
 
         /* Refuse messages where the autostart flag doesn't match up */
-        if (!(m->header->flags & BUS_MESSAGE_NO_AUTO_START) != !(k->flags & KDBUS_MSG_FLAGS_NO_AUTO_START)) {
+        if (!(m->header->flags & BUS_MESSAGE_NO_AUTO_START) != !(k->flags & KDBUS_MSG_NO_AUTO_START)) {
                 r = -EBADMSG;
                 goto fail;
         }
@@ -1012,6 +1012,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
 }
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call) {
+        struct kdbus_cmd_send cmd = { };
         int r;
 
         assert(bus);
@@ -1027,15 +1028,20 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
         if (r < 0)
                 return r;
 
+        cmd.size = sizeof(cmd);
+        cmd.msg_address = (uintptr_t)m->kdbus;
+
         /* If this is a synchronous method call, then let's tell the
          * kernel, so that it can pass CPU time/scheduling to the
          * destination for the time, if it wants to. If we
          * synchronously wait for the result anyway, we won't need CPU
          * anyway. */
-        if (hint_sync_call)
-                m->kdbus->flags |= KDBUS_MSG_FLAGS_EXPECT_REPLY|KDBUS_MSG_FLAGS_SYNC_REPLY;
+        if (hint_sync_call) {
+                m->kdbus->flags |= KDBUS_MSG_EXPECT_REPLY;
+                cmd.flags |= KDBUS_SEND_SYNC_REPLY;
+        }
 
-        r = ioctl(bus->output_fd, KDBUS_CMD_MSG_SEND, m->kdbus);
+        r = ioctl(bus->output_fd, KDBUS_CMD_SEND, &cmd);
         if (r < 0) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_message *reply;
@@ -1085,7 +1091,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
         } else if (hint_sync_call) {
                 struct kdbus_msg *k;
 
-                k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + m->kdbus->offset_reply);
+                k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + cmd.reply.offset);
                 assert(k);
 
                 if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
@@ -1246,7 +1252,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
 }
 
 int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
-        struct kdbus_cmd_recv recv = {};
+        struct kdbus_cmd_recv recv = { .size = sizeof(recv) };
         struct kdbus_msg *k;
         int r;
 
@@ -1261,7 +1267,7 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 recv.priority = priority;
         }
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &recv);
+        r = ioctl(bus->input_fd, KDBUS_CMD_RECV, &recv);
         if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -1274,7 +1280,7 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 return -errno;
         }
 
-        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.offset);
+        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.reply.offset);
         if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
                 r = bus_kernel_make_message(bus, k);
 
@@ -1798,12 +1804,13 @@ int bus_kernel_try_close(sd_bus *bus) {
 
 int bus_kernel_drop_one(int fd) {
         struct kdbus_cmd_recv recv = {
-                .flags = KDBUS_RECV_DROP
+                .size = sizeof(recv),
+                .flags = KDBUS_RECV_DROP,
         };
 
         assert(fd >= 0);
 
-        if (ioctl(fd, KDBUS_CMD_MSG_RECV, &recv) < 0)
+        if (ioctl(fd, KDBUS_CMD_RECV, &recv) < 0)
                 return -errno;
 
         return 0;

@@ -727,6 +727,7 @@ _pure_ static const char *busname_sub_state_to_string(Unit *u) {
 
 static int busname_peek_message(BusName *n) {
         struct kdbus_cmd_recv cmd_recv = {
+                .size = sizeof(cmd_recv),
                 .flags = KDBUS_RECV_PEEK,
         };
         struct kdbus_cmd_free cmd_free = {};
@@ -750,7 +751,7 @@ static int busname_peek_message(BusName *n) {
         if (log_get_max_level() < LOG_DEBUG)
                 return 0;
 
-        r = ioctl(n->starter_fd, KDBUS_CMD_MSG_RECV, &cmd_recv);
+        r = ioctl(n->starter_fd, KDBUS_CMD_RECV, &cmd_recv);
         if (r < 0) {
                 if (errno == EINTR || errno == EAGAIN)
                         return 0;
@@ -766,9 +767,9 @@ static int busname_peek_message(BusName *n) {
          * longer than necessary. */
 
         ps = page_size();
-        start = (cmd_recv.offset / ps) * ps;
-        delta = cmd_recv.offset - start;
-        sz = PAGE_ALIGN(delta + cmd_recv.msg_size);
+        start = (cmd_recv.reply.offset / ps) * ps;
+        delta = cmd_recv.reply.offset - start;
+        sz = PAGE_ALIGN(delta + cmd_recv.reply.msg_size);
 
         p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
         if (p == MAP_FAILED) {
@@ -800,7 +801,7 @@ finish:
         if (p)
                 (void) munmap(p, sz);
 
-        cmd_free.offset = cmd_recv.offset;
+        cmd_free.offset = cmd_recv.reply.offset;
         if (ioctl(n->starter_fd, KDBUS_CMD_FREE, &cmd_free) < 0)
                 log_unit_warning(UNIT(n)->id, "Failed to free peeked message, ignoring: %m");
 
