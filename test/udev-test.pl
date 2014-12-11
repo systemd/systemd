@@ -1233,8 +1233,8 @@ EOF
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "there",
                 rules           => <<EOF
-TEST=="/etc/hosts", SYMLINK+="there"
-TEST!="/etc/hosts", SYMLINK+="notthere"
+TEST=="/etc/machine-id", SYMLINK+="there"
+TEST!="/etc/machine-id", SYMLINK+="notthere"
 EOF
         },
         {
