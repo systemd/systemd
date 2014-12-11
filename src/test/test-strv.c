@@ -470,6 +470,27 @@ static void test_strv_push(void) {
         assert_se(streq_ptr(a[3], NULL));
 }
 
+static void test_strv_equal(void) {
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_strv_free_ char **b = NULL;
+        _cleanup_strv_free_ char **c = NULL;
+
+        a = strv_new("one", "two", "three", NULL);
+        assert_se(a);
+        b = strv_new("one", "two", "three", NULL);
+        assert_se(a);
+        c = strv_new("one", "two", "three", "four", NULL);
+        assert_se(a);
+
+        assert_se(strv_equal(a, a));
+        assert_se(strv_equal(a, b));
+        assert_se(strv_equal(NULL, NULL));
+
+        assert_se(!strv_equal(a, c));
+        assert_se(!strv_equal(b, c));
+        assert_se(!strv_equal(b, NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -519,6 +540,7 @@ int main(int argc, char *argv[]) {
         test_strv_from_stdarg_alloca();
         test_strv_push_prepend();
         test_strv_push();
+        test_strv_equal();
 
         return 0;
 }
