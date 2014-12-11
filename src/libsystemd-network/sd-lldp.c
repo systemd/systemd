@@ -30,7 +30,21 @@
 #include "lldp-port.h"
 #include "sd-lldp.h"
 #include "prioq.h"
+#include "strv.h"
 #include "lldp-internal.h"
+#include "ether-addr-util.h"
+
+typedef enum LLDPAgentRXState {
+        LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL = 4,
+        LLDP_AGENT_RX_DELETE_AGED_INFO,
+        LLDP_AGENT_RX_LLDP_INITIALIZE,
+        LLDP_AGENT_RX_WAIT_FOR_FRAME,
+        LLDP_AGENT_RX_RX_FRAME,
+        LLDP_AGENT_RX_DELETE_INFO,
+        LLDP_AGENT_RX_UPDATE_INFO,
+        _LLDP_AGENT_RX_STATE_MAX,
+        _LLDP_AGENT_RX_INVALID = -1,
+} LLDPAgentRXState;
 
 /* Section 10.5.2.2 Reception counters */
 struct lldp_agent_statitics {
@@ -48,6 +62,11 @@ struct sd_lldp {
         Prioq *by_expiry;
         Hashmap *neighbour_mib;
 
+        sd_lldp_cb_t cb;
+
+        void *userdata;
+
+        LLDPAgentRXState rx_state;
         lldp_agent_statitics statitics;
 };
 
@@ -87,6 +106,8 @@ static const struct hash_ops chassis_id_hash_ops = {
 };
 
 static void lldp_mib_delete_objects(sd_lldp *lldp);
+static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state);
+static void lldp_run_state_machine(sd_lldp *ll);
 
 static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
         int r;
@@ -95,12 +116,18 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
         assert(tlv);
 
         /* Remove expired packets */
-        if (prioq_size(lldp->by_expiry) > 0)
+        if (prioq_size(lldp->by_expiry) > 0) {
+
+                lldp_set_state(lldp, LLDP_AGENT_RX_DELETE_INFO);
+
                 lldp_mib_delete_objects(lldp);
+        }
 
         r = lldp_mib_add_objects(lldp->by_expiry, lldp->neighbour_mib, tlv);
         if (r < 0)
                 goto out;
+
+        lldp_set_state(lldp, LLDP_AGENT_RX_UPDATE_INFO);
 
         log_lldp("Packet added. MIB size: %d , PQ size: %d",
                  hashmap_size(lldp->neighbour_mib),
@@ -113,6 +140,8 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
  out:
         if (r < 0)
                 log_lldp("Receive frame failed: %s", strerror(-r));
+
+        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
 
         return 0;
 }
@@ -141,6 +170,8 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
                          lldp->port->ifname);
                 goto out;
         }
+
+        lldp_set_state(lldp, LLDP_AGENT_RX_RX_FRAME);
 
         p = tlv->pdu;
         p += sizeof(struct ether_header);
@@ -304,6 +335,8 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         return lldp_receive_frame(lldp, tlv);
 
  out:
+        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
+
         if (malformed) {
                 lldp->statitics.stats_frames_discarded_total ++;
                 lldp->statitics.stats_frames_in_errors_total ++;
@@ -324,6 +357,23 @@ static int ttl_expiry_item_prioq_compare_func(const void *a, const void *b) {
                 return 1;
 
         return 0;
+}
+
+static void lldp_set_state(sd_lldp *lldp, LLDPAgentRXState state) {
+
+        assert(lldp);
+        assert(state < _LLDP_AGENT_RX_STATE_MAX);
+
+        lldp->rx_state = state;
+
+        lldp_run_state_machine(lldp);
+}
+
+static void lldp_run_state_machine(sd_lldp *lldp) {
+
+        if (lldp->rx_state == LLDP_AGENT_RX_UPDATE_INFO)
+                if (lldp->cb)
+                        lldp->cb(lldp, LLDP_AGENT_RX_UPDATE_INFO, lldp->userdata);
 }
 
 /* 10.5.5.2.1 mibDeleteObjects ()
@@ -377,6 +427,150 @@ static void lldp_mib_objects_flush(sd_lldp *lldp) {
         assert(prioq_size(lldp->by_expiry) == 0);
 }
 
+int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
+        _cleanup_free_ char *s = NULL, *t = NULL, *k = NULL;
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        uint8_t *mac, *port_id, type;
+        lldp_neighbour_port *p;
+        uint16_t data = 0, length = 0;
+        char buf[LINE_MAX];
+        lldp_chassis *c;
+        usec_t time;
+        Iterator i;
+        int r;
+
+        assert(lldp);
+        assert(lldp_file);
+
+        r = fopen_temporary(lldp_file, &f, &temp_path);
+        if (r < 0)
+                goto finish;
+
+        fchmod(fileno(f), 0644);
+
+        HASHMAP_FOREACH(c, lldp->neighbour_mib, i) {
+                LIST_FOREACH(port, p, c->ports) {
+
+                        r = lldp_read_chassis_id(p->packet, &type, &length, &mac);
+                        if (r < 0)
+                                continue;
+
+                        memzero(buf, LINE_MAX);
+
+                        sprintf(buf, "'_Chassis=%02x:%02x:%02x:%02x:%02x:%02x' '_CType=%d' ",
+                                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], type);
+
+                        s = strdup(buf);
+                        if (!s)
+                                return -ENOMEM;
+
+                        r = lldp_read_port_id(p->packet, &type, &length, &port_id);
+                        if (r < 0) {
+                                free(s);
+                                continue;
+                        }
+
+                        memzero(buf, LINE_MAX);
+                        if (type != LLDP_PORT_SUBTYPE_MAC_ADDRESS) {
+
+                                k = strndup((char *) port_id, length -1);
+                                if (!k)
+                                        return -ENOMEM;
+
+                                sprintf(buf, "'_Port=%s' '_PType=%d' ", k , type);
+
+                                t = strappend(s, buf);
+
+                                free(k);
+                        } else {
+
+                                mac = port_id;
+
+                                sprintf(buf, "'_Port=%02x:%02x:%02x:%02x:%02x:%02x' '_PType=%d' ",
+                                        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], type);
+
+                                t = strappend(s, buf);
+                        }
+
+                        if (!t)
+                                return -ENOMEM;
+
+                        free(s);
+                        s = t;
+
+                        time = now(CLOCK_BOOTTIME);
+
+                        /* Don't write expired packets */
+                        if(time - p->until <= 0) {
+                                free(s);
+                                continue;
+                        }
+
+                        memzero(buf, LINE_MAX);
+                        sprintf(buf, "'_TTL=%lu' ", p->until);
+
+                        t = strappend(s, buf);
+                        if (!t)
+                                return -ENOMEM;
+
+                        free(s);
+                        s = t;
+
+                        r = lldp_read_system_name(p->packet, &length, &k);
+                        if (r < 0)
+                                k = strappend(s, "'_NAME=N/A' ");
+                        else {
+                                t = strndup(k, length);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                k = strjoin(s, "'_NAME=", t, "' ", NULL);
+                        }
+
+                        if (!k)
+                                return -ENOMEM;
+
+                        free(s);
+                        s = k;
+
+                        memzero(buf, LINE_MAX);
+
+                        (void)lldp_read_system_capability(p->packet, &data);
+
+                        sprintf(buf, "'_CAP=%x'", data);
+
+                        t = strappend(s, buf);
+                        if (!t)
+                                return -ENOMEM;
+
+                        fprintf(f, "%s\n", t);
+
+                        free(s);
+                        free(t);
+                }
+        }
+        r = 0;
+
+        s = NULL;
+        t = NULL;
+        k = NULL;
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, lldp_file) < 0) {
+                r = -errno;
+                unlink(lldp_file);
+                unlink(temp_path);
+        }
+
+ finish:
+        if (r < 0)
+                log_error("Failed to save lldp data %s: %s", lldp_file, strerror(-r));
+
+        return r;
+}
+
 int sd_lldp_start(sd_lldp *lldp) {
         int r;
 
@@ -385,13 +579,20 @@ int sd_lldp_start(sd_lldp *lldp) {
 
         lldp->port->status = LLDP_PORT_STATUS_ENABLED;
 
+        lldp_set_state(lldp, LLDP_AGENT_RX_LLDP_INITIALIZE);
+
         r = lldp_port_start(lldp->port);
         if (r < 0) {
                 log_lldp("Failed to start Port : %s , %s",
                          lldp->port->ifname,
                          strerror(-r));
+
+                lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL);
+
                 return r;
         }
+
+        lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
 
         return 0;
 }
@@ -441,6 +642,15 @@ int sd_lldp_detach_event(sd_lldp *lldp) {
         return 0;
 }
 
+int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata) {
+        assert_return(lldp, -EINVAL);
+
+        lldp->cb = cb;
+        lldp->userdata = userdata;
+
+        return 0;
+}
+
 void sd_lldp_free(sd_lldp *lldp) {
 
         if (!lldp)
@@ -485,6 +695,8 @@ int sd_lldp_new(int ifindex,
                                    ttl_expiry_item_prioq_compare_func);
         if (r < 0)
                 return r;
+
+        lldp->rx_state = LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL;
 
         *ret = lldp;
         lldp = NULL;

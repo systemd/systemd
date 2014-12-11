@@ -219,6 +219,12 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         if (r < 0)
                 return -ENOMEM;
 
+        r = asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d",
+                     link->ifindex);
+        if (r < 0)
+                return -ENOMEM;
+
+
         r = hashmap_ensure_allocated(&manager->links, NULL);
         if (r < 0)
                 return r;
@@ -258,6 +264,9 @@ static void link_free(Link *link) {
 
         unlink(link->lease_file);
         free(link->lease_file);
+
+        unlink(link->lldp_file);
+        free(link->lldp_file);
 
         sd_ipv4ll_unref(link->ipv4ll);
         sd_dhcp6_client_unref(link->dhcp6_client);
@@ -895,6 +904,23 @@ static int link_set_bridge(Link *link) {
         return r;
 }
 
+static void lldp_handler(sd_lldp *lldp, int event, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+
+        if (event != UPDATE_INFO)
+                return;
+
+        r = sd_lldp_save(link->lldp, link->lldp_file);
+        if (r < 0)
+                log_link_warning(link, "could not save LLDP");
+
+}
+
 static int link_acquire_conf(Link *link) {
         int r;
 
@@ -1235,6 +1261,11 @@ static int link_configure(Link *link) {
                         return r;
 
                 r = sd_lldp_attach_event(link->lldp, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_set_callback(link->lldp,
+                                         lldp_handler, link);
                 if (r < 0)
                         return r;
         }
@@ -1854,6 +1885,19 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 unlink(link->lease_file);
+
+        if (link->lldp) {
+                assert(link->network);
+
+                r = sd_lldp_save(link->lldp, link->lldp_file);
+                if (r < 0)
+                        goto fail;
+
+                fprintf(f,
+                        "LLDP_FILE=%s\n",
+                        link->lldp_file);
+        } else
+                unlink(link->lldp_file);
 
         r = fflush_and_check(f);
         if (r < 0)

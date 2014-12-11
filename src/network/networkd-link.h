@@ -93,6 +93,7 @@ struct Link {
         sd_dhcp6_client *dhcp6_client;
 
         sd_lldp *lldp;
+        char *lldp_file;
 };
 
 Link *link_unref(Link *link);

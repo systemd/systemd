@@ -111,6 +111,8 @@ int sd_network_link_get_ntp(int ifindex, char ***addr);
  */
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
 
+int sd_network_link_get_lldp(int ifindex, char **lldp);
+
 /* Get the DNS domain names for a given link. */
 int sd_network_link_get_domains(int ifindex, char ***domains);
 

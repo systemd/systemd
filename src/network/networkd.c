@@ -64,6 +64,12 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Could not create runtime directory 'leases': %m");
 
+        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid);
+        if (r < 0)
+                log_error("Could not create runtime directory 'lldp': %s",
+                          strerror(-r));
+
+
         r = drop_privileges(uid, gid,
                             (1ULL << CAP_NET_ADMIN) |
                             (1ULL << CAP_NET_BIND_SERVICE) |

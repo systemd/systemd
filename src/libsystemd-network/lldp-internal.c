@@ -86,6 +86,8 @@ int lldp_read_port_id(tlv_packet *tlv,
                 goto out1;
 
         switch (subtype) {
+        case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
+        case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
         case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
 
                 r = tlv_packet_read_string(tlv, &s, length);
@@ -127,9 +129,102 @@ int lldp_read_ttl(tlv_packet *tlv, uint16_t *ttl) {
 
         r = tlv_packet_read_u16(tlv, ttl);
 
-        (void) lldp_tlv_packet_exit_container(tlv);
+        (void)lldp_tlv_packet_exit_container(tlv);
 
  out:
+        return r;
+}
+
+int lldp_read_system_name(tlv_packet *tlv,
+                          uint16_t *length,
+                          char **data) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_NAME);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void)lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int lldp_read_system_description(tlv_packet *tlv,
+                                 uint16_t *length,
+                                 char **data) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_DESCRIPTION);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void)lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int lldp_read_port_description(tlv_packet *tlv,
+                               uint16_t *length,
+                               char **data) {
+        char *s;
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_PORT_DESCRIPTION);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_string(tlv, &s, length);
+        if (r < 0)
+                goto out;
+
+        *data = (char *) s;
+
+ out:
+        (void)lldp_tlv_packet_exit_container(tlv);
+
+        return r;
+}
+
+int lldp_read_system_capability(tlv_packet *tlv, uint16_t *data) {
+        int r;
+
+        assert_return(tlv, -EINVAL);
+
+        r = lldp_tlv_packet_enter_container(tlv, LLDP_TYPE_SYSTEM_CAPABILITIES);
+        if (r < 0)
+                return r;
+
+        r = tlv_packet_read_u16(tlv, data);
+        if (r < 0)
+                goto out;
+
+        return 0;
+ out:
+
+        (void)lldp_tlv_packet_exit_container(tlv);
+
         return r;
 }
 

@@ -32,6 +32,7 @@
 #include "build.h"
 #include "util.h"
 #include "pager.h"
+#include "lldp.h"
 #include "rtnl-util.h"
 #include "udev-util.h"
 #include "hwdb-util.h"
@@ -744,6 +745,261 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+const char *lldp_system_capability_to_string(LLDPSystemCapabilities d) _const_;
+LLDPSystemCapabilities lldp_system_capability_from_string(const char *d) _pure_;
+
+static const char* const lldp_system_capability_table[_LLDP_SYSTEM_CAPABILITIES_MAX + 1] = {
+        [LLDP_SYSTEM_CAPABILITIES_OTHER] = "O",
+        [LLDP_SYSTEM_CAPABILITIES_REPEATER] = "P",
+        [LLDP_SYSTEM_CAPABILITIES_BRIDGE] = "B",
+        [LLDP_SYSTEM_CAPABILITIES_WLAN_AP] = "W",
+        [LLDP_SYSTEM_CAPABILITIES_ROUTER] = "R",
+        [LLDP_SYSTEM_CAPABILITIES_PHONE] = "T",
+        [LLDP_SYSTEM_CAPABILITIES_DOCSIS] = "D",
+        [LLDP_SYSTEM_CAPABILITIES_STATION] = "A",
+        [LLDP_SYSTEM_CAPABILITIES_CVLAN] = "C",
+        [LLDP_SYSTEM_CAPABILITIES_SVLAN] = "S",
+        [LLDP_SYSTEM_CAPABILITIES_TPMR] = "M",
+        [_LLDP_SYSTEM_CAPABILITIES_MAX] = "N/A",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(lldp_system_capability, LLDPSystemCapabilities);
+
+static char *lldp_system_caps(uint16_t cap) {
+        _cleanup_free_ char *s = NULL, *t = NULL;
+        char *capability;
+
+        t = strdup("[ ");
+        if (!t)
+                return NULL;
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_OTHER) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_OTHER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_REPEATER) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_REPEATER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_BRIDGE) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_BRIDGE), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_WLAN_AP) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_WLAN_AP), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_ROUTER) {
+                s =  strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_ROUTER), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_PHONE) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_PHONE), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_DOCSIS) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_DOCSIS), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_STATION) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_STATION), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_CVLAN) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_CVLAN), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_SVLAN) {
+                s = strjoin(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_SVLAN), " ", NULL);
+                if (!s)
+                        return NULL;
+
+                free(t);
+                t = s;
+        }
+
+        if (cap & LLDP_SYSTEM_CAPABILITIES_TPMR) {
+                s = strappend(t, lldp_system_capability_to_string(LLDP_SYSTEM_CAPABILITIES_TPMR));
+                if (!s)
+                        return NULL;
+
+                free(t);
+        }
+
+        if (!s) {
+                s = strappend(t, lldp_system_capability_to_string(_LLDP_SYSTEM_CAPABILITIES_MAX));
+                if (!s)
+                        return NULL;
+
+                free(t);
+        }
+
+        t = strappend(s, "]");
+        if (!s)
+                return NULL;
+
+        free(s);
+        capability = t;
+
+        s = NULL;
+        t = NULL;
+
+        return capability;
+}
+
+static int link_lldp_status(int argc, char *argv[], void *userdata) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_free_ LinkInfo *links = NULL;
+        const char *state, *word;
+
+        usec_t time, until, ttl;
+        uint32_t capability;
+        char buf[LINE_MAX];
+        int i, r, c, j;
+        size_t ll;
+        char **s;
+
+        pager_open_if_enabled();
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_rtnl_message_request_dump(req, true);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate links: %m");
+
+        c = decode_and_sort_links(reply, &links);
+        if (c < 0)
+                return rtnl_log_parse_error(c);
+
+        printf("Capability Codes: (O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router, (T) - Telephone,\n"
+               "(D) - Data Over Cable Service Interface Specifications, (A) - Station, (C) - Customer VLAN, (S) - Service VLAN,\n"
+               "(M) - Two-port MAC Relay (TPMR)\n\n");
+
+        printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
+
+        for (i = j = 0; i < c; i++) {
+                _cleanup_free_ char *chassis = NULL, *port = NULL, *cap = NULL, *lldp = NULL;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_network_link_get_lldp(links[i].ifindex, &lldp);
+                if (r < 0)
+                        continue;
+
+                l = strv_split_newlines(lldp);
+                if (!l)
+                        return -ENOMEM;
+
+                STRV_FOREACH(s, l) {
+                        FOREACH_WORD_QUOTED(word, ll, *s, state) {
+                                _cleanup_free_ char *t = NULL, *a = NULL, *b = NULL;
+
+                                t = strndup(word, ll);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                r = split_pair(t, "=", &a, &b);
+                                if (r < 0)
+                                        continue;
+
+                                if (streq(a, "_Chassis")) {
+
+                                        memzero(buf, LINE_MAX);
+
+                                        chassis = strdup(b);
+                                        if (!chassis)
+                                                return -ENOMEM;
+
+                                } else if (streq(a, "_Port")) {
+
+                                        port = strdup(b);
+                                        if (!port)
+                                                return -ENOMEM;
+
+                                } else if (streq(a, "_TTL")) {
+
+                                        time = now(CLOCK_BOOTTIME);
+
+                                        sscanf(b, "%lu", &until);
+
+                                        ttl = (until - time) / USEC_PER_SEC;
+
+
+                                } else if (streq(a, "_CAP")) {
+                                        sscanf(b, "%x", &capability);
+
+                                        cap = lldp_system_caps(capability);
+                                }
+
+                        }
+
+                        if (until > time) {
+                                printf("%10s %24s %16s %16lu %16s\n", links[i].name, chassis, port, ttl, cap);
+                                j++;
+                        }
+                }
+        }
+
+        printf("\nTotal entries displayed: %d\n", j);
+
+        return 0;
+}
+
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.\n\n"
@@ -755,6 +1011,7 @@ static void help(void) {
                "Commands:\n"
                "  list                  List links\n"
                "  status LINK           Show link status\n"
+               "  lldp                  Show lldp information\n"
                , program_invocation_short_name);
 }
 
@@ -820,6 +1077,7 @@ static int networkctl_main(int argc, char *argv[]) {
         const Verb verbs[] = {
                 { "list", VERB_ANY, 1, VERB_DEFAULT, list_links },
                 { "status", 1, VERB_ANY, 0, link_status },
+                { "lldp", VERB_ANY, 1, VERB_DEFAULT, link_lldp_status },
                 {}
         };
 

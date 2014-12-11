@@ -28,6 +28,12 @@
 typedef struct sd_lldp sd_lldp;
 typedef struct lldp_agent_statitics lldp_agent_statitics;
 
+typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
+
+enum {
+        UPDATE_INFO = 10,
+};
+
 typedef enum LLDPPortStatus {
         LLDP_PORT_STATUS_NONE,
         LLDP_PORT_STATUS_ENABLED,
@@ -47,5 +53,8 @@ int sd_lldp_stop(sd_lldp *lldp);
 
 int sd_lldp_attach_event(sd_lldp *lldp, sd_event *event, int priority);
 int sd_lldp_detach_event(sd_lldp *lldp);
+
+int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata);
+int sd_lldp_save(sd_lldp *lldp, const char *file);
 
 int lldp_handle_packet(tlv_packet *m, uint16_t length);
