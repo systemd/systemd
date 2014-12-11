@@ -159,6 +159,7 @@ static int test_unit_printf(void) {
 
         /* normal unit */
         expect(u, "%n", "blah.service");
+        expect(u, "%f", "/blah");
         expect(u, "%N", "blah");
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
@@ -178,6 +179,7 @@ static int test_unit_printf(void) {
 
         expect(u2, "%n", "blah@foo-foo.service");
         expect(u2, "%N", "blah@foo-foo");
+        expect(u2, "%f", "/foo/foo");
         expect(u2, "%p", "blah");
         expect(u2, "%P", "blah");
         expect(u2, "%i", "foo-foo");
