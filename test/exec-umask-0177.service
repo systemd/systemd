@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for UMask
+
+[Service]
+ExecStart=/bin/sh -c 'touch /tmp/test-exec-umask; s=$(stat -c %a /tmp/test-exec-umask); echo $s; exit $(test $s = "600")'
+UMask=0177
+PrivateTmp=yes

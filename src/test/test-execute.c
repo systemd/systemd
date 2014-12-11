@@ -132,6 +132,11 @@ static void test_exec_environment(Manager *m) {
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);
 }
 
+static void test_exec_umask(Manager *m) {
+        test(m, "exec-umask-default.service", 0, CLD_EXITED);
+        test(m, "exec-umask-0177.service", 0, CLD_EXITED);
+}
+
 int main(int argc, char *argv[]) {
         test_function_t tests[] = {
                 test_exec_workingdirectory,
@@ -144,6 +149,7 @@ int main(int argc, char *argv[]) {
                 test_exec_user,
                 test_exec_group,
                 test_exec_environment,
+                test_exec_umask,
                 NULL,
         };
         test_function_t *test = NULL;

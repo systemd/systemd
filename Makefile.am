@@ -1443,6 +1443,8 @@ EXTRA_DIST += \
 	test/exec-systemcallfilter-not-failing.service \
 	test/exec-user.service \
 	test/exec-workingdirectory.service \
+	test/exec-umask-0177.service \
+	test/exec-umask-default.service \
 	test/bus-policy/hello.conf \
 	test/bus-policy/methods.conf \
 	test/bus-policy/ownerships.conf \
