@@ -1382,8 +1382,10 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
                         client->last_addr = client->lease->address;
 
                         r = client_set_lease_timeouts(client);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_dhcp_client(client, "could not set lease timeouts");
                                 goto error;
+                        }
 
                         r = dhcp_network_bind_udp_socket(client->lease->address,
                                                          DHCP_PORT_CLIENT);
