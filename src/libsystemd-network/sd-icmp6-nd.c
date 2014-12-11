@@ -87,7 +87,7 @@ int sd_icmp6_nd_set_mac(sd_icmp6_nd *nd, const struct ether_addr *mac_addr) {
         if (mac_addr)
                 memcpy(&nd->mac_addr, mac_addr, sizeof(nd->mac_addr));
         else
-                memset(&nd->mac_addr, 0x00, sizeof(nd->mac_addr));
+                zero(nd->mac_addr);
 
         return 0;
 

@@ -3184,7 +3184,7 @@ static int screen_TBC(term_screen *screen, const term_seq *seq) {
                 break;
         case 3:
                 if (screen->page->width > 0)
-                        memset(screen->tabs, 0, (screen->page->width + 7) / 8);
+                        memzero(screen->tabs, (screen->page->width + 7) / 8);
                 break;
         }
 

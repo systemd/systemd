@@ -36,7 +36,7 @@ static void test_ring(void) {
         struct iovec vec[2];
         int s;
 
-        memset(&r, 0, sizeof(r));
+        zero(r);
 
         l = ring_peek(&r, vec);
         assert_se(l == 0);

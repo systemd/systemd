@@ -100,7 +100,7 @@ static void test_pty(void) {
         Pty *pty;
 
         rcvsiz = 0;
-        memset(rcvbuf, 0, sizeof(rcvbuf));
+        zero(rcvbuf);
 
         assert_se(sd_event_default(&event) >= 0);
 

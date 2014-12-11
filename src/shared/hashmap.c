@@ -482,7 +482,7 @@ static unsigned skip_free_buckets(HashmapBase *h, unsigned idx) {
 }
 
 static void bucket_mark_free(HashmapBase *h, unsigned idx) {
-        memset(bucket_at(h, idx), 0, hashmap_type_info[h->type].entry_size);
+        memzero(bucket_at(h, idx), hashmap_type_info[h->type].entry_size);
         bucket_set_dib(h, idx, DIB_FREE);
 }
 
@@ -1154,7 +1154,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
         }
 
         /* Zero the area of newly added entries (including the old DIB area) */
-        memset(bucket_at(h, old_n_buckets), 0,
+        memzero(bucket_at(h, old_n_buckets),
                (n_buckets(h) - old_n_buckets) * hi->entry_size);
 
         /* The upper half of the new DIB array needs initialization */
@@ -1182,7 +1182,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
                 new_dibs[idx] = DIB_RAW_FREE;
                 bucket_move_entry(h, &swap, idx, IDX_PUT);
                 /* bucket_move_entry does not clear the source */
-                memset(bucket_at(h, idx), 0, hi->entry_size);
+                memzero(bucket_at(h, idx), hi->entry_size);
 
                 do {
                         /*
