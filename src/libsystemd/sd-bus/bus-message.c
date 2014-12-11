@@ -130,7 +130,7 @@ static void message_free(sd_bus_message *m) {
         message_reset_parts(m);
 
         if (m->release_kdbus) {
-                struct kdbus_cmd_free cmd_free;
+                struct kdbus_cmd_free cmd_free = { };
 
                 cmd_free.flags = 0;
                 cmd_free.offset = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
