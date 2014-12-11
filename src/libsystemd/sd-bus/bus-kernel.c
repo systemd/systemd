@@ -815,7 +815,9 @@ fail:
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
+        struct kdbus_bloom_parameter *bloom = NULL;
         struct kdbus_cmd_hello *hello;
+        struct kdbus_item_list *items;
         struct kdbus_item *item;
         _cleanup_free_ char *g = NULL;
         const char *name;
@@ -928,23 +930,40 @@ int bus_kernel_take_fd(sd_bus *b) {
                 b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ, MAP_SHARED, b->input_fd, 0);
                 if (b->kdbus_buffer == MAP_FAILED) {
                         b->kdbus_buffer = NULL;
-                        return -errno;
+                        r = -errno;
+                        goto fail;
                 }
         }
 
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello->bus_flags > 0xFFFFFFFFULL)
-                return -ENOTSUP;
+        if (hello->bus_flags > 0xFFFFFFFFULL) {
+                r = -ENOTSUP;
+                goto fail;
+        }
 
-        if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
-                return -ENOTSUP;
+        /* extract bloom parameters from items */
+        items = (void*)((uint8_t*)b->kdbus_buffer + hello->offset);
+        KDBUS_ITEM_FOREACH(item, items, items) {
+                switch (item->type) {
+                case KDBUS_ITEM_BLOOM_PARAMETER:
+                        bloom = &item->bloom_parameter;
+                        break;
+                }
+        }
 
-        b->bloom_size = (size_t) hello->bloom.size;
-        b->bloom_n_hash = (unsigned) hello->bloom.n_hash;
+        if (!bloom || !bloom_validate_parameters((size_t) bloom->size, (unsigned) bloom->n_hash)) {
+                r = -ENOTSUP;
+                goto fail;
+        }
 
-        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
-                return -ENOMEM;
+        b->bloom_size = (size_t) bloom->size;
+        b->bloom_n_hash = (unsigned) bloom->n_hash;
+
+        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         b->unique_id = hello->id;
 
@@ -957,7 +976,14 @@ int bus_kernel_take_fd(sd_bus *b) {
         /* the kernel told us the UUID of the underlying bus */
         memcpy(b->server_id.bytes, hello->id128, sizeof(b->server_id.bytes));
 
+        /* free returned items */
+        (void) bus_kernel_cmd_free(b, hello->offset);
+
         return bus_start_running(b);
+
+fail:
+        (void) bus_kernel_cmd_free(b, hello->offset);
+        return r;
 }
 
 int bus_kernel_connect(sd_bus *b) {
@@ -980,6 +1006,7 @@ int bus_kernel_connect(sd_bus *b) {
 
 int bus_kernel_cmd_free(sd_bus *bus, uint64_t offset) {
         struct kdbus_cmd_free cmd = {
+                .size = sizeof(cmd),
                 .flags = 0,
                 .offset = offset,
         };
@@ -1724,6 +1751,7 @@ int bus_kernel_make_starter(
                 BusNamePolicy *policy,
                 BusPolicyAccess world_policy) {
 
+        struct kdbus_cmd_free cmd_free = { .size = sizeof(cmd_free) };
         struct kdbus_cmd_hello *hello;
         struct kdbus_item *n;
         size_t policy_cnt = 0;
@@ -1781,12 +1809,13 @@ int bus_kernel_make_starter(
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0)
                 return -errno;
 
+        /* not interested in any output values */
+        cmd_free.offset = hello->offset;
+        (void) ioctl(fd, KDBUS_CMD_FREE, &cmd_free);
+
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL)
-                return -ENOTSUP;
-
-        if (!bloom_validate_parameters((size_t) hello->bloom.size, (unsigned) hello->bloom.n_hash))
                 return -ENOTSUP;
 
         return fd;

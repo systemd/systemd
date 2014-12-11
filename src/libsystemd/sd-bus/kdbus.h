@@ -384,6 +384,16 @@ struct kdbus_item {
 };
 
 /**
+ * struct kdbus_item_list - A list of items
+ * @size:		The total size of the structure
+ * @items:		Array of items
+ */
+struct kdbus_item_list {
+	__u64 size;
+	struct kdbus_item items[0];
+};
+
+/**
  * enum kdbus_msg_flags - type of message
  * @KDBUS_MSG_EXPECT_REPLY:	Expect a reply message, used for
  *				method calls. The userspace-supplied
@@ -576,19 +586,23 @@ struct kdbus_cmd_cancel {
 
 /**
  * struct kdbus_cmd_free - struct to free a slice of memory in the pool
+ * @size:		Overall size of this structure
  * @offset:		The offset of the memory slice, as returned by other
  *			ioctls
  * @flags:		Flags for the free command, userspace → kernel
  * @return_flags:	Command return flags, kernel → userspace
  * @kernel_flags:	Supported flags of the free command, userspace → kernel
+ * @items:		Additional items to modify the behavior
  *
  * This struct is used with the KDBUS_CMD_FREE ioctl.
  */
 struct kdbus_cmd_free {
+	__u64 size;
 	__u64 offset;
 	__u64 flags;
 	__u64 kernel_flags;
 	__u64 return_flags;
+	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
 /**
@@ -701,6 +715,10 @@ enum kdbus_attach_flags {
  * @id:			The ID of this connection (kernel → userspace)
  * @pool_size:		Size of the connection's buffer where the received
  *			messages are placed
+ * @offset:		Pool offset where additional items of type
+ *			kdbus_item_list are stored. They contain information
+ *			about the bus and the newly created connection.
+ * @items_size:		Copy of item_list.size stored in @offset.
  * @bloom:		The bloom properties of the bus, specified
  *			by the bus creator (kernel → userspace)
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
@@ -718,7 +736,8 @@ struct kdbus_cmd_hello {
 	__u64 bus_flags;
 	__u64 id;
 	__u64 pool_size;
-	struct kdbus_bloom_parameter bloom;
+	__u64 offset;
+	__u64 items_size;
 	__u8 id128[16];
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
