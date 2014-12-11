@@ -74,10 +74,6 @@ Features:
 
 * timedated should compensate on SetTime for the time spent in polkit
 
-* figure out what to do with libmount and utab?
-
-* We really should have a FOREACH macro to iterate through inotify events we read, similar to KDBUS_FOREACH_ITEM
-
 * figure out when we can use the coarse timers
 
 * sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
