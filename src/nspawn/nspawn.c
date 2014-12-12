@@ -2942,8 +2942,8 @@ int main(int argc, char *argv[]) {
         if (arg_directory) {
                 assert(!arg_image);
 
-                if (path_equal(arg_directory, "/")) {
-                        log_error("Spawning container on root directory not supported.");
+                if (path_equal(arg_directory, "/") && !arg_ephemeral) {
+                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral.");
                         r = -EINVAL;
                         goto finish;
                 }
@@ -2964,7 +2964,21 @@ int main(int argc, char *argv[]) {
                 } else if (arg_ephemeral) {
                         char *np;
 
-                        r = tempfn_random(arg_directory, &np);
+                        /* If the specified path is a mount point we
+                         * generate the new snapshot immediately
+                         * inside it under a random name. However if
+                         * the specified is not a mount point we
+                         * create the new snapshot in the parent
+                         * directory, just next to it. */
+                        r = path_is_mount_point(arg_directory, false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
+                                goto finish;
+                        }
+                        if (r > 0)
+                                r = tempfn_random_child(arg_directory, &np);
+                        else
+                                r = tempfn_random(arg_directory, &np);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to generate name for snapshot: %m");
                                 goto finish;

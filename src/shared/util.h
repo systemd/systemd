@@ -1018,6 +1018,7 @@ int fflush_and_check(FILE *f);
 
 int tempfn_xxxxxx(const char *p, char **ret);
 int tempfn_random(const char *p, char **ret);
+int tempfn_random_child(const char *p, char **ret);
 
 bool is_localhost(const char *hostname);
 

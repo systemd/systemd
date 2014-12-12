@@ -6977,6 +6977,14 @@ int tempfn_xxxxxx(const char *p, char **ret) {
         assert(p);
         assert(ret);
 
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.waldoXXXXXX
+         */
+
         fn = basename(p);
         if (!filename_is_valid(fn))
                 return -EINVAL;
@@ -6987,7 +6995,7 @@ int tempfn_xxxxxx(const char *p, char **ret) {
 
         strcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), "."), fn), "XXXXXX");
 
-        *ret = t;
+        *ret = path_kill_slashes(t);
         return 0;
 }
 
@@ -6999,6 +7007,14 @@ int tempfn_random(const char *p, char **ret) {
 
         assert(p);
         assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.waldobaa2a261115984a9
+         */
 
         fn = basename(p);
         if (!filename_is_valid(fn))
@@ -7018,7 +7034,39 @@ int tempfn_random(const char *p, char **ret) {
 
         *x = 0;
 
-        *ret = t;
+        *ret = path_kill_slashes(t);
+        return 0;
+}
+
+int tempfn_random_child(const char *p, char **ret) {
+        char *t, *x;
+        uint64_t u;
+        unsigned i;
+
+        assert(p);
+        assert(ret);
+
+        /* Turns this:
+         *         /foo/bar/waldo
+         * Into this:
+         *         /foo/bar/waldo/.3c2b6219aa75d7d0
+         */
+
+        t = new(char, strlen(p) + 2 + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        x = stpcpy(stpcpy(t, p), "/.");
+
+        u = random_u64();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
+
+        *ret = path_kill_slashes(t);
         return 0;
 }
 
