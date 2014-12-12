@@ -44,6 +44,10 @@
 #include <asm/sgidefs.h>
 #endif
 
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
+
 #include "macro.h"
 
 #ifndef RLIMIT_RTTIME
