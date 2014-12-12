@@ -77,6 +77,10 @@
 #   udevadm info /dev/input/eventXX
 # (or /dev/input/event*).
 
+#
+# Sort by by brand, type (usb, bluetooth), DPI, frequency.
+# For mice with switchable resolution, sort by the starred entry.
+
 ##########################################
 # Dell
 ##########################################
@@ -106,17 +110,39 @@ mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
 # model name. The usb vid/pid is the same for all those devices.
 # Until 3.19 is available, this list just has the Wireless PID entry.
 
-# Logitech B605 Wireless Mouse (also M505)
-mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
- MOUSE_DPI=900@166
+# Logitech USB-PS/2 M-BT58
+mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125
+
+# Logitech USB-PS/2 M-BZ96C
+mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=600@125
+
+# Logitech Wirless Mouse M325
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
+ MOUSE_DPI=600@166
 
 # Logitech Cordless Click! Plus
 mouse:usb:v046dpc50e:name:Logitech USB Receiver:
  MOUSE_DPI=800@125
 
+# Logitech Wireless Mouse M185
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
+# Logitech M705 (marathon mouse)
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
+ MOUSE_DPI=800@166
+
 # Logitech G500s Laser Gaming Mouse
 mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
+
+# Logitech B605 Wireless Mouse (also M505)
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
+ MOUSE_DPI=900@166
+
+# Logitech USB Optical Mouse
+mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
+ MOUSE_DPI=1000@125
 
 # Logitech G700 Laser Mouse (Wired)
 mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
@@ -124,41 +150,17 @@ mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 mouse:usb:v046dpc531:name:Logitech USB Receiver:
  MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
 
-# Logitech Wireless Mouse M185
-mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
- MOUSE_DPI=800@166
-
-# Logitech M705 (marathon mouse)
-mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
- MOUSE_DPI=800@166
+# Logitech T620 (or, the soap)
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
+ MOUSE_DPI=1200@250
 
 # Logitech ZoneTouch Mouse T400
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
  MOUSE_DPI=1300@166
 
-# Logitech T620 (or, the soap)
-mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
- MOUSE_DPI=1200@250
-
-# Logitech Wirless Mouse M325
-mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
- MOUSE_DPI=600@166
-
 # Logitech Ultrathin Touch Mouse
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
  MOUSE_DPI=1000@1000
-
-# Logitech USB Optical Mouse
-mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
- MOUSE_DPI=1000@125
-
-# Logitech USB-PS/2 M-BZ96C
-mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
- MOUSE_DPI=600@125
-
-# Logitech USB-PS/2 M-BT58
-mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
- MOUSE_DPI=400@125
 
 ##########################################
 # Microsoft
