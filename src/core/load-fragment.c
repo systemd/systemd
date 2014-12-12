@@ -3586,7 +3586,7 @@ int unit_load_fragment(Unit *u) {
                 return r;
 
         /* Try to find an alias we can load this with */
-        if (u->load_state == UNIT_STUB)
+        if (u->load_state == UNIT_STUB) {
                 SET_FOREACH(t, u->names, i) {
 
                         if (t == u->id)
@@ -3599,6 +3599,7 @@ int unit_load_fragment(Unit *u) {
                         if (u->load_state != UNIT_STUB)
                                 break;
                 }
+        }
 
         /* And now, try looking for it under the suggested (originally linked) path */
         if (u->load_state == UNIT_STUB && u->fragment_path) {
@@ -3628,7 +3629,7 @@ int unit_load_fragment(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->load_state == UNIT_STUB)
+                if (u->load_state == UNIT_STUB) {
                         SET_FOREACH(t, u->names, i) {
                                 _cleanup_free_ char *z = NULL;
 
@@ -3646,6 +3647,7 @@ int unit_load_fragment(Unit *u) {
                                 if (u->load_state != UNIT_STUB)
                                         break;
                         }
+                }
         }
 
         return 0;
