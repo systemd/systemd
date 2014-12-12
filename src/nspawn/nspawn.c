@@ -91,6 +91,7 @@
 #include "barrier.h"
 #include "event-util.h"
 #include "cap-list.h"
+#include "btrfs-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -115,6 +116,7 @@ typedef enum Volatile {
 } Volatile;
 
 static char *arg_directory = NULL;
+static char *arg_template = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
@@ -124,6 +126,7 @@ static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
 static bool arg_boot = false;
+static bool arg_ephemeral = false;
 static LinkJournal arg_link_journal = LINK_AUTO;
 static bool arg_link_journal_try = false;
 static uint64_t arg_retain =
@@ -166,7 +169,7 @@ static char **arg_network_macvlan = NULL;
 static bool arg_network_veth = false;
 static const char *arg_network_bridge = NULL;
 static unsigned long arg_personality = 0xffffffffLU;
-static const char *arg_image = NULL;
+static char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
 
 static void help(void) {
@@ -176,7 +179,11 @@ static void help(void) {
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
                "  -D --directory=PATH       Root directory for the container\n"
-               "  -i --image=PATH           File system device or image for the container\n"
+               "     --template=PATH        Initialize root directory from template directory,\n"
+               "                            if missing\n"
+               "  -x --ephemeral            Run container with snapshot of root directory, and\n"
+               "                            remove it after exit\n"
+               "  -i --image=PATH           File system device or disk image for the container\n"
                "  -b --boot                 Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
@@ -221,6 +228,27 @@ static void help(void) {
                program_invocation_short_name);
 }
 
+static int set_sanitized_path(char **b, const char *path) {
+        char *p;
+
+        assert(b);
+        assert(path);
+
+        p = canonicalize_file_name(path);
+        if (!p) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                p = path_make_absolute_cwd(path);
+                if (!p)
+                        return -ENOMEM;
+        }
+
+        free(*b);
+        *b = path_kill_slashes(p);
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -244,12 +272,15 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
+                ARG_TEMPLATE,
         };
 
         static const struct option options[] = {
                 { "help",                  no_argument,       NULL, 'h'                   },
                 { "version",               no_argument,       NULL, ARG_VERSION           },
                 { "directory",             required_argument, NULL, 'D'                   },
+                { "template",              required_argument, NULL, ARG_TEMPLATE          },
+                { "ephemeral",             no_argument,       NULL, 'x'                   },
                 { "user",                  required_argument, NULL, 'u'                   },
                 { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK   },
                 { "boot",                  no_argument,       NULL, 'b'                   },
@@ -286,7 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:x", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -300,17 +331,28 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 'D':
-                        free(arg_directory);
-                        arg_directory = canonicalize_file_name(optarg);
-                        if (!arg_directory) {
-                                log_error_errno(errno, "Invalid root directory: %m");
-                                return -ENOMEM;
-                        }
+                        r = set_sanitized_path(&arg_directory, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid root directory: %m");
+
+                        break;
+
+                case ARG_TEMPLATE:
+                        r = set_sanitized_path(&arg_template, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid template directory: %m");
 
                         break;
 
                 case 'i':
-                        arg_image = optarg;
+                        r = set_sanitized_path(&arg_image, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid image path: %m");
+
+                        break;
+
+                case 'x':
+                        arg_ephemeral = true;
                         break;
 
                 case 'u':
@@ -618,6 +660,26 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_directory && arg_image) {
                 log_error("--directory= and --image= may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_template && arg_image) {
+                log_error("--template= and --image= may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_template && !(arg_directory || arg_machine)) {
+                log_error("--template= needs --directory= or --machine=.");
+                return -EINVAL;
+        }
+
+        if (arg_ephemeral && arg_template) {
+                log_error("--ephemeral and --template= may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_ephemeral && arg_image) {
+                log_error("--ephemeral and --image= may not be combined.");
                 return -EINVAL;
         }
 
@@ -2019,6 +2081,7 @@ static int setup_image(char **device_path, int *loop_nr) {
 
         assert(device_path);
         assert(loop_nr);
+        assert(arg_image);
 
         fd = open(arg_image, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -2117,6 +2180,7 @@ static int dissect_image(
         assert(home_device);
         assert(srv_device);
         assert(secondary);
+        assert(arg_image);
 
         b = blkid_new_probe();
         if (!b)
@@ -2784,6 +2848,35 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         return 0;
 }
 
+static int determine_names(void) {
+
+        if (!arg_image && !arg_directory) {
+                if (arg_machine)
+                        arg_directory = strappend("/var/lib/container/", arg_machine);
+                else
+                        arg_directory = get_current_dir_name();
+
+                if (!arg_directory) {
+                        log_error("Failed to determine path, please use -D.");
+                        return -EINVAL;
+                }
+        }
+
+        if (!arg_machine) {
+                arg_machine = strdup(basename(arg_image ?: arg_directory));
+                if (!arg_machine)
+                        return log_oom();
+
+                hostname_cleanup(arg_machine, false);
+                if (!machine_name_is_valid(arg_machine)) {
+                        log_error("Failed to determine machine name automatically, please use -M.");
+                        return -EINVAL;
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
@@ -2791,71 +2884,43 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int r = EXIT_FAILURE, k, n_fd_passed, loop_nr = -1;
+        int r, n_fd_passed, loop_nr = -1;
         const char *console = NULL;
         char veth_name[IFNAMSIZ];
-        bool secondary = false;
+        bool secondary = false, remove_subvol = false;
         sigset_t mask, mask_chld;
         pid_t pid = 0;
+        int ret = EXIT_SUCCESS;
 
         log_parse_environment();
         log_open();
 
-        k = parse_argv(argc, argv);
-        if (k < 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 goto finish;
-        else if (k == 0) {
-                r = EXIT_SUCCESS;
+
+        r = determine_names();
+        if (r < 0)
                 goto finish;
-        }
-
-        if (!arg_image) {
-                if (arg_directory) {
-                        char *p;
-
-                        p = path_make_absolute_cwd(arg_directory);
-                        free(arg_directory);
-                        arg_directory = p;
-                } else
-                        arg_directory = get_current_dir_name();
-
-                if (!arg_directory) {
-                        log_error("Failed to determine path, please use -D.");
-                        goto finish;
-                }
-                path_kill_slashes(arg_directory);
-        }
-
-        if (!arg_machine) {
-                arg_machine = strdup(basename(arg_image ? arg_image : arg_directory));
-                if (!arg_machine) {
-                        log_oom();
-                        goto finish;
-                }
-
-                hostname_cleanup(arg_machine, false);
-                if (isempty(arg_machine)) {
-                        log_error("Failed to determine machine name automatically, please use -M.");
-                        goto finish;
-                }
-        }
 
         if (geteuid() != 0) {
                 log_error("Need to be root.");
+                r = -EPERM;
                 goto finish;
         }
 
         if (sd_booted() <= 0) {
                 log_error("Not running on a systemd system.");
+                r = -EINVAL;
                 goto finish;
         }
 
         log_close();
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
-                k = fdset_new_listen_fds(&fds, false);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to collect file descriptors: %m");
+                r = fdset_new_listen_fds(&fds, false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to collect file descriptors: %m");
                         goto finish;
                 }
         }
@@ -2863,14 +2928,53 @@ int main(int argc, char *argv[]) {
         log_open();
 
         if (arg_directory) {
+                assert(!arg_image);
+
                 if (path_equal(arg_directory, "/")) {
                         log_error("Spawning container on root directory not supported.");
+                        r = -EINVAL;
                         goto finish;
+                }
+
+                if (arg_template) {
+                        r = btrfs_subvol_snapshot(arg_template, arg_directory, arg_read_only, true);
+                        if (r == -EEXIST) {
+                                if (!arg_quiet)
+                                        log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
+                        } else if (r < 0) {
+                                log_error_errno(r, "Couldn't create snapshort %s from %s: %m", arg_directory, arg_template);
+                                goto finish;
+                        } else {
+                                if (!arg_quiet)
+                                        log_info("Populated %s from template %s.", arg_directory, arg_template);
+                        }
+
+                } else if (arg_ephemeral) {
+                        char *np;
+
+                        r = tempfn_random(arg_directory, &np);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to generate name for snapshot: %m");
+                                goto finish;
+                        }
+
+                        r = btrfs_subvol_snapshot(arg_directory, np, arg_read_only, true);
+                        if (r < 0) {
+                                free(np);
+                                log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
+                                goto finish;
+                        }
+
+                        free(arg_directory);
+                        arg_directory = np;
+
+                        remove_subvol = true;
                 }
 
                 if (arg_boot) {
                         if (path_is_os_tree(arg_directory) <= 0) {
                                 log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", arg_directory);
+                                r = -EINVAL;
                                 goto finish;
                         }
                 } else {
@@ -2880,12 +2984,16 @@ int main(int argc, char *argv[]) {
                                        argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
                         if (access(p, F_OK) < 0) {
                                 log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                                r = -EINVAL;
                                 goto finish;
-
                         }
                 }
+
         } else {
                 char template[] = "/tmp/nspawn-root-XXXXXX";
+
+                assert(arg_image);
+                assert(!arg_template);
 
                 if (!mkdtemp(template)) {
                         log_error_errno(errno, "Failed to create temporary directory: %m");
@@ -2916,27 +3024,27 @@ int main(int argc, char *argv[]) {
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
-                log_error_errno(errno, "Failed to acquire pseudo tty: %m");
+                r = log_error_errno(errno, "Failed to acquire pseudo tty: %m");
                 goto finish;
         }
 
         console = ptsname(master);
         if (!console) {
-                log_error_errno(errno, "Failed to determine tty name: %m");
+                r = log_error_errno(errno, "Failed to determine tty name: %m");
                 goto finish;
         }
 
         if (!arg_quiet)
                 log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
-                         arg_machine, arg_image ? arg_image : arg_directory);
+                         arg_machine, arg_image ?: arg_directory);
 
         if (unlockpt(master) < 0) {
-                log_error_errno(errno, "Failed to unlock tty: %m");
+                r = log_error_errno(errno, "Failed to unlock tty: %m");
                 goto finish;
         }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                log_error_errno(errno, "Failed to create kmsg socket pair: %m");
+                r = log_error_errno(errno, "Failed to create kmsg socket pair: %m");
                 goto finish;
         }
 
@@ -2970,13 +3078,13 @@ int main(int argc, char *argv[]) {
                  * give it a chance to call wait() and terminate. */
                 r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to change the signal mask: %m");
+                        r = log_error_errno(errno, "Failed to change the signal mask: %m");
                         goto finish;
                 }
 
                 r = sigaction(SIGCHLD, &sa, NULL);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
+                        r = log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
                         goto finish;
                 }
 
@@ -2985,11 +3093,10 @@ int main(int argc, char *argv[]) {
                                           (arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
                         if (errno == EINVAL)
-                                log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
+                                r = log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
                         else
-                                log_error_errno(errno, "clone() failed: %m");
+                                r = log_error_errno(errno, "clone() failed: %m");
 
-                        r = pid;
                         goto finish;
                 }
 
@@ -3028,14 +3135,14 @@ int main(int argc, char *argv[]) {
                         reset_all_signal_handlers();
                         reset_signal_mask();
 
-                        k = open_terminal(console, O_RDWR);
-                        if (k != STDIN_FILENO) {
-                                if (k >= 0) {
-                                        safe_close(k);
-                                        k = -EINVAL;
+                        r = open_terminal(console, O_RDWR);
+                        if (r != STDIN_FILENO) {
+                                if (r >= 0) {
+                                        safe_close(r);
+                                        r = -EINVAL;
                                 }
 
-                                log_error_errno(k, "Failed to open console: %m");
+                                log_error_errno(r, "Failed to open console: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -3090,9 +3197,9 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
 
                         if (arg_read_only) {
-                                k = bind_remount_recursive(arg_directory, true);
-                                if (k < 0) {
-                                        log_error_errno(k, "Failed to make tree read-only: %m");
+                                r = bind_remount_recursive(arg_directory, true);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to make tree read-only: %m");
                                         _exit(EXIT_FAILURE);
                                 }
                         }
@@ -3196,9 +3303,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (fdset_size(fds) > 0) {
-                                k = fdset_cloexec(fds, false);
-                                if (k < 0) {
-                                        log_error("Failed to unset O_CLOEXEC for file descriptors.");
+                                r = fdset_cloexec(fds, false);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
                                         _exit(EXIT_FAILURE);
                                 }
 
@@ -3350,8 +3457,10 @@ int main(int argc, char *argv[]) {
                         }
 
                         r = sd_event_loop(event);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to run event loop: %m");
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to run event loop: %m");
+                                goto finish;
+                        }
 
                         forward = pty_forward_free(forward);
 
@@ -3368,16 +3477,17 @@ int main(int argc, char *argv[]) {
                 r = wait_for_container(pid, &container_status);
                 pid = 0;
 
-                if (r < 0) {
+                if (r < 0)
                         /* We failed to wait for the container, or the
                          * container exited abnormally */
-                        r = EXIT_FAILURE;
-                        break;
-                } else if (r > 0 || container_status == CONTAINER_TERMINATED)
+                        goto finish;
+                else if (r > 0 || container_status == CONTAINER_TERMINATED){
                         /* The container exited with a non-zero
                          * status, or with zero status and no reboot
                          * was requested. */
+                        ret = r;
                         break;
+                }
 
                 /* CONTAINER_REBOOTED, loop again */
 
@@ -3392,7 +3502,8 @@ int main(int argc, char *argv[]) {
                          * restart. This is necessary since we might
                          * have cgroup parameters set we want to have
                          * flushed out. */
-                        r = 133;
+                        ret = 133;
+                        r = 0;
                         break;
                 }
         }
@@ -3407,7 +3518,17 @@ finish:
         if (pid > 0)
                 kill(pid, SIGKILL);
 
+        if (remove_subvol && arg_directory) {
+                int k;
+
+                k = btrfs_subvol_remove(arg_directory);
+                if (k < 0)
+                        log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
+        }
+
         free(arg_directory);
+        free(arg_template);
+        free(arg_image);
         free(arg_machine);
         free(arg_user);
         strv_free(arg_setenv);
@@ -3417,5 +3538,5 @@ finish:
         strv_free(arg_bind_ro);
         strv_free(arg_tmpfs);
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : ret;
 }

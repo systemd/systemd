@@ -165,12 +165,76 @@
                                 <term><option>--directory=</option></term>
 
                                 <listitem><para>Directory to use as
-                                file system root for the container. If
-                                neither <option>--directory=</option>
-                                nor <option>--image=</option> are
+                                file system root for the container.</para>
+
+                                <para>If neither
+                                <option>--directory=</option>, nor
+                                <option>--image=</option> is specified
+                                the directory is determined as
+                                <filename>/var/lib/container/</filename>
+                                suffixed by the machine name as
+                                specified with
+                                <option>--machine=</option>. If
+                                neither <option>--directory=</option>,
+                                <option>--image=</option>, nor
+                                <option>--machine=</option> are
                                 specified, the current directory will
-                                be used. May not be specified together with
+                                be used. May not be specified together
+                                with
                                 <option>--image=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--template=</option></term>
+
+                                <listitem><para>Directory or
+                                <literal>btrfs</literal> subvolume to
+                                use as template for the container's
+                                root directory. If this is specified
+                                and the container's root directory (as
+                                configured by
+                                <option>--directory=</option>) does
+                                not yet exist it is created as
+                                <literal>btrfs</literal> subvolume and
+                                populated from this template
+                                tree. Ideally, the specified template
+                                path refers to the root of a
+                                <literal>btrfs</literal> subvolume, in
+                                which case a simple copy-on-write
+                                snapshot is taken, and populating the
+                                root directory is instant. If the
+                                specified template path does not refer
+                                to the root of a
+                                <literal>btrfs</literal> subvolume (or
+                                not even to a <literal>btrfs</literal>
+                                file system at all), the tree is
+                                copied, which can be substantially
+                                more time-consuming. Note that if this
+                                option is used the container's root
+                                directory (in contrast to the template
+                                directory!) must be located on a
+                                <literal>btrfs</literal> file system,
+                                so that the <literal>btrfs</literal>
+                                subvolume may be created. May not be
+                                specified together with
+                                <option>--image=</option> or
+                                <option>--ephemeral</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-x</option></term>
+                                <term><option>--ephemeral</option></term>
+
+                                <listitem><para>If specified, the
+                                container is run with a temporary
+                                <literal>btrfs</literal> snapshot of
+                                its root directory (as configured with
+                                <option>--directory=</option>), that
+                                is removed immediately when the
+                                container terminates. May not be
+                                specified together with
+                                <option>--image=</option> or
+                                <option>--template=</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -197,7 +261,9 @@
                                 partitions, swap partitions or EFI
                                 system partitions are not mounted. May
                                 not be specified together with
-                                <option>--directory=</option>.</para></listitem>
+                                <option>--directory=</option>,
+                                <option>--template=</option> or
+                                <option>--ephemeral</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -653,13 +719,13 @@
                                 <term><option>--volatile</option><replaceable>=MODE</replaceable></term>
 
                                 <listitem><para>Boots the container in
-                                volatile (ephemeral) mode. When no
-                                mode parameter is passed or when mode
-                                is specified as <literal>yes</literal>
-                                full volatile mode is enabled. This
-                                means the root directory is mounted as
-                                mostly unpopulated
-                                <literal>tmpfs</literal> instance, and
+                                volatile mode. When no mode parameter
+                                is passed or when mode is specified as
+                                <literal>yes</literal> full volatile
+                                mode is enabled. This means the root
+                                directory is mounted as mostly
+                                unpopulated <literal>tmpfs</literal>
+                                instance, and
                                 <filename>/usr</filename> from the OS
                                 tree is mounted into it, read-only
                                 (the system thus starts up with
@@ -677,8 +743,8 @@
                                 changes to the latter are lost on
                                 shutdown). When the mode parameter is
                                 specified as <literal>no</literal>
-                                (the default) the whole OS tree is made
-                                available writable.</para>
+                                (the default) the whole OS tree is
+                                made available writable.</para>
 
                                 <para>Note that setting this to
                                 <literal>yes</literal> or
@@ -748,13 +814,13 @@
                 </example>
 
                 <example>
-                        <title>Boot into a btrfs snapshot of the host system</title>
+                        <title>Boot into a <literal>btrfs</literal> snapshot of the host system</title>
 
                         <programlisting># btrfs subvolume snapshot / /.tmp
 # systemd-nspawn --private-network -D /.tmp -b</programlisting>
 
                         <para>This runs a copy of the host system in a
-                        btrfs snapshot.</para>
+                        <literal>btrfs</literal> snapshot.</para>
                 </example>
 
                 <example>

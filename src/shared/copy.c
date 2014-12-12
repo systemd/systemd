@@ -82,7 +82,6 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                         r = loop_write(fdt, buf, (size_t) n, false);
                         if (r < 0)
                                 return r;
-
                 }
 
         next:
