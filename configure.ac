@@ -1328,9 +1328,9 @@ AC_ARG_ENABLE(tests,
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
 
 AC_ARG_ENABLE(debug,
-        [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap)])],
+        [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap,mmap-cache)])],
         [if test "x$enableval" = "xyes"; then
-                enableval="hashmap"
+                enableval="hashmap,mmap-cache"
         fi
         saved_ifs="$IFS"
         IFS="$IFS$PATH_SEPARATOR,"
@@ -1338,6 +1338,9 @@ AC_ARG_ENABLE(debug,
                 case $name in
                 hashmap)
                         enable_debug_hashmap=yes
+                        ;;
+                mmap-cache)
+                        enable_debug_mmap_cache=yes
                         ;;
                 esac
         done
@@ -1348,6 +1351,9 @@ AS_IF([test x$enable_debug_hashmap = xyes], [
         AC_DEFINE(ENABLE_DEBUG_HASHMAP, 1, [Define if hashmap debugging is to be enabled])
         enable_debug="hashmap $enable_debug"
 ])
+AS_IF([test x$enable_debug_mmap_cache = xyes], [
+        AC_DEFINE(ENABLE_DEBUG_MMAP_CACHE, 1, [Define if mmap cache debugging is to be enabled])
+        enable_debug="mmap-cache $enable_debug"
 ])
 test -z "$enable_debug" && enable_debug="none"
 
