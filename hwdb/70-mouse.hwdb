@@ -110,6 +110,10 @@ mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
 # model name. The usb vid/pid is the same for all those devices.
 # Until 3.19 is available, this list just has the Wireless PID entry.
 
+# Logitech M-BJ58 Optical Mouse
+mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
+# Logitech MX310 Optical Mouse
+mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech USB-PS/2 M-BT58
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=400@125
@@ -140,7 +144,9 @@ mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
  MOUSE_DPI=900@166
 
-# Logitech USB Optical Mouse
+# Logitech RX1000 Laser Mouse
+mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
+# Logitech M100 Optical Mouse
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
  MOUSE_DPI=1000@125
 
