@@ -140,7 +140,7 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
 
         udev_list_cleanup(&hwdb->properties_list);
 
-        FOREACH_HWDB_PROPERTY(hwdb->hwdb, modalias, key, value) {
+        SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value) {
                 if (udev_list_entry_add(&hwdb->properties_list, key, value) == NULL) {
                         errno = ENOMEM;
                         return NULL;
