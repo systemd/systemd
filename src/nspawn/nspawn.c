@@ -2875,7 +2875,11 @@ static int determine_names(void) {
         }
 
         if (!arg_machine) {
-                arg_machine = strdup(basename(arg_image ?: arg_directory));
+                if (arg_directory && path_equal(arg_directory, "/"))
+                        arg_machine = gethostname_malloc();
+                else
+                        arg_machine = strdup(basename(arg_image ?: arg_directory));
+
                 if (!arg_machine)
                         return log_oom();
 
@@ -2883,6 +2887,21 @@ static int determine_names(void) {
                 if (!machine_name_is_valid(arg_machine)) {
                         log_error("Failed to determine machine name automatically, please use -M.");
                         return -EINVAL;
+                }
+
+                if (arg_ephemeral) {
+                        char *b;
+
+                        /* Add a random suffix when this is an
+                         * ephemeral machine, so that we can run many
+                         * instances at once without manually having
+                         * to specify -M each time. */
+
+                        if (asprintf(&b, "%s-%016" PRIx64, arg_machine, random_u64()) < 0)
+                                return log_oom();
+
+                        free(arg_machine);
+                        arg_machine = b;
                 }
         }
 
