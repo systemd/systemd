@@ -580,9 +580,6 @@ static int link_status_one(
 
         sprintf(devid, "n%i", ifindex);
         d = udev_device_new_from_device_id(udev, devid);
-
-        link_get_type_string(iftype, d, &t);
-
         if (d) {
                 link = udev_device_get_property_value(d, "ID_NET_LINK_FILE");
                 driver = udev_device_get_property_value(d, "ID_NET_DRIVER");
@@ -596,6 +593,8 @@ static int link_status_one(
                 if (!model)
                         model = udev_device_get_property_value(d, "ID_MODEL");
         }
+
+        link_get_type_string(iftype, d, &t);
 
         sd_network_link_get_network_file(ifindex, &network);
 
@@ -676,7 +675,9 @@ static int link_status(char **args, unsigned n) {
                 sd_network_get_operational_state(&operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
-                printf("       State: %s%s%s\n", on_color_operational, strna(operational_state), off_color_operational);
+                printf("%s%s%s      State: %s%s%s\n",
+                       on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational,
+                       on_color_operational, strna(operational_state), off_color_operational);
 
                 dump_addresses(rtnl, "     Address: ", 0);
                 dump_gateways(rtnl, hwdb, "     Gateway: ", 0);
