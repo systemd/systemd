@@ -254,6 +254,9 @@ static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) 
         char *description;
         char str[strlen("OUI:XXYYXXYYXXYY") + 1];
 
+        if (!hwdb)
+                return -EINVAL;
+
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
@@ -574,19 +577,25 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         if (model)
                 printf("       Model: %s\n", model);
 
+        hwdb = udev_hwdb_new(udev);
+
         if (have_mac) {
+                _cleanup_free_ char *description = NULL;
                 char ea[ETHER_ADDR_TO_STRING_MAX];
-                printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
+
+                ieee_oui(hwdb, &e, &description);
+
+                if (description)
+                        printf("  HW Address: %s (%s)\n", ether_addr_to_string(&e, ea), description);
+                else
+                        printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
         }
 
         if (mtu > 0)
                 printf("         MTU: %u\n", mtu);
 
-        hwdb = udev_hwdb_new(udev);
-
-        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
-
         dump_addresses(rtnl, "     Address: ", ifindex);
+        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
 
         if (!strv_isempty(dns))
                 dump_list("         DNS: ", dns);
