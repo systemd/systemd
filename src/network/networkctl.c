@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 #include <getopt.h>
+#include <net/if.h>
 
 #include "sd-network.h"
 #include "sd-rtnl.h"
@@ -407,16 +408,27 @@ static int dump_gateways(
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
+                printf("%*s%s",
+                       (int) strlen(prefix),
+                       i == 0 ? prefix : "",
+                       gateway);
+
                 if (description)
-                        printf("%*s%s (%s)\n",
-                               (int) strlen(prefix),
-                               i == 0 ? prefix : "",
-                               gateway, description);
-                else
-                        printf("%*s%s\n",
-                               (int) strlen(prefix),
-                               i == 0 ? prefix : "",
-                               gateway);
+                        printf(" (%s)", description);
+
+                /* Show interface name for the entry if we show
+                 * entries for all interfaces */
+                if (ifindex <= 0) {
+                        char name[IF_NAMESIZE+1];
+
+                        if (if_indextoname(local[i].ifindex, name)) {
+                                fputs(" on ", stdout);
+                                fputs(name, stdout);
+                        } else
+                                printf(" on %%%i", local[i].ifindex);
+                }
+
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -441,10 +453,22 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                printf("%*s%s\n",
+                printf("%*s%s",
                        (int) strlen(prefix),
                        i == 0 ? prefix : "",
                        pretty);
+
+                if (ifindex <= 0) {
+                        char name[IF_NAMESIZE+1];
+
+                        if (if_indextoname(local[i].ifindex, name)) {
+                                fputs(" on ", stdout);
+                                fputs(name, stdout);
+                        } else
+                                printf(" on %%%i", local[i].ifindex);
+                }
+
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -648,25 +672,13 @@ static int link_status(char **args, unsigned n) {
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
                 _cleanup_free_ struct local_address *addresses = NULL;
                 const char *on_color_operational, *off_color_operational;
-                int i, c;
 
                 sd_network_get_operational_state(&operational_state);
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
                 printf("       State: %s%s%s\n", on_color_operational, strna(operational_state), off_color_operational);
 
-                c = local_addresses(rtnl, 0, AF_UNSPEC, &addresses);
-                for (i = 0; i < c; i++) {
-                        _cleanup_free_ char *pretty = NULL;
-
-                        r = in_addr_to_string(addresses[i].family, &addresses[i].address, &pretty);
-                        if (r < 0)
-                                return log_oom();
-
-                        printf("%13s %s\n",
-                               i > 0 ? "" : "Address:", pretty);
-                }
-
+                dump_addresses(rtnl, "     Address: ", 0);
                 dump_gateways(rtnl, hwdb, "     Gateway: ", 0);
 
                 sd_network_get_dns(&dns);
