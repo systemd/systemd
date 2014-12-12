@@ -1,7 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
@@ -24,8 +22,13 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-int copy_file_fd(const char *from, int to);
-int copy_file(const char *from, const char *to, int flags, mode_t mode);
-int copy_tree(const char *from, const char *to, bool merge);
-int copy_tree_fd(int dirfd, const char *to, bool merge);
-int copy_bytes(int fdf, int fdt, off_t max_bytes);
+int btrfs_is_snapshot(int fd);
+
+int btrfs_subvol_make(const char *path);
+int btrfs_subvol_remove(const char *path);
+int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy);
+int btrfs_subvol_read_only(const char *path, bool b);
+
+int btrfs_reflink(int infd, int outfd);
+
+int btrfs_get_block_device(const char *path, dev_t *dev);

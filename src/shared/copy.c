@@ -22,6 +22,7 @@
 #include <sys/sendfile.h>
 
 #include "util.h"
+#include "btrfs-util.h"
 #include "copy.h"
 
 int copy_bytes(int fdf, int fdt, off_t max_bytes) {
@@ -187,20 +188,28 @@ static int fd_copy_node(int df, const char *from, const struct stat *st, int dt,
         return r;
 }
 
-static int fd_copy_directory(int df, const char *from, const struct stat *st, int dt, const char *to, dev_t original_device, bool merge) {
+static int fd_copy_directory(
+                int df,
+                const char *from,
+                const struct stat *st,
+                int dt,
+                const char *to,
+                dev_t original_device,
+                bool merge) {
+
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         bool created;
         int r;
 
-        assert(from);
         assert(st);
         assert(to);
 
-        fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fdf < 0)
-                return -errno;
+        if (from)
+                fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        else
+                fdf = fcntl(df, F_DUPFD_CLOEXEC, 3);
 
         d = fdopendir(fdf);
         if (!d)
@@ -285,6 +294,22 @@ int copy_tree(const char *from, const char *to, bool merge) {
                 return fd_copy_node(AT_FDCWD, from, &st, AT_FDCWD, to);
         else
                 return -ENOTSUP;
+}
+
+int copy_tree_fd(int dirfd, const char *to, bool merge) {
+
+        struct stat st;
+
+        assert(dirfd >= 0);
+        assert(to);
+
+        if (fstat(dirfd, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, merge);
 }
 
 int copy_file_fd(const char *from, int fdt) {

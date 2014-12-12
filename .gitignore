@@ -134,6 +134,7 @@
 /test-async
 /test-barrier
 /test-boot-timestamp
+/test-btrfs
 /test-bus-chat
 /test-bus-cleanup
 /test-bus-creds

@@ -891,7 +891,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/memfd-util.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
-	src/shared/nss-util.h
+	src/shared/nss-util.h \
+	src/shared/btrfs-util.c \
+	src/shared/btrfs-util.h
 
 if HAVE_UTMP
 libsystemd_shared_la_SOURCES += \
@@ -1319,7 +1321,8 @@ manual_tests += \
 	test-install \
 	test-watchdog \
 	test-log \
-	test-ipcrm
+	test-ipcrm \
+	test-btrfs
 
 if HAVE_KMOD
 manual_tests += \
@@ -1755,6 +1758,12 @@ test_ipcrm_SOURCES = \
 test_ipcrm_LDADD = \
 	libsystemd-shared.la \
 	-lrt
+
+test_btrfs_SOURCES = \
+	src/test/test-btrfs.c
+
+test_btrfs_LDADD = \
+	libsystemd-shared.la
 
 test_rtnl_manual_SOURCES = \
 	src/test/test-rtnl-manual.c
