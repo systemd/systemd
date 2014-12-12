@@ -40,11 +40,11 @@
 #include <libaudit.h>
 #endif
 
-#include "macro.h"
-
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>
 #endif
+
+#include "macro.h"
 
 #ifndef RLIMIT_RTTIME
 #define RLIMIT_RTTIME 15
