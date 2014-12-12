@@ -780,7 +780,7 @@
                 <example>
                         <title>Boot a minimal Fedora distribution in a container</title>
 
-                        <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                        <programlisting># yum -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
                         <para>This installs a minimal Fedora distribution into
