@@ -547,6 +547,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_INVALID, true);
                 else if (r == -EPROTO)
                         r = job_finish_and_invalidate(j, JOB_ASSERT, true);
+                else if (r == -ENOTSUP)
+                        r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true);
                 else if (r == -EAGAIN) {
                         j->state = JOB_WAITING;
                         m->n_running_jobs--;
@@ -591,12 +593,16 @@ _pure_ static const char *job_get_status_message_format_try_harder(Unit *u, JobT
         if (t == JOB_START) {
                 if (result == JOB_DONE)
                         return "Started %s.";
+                else if (result == JOB_TIMEOUT)
+                        return "Timed out starting %s.";
                 else if (result == JOB_FAILED)
                         return "Failed to start %s.";
                 else if (result == JOB_DEPENDENCY)
                         return "Dependency failed for %s.";
-                else if (result == JOB_TIMEOUT)
-                        return "Timed out starting %s.";
+                else if (result == JOB_ASSERT)
+                        return "Assertion failed for %s.";
+                else if (result == JOB_UNSUPPORTED)
+                        return "Starting of %s not supported.";
         } else if (t == JOB_STOP || t == JOB_RESTART) {
                 if (result == JOB_DONE)
                         return "Stopped %s.";
@@ -637,6 +643,11 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                                 unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
+                case JOB_TIMEOUT:
+                        manager_flip_auto_status(u->manager, true);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
+                        break;
+
                 case JOB_FAILED: {
                         bool quotes;
 
@@ -655,14 +666,14 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, format);
                         break;
 
-                case JOB_TIMEOUT:
-                        manager_flip_auto_status(u->manager, true);
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
-                        break;
-
                 case JOB_ASSERT:
                         manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "ASSERT" ANSI_HIGHLIGHT_OFF, format);
+                        break;
+
+                case JOB_UNSUPPORTED:
+                        manager_flip_auto_status(u->manager, true);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "UNSUPP" ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 default:
@@ -1200,6 +1211,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_SKIPPED] = "skipped",
         [JOB_INVALID] = "invalid",
         [JOB_ASSERT] = "assert",
+        [JOB_UNSUPPORTED] = "unsupported",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

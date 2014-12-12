@@ -1447,7 +1447,6 @@ static int mount_add_one(
                         goto fail;
                 }
 
-
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         const char* target;
 

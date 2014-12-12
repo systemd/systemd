@@ -807,6 +807,17 @@ static void automount_reset_failed(Unit *u) {
         a->result = AUTOMOUNT_SUCCESS;
 }
 
+static bool automount_supported(Manager *m) {
+        static int supported = -1;
+
+        assert(m);
+
+        if (supported < 0)
+                supported = access("/dev/autofs", F_OK) >= 0;
+
+        return supported;
+}
+
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
         [AUTOMOUNT_WAITING] = "waiting",
@@ -859,6 +870,7 @@ const UnitVTable automount_vtable = {
         .bus_vtable = bus_automount_vtable,
 
         .shutdown = automount_shutdown,
+        .supported = automount_supported,
 
         .status_message_formats = {
                 .finished_start_job = {

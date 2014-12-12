@@ -1453,6 +1453,21 @@ static int swap_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
+static bool swap_supported(Manager *m) {
+        static int supported = -1;
+
+        /* If swap support is not available in the kernel, or we are
+         * running in a container we don't support swap units, and any
+         * attempts to starting one should fail immediately. */
+
+        if (supported < 0)
+                supported =
+                        access("/proc/swaps", F_OK) >= 0 &&
+                        detect_container(NULL) <= 0;
+
+        return supported;
+}
+
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = "dead",
         [SWAP_ACTIVATING] = "activating",
@@ -1539,6 +1554,7 @@ const UnitVTable swap_vtable = {
 
         .enumerate = swap_enumerate,
         .shutdown = swap_shutdown,
+        .supported = swap_supported,
 
         .status_message_formats = {
                 .starting_stopping = {

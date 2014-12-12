@@ -1453,6 +1453,9 @@ int unit_start(Unit *u) {
         unit_status_log_starting_stopping_reloading(u, JOB_START);
         unit_status_print_starting_stopping(u, JOB_START);
 
+        if (UNIT_VTABLE(u)->supported && !UNIT_VTABLE(u)->supported(u->manager))
+                return -ENOTSUP;
+
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
@@ -1496,9 +1499,9 @@ int unit_stop(Unit *u) {
         if (UNIT_IS_INACTIVE_OR_FAILED(state))
                 return -EALREADY;
 
-        if ((following = unit_following(u))) {
-                log_unit_debug(u->id, "Redirecting stop request from %s to %s.",
-                               u->id, following->id);
+        following = unit_following(u);
+        if (following) {
+                log_unit_debug(u->id, "Redirecting stop request from %s to %s.", u->id, following->id);
                 return unit_stop(following);
         }
 
@@ -1535,15 +1538,13 @@ int unit_reload(Unit *u) {
                 return -EALREADY;
 
         if (state != UNIT_ACTIVE) {
-                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.",
-                                 u->id);
+                log_unit_warning(u->id, "Unit %s cannot be reloaded because it is inactive.", u->id);
                 return -ENOEXEC;
         }
 
         following = unit_following(u);
         if (following) {
-                log_unit_debug(u->id, "Redirecting reload request from %s to %s.",
-                               u->id, following->id);
+                log_unit_debug(u->id, "Redirecting reload request from %s to %s.", u->id, following->id);
                 return unit_reload(following);
         }
 

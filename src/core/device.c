@@ -673,6 +673,19 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         return 0;
 }
 
+static bool device_supported(Manager *m) {
+        static int read_only = -1;
+        assert(m);
+
+        /* If /sys is read-only we don't support device units, and any
+         * attempts to start one should fail immediately. */
+
+        if (read_only < 0)
+                read_only = path_is_read_only_fs("/sys");
+
+        return read_only <= 0;
+}
+
 static const char* const device_state_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = "dead",
         [DEVICE_PLUGGED] = "plugged"
@@ -708,6 +721,7 @@ const UnitVTable device_vtable = {
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown,
+        .supported = device_supported,
 
         .status_message_formats = {
                 .starting_stopping = {

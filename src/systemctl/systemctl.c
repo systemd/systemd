@@ -2380,12 +2380,18 @@ static int check_wait_response(WaitData *d) {
         assert(d->result);
 
         if (!arg_quiet) {
-                if (streq(d->result, "timeout"))
-                        log_error("Job for %s timed out.", strna(d->name));
-                else if (streq(d->result, "canceled"))
+                if (streq(d->result, "canceled"))
                         log_error("Job for %s canceled.", strna(d->name));
+                else if (streq(d->result, "timeout"))
+                        log_error("Job for %s timed out.", strna(d->name));
                 else if (streq(d->result, "dependency"))
                         log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
+                else if (streq(d->result, "invalid"))
+                        log_error("Job for %s invalid.", strna(d->name));
+                else if (streq(d->result, "assert"))
+                        log_error("Assertion failed on job for %s.", strna(d->name));
+                else if (streq(d->result, "unsupported"))
+                        log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
                         if (d->name) {
                                 bool quotes;
@@ -2400,12 +2406,18 @@ static int check_wait_response(WaitData *d) {
                 }
         }
 
-        if (streq(d->result, "timeout"))
-                r = -ETIME;
-        else if (streq(d->result, "canceled"))
+        if (streq(d->result, "canceled"))
                 r = -ECANCELED;
+        else if (streq(d->result, "timeout"))
+                r = -ETIME;
         else if (streq(d->result, "dependency"))
                 r = -EIO;
+        else if (streq(d->result, "invalid"))
+                r = -ENOEXEC;
+        else if (streq(d->result, "assert"))
+                r = -EPROTO;
+        else if (streq(d->result, "unsupported"))
+                r = -ENOTSUP;
         else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
                 r = -EIO;
 

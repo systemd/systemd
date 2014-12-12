@@ -971,6 +971,16 @@ static int busname_get_timeout(Unit *u, uint64_t *timeout) {
         return 1;
 }
 
+static bool busname_supported(Manager *m) {
+        int supported = -1;
+        assert(m);
+
+        if (supported < 0)
+                supported = access("/sys/fs/kdbus", F_OK) >= 0;
+
+        return supported;
+}
+
 static const char* const busname_state_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = "dead",
         [BUSNAME_MAKING] = "making",
@@ -1031,6 +1041,8 @@ const UnitVTable busname_vtable = {
         .trigger_notify = busname_trigger_notify,
 
         .reset_failed = busname_reset_failed,
+
+        .supported = busname_supported,
 
         .bus_interface = "org.freedesktop.systemd1.BusName",
         .bus_vtable = bus_busname_vtable,

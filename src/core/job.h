@@ -96,12 +96,13 @@ enum JobMode {
 enum JobResult {
         JOB_DONE,                /* Job completed successfully */
         JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
-        JOB_TIMEOUT,             /* JobTimeout elapsed */
+        JOB_TIMEOUT,             /* Job timeout elapsed */
         JOB_FAILED,              /* Job failed */
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
         JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
         JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
+        JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };

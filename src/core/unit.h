@@ -396,6 +396,10 @@ struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
+        /* If this function is set and return false all jobs for units
+         * of this type will immediately fail. */
+        bool (*supported)(Manager *m);
+
         /* The interface name */
         const char *bus_interface;
 
