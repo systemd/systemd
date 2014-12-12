@@ -2563,7 +2563,6 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 size_t ol;
                 bool found;
                 int r;
-                void *release_cookie;
 
                 /* Proceed to next data object in the field's linked list */
                 if (j->unique_offset == 0) {
@@ -2603,10 +2602,6 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                                   o->object.type, OBJECT_DATA);
                         return -EBADMSG;
                 }
-
-                r = journal_file_object_keep(j->unique_file, o, j->unique_offset, &release_cookie);
-                if (r < 0)
-                        return r;
 
                 r = return_data(j, j->unique_file, o, &odata, &ol);
                 if (r < 0)
@@ -2651,10 +2646,6 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         if (r > 0)
                                 found = true;
                 }
-
-                r = journal_file_object_release(j->unique_file, release_cookie);
-                if (r < 0)
-                        return r;
 
                 if (found)
                         continue;

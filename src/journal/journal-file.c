@@ -391,7 +391,7 @@ static int journal_file_move_to(JournalFile *f, int context, bool keep_always, u
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->fd, f->prot, context, keep_always, offset, size, &f->last_stat, ret, NULL);
+        return mmap_cache_get(f->mmap, f->fd, f->prot, context, keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(Object *o) {

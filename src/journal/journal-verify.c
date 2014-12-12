@@ -368,7 +368,7 @@ static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(m, fd, PROT_READ|PROT_WRITE, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, NULL);
+                r = mmap_cache_get(m, fd, PROT_READ|PROT_WRITE, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
                 if (r < 0)
                         return r;
 
