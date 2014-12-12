@@ -477,15 +477,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LINK_JOURNAL:
-                        if (streq(optarg, "auto"))
+                        if (streq(optarg, "auto")) {
                                 arg_link_journal = LINK_AUTO;
-                        else if (streq(optarg, "no"))
+                                arg_link_journal_try = false;
+                        } else if (streq(optarg, "no")) {
                                 arg_link_journal = LINK_NO;
-                        else if (streq(optarg, "guest"))
+                                arg_link_journal_try = false;
+                        } else if (streq(optarg, "guest")) {
                                 arg_link_journal = LINK_GUEST;
-                        else if (streq(optarg, "host"))
+                                arg_link_journal_try = false;
+                        } else if (streq(optarg, "host")) {
                                 arg_link_journal = LINK_HOST;
-                        else if (streq(optarg, "try-guest")) {
+                                arg_link_journal_try = false;
+                        } else if (streq(optarg, "try-guest")) {
                                 arg_link_journal = LINK_GUEST;
                                 arg_link_journal_try = true;
                         } else if (streq(optarg, "try-host")) {
