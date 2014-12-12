@@ -45,5 +45,24 @@ int main(int argc, char *argv[]) {
         assert_se(capability_from_name("15") == 15);
         assert_se(capability_from_name("-1") == -EINVAL);
 
+        for (i = 0; i <= (int) cap_last_cap(); i++) {
+                _cleanup_cap_free_charp_ char *a = NULL;
+                const char *b;
+                unsigned u;
+
+                assert_se(a = cap_to_name(i));
+
+                /* quite the loop as soon as libcap only returns
+                 * numeric ids, formatted as string */
+                if (safe_atou(a, &u) >= 0)
+                        break;
+
+                assert_se(b = capability_to_name(i));
+
+                printf("%s vs. %s\n", a, b);
+
+                assert_se(streq(a, b));
+        }
+
         return 0;
 }
