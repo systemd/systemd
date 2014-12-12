@@ -43,7 +43,7 @@
 /* The base type for all hashmap and set types. Many functions in the
  * implementation take (HashmapBase*) parameters and are run-time polymorphic,
  * though the API is not meant to be polymorphic (do not call functions
- * prefixed with two underscores directly). */
+ * internal_*() directly). */
 typedef struct HashmapBase HashmapBase;
 
 /* Specific hashmap/set types */
