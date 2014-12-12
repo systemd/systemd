@@ -67,8 +67,8 @@ static void test_copy_file_fd(void) {
         assert_se(out_fd >= 0);
 
         assert_se(write_string_file(in_fn, text) == 0);
-        assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd) < 0);
-        assert_se(copy_file_fd(in_fn, out_fd) >= 0);
+        assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd, true) < 0);
+        assert_se(copy_file_fd(in_fn, out_fd, true) >= 0);
         assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
 
         assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);

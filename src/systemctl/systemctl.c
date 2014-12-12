@@ -4641,7 +4641,7 @@ static int cat(sd_bus *bus, char **args) {
                                ansi_highlight_off());
                         fflush(stdout);
 
-                        r = copy_file_fd(fragment_path, STDOUT_FILENO);
+                        r = copy_file_fd(fragment_path, STDOUT_FILENO, false);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to cat %s: %m", fragment_path);
                                 continue;
@@ -4656,7 +4656,7 @@ static int cat(sd_bus *bus, char **args) {
                                ansi_highlight_off());
                         fflush(stdout);
 
-                        r = copy_file_fd(*path, STDOUT_FILENO);
+                        r = copy_file_fd(*path, STDOUT_FILENO, false);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to cat %s: %m", *path);
                                 continue;

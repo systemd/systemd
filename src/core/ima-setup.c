@@ -66,7 +66,7 @@ int ima_setup(void) {
                 return 0;
         }
 
-        r = copy_bytes(policyfd, imafd, -1);
+        r = copy_bytes(policyfd, imafd, (off_t) -1, false);
         if (r < 0)
                 log_error_errno(r, "Failed to load the IMA custom policy file "IMA_POLICY_PATH": %m");
         else

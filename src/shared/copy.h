@@ -24,8 +24,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-int copy_file_fd(const char *from, int to);
+int copy_file_fd(const char *from, int to, bool try_reflink);
 int copy_file(const char *from, const char *to, int flags, mode_t mode);
 int copy_tree(const char *from, const char *to, bool merge);
 int copy_tree_fd(int dirfd, const char *to, bool merge);
-int copy_bytes(int fdf, int fdt, off_t max_bytes);
+int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink);

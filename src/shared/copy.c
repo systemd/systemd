@@ -25,7 +25,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 
-int copy_bytes(int fdf, int fdt, off_t max_bytes) {
+int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
         bool try_sendfile = true;
         int r;
 
@@ -33,10 +33,10 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
         assert(fdt >= 0);
 
         /* Try btrfs reflinks first. */
-        if (max_bytes == (off_t) -1) {
+        if (try_reflink && max_bytes == (off_t) -1) {
                 r = btrfs_reflink(fdf, fdt);
                 if (r >= 0)
-                        return 0;
+                        return r;
         }
 
         for (;;) {
@@ -131,7 +131,7 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fdt < 0)
                 return -errno;
 
-        r = copy_bytes(fdf, fdt, (off_t) -1);
+        r = copy_bytes(fdf, fdt, (off_t) -1, true);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -318,7 +318,7 @@ int copy_tree_fd(int dirfd, const char *to, bool merge) {
         return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, merge);
 }
 
-int copy_file_fd(const char *from, int fdt) {
+int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         _cleanup_close_ int fdf = -1;
 
         assert(from);
@@ -328,7 +328,7 @@ int copy_file_fd(const char *from, int fdt) {
         if (fdf < 0)
                 return -errno;
 
-        return copy_bytes(fdf, fdt, (off_t) -1);
+        return copy_bytes(fdf, fdt, (off_t) -1, try_reflink);
 }
 
 int copy_file(const char *from, const char *to, int flags, mode_t mode) {
@@ -341,7 +341,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         if (fdt < 0)
                 return -errno;
 
-        r = copy_file_fd(from, fdt);
+        r = copy_file_fd(from, fdt, true);
         if (r < 0) {
                 close(fdt);
                 unlink(to);

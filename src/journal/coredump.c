@@ -316,7 +316,7 @@ static int save_external_coredump(
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump file %s: %m", tmp);
 
-        r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max);
+        r = copy_bytes(STDIN_FILENO, fd, arg_process_size_max, false);
         if (r == -EFBIG) {
                 log_error("Coredump of %s (%s) is larger than configured processing limit, refusing.", info[INFO_PID], info[INFO_COMM]);
                 goto fail;
