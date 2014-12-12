@@ -687,6 +687,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_ephemeral && !IN_SET(arg_link_journal, LINK_NO, LINK_AUTO)) {
+                log_error("--ephemeral and --link-journal= may not be combined.");
+                return -EINVAL;
+        }
+
         if (arg_volatile != VOLATILE_NO && arg_read_only) {
                 log_error("Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
                 return -EINVAL;
@@ -1317,6 +1322,10 @@ static int setup_journal(const char *directory) {
         char *id;
         int r;
 
+        /* Don't link journals in ephemeral mode */
+        if (arg_ephemeral)
+                return 0;
+
         p = strappend(directory, "/etc/machine-id");
         if (!p)
                 return log_oom();
@@ -1345,8 +1354,7 @@ static int setup_journal(const char *directory) {
                          "Host and machine ids are equal (%s): refusing to link journals", id);
                 if (arg_link_journal == LINK_AUTO)
                         return 0;
-                return
-                        -EEXIST;
+                return -EEXIST;
         }
 
         if (arg_link_journal == LINK_NO)
