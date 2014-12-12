@@ -26,10 +26,6 @@
 #include <sys/statfs.h>
 #include <blkid/blkid.h>
 
-#ifdef HAVE_LINUX_BTRFS_H
-#include <linux/btrfs.h>
-#endif
-
 #include "sd-id128.h"
 #include "libudev.h"
 #include "path-util.h"
@@ -45,6 +41,7 @@
 #include "fileio.h"
 #include "efivars.h"
 #include "blkid-util.h"
+#include "btrfs-util.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
@@ -572,54 +569,6 @@ static int enumerate_partitions(dev_t devnum) {
         return r;
 }
 
-static int get_btrfs_block_device(const char *path, dev_t *dev) {
-        struct btrfs_ioctl_fs_info_args fsi = {};
-        _cleanup_close_ int fd = -1;
-        uint64_t id;
-
-        assert(path);
-        assert(dev);
-
-        fd = open(path, O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (ioctl(fd, BTRFS_IOC_FS_INFO, &fsi) < 0)
-                return -errno;
-
-        /* We won't do this for btrfs RAID */
-        if (fsi.num_devices != 1)
-                return 0;
-
-        for (id = 1; id <= fsi.max_id; id++) {
-                struct btrfs_ioctl_dev_info_args di = {
-                        .devid = id,
-                };
-                struct stat st;
-
-                if (ioctl(fd, BTRFS_IOC_DEV_INFO, &di) < 0) {
-                        if (errno == ENODEV)
-                                continue;
-
-                        return -errno;
-                }
-
-                if (stat((char*) di.path, &st) < 0)
-                        return -errno;
-
-                if (!S_ISBLK(st.st_mode))
-                        return -ENODEV;
-
-                if (major(st.st_rdev) == 0)
-                        return -ENODEV;
-
-                *dev = st.st_rdev;
-                return 1;
-        }
-
-        return -ENODEV;
-}
-
 static int get_block_device(const char *path, dev_t *dev) {
         struct stat st;
         struct statfs sfs;
@@ -639,7 +588,7 @@ static int get_block_device(const char *path, dev_t *dev) {
                 return -errno;
 
         if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
-                return get_btrfs_block_device(path, dev);
+                return btrfs_get_block_device(path, dev);
 
         return 0;
 }
