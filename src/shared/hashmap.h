@@ -32,7 +32,7 @@
  * will be treated as empty hashmap for all read operations. That way it is not
  * necessary to instantiate an object for each Hashmap use.
  *
- * If ENABLE_HASHMAP_DEBUG is defined (by configuring with --enable-hashmap-debug),
+ * If ENABLE_DEBUG_HASHMAP is defined (by configuring with --enable-debug=hashmap),
  * the implemention will:
  * - store extra data for debugging and statistics (see tools/gdb-sd_dump_hashmaps.py)
  * - perform extra checks for invalid use of iterators
@@ -57,7 +57,7 @@ typedef struct Set Set;                       /* Stores just keys */
 typedef struct {
         unsigned idx;         /* index of an entry to be iterated next */
         const void *next_key; /* expected value of that entry's key pointer */
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
         unsigned put_count;   /* hashmap's put_count recorded at start of iteration */
         unsigned rem_count;   /* hashmap's rem_count in previous iteration */
         unsigned prev_idx;    /* idx in previous iteration */
@@ -129,7 +129,7 @@ extern const struct hash_ops devt_hash_ops = {
                 (Hashmap*)(h), \
                 (void)0)
 
-#ifdef ENABLE_HASHMAP_DEBUG
+#ifdef ENABLE_DEBUG_HASHMAP
 # define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
 # define HASHMAP_DEBUG_SRC_ARGS   , __func__, __FILE__, __LINE__
 # define HASHMAP_DEBUG_PASS_ARGS   , func, file, line

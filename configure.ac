@@ -1323,16 +1323,33 @@ AS_IF([test "x$0" != "x./configure"], [
 ])
 
 AC_ARG_ENABLE(tests,
-       [AC_HELP_STRING([--disable-tests], [disable tests])],
-       enable_tests=$enableval, enable_tests=yes)
+        [AC_HELP_STRING([--disable-tests], [disable tests])],
+        enable_tests=$enableval, enable_tests=yes)
 AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
 
-AC_ARG_ENABLE(hashmap-debug,
-       [AC_HELP_STRING([--enable-hashmap-debug], [enable hashmap debugging])],
-       enable_hashmap_debug=$enableval, enable_hashmap_debug=no)
-AS_IF([test x$enable_hashmap_debug = xyes], [
-        AC_DEFINE(ENABLE_HASHMAP_DEBUG, 1, [Define if hashmap debugging is to be enabled])
+AC_ARG_ENABLE(debug,
+        [AC_HELP_STRING([--enable-debug@<:@=LIST@:>@], [enable extra debugging (hashmap)])],
+        [if test "x$enableval" = "xyes"; then
+                enableval="hashmap"
+        fi
+        saved_ifs="$IFS"
+        IFS="$IFS$PATH_SEPARATOR,"
+        for name in $enableval; do
+                case $name in
+                hashmap)
+                        enable_debug_hashmap=yes
+                        ;;
+                esac
+        done
+        IFS="$saved_ifs"],[])
+
+enable_debug=""
+AS_IF([test x$enable_debug_hashmap = xyes], [
+        AC_DEFINE(ENABLE_DEBUG_HASHMAP, 1, [Define if hashmap debugging is to be enabled])
+        enable_debug="hashmap $enable_debug"
 ])
+])
+test -z "$enable_debug" && enable_debug="none"
 
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
@@ -1419,6 +1436,7 @@ AC_MSG_RESULT([
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         compatibility libraries: ${have_compat_libs}
         utmp/wtmp support:       ${have_utmp}
+        extra debugging:         ${enable_debug}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
