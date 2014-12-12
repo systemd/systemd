@@ -714,7 +714,7 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
         return memdup(p, a * b);
 }
 
-bool filename_is_safe(const char *p) _pure_;
+bool filename_is_valid(const char *p) _pure_;
 bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
 bool string_has_cc(const char *p, const char *ok) _pure_;
@@ -1015,8 +1015,8 @@ int bind_remount_recursive(const char *prefix, bool ro);
 
 int fflush_and_check(FILE *f);
 
-char *tempfn_xxxxxx(const char *p);
-char *tempfn_random(const char *p);
+int tempfn_xxxxxx(const char *p, char **ret);
+int tempfn_random(const char *p, char **ret);
 
 bool is_localhost(const char *hostname);
 

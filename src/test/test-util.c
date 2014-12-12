@@ -802,24 +802,24 @@ static void test_foreach_string(void) {
                 assert_se(streq(x, "zzz"));
 }
 
-static void test_filename_is_safe(void) {
+static void test_filename_is_valid(void) {
         char foo[FILENAME_MAX+2];
         int i;
 
-        assert_se(!filename_is_safe(""));
-        assert_se(!filename_is_safe("/bar/foo"));
-        assert_se(!filename_is_safe("/"));
-        assert_se(!filename_is_safe("."));
-        assert_se(!filename_is_safe(".."));
+        assert_se(!filename_is_valid(""));
+        assert_se(!filename_is_valid("/bar/foo"));
+        assert_se(!filename_is_valid("/"));
+        assert_se(!filename_is_valid("."));
+        assert_se(!filename_is_valid(".."));
 
         for (i=0; i<FILENAME_MAX+1; i++)
                 foo[i] = 'a';
         foo[FILENAME_MAX+1] = '\0';
 
-        assert_se(!filename_is_safe(foo));
+        assert_se(!filename_is_valid(foo));
 
-        assert_se(filename_is_safe("foo_bar-333"));
-        assert_se(filename_is_safe("o.o"));
+        assert_se(filename_is_valid("foo_bar-333"));
+        assert_se(filename_is_valid("o.o"));
 }
 
 static void test_string_has_cc(void) {
@@ -1360,7 +1360,7 @@ int main(int argc, char *argv[]) {
         test_hexdump();
         test_log2i();
         test_foreach_string();
-        test_filename_is_safe();
+        test_filename_is_valid();
         test_string_has_cc();
         test_ascii_strlower();
         test_files_same();

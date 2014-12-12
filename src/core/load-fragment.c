@@ -3066,7 +3066,7 @@ int config_parse_runtime_directory(
                 if (!n)
                         return log_oom();
 
-                if (!filename_is_safe(n)) {
+                if (!filename_is_valid(n)) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Runtime directory is not valid, ignoring assignment: %s", rvalue);
                         continue;

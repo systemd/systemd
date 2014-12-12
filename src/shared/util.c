@@ -4284,15 +4284,15 @@ int fd_wait_for_event(int fd, int event, usec_t t) {
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         FILE *f;
         char *t;
-        int fd;
+        int r, fd;
 
         assert(path);
         assert(_f);
         assert(_temp_path);
 
-        t = tempfn_xxxxxx(path);
-        if (!t)
-                return -ENOMEM;
+        r = tempfn_xxxxxx(path, &t);
+        if (r < 0)
+                return r;
 
         fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
@@ -4403,13 +4403,14 @@ int vt_disallocate(const char *name) {
 
 int symlink_atomic(const char *from, const char *to) {
         _cleanup_free_ char *t = NULL;
+        int r;
 
         assert(from);
         assert(to);
 
-        t = tempfn_random(to);
-        if (!t)
-                return -ENOMEM;
+        r = tempfn_random(to, &t);
+        if (r < 0)
+                return r;
 
         if (symlink(from, t) < 0)
                 return -errno;
@@ -4424,12 +4425,13 @@ int symlink_atomic(const char *from, const char *to) {
 
 int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
         _cleanup_free_ char *t = NULL;
+        int r;
 
         assert(path);
 
-        t = tempfn_random(path);
-        if (!t)
-                return -ENOMEM;
+        r = tempfn_random(path, &t);
+        if (r < 0)
+                return r;
 
         if (mknod(t, mode, dev) < 0)
                 return -errno;
@@ -4444,12 +4446,13 @@ int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
 
 int mkfifo_atomic(const char *path, mode_t mode) {
         _cleanup_free_ char *t = NULL;
+        int r;
 
         assert(path);
 
-        t = tempfn_random(path);
-        if (!t)
-                return -ENOMEM;
+        r = tempfn_random(path, &t);
+        if (r < 0)
+                return r;
 
         if (mkfifo(t, mode) < 0)
                 return -errno;
@@ -5561,7 +5564,7 @@ int get_shell(char **_s) {
         return 0;
 }
 
-bool filename_is_safe(const char *p) {
+bool filename_is_valid(const char *p) {
 
         if (isempty(p))
                 return false;
@@ -6963,42 +6966,45 @@ int fflush_and_check(FILE *f) {
         return 0;
 }
 
-char *tempfn_xxxxxx(const char *p) {
+int tempfn_xxxxxx(const char *p, char **ret) {
         const char *fn;
         char *t;
-        size_t k;
 
         assert(p);
+        assert(ret);
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
 
         t = new(char, strlen(p) + 1 + 6 + 1);
         if (!t)
-                return NULL;
+                return -ENOMEM;
 
-        fn = basename(p);
-        k = fn - p;
+        strcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), "."), fn), "XXXXXX");
 
-        strcpy(stpcpy(stpcpy(mempcpy(t, p, k), "."), fn), "XXXXXX");
-
-        return t;
+        *ret = t;
+        return 0;
 }
 
-char *tempfn_random(const char *p) {
+int tempfn_random(const char *p, char **ret) {
         const char *fn;
         char *t, *x;
         uint64_t u;
-        size_t k;
         unsigned i;
 
         assert(p);
+        assert(ret);
+
+        fn = basename(p);
+        if (!filename_is_valid(fn))
+                return -EINVAL;
 
         t = new(char, strlen(p) + 1 + 16 + 1);
         if (!t)
-                return NULL;
+                return -ENOMEM;
 
-        fn = basename(p);
-        k = fn - p;
-
-        x = stpcpy(stpcpy(mempcpy(t, p, k), "."), fn);
+        x = stpcpy(stpcpy(mempcpy(t, p, fn - p), "."), fn);
 
         u = random_u64();
         for (i = 0; i < 16; i++) {
@@ -7008,7 +7014,8 @@ char *tempfn_random(const char *p) {
 
         *x = 0;
 
-        return t;
+        *ret = t;
+        return 0;
 }
 
 /* make sure the hostname is not "localhost" */

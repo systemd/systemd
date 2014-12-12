@@ -965,8 +965,8 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
         if (!streq_ptr(keymap, c->vc_keymap) ||
             !streq_ptr(keymap_toggle, c->vc_keymap_toggle)) {
 
-                if ((keymap && (!filename_is_safe(keymap) || !string_is_safe(keymap))) ||
-                    (keymap_toggle && (!filename_is_safe(keymap_toggle) || !string_is_safe(keymap_toggle))))
+                if ((keymap && (!filename_is_valid(keymap) || !string_is_safe(keymap))) ||
+                    (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keymap data");
 
                 r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", interactive, &c->polkit_registry, error);

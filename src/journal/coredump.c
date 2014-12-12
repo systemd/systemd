@@ -306,9 +306,9 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        tmp = tempfn_random(fn);
-        if (!tmp)
-                return log_oom();
+        r = tempfn_random(fn, &tmp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary file name: %m");
 
         mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
@@ -352,9 +352,9 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                tmp_compressed = tempfn_random(fn_compressed);
-                if (!tmp_compressed) {
-                        log_oom();
+                r = tempfn_random(fn_compressed, &tmp_compressed);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine temporary file name for %s: %m", fn_compressed);
                         goto uncompressed;
                 }
 

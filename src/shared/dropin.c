@@ -43,7 +43,7 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
         if (!b)
                 return -ENOMEM;
 
-        if (!filename_is_safe(b))
+        if (!filename_is_valid(b))
                 return -EINVAL;
 
         p = strjoin(dir, "/", unit, ".d", NULL);

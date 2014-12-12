@@ -195,7 +195,7 @@ bool locale_is_valid(const char *name) {
         if (!utf8_is_valid(name))
                 return false;
 
-        if (!filename_is_safe(name))
+        if (!filename_is_valid(name))
                 return false;
 
         if (!string_is_safe(name))

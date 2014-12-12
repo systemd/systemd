@@ -5730,16 +5730,16 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 }
 
 static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
-        int r;
         char *t;
+        int r;
 
         assert(new_path);
         assert(original_path);
         assert(ret_tmp_fn);
 
-        t = tempfn_random(new_path);
-        if (!t)
-                return log_oom();
+        r = tempfn_random(new_path, &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary filename for %s: %m", new_path);
 
         r = mkdir_parents(new_path, 0755);
         if (r < 0) {

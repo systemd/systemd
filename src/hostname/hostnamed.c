@@ -552,7 +552,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                 /* The icon name might ultimately be used as file
                  * name, so better be safe than sorry */
 
-                if (prop == PROP_ICON_NAME && !filename_is_safe(name))
+                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
                 if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);

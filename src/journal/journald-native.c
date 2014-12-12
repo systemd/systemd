@@ -350,7 +350,7 @@ void server_process_native_file(
                         return;
                 }
 
-                if (!filename_is_safe(e)) {
+                if (!filename_is_valid(e)) {
                         log_error("Received file in subdirectory of allowed directories. Refusing.");
                         return;
                 }
