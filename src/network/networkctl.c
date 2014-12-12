@@ -276,8 +276,14 @@ static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) 
         return -ENODATA;
 }
 
-static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int ifindex, int family,
-                                   union in_addr_union *gateway, char **gateway_description) {
+static int get_gateway_description(
+                sd_rtnl *rtnl,
+                struct udev_hwdb *hwdb,
+                int ifindex,
+                int family,
+                union in_addr_union *gateway,
+                char **gateway_description) {
+
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *m;
         int r;
@@ -377,7 +383,12 @@ static int get_gateway_description(sd_rtnl *rtnl, struct udev_hwdb *hwdb, int if
         return -ENODATA;
 }
 
-static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *prefix, int ifindex) {
+static int dump_gateways(
+                sd_rtnl *rtnl,
+                struct udev_hwdb *hwdb,
+                const char *prefix,
+                int ifindex) {
+
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -392,7 +403,7 @@ static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *pref
                 if (r < 0)
                         return r;
 
-                r = get_gateway_description(rtnl, hwdb, ifindex, local[i].family, &local[i].address, &description);
+                r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
@@ -411,7 +422,11 @@ static int dump_gateways(sd_rtnl *rtnl, struct udev_hwdb *hwdb, const char *pref
         return 0;
 }
 
-static int dump_addresses(sd_rtnl *rtnl, const char *prefix, int ifindex) {
+static int dump_addresses(
+                sd_rtnl *rtnl,
+                const char *prefix,
+                int ifindex) {
+
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -446,12 +461,16 @@ static void dump_list(const char *prefix, char **l) {
         }
 }
 
-static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
+static int link_status_one(
+                sd_rtnl *rtnl,
+                struct udev *udev,
+                struct udev_hwdb *hwdb,
+                const char *name) {
+
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -577,8 +596,6 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
         if (model)
                 printf("       Model: %s\n", model);
 
-        hwdb = udev_hwdb_new(udev);
-
         if (have_mac) {
                 _cleanup_free_ char *description = NULL;
                 char ea[ETHER_ADDR_TO_STRING_MAX];
@@ -608,6 +625,7 @@ static int link_status_one(sd_rtnl *rtnl, struct udev *udev, const char *name) {
 }
 
 static int link_status(char **args, unsigned n) {
+        _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **name;
@@ -620,6 +638,10 @@ static int link_status(char **args, unsigned n) {
         udev = udev_new();
         if (!udev)
                 return log_error_errno(errno, "Failed to connect to udev: %m");
+
+        hwdb = udev_hwdb_new(udev);
+        if (!hwdb)
+                log_debug_errno(errno, "Failed to open hardware database: %m");
 
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
@@ -644,6 +666,8 @@ static int link_status(char **args, unsigned n) {
                         printf("%13s %s\n",
                                i > 0 ? "" : "Address:", pretty);
                 }
+
+                dump_gateways(rtnl, hwdb, "     Gateway: ", 0);
 
                 sd_network_get_dns(&dns);
                 if (!strv_isempty(dns))
@@ -687,15 +711,15 @@ static int link_status(char **args, unsigned n) {
                         if (i > 0)
                                 fputc('\n', stdout);
 
-                        link_status_one(rtnl, udev, links[i].name);
+                        link_status_one(rtnl, udev, hwdb, links[i].name);
                 }
-        }
+        } else {
+                STRV_FOREACH(name, args + 1) {
+                        if (name != args+1)
+                                fputc('\n', stdout);
 
-        STRV_FOREACH(name, args + 1) {
-                if (name != args+1)
-                        fputc('\n', stdout);
-
-                link_status_one(rtnl, udev, *name);
+                        link_status_one(rtnl, udev, hwdb, *name);
+                }
         }
 
         return 0;
