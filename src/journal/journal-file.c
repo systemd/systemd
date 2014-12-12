@@ -374,6 +374,11 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return 0;
 }
 
+static unsigned type_to_context(int type) {
+        /* One context for each type, plus one catch-all for the rest */
+        return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
+}
+
 static int journal_file_move_to(JournalFile *f, int context, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
         assert(f);
         assert(ret);
