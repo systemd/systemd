@@ -376,7 +376,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
 static unsigned type_to_context(int type) {
         /* One context for each type, plus one catch-all for the rest */
-        return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
+        return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
 static int journal_file_move_to(JournalFile *f, int context, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
@@ -446,7 +446,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (s < minimum_header_size(o))
                 return -EBADMSG;
 
-        if (type > 0 && o->object.type != type)
+        if (type > OBJECT_UNUSED && o->object.type != type)
                 return -EBADMSG;
 
         if (s > sizeof(ObjectHeader)) {
@@ -494,7 +494,7 @@ int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object *
         void *t;
 
         assert(f);
-        assert(type > 0 && type < _OBJECT_TYPE_MAX);
+        assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
         assert(ret);
@@ -507,7 +507,7 @@ int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object *
         if (p == 0)
                 p = le64toh(f->header->header_size);
         else {
-                r = journal_file_move_to_object(f, -1, p, &tail);
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &tail);
                 if (r < 0)
                         return r;
 
@@ -2294,7 +2294,7 @@ void journal_file_dump(JournalFile *f) {
 
         p = le64toh(f->header->header_size);
         while (p != 0) {
-                r = journal_file_move_to_object(f, -1, p, &o);
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0)
                         goto fail;
 

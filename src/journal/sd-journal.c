@@ -2588,10 +2588,10 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         continue;
                 }
 
-                /* We do not use the type context here, but 0 instead,
-                 * so that we can look at this data object at the same
+                /* We do not use OBJECT_DATA context here, but OBJECT_UNUSED
+                 * instead, so that we can look at this data object at the same
                  * time as one on another file */
-                r = journal_file_move_to_object(j->unique_file, 0, j->unique_offset, &o);
+                r = journal_file_move_to_object(j->unique_file, OBJECT_UNUSED, j->unique_offset, &o);
                 if (r < 0)
                         return r;
 

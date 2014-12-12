@@ -865,7 +865,7 @@ int journal_file_verify(
                 if (show_progress)
                         draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
 
-                r = journal_file_move_to_object(f, -1, p, &o);
+                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0) {
                         error(p, "invalid object");
                         goto fail;
@@ -1085,11 +1085,11 @@ int journal_file_verify(
                                         q = last_tag;
 
                                 while (q <= p) {
-                                        r = journal_file_move_to_object(f, -1, q, &o);
+                                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &o);
                                         if (r < 0)
                                                 goto fail;
 
-                                        r = journal_file_hmac_put_object(f, -1, o, q);
+                                        r = journal_file_hmac_put_object(f, OBJECT_UNUSED, o, q);
                                         if (r < 0)
                                                 goto fail;
 
@@ -1097,7 +1097,7 @@ int journal_file_verify(
                                 }
 
                                 /* Position might have changed, let's reposition things */
-                                r = journal_file_move_to_object(f, -1, p, &o);
+                                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                                 if (r < 0)
                                         goto fail;
 
