@@ -45,6 +45,8 @@
 #include "exit-status.h"
 #include "def.h"
 
+#define RETRY_UMOUNT_MAX 32
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
@@ -867,20 +869,28 @@ static void mount_enter_unmounting(Mount *m) {
 
         assert(m);
 
+        /* Start counting our attempts */
+        if (!IN_SET(m->state,
+                    MOUNT_UNMOUNTING,
+                    MOUNT_UNMOUNTING_SIGTERM,
+                    MOUNT_UNMOUNTING_SIGKILL))
+                m->n_retry_umount = 0;
+
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        if ((r = exec_command_set(
-                             m->control_command,
+        r = exec_command_set(m->control_command,
                              "/bin/umount",
                              "-n",
                              m->where,
-                             NULL)) < 0)
+                             NULL);
+        if (r < 0)
                 goto fail;
 
         mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
+        r = mount_spawn(m, m->control_command, &m->control_pid);
+        if (r < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_UNMOUNTING);
@@ -1239,9 +1249,31 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (f == MOUNT_SUCCESS)
-                        mount_enter_dead(m, f);
-                else if (m->from_proc_self_mountinfo)
+                if (f == MOUNT_SUCCESS) {
+
+                        if (m->from_proc_self_mountinfo) {
+
+                                /* Still a mount point? If so, let's
+                                 * try again. Most likely there were
+                                 * multiple mount points stacked on
+                                 * top of each other. Note that due to
+                                 * the io event priority logic we can
+                                 * be sure the new mountinfo is loaded
+                                 * before we process the SIGCHLD for
+                                 * the mount command. */
+
+                                if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
+                                        log_unit_debug(u->id, "%s: mount still present, trying again.", u->id);
+                                        m->n_retry_umount++;
+                                        mount_enter_unmounting(m);
+                                } else {
+                                        log_unit_debug(u->id, "%s: mount still present after %u attempts to unmount, giving up.", u->id, m->n_retry_umount);
+                                        mount_enter_mounted(m, f);
+                                }
+                        } else
+                                mount_enter_dead(m, f);
+
+                } else if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, f);
                 else
                         mount_enter_dead(m, f);
