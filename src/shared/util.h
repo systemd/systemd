@@ -883,6 +883,7 @@ int unlink_noerrno(const char *path);
                 (void *) memset(_new_, 0, _len_);       \
         })
 
+/* It's not clear what alignment glibc/gcc alloca() guarantee, hence provide a guaranteed safe version */
 #define alloca_align(size, align)                                       \
         ({                                                              \
                 void *_ptr_;                                            \
