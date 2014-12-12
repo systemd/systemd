@@ -129,7 +129,7 @@ char *path_make_absolute_cwd(const char *p) {
         if (!cwd)
                 return NULL;
 
-        return path_make_absolute(p, cwd);
+        return strjoin(cwd, "/", p, NULL);
 }
 
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
