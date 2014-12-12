@@ -369,15 +369,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 free(arg_machine);
                                 arg_machine = NULL;
                         } else {
-
-                                if (!hostname_is_valid(optarg)) {
+                                if (!machine_name_is_valid(optarg)) {
                                         log_error("Invalid machine name: %s", optarg);
                                         return -EINVAL;
                                 }
 
-                                free(arg_machine);
-                                arg_machine = strdup(optarg);
-                                if (!arg_machine)
+                                r = free_and_strdup(&arg_machine, optarg);
+                                if (r < 0)
                                         return log_oom();
 
                                 break;
