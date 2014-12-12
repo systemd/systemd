@@ -815,6 +815,10 @@ fail:
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
+        struct kdbus_cmd_free cmd_free = {
+                .size = sizeof(cmd_free),
+                .flags = 0,
+        };
         struct kdbus_bloom_parameter *bloom = NULL;
         struct kdbus_cmd_hello *hello;
         struct kdbus_item_list *items;
@@ -982,7 +986,8 @@ int bus_kernel_take_fd(sd_bus *b) {
         return bus_start_running(b);
 
 fail:
-        (void) bus_kernel_cmd_free(b, hello->offset);
+        cmd_free.offset = hello->offset;
+        (void) ioctl(b->input_fd, KDBUS_CMD_FREE, &cmd_free);
         return r;
 }
 
