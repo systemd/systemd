@@ -35,6 +35,8 @@ External:
 
 Features:
 
+* when a start job for a device unit is queued, when systemd runs in a container, make it fail immediately instead of wait for all eternity
+
 * port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
 
 * bash completion for busctl, to make it truly useful
@@ -558,7 +560,6 @@ Features:
 * nspawn:
   - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
-  - support taking a btrfs snapshot at startup and dropping it afterwards
   - introduce machines.target to order after all nspawn instances
   - systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
   - PID 1 doesn't apply nspawns devices cgroup policy
