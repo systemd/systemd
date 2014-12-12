@@ -39,6 +39,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(capability_from_name("asdfbsd") == -EINVAL);
         assert_se(capability_from_name("CAP_AUDIT_READ") == CAP_AUDIT_READ);
+        assert_se(capability_from_name("cap_audit_read") == CAP_AUDIT_READ);
+        assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
         assert_se(capability_from_name("0") == 0);
         assert_se(capability_from_name("15") == 15);
         assert_se(capability_from_name("-1") == -EINVAL);
