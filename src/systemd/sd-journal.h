@@ -138,13 +138,15 @@ int sd_journal_reliable_fd(sd_journal *j);
 int sd_journal_get_catalog(sd_journal *j, char **text);
 int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 
+/* the inverse condition avoids ambiguity of danling 'else' after the macro */
 #define SD_JOURNAL_FOREACH(j)                                           \
-        if (sd_journal_seek_head(j) >= 0)                               \
-                while (sd_journal_next(j) > 0)
+        if (sd_journal_seek_head(j) < 0) { }                            \
+        else while (sd_journal_next(j) > 0)
 
+/* the inverse condition avoids ambiguity of danling 'else' after the macro */
 #define SD_JOURNAL_FOREACH_BACKWARDS(j)                                 \
-        if (sd_journal_seek_tail(j) >= 0)                               \
-                while (sd_journal_previous(j) > 0)
+        if (sd_journal_seek_tail(j) < 0) { }                            \
+        else while (sd_journal_previous(j) > 0)
 
 #define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
         for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
