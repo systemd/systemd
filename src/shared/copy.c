@@ -27,9 +27,17 @@
 
 int copy_bytes(int fdf, int fdt, off_t max_bytes) {
         bool try_sendfile = true;
+        int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
+
+        /* Try btrfs reflinks first. */
+        if (max_bytes == (off_t) -1) {
+                r = btrfs_reflink(fdf, fdt);
+                if (r >= 0)
+                        return 0;
+        }
 
         for (;;) {
                 size_t m = PIPE_BUF;
@@ -64,7 +72,6 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                 /* As a fallback just copy bits by hand */
                 {
                         char buf[m];
-                        int r;
 
                         n = read(fdf, buf, m);
                         if (n < 0)
@@ -72,7 +79,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes) {
                         if (n == 0) /* EOF */
                                 break;
 
-                        r = loop_write(fdt, buf, n, false);
+                        r = loop_write(fdt, buf, (size_t) n, false);
                         if (r < 0)
                                 return r;
 
