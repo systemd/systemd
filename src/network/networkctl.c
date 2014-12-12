@@ -669,7 +669,6 @@ static int link_status(char **args, unsigned n) {
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
-                _cleanup_free_ struct local_address *addresses = NULL;
                 const char *on_color_operational, *off_color_operational;
 
                 sd_network_get_operational_state(&operational_state);
