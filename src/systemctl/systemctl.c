@@ -6106,19 +6106,15 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         if (arg_scope == UNIT_FILE_USER) {
                 r = user_config_home(&user_home);
                 if (r < 0)
-                        return log_oom();
-                else if (r == 0) {
-                        log_error("Cannot edit units for the user instance: home directory unknown");
-                        return -1;
-                }
+                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
+                else if (r == 0)
+                        return log_error_errno(ENOTDIR, "Cannot edit units: $XDG_CONFIG_HOME and $HOME are not set.");
 
                 r = user_runtime_dir(&user_runtime);
                 if (r < 0)
-                        return log_oom();
-                else if (r == 0) {
-                        log_error("Cannot edit units for the user instance: runtime directory unknown");
-                        return -1;
-                }
+                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
+                else if (r == 0)
+                        return log_error_errno(ENOTDIR, "Cannot edit units: $XDG_RUNTIME_DIR is not set.");
         }
 
         r = lookup_paths_init(&lp,
@@ -6126,10 +6122,8 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                               arg_scope == UNIT_FILE_USER,
                               arg_root,
                               NULL, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed get lookup paths: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed get lookup paths: %m");
 
         avoid_bus_cache = !bus || avoid_bus();
 
