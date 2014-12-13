@@ -6026,9 +6026,65 @@ static int run_editor(char **paths) {
         return r;
 }
 
+static int unit_find_path(sd_bus *bus, const char *unit_name, const char *template, bool avoid_bus_cache, LookupPaths *lp, char **path) {
+        int r;
+
+        assert(unit_name);
+        assert(path);
+        assert(lp);
+
+        if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free_ char *unit = NULL;
+                _cleanup_free_ char *tmp_path = NULL;
+
+                unit = unit_dbus_path_from_name(unit_name);
+                if (!unit)
+                        return log_oom();
+
+                if (need_daemon_reload(bus, unit_name) > 0) {
+                        log_warning("%s ignored: unit file changed on disk. Run 'systemctl%s daemon-reload'.",
+                                    unit_name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                        return 0;
+                }
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "FragmentPath",
+                                &error,
+                                &tmp_path);
+                if (r < 0) {
+                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
+                        return 0;
+                }
+
+                if (isempty(tmp_path)) {
+                        log_warning("%s ignored: not found", template);
+                        return 0;
+                }
+
+                *path = tmp_path;
+                tmp_path = NULL;
+
+                return 1;
+        } else {
+                r = unit_file_find_path(lp, template, path);
+                if (r == 0)
+                        log_warning("%s ignored: not found", template);
+                return r;
+        }
+
+        return 0;
+}
+
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         _cleanup_free_ char *user_home = NULL;
         _cleanup_free_ char *user_runtime = NULL;
+        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        bool avoid_bus_cache;
         char **name;
         int r;
 
@@ -6053,100 +6109,45 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 }
         }
 
-        if (!bus || avoid_bus()) {
-                _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        r = lookup_paths_init(&lp,
+                              arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                              arg_scope == UNIT_FILE_USER,
+                              arg_root,
+                              NULL, NULL, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed get lookup paths: %m");
+                return r;
+        }
 
-                /* If there is no bus, we try to find the units by testing each available directory
-                 * according to the scope.
-                 */
-                r = lookup_paths_init(&lp,
-                                arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
-                                arg_scope == UNIT_FILE_USER,
-                                arg_root,
-                                NULL, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed get lookup paths: %m");
+        avoid_bus_cache = !bus || avoid_bus();
+
+        STRV_FOREACH(name, names) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *template = NULL;
+                char *new_path, *tmp_path;
+
+                template = unit_name_template(*name);
+                if (!template)
+                        return log_oom();
+
+                r = unit_find_path(bus, *name, template, avoid_bus_cache, &lp, &path);
+                if (r < 0)
                         return r;
+                else if (r == 0) {
+                        continue;
                 }
 
-                STRV_FOREACH(name, names) {
-                        _cleanup_free_ char *path = NULL;
-                        char *new_path, *tmp_path;
+                if (arg_full)
+                        r = unit_file_create_copy(template, path, user_home, user_runtime, &new_path, &tmp_path);
+                else
+                        r = unit_file_create_drop_in(template, user_home, user_runtime, &new_path, &tmp_path);
 
-                        r = unit_file_find_path(&lp, *name, &path);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                log_warning("%s ignored: not found", *name);
-                                continue;
-                        }
+                if (r < 0)
+                        continue;
 
-                        if (arg_full)
-                                r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
-                        else
-                                r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
-
-                        if (r < 0)
-                                continue;
-
-                        r = strv_push(paths, new_path);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_push(paths, tmp_path);
-                        if (r < 0)
-                                return log_oom();
-                }
-        } else {
-                STRV_FOREACH(name, names) {
-                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                        _cleanup_free_ char *fragment_path = NULL;
-                        _cleanup_free_ char *unit = NULL;
-                        char *new_path, *tmp_path;
-
-                        unit = unit_dbus_path_from_name(*name);
-                        if (!unit)
-                                return log_oom();
-
-                        if (need_daemon_reload(bus, *name) > 0) {
-                                log_warning("%s ignored: unit file changed on disk. Run 'systemctl%s daemon-reload'.",
-                                        *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
-                                continue;
-                        }
-
-                        r = sd_bus_get_property_string(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        unit,
-                                        "org.freedesktop.systemd1.Unit",
-                                        "FragmentPath",
-                                        &error,
-                                        &fragment_path);
-                        if (r < 0) {
-                                log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
-                                continue;
-                        }
-
-                        if (isempty(fragment_path)) {
-                                log_warning("%s ignored: not found", *name);
-                                continue;
-                        }
-
-                        if (arg_full)
-                                r = unit_file_create_copy(*name, fragment_path, user_home, user_runtime, &new_path, &tmp_path);
-                        else
-                                r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
-                        if (r < 0)
-                                continue;
-
-                        r = strv_push(paths, new_path);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_push(paths, tmp_path);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = strv_push_pair(paths, new_path, tmp_path);
+                if (r < 0)
+                        return log_oom();
         }
 
         return 0;
