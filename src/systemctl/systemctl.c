@@ -74,6 +74,7 @@
 #include "bus-error.h"
 #include "bus-common-errors.h"
 #include "mkdir.h"
+#include "dropin.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -2286,7 +2287,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         assert(unit_path);
 
         STRV_FOREACH(p, lp->unit_path) {
-                char *path;
+                _cleanup_free_ char *path;
 
                 path = path_join(arg_root, *p, unit_name);
                 if (!path)
@@ -2294,35 +2295,46 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 
                 if (access(path, F_OK) == 0) {
                         *unit_path = path;
+                        path = NULL;
                         return 1;
                 }
-
-                free(path);
         }
 
         return 0;
 }
 
-static int unit_find_path(sd_bus *bus, const char *unit_name, const char *template, bool avoid_bus_cache, LookupPaths *lp, char **path) {
+static int unit_find_paths(sd_bus *bus,
+                           const char *unit_name,
+                           bool avoid_bus_cache,
+                           LookupPaths *lp,
+                           char **fragment_path,
+                           char ***dropin_paths) {
         int r;
 
+        /**
+         * Finds where the unit is defined on disk. Returns 0 if the unit
+         * is not found. Returns 1 if it is found, and sets
+         * - the path to the unit in *path, if it exists on disk,
+         * - and a strv of existing drop-ins in *dropins,
+         *   if the arg is not NULL and any dropins were found.
+         */
+
         assert(unit_name);
-        assert(path);
+        assert(fragment_path);
         assert(lp);
 
         if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *unit = NULL;
-                _cleanup_free_ char *tmp_path = NULL;
+                _cleanup_free_ char *path = NULL;
+                _cleanup_strv_free_ char **dropins = NULL;
 
                 unit = unit_dbus_path_from_name(unit_name);
                 if (!unit)
                         return log_oom();
 
-                if (need_daemon_reload(bus, unit_name) > 0) {
+                if (need_daemon_reload(bus, unit_name) > 0)
                         warn_unit_file_changed(unit_name);
-                        return 0;
-                }
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -2331,29 +2343,67 @@ static int unit_find_path(sd_bus *bus, const char *unit_name, const char *templa
                                 "org.freedesktop.systemd1.Unit",
                                 "FragmentPath",
                                 &error,
-                                &tmp_path);
-                if (r < 0) {
-                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
-                        return 0;
+                                &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get FragmentPath: %s", bus_error_message(&error, r));
+
+                r = sd_bus_get_property_strv(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "DropInPaths",
+                                &error,
+                                &dropins);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
+
+                r = 0;
+                if (!isempty(path)) {
+                        *fragment_path = path;
+                        path = NULL;
+                        r = 1;
                 }
 
-                if (isempty(tmp_path)) {
-                        log_warning("%s ignored: not found", template);
-                        return 0;
+                if (dropin_paths && !strv_isempty(dropins)) {
+                        *dropin_paths = dropins;
+                        dropins = NULL;
+                        r = 1;
                 }
-
-                *path = tmp_path;
-                tmp_path = NULL;
-
-                return 1;
         } else {
-                r = unit_file_find_path(lp, template, path);
-                if (r == 0)
-                        log_warning("%s ignored: not found", template);
-                return r;
+                _cleanup_set_free_ Set *names;
+
+                names = set_new(NULL);
+                if (!names)
+                        return -ENOMEM;
+
+                r = set_put(names, unit_name);
+                if (r < 0)
+                        return r;
+
+                r = unit_file_find_path(lp, unit_name, fragment_path);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        _cleanup_free_ char *template;
+
+                        template = unit_name_template(unit_name);
+                        if (!template)
+                                return log_oom();
+
+                        if (!streq(template, unit_name)) {
+                                r = unit_file_find_path(lp, template, fragment_path);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (dropin_paths)
+                        r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, dropin_paths);
         }
 
-        return 0;
+        return r;
 }
 
 typedef struct WaitData {
@@ -2809,6 +2859,9 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         if (!strv_isempty(globs)) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
+
+                if (!bus)
+                        return log_error_errno(ENOTSUP, "Unit name globbing without bus is not implemented.");
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
@@ -4701,56 +4754,38 @@ static int init_home_and_lookup_paths(char **user_home, char **user_runtime, Loo
 }
 
 static int cat(sd_bus *bus, char **args) {
+        _cleanup_free_ char *user_home = NULL;
+        _cleanup_free_ char *user_runtime = NULL;
+        _cleanup_lookup_paths_free_ LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
-        bool first = true;
+        bool first = true, avoid_bus_cache;
         int r = 0;
 
-        assert(bus);
         assert(args);
+
+        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
+        if (r < 0)
+                return r;
 
         r = expand_names(bus, args + 1, NULL, &names);
         if (r < 0)
                 log_error_errno(r, "Failed to expand names: %m");
 
+        avoid_bus_cache = !bus || avoid_bus();
+
         pager_open_if_enabled();
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
-                _cleanup_free_ char *fragment_path = NULL, *unit = NULL;
                 char **path;
 
-                unit = unit_dbus_path_from_name(*name);
-                if (!unit)
-                        return log_oom();
-
-                if (need_daemon_reload(bus, *name) > 0)
-                        warn_unit_file_changed(*name);
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "FragmentPath",
-                                &error,
-                                &fragment_path);
-                if (r < 0) {
-                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
-                        continue;
-                }
-
-                r = sd_bus_get_property_strv(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "DropInPaths",
-                                &error,
-                                &dropin_paths);
-                if (r < 0) {
-                        log_warning("Failed to get DropInPaths: %s", bus_error_message(&error, r));
+                r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &fragment_path, &dropin_paths);
+                if (r < 0)
+                        return r;
+                else if (r == 0) {
+                        log_warning("Unit %s does not have any files on disk", *name);
                         continue;
                 }
 
@@ -4759,7 +4794,7 @@ static int cat(sd_bus *bus, char **args) {
                 else
                         puts("");
 
-                if (!isempty(fragment_path)) {
+                if (fragment_path) {
                         printf("%s# %s%s\n",
                                ansi_highlight_blue(),
                                fragment_path,
@@ -6115,7 +6150,7 @@ static int run_editor(char **paths) {
                         }
                 }
 
-                log_error("Cannot edit unit(s): No editor available. Please set either SYSTEMD_EDITOR or EDITOR or VISUAL environment variable");
+                log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR or $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
 
@@ -6145,27 +6180,21 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
-                _cleanup_free_ char *template = NULL;
                 char *new_path, *tmp_path;
 
-                template = unit_name_template(*name);
-                if (!template)
-                        return log_oom();
-
-                r = unit_find_path(bus, *name, template, avoid_bus_cache, &lp, &path);
+                r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (r == 0) {
-                        continue;
-                }
+                else if (r == 0 || !path)
+                        // FIXME: support units with path==NULL (no FragmentPath)
+                        return log_error_errno(ENOENT, "Unit %s not found, cannot edit.", *name);
 
                 if (arg_full)
-                        r = unit_file_create_copy(template, path, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
                 else
-                        r = unit_file_create_drop_in(template, user_home, user_runtime, &new_path, &tmp_path);
-
+                        r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
                 if (r < 0)
-                        continue;
+                        return r;
 
                 r = strv_push_pair(paths, new_path, tmp_path);
                 if (r < 0)
@@ -7307,7 +7336,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "check",                 MORE,  2, check_unit_active },
                 { "is-failed",             MORE,  2, check_unit_failed },
                 { "show",                  MORE,  1, show              },
-                { "cat",                   MORE,  2, cat               },
+                { "cat",                   MORE,  2, cat,              NOBUS },
                 { "status",                MORE,  1, show              },
                 { "help",                  MORE,  2, show              },
                 { "snapshot",              LESS,  2, snapshot          },
