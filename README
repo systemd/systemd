@@ -111,7 +111,7 @@ REQUIREMENTS:
         libcap
         libmount >= 2.20 (from util-linux)
         libseccomp >= 1.0.0 (optional)
-        libblkid >= 2.20 (from util-linux) (optional)
+        libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)

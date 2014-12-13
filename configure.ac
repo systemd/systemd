@@ -432,7 +432,7 @@ AM_CONDITIONAL(HAVE_XKBCOMMON, [test "$have_xkbcommon" = "yes"])
 have_blkid=no
 AC_ARG_ENABLE(blkid, AS_HELP_STRING([--disable-blkid], [disable blkid support]))
 if test "x$enable_blkid" != "xno"; then
-        PKG_CHECK_MODULES(BLKID, [ blkid >= 2.20 ],
+        PKG_CHECK_MODULES(BLKID, [ blkid >= 2.24 ],
                 [AC_DEFINE(HAVE_BLKID, 1, [Define if blkid is available]) have_blkid=yes], have_blkid=no)
         if test "x$have_blkid" = xno -a "x$enable_blkid" = xyes; then
                 AC_MSG_ERROR([*** blkid support requested but libraries not found])
