@@ -245,6 +245,8 @@ static void test_hashmap_put(void) {
         Hashmap *m = NULL;
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
+        void *val2 = (void*) "val 2";
+        _cleanup_free_ char* key1 = NULL;
 
         assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) >= 0);
         assert_se(m);
@@ -252,7 +254,10 @@ static void test_hashmap_put(void) {
         valid_hashmap_put = hashmap_put(m, "key 1", val1);
         assert_se(valid_hashmap_put == 1);
         assert_se(hashmap_put(m, "key 1", val1) == 0);
-        assert_se(hashmap_put(m, "key 1", (void *)"val 2") == -EEXIST);
+        assert_se(hashmap_put(m, "key 1", val2) == -EEXIST);
+        key1 = strdup("key 1");
+        assert_se(hashmap_put(m, key1, val1) == 0);
+        assert_se(hashmap_put(m, key1, val2) == -EEXIST);
 
         hashmap_free(m);
 }
