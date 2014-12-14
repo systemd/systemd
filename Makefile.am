@@ -3179,14 +3179,14 @@ nodist_userunit_DATA += \
 USER_DEFAULT_TARGET_WANTS += \
 	systemd-consoled.service
 
-EXTRA_DIST += \
-	units/user/systemd-consoled.service.in
-
 tests += \
 	test-term-page \
 	test-term-parser \
 	test-unifont
 endif
+
+EXTRA_DIST += \
+	units/user/systemd-consoled.service.in
 
 libsystemd_terminal_la_CFLAGS = \
 	$(AM_CFLAGS) \
