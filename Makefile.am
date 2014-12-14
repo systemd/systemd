@@ -2718,7 +2718,7 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-network/network-util.c \
 	src/libsystemd/sd-hwdb/sd-hwdb.c \
 	src/libsystemd/sd-hwdb/hwdb-util.h \
-	src/libsystemd/sd-hwdb/hwdb-intenal.h
+	src/libsystemd/sd-hwdb/hwdb-internal.h
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym
@@ -3332,7 +3332,6 @@ libudev_la_SOURCES =\
 	src/libudev/libudev-enumerate.c \
 	src/libudev/libudev-monitor.c \
 	src/libudev/libudev-queue.c \
-	src/libudev/libudev-hwdb-def.h \
 	src/libudev/libudev-hwdb.c
 
 libudev_la_CFLAGS = \
