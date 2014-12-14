@@ -123,7 +123,7 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf("%s%s%s   %s %s %s\n",
+        printf("%s%s%s %s %s %s\n",
                ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(),
                top, draw_special_char(DRAW_ARROW), bottom);
         return 1;
