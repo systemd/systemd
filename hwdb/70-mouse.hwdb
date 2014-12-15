@@ -130,6 +130,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
 mouse:usb:v046dpc50e:name:Logitech USB Receiver:
  MOUSE_DPI=800@125
 
+# Logitech MX 518
+mouse:usb:v046dpc01e:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125 *800@125 1600@125
+
 # Logitech Wireless Mouse M185
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
 # Logitech M705 (marathon mouse)
