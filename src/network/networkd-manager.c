@@ -273,7 +273,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_debug_errno(r, "could not add new link: %m");
+                                log_warning_errno(r, "could not add new link: %m");
                                 return 0;
                         }
                 }
@@ -282,7 +282,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_debug_errno(r, "could not set ifindex on netdev: %m");
+                                log_warning_errno(r, "could not set ifindex on netdev: %m");
                                 return 0;
                         }
                 }
