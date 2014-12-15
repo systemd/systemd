@@ -6926,7 +6926,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkt:afFc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "HPrhkKt:afFc", options, NULL)) >= 0)
                 switch (c) {
 
                 case ARG_HELP:
@@ -6967,6 +6967,8 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 
                 case 't':
                 case 'a':
+                case 'f':
+                case 'F':
                         /* Compatibility nops */
                         break;
 
