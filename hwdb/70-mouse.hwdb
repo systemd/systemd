@@ -118,10 +118,6 @@ mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=400@125
 
-# Logitech G400s (Wired)
-mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
- MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
-
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=600@125
@@ -137,6 +133,10 @@ mouse:usb:v046dpc50e:name:Logitech USB Receiver:
 # Logitech MX 518
 mouse:usb:v046dpc01e:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=400@125 *800@125 1600@125
+
+# Logitech G400s (Wired)
+mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:
+ MOUSE_DPI=400@1000 *800@1000 2000@1000 4000@1000
 
 # Logitech Wireless Mouse M185
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
