@@ -263,39 +263,37 @@ char *ascii_is_valid(const char *str) {
         return (char*) str;
 }
 
+int utf8_encode_unichar(uint16_t c, char *p) {
+        uint8_t *t = (uint8_t*) p;
+        int d;
+
+        if (c < 0x80) {
+                t[0] = (uint8_t) c;
+                return 1;
+        } else if (c < 0x800) {
+                t[0] = (uint8_t) (0xc0 | (c >> 6));
+                t[1] = (uint8_t) (0x80 | (c & 0x3f));
+                return 2;
+        } else {
+                t[0] = (uint8_t) (0xe0 | (c >> 12));
+                t[1] = (uint8_t) (0x80 | ((c >> 6) & 0x3f));
+                t[2] = (uint8_t) (0x80 | (c & 0x3f));
+                return 3;
+        }
+}
+
 char *utf16_to_utf8(const void *s, size_t length) {
-        char *r;
         const uint8_t *f;
-        uint8_t *t;
+        char *r, *t;
 
         r = new(char, (length*3+1)/2 + 1);
         if (!r)
                 return NULL;
 
-        t = (uint8_t*) r;
-
-        for (f = s; f < (const uint8_t*) s + length; f += 2) {
-                uint16_t c;
-
-                c = (f[1] << 8) | f[0];
-
-                if (c == 0) {
-                        *t = 0;
-                        return r;
-                } else if (c < 0x80) {
-                        *(t++) = (uint8_t) c;
-                } else if (c < 0x800) {
-                        *(t++) = (uint8_t) (0xc0 | (c >> 6));
-                        *(t++) = (uint8_t) (0x80 | (c & 0x3f));
-                } else {
-                        *(t++) = (uint8_t) (0xe0 | (c >> 12));
-                        *(t++) = (uint8_t) (0x80 | ((c >> 6) & 0x3f));
-                        *(t++) = (uint8_t) (0x80 | (c & 0x3f));
-                }
-        }
+        for (f = s, t = r; f < (const uint8_t*) s + length; f += 2)
+                t += utf8_encode_unichar((f[1] << 8) | f[0], t);
 
         *t = 0;
-
         return r;
 }
 

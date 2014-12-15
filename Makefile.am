@@ -868,6 +868,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/audit.h \
 	src/shared/xml.c \
 	src/shared/xml.h \
+	src/shared/json.c \
+	src/shared/json.h \
 	src/shared/bus-label.c \
 	src/shared/bus-label.h \
 	src/shared/gpt.h \
@@ -1366,6 +1368,7 @@ tests += \
 	test-tables \
 	test-device-nodes \
 	test-xml \
+	test-json \
 	test-architecture \
 	test-socket-util \
 	test-fdset \
@@ -1685,6 +1688,13 @@ test_xml_SOURCES = \
 
 test_xml_LDADD = \
 	libsystemd-shared.la
+
+test_json_SOURCES = \
+	src/test/test-json.c
+
+test_json_LDADD = \
+	libsystemd-shared.la \
+	-lm
 
 test_list_SOURCES = \
 	src/test/test-list.c

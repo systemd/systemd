@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,14 +21,30 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <inttypes.h>
+
 enum {
-        XML_END,
-        XML_TEXT,
-        XML_TAG_OPEN,
-        XML_TAG_CLOSE,
-        XML_TAG_CLOSE_EMPTY,
-        XML_ATTRIBUTE_NAME,
-        XML_ATTRIBUTE_VALUE,
+        JSON_END,
+        JSON_COLON,
+        JSON_COMMA,
+        JSON_OBJECT_OPEN,
+        JSON_OBJECT_CLOSE,
+        JSON_ARRAY_OPEN,
+        JSON_ARRAY_CLOSE,
+        JSON_STRING,
+        JSON_REAL,
+        JSON_INTEGER,
+        JSON_BOOLEAN,
+        JSON_NULL,
 };
 
-int xml_tokenize(const char **p, char **name, void **state, unsigned *line);
+union json_value {
+        bool boolean;
+        double real;
+        intmax_t integer;
+};
+
+#define JSON_VALUE_NULL ((union json_value) {})
+
+int json_tokenize(const char **p, char **ret_string, union json_value *ret_value, void **state, unsigned *line);
