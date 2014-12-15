@@ -31,7 +31,8 @@ External:
 
 Features:
 
-* when a start job for a device unit is queued, when systemd runs in a container, make it fail immediately instead of wait for all eternity
+* Find a solution for SMACK capabilities stuff:
+  http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
 * port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
 
