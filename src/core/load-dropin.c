@@ -31,137 +31,27 @@
 #include "load-fragment.h"
 #include "conf-files.h"
 
-static int iterate_dir(
-                Unit *u,
-                const char *path,
+static int add_dependency_consumer(
                 UnitDependency dependency,
-                char ***strv) {
-
-        _cleanup_closedir_ DIR *d = NULL;
-        int r;
-
-        assert(u);
-        assert(path);
-
-        /* The config directories are special, since the order of the
-         * drop-ins matters */
-        if (dependency < 0)  {
-                r = strv_extend(strv, path);
-                if (r < 0)
-                        return log_oom();
-
-                return 0;
-        }
-
-        d = opendir(path);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error_errno(errno, "Failed to open directory %s: %m", path);
-                return -errno;
-        }
-
-        for (;;) {
-                struct dirent *de;
-                _cleanup_free_ char *f = NULL;
-
-                errno = 0;
-                de = readdir(d);
-                if (!de && errno != 0)
-                        return log_error_errno(errno, "Failed to read directory %s: %m", path);
-
-                if (!de)
-                        break;
-
-                if (ignore_file(de->d_name))
-                        continue;
-
-                f = strjoin(path, "/", de->d_name, NULL);
-                if (!f)
-                        return log_oom();
-
-                r = unit_add_dependency_by_name(u, dependency, de->d_name, f, true);
-                if (r < 0)
-                        log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", de->d_name, u->id);
-        }
-
-        return 0;
-}
-
-static int process_dir(
-                Unit *u,
-                const char *unit_path,
-                const char *name,
-                const char *suffix,
-                UnitDependency dependency,
-                char ***strv) {
-
-        _cleanup_free_ char *path = NULL;
-
-        assert(u);
-        assert(unit_path);
-        assert(name);
-        assert(suffix);
-
-        path = strjoin(unit_path, "/", name, suffix, NULL);
-        if (!path)
-                return log_oom();
-
-        if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, path))
-                iterate_dir(u, path, dependency, strv);
-
-        if (u->instance) {
-                _cleanup_free_ char *template = NULL, *p = NULL;
-                /* Also try the template dir */
-
-                template = unit_name_template(name);
-                if (!template)
-                        return log_oom();
-
-                p = strjoin(unit_path, "/", template, suffix, NULL);
-                if (!p)
-                        return log_oom();
-
-                if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, p))
-                        iterate_dir(u, p, dependency, strv);
-        }
-
-        return 0;
-}
-
-char **unit_find_dropin_paths(Unit *u) {
-        _cleanup_strv_free_ char **strv = NULL;
-        char **configs = NULL;
-        Iterator i;
-        char *t;
+                const char *entry,
+                const char* filepath,
+                void *arg) {
+        Unit *u = arg;
         int r;
 
         assert(u);
 
-        SET_FOREACH(t, u->names, i) {
-                char **p;
+        r = unit_add_dependency_by_name(u, dependency, entry, filepath, true);
+        if (r < 0)
+                log_error_errno(r, "Cannot add dependency %s to %s, ignoring: %m", entry, u->id);
 
-                STRV_FOREACH(p, u->manager->lookup_paths.unit_path)
-                        process_dir(u, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, &strv);
-        }
-
-        if (strv_isempty(strv))
-                return NULL;
-
-        r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get list of configuration files: %m");
-                strv_free(configs);
-                return NULL;
-        }
-
-        return configs;
+        return 0;
 }
 
 int unit_load_dropin(Unit *u) {
         Iterator i;
         char *t, **f;
+        int r;
 
         assert(u);
 
@@ -171,13 +61,15 @@ int unit_load_dropin(Unit *u) {
                 char **p;
 
                 STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
-                        process_dir(u, *p, t, ".wants", UNIT_WANTS, NULL);
-                        process_dir(u, *p, t, ".requires", UNIT_REQUIRES, NULL);
+                        unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".wants", UNIT_WANTS,
+                                              add_dependency_consumer, u, NULL);
+                        unit_file_process_dir(u->manager->unit_path_cache, *p, t, ".requires", UNIT_REQUIRES,
+                                              add_dependency_consumer, u, NULL);
                 }
         }
 
-        u->dropin_paths = unit_find_dropin_paths(u);
-        if (!u->dropin_paths)
+        r = unit_find_dropin_paths(u, &u->dropin_paths);
+        if (r <= 0)
                 return 0;
 
         STRV_FOREACH(f, u->dropin_paths) {

@@ -22,8 +22,15 @@
 ***/
 
 #include "unit.h"
+#include "dropin.h"
 
 /* Read service data supplementary drop-in directories */
 
-char **unit_find_dropin_paths(Unit *u);
+static inline int unit_find_dropin_paths(Unit *u, char ***paths) {
+        return unit_file_find_dropin_paths(u->manager->lookup_paths.unit_path,
+                                           u->manager->unit_path_cache,
+                                           u->names,
+                                           paths);
+}
+
 int unit_load_dropin(Unit *u);

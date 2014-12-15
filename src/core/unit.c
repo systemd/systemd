@@ -2894,7 +2894,7 @@ bool unit_need_daemon_reload(Unit *u) {
                         return true;
         }
 
-        t = unit_find_dropin_paths(u);
+        (void) unit_find_dropin_paths(u, &t);
         loaded_cnt = strv_length(t);
         current_cnt = strv_length(u->dropin_paths);
 
