@@ -25,13 +25,16 @@
 
 #include "sd-network.h"
 #include "sd-rtnl.h"
+#include "sd-hwdb.h"
 #include "libudev.h"
 
+#include "strv.h"
 #include "build.h"
 #include "util.h"
 #include "pager.h"
 #include "rtnl-util.h"
 #include "udev-util.h"
+#include "hwdb-util.h"
 #include "arphrd-list.h"
 #include "local-addresses.h"
 #include "socket-util.h"
@@ -250,41 +253,45 @@ static int list_links(char **args, unsigned n) {
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(struct udev_hwdb *hwdb, struct ether_addr *mac, char **ret) {
-        struct udev_list_entry *entry;
-        char *description;
-        char str[strlen("OUI:XXYYXXYYXXYY") + 1];
+static int ieee_oui(sd_hwdb *hwdb, struct ether_addr *mac, char **ret) {
+        const char *description;
+        char modalias[strlen("OUI:XXYYXXYYXXYY") + 1], *desc;
+        int r;
+
+        assert(ret);
 
         if (!hwdb)
+                return -EINVAL;
+
+        if (!mac)
                 return -EINVAL;
 
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        snprintf(str, sizeof(str), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
+        snprintf(modalias, sizeof(modalias), "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, str, 0))
-                if (strcmp(udev_list_entry_get_name(entry), "ID_OUI_FROM_DATABASE") == 0) {
-                        description = strdup(udev_list_entry_get_value(entry));
-                        if (!description)
-                                return -ENOMEM;
+        r = sd_hwdb_get(hwdb, modalias, "ID_OUI_FROM_DATABASE", &description);
+        if (r < 0)
+                return r;
 
-                        *ret = description;
-                        return 0;
-                }
+        desc = strdup(description);
+        if (!desc)
+                return -ENOMEM;
 
-        return -ENODATA;
+        *ret = desc;
+
+        return 0;
 }
 
 static int get_gateway_description(
                 sd_rtnl *rtnl,
-                struct udev_hwdb *hwdb,
+                sd_hwdb *hwdb,
                 int ifindex,
                 int family,
                 union in_addr_union *gateway,
                 char **gateway_description) {
-
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *m;
         int r;
@@ -386,10 +393,9 @@ static int get_gateway_description(
 
 static int dump_gateways(
                 sd_rtnl *rtnl,
-                struct udev_hwdb *hwdb,
+                sd_hwdb *hwdb,
                 const char *prefix,
                 int ifindex) {
-
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -488,7 +494,7 @@ static void dump_list(const char *prefix, char **l) {
 static int link_status_one(
                 sd_rtnl *rtnl,
                 struct udev *udev,
-                struct udev_hwdb *hwdb,
+                sd_hwdb *hwdb,
                 const char *name) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
@@ -648,7 +654,7 @@ static int link_status_one(
 }
 
 static int link_status(char **args, unsigned n) {
-        _cleanup_udev_hwdb_unref_ struct udev_hwdb *hwdb = NULL;
+        _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
         char **name;
@@ -662,9 +668,9 @@ static int link_status(char **args, unsigned n) {
         if (!udev)
                 return log_error_errno(errno, "Failed to connect to udev: %m");
 
-        hwdb = udev_hwdb_new(udev);
-        if (!hwdb)
-                log_debug_errno(errno, "Failed to open hardware database: %m");
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                log_debug_errno(r, "Failed to open hardware database: %m");
 
         if (n <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
