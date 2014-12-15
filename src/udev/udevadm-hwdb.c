@@ -29,6 +29,7 @@
 
 #include "udev.h"
 #include "hwdb-internal.h"
+#include "hwdb-util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
@@ -662,14 +663,15 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         }
 
         if (test) {
-                struct udev_hwdb *hwdb = udev_hwdb_new(udev);
+                _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
+                int r;
 
-                if (hwdb) {
-                        struct udev_list_entry *entry;
+                r = sd_hwdb_new(&hwdb);
+                if (r >= 0) {
+                        const char *key, *value;
 
-                        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, test, 0))
-                                printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
-                        udev_hwdb_unref(hwdb);
+                        SD_HWDB_FOREACH_PROPERTY(hwdb, test, key, value)
+                                printf("%s=%s\n", key, value);
                 }
         }
 out:
