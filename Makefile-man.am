@@ -14,6 +14,7 @@ MANPAGES += \
 	man/file-hierarchy.7 \
 	man/halt.8 \
 	man/hostname.5 \
+	man/hwdb.7 \
 	man/journalctl.1 \
 	man/journald.conf.5 \
 	man/kernel-command-line.7 \
@@ -72,6 +73,7 @@ MANPAGES += \
 	man/systemd-halt.service.8 \
 	man/systemd-hibernate-resume-generator.8 \
 	man/systemd-hibernate-resume@.service.8 \
+	man/systemd-hwdb.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
@@ -1593,6 +1595,7 @@ EXTRA_DIST += \
 	man/halt.xml \
 	man/hostname.xml \
 	man/hostnamectl.xml \
+	man/hwdb.xml \
 	man/journalctl.xml \
 	man/journald.conf.xml \
 	man/kernel-command-line.xml \
@@ -1702,6 +1705,7 @@ EXTRA_DIST += \
 	man/systemd-hibernate-resume-generator.xml \
 	man/systemd-hibernate-resume@.service.xml \
 	man/systemd-hostnamed.service.xml \
+	man/systemd-hwdb.xml \
 	man/systemd-inhibit.xml \
 	man/systemd-initctl.service.xml \
 	man/systemd-journal-gatewayd.service.xml \

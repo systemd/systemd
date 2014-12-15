@@ -542,7 +542,7 @@ nodist_systemunit_DATA = \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
-	units/systemd-udev-hwdb-update.service \
+	units/systemd-hwdb-update.service \
 	units/debug-shell.service \
 	units/initrd-parse-etc.service \
 	units/initrd-cleanup.service \
@@ -3400,8 +3400,7 @@ libudev_internal_la_CFLAGS = \
 
 # ------------------------------------------------------------------------------
 INSTALL_DIRS += \
-	$(sysconfdir)/udev/rules.d \
-	$(sysconfdir)/udev/hwdb.d
+	$(sysconfdir)/udev/rules.d
 
 dist_network_DATA = \
 	network/99-default.link \
@@ -3429,20 +3428,6 @@ dist_udevrules_DATA += \
 nodist_udevrules_DATA += \
 	rules/99-systemd.rules
 
-dist_udevhwdb_DATA = \
-	hwdb/20-pci-vendor-model.hwdb \
-	hwdb/20-pci-classes.hwdb \
-	hwdb/20-usb-vendor-model.hwdb \
-	hwdb/20-usb-classes.hwdb \
-	hwdb/20-sdio-vendor-model.hwdb \
-	hwdb/20-sdio-classes.hwdb \
-	hwdb/20-bluetooth-vendor-product.hwdb \
-	hwdb/20-acpi-vendor.hwdb \
-	hwdb/20-OUI.hwdb \
-	hwdb/20-net-ifname.hwdb \
-	hwdb/60-keyboard.hwdb \
-	hwdb/70-mouse.hwdb
-
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
 	src/udev/udev.conf
@@ -3462,14 +3447,12 @@ CLEANFILES += \
 EXTRA_DIST += \
 	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
-	units/systemd-udev-settle.service.in \
-	units/systemd-udev-hwdb-update.service.in
+	units/systemd-udev-settle.service.in
 
 CLEANFILES += \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
-	units/systemd-udev-settle.service \
-	units/systemd-udev-hwdb-update.service
+	units/systemd-udev-settle.service
 
 SOCKETS_TARGET_WANTS += \
 	systemd-udevd-control.socket \
@@ -3477,8 +3460,7 @@ SOCKETS_TARGET_WANTS += \
 
 SYSINIT_TARGET_WANTS += \
 	systemd-udevd.service \
-	systemd-udev-trigger.service \
-	systemd-udev-hwdb-update.service
+	systemd-udev-trigger.service
 
 rootbin_PROGRAMS += \
 	udevadm
@@ -3599,10 +3581,49 @@ udevadm_SOURCES = \
 udevadm_LDADD = \
 	libudev-core.la
 
+# ------------------------------------------------------------------------------
+INSTALL_DIRS += \
+	$(sysconfdir)/udev/hwdb.d
+
+systemd_hwdb_SOURCES = \
+	src/libsystemd/sd-hwdb/hwdb-internal.h \
+	src/hwdb/hwdb.c
+
+systemd_hwdb_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-internal.la \
+	libudev-internal.la
+
+rootbin_PROGRAMS += \
+	systemd-hwdb
+
+dist_udevhwdb_DATA = \
+	hwdb/20-pci-vendor-model.hwdb \
+	hwdb/20-pci-classes.hwdb \
+	hwdb/20-usb-vendor-model.hwdb \
+	hwdb/20-usb-classes.hwdb \
+	hwdb/20-sdio-vendor-model.hwdb \
+	hwdb/20-sdio-classes.hwdb \
+	hwdb/20-bluetooth-vendor-product.hwdb \
+	hwdb/20-acpi-vendor.hwdb \
+	hwdb/20-OUI.hwdb \
+	hwdb/20-net-ifname.hwdb \
+	hwdb/60-keyboard.hwdb \
+	hwdb/70-mouse.hwdb
+
+EXTRA_DIST += \
+	units/systemd-hwdb-update.service.in
+
+CLEANFILES += \
+	units/systemd-hwdb-update.service
+
+SYSINIT_TARGET_WANTS += \
+	systemd-hwdb-update.service
+
 # Update hwdb on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
 hwdb-update-hook:
-	-test -n "$(DESTDIR)" || $(rootbindir)/udevadm hwdb --update
+	-test -n "$(DESTDIR)" || $(rootbindir)/systemd-hwdb update
 
 INSTALL_DATA_HOOKS += \
 	hwdb-update-hook

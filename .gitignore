@@ -81,6 +81,7 @@
 /systemd-hibernate-resume
 /systemd-hibernate-resume-generator
 /systemd-hostnamed
+/systemd-hwdb
 /systemd-inhibit
 /systemd-initctl
 /systemd-journal-gatewayd

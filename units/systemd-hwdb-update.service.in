@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Rebuild Hardware Database
-Documentation=man:udev(7) man:systemd-udevd.service(8)
+Documentation=man:hwdb(7) man:systemd-hwdb(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
@@ -20,4 +20,4 @@ ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/udevadm hwdb --update
+ExecStart=@rootbindir@/systemd-hwdb update

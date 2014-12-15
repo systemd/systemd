@@ -49,9 +49,6 @@
       <command>udevadm monitor <optional>options</optional></command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>udevadm hwdb <optional>options</optional></command>
-    </cmdsynopsis>
-    <cmdsynopsis>
       <command>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -500,56 +497,6 @@
           <term><option>--tag-match=<replaceable>string</replaceable></option></term>
           <listitem>
             <para>Filter events by property. Only udev events with a given tag attached will pass.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><option>-h</option></term>
-          <term><option>--help</option></term>
-          <listitem>
-            <para>Print help text.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-    </refsect2>
-
-    <refsect2><title>udevadm hwdb
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-    </title>
-      <para>Maintain the hardware database index in <filename>/etc/udev/hwdb.bin</filename>.</para>
-      <variablelist>
-        <varlistentry>
-          <term><option>-u</option></term>
-          <term><option>--update</option></term>
-          <listitem>
-            <para>Compile the hardware database information located in /usr/lib/udev/hwdb.d/,
-            /etc/udev/hwdb.d/ and store it in <filename>/etc/udev/hwdb.bin</filename>. This should be done after
-            any update to the source files; it will not be called automatically. The running
-            udev daemon will detect a new database on its own and does not need to be
-            notified about it.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><option>--usr</option></term>
-          <listitem>
-            <para>Put the compiled database into <filename>/usr/lib/udev/hwdb.bin</filename> instead.
-            Use this if you want to ship a pre-compiled database in immutable system images, or
-            don't use <filename>/etc/udev/hwdb.d</filename> and want to avoid large binary files in
-            <filename>/etc</filename>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><option>-t</option></term>
-          <term><option>--test=<replaceable>string</replaceable></option></term>
-          <listitem>
-            <para>Query the database with a modalias string, and print the
-            retrieved properties.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><option>-r</option></term>
-          <term><option>--root=<replaceable>string</replaceable></option></term>
-          <listitem>
-            <para>Alternative root path in the file system for reading and writing files.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

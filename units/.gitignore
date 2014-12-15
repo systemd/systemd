@@ -66,7 +66,7 @@
 /systemd-tmpfiles-setup-dev.service
 /systemd-tmpfiles-setup.service
 /systemd-tmpfiles.service
-/systemd-udev-hwdb-update.service
+/systemd-hwdb-update.service
 /systemd-udev-settle.service
 /systemd-udev-trigger.service
 /systemd-udevd.service
