@@ -183,7 +183,8 @@ read_again:
                         return -EINVAL;
         }
 
-        transitions = malloc0(total_size + tzspec_len);
+        /* leave space for additional zone_names zero terminator */
+        transitions = malloc0(total_size + tzspec_len + 1);
         if (transitions == NULL)
                 return -EINVAL;
 
