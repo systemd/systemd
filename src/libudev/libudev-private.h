@@ -133,9 +133,6 @@ void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
 int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
-/* libudev-hwdb.c */
-bool udev_hwdb_validate(struct udev_hwdb *hwdb);
-
 /* libudev-util.c */
 #define UTIL_PATH_SIZE                      1024
 #define UTIL_NAME_SIZE                       512

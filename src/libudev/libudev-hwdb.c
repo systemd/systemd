@@ -110,13 +110,6 @@ _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
         return NULL;
 }
 
-bool udev_hwdb_validate(struct udev_hwdb *hwdb) {
-        if (!hwdb)
-                return false;
-
-        return hwdb_validate(hwdb->hwdb);
-}
-
 /**
  * udev_hwdb_get_properties_list_entry:
  * @hwdb: context
