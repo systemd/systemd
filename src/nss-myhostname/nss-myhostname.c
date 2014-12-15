@@ -78,7 +78,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
 
-        } else if (streq(name, "gateway")) {
+        } else if (streq(name, "gateway") || streq(name, "gateway.")) {
 
                 n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0) {
@@ -348,7 +348,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 canonical = "localhost";
                 local_address_ipv4 = htonl(INADDR_LOOPBACK);
 
-        } else if (streq(name, "gateway")) {
+        } else if (streq(name, "gateway") || streq(name, "gateway.")) {
 
                 n_addresses = local_gateways(NULL, 0, af, &addresses);
                 if (n_addresses <= 0) {
