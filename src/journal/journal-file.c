@@ -1928,6 +1928,10 @@ int journal_file_move_to_entry_by_monotonic(
                                              ret, offset, NULL);
 }
 
+void journal_file_reset_location(JournalFile *f) {
+        f->current_offset = 0;
+}
+
 int journal_file_next_entry(
                 JournalFile *f,
                 Object *o, uint64_t p,

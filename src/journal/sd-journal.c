@@ -87,7 +87,7 @@ static void detach_location(sd_journal *j) {
         j->current_field = 0;
 
         ORDERED_HASHMAP_FOREACH(f, j->files, i)
-                f->current_offset = 0;
+                journal_file_reset_location(f);
 }
 
 static void reset_location(sd_journal *j) {
