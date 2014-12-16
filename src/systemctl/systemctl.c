@@ -4668,6 +4668,38 @@ static int show(sd_bus *bus, char **args) {
         return ret;
 }
 
+static int init_home_and_lookup_paths(char **user_home, char **user_runtime, LookupPaths *lp) {
+        int r;
+
+        assert(user_home);
+        assert(user_runtime);
+        assert(lp);
+
+        if (arg_scope == UNIT_FILE_USER) {
+                r = user_config_home(user_home);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
+                else if (r == 0)
+                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_CONFIG_HOME and $HOME are not set.");
+
+                r = user_runtime_dir(user_runtime);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
+                else if (r == 0)
+                        return log_error_errno(ENOTDIR, "Cannot find units: $XDG_RUNTIME_DIR is not set.");
+        }
+
+        r = lookup_paths_init(lp,
+                              arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                              arg_scope == UNIT_FILE_USER,
+                              arg_root,
+                              NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lookup unit lookup paths: %m");
+
+        return 0;
+}
+
 static int cat(sd_bus *bus, char **args) {
         _cleanup_strv_free_ char **names = NULL;
         char **name;
@@ -6105,27 +6137,9 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         assert(names);
         assert(paths);
 
-        if (arg_scope == UNIT_FILE_USER) {
-                r = user_config_home(&user_home);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot edit units: $XDG_CONFIG_HOME and $HOME are not set.");
-
-                r = user_runtime_dir(&user_runtime);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query XDG_CONFIG_HOME: %m");
-                else if (r == 0)
-                        return log_error_errno(ENOTDIR, "Cannot edit units: $XDG_RUNTIME_DIR is not set.");
-        }
-
-        r = lookup_paths_init(&lp,
-                              arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
-                              arg_scope == UNIT_FILE_USER,
-                              arg_root,
-                              NULL, NULL, NULL);
+        r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
         if (r < 0)
-                return log_error_errno(r, "Failed get lookup paths: %m");
+                return r;
 
         avoid_bus_cache = !bus || avoid_bus();
 
