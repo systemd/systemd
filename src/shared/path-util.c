@@ -439,14 +439,14 @@ char* path_join(const char *root, const char *path, const char *rest) {
         assert(path);
 
         if (!isempty(root))
-                return strjoin(root, "/",
+                return strjoin(root, endswith(root, "/") ? "" : "/",
                                path[0] == '/' ? path+1 : path,
-                               rest ? "/" : NULL,
+                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
                                rest && rest[0] == '/' ? rest+1 : rest,
                                NULL);
         else
                 return strjoin(path,
-                               rest ? "/" : NULL,
+                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
                                rest && rest[0] == '/' ? rest+1 : rest,
                                NULL);
 }

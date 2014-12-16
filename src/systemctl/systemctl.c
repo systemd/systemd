@@ -5902,41 +5902,58 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         return 0;
 }
 
-static int get_drop_in_to_edit(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_path) {
-        char *tmp_new_path;
-        char *tmp;
-
-        assert(unit_name);
-        assert(ret_path);
+static int get_file_to_edit(const char *name, const char *user_home, const char *user_runtime, char **ret_path) {
+        _cleanup_free_ char *path = NULL, *path2 = NULL, *run = NULL;
 
         switch (arg_scope) {
                 case UNIT_FILE_SYSTEM:
-                        tmp = strappenda(arg_runtime ? "/run/systemd/system/" : SYSTEM_CONFIG_UNIT_PATH "/", unit_name, ".d/override.conf");
+                        path = path_join(arg_root, SYSTEM_CONFIG_UNIT_PATH, name);
+                        if (arg_runtime)
+                                run = path_join(arg_root, "/run/systemd/system/", name);
                         break;
                 case UNIT_FILE_GLOBAL:
-                        tmp = strappenda(arg_runtime ? "/run/systemd/user/" : USER_CONFIG_UNIT_PATH "/", unit_name, ".d/override.conf");
+                        path = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
+                        if (arg_runtime)
+                                run = path_join(arg_root, "/run/systemd/user/", name);
                         break;
                 case UNIT_FILE_USER:
                         assert(user_home);
                         assert(user_runtime);
 
-                        tmp = strappenda(arg_runtime ? user_runtime : user_home, "/", unit_name, ".d/override.conf");
+                        path = path_join(arg_root, user_home, name);
+                        if (arg_runtime) {
+                                path2 = path_join(arg_root, USER_CONFIG_UNIT_PATH, name);
+                                if (!path2)
+                                        return log_oom();
+                                run = path_join(arg_root, user_runtime, name);
+                        }
                         break;
                 default:
                         assert_not_reached("Invalid scope");
         }
-
-        tmp_new_path = path_join(arg_root, tmp, NULL);
-        if (!tmp_new_path)
+        if (!path || (arg_runtime && !run))
                 return log_oom();
 
-        *ret_path = tmp_new_path;
+        if (arg_runtime) {
+                if (access(path, F_OK) >= 0)
+                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overriden by \"%s\" anyway.",
+                                               run, path);
+                if (path2 && access(path2, F_OK) >= 0)
+                        return log_error_errno(EEXIST, "Refusing to create \"%s\" because it would be overriden by \"%s\" anyway.",
+                                               run, path2);
+                *ret_path = run;
+                run = NULL;
+        } else {
+                *ret_path = path;
+                path = NULL;
+        }
 
         return 0;
 }
 
-static int unit_file_create_drop_in(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
-        char *tmp_new_path;
+
+static int unit_file_create_dropin(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
+        char *tmp_new_path, *ending;
         char *tmp_tmp_path;
         int r;
 
@@ -5944,7 +5961,8 @@ static int unit_file_create_drop_in(const char *unit_name, const char *user_home
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_drop_in_to_edit(unit_name, user_home, user_runtime, &tmp_new_path);
+        ending = strappenda(unit_name, ".d/override.conf");
+        r = get_file_to_edit(ending, user_home, user_runtime, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -5956,91 +5974,6 @@ static int unit_file_create_drop_in(const char *unit_name, const char *user_home
 
         *ret_new_path = tmp_new_path;
         *ret_tmp_path = tmp_tmp_path;
-
-        return 0;
-}
-
-static bool unit_is_editable(const char *unit_name, const char *fragment_path, const char *user_home) {
-        bool editable = true;
-        const char *invalid_path;
-
-        assert(unit_name);
-
-        if (!arg_runtime)
-                return true;
-
-        switch (arg_scope) {
-                case UNIT_FILE_SYSTEM:
-                        if (path_startswith(fragment_path, "/etc/systemd/system")) {
-                                editable = false;
-                                invalid_path = "/etc/systemd/system";
-                        } else if (path_startswith(fragment_path, SYSTEM_CONFIG_UNIT_PATH)) {
-                                editable = false;
-                                invalid_path = SYSTEM_CONFIG_UNIT_PATH;
-                        }
-                        break;
-                case UNIT_FILE_GLOBAL:
-                        if (path_startswith(fragment_path, "/etc/systemd/user")) {
-                                editable = false;
-                                invalid_path = "/etc/systemd/user";
-                        } else if (path_startswith(fragment_path, USER_CONFIG_UNIT_PATH)) {
-                                editable = false;
-                                invalid_path = USER_CONFIG_UNIT_PATH;
-                        }
-                        break;
-                case UNIT_FILE_USER:
-                        assert(user_home);
-
-                        if (path_startswith(fragment_path, "/etc/systemd/user")) {
-                                editable = false;
-                                invalid_path = "/etc/systemd/user";
-                        } else if (path_startswith(fragment_path, USER_CONFIG_UNIT_PATH)) {
-                                editable = false;
-                                invalid_path = USER_CONFIG_UNIT_PATH;
-                        } else if (path_startswith(fragment_path, user_home)) {
-                                editable = false;
-                                invalid_path = user_home;
-                        }
-                        break;
-                default:
-                        assert_not_reached("Invalid scope");
-        }
-
-        if (!editable)
-                log_error("%s ignored: cannot temporarily edit units from %s", unit_name, invalid_path);
-
-        return editable;
-}
-
-static int get_copy_to_edit(const char *unit_name, const char *fragment_path, const char *user_home, const char *user_runtime, char **ret_path) {
-        char *tmp_new_path;
-
-        assert(unit_name);
-        assert(ret_path);
-
-        if (!unit_is_editable(unit_name, fragment_path, user_home))
-                return -EINVAL;
-
-        switch (arg_scope) {
-                case UNIT_FILE_SYSTEM:
-                        tmp_new_path = path_join(arg_root, arg_runtime ? "/run/systemd/system/" : SYSTEM_CONFIG_UNIT_PATH, unit_name);
-                        break;
-                case UNIT_FILE_GLOBAL:
-                        tmp_new_path = path_join(arg_root, arg_runtime ? "/run/systemd/user/" : USER_CONFIG_UNIT_PATH, unit_name);
-                        break;
-                case UNIT_FILE_USER:
-                        assert(user_home);
-                        assert(user_runtime);
-
-                        tmp_new_path = path_join(arg_root, arg_runtime ? user_runtime : user_home, unit_name);
-                        break;
-                default:
-                        assert_not_reached("Invalid scope");
-        }
-        if (!tmp_new_path)
-                return log_oom();
-
-        *ret_path = tmp_new_path;
 
         return 0;
 }
@@ -6060,7 +5993,7 @@ static int unit_file_create_copy(const char *unit_name,
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_copy_to_edit(unit_name, fragment_path, user_home, user_runtime, &tmp_new_path);
+        r = get_file_to_edit(unit_name, user_home, user_runtime, &tmp_new_path);
         if (r < 0)
                 return r;
 
@@ -6192,7 +6125,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 if (arg_full)
                         r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
                 else
-                        r = unit_file_create_drop_in(*name, user_home, user_runtime, &new_path, &tmp_path);
+                        r = unit_file_create_dropin(*name, user_home, user_runtime, &new_path, &tmp_path);
                 if (r < 0)
                         return r;
 
