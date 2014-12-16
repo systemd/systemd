@@ -2278,6 +2278,84 @@ static void warn_unit_file_changed(const char *name) {
                     arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 }
 
+static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **unit_path) {
+        char **p;
+
+        assert(lp);
+        assert(unit_name);
+        assert(unit_path);
+
+        STRV_FOREACH(p, lp->unit_path) {
+                char *path;
+
+                path = path_join(arg_root, *p, unit_name);
+                if (!path)
+                        return log_oom();
+
+                if (access(path, F_OK) == 0) {
+                        *unit_path = path;
+                        return 1;
+                }
+
+                free(path);
+        }
+
+        return 0;
+}
+
+static int unit_find_path(sd_bus *bus, const char *unit_name, const char *template, bool avoid_bus_cache, LookupPaths *lp, char **path) {
+        int r;
+
+        assert(unit_name);
+        assert(path);
+        assert(lp);
+
+        if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free_ char *unit = NULL;
+                _cleanup_free_ char *tmp_path = NULL;
+
+                unit = unit_dbus_path_from_name(unit_name);
+                if (!unit)
+                        return log_oom();
+
+                if (need_daemon_reload(bus, unit_name) > 0) {
+                        warn_unit_file_changed(unit_name);
+                        return 0;
+                }
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "FragmentPath",
+                                &error,
+                                &tmp_path);
+                if (r < 0) {
+                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
+                        return 0;
+                }
+
+                if (isempty(tmp_path)) {
+                        log_warning("%s ignored: not found", template);
+                        return 0;
+                }
+
+                *path = tmp_path;
+                tmp_path = NULL;
+
+                return 1;
+        } else {
+                r = unit_file_find_path(lp, template, path);
+                if (r == 0)
+                        log_warning("%s ignored: not found", template);
+                return r;
+        }
+
+        return 0;
+}
+
 typedef struct WaitData {
         Set *set;
 
@@ -5719,31 +5797,6 @@ static int is_system_running(sd_bus *bus, char **args) {
         return streq(state, "running") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **unit_path) {
-        char **p;
-
-        assert(lp);
-        assert(unit_name);
-        assert(unit_path);
-
-        STRV_FOREACH(p, lp->unit_path) {
-                char *path;
-
-                path = path_join(arg_root, *p, unit_name);
-                if (!path)
-                        return log_oom();
-
-                if (access(path, F_OK) == 0) {
-                        *unit_path = path;
-                        return 1;
-                }
-
-                free(path);
-        }
-
-        return 0;
-}
-
 static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
         char *t;
         int r;
@@ -6039,59 +6092,6 @@ static int run_editor(char **paths) {
                 return log_error_errno(r, "Failed to wait for child: %m");
 
         return r;
-}
-
-static int unit_find_path(sd_bus *bus, const char *unit_name, const char *template, bool avoid_bus_cache, LookupPaths *lp, char **path) {
-        int r;
-
-        assert(unit_name);
-        assert(path);
-        assert(lp);
-
-        if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *unit = NULL;
-                _cleanup_free_ char *tmp_path = NULL;
-
-                unit = unit_dbus_path_from_name(unit_name);
-                if (!unit)
-                        return log_oom();
-
-                if (need_daemon_reload(bus, unit_name) > 0) {
-                        warn_unit_file_changed(unit_name);
-                        return 0;
-                }
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "FragmentPath",
-                                &error,
-                                &tmp_path);
-                if (r < 0) {
-                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
-                        return 0;
-                }
-
-                if (isempty(tmp_path)) {
-                        log_warning("%s ignored: not found", template);
-                        return 0;
-                }
-
-                *path = tmp_path;
-                tmp_path = NULL;
-
-                return 1;
-        } else {
-                r = unit_file_find_path(lp, template, path);
-                if (r == 0)
-                        log_warning("%s ignored: not found", template);
-                return r;
-        }
-
-        return 0;
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
