@@ -265,7 +265,6 @@ char *ascii_is_valid(const char *str) {
 
 int utf8_encode_unichar(uint16_t c, char *p) {
         uint8_t *t = (uint8_t*) p;
-        int d;
 
         if (c < 0x80) {
                 t[0] = (uint8_t) c;
