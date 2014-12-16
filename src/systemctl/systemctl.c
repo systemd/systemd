@@ -2270,6 +2270,14 @@ static int need_daemon_reload(sd_bus *bus, const char *unit) {
         return b;
 }
 
+static void warn_unit_file_changed(const char *name) {
+        log_warning("%sWarning:%s %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
+                    ansi_highlight_red(),
+                    ansi_highlight_off(),
+                    name,
+                    arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+}
+
 typedef struct WaitData {
         Set *set;
 
@@ -2676,8 +2684,7 @@ static int start_unit_one(
                 return bus_log_parse_error(r);
 
         if (need_daemon_reload(bus, name) > 0)
-                log_warning("Warning: Unit file of %s changed on disk, 'systemctl%s daemon-reload' recommended.",
-                            name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                warn_unit_file_changed(name);
 
         if (s) {
                 char *p;
@@ -3606,10 +3613,7 @@ static void print_status_info(
         }
 
         if (i->need_daemon_reload)
-                printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %sdaemon-reload' recommended.\n",
-                       ansi_highlight_red(),
-                       ansi_highlight_off(),
-                       arg_scope == UNIT_FILE_SYSTEM ? "" : "--user ");
+                warn_unit_file_changed(i->id);
 }
 
 static void show_unit_help(UnitStatusInfo *i) {
@@ -4612,8 +4616,7 @@ static int cat(sd_bus *bus, char **args) {
                         return log_oom();
 
                 if (need_daemon_reload(bus, *name) > 0)
-                        log_warning("Unit file of %s changed on disk. Run 'systemctl%s daemon-reload'.",
-                                    *name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                        warn_unit_file_changed(*name);
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -6055,8 +6058,7 @@ static int unit_find_path(sd_bus *bus, const char *unit_name, const char *templa
                         return log_oom();
 
                 if (need_daemon_reload(bus, unit_name) > 0) {
-                        log_warning("%s ignored: unit file changed on disk. Run 'systemctl%s daemon-reload'.",
-                                    unit_name, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                        warn_unit_file_changed(unit_name);
                         return 0;
                 }
 
