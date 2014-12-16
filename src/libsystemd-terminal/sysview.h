@@ -51,6 +51,8 @@ typedef struct sysview_context          sysview_context;
  */
 
 enum {
+        SYSVIEW_EVENT_SETTLE,
+
         SYSVIEW_EVENT_SEAT_ADD,
         SYSVIEW_EVENT_SEAT_REMOVE,
 

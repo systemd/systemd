@@ -113,6 +113,7 @@ struct sysview_context {
         sd_bus *sysbus;
         struct udev *ud;
         uint64_t custom_sid;
+        unsigned int n_probe;
 
         Hashmap *seat_map;
         Hashmap *session_map;
@@ -137,6 +138,7 @@ struct sysview_context {
         bool running : 1;
         bool scanned : 1;
         bool rescan : 1;
+        bool settled : 1;
 };
 
 int sysview_context_rescan(sysview_context *c);

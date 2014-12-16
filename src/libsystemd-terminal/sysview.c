@@ -474,6 +474,14 @@ static int context_raise(sysview_context *c, sysview_event *event, int def) {
         return c->running ? c->event_fn(c, c->userdata, event) : def;
 }
 
+static int context_raise_settle(sysview_context *c) {
+        sysview_event event = {
+                .type = SYSVIEW_EVENT_SETTLE,
+        };
+
+        return context_raise(c, &event, 0);
+}
+
 static int context_raise_seat_add(sysview_context *c, sysview_seat *seat) {
         sysview_event event = {
                 .type = SYSVIEW_EVENT_SEAT_ADD,
@@ -583,6 +591,21 @@ static int context_raise_session_refresh(sysview_context *c, sysview_session *se
         };
 
         return context_raise(c, &event, 0);
+}
+
+static void context_settle(sysview_context *c) {
+        int r;
+
+        if (c->n_probe <= 0 || --c->n_probe > 0)
+                return;
+
+        log_debug("sysview: settle");
+
+        c->settled = true;
+
+        r = context_raise_settle(c);
+        if (r < 0)
+                log_debug_errno(r, "sysview: callback failed on settle: %m");
 }
 
 static void context_add_device(sysview_context *c, sysview_device *device) {
@@ -1251,7 +1274,8 @@ static int context_ld_list_seats_fn(sd_bus *bus,
 
                 log_debug("sysview: ListSeats on logind failed: %s: %s",
                           error->name, error->message);
-                return -sd_bus_error_get_errno(error);
+                r = -sd_bus_error_get_errno(error);
+                goto settle;
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(so)");
@@ -1277,12 +1301,16 @@ static int context_ld_list_seats_fn(sd_bus *bus,
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
-                return r;
+                goto error;
 
-        return 0;
+        r = 0;
+        goto settle;
 
 error:
-        return log_debug_errno(r, "sysview: erroneous ListSeats response from logind: %m");
+        log_debug_errno(r, "sysview: erroneous ListSeats response from logind: %m");
+settle:
+        context_settle(c);
+        return r;
 }
 
 static int context_ld_list_sessions_fn(sd_bus *bus,
@@ -1299,7 +1327,8 @@ static int context_ld_list_sessions_fn(sd_bus *bus,
 
                 log_debug("sysview: ListSessions on logind failed: %s: %s",
                           error->name, error->message);
-                return -sd_bus_error_get_errno(error);
+                r = -sd_bus_error_get_errno(error);
+                goto settle;
         }
 
         r = sd_bus_message_enter_container(reply, 'a', "(susso)");
@@ -1341,12 +1370,16 @@ static int context_ld_list_sessions_fn(sd_bus *bus,
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
-                return r;
+                goto error;
 
-        return 0;
+        r = 0;
+        goto settle;
 
 error:
-        return log_debug_errno(r, "sysview: erroneous ListSessions response from logind: %m");
+        log_debug_errno(r, "sysview: erroneous ListSessions response from logind: %m");
+settle:
+        context_settle(c);
+        return r;
 }
 
 static int context_ld_scan(sysview_context *c) {
@@ -1376,6 +1409,9 @@ static int context_ld_scan(sysview_context *c) {
         if (r < 0)
                 return r;
 
+        if (!c->settled)
+                ++c->n_probe;
+
         /* request session list */
 
         m = sd_bus_message_unref(m);
@@ -1396,6 +1432,9 @@ static int context_ld_scan(sysview_context *c) {
                               0);
         if (r < 0)
                 return r;
+
+        if (!c->settled)
+                ++c->n_probe;
 
         return 0;
 }
@@ -1461,6 +1500,8 @@ void sysview_context_stop(sysview_context *c) {
 
         c->running = false;
         c->scanned = false;
+        c->settled = false;
+        c->n_probe = 0;
         c->event_fn = NULL;
         c->userdata = NULL;
         c->scan_src = sd_event_source_unref(c->scan_src);
@@ -1473,6 +1514,8 @@ static int context_scan_fn(sd_event_source *s, void *userdata) {
         sysview_seat *seat;
         Iterator i;
         int r;
+
+        c->rescan = false;
 
         if (!c->scanned) {
                 r = context_ld_scan(c);
@@ -1491,6 +1534,7 @@ static int context_scan_fn(sd_event_source *s, void *userdata) {
         }
 
         c->scanned = true;
+        context_settle(c);
 
         return 0;
 }
@@ -1500,6 +1544,12 @@ int sysview_context_rescan(sysview_context *c) {
 
         if (!c->running)
                 return 0;
+
+        if (!c->rescan) {
+                c->rescan = true;
+                if (!c->settled)
+                        ++c->n_probe;
+        }
 
         if (c->scan_src)
                 return sd_event_source_set_enabled(c->scan_src, SD_EVENT_ONESHOT);
