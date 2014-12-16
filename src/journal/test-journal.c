@@ -80,15 +80,6 @@ static void test_non_empty(void) {
         assert_se(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_skip_entry(f, o, p, 2, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
-
-        assert_se(journal_file_skip_entry(f, o, p, -2, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
-
-        assert_se(journal_file_skip_entry(f, o, p, -2, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
-
         assert_se(journal_file_find_data_object(f, test, strlen(test), NULL, &p) == 1);
         assert_se(journal_file_next_entry_for_data(f, NULL, 0, p, DIRECTION_DOWN, &o, NULL) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);

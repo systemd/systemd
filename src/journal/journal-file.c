@@ -1995,55 +1995,6 @@ int journal_file_next_entry(
         return 1;
 }
 
-int journal_file_skip_entry(
-                JournalFile *f,
-                Object *o, uint64_t p,
-                int64_t skip,
-                Object **ret, uint64_t *offset) {
-
-        uint64_t i, n;
-        int r;
-
-        assert(f);
-        assert(o);
-        assert(p > 0);
-
-        if (o->object.type != OBJECT_ENTRY)
-                return -EINVAL;
-
-        r = generic_array_bisect(f,
-                                 le64toh(f->header->entry_array_offset),
-                                 le64toh(f->header->n_entries),
-                                 p,
-                                 test_object_offset,
-                                 DIRECTION_DOWN,
-                                 NULL, NULL,
-                                 &i);
-        if (r <= 0)
-                return r;
-
-        /* Calculate new index */
-        if (skip < 0) {
-                if ((uint64_t) -skip >= i)
-                        i = 0;
-                else
-                        i = i - (uint64_t) -skip;
-        } else
-                i  += (uint64_t) skip;
-
-        n = le64toh(f->header->n_entries);
-        if (n <= 0)
-                return -EBADMSG;
-
-        if (i >= n)
-                i = n-1;
-
-        return generic_array_get(f,
-                                 le64toh(f->header->entry_array_offset),
-                                 i,
-                                 ret, offset);
-}
-
 int journal_file_next_entry_for_data(
                 JournalFile *f,
                 Object *o, uint64_t p,
