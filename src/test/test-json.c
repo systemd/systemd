@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <math.h>
+
 #include "log.h"
 #include "util.h"
 #include "json.h"
@@ -52,7 +54,7 @@ static void test_one(const char *data, ...) {
                         double d;
 
                         d = va_arg(ap, double);
-                        assert_se(abs(d - v.real) < 0.001);
+                        assert_se(fabs(d - v.real) < 0.001);
 
                 } else if (t == JSON_INTEGER) {
                         intmax_t i;
