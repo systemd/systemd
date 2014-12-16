@@ -180,7 +180,6 @@ int journal_file_skip_entry(JournalFile *f, Object *o, uint64_t p, int64_t skip,
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *o, uint64_t p, uint64_t data_offset, direction_t direction, Object **ret, uint64_t *offset);
 
-int journal_file_move_to_entry_by_offset(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_realtime(JournalFile *f, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
