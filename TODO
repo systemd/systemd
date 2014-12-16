@@ -123,7 +123,10 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* systemctl edit: add commented help text to the end, like git commit
+* systemctl edit:
+- allow creation of units from scratch
+- use equvalent of cat() to insert existing config as a comment, prepended with #.
+  Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
 
 * refcounting in sd-resolve is borked
 
