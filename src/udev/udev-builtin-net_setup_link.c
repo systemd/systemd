@@ -27,7 +27,7 @@ static link_config_ctx *ctx = NULL;
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
-        const char *name;
+        const char *name = NULL;
         link_config *link;
         int r;
 
