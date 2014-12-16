@@ -3133,9 +3133,9 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWNS|
-                                          (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
-                                          (arg_private_network ? CLONE_NEWNET : 0), NULL);
+                pid = raw_clone(SIGCHLD|CLONE_NEWNS|
+                                (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
+                                (arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
                         if (errno == EINVAL)
                                 r = log_error_errno(errno, "clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
