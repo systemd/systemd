@@ -1450,6 +1450,8 @@ AC_MSG_RESULT([
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         compatibility libraries: ${have_compat_libs}
         utmp/wtmp support:       ${have_utmp}
+        ldconfig support:        ${enable_ldconfig}
+        hibernate support:       ${enable_hibernate}
         extra debugging:         ${enable_debug}
 
         prefix:                  ${prefix}
