@@ -77,6 +77,7 @@ typedef struct JournalFile {
         bool tail_entry_monotonic_valid:1;
 
         direction_t last_direction;
+        LocationType location_type;
 
         char *path;
         struct stat last_stat;
@@ -86,6 +87,11 @@ typedef struct JournalFile {
         HashItem *field_hash_table;
 
         uint64_t current_offset;
+        uint64_t current_seqnum;
+        uint64_t current_realtime;
+        uint64_t current_monotonic;
+        sd_id128_t current_boot_id;
+        uint64_t current_xor_hash;
 
         JournalMetrics metrics;
         MMapCache *mmap;
@@ -190,6 +196,7 @@ int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t s
 int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
 
 void journal_file_reset_location(JournalFile *f);
+void journal_file_save_location(JournalFile *f, direction_t direction, Object *o, uint64_t offset);
 int journal_file_next_entry(JournalFile *f, Object *o, uint64_t p, direction_t direction, Object **ret, uint64_t *offset);
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *o, uint64_t p, uint64_t data_offset, direction_t direction, Object **ret, uint64_t *offset);

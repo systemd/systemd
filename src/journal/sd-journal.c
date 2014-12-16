@@ -128,6 +128,10 @@ static void set_location(sd_journal *j, LocationType type, JournalFile *f, Objec
 
         f->last_direction = direction;
         f->current_offset = offset;
+
+        /* Let f know its candidate entry was picked. */
+        assert(f->location_type == LOCATION_SEEK);
+        f->location_type = LOCATION_DISCRETE;
 }
 
 static int match_is_valid(const void *data, size_t size) {
@@ -855,6 +859,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         found = true;
 
                 if (found) {
+                        journal_file_save_location(f, direction, c, cp);
+
                         if (ret)
                                 *ret = c;
                         if (offset)
@@ -887,8 +893,10 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
                         continue;
-                } else if (r == 0)
+                } else if (r == 0) {
+                        f->location_type = LOCATION_TAIL;
                         continue;
+                }
 
                 if (!new_file)
                         found = true;

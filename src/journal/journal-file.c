@@ -1929,7 +1929,24 @@ int journal_file_move_to_entry_by_monotonic(
 }
 
 void journal_file_reset_location(JournalFile *f) {
+        f->location_type = LOCATION_HEAD;
         f->current_offset = 0;
+        f->current_seqnum = 0;
+        f->current_realtime = 0;
+        f->current_monotonic = 0;
+        zero(f->current_boot_id);
+        f->current_xor_hash = 0;
+}
+
+void journal_file_save_location(JournalFile *f, direction_t direction, Object *o, uint64_t offset) {
+        f->last_direction = direction;
+        f->location_type = LOCATION_SEEK;
+        f->current_offset = offset;
+        f->current_seqnum = le64toh(o->entry.seqnum);
+        f->current_realtime = le64toh(o->entry.realtime);
+        f->current_monotonic = le64toh(o->entry.monotonic);
+        f->current_boot_id = o->entry.boot_id;
+        f->current_xor_hash = le64toh(o->entry.xor_hash);
 }
 
 int journal_file_next_entry(
