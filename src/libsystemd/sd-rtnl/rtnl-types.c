@@ -332,15 +332,12 @@ static const NLTypeSystem rtnl_route_type_system = {
 static const NLType rtnl_neigh_types[NDA_MAX + 1] = {
         [NDA_DST]               = { .type = NLA_IN_ADDR },
         [NDA_LLADDR]            = { .type = NLA_ETHER_ADDR },
-/*
-        NDA_CACHEINFO,
-        NDA_PROBES,
-        NDA_VLAN,
-        NDA_PORT
-        NDA_VNI
-        NDA_IFINDEX
-        NDA_MASTER
-*/
+        [NDA_CACHEINFO]         = { .type = NLA_CACHE_INFO, .size = sizeof(struct nda_cacheinfo) },
+        [NDA_PROBES]            = { .type = NLA_U32 },
+        [NDA_VLAN]              = { .type = NLA_U16 },
+        [NDA_PORT]              = { .type = NLA_U16 },
+        [NDA_VNI]               = { .type = NLA_U32 },
+        [NDA_IFINDEX]           = { .type = NLA_U32 },
 };
 
 static const NLTypeSystem rtnl_neigh_type_system = {

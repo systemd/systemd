@@ -62,6 +62,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         LIST_HEAD_INIT(network->static_addresses);
         LIST_HEAD_INIT(network->static_routes);
+        LIST_HEAD_INIT(network->static_fdb_entries);
 
         network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
@@ -73,6 +74,10 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->routes_by_section = hashmap_new(NULL);
         if (!network->routes_by_section)
+                return log_oom();
+
+        network->fdb_entries_by_section = hashmap_new(NULL);
+        if (!network->fdb_entries_by_section)
                 return log_oom();
 
         network->filename = strdup(filename);
@@ -97,7 +102,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                          "Route\0"
                          "DHCP\0"
                          "DHCPv4\0"
-                         "Bridge\0",
+                         "Bridge\0"
+                         "BridgeFDB\0",
                          config_item_perf_lookup, network_network_gperf_lookup,
                          false, false, true, network);
         if (r < 0)
@@ -154,6 +160,7 @@ void network_free(Network *network) {
         NetDev *netdev;
         Route *route;
         Address *address;
+        FdbEntry *fdb_entry;
         Iterator i;
 
         if (!network)
@@ -192,8 +199,12 @@ void network_free(Network *network) {
         while ((address = network->static_addresses))
                 address_free(address);
 
+        while ((fdb_entry = network->static_fdb_entries))
+                fdb_entry_free(fdb_entry);
+
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
+        hashmap_free(network->fdb_entries_by_section);
 
         if (network->manager && network->manager->networks)
                 LIST_REMOVE(networks, network->manager->networks, network);

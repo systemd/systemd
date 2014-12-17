@@ -656,6 +656,21 @@ int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         return 1;
 }
 
+static int link_set_bridge_fdb(const Link *const link) {
+        FdbEntry *fdb_entry;
+        int r = 0;
+
+        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
+                r = fdb_entry_configure(link->manager->rtnl, fdb_entry, link->ifindex);
+                if(r < 0) {
+                        log_link_error(link, "Failed to add MAC entry to static MAC table: %s", strerror(-r));
+                        break;
+                }
+        }
+
+        return r;
+}
+
 static int link_set_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         _cleanup_link_unref_ Link *link = userdata;
         int r;
@@ -1146,6 +1161,10 @@ static int link_configure(Link *link) {
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
+
+        r = link_set_bridge_fdb(link);
+        if (r < 0)
+                return r;
 
         if (link_ipv4ll_enabled(link)) {
                 r = ipv4ll_configure(link);

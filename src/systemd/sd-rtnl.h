@@ -109,8 +109,12 @@ int sd_rtnl_message_route_get_family(sd_rtnl_message *m, int *family);
 int sd_rtnl_message_route_get_dst_prefixlen(sd_rtnl_message *m, unsigned char *dst_len);
 int sd_rtnl_message_route_get_src_prefixlen(sd_rtnl_message *m, unsigned char *src_len);
 
+int sd_rtnl_message_neigh_set_flags(sd_rtnl_message *m, uint8_t flags);
+int sd_rtnl_message_neigh_set_state(sd_rtnl_message *m, uint16_t state);
 int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family);
 int sd_rtnl_message_neigh_get_ifindex(sd_rtnl_message *m, int *family);
+int sd_rtnl_message_neigh_get_state(sd_rtnl_message *m, uint16_t *state);
+int sd_rtnl_message_neigh_get_flags(sd_rtnl_message *m, uint8_t *flags);
 
 int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const char *data);
 int sd_rtnl_message_append_u8(sd_rtnl_message *m, unsigned short type, uint8_t data);

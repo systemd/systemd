@@ -549,6 +549,28 @@
         </refsect1>
 
         <refsect1>
+                <title>[BridgeFDB] Section Options</title>
+                        <para>The <literal>[BridgeFDB]</literal> section manages the forwarding database table of a port and accepts the following keys. Specify
+                        several <literal>[BridgeFDB]</literal> sections to configure several static MAC table entries.</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>MACAddress=</varname></term>
+                                        <listitem>
+                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>VLANId=</varname></term>
+                                        <listitem>
+                                                <para>The VLAN Id for the new static MAC table entry.
+                                                If omitted, no VLAN Id info is appended to the new static MAC table entry.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>Example</title>
                 <example>
                         <title>/etc/systemd/network/50-static.network</title>

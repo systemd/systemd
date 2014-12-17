@@ -51,6 +51,7 @@ typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
 typedef struct AddressPool AddressPool;
+typedef struct FdbEntry FdbEntry;
 
 typedef enum DHCPSupport {
         DHCP_SUPPORT_NONE,
@@ -68,6 +69,16 @@ typedef enum LLMNRSupport {
         _LLMNR_SUPPORT_MAX,
         _LLMNR_SUPPORT_INVALID = -1,
 } LLMNRSupport;
+
+struct FdbEntry {
+        Network *network;
+        unsigned section;
+
+        struct ether_addr *mac_addr;
+        uint16_t vlan_id;
+
+        LIST_FIELDS(FdbEntry, static_fdb_entries);
+};
 
 struct Network {
         Manager *manager;
@@ -113,9 +124,11 @@ struct Network {
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
+        LIST_HEAD(FdbEntry, static_fdb_entries);
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
+        Hashmap *fdb_entries_by_section;
 
         bool wildcard_domain;
         char **domains, **dns, **ntp;
@@ -326,6 +339,22 @@ int config_parse_broadcast(const char *unit, const char *filename, unsigned line
 int config_parse_label(const char *unit, const char *filename, unsigned line,
                        const char *section, unsigned section_line, const char *lvalue,
                        int ltype, const char *rvalue, void *data, void *userdata);
+
+/* Forwarding database table. */
+int fdb_entry_configure(sd_rtnl *const rtnl, FdbEntry *const fdb_entry, const int ifindex);
+void fdb_entry_free(FdbEntry *fdb_entry);
+int fdb_entry_new_static(Network *const network, const unsigned section, FdbEntry **ret);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry*, fdb_entry_free);
+#define _cleanup_fdbentry_free_ _cleanup_(fdb_entry_freep)
+
+int config_parse_fdb_hwaddr(const char *unit, const char *filename, unsigned line,
+                            const char *section, unsigned section_line, const char *lvalue,
+                            int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned line,
+                             const char *section, unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data, void *userdata);
 
 /* DHCP support */
 

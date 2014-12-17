@@ -220,6 +220,58 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_neigh_set_flags(sd_rtnl_message *m, uint8_t flags) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        ndm->ndm_flags |= flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_set_state(sd_rtnl_message *m, uint16_t state) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        ndm->ndm_state |= state;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_get_flags(sd_rtnl_message *m, uint8_t *flags) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        *flags = ndm->ndm_flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_neigh_get_state(sd_rtnl_message *m, uint16_t *state) {
+        struct ndmsg *ndm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
+
+        ndm = NLMSG_DATA(m->hdr);
+        *state = ndm->ndm_state;
+
+        return 0;
+}
+
 int sd_rtnl_message_neigh_get_family(sd_rtnl_message *m, int *family) {
         struct ndmsg *ndm;
 
@@ -255,7 +307,9 @@ int sd_rtnl_message_new_neigh(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlm
         int r;
 
         assert_return(rtnl_message_type_is_neigh(nlmsg_type), -EINVAL);
-        assert_return(ndm_family == AF_INET || ndm_family == AF_INET6, -EINVAL);
+        assert_return(ndm_family == AF_INET  ||
+                      ndm_family == AF_INET6 ||
+                      ndm_family == PF_BRIDGE, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
