@@ -2082,6 +2082,27 @@ finish:
 
 }
 
+static int setup_propagate(const char *root) {
+        const char *p, *q;
+
+        (void) mkdir_p("/run/systemd/nspawn/", 0755);
+        (void) mkdir_p("/run/systemd/nspawn/propagate", 0600);
+        p = strappenda("/run/systemd/nspawn/propagate/", arg_machine);
+        (void) mkdir_p(p, 0600);
+
+        q = strappenda(root, "/run/systemd/nspawn/incoming");
+        mkdir_parents(q, 0755);
+        mkdir_p(q, 0600);
+
+        if (mount(p, q, NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "Failed to install propagation bind mount.");
+
+        if (mount(NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0)
+                return log_error_errno(errno, "Failed to make propagation mount read-only");
+
+        return 0;
+}
+
 static int setup_image(char **device_path, int *loop_nr) {
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR|LO_FLAGS_PARTSCAN
@@ -3260,6 +3281,9 @@ int main(int argc, char *argv[]) {
 
                         dev_setup(arg_directory);
 
+                        if (setup_propagate(arg_directory) < 0)
+                                _exit(EXIT_FAILURE);
+
                         if (setup_seccomp() < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -3569,6 +3593,13 @@ finish:
                 k = btrfs_subvol_remove(arg_directory);
                 if (k < 0)
                         log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
+        }
+
+        if (arg_machine) {
+                const char *p;
+
+                p = strappenda("/run/systemd/nspawn/propagate", arg_machine);
+                (void) rm_rf(p, false, true, false);
         }
 
         free(arg_directory);

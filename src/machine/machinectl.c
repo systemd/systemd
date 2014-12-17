@@ -30,6 +30,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <sys/mount.h>
 
 #include "sd-bus.h"
 #include "log.h"
@@ -45,6 +46,8 @@
 #include "cgroup-util.h"
 #include "ptyfwd.h"
 #include "event-util.h"
+#include "path-util.h"
+#include "mkdir.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -55,6 +58,8 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
+static bool arg_read_only = false;
+static bool arg_mkdir = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -572,6 +577,241 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int machine_get_leader(sd_bus *bus, const char *name, pid_t *ret) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL;
+        const char *object;
+        uint32_t leader;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetMachine",
+                        &error,
+                        &reply,
+                        "s", name);
+        if (r < 0) {
+                log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.machine1",
+                        object,
+                        "org.freedesktop.machine1.Machine",
+                        "Leader",
+                        &error,
+                        &reply2,
+                        "u");
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve PID of leader: %m");
+
+        r = sd_bus_message_read(reply2, "u", &leader);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        *ret = leader;
+        return 0;
+}
+
+static int bind_mount(sd_bus *bus, char **args, unsigned n) {
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
+        pid_t child, leader;
+        const char *dest;
+        siginfo_t si;
+        bool mount_slave_created = false, mount_slave_mounted = false,
+                mount_tmp_created = false, mount_tmp_mounted = false,
+                mount_outside_created = false, mount_outside_mounted = false;
+        int r;
+
+        /* One day, when bind mounting /proc/self/fd/n works across
+         * namespace boundaries we should rework this logic to make
+         * use of it... */
+
+        if (n > 4) {
+                log_error("Too many arguments.");
+                return -EINVAL;
+        }
+
+        dest = args[3] ?: args[2];
+        if (!path_is_absolute(dest)) {
+                log_error("Destination path not absolute.");
+                return -EINVAL;
+        }
+
+        p = strappenda("/run/systemd/nspawn/propagate/", args[1], "/");
+        if (access(p, F_OK) < 0) {
+                log_error("Container does not allow propagation of mount points.");
+                return -ENOTSUP;
+        }
+
+        r = machine_get_leader(bus, args[1], &leader);
+        if (r < 0)
+                return r;
+
+        /* Our goal is to install a new bind mount into the container,
+           possibly read-only. This is irritatingly complex
+           unfortunately, currently.
+
+           First, we start by creating a private playground in /tmp,
+           that we can mount MS_SLAVE. (Which is necessary, since
+           MS_MOUNT cannot be applied to mounts with MS_SHARED parent
+           mounts.) */
+
+        if (!mkdtemp(mount_slave))
+                return log_error_errno(errno, "Failed to create playground: %m");
+
+        mount_slave_created = true;
+
+        if (mount(mount_slave, mount_slave, NULL, MS_BIND, NULL) < 0) {
+                r = log_error_errno(errno, "Failed to make bind mount: %m");
+                goto finish;
+        }
+
+        mount_slave_mounted = true;
+
+        if (mount(NULL, mount_slave, NULL, MS_SLAVE, NULL) < 0) {
+                r = log_error_errno(errno, "Failed to remount slave: %m");
+                goto finish;
+        }
+
+        /* Second, we mount the source directory to a directory inside
+           of our MS_SLAVE playground. */
+        mount_tmp = strappenda(mount_slave, "/mount");
+        if (mkdir(mount_tmp, 0700) < 0) {
+                r = log_error_errno(errno, "Failed to create temporary mount: %m");
+                goto finish;
+        }
+
+        mount_tmp_created = true;
+
+        if (mount(args[2], mount_tmp, NULL, MS_BIND, NULL) < 0) {
+                r = log_error_errno(errno, "Failed to overmount: %m");
+                goto finish;
+        }
+
+        mount_tmp_mounted = true;
+
+        /* Third, we remount the new bind mount read-only if requested. */
+        if (arg_read_only)
+                if (mount(NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
+                        r = log_error_errno(errno, "Failed to mark read-only: %m");
+                        goto finish;
+                }
+
+        /* Fourth, we move the new bind mount into the propagation
+         * directory. This way it will appear there read-only
+         * right-away. */
+
+        mount_outside = strappenda("/run/systemd/nspawn/propagate/", args[1], "/XXXXXX");
+        if (!mkdtemp(mount_outside)) {
+                r = log_error_errno(errno, "Cannot create propagation directory: %m");
+                goto finish;
+        }
+
+        mount_outside_created = true;
+
+        if (mount(mount_tmp, mount_outside, NULL, MS_MOVE, NULL) < 0) {
+                r = log_error_errno(errno, "Failed to move: %m");
+                goto finish;
+        }
+
+        mount_outside_mounted = true;
+        mount_tmp_mounted = false;
+
+        (void) rmdir(mount_tmp);
+        mount_tmp_created = false;
+
+        (void) umount(mount_slave);
+        mount_slave_mounted = false;
+
+        (void) rmdir(mount_slave);
+        mount_slave_created = false;
+
+        child = fork();
+        if (child < 0) {
+                r = log_error_errno(errno, "Failed to fork(): %m");
+                goto finish;
+        }
+
+        if (child == 0) {
+                const char *mount_inside;
+                int mntfd;
+                const char *q;
+
+                q = procfs_file_alloca(leader, "ns/mnt");
+                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntfd < 0) {
+                        log_error_errno(errno, "Failed to open mount namespace of leader: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (setns(mntfd, CLONE_NEWNS) < 0) {
+                        log_error_errno(errno, "Failed to join namespace of leader: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (arg_mkdir)
+                        mkdir_p(dest, 0755);
+
+                /* Fifth, move the mount to the right place inside */
+                mount_inside = strappenda("/run/systemd/nspawn/incoming/", basename(mount_outside));
+                if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
+                        log_error_errno(errno, "Failed to mount: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0) {
+                log_error_errno(r, "Failed to wait for client: %m");
+                goto finish;
+        }
+        if (si.si_code != CLD_EXITED) {
+                log_error("Client died abnormally.");
+                r = -EIO;
+                goto finish;
+        }
+        if (si.si_status != EXIT_SUCCESS) {
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (mount_outside_mounted)
+                umount(mount_outside);
+        if (mount_outside_created)
+                rmdir(mount_outside);
+
+        if (mount_tmp_mounted)
+                umount(mount_tmp);
+        if (mount_tmp_created)
+                umount(mount_tmp);
+
+        if (mount_slave_mounted)
+                umount(mount_slave);
+        if (mount_slave_created)
+                umount(mount_slave);
+
+        return r;
+}
+
 static int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
@@ -658,15 +898,15 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 }
 
 static int login_machine(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
-        const char *path, *pty, *p;
-        uint32_t leader;
+        const char *pty, *p;
+        pid_t leader;
         sigset_t mask;
         int r, ret = 0;
 
@@ -686,39 +926,9 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.machine1",
-                        "/org/freedesktop/machine1",
-                        "org.freedesktop.machine1.Manager",
-                        "GetMachine",
-                        &error,
-                        &reply,
-                        "s", args[1]);
-        if (r < 0) {
-                log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+        r = machine_get_leader(bus, args[1], &leader);
+        if (r < 0)
                 return r;
-        }
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.machine1",
-                        path,
-                        "org.freedesktop.machine1.Machine",
-                        "Leader",
-                        &error,
-                        &reply2,
-                        "u");
-        if (r < 0)
-                return log_error_errno(r, "Failed to retrieve PID of leader: %m");
-
-        r = sd_bus_message_read(reply2, "u", &leader);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0)
@@ -750,7 +960,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                                "/org/freedesktop/systemd1",
                                "org.freedesktop.systemd1.Manager",
                                "StartUnit",
-                               &error, &reply3,
+                               &error, &reply,
                                "ss", getty, "replace");
         if (r < 0) {
                 log_error("Failed to start getty service: %s", bus_error_message(&error, r));
@@ -799,7 +1009,9 @@ static void help(void) {
                "  -a --all               Show all properties, including empty ones\n"
                "  -l --full              Do not ellipsize output\n"
                "     --kill-who=WHO      Who to send signal to\n"
-               "  -s --signal=SIGNAL     Which signal to send\n\n"
+               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --read-only         Create read-only bind mount\n"
+               "     --mkdir             Create directory before bind mounting, if missing\n\n"
                "Commands:\n"
                "  list                   List running VMs and containers\n"
                "  status NAME...         Show VM/container status\n"
@@ -808,7 +1020,8 @@ static void help(void) {
                "  poweroff NAME...       Power off one or more containers\n"
                "  reboot NAME...         Reboot one or more containers\n"
                "  kill NAME...           Send signal to processes of a VM/container\n"
-               "  terminate NAME...      Terminate one or more VMs/containers\n",
+               "  terminate NAME...      Terminate one or more VMs/containers\n"
+               "  bind NAME PATH [PATH]  Bind mount a path from the host into a container\n",
                program_invocation_short_name);
 }
 
@@ -819,6 +1032,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_KILL_WHO,
+                ARG_READ_ONLY,
+                ARG_MKDIR,
         };
 
         static const struct option options[] = {
@@ -833,6 +1048,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
+                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
+                { "mkdir",           no_argument,       NULL, ARG_MKDIR           },
                 {}
         };
 
@@ -903,6 +1120,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
+                case ARG_READ_ONLY:
+                        arg_read_only = true;
+                        break;
+
+                case ARG_MKDIR:
+                        arg_mkdir = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -933,6 +1158,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "poweroff",              MORE,   2, poweroff_machine  },
                 { "kill",                  MORE,   2, kill_machine      },
                 { "login",                 MORE,   2, login_machine     },
+                { "bind",                  MORE,   3, bind_mount        },
         };
 
         int left;
