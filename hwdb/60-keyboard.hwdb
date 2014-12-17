@@ -562,6 +562,10 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:pvr*
  KEYBOARD_KEY_98=suspend                                # Fn+F12 hibernate
  KEYBOARD_KEY_b4=prog1                                  # Lenovo Care
 
+# "Lenovo Care" Key of the 3000 N200
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
+ KEYBOARD_KEY_b4=prog1
+
 # lenovo-ideapad
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:pvr*
