@@ -412,90 +412,6 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-static int compare_entry_order(JournalFile *af, Object *_ao,
-                               JournalFile *bf, uint64_t bp) {
-
-        uint64_t a, b;
-        Object *ao, *bo;
-        int r;
-
-        assert(af);
-        assert(bf);
-        assert(_ao);
-
-        /* The mmap cache might invalidate the object from the first
-         * file if we look at the one from the second file. Hence
-         * temporarily copy the header of the first one, and look at
-         * that only. */
-        ao = alloca(offsetof(EntryObject, items));
-        memcpy(ao, _ao, offsetof(EntryObject, items));
-
-        r = journal_file_move_to_object(bf, OBJECT_ENTRY, bp, &bo);
-        if (r < 0)
-                return strcmp(af->path, bf->path);
-
-        /* We operate on two different files here, hence we can access
-         * two objects at the same time, which we normally can't.
-         *
-         * If contents and timestamps match, these entries are
-         * identical, even if the seqnum does not match */
-
-        if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id) &&
-            ao->entry.monotonic == bo->entry.monotonic &&
-            ao->entry.realtime == bo->entry.realtime &&
-            ao->entry.xor_hash == bo->entry.xor_hash)
-                return 0;
-
-        if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
-
-                /* If this is from the same seqnum source, compare
-                 * seqnums */
-                a = le64toh(ao->entry.seqnum);
-                b = le64toh(bo->entry.seqnum);
-
-                if (a < b)
-                        return -1;
-                if (a > b)
-                        return 1;
-
-                /* Wow! This is weird, different data but the same
-                 * seqnums? Something is borked, but let's make the
-                 * best of it and compare by time. */
-        }
-
-        if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
-
-                /* If the boot id matches, compare monotonic time */
-                a = le64toh(ao->entry.monotonic);
-                b = le64toh(bo->entry.monotonic);
-
-                if (a < b)
-                        return -1;
-                if (a > b)
-                        return 1;
-        }
-
-        /* Otherwise, compare UTC time */
-        a = le64toh(ao->entry.realtime);
-        b = le64toh(bo->entry.realtime);
-
-        if (a < b)
-                return -1;
-        if (a > b)
-                return 1;
-
-        /* Finally, compare by contents */
-        a = le64toh(ao->entry.xor_hash);
-        b = le64toh(bo->entry.xor_hash);
-
-        if (a < b)
-                return -1;
-        if (a > b)
-                return 1;
-
-        return 0;
-}
-
 _pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         uint64_t a;
 
@@ -898,7 +814,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 else {
                         int k;
 
-                        k = compare_entry_order(f, o, new_file, new_offset);
+                        k = journal_file_compare_locations(f, new_file);
 
                         found = direction == DIRECTION_DOWN ? k < 0 : k > 0;
                 }

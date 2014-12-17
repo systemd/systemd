@@ -1949,6 +1949,58 @@ void journal_file_save_location(JournalFile *f, direction_t direction, Object *o
         f->current_xor_hash = le64toh(o->entry.xor_hash);
 }
 
+int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
+        assert(af);
+        assert(bf);
+        assert(af->location_type == LOCATION_SEEK);
+        assert(bf->location_type == LOCATION_SEEK);
+
+        /* If contents and timestamps match, these entries are
+         * identical, even if the seqnum does not match */
+        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
+            af->current_monotonic == bf->current_monotonic &&
+            af->current_realtime == bf->current_realtime &&
+            af->current_xor_hash == bf->current_xor_hash)
+                return 0;
+
+        if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
+
+                /* If this is from the same seqnum source, compare
+                 * seqnums */
+                if (af->current_seqnum < bf->current_seqnum)
+                        return -1;
+                if (af->current_seqnum > bf->current_seqnum)
+                        return 1;
+
+                /* Wow! This is weird, different data but the same
+                 * seqnums? Something is borked, but let's make the
+                 * best of it and compare by time. */
+        }
+
+        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
+
+                /* If the boot id matches, compare monotonic time */
+                if (af->current_monotonic < bf->current_monotonic)
+                        return -1;
+                if (af->current_monotonic > bf->current_monotonic)
+                        return 1;
+        }
+
+        /* Otherwise, compare UTC time */
+        if (af->current_realtime < bf->current_realtime)
+                return -1;
+        if (af->current_realtime > bf->current_realtime)
+                return 1;
+
+        /* Finally, compare by contents */
+        if (af->current_xor_hash < bf->current_xor_hash)
+                return -1;
+        if (af->current_xor_hash > bf->current_xor_hash)
+                return 1;
+
+        return 0;
+}
+
 int journal_file_next_entry(
                 JournalFile *f,
                 Object *o, uint64_t p,
