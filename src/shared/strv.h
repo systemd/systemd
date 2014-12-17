@@ -34,6 +34,8 @@ void strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
+void strv_clear(char **l);
+
 char **strv_copy(char * const *l);
 unsigned strv_length(char * const *l) _pure_;
 
