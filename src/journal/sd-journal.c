@@ -727,7 +727,7 @@ static int next_with_matches(
         return next_for_match(j, j->level0, f, direction == DIRECTION_DOWN ? cp+1 : cp-1, direction, ret, offset);
 }
 
-static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, Object **ret, uint64_t *offset) {
+static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction) {
         Object *c;
         uint64_t cp;
         int r;
@@ -771,11 +771,6 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
                 if (found) {
                         journal_file_save_location(f, direction, c, cp);
-
-                        if (ret)
-                                *ret = c;
-                        if (offset)
-                                *offset = cp;
                         return 1;
                 }
 
@@ -787,7 +782,6 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
         JournalFile *f, *new_file = NULL;
-        uint64_t p = 0;
         Iterator i;
         Object *o;
         int r;
@@ -798,7 +792,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 bool found;
 
-                r = next_beyond_location(j, f, direction, &o, &p);
+                r = next_beyond_location(j, f, direction);
                 if (r < 0) {
                         log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
