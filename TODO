@@ -31,6 +31,22 @@ External:
 
 Features:
 
+* "machinectl run" that works like systemd-run, but allocates a pty in the container and attached the service to it
+
+* "machinectl start/enable/disable foo" as aliases for "systemctl start/enable/disable systemd-nspawn@foo.service"
+
+* "machinectl list-images" for showing a list of container trees collected from /var/lib/containers
+
+* "machinectl cp" to copy files in and out of a container
+
+* "machinectl snapshot" to make a snapshot of a tree or container into /var/lib/containers
+
+* "machinectl rm" to remove a container tree from /var/lib/containers
+
+* machined: open up certain commands to unprivileged clients via polkit
+
+* sysfs set api in libudev is not const
+
 * Find a solution for SMACK capabilities stuff:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
