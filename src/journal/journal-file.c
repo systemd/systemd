@@ -2003,7 +2003,7 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
 
 int journal_file_next_entry(
                 JournalFile *f,
-                Object *o, uint64_t p,
+                uint64_t p,
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
@@ -2011,18 +2011,14 @@ int journal_file_next_entry(
         int r;
 
         assert(f);
-        assert(p > 0 || !o);
 
         n = le64toh(f->header->n_entries);
         if (n <= 0)
                 return 0;
 
-        if (!o)
+        if (p == 0)
                 i = direction == DIRECTION_DOWN ? 0 : n - 1;
         else {
-                if (o->object.type != OBJECT_ENTRY)
-                        return -EINVAL;
-
                 r = generic_array_bisect(f,
                                          le64toh(f->header->entry_array_offset),
                                          le64toh(f->header->n_entries),

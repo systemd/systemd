@@ -681,9 +681,9 @@ static int find_location_with_matches(
                 /* No matches is simple */
 
                 if (j->current_location.type == LOCATION_HEAD)
-                        return journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, ret, offset);
+                        return journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, offset);
                 if (j->current_location.type == LOCATION_TAIL)
-                        return journal_file_next_entry(f, NULL, 0, DIRECTION_UP, ret, offset);
+                        return journal_file_next_entry(f, 0, DIRECTION_UP, ret, offset);
                 if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
                         return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
@@ -694,7 +694,7 @@ static int find_location_with_matches(
                 if (j->current_location.realtime_set)
                         return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, offset);
 
-                return journal_file_next_entry(f, NULL, 0, direction, ret, offset);
+                return journal_file_next_entry(f, 0, direction, ret, offset);
         } else
                 return find_location_for_match(j, j->level0, f, direction, ret, offset);
 }
@@ -706,7 +706,6 @@ static int next_with_matches(
                 Object **ret,
                 uint64_t *offset) {
 
-        Object *c;
         uint64_t cp;
 
         assert(j);
@@ -714,13 +713,12 @@ static int next_with_matches(
         assert(ret);
         assert(offset);
 
-        c = *ret;
         cp = *offset;
 
         /* No matches is easy. We simple advance the file
          * pointer by one. */
         if (!j->level0)
-                return journal_file_next_entry(f, c, cp, direction, ret, offset);
+                return journal_file_next_entry(f, cp, direction, ret, offset);
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */

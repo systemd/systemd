@@ -66,18 +66,18 @@ static void test_non_empty(void) {
 #endif
         journal_file_dump(f);
 
-        assert_se(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
-        assert_se(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 2);
 
-        assert_se(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
 
-        assert_se(journal_file_next_entry(f, o, p, DIRECTION_DOWN, &o, &p) == 0);
+        assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 0);
 
-        assert_se(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);
+        assert_se(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 1);
 
         assert_se(journal_file_find_data_object(f, test, strlen(test), NULL, &p) == 1);
