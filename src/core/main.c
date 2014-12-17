@@ -142,7 +142,7 @@ noreturn static void crash(int sig) {
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
                 sigaction(SIGCHLD, &sa, NULL);
 
-                pid = fork();
+                pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
@@ -163,11 +163,11 @@ noreturn static void crash(int sig) {
                         chdir("/");
 
                         /* Raise the signal again */
-                        raise(sig);
+                        pid = raw_getpid();
+                        kill(pid, sig); /* raise() would kill the parent */
 
                         assert_not_reached("We shouldn't be here...");
                         _exit(1);
-
                 } else {
                         siginfo_t status;
                         int r;
@@ -177,7 +177,13 @@ noreturn static void crash(int sig) {
                         if (r < 0)
                                 log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
                         else if (status.si_code != CLD_DUMPED)
-                                log_emergency("Caught <%s>, core dump failed.", signal_to_string(sig));
+                                log_emergency("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
+                                              signal_to_string(sig),
+                                              pid, sigchld_code_to_string(status.si_code),
+                                              status.si_status,
+                                              strna(status.si_code == CLD_EXITED
+                                                    ? exit_status_to_string(status.si_status, EXIT_STATUS_FULL)
+                                                    : signal_to_string(status.si_status)));
                         else
                                 log_emergency("Caught <%s>, dumped core as pid "PID_FMT".", signal_to_string(sig), pid);
                 }
@@ -199,18 +205,17 @@ noreturn static void crash(int sig) {
                 /* Let the kernel reap children for us */
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-                pid = fork();
+                pid = raw_clone(SIGCHLD, NULL);
                 if (pid < 0)
                         log_emergency_errno(errno, "Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
-                        execl("/bin/sh", "/bin/sh", NULL);
+                        execle("/bin/sh", "/bin/sh", NULL, environ);
 
-                        log_emergency_errno(errno, "execl() failed: %m");
+                        log_emergency_errno(errno, "execle() failed: %m");
                         _exit(1);
-                }
-
-                log_info("Successfully spawned crash shell as pid "PID_FMT".", pid);
+                } else
+                        log_info("Successfully spawned crash shell as PID "PID_FMT".", pid);
         }
 
         log_emergency("Freezing execution.");

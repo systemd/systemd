@@ -1312,6 +1312,25 @@ static void test_parse_proc_cmdline(void) {
         assert_se(parse_proc_cmdline(parse_item) >= 0);
 }
 
+static void test_raw_clone(void) {
+        pid_t parent, pid, pid2;
+
+        parent = getpid();
+        log_info("before clone: getpid()→"PID_FMT, parent);
+        assert_se(raw_getpid() == parent);
+
+        pid = raw_clone(0, NULL);
+        assert(pid >= 0);
+
+        pid2 = raw_getpid();
+        log_info("raw_clone: "PID_FMT" getpid()→"PID_FMT" raw_getpid()→"PID_FMT,
+                 pid, getpid(), pid2);
+        if (pid == 0)
+                assert(pid2 != parent);
+        else
+                assert(pid2 == parent);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1384,6 +1403,7 @@ int main(int argc, char *argv[]) {
         test_unquote_first_word();
         test_unquote_many_words();
         test_parse_proc_cmdline();
+        test_raw_clone();
 
         return 0;
 }
