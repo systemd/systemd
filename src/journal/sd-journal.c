@@ -748,10 +748,6 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
                 cp = f->current_offset;
 
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, cp, &c);
-                if (r < 0)
-                        return r;
-
                 r = next_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
                         return r;
