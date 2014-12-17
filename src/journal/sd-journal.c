@@ -742,6 +742,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         f->last_n_entries = n_entries;
 
         if (f->last_direction == direction && f->current_offset > 0) {
+                /* LOCATION_SEEK here means we did the work in a previous
+                 * iteration and the current location already points to a
+                 * candidate entry. */
+                if (f->location_type == LOCATION_SEEK)
+                        return 1;
+
                 cp = f->current_offset;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, cp, &c);
