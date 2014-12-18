@@ -52,8 +52,8 @@ int main(int argc, char *argv[]) {
 
                 assert_se(a = cap_to_name(i));
 
-                /* quite the loop as soon as libcap only returns
-                 * numeric ids, formatted as string */
+                /* quit the loop as soon as libcap starts returning
+                 * numeric ids, formatted as strings */
                 if (safe_atou(a, &u) >= 0)
                         break;
 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
                 printf("%s vs. %s\n", a, b);
 
-                assert_se(streq(a, b));
+                assert_se(strcasecmp(a, b) == 0);
         }
 
         return 0;
