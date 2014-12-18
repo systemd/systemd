@@ -71,6 +71,7 @@ static void check_execcommand(ExecCommand *c,
                               const char* path,
                               const char* argv0,
                               const char* argv1,
+                              const char* argv2,
                               bool ignore) {
         assert_se(c);
         log_info("%s %s %s %s",
@@ -78,7 +79,7 @@ static void check_execcommand(ExecCommand *c,
         assert_se(streq(c->path, path));
         assert_se(streq(c->argv[0], argv0));
         assert_se(streq(c->argv[1], argv1));
-        assert_se(c->argv[2] == NULL);
+        assert_se(streq_ptr(c->argv[2], argv2));
         assert_se(c->ignore == ignore);
 }
 
@@ -102,7 +103,7 @@ static void test_config_parse_exec(void) {
                               "LValue", 0, "/RValue r1",
                               &c, NULL);
         assert_se(r >= 0);
-        check_execcommand(c, "/RValue", "/RValue", "r1", false);
+        check_execcommand(c, "/RValue", "/RValue", "r1", NULL, false);
 
         r = config_parse_exec(NULL, "fake", 2, "section", 1,
                               "LValue", 0, "/RValue///slashes/// r1",
@@ -110,8 +111,7 @@ static void test_config_parse_exec(void) {
        /* test slashes */
         assert_se(r >= 0);
         c1 = c->command_next;
-        check_execcommand(c1, "/RValue/slashes", "/RValue///slashes///",
-                          "r1", false);
+        check_execcommand(c1, "/RValue/slashes", "/RValue///slashes///", "r1", NULL, false);
 
         /* honour_argv0 */
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
@@ -119,7 +119,7 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue/slashes2", "argv0", "r1", false);
+        check_execcommand(c1, "/RValue/slashes2", "argv0", "r1", NULL, false);
 
         /* ignore && honour_argv0 */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -127,8 +127,7 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1,
-                          "/RValue/slashes3", "argv0a", "r1", true);
+        check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
 
         /* ignore && honour_argv0 */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -136,8 +135,7 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1,
-                          "/RValue/slashes4", "argv0b", "r1", true);
+        check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", NULL, true);
 
         /* ignore && ignore */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -161,12 +159,10 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1,
-                          "/RValue", "argv0", "r1", true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
         c1 = c1->command_next;
-        check_execcommand(c1,
-                          "/goo/goo", "/goo/goo", "boo", false);
+        check_execcommand(c1, "/goo/goo", "/goo/goo", "boo", NULL, false);
 
         /* trailing semicolon */
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -175,20 +171,28 @@ static void test_config_parse_exec(void) {
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
-        check_execcommand(c1,
-                          "/RValue", "argv0", "r1", true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
         assert_se(c1->command_next == NULL);
 
         /* escaped semicolon */
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
-                              "/usr/bin/find \\;",
+                              "/bin/find \\;",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/bin/find", "/bin/find", ";", NULL, false);
+
+        /* escaped semicolon with following arg */
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "/sbin/find \\; x",
                               &c, NULL);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/usr/bin/find", "/usr/bin/find", ";", false);
+                          "/sbin/find", "/sbin/find", ";", "x", false);
 
         exec_command_free_list(c);
 }
