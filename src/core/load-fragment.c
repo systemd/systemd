@@ -2042,8 +2042,7 @@ int config_parse_unit_condition_path(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(*list);
-                *list = NULL;
+                *list = condition_free_list(*list);
                 return 0;
         }
 
@@ -2100,8 +2099,7 @@ int config_parse_unit_condition_string(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(*list);
-                *list = NULL;
+                *list = condition_free_list(*list);
                 return 0;
         }
 
@@ -2150,8 +2148,7 @@ int config_parse_unit_condition_null(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                condition_free_list(*list);
-                *list = NULL;
+                *list = condition_free_list(*list);
                 return 0;
         }
 

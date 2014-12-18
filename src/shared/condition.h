@@ -79,7 +79,7 @@ typedef struct Condition {
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
 void condition_free(Condition *c);
-void condition_free_list(Condition *c);
+Condition* condition_free_list(Condition *c);
 
 int condition_test(Condition *c);
 

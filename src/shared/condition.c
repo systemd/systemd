@@ -73,11 +73,13 @@ void condition_free(Condition *c) {
         free(c);
 }
 
-void condition_free_list(Condition *first) {
+Condition* condition_free_list(Condition *first) {
         Condition *c, *n;
 
         LIST_FOREACH_SAFE(conditions, c, n, first)
                 condition_free(c);
+
+        return NULL;
 }
 
 static int condition_test_kernel_command_line(Condition *c) {
