@@ -787,7 +787,6 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
         JournalFile *f, *new_file = NULL;
-        uint64_t new_offset = 0;
         uint64_t p = 0;
         Iterator i;
         Object *o;
@@ -819,16 +818,14 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         found = direction == DIRECTION_DOWN ? k < 0 : k > 0;
                 }
 
-                if (found) {
+                if (found)
                         new_file = f;
-                        new_offset = p;
-                }
         }
 
         if (!new_file)
                 return 0;
 
-        r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_offset, &o);
+        r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_file->current_offset, &o);
         if (r < 0)
                 return r;
 
