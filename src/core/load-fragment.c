@@ -547,9 +547,9 @@ int config_parse_exec(const char *unit,
          * overriding of argv[0]. */
         for (;;) {
                 int i;
-                const char *word, *state;
+                const char *word, *state, *reason;
                 size_t l;
-                bool honour_argv0 = false, ignore = false;
+                bool separate_argv0 = false, ignore = false;
 
                 path = NULL;
                 nce = NULL;
@@ -560,28 +560,23 @@ int config_parse_exec(const char *unit,
                 if (rvalue[0] == 0)
                         break;
 
-                for (i = 0; i < 2; i++) {
-                        if (rvalue[0] == '-' && !ignore) {
-                                ignore = true;
-                                rvalue ++;
-                        }
-
-                        if (rvalue[0] == '@' && !honour_argv0) {
-                                honour_argv0 = true;
-                                rvalue ++;
-                        }
-                }
-
-                if (*rvalue != '/') {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Executable path is not absolute, ignoring: %s", rvalue);
-                        return 0;
-                }
-
                 k = 0;
                 FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                        if (strneq(word, ";", MAX(l, 1U)))
-                                goto found;
+                        if (k == 0) {
+                                for (i = 0; i < 2; i++) {
+                                        if (*word == '-' && !ignore) {
+                                                ignore = true;
+                                                word ++;
+                                        }
+
+                                        if (*word == '@' && !separate_argv0) {
+                                                separate_argv0 = true;
+                                                word ++;
+                                        }
+                                }
+                        } else
+                                if (strneq(word, ";", MAX(l, 1U)))
+                                        goto found;
 
                         k++;
                 }
@@ -592,60 +587,69 @@ int config_parse_exec(const char *unit,
                 }
 
         found:
-                n = new(char*, k + !honour_argv0);
+                n = new(char*, k + !separate_argv0);
                 if (!n)
                         return log_oom();
 
                 k = 0;
                 FOREACH_WORD_QUOTED(word, l, rvalue, state) {
-                        if (strneq(word, ";", MAX(l, 1U)))
+                        char *c;
+                        unsigned skip;
+
+                        if (separate_argv0 ? path == NULL : k == 0) {
+                                /* first word, very special */
+                                skip = separate_argv0 + ignore;
+
+                                /* skip special chars in the beginning */
+                                assert(skip < l);
+
+                        } else if (strneq(word, ";", MAX(l, 1U)))
+                                /* new commandline */
                                 break;
-                        else if (strneq(word, "\\;", MAX(l, 1U))) {
-                                word ++;
-                                l --;
+
+                        else
+                                skip = strneq(word, "\\;", MAX(l, 1U));
+
+                        c = cunescape_length(word + skip, l - skip);
+                        if (!c) {
+                                r = log_oom();
+                                goto fail;
                         }
 
-                        if (honour_argv0 && word == rvalue) {
-                                assert(!path);
-
-                                path = strndup(word, l);
-                                if (!path) {
-                                        r = log_oom();
-                                        goto fail;
-                                }
-
-                                if (!utf8_is_valid(path)) {
-                                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
-                                        r = 0;
-                                        goto fail;
-                                }
-
-                        } else {
-                                char *c;
-
-                                c = n[k++] = cunescape_length(word, l);
-                                if (!c) {
-                                        r = log_oom();
-                                        goto fail;
-                                }
-
-                                if (!utf8_is_valid(c)) {
-                                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
-                                        r = 0;
-                                        goto fail;
-                                }
+                        if (!utf8_is_valid(c)) {
+                                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                                r = 0;
+                                goto fail;
                         }
+
+                        /* where to stuff this? */
+                        if (separate_argv0 && path == NULL)
+                                path = c;
+                        else
+                                n[k++] = c;
                 }
 
                 n[k] = NULL;
 
-                if (!n[0]) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid command line, ignoring: %s", rvalue);
-                        r = 0;
-                        goto fail;
-                }
+                log_debug("path: %s", path ?: n[0]);
 
+                if (!n[0])
+                        reason = "Empty executable name or zeroeth argument";
+                else if (!string_is_safe(path ?: n[0]))
+                        reason = "Executable path contains special characters";
+                else if (!path_is_absolute(path ?: n[0]))
+                        reason = "Executable path is not absolute";
+                else if (endswith(path ?: n[0], "/"))
+                        reason = "Executable path specifies a directory";
+                else
+                        goto ok;
+
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "%s, ignoring: %s", reason, rvalue);
+                r = 0;
+                goto fail;
+
+ok:
                 if (!path) {
                         path = strdup(n[0]);
                         if (!path) {
@@ -653,8 +657,6 @@ int config_parse_exec(const char *unit,
                                 goto fail;
                         }
                 }
-
-                assert(path_is_absolute(path));
 
                 nce = new0(ExecCommand, 1);
                 if (!nce) {
