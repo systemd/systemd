@@ -228,7 +228,7 @@ int exec_spawn(ExecCommand *command,
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, unsigned n);
 
-void exec_command_free_list(ExecCommand *c);
+ExecCommand* exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, unsigned n);
 
 char *exec_command_line(char **argv);

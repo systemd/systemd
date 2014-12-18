@@ -538,8 +538,7 @@ int config_parse_exec(const char *unit,
 
         if (isempty(rvalue)) {
                 /* An empty assignment resets the list */
-                exec_command_free_list(*e);
-                *e = NULL;
+                *e = exec_command_free_list(*e);
                 return 0;
         }
 

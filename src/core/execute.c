@@ -2007,7 +2007,7 @@ void exec_command_done_array(ExecCommand *c, unsigned n) {
                 exec_command_done(c+i);
 }
 
-void exec_command_free_list(ExecCommand *c) {
+ExecCommand* exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
         while ((i = c)) {
@@ -2015,15 +2015,15 @@ void exec_command_free_list(ExecCommand *c) {
                 exec_command_done(i);
                 free(i);
         }
+
+        return NULL;
 }
 
 void exec_command_free_array(ExecCommand **c, unsigned n) {
         unsigned i;
 
-        for (i = 0; i < n; i++) {
-                exec_command_free_list(c[i]);
-                c[i] = NULL;
-        }
+        for (i = 0; i < n; i++)
+                c[i] = exec_command_free_list(c[i]);
 }
 
 int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l) {

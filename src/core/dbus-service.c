@@ -187,10 +187,8 @@ static int bus_service_set_transient_property(
                         ExecCommand *c;
                         size_t size = 0;
 
-                        if (n == 0) {
-                                exec_command_free_list(s->exec_command[SERVICE_EXEC_START]);
-                                s->exec_command[SERVICE_EXEC_START] = NULL;
-                        }
+                        if (n == 0)
+                                s->exec_command[SERVICE_EXEC_START] = exec_command_free_list(s->exec_command[SERVICE_EXEC_START]);
 
                         f = open_memstream(&buf, &size);
                         if (!f)
