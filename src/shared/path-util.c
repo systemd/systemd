@@ -462,6 +462,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         _cleanup_free_ char *parent = NULL;
         struct stat a, b;
         int r;
+        bool nosupp = false;
 
         /* We are not actually interested in the file handles, but
          * name_to_handle_at() also passes us the mount ID, hence use
@@ -476,12 +477,11 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                         /* This kernel or file system does not support
                          * name_to_handle_at(), hence fallback to the
                          * traditional stat() logic */
-                        goto fallback;
-
-                if (errno == ENOENT)
+                        nosupp = true;
+                else if (errno == ENOENT)
                         return 0;
-
-                return -errno;
+                else
+                        return -errno;
         }
 
         r = path_get_parent(t, &parent);
@@ -490,17 +490,22 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         h.handle.handle_bytes = MAX_HANDLE_SZ;
         r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, AT_SYMLINK_FOLLOW);
-        if (r < 0) {
-                /* The parent can't do name_to_handle_at() but the
-                 * directory we are interested in can? If so, it must
-                 * be a mount point */
+        if (r < 0)
                 if (errno == EOPNOTSUPP)
-                        return 1;
-
-                return -errno;
-        }
-
-        return mount_id != mount_id_parent;
+                        if (nosupp)
+                                /* Neither parent nor child do name_to_handle_at()?
+                                   We have no choice but to fall back. */
+                                goto fallback;
+                        else
+                                /* The parent can't do name_to_handle_at() but
+                                 * the directory we are interested in can?
+                                 * Or the other way around?
+                                 * If so, it must be a mount point. */
+                                return 1;
+                else
+                        return -errno;
+        else
+                return mount_id != mount_id_parent;
 
 fallback:
         if (allow_symlink)
