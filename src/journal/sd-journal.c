@@ -729,11 +729,17 @@ static int next_with_matches(
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction) {
         Object *c;
-        uint64_t cp;
+        uint64_t cp, n_entries;
         int r;
 
         assert(j);
         assert(f);
+
+        /* If we hit EOF before, recheck if any new entries arrived. */
+        n_entries = le64toh(f->header->n_entries);
+        if (f->location_type == LOCATION_TAIL && n_entries == f->last_n_entries)
+                return 0;
+        f->last_n_entries = n_entries;
 
         if (f->last_direction == direction && f->current_offset > 0) {
                 cp = f->current_offset;

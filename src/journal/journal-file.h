@@ -78,6 +78,7 @@ typedef struct JournalFile {
 
         direction_t last_direction;
         LocationType location_type;
+        uint64_t last_n_entries;
 
         char *path;
         struct stat last_stat;
