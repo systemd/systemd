@@ -601,8 +601,10 @@ int config_parse_exec(const char *unit,
                 FOREACH_WORD_QUOTED(word, l, rvalue, state) {
                         if (strneq(word, ";", MAX(l, 1U)))
                                 break;
-                        else if (strneq(word, "\\;", MAX(l, 1U)))
+                        else if (strneq(word, "\\;", MAX(l, 1U))) {
                                 word ++;
+                                l --;
+                        }
 
                         if (honour_argv0 && word == rvalue) {
                                 assert(!path);
