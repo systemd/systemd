@@ -122,7 +122,7 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_
                         if (r < 0)
                                 return r;
 
-                        r = copy_tree_fd(old_fd, new_path, true);
+                        r = copy_directory_fd(old_fd, new_path, true);
                         if (r < 0) {
                                 btrfs_subvol_remove(new_path);
                                 return r;

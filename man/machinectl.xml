@@ -185,7 +185,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>status</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>status</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -198,14 +198,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>show</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show properties of one
                                 or more registered virtual machines or
                                 containers or the manager itself. If
                                 no argument is specified, properties
                                 of the manager will be shown. If an
-                                ID is specified, properties of this
+                                NAME is specified, properties of this
                                 virtual machine or container are
                                 shown. By default, empty properties
                                 are suppressed. Use
@@ -222,7 +222,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>login</command> <replaceable>ID</replaceable></term>
+                                <term><command>login</command> <replaceable>NAME</replaceable></term>
 
                                 <listitem><para>Open a terminal login
                                 session to a container. This will
@@ -235,7 +235,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>reboot</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>reboot</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Reboot one or more
                                 containers. This will trigger a reboot
@@ -248,7 +248,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>poweroff</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>poweroff</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Power off one or more
                                 containers. This will trigger a reboot
@@ -264,7 +264,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>kill</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Send a signal to one
                                 or more processes of the virtual
@@ -279,7 +279,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>terminate</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Terminates a virtual
                                 machine or container. This kills all
@@ -290,7 +290,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>bind</command> <replaceable>ID</replaceable> <replaceable>DIRECTORY</replaceable> [<replaceable>DIRECTORY</replaceable>]</term>
+                                <term><command>bind</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
 
                                 <listitem><para>Bind mounts a
                                 directory from the host into the
@@ -312,6 +312,33 @@
                                 supported for
                                 <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 containers.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+                                <listitem><para>Copies files or
+                                directories from the host system into
+                                a running container. Takes a container
+                                name, followed by the source path on
+                                the host and the destination path in
+                                the container. If the destination path
+                                is omitted the same as the source path
+                                is used.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+                                <listitem><para>Copies files or
+                                directories from a container into the
+                                host system. Takes a container name,
+                                followed by the source path in the
+                                container the destination path on the
+                                host. If the destination path is
+                                omitted the same as the source path is
+                                used.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

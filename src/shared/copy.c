@@ -25,6 +25,8 @@
 #include "btrfs-util.h"
 #include "copy.h"
 
+#define COPY_BUFFER_SIZE (16*1024)
+
 int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
         bool try_sendfile = true;
         int r;
@@ -40,7 +42,7 @@ int copy_bytes(int fdf, int fdt, off_t max_bytes, bool try_reflink) {
         }
 
         for (;;) {
-                size_t m = PIPE_BUF;
+                size_t m = COPY_BUFFER_SIZE;
                 ssize_t n;
 
                 if (max_bytes != (off_t) -1) {
@@ -279,30 +281,34 @@ static int fd_copy_directory(
         return r;
 }
 
-int copy_tree(const char *from, const char *to, bool merge) {
+int copy_tree_at(int fdf, const char *from, int fdt, const char *to, bool merge) {
         struct stat st;
 
         assert(from);
         assert(to);
 
-        if (lstat(from, &st) < 0)
+        if (fstatat(fdf, from, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_regular(fdf, from, &st, fdt, to);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, merge);
+                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, merge);
         else if (S_ISLNK(st.st_mode))
-                return fd_copy_symlink(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_symlink(fdf, from, &st, fdt, to);
         else if (S_ISFIFO(st.st_mode))
-                return fd_copy_fifo(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_fifo(fdf, from, &st, fdt, to);
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))
-                return fd_copy_node(AT_FDCWD, from, &st, AT_FDCWD, to);
+                return fd_copy_node(fdf, from, &st, fdt, to);
         else
                 return -ENOTSUP;
 }
 
-int copy_tree_fd(int dirfd, const char *to, bool merge) {
+int copy_tree(const char *from, const char *to, bool merge) {
+        return copy_tree_at(AT_FDCWD, from, AT_FDCWD, to, merge);
+}
+
+int copy_directory_fd(int dirfd, const char *to, bool merge) {
 
         struct stat st;
 

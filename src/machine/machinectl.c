@@ -31,6 +31,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/mount.h>
+#include <libgen.h>
 
 #include "sd-bus.h"
 #include "log.h"
@@ -48,6 +49,7 @@
 #include "event-util.h"
 #include "path-util.h"
 #include "mkdir.h"
+#include "copy.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -626,6 +628,97 @@ static int machine_get_leader(sd_bus *bus, const char *name, pid_t *ret) {
         return 0;
 }
 
+static int copy_files(sd_bus *bus, char **args, unsigned n) {
+        char *dest, *host_path, *container_path, *host_dirname, *host_basename, *container_dirname, *container_basename, *t;
+        _cleanup_close_ int hostfd = -1;
+        pid_t child, leader;
+        bool copy_from;
+        siginfo_t si;
+        int r;
+
+        if (n > 4) {
+                log_error("Too many arguments.");
+                return -EINVAL;
+        }
+
+        copy_from = streq(args[0], "copy-from");
+        dest = args[3] ?: args[2];
+        host_path = strdupa(copy_from ? dest : args[2]);
+        container_path = strdupa(copy_from ? args[2] : dest);
+
+        if (!path_is_absolute(container_path)) {
+                log_error("Container path not absolute.");
+                return -EINVAL;
+        }
+
+        t = strdup(host_path);
+        host_basename = basename(t);
+        host_dirname = dirname(host_path);
+
+        t = strdup(container_path);
+        container_basename = basename(t);
+        container_dirname = dirname(container_path);
+
+        r = machine_get_leader(bus, args[1], &leader);
+        if (r < 0)
+                return r;
+
+        hostfd = open(host_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to open source directory: %m");
+
+        child = fork();
+        if (child < 0)
+                return log_error_errno(errno, "Failed to fork(): %m");
+
+        if (child == 0) {
+                int containerfd;
+                const char *q;
+                int mntfd;
+
+                q = procfs_file_alloca(leader, "ns/mnt");
+                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntfd < 0) {
+                        log_error_errno(errno, "Failed to open mount namespace of leader: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (setns(mntfd, CLONE_NEWNS) < 0) {
+                        log_error_errno(errno, "Failed to join namespace of leader: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+                if (containerfd < 0) {
+                        log_error_errno(errno, "Failed top open destination directory: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (copy_from)
+                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, true);
+                else
+                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, true);
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to copy tree: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for client: %m");
+        if (si.si_code != CLD_EXITED) {
+                log_error("Client died abnormally.");
+                return -EIO;
+        }
+        if (si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        return 0;
+}
+
 static int bind_mount(sd_bus *bus, char **args, unsigned n) {
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         pid_t child, leader;
@@ -998,30 +1091,33 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the virtual machine and container registration manager.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --no-legend         Do not show the headers and footers\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n"
-               "  -p --property=NAME     Show only properties by this name\n"
-               "  -a --all               Show all properties, including empty ones\n"
-               "  -l --full              Do not ellipsize output\n"
-               "     --kill-who=WHO      Who to send signal to\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
-               "     --read-only         Create read-only bind mount\n"
-               "     --mkdir             Create directory before bind mounting, if missing\n\n"
+               "Send control commands to or query the virtual machine and container\n"
+               "registration manager.\n\n"
+               "  -h --help                   Show this help\n"
+               "     --version                Show package version\n"
+               "     --no-pager               Do not pipe output into a pager\n"
+               "     --no-legend              Do not show the headers and footers\n"
+               "  -H --host=[USER@]HOST       Operate on remote host\n"
+               "  -M --machine=CONTAINER      Operate on local container\n"
+               "  -p --property=NAME          Show only properties by this name\n"
+               "  -a --all                    Show all properties, including empty ones\n"
+               "  -l --full                   Do not ellipsize output\n"
+               "     --kill-who=WHO           Who to send signal to\n"
+               "  -s --signal=SIGNAL          Which signal to send\n"
+               "     --read-only              Create read-only bind mount\n"
+               "     --mkdir                  Create directory before bind mounting, if missing\n\n"
                "Commands:\n"
-               "  list                   List running VMs and containers\n"
-               "  status NAME...         Show VM/container status\n"
-               "  show NAME...           Show properties of one or more VMs/containers\n"
-               "  login NAME             Get a login prompt on a container\n"
-               "  poweroff NAME...       Power off one or more containers\n"
-               "  reboot NAME...         Reboot one or more containers\n"
-               "  kill NAME...           Send signal to processes of a VM/container\n"
-               "  terminate NAME...      Terminate one or more VMs/containers\n"
-               "  bind NAME PATH [PATH]  Bind mount a path from the host into a container\n",
+               "  list                        List running VMs and containers\n"
+               "  status NAME...              Show VM/container status\n"
+               "  show NAME...                Show properties of one or more VMs/containers\n"
+               "  login NAME                  Get a login prompt on a container\n"
+               "  poweroff NAME...            Power off one or more containers\n"
+               "  reboot NAME...              Reboot one or more containers\n"
+               "  kill NAME...                Send signal to processes of a VM/container\n"
+               "  terminate NAME...           Terminate one or more VMs/containers\n"
+               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
+               "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
+               "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n",
                program_invocation_short_name);
 }
 
@@ -1159,6 +1255,8 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "kill",                  MORE,   2, kill_machine      },
                 { "login",                 MORE,   2, login_machine     },
                 { "bind",                  MORE,   3, bind_mount        },
+                { "copy-to",               MORE,   3, copy_files        },
+                { "copy-from",             MORE,   3, copy_files        },
         };
 
         int left;
