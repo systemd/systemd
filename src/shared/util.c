@@ -521,7 +521,7 @@ int safe_atod(const char *s, double *ret_d) {
 
 static size_t strcspn_escaped(const char *s, const char *reject) {
         bool escaped = false;
-        size_t n;
+        int n;
 
         for (n=0; s[n]; n++) {
                 if (escaped)
@@ -531,6 +531,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
                 else if (strchr(reject, s[n]))
                         break;
         }
+
         /* if s ends in \, return index of previous char */
         return n - escaped;
 }
@@ -566,6 +567,11 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 *state = current++ + *l + 2;
         } else if (quoted) {
                 *l = strcspn_escaped(current, separator);
+                if (current[*l] && !strchr(separator, current[*l])) {
+                        /* unfinished escape */
+                        *state = current;
+                        return NULL;
+                }
                 *state = current + *l;
         } else {
                 *l = strcspn(current, separator);

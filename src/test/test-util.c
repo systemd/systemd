@@ -406,28 +406,12 @@ static void test_foreach_word(void) {
                 assert_se(strneq(expected[i++], word, l));
 }
 
-static void test_foreach_word_quoted(void) {
+static void check(const char *test, char** expected, bool trailing) {
         const char *word, *state;
         size_t l;
         int i = 0;
-        const char test[] = "test a b c 'd' e '' '' hhh '' '' \"a b c\"";
-        const char * const expected[] = {
-                "test",
-                "a",
-                "b",
-                "c",
-                "d",
-                "e",
-                "",
-                "",
-                "hhh",
-                "",
-                "",
-                "a b c",
-                NULL
-        };
 
-        printf("<%s>\n", test);
+        printf("<<<%s>>>\n", test);
         FOREACH_WORD_QUOTED(word, l, test, state) {
                 _cleanup_free_ char *t = NULL;
 
@@ -435,7 +419,34 @@ static void test_foreach_word_quoted(void) {
                 assert_se(strneq(expected[i++], word, l));
                 printf("<%s>\n", t);
         }
-        assert_se(isempty(state));
+        printf("<<<%s>>>\n", state);
+        assert(expected[i] == NULL);
+        assert_se(isempty(state) == !trailing);
+}
+
+static void test_foreach_word_quoted(void) {
+        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"",
+              STRV_MAKE("test",
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "e",
+                        "",
+                        "",
+                        "hhh",
+                        "",
+                        "",
+                        "a b c"),
+              false);
+
+        check("test \"xxx",
+              STRV_MAKE("test"),
+              true);
+
+        check("test\\",
+              STRV_MAKE_EMPTY,
+              true);
 }
 
 static void test_default_term_for_tty(void) {

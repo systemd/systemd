@@ -520,6 +520,10 @@ int main(int argc, char *argv[]) {
         test_strv_unquote("  \"x'\"   ", STRV_MAKE("x'"));
         test_strv_unquote("a  '--b=c \"d e\"'", STRV_MAKE("a", "--b=c \"d e\""));
 
+        /* trailing backslashes */
+        test_strv_unquote("  x\\\\", STRV_MAKE("x\\"));
+        test_invalid_unquote("  x\\");
+
         test_invalid_unquote("a  --b='c \"d e\"''");
         test_invalid_unquote("a  --b='c \"d e\" '\"");
         test_invalid_unquote("a  --b='c \"d e\"garbage");
