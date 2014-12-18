@@ -458,7 +458,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                 .handle.handle_bytes = MAX_HANDLE_SZ
         };
 
-        int mount_id, mount_id_parent;
+        int mount_id = -1, mount_id_parent = -1;
         _cleanup_free_ char *parent = NULL;
         struct stat a, b;
         int r;
@@ -473,7 +473,11 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         r = name_to_handle_at(AT_FDCWD, t, &h.handle, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0) {
-                if (IN_SET(errno, ENOSYS, EOPNOTSUPP))
+                if (errno == ENOSYS)
+                        /* This kernel does not support name_to_handle_at()
+                         * fall back to the traditional stat() logic. */
+                        goto fallback;
+                else if (errno == EOPNOTSUPP)
                         /* This kernel or file system does not support
                          * name_to_handle_at(), hence fallback to the
                          * traditional stat() logic */
