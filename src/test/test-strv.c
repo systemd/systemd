@@ -175,7 +175,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         }
 }
 
-static void test_strv_unquote(const char *quoted, const char **list) {
+static void test_strv_unquote(const char *quoted, char **list) {
         _cleanup_strv_free_ char **s;
         _cleanup_free_ char *j;
         unsigned i = 0;
@@ -507,18 +507,18 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
-        test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", (const char*[]) { "foo=bar", "waldo", "zzz", NULL });
-        test_strv_unquote("", (const char*[]) { NULL });
-        test_strv_unquote(" ", (const char*[]) { NULL });
-        test_strv_unquote("   ", (const char*[]) { NULL });
-        test_strv_unquote("   x", (const char*[]) { "x", NULL });
-        test_strv_unquote("x   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  x   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  \"x\"   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  'x'   ", (const char*[]) { "x", NULL });
-        test_strv_unquote("  'x\"'   ", (const char*[]) { "x\"", NULL });
-        test_strv_unquote("  \"x'\"   ", (const char*[]) { "x'", NULL });
-        test_strv_unquote("a  '--b=c \"d e\"'", (const char*[]) { "a", "--b=c \"d e\"", NULL });
+        test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
+        test_strv_unquote("", STRV_MAKE_EMPTY);
+        test_strv_unquote(" ", STRV_MAKE_EMPTY);
+        test_strv_unquote("   ", STRV_MAKE_EMPTY);
+        test_strv_unquote("   x", STRV_MAKE("x"));
+        test_strv_unquote("x   ", STRV_MAKE("x"));
+        test_strv_unquote("  x   ", STRV_MAKE("x"));
+        test_strv_unquote("  \"x\"   ", STRV_MAKE("x"));
+        test_strv_unquote("  'x'   ", STRV_MAKE("x"));
+        test_strv_unquote("  'x\"'   ", STRV_MAKE("x\""));
+        test_strv_unquote("  \"x'\"   ", STRV_MAKE("x'"));
+        test_strv_unquote("a  '--b=c \"d e\"'", STRV_MAKE("a", "--b=c \"d e\""));
 
         test_invalid_unquote("a  --b='c \"d e\"''");
         test_invalid_unquote("a  --b='c \"d e\" '\"");
