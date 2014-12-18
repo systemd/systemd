@@ -489,7 +489,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                 return r;
 
         h.handle.handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, 0);
+        r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, AT_SYMLINK_FOLLOW);
         if (r < 0) {
                 /* The parent can't do name_to_handle_at() but the
                  * directory we are interested in can? If so, it must
