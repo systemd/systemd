@@ -1191,6 +1191,11 @@ AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
 AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if glib is available]) ])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(hwdb, [AC_HELP_STRING([--disable-hwdb], [disable hardware database support])],
+       enable_hwdb=$enableval, enable_hwdb=yes)
+AM_CONDITIONAL(ENABLE_HWDB, [test x$enable_hwdb = xyes])
+
+# ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
@@ -1430,6 +1435,7 @@ AC_MSG_RESULT([
         dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
+        hwdb:                    ${enable_hwdb}
         gintrospection:          ${enable_introspection}
         terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}

@@ -3608,6 +3608,7 @@ udevadm_LDADD = \
 	libudev-core.la
 
 # ------------------------------------------------------------------------------
+if ENABLE_HWDB
 INSTALL_DIRS += \
 	$(sysconfdir)/udev/hwdb.d
 
@@ -3656,6 +3657,7 @@ INSTALL_DATA_HOOKS += \
 
 hwdb-remove-hook:
 	-test -n "$(DESTDIR)" || rm -f /etc/udev/hwdb.bin
+endif
 
 # ------------------------------------------------------------------------------
 TESTS += \

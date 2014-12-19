@@ -14,7 +14,6 @@ MANPAGES += \
 	man/file-hierarchy.7 \
 	man/halt.8 \
 	man/hostname.5 \
-	man/hwdb.7 \
 	man/journalctl.1 \
 	man/journald.conf.5 \
 	man/kernel-command-line.7 \
@@ -73,7 +72,6 @@ MANPAGES += \
 	man/systemd-halt.service.8 \
 	man/systemd-hibernate-resume-generator.8 \
 	man/systemd-hibernate-resume@.service.8 \
-	man/systemd-hwdb.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
@@ -676,6 +674,12 @@ man/systemd-user.conf.html: man/systemd-system.conf.html
 man/user.conf.d.html: man/systemd-system.conf.html
 	$(html-alias)
 
+if ENABLE_HWDB
+MANPAGES += \
+        man/hwdb.7 \
+        man/systemd-hwdb.8
+
+endif
 
 if ENABLE_BACKLIGHT
 MANPAGES += \
