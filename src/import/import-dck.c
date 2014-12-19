@@ -715,7 +715,7 @@ static void dck_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         job->done = true;
 
         if (result != CURLE_OK) {
-                log_error("Transfer failed: %s", curl_easy_strerror(code));
+                log_error("Transfer failed: %s", curl_easy_strerror(result));
                 r = -EIO;
                 goto fail;
         }
