@@ -39,6 +39,7 @@
 #include "local-addresses.h"
 #include "socket-util.h"
 #include "ether-addr-util.h"
+#include "verbs.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -185,7 +186,7 @@ static void setup_state_to_color(const char *state, const char **on, const char 
                 *on = *off = "";
 }
 
-static int list_links(char **args, unsigned n) {
+static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
@@ -653,7 +654,7 @@ static int link_status_one(
         return 0;
 }
 
-static int link_status(char **args, unsigned n) {
+static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
@@ -672,7 +673,7 @@ static int link_status(char **args, unsigned n) {
         if (r < 0)
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
-        if (n <= 1 && !arg_all) {
+        if (argc <= 1 && !arg_all) {
                 _cleanup_free_ char *operational_state = NULL;
                 _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **domains = NULL;
                 const char *on_color_operational, *off_color_operational;
@@ -732,8 +733,8 @@ static int link_status(char **args, unsigned n) {
                         link_status_one(rtnl, udev, hwdb, links[i].name);
                 }
         } else {
-                STRV_FOREACH(name, args + 1) {
-                        if (name != args+1)
+                STRV_FOREACH(name, argv + 1) {
+                        if (name != argv + 1)
                                 fputc('\n', stdout);
 
                         link_status_one(rtnl, udev, hwdb, *name);
@@ -816,79 +817,13 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int networkctl_main(int argc, char *argv[]) {
-
-        static const struct {
-                const char* verb;
-                const enum {
-                        MORE,
-                        LESS,
-                        EQUAL
-                } argc_cmp;
-                const int argc;
-                int (* const dispatch)(char **args, unsigned n);
-        } verbs[] = {
-                { "list",   LESS, 1, list_links  },
-                { "status", MORE, 1, link_status },
+        const Verb verbs[] = {
+                { "list", VERB_ANY, 1, VERB_DEFAULT, list_links },
+                { "status", 1, VERB_ANY, 0, link_status },
+                {}
         };
 
-        int left;
-        unsigned i;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        left = argc - optind;
-
-        if (left <= 0)
-                /* Special rule: no arguments means "list" */
-                i = 0;
-        else {
-                if (streq(argv[optind], "help")) {
-                        help();
-                        return 0;
-                }
-
-                for (i = 0; i < ELEMENTSOF(verbs); i++)
-                        if (streq(argv[optind], verbs[i].verb))
-                                break;
-
-                if (i >= ELEMENTSOF(verbs)) {
-                        log_error("Unknown operation %s", argv[optind]);
-                        return -EINVAL;
-                }
-        }
-
-        switch (verbs[i].argc_cmp) {
-
-        case EQUAL:
-                if (left != verbs[i].argc) {
-                        log_error("Invalid number of arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case MORE:
-                if (left < verbs[i].argc) {
-                        log_error("Too few arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case LESS:
-                if (left > verbs[i].argc) {
-                        log_error("Too many arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Unknown comparison operator.");
-        }
-
-        return verbs[i].dispatch(argv + optind, left);
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 int main(int argc, char* argv[]) {
