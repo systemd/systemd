@@ -3069,7 +3069,7 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
 
-                if (errno != ENOTDIR)
+                if (errno != ENOTDIR && errno != ELOOP)
                         return -errno;
 
                 if (!dangerous) {
