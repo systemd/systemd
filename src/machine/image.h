@@ -46,6 +46,7 @@ Image *image_unref(Image *i);
 
 void image_hashmap_free(Hashmap *map);
 
+int image_find(const char *name, Image **ret);
 int image_discover(Hashmap *map);
 
 char *image_bus_path(const char *name);

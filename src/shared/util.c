@@ -4257,6 +4257,23 @@ bool machine_name_is_valid(const char *s) {
         return true;
 }
 
+bool image_name_is_valid(const char *s) {
+        if (!filename_is_valid(s))
+                return false;
+
+        if (string_has_cc(s, NULL))
+                return false;
+
+        if (!utf8_is_valid(s))
+                return false;
+
+        /* Temporary files for atomically creating new files */
+        if (startswith(s, ".#"))
+                return false;
+
+        return true;
+}
+
 int pipe_eof(int fd) {
         struct pollfd pollfd = {
                 .fd = fd,

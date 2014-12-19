@@ -43,6 +43,7 @@
 #define BUS_ERROR_SCOPE_NOT_RUNNING "org.freedesktop.systemd1.ScopeNotRunning"
 
 #define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
+#define BUS_ERROR_NO_SUCH_IMAGE "org.freedesktop.machine1.NoSuchImage"
 #define BUS_ERROR_NO_MACHINE_FOR_PID "org.freedesktop.machine1.NoMachineForPID"
 #define BUS_ERROR_MACHINE_EXISTS "org.freedesktop.machine1.MachineExists"
 #define BUS_ERROR_NO_PRIVATE_NETWORKING "org.freedesktop.machine1.NoPrivateNetworking"
