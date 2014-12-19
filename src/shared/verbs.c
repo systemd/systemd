@@ -49,17 +49,21 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                         return -EINVAL;
                 }
 
-
-                if (!name)
-                        found = !!(verbs[i].flags & VERB_DEFAULT);
-                else
+                if (name)
                         found = streq(name, verbs[i].verb);
+                else
+                        found = !!(verbs[i].flags & VERB_DEFAULT);
 
                 if (found) {
                         verb = &verbs[i];
                         break;
                 }
         }
+
+        assert(verb);
+
+        if (!name)
+                left = 1;
 
         if (verb->min_args != VERB_ANY &&
             (unsigned) left < verb->min_args) {
@@ -73,5 +77,14 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 return -EINVAL;
         }
 
-        return verb->dispatch(left, argv + optind, userdata);
+        if (name)
+                return verb->dispatch(left, argv + optind, userdata);
+        else {
+                char* fake[2] = {
+                        (char*) verb->verb,
+                        NULL
+                };
+
+                return verb->dispatch(1, fake, userdata);
+        }
 }
