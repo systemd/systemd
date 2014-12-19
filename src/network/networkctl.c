@@ -927,11 +927,8 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return rtnl_log_parse_error(c);
 
-        printf("Capability Codes: (O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router, (T) - Telephone,\n"
-               "(D) - Data Over Cable Service Interface Specifications, (A) - Station, (C) - Customer VLAN, (S) - Service VLAN,\n"
-               "(M) - Two-port MAC Relay (TPMR)\n\n");
-
-        printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
+        if (arg_legend)
+                printf("%s %16s %24s %16s %16s\n", "Local Intf", "Device ID", "Port ID", "TTL", "Capability");
 
         for (i = j = 0; i < c; i++) {
                 _cleanup_free_ char *chassis = NULL, *port = NULL, *cap = NULL, *lldp = NULL;
@@ -995,7 +992,14 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        printf("\nTotal entries displayed: %d\n", j);
+        if (arg_legend) {
+                printf("\nCapability Codes:\n"
+                       "(O) - Other, (P) - Repeater,  (B) - Bridge , (W) - WLAN Access Point, (R) = Router,\n"
+                       "(T) - Telephone, (D) - Data Over Cable Service Interface Specifications, (A) - Station,\n"
+                       "(C) - Customer VLAN, (S) - Service VLAN, (M) - Two-port MAC Relay (TPMR)\n\n");
+
+                printf("Total entries displayed: %d\n", j);
+        }
 
         return 0;
 }
