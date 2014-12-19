@@ -4515,11 +4515,7 @@ static int init_home_and_lookup_paths(char **user_home, char **user_runtime, Loo
                         return log_error_errno(ENOTDIR, "Cannot find units: $XDG_RUNTIME_DIR is not set.");
         }
 
-        r = lookup_paths_init(lp,
-                              arg_scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
-                              arg_scope == UNIT_FILE_USER,
-                              arg_root,
-                              NULL, NULL, NULL);
+        r = lookup_paths_init_from_scope(lp, arg_scope, arg_root);
         if (r < 0)
                 return log_error_errno(r, "Failed to lookup unit lookup paths: %m");
 

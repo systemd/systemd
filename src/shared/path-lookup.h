@@ -22,6 +22,7 @@
 ***/
 
 #include "macro.h"
+#include "install.h"
 
 typedef struct LookupPaths {
         char **unit_path;
@@ -49,5 +50,8 @@ int lookup_paths_init(LookupPaths *p,
                       const char *generator_early,
                       const char *generator_late);
 void lookup_paths_free(LookupPaths *p);
+int lookup_paths_init_from_scope(LookupPaths *paths,
+                                 UnitFileScope scope,
+                                 const char *root_dir);
 
 #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)

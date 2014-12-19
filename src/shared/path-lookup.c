@@ -398,3 +398,19 @@ void lookup_paths_free(LookupPaths *p) {
         p->sysvinit_path = p->sysvrcnd_path = NULL;
 #endif
 }
+
+int lookup_paths_init_from_scope(LookupPaths *paths,
+                                 UnitFileScope scope,
+                                 const char *root_dir) {
+        assert(paths);
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        zero(*paths);
+
+        return lookup_paths_init(paths,
+                                 scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                                 scope == UNIT_FILE_USER,
+                                 root_dir,
+                                 NULL, NULL, NULL);
+}

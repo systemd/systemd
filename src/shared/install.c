@@ -58,22 +58,6 @@ static int in_search_path(const char *path, char **search) {
         return strv_contains(search, parent);
 }
 
-static int lookup_paths_init_from_scope(LookupPaths *paths,
-                                        UnitFileScope scope,
-                                        const char *root_dir) {
-        assert(paths);
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-
-        zero(*paths);
-
-        return lookup_paths_init(paths,
-                                 scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
-                                 scope == UNIT_FILE_USER,
-                                 root_dir,
-                                 NULL, NULL, NULL);
-}
-
 static int get_config_path(UnitFileScope scope, bool runtime, const char *root_dir, char **ret) {
         char *p = NULL;
         int r;
