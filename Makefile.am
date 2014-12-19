@@ -5094,6 +5094,32 @@ libnss_mymachines_la_LIBADD = \
 
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
+
+if HAVE_LIBCURL
+
+bin_PROGRAMS += \
+	systemd-import
+
+systemd_import_SOURCES = \
+	src/import/import.c \
+	src/import/import-dck.c \
+	src/import/import-dck.h \
+	src/import/curl-util.c \
+	src/import/curl-util.h \
+	src/import/aufs-util.c \
+	src/import/aufs-util.h
+
+systemd_import_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBCURL_CFLAGS)
+
+systemd_import_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	$(LIBCURL_LIBS) \
+	-lm
+endif
+
 endif
 
 # ------------------------------------------------------------------------------
