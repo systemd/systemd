@@ -704,7 +704,7 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
                         int r;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         fpath = strjoin(*path, "/", de->d_name, NULL);
@@ -777,7 +777,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                         while ((de = readdir(d))) {
                                 int a, b;
 
-                                if (ignore_file(de->d_name))
+                                if (hidden_file(de->d_name))
                                         continue;
 
                                 if (de->d_name[0] != 'S' && de->d_name[0] != 'K')

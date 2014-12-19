@@ -1510,7 +1510,7 @@ char *ascii_strlower(char *t) {
         return t;
 }
 
-_pure_ static bool ignore_file_allow_backup(const char *filename) {
+_pure_ static bool hidden_file_allow_backup(const char *filename) {
         assert(filename);
 
         return
@@ -1527,13 +1527,13 @@ _pure_ static bool ignore_file_allow_backup(const char *filename) {
                 endswith(filename, ".swp");
 }
 
-bool ignore_file(const char *filename) {
+bool hidden_file(const char *filename) {
         assert(filename);
 
         if (endswith(filename, "~"))
                 return true;
 
-        return ignore_file_allow_backup(filename);
+        return hidden_file_allow_backup(filename);
 }
 
 int fd_nonblock(int fd, bool nonblock) {
@@ -1627,7 +1627,7 @@ int close_all_fds(const int except[], unsigned n_except) {
         while ((de = readdir(d))) {
                 int fd = -1;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 if (safe_atoi(de->d_name, &fd) < 0)
@@ -2531,7 +2531,7 @@ int dir_is_empty(const char *path) {
                 if (!de)
                         return 1;
 
-                if (!ignore_file(de->d_name))
+                if (!hidden_file(de->d_name))
                         return 0;
         }
 }
@@ -3996,7 +3996,7 @@ const char *default_term_for_tty(const char *tty) {
 bool dirent_is_file(const struct dirent *de) {
         assert(de);
 
-        if (ignore_file(de->d_name))
+        if (hidden_file(de->d_name))
                 return false;
 
         if (de->d_type != DT_REG &&
@@ -4015,7 +4015,7 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
             de->d_type != DT_UNKNOWN)
                 return false;
 
-        if (ignore_file_allow_backup(de->d_name))
+        if (hidden_file_allow_backup(de->d_name))
                 return false;
 
         return endswith(de->d_name, suffix);
@@ -5909,7 +5909,7 @@ int on_ac_power(void) {
                 if (!de)
                         break;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 device = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOCTTY);

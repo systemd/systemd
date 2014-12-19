@@ -317,7 +317,7 @@ char *ascii_strlower(char *path);
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 
-bool ignore_file(const char *filename) _pure_;
+bool hidden_file(const char *filename) _pure_;
 
 bool chars_intersect(const char *a, const char *b) _pure_;
 
@@ -771,7 +771,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
                                 on_error;                               \
                         }                                               \
                         break;                                          \
-                } else if (ignore_file((de)->d_name))                   \
+                } else if (hidden_file((de)->d_name))                   \
                         continue;                                       \
                 else
 

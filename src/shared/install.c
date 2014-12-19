@@ -240,7 +240,7 @@ static int remove_marked_symlinks_fd(
                 if (!de)
                         break;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -415,7 +415,7 @@ static int find_symlinks_fd(
                 if (!de)
                         return r;
 
-                if (ignore_file(de->d_name))
+                if (hidden_file(de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -2094,7 +2094,7 @@ int unit_file_preset_all(
                         if (!de)
                                 break;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
@@ -2206,7 +2206,7 @@ int unit_file_get_list(
                         if (!de)
                                 break;
 
-                        if (ignore_file(de->d_name))
+                        if (hidden_file(de->d_name))
                                 continue;
 
                         if (!unit_name_is_valid(de->d_name, TEMPLATE_VALID))
