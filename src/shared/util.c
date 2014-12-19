@@ -6992,18 +6992,18 @@ int tempfn_xxxxxx(const char *p, char **ret) {
          *         /foo/bar/waldo
          *
          * Into this:
-         *         /foo/bar/.waldoXXXXXX
+         *         /foo/bar/.#waldoXXXXXX
          */
 
         fn = basename(p);
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        t = new(char, strlen(p) + 1 + 6 + 1);
+        t = new(char, strlen(p) + 2 + 6 + 1);
         if (!t)
                 return -ENOMEM;
 
-        strcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), "."), fn), "XXXXXX");
+        strcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), fn), "XXXXXX");
 
         *ret = path_kill_slashes(t);
         return 0;
@@ -7023,18 +7023,18 @@ int tempfn_random(const char *p, char **ret) {
          *         /foo/bar/waldo
          *
          * Into this:
-         *         /foo/bar/.waldobaa2a261115984a9
+         *         /foo/bar/.#waldobaa2a261115984a9
          */
 
         fn = basename(p);
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        t = new(char, strlen(p) + 1 + 16 + 1);
+        t = new(char, strlen(p) + 2 + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        x = stpcpy(stpcpy(mempcpy(t, p, fn - p), "."), fn);
+        x = stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), fn);
 
         u = random_u64();
         for (i = 0; i < 16; i++) {
@@ -7059,14 +7059,14 @@ int tempfn_random_child(const char *p, char **ret) {
         /* Turns this:
          *         /foo/bar/waldo
          * Into this:
-         *         /foo/bar/waldo/.3c2b6219aa75d7d0
+         *         /foo/bar/waldo/.#3c2b6219aa75d7d0
          */
 
-        t = new(char, strlen(p) + 2 + 16 + 1);
+        t = new(char, strlen(p) + 3 + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        x = stpcpy(stpcpy(t, p), "/.");
+        x = stpcpy(stpcpy(t, p), "/.#");
 
         u = random_u64();
         for (i = 0; i < 16; i++) {
