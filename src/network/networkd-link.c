@@ -259,6 +259,7 @@ static void link_free(Link *link) {
                 address_free(address);
         }
 
+        sd_dhcp_server_unref(link->dhcp_server);
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
