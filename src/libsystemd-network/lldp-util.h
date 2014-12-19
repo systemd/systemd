@@ -22,42 +22,5 @@
 
 #pragma once
 
-#include <net/ethernet.h>
-
-#include "sd-event.h"
-#include "sd-lldp.h"
-
-#include "util.h"
-
-typedef struct lldp_port lldp_port;
-
-struct lldp_port {
-        LLDPPortStatus status;
-
-        int ifindex;
-        char *ifname;
-
-        struct ether_addr mac;
-
-        int rawfd;
-
-        sd_event *event;
-        sd_event_source *lldp_port_rx;
-
-        int event_priority;
-
-        void *userdata;
-};
-
-int lldp_port_new(int ifindex,
-                  const char *ifname,
-                  const struct ether_addr *addr,
-                  void *userdata,
-                  lldp_port **ret);
-void lldp_port_free(lldp_port *p);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(lldp_port*, lldp_port_free);
-#define _cleanup_lldp_port_free_ _cleanup_(lldp_port_freep)
-
-int lldp_port_start(lldp_port *p);
-int lldp_port_stop(lldp_port *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_lldp *, sd_lldp_free);
+#define _cleanup_lldp_free_ _cleanup_(sd_lldp_freep)

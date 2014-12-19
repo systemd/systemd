@@ -22,11 +22,9 @@
 
 #pragma once
 
-#include "lldp-tlv.h"
 #include "sd-event.h"
 
 typedef struct sd_lldp sd_lldp;
-typedef struct lldp_agent_statitics lldp_agent_statitics;
 
 typedef void (*sd_lldp_cb_t)(sd_lldp *lldp, int event, void *userdata);
 
@@ -42,11 +40,8 @@ typedef enum LLDPPortStatus {
         _LLDP_PORT_STATUS_INVALID = -1,
 } LLDPPortStatus;
 
-int sd_lldp_new(int ifindex, char *ifname, struct ether_addr *mac, sd_lldp **ret);
+int sd_lldp_new(int ifindex, const char *ifname, const struct ether_addr *mac, sd_lldp **ret);
 void sd_lldp_free(sd_lldp *lldp);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_lldp *, sd_lldp_free);
-#define _cleanup_sd_lldp_free_ _cleanup_(sd_lldp_freep)
 
 int sd_lldp_start(sd_lldp *lldp);
 int sd_lldp_stop(sd_lldp *lldp);
@@ -56,5 +51,3 @@ int sd_lldp_detach_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_cb_t cb, void *userdata);
 int sd_lldp_save(sd_lldp *lldp, const char *file);
-
-int lldp_handle_packet(tlv_packet *m, uint16_t length);

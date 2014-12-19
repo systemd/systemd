@@ -32,6 +32,7 @@
 #include "prioq.h"
 #include "strv.h"
 #include "lldp-internal.h"
+#include "lldp-util.h"
 #include "ether-addr-util.h"
 
 typedef enum LLDPAgentRXState {
@@ -668,10 +669,10 @@ void sd_lldp_free(sd_lldp *lldp) {
 }
 
 int sd_lldp_new(int ifindex,
-                char *ifname,
-                struct ether_addr *mac,
+                const char *ifname,
+                const struct ether_addr *mac,
                 sd_lldp **ret) {
-        _cleanup_sd_lldp_free_ sd_lldp *lldp = NULL;
+        _cleanup_lldp_free_ sd_lldp *lldp = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

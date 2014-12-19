@@ -31,6 +31,7 @@
 typedef struct lldp_neighbour_port lldp_neighbour_port;
 typedef struct lldp_chassis lldp_chassis;
 typedef struct lldp_chassis_id lldp_chassis_id;
+typedef struct lldp_agent_statitics lldp_agent_statitics;
 
 struct lldp_neighbour_port {
         uint8_t type;
@@ -94,4 +95,5 @@ int lldp_read_system_description(tlv_packet *tlv, uint16_t *length, char **data)
 int lldp_read_system_capability(tlv_packet *tlv, uint16_t *data);
 int lldp_read_port_description(tlv_packet *tlv, uint16_t *length, char **data);
 
+int lldp_handle_packet(tlv_packet *m, uint16_t length);
 #define log_lldp(fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)

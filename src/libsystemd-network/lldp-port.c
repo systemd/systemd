@@ -83,7 +83,7 @@ void lldp_port_free(lldp_port *p) {
 }
 
 int lldp_port_new(int ifindex,
-                  char *ifname,
+                  const char *ifname,
                   const struct ether_addr *addr,
                   void *userdata,
                   lldp_port **ret) {

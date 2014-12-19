@@ -3089,6 +3089,7 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/lldp-port.c \
 	src/libsystemd-network/lldp-internal.h \
 	src/libsystemd-network/lldp-internal.c \
+	src/libsystemd-network/lldp-util.h \
 	src/libsystemd-network/sd-lldp.h \
 	src/libsystemd-network/sd-lldp.c
 
