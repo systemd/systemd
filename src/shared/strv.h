@@ -52,6 +52,7 @@ int strv_consume_prepend(char ***l, char *value);
 
 char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);
+bool strv_is_uniq(char **l);
 
 bool strv_equal(char **a, char **b);
 
@@ -141,3 +142,5 @@ void strv_print(char **l);
                 _l ++;                                       \
                 _l[0];                                       \
         }))
+
+char **strv_reverse(char **l);

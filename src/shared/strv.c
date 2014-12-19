@@ -524,6 +524,16 @@ char **strv_uniq(char **l) {
         return l;
 }
 
+bool strv_is_uniq(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                if (strv_find(i+1, *i))
+                        return false;
+
+        return true;
+}
+
 char **strv_remove(char **l, const char *s) {
         char **f, **t;
 
@@ -663,4 +673,22 @@ int strv_extendf(char ***l, const char *format, ...) {
                 return -ENOMEM;
 
         return strv_consume(l, x);
+}
+
+char **strv_reverse(char **l) {
+        unsigned n, i;
+
+        n = strv_length(l);
+        if (n <= 1)
+                return l;
+
+        for (i = 0; i < n / 2; i++) {
+                char *t;
+
+                t = l[i];
+                l[i] = l[n-1-i];
+                l[n-1-i] = t;
+        }
+
+        return l;
 }

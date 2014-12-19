@@ -491,6 +491,57 @@ static void test_strv_equal(void) {
         assert_se(!strv_equal(b, NULL));
 }
 
+static void test_strv_is_uniq(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        a = strv_new(NULL, NULL);
+        assert_se(a);
+        assert_se(strv_is_uniq(a));
+
+        b = strv_new("foo", NULL);
+        assert_se(b);
+        assert_se(strv_is_uniq(b));
+
+        c = strv_new("foo", "bar", NULL);
+        assert_se(c);
+        assert_se(strv_is_uniq(c));
+
+        d = strv_new("foo", "bar", "waldo", "bar", "piep", NULL);
+        assert_se(d);
+        assert_se(!strv_is_uniq(d));
+}
+
+static void test_strv_reverse(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        a = strv_new(NULL, NULL);
+        assert_se(a);
+
+        strv_reverse(a);
+        assert_se(strv_isempty(a));
+
+        b = strv_new("foo", NULL);
+        assert_se(b);
+        strv_reverse(b);
+        assert_se(streq_ptr(b[0], "foo"));
+        assert_se(streq_ptr(b[1], NULL));
+
+        c = strv_new("foo", "bar", NULL);
+        assert_se(c);
+        strv_reverse(c);
+        assert_se(streq_ptr(c[0], "bar"));
+        assert_se(streq_ptr(c[1], "foo"));
+        assert_se(streq_ptr(c[2], NULL));
+
+        d = strv_new("foo", "bar", "waldo", NULL);
+        assert_se(d);
+        strv_reverse(d);
+        assert_se(streq_ptr(d[0], "waldo"));
+        assert_se(streq_ptr(d[1], "bar"));
+        assert_se(streq_ptr(d[2], "foo"));
+        assert_se(streq_ptr(d[3], NULL));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -545,6 +596,8 @@ int main(int argc, char *argv[]) {
         test_strv_push_prepend();
         test_strv_push();
         test_strv_equal();
+        test_strv_is_uniq();
+        test_strv_reverse();
 
         return 0;
 }
