@@ -1984,7 +1984,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
                 /* We execute this synchronously, since we need to be
                  * sure this is gone when we start the service
                  * next. */
-                rm_rf_dangerous(p, false, true, false);
+                rm_rf(p, false, true, false);
         }
 
         return 0;
