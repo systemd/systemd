@@ -50,6 +50,7 @@
 #include "path-util.h"
 #include "mkdir.h"
 #include "copy.h"
+#include "verbs.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -72,12 +73,16 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int list_machines(sd_bus *bus, char **args, unsigned n) {
+static int list_machines(int argc, char *argv[], void *userdata) {
+
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *name, *class, *service, *object;
+        sd_bus *bus = userdata;
         unsigned k = 0;
         int r;
+
+        assert(bus);
 
         pager_open_if_enabled();
 
@@ -132,7 +137,7 @@ static int compare_image_info(const void *a, const void *b) {
         return strcmp(x->name, y->name);
 }
 
-static int list_images(sd_bus *bus, char **args, unsigned n) {
+static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t max_name = strlen("NAME"), max_type = strlen("TYPE");
@@ -140,8 +145,11 @@ static int list_images(sd_bus *bus, char **args, unsigned n) {
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
         const char *name, *type, *object;
+        sd_bus *bus = userdata;
         int read_only;
         int r;
+
+        assert(bus);
 
         pager_open_if_enabled();
 
@@ -389,6 +397,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         int ifi = -1;
 
+        assert(bus);
         assert(i);
 
         fputs(strna(i->name), stdout);
@@ -505,6 +514,8 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
         MachineStatusInfo info = {};
         int r;
 
+        assert(verb);
+        assert(bus);
         assert(path);
         assert(new_line);
 
@@ -535,6 +546,10 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
 static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         int r;
 
+        assert(bus);
+        assert(path);
+        assert(new_line);
+
         if (*new_line)
                 printf("\n");
 
@@ -547,21 +562,21 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         return r;
 }
 
-static int show(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+static int show(int argc, char *argv[], void *userdata) {
+
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r = 0;
-        unsigned i;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         bool properties, new_line = false;
+        sd_bus *bus = userdata;
+        int r = 0, i;
 
         assert(bus);
-        assert(args);
 
-        properties = !strstr(args[0], "status");
+        properties = !strstr(argv[0], "status");
 
         pager_open_if_enabled();
 
-        if (properties && n <= 1) {
+        if (properties && argc <= 1) {
 
                 /* If no argument is specified, inspect the manager
                  * itself */
@@ -570,7 +585,7 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                         return r;
         }
 
-        for (i = 1; i < n; i++) {
+        for (i = 1; i < argc; i++) {
                 const char *path = NULL;
 
                 r = sd_bus_call_method(
@@ -581,7 +596,7 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                                         "GetMachine",
                                         &error,
                                         &reply,
-                                        "s", args[i]);
+                                        "s", argv[i]);
                 if (r < 0) {
                         log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -594,33 +609,34 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                 if (properties)
                         r = show_properties(bus, path, &new_line);
                 else
-                        r = show_info(args[0], bus, path, &new_line);
+                        r = show_info(argv[0], bus, path, &new_line);
         }
 
         return r;
 }
 
-static int kill_machine(sd_bus *bus, char **args, unsigned n) {
+static int kill_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned i;
+        sd_bus *bus = userdata;
+        int i;
 
-        assert(args);
+        assert(bus);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
-        for (i = 1; i < n; i++) {
+        for (i = 1; i < argc; i++) {
                 int r;
 
                 r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.machine1",
-                                        "/org/freedesktop/machine1",
-                                        "org.freedesktop.machine1.Manager",
-                                        "KillMachine",
-                                        &error,
-                                        NULL,
-                                        "ssi", args[i], arg_kill_who, arg_signal);
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "KillMachine",
+                                &error,
+                                NULL,
+                                "ssi", argv[i], arg_kill_who, arg_signal);
                 if (r < 0) {
                         log_error("Could not kill machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -630,27 +646,28 @@ static int kill_machine(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int reboot_machine(sd_bus *bus, char **args, unsigned n) {
+static int reboot_machine(int argc, char *argv[], void *userdata) {
         arg_kill_who = "leader";
         arg_signal = SIGINT; /* sysvinit + systemd */
 
-        return kill_machine(bus, args, n);
+        return kill_machine(argc, argv, userdata);
 }
 
-static int poweroff_machine(sd_bus *bus, char **args, unsigned n) {
+static int poweroff_machine(int argc, char *argv[], void *userdata) {
         arg_kill_who = "leader";
         arg_signal = SIGRTMIN+4; /* only systemd */
 
-        return kill_machine(bus, args, n);
+        return kill_machine(argc, argv, userdata);
 }
 
-static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
+static int terminate_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned i;
+        sd_bus *bus = userdata;
+        int i;
 
-        assert(args);
+        assert(bus);
 
-        for (i = 1; i < n; i++) {
+        for (i = 1; i < argc; i++) {
                 int r;
 
                 r = sd_bus_call_method(
@@ -661,7 +678,7 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
                                 "TerminateMachine",
                                 &error,
                                 NULL,
-                                "s", args[i]);
+                                "s", argv[i]);
                 if (r < 0) {
                         log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
                         return r;
@@ -720,23 +737,21 @@ static int machine_get_leader(sd_bus *bus, const char *name, pid_t *ret) {
         return 0;
 }
 
-static int copy_files(sd_bus *bus, char **args, unsigned n) {
+static int copy_files(int argc, char *argv[], void *userdata) {
         char *dest, *host_path, *container_path, *host_dirname, *host_basename, *container_dirname, *container_basename, *t;
         _cleanup_close_ int hostfd = -1;
+        sd_bus *bus = userdata;
         pid_t child, leader;
         bool copy_from;
         siginfo_t si;
         int r;
 
-        if (n > 4) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        assert(bus);
 
-        copy_from = streq(args[0], "copy-from");
-        dest = args[3] ?: args[2];
-        host_path = strdupa(copy_from ? dest : args[2]);
-        container_path = strdupa(copy_from ? args[2] : dest);
+        copy_from = streq(argv[0], "copy-from");
+        dest = argv[3] ?: argv[2];
+        host_path = strdupa(copy_from ? dest : argv[2]);
+        container_path = strdupa(copy_from ? argv[2] : dest);
 
         if (!path_is_absolute(container_path)) {
                 log_error("Container path not absolute.");
@@ -751,7 +766,7 @@ static int copy_files(sd_bus *bus, char **args, unsigned n) {
         container_basename = basename(t);
         container_dirname = dirname(container_path);
 
-        r = machine_get_leader(bus, args[1], &leader);
+        r = machine_get_leader(bus, argv[1], &leader);
         if (r < 0)
                 return r;
 
@@ -811,8 +826,9 @@ static int copy_files(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int bind_mount(sd_bus *bus, char **args, unsigned n) {
+static int bind_mount(int argc, char *argv[], void *userdata) {
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
+        sd_bus *bus = userdata;
         pid_t child, leader;
         const char *dest;
         siginfo_t si;
@@ -821,28 +837,25 @@ static int bind_mount(sd_bus *bus, char **args, unsigned n) {
                 mount_outside_created = false, mount_outside_mounted = false;
         int r;
 
+        assert(bus);
+
         /* One day, when bind mounting /proc/self/fd/n works across
          * namespace boundaries we should rework this logic to make
          * use of it... */
 
-        if (n > 4) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
-
-        dest = args[3] ?: args[2];
+        dest = argv[3] ?: argv[2];
         if (!path_is_absolute(dest)) {
                 log_error("Destination path not absolute.");
                 return -EINVAL;
         }
 
-        p = strappenda("/run/systemd/nspawn/propagate/", args[1], "/");
+        p = strappenda("/run/systemd/nspawn/propagate/", argv[1], "/");
         if (access(p, F_OK) < 0) {
                 log_error("Container does not allow propagation of mount points.");
                 return -ENOTSUP;
         }
 
-        r = machine_get_leader(bus, args[1], &leader);
+        r = machine_get_leader(bus, argv[1], &leader);
         if (r < 0)
                 return r;
 
@@ -882,7 +895,7 @@ static int bind_mount(sd_bus *bus, char **args, unsigned n) {
 
         mount_tmp_created = true;
 
-        if (mount(args[2], mount_tmp, NULL, MS_BIND, NULL) < 0) {
+        if (mount(argv[2], mount_tmp, NULL, MS_BIND, NULL) < 0) {
                 r = log_error_errno(errno, "Failed to overmount: %m");
                 goto finish;
         }
@@ -900,7 +913,7 @@ static int bind_mount(sd_bus *bus, char **args, unsigned n) {
          * directory. This way it will appear there read-only
          * right-away. */
 
-        mount_outside = strappenda("/run/systemd/nspawn/propagate/", args[1], "/XXXXXX");
+        mount_outside = strappenda("/run/systemd/nspawn/propagate/", argv[1], "/XXXXXX");
         if (!mkdtemp(mount_outside)) {
                 r = log_error_errno(errno, "Cannot create propagation directory: %m");
                 goto finish;
@@ -1013,6 +1026,8 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         pid_t child;
         siginfo_t si;
 
+        assert(pid > 0);
+
         r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
@@ -1082,7 +1097,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         return master;
 }
 
-static int login_machine(sd_bus *bus, char **args, unsigned n) {
+static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
@@ -1090,13 +1105,13 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
+        sd_bus *bus = userdata;
         const char *pty, *p;
         pid_t leader;
         sigset_t mask;
         int r, ret = 0;
 
         assert(bus);
-        assert(args);
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Login only supported on local machines.");
@@ -1111,7 +1126,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = machine_get_leader(bus, args[1], &leader);
+        r = machine_get_leader(bus, argv[1], &leader);
         if (r < 0)
                 return r;
 
@@ -1129,7 +1144,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 return -EIO;
         }
 
-        r = sd_bus_open_system_container(&container_bus, args[1]);
+        r = sd_bus_open_system_container(&container_bus, argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to get container bus: %m");
 
@@ -1158,7 +1173,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        log_info("Connected to container %s. Press ^] three times within 1s to exit session.", args[1]);
+        log_info("Connected to container %s. Press ^] three times within 1s to exit session.", argv[1]);
 
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
@@ -1175,13 +1190,14 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
 
         fputc('\n', stdout);
 
-        log_info("Connection to container %s terminated.", args[1]);
+        log_info("Connection to container %s terminated.", argv[1]);
 
         sd_event_get_exit_code(event, &ret);
         return ret;
 }
 
-static void help(void) {
+static int help(int argc, char *argv[], void *userdata) {
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the virtual machine and container\n"
                "registration manager.\n\n"
@@ -1213,6 +1229,8 @@ static void help(void) {
                "Image commands:\n"
                "  list-images                 Show available images\n",
                program_invocation_short_name);
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1253,8 +1271,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -1328,90 +1345,26 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
+static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 
-        static const struct {
-                const char* verb;
-                const enum {
-                        MORE,
-                        LESS,
-                        EQUAL
-                } argc_cmp;
-                const int argc;
-                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
-        } verbs[] = {
-                { "list",                  LESS,   1, list_machines     },
-                { "list-images",           LESS,   1, list_images       },
-                { "status",                MORE,   2, show              },
-                { "show",                  MORE,   1, show              },
-                { "terminate",             MORE,   2, terminate_machine },
-                { "reboot",                MORE,   2, reboot_machine    },
-                { "poweroff",              MORE,   2, poweroff_machine  },
-                { "kill",                  MORE,   2, kill_machine      },
-                { "login",                 MORE,   2, login_machine     },
-                { "bind",                  MORE,   3, bind_mount        },
-                { "copy-to",               MORE,   3, copy_files        },
-                { "copy-from",             MORE,   3, copy_files        },
+        static const Verb verbs[] = {
+                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
+                { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
+                { "list-images", VERB_ANY, 1,        0,            list_images       },
+                { "status",      2,        VERB_ANY, 0,            show              },
+                { "show",        VERB_ANY, VERB_ANY, 0,            show              },
+                { "terminate",   2,        VERB_ANY, 0,            terminate_machine },
+                { "reboot",      2,        VERB_ANY, 0,            reboot_machine    },
+                { "poweroff",    2,        VERB_ANY, 0,            poweroff_machine  },
+                { "kill",        2,        VERB_ANY, 0,            kill_machine      },
+                { "login",       2,        2,        0,            login_machine     },
+                { "bind",        3,        4,        0,            bind_mount        },
+                { "copy-to",     3,        4,        0,            copy_files        },
+                { "copy-from",   3,        4,        0,            copy_files        },
+                {}
         };
 
-        int left;
-        unsigned i;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        left = argc - optind;
-
-        if (left <= 0)
-                /* Special rule: no arguments means "list" */
-                i = 0;
-        else {
-                if (streq(argv[optind], "help")) {
-                        help();
-                        return 0;
-                }
-
-                for (i = 0; i < ELEMENTSOF(verbs); i++)
-                        if (streq(argv[optind], verbs[i].verb))
-                                break;
-
-                if (i >= ELEMENTSOF(verbs)) {
-                        log_error("Unknown operation %s", argv[optind]);
-                        return -EINVAL;
-                }
-        }
-
-        switch (verbs[i].argc_cmp) {
-
-        case EQUAL:
-                if (left != verbs[i].argc) {
-                        log_error("Invalid number of arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case MORE:
-                if (left < verbs[i].argc) {
-                        log_error("Too few arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case LESS:
-                if (left > verbs[i].argc) {
-                        log_error("Too many arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Unknown comparison operator.");
-        }
-
-        return verbs[i].dispatch(bus, argv + optind, left);
+        return dispatch_verb(argc, argv, verbs, bus);
 }
 
 int main(int argc, char*argv[]) {
@@ -1432,7 +1385,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        r = machinectl_main(bus, argc, argv);
+        r = machinectl_main(argc, argv, bus);
 
 finish:
         pager_close();
