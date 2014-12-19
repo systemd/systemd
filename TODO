@@ -39,8 +39,6 @@ Features:
 
 * "machinectl start/enable/disable foo" as aliases for "systemctl start/enable/disable systemd-nspawn@foo.service"
 
-* "machinectl list-images" for showing a list of container trees collected from /var/lib/containers
-
 * "machinectl snapshot" to make a snapshot of a tree or container into /var/lib/containers
 
 * "machinectl rm" to remove a container tree from /var/lib/containers
@@ -50,6 +48,8 @@ Features:
 * "machinectl diff"
 
 * "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
+
+* make "machinectl login" use a new machined call AllocateMachinePty() or so to get a pty in a machine. That would open up logins to unprivileged clients
 
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dck) are used and /var is not a btrfs file system
 
