@@ -412,60 +412,51 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-_pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
-        uint64_t a;
-
-        assert(af);
-        assert(ao);
+_pure_ static int compare_with_location(JournalFile *f, Location *l) {
+        assert(f);
         assert(l);
+        assert(f->location_type == LOCATION_SEEK);
         assert(l->type == LOCATION_DISCRETE || l->type == LOCATION_SEEK);
 
         if (l->monotonic_set &&
-            sd_id128_equal(ao->entry.boot_id, l->boot_id) &&
+            sd_id128_equal(f->current_boot_id, l->boot_id) &&
             l->realtime_set &&
-            le64toh(ao->entry.realtime) == l->realtime &&
+            f->current_realtime == l->realtime &&
             l->xor_hash_set &&
-            le64toh(ao->entry.xor_hash) == l->xor_hash)
+            f->current_xor_hash == l->xor_hash)
                 return 0;
 
         if (l->seqnum_set &&
-            sd_id128_equal(af->header->seqnum_id, l->seqnum_id)) {
+            sd_id128_equal(f->header->seqnum_id, l->seqnum_id)) {
 
-                a = le64toh(ao->entry.seqnum);
-
-                if (a < l->seqnum)
+                if (f->current_seqnum < l->seqnum)
                         return -1;
-                if (a > l->seqnum)
+                if (f->current_seqnum > l->seqnum)
                         return 1;
         }
 
         if (l->monotonic_set &&
-            sd_id128_equal(ao->entry.boot_id, l->boot_id)) {
+            sd_id128_equal(f->current_boot_id, l->boot_id)) {
 
-                a = le64toh(ao->entry.monotonic);
-
-                if (a < l->monotonic)
+                if (f->current_monotonic < l->monotonic)
                         return -1;
-                if (a > l->monotonic)
+                if (f->current_monotonic > l->monotonic)
                         return 1;
         }
 
         if (l->realtime_set) {
 
-                a = le64toh(ao->entry.realtime);
-
-                if (a < l->realtime)
+                if (f->current_realtime < l->realtime)
                         return -1;
-                if (a > l->realtime)
+                if (f->current_realtime > l->realtime)
                         return 1;
         }
 
         if (l->xor_hash_set) {
-                a = le64toh(ao->entry.xor_hash);
 
-                if (a < l->xor_hash)
+                if (f->current_xor_hash < l->xor_hash)
                         return -1;
-                if (a > l->xor_hash)
+                if (f->current_xor_hash > l->xor_hash)
                         return 1;
         }
 
@@ -740,21 +731,24 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         f->last_n_entries = n_entries;
 
         if (f->last_direction == direction && f->current_offset > 0) {
+                cp = f->current_offset;
+
                 /* LOCATION_SEEK here means we did the work in a previous
                  * iteration and the current location already points to a
                  * candidate entry. */
-                if (f->location_type == LOCATION_SEEK)
-                        return 1;
+                if (f->location_type != LOCATION_SEEK) {
+                        r = next_with_matches(j, f, direction, &c, &cp);
+                        if (r <= 0)
+                                return r;
 
-                cp = f->current_offset;
-
-                r = next_with_matches(j, f, direction, &c, &cp);
-                if (r <= 0)
-                        return r;
+                        journal_file_save_location(f, direction, c, cp);
+                }
         } else {
                 r = find_location_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
                         return r;
+
+                journal_file_save_location(f, direction, c, cp);
         }
 
         /* OK, we found the spot, now let's advance until an entry
@@ -769,20 +763,20 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (j->current_location.type == LOCATION_DISCRETE) {
                         int k;
 
-                        k = compare_with_location(f, c, &j->current_location);
+                        k = compare_with_location(f, &j->current_location);
 
                         found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
                         found = true;
 
-                if (found) {
-                        journal_file_save_location(f, direction, c, cp);
+                if (found)
                         return 1;
-                }
 
                 r = next_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
                         return r;
+
+                journal_file_save_location(f, direction, c, cp);
         }
 }
 
