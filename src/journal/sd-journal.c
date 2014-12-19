@@ -723,13 +723,13 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        /* If we hit EOF before, recheck if any new entries arrived. */
-        n_entries = le64toh(f->header->n_entries);
-        if (f->location_type == LOCATION_TAIL && n_entries == f->last_n_entries)
-                return 0;
-        f->last_n_entries = n_entries;
-
         if (f->last_direction == direction && f->current_offset > 0) {
+                /* If we hit EOF before, recheck if any new entries arrived. */
+                n_entries = le64toh(f->header->n_entries);
+                if (f->location_type == LOCATION_TAIL && n_entries == f->last_n_entries)
+                        return 0;
+                f->last_n_entries = n_entries;
+
                 /* LOCATION_SEEK here means we did the work in a previous
                  * iteration and the current location already points to a
                  * candidate entry. */
