@@ -29,6 +29,7 @@
 #include "strv.h"
 #include "mkdir.h"
 #include "fileio.h"
+#include "verbs.h"
 
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
@@ -567,16 +568,16 @@ static int import_file(struct trie *trie, const char *filename) {
         return 0;
 }
 
-static int hwdb_query(char **args, unsigned n) {
+static int hwdb_query(int argc, char *argv[], void *userdata) {
         _cleanup_hwdb_unref_ sd_hwdb *hwdb = NULL;
         const char *key, *value;
         const char *modalias;
         int r;
 
-        assert(args);
-        assert(n == 2);
+        assert(argc >= 2);
+        assert(argv);
 
-        modalias = args[1];
+        modalias = argv[1];
 
         r = sd_hwdb_new(&hwdb);
         if (r < 0)
@@ -588,7 +589,7 @@ static int hwdb_query(char **args, unsigned n) {
         return 0;
 }
 
-static int hwdb_update(char **args, unsigned n) {
+static int hwdb_update(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
         char **files, **f;
@@ -699,75 +700,13 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int hwdb_main(int argc, char *argv[]) {
-        static const struct {
-                const char *verb;
-                const enum {
-                        MORE,
-                        LESS,
-                        EQUAL,
-                } argc_cmp;
-                const int argc;
-                int (*const dispatch)(char **args, unsigned n);
-        } verbs[] = {
-                { "update", EQUAL, 1, hwdb_update },
-                { "query", EQUAL, 2, hwdb_query },
+        const Verb verbs[] = {
+                { "update", 1, 1, 0, hwdb_update },
+                { "query", 2, 2, 0, hwdb_query },
+                {},
         };
 
-        int left;
-        unsigned i;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        left = argc - optind;
-
-        if (left <= 0) {
-                log_error("Missing command.");
-                help();
-                return -EINVAL;
-        }
-
-        for (i = 0; i < ELEMENTSOF(verbs); i++)
-                if (streq(argv[optind], verbs[i].verb))
-                        break;
-
-        if (i >= ELEMENTSOF(verbs)) {
-                log_error("Unknown command %s.", argv[optind]);
-                help();
-                return -EINVAL;
-        }
-
-        switch (verbs[i].argc_cmp) {
-        case EQUAL:
-                if (left != verbs[i].argc) {
-                        log_error("Invalid number of arguments.");
-                        help();
-                        return -EINVAL;
-                }
-
-                break;
-
-        case MORE:
-                if (left < verbs[i].argc) {
-                        log_error("Too few arguments.");
-                        help();
-                        return -EINVAL;
-                }
-
-                break;
-        case LESS:
-                if (left > verbs[i].argc) {
-                        log_error("Too many arguments.");
-                        help();
-                        return -EINVAL;
-                }
-
-                break;
-        default:
-                assert_not_reached("Unknown comparison operator.");
-        }
-
-        return verbs[i].dispatch(argv + optind, left);
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 int main (int argc, char *argv[]) {
