@@ -163,7 +163,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(argc, argv, NULL);
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -186,7 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_main(int argc, char *argv[]) {
 
-        const Verb verbs[] = {
+        static const Verb verbs[] = {
                 { "help",     VERB_ANY, VERB_ANY, 0, help     },
                 { "pull-dck", 2,        3,        0, pull_dck },
                 {}
