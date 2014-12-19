@@ -39,6 +39,7 @@
 #include "bus-common-errors.h"
 #include "time-util.h"
 #include "cgroup-util.h"
+#include "image.h"
 #include "machined.h"
 
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -436,11 +437,63 @@ static int method_get_machine_os_release(sd_bus *bus, sd_bus_message *message, v
         return bus_machine_method_get_os_release(bus, message, machine, error);
 }
 
+static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        Manager *m = userdata;
+        Image *image;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        images = hashmap_new(&string_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(images);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssbo)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(image, images, i) {
+                _cleanup_free_ char *p = NULL;
+
+                p = image_bus_path(image->name);
+                if (!p)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(ssbo)",
+                                          image->name,
+                                          image_type_to_string(image->type),
+                                          image->read_only,
+                                          p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListImages", NULL, "a(ssbo)", method_list_images, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CreateMachine", "sayssusa(sv)", "o", method_create_machine, 0),
         SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),

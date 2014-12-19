@@ -5034,9 +5034,11 @@ rootlibexec_PROGRAMS += \
 	systemd-machined
 
 libsystemd_machine_core_la_SOURCES = \
-	src/machine/machined-dbus.c \
 	src/machine/machine.c \
 	src/machine/machine.h \
+	src/machine/image.c \
+	src/machine/image.h \
+	src/machine/machined-dbus.c \
 	src/machine/machine-dbus.c
 
 libsystemd_machine_core_la_LIBADD = \

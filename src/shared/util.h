@@ -775,6 +775,15 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
                         continue;                                       \
                 else
 
+#define FOREACH_DIRENT_ALL(de, d, on_error)                             \
+        for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
+                if (!de) {                                              \
+                        if (errno > 0) {                                \
+                                on_error;                               \
+                        }                                               \
+                        break;                                          \
+                } else
+
 static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*)s + n;

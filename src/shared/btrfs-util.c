@@ -84,18 +84,18 @@ int btrfs_is_snapshot(int fd) {
         struct stat st;
         struct statfs sfs;
 
-        if (fstatfs(fd, &sfs) < 0)
-                return -errno;
-
-        if (!F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
-                return 0;
+        /* On btrfs subvolumes always have the inode 256 */
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* On btrfs subvolumes always have the inode 256 */
+        if (!S_ISDIR(st.st_mode) || st.st_ino != 256)
+                return 0;
 
-        return S_ISDIR(st.st_mode) && st.st_ino == 256;
+        if (fstatfs(fd, &sfs) < 0)
+                return -errno;
+
+        return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
 int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy) {
@@ -230,6 +230,15 @@ int btrfs_subvol_read_only(const char *path, bool b) {
                 return -errno;
 
         return 0;
+}
+
+int btrfs_subvol_is_read_only_fd(int fd) {
+        uint64_t flags;
+
+        if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
+                return -errno;
+
+        return !!(flags & BTRFS_SUBVOL_RDONLY);
 }
 
 int btrfs_reflink(int infd, int outfd) {

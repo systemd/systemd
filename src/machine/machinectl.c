@@ -120,6 +120,98 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
+typedef struct ImageInfo {
+        const char *name;
+        const char *type;
+        bool read_only;
+} ImageInfo;
+
+static int compare_image_info(const void *a, const void *b) {
+        const ImageInfo *x = a, *y = b;
+
+        return strcmp(x->name, y->name);
+}
+
+static int list_images(sd_bus *bus, char **args, unsigned n) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        size_t max_name = strlen("NAME"), max_type = strlen("TYPE");
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ ImageInfo *images = NULL;
+        size_t n_images = 0, n_allocated = 0, j;
+        const char *name, *type, *object;
+        int read_only;
+        int r;
+
+        pager_open_if_enabled();
+
+        r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "ListImages",
+                                &error,
+                                &reply,
+                                "");
+        if (r < 0) {
+                log_error("Could not get images: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssbo)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(ssbo)", &name, &type, &read_only, &object)) > 0) {
+
+                if (name[0] == '.' && !arg_all)
+                        continue;
+
+                if (!GREEDY_REALLOC(images, n_allocated, n_images + 1))
+                        return log_oom();
+
+                images[n_images].name = name;
+                images[n_images].type = type;
+                images[n_images].read_only = read_only;
+
+                if (strlen(name) > max_name)
+                        max_name = strlen(name);
+
+                if (strlen(type) > max_type)
+                        max_type = strlen(type);
+
+                n_images++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        qsort_safe(images, n_images, sizeof(ImageInfo), compare_image_info);
+
+        if (arg_legend)
+                printf("%-*s %-*s %-3s\n", (int) max_name, "NAME", (int) max_type, "TYPE", "RO");
+
+        for (j = 0; j < n_images; j++) {
+                printf("%-*s %-*s %-3s\n",
+                       (int) max_name, images[j].name,
+                       (int) max_type, images[j].type,
+                       yes_no(images[j].read_only));
+        }
+
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+
+        if (arg_legend)
+                printf("\n%zu images listed.\n", n_images);
+
+        return 0;
+}
+
 static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1106,7 +1198,7 @@ static void help(void) {
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --read-only              Create read-only bind mount\n"
                "     --mkdir                  Create directory before bind mounting, if missing\n\n"
-               "Commands:\n"
+               "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container status\n"
                "  show NAME...                Show properties of one or more VMs/containers\n"
@@ -1117,7 +1209,9 @@ static void help(void) {
                "  terminate NAME...           Terminate one or more VMs/containers\n"
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
-               "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n",
+               "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n\n"
+               "Image commands:\n"
+               "  list-images                 Show available images\n",
                program_invocation_short_name);
 }
 
@@ -1247,6 +1341,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
                 int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
                 { "list",                  LESS,   1, list_machines     },
+                { "list-images",           LESS,   1, list_images       },
                 { "status",                MORE,   2, show              },
                 { "show",                  MORE,   1, show              },
                 { "terminate",             MORE,   2, terminate_machine },
