@@ -27,15 +27,14 @@
 #include <sys/epoll.h>
 
 #include "sd-daemon.h"
-
 #include "strv.h"
 #include "conf-parser.h"
 #include "cgroup-util.h"
 #include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "machined.h"
 #include "label.h"
+#include "machined.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -151,6 +150,14 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine enumerator: %m");
+
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/image", "org.freedesktop.machine1.Image", image_vtable, image_object_find, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add image object vtable: %m");
+
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/image", image_node_enumerator, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add image enumerator: %m");
 
         r = sd_bus_add_match(m->bus,
                              NULL,

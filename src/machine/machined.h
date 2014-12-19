@@ -33,6 +33,7 @@
 typedef struct Manager Manager;
 
 #include "machine.h"
+#include "image.h"
 
 struct Manager {
         sd_event *event;

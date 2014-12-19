@@ -5039,7 +5039,8 @@ libsystemd_machine_core_la_SOURCES = \
 	src/machine/image.c \
 	src/machine/image.h \
 	src/machine/machined-dbus.c \
-	src/machine/machine-dbus.c
+	src/machine/machine-dbus.c \
+	src/machine/image-dbus.c
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \

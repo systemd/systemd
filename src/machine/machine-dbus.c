@@ -32,7 +32,6 @@
 #include "fileio.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
-#include "image.h"
 #include "machine.h"
 
 static int property_get_id(
@@ -476,11 +475,9 @@ char *machine_bus_path(Machine *m) {
 }
 
 int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;
-        Image *image;
         Iterator i;
         int r;
 
@@ -492,26 +489,6 @@ int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                 char *p;
 
                 p = machine_bus_path(machine);
-                if (!p)
-                        return -ENOMEM;
-
-                r = strv_consume(&l, p);
-                if (r < 0)
-                        return r;
-        }
-
-        images = hashmap_new(&string_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(images);
-        if (r < 0)
-                return r;
-
-        HASHMAP_FOREACH(image, images, i) {
-                char *p;
-
-                p = image_bus_path(image->name);
                 if (!p)
                         return -ENOMEM;
 

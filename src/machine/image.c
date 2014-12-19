@@ -24,8 +24,8 @@
 #include "strv.h"
 #include "utf8.h"
 #include "btrfs-util.h"
+#include "path-util.h"
 #include "image.h"
-#include "bus-label.h"
 
 static const char image_search_path[] =
         "/var/lib/container\0"
@@ -71,9 +71,11 @@ static int image_new(
                 return -ENOMEM;
 
         if (path) {
-                i->path = strdup(path);
+                i->path = strjoin(path, "/", name, NULL);
                 if (!i->path)
                         return -ENOMEM;
+
+                path_kill_slashes(i->path);
         }
 
         *ret = i;
@@ -262,18 +264,6 @@ void image_hashmap_free(Hashmap *map) {
                 image_unref(i);
 
         hashmap_free(map);
-}
-
-char *image_bus_path(const char *name) {
-        _cleanup_free_ char *e = NULL;
-
-        assert(name);
-
-        e = bus_label_escape(name);
-        if (!e)
-                return NULL;
-
-        return strappend("/org/freedesktop/machine1/image/", e);
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
