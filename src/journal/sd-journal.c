@@ -697,23 +697,22 @@ static int next_with_matches(
                 Object **ret,
                 uint64_t *offset) {
 
-        uint64_t cp;
-
         assert(j);
         assert(f);
         assert(ret);
         assert(offset);
 
-        cp = *offset;
-
         /* No matches is easy. We simple advance the file
          * pointer by one. */
         if (!j->level0)
-                return journal_file_next_entry(f, cp, direction, ret, offset);
+                return journal_file_next_entry(f, f->current_offset, direction, ret, offset);
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */
-        return next_for_match(j, j->level0, f, direction == DIRECTION_DOWN ? cp+1 : cp-1, direction, ret, offset);
+        return next_for_match(j, j->level0, f,
+                              direction == DIRECTION_DOWN ? f->current_offset + 1
+                                                          : f->current_offset - 1,
+                              direction, ret, offset);
 }
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction) {
@@ -731,8 +730,6 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         f->last_n_entries = n_entries;
 
         if (f->last_direction == direction && f->current_offset > 0) {
-                cp = f->current_offset;
-
                 /* LOCATION_SEEK here means we did the work in a previous
                  * iteration and the current location already points to a
                  * candidate entry. */
