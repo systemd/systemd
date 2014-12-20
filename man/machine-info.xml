@@ -138,8 +138,9 @@
                                 <literal>laptop</literal>,
                                 <literal>server</literal>,
                                 <literal>tablet</literal>,
-				<literal>handset</literal>,
-				<literal>watch</literal>, as well as
+                                <literal>handset</literal>,
+                                <literal>watch</literal>, and
+                                <literal>embedded</literal> as well as
                                 the special chassis types
                                 <literal>vm</literal> and
                                 <literal>container</literal> for
