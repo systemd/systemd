@@ -253,6 +253,7 @@
 /test-unit-name
 /test-utf8
 /test-util
+/test-verbs
 /test-watchdog
 /test-xml
 /timedatectl

@@ -1389,7 +1389,8 @@ tests += \
 	test-execute \
 	test-copy \
 	test-cap-list \
-	test-sigbus
+	test-sigbus \
+	test-verbs
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1661,6 +1662,12 @@ test_tmpfiles_LDADD = \
 
 test_namespace_SOURCES = \
 	src/test/test-namespace.c
+
+test_verbs_SOURCES = \
+	src/test/test-verbs.c
+
+test_verbs_LDADD = \
+	libsystemd-shared.la
 
 test_namespace_LDADD = \
 	libsystemd-core.la
