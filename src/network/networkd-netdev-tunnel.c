@@ -140,14 +140,20 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
 }
 
 static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
-        Tunnel *t = GRE(netdev);
+        Tunnel *t;
         int r;
 
         assert(netdev);
-        assert(link);
-        assert(m);
+
+        if (netdev->kind == NETDEV_KIND_GRE)
+                 t = GRE(netdev);
+        else
+                 t = GRETAP(netdev);
+
         assert(t);
         assert(t->family == AF_INET);
+        assert(link);
+        assert(m);
 
         r = sd_rtnl_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
         if (r < 0) {
@@ -253,6 +259,9 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         case NETDEV_KIND_GRE:
                 t = GRE(netdev);
                 break;
+        case NETDEV_KIND_GRETAP:
+                t = GRETAP(netdev);
+                break;
         case NETDEV_KIND_VTI:
                 t = VTI(netdev);
                 break;
@@ -339,9 +348,15 @@ static void vti_init(NetDev *n) {
 }
 
 static void gre_init(NetDev *n) {
-        Tunnel *t = GRE(n);
+        Tunnel *t;
 
         assert(n);
+
+        if (n->kind == NETDEV_KIND_GRE)
+                t = GRE(n);
+        else
+                t = GRETAP(n);
+
         assert(t);
 
         t->pmtudisc = true;
@@ -375,6 +390,15 @@ const NetDevVTable vti_vtable = {
 };
 
 const NetDevVTable gre_vtable = {
+        .object_size = sizeof(Tunnel),
+        .init = gre_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_gre_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable gretap_vtable = {
         .object_size = sizeof(Tunnel),
         .init = gre_init,
         .sections = "Match\0NetDev\0Tunnel\0",

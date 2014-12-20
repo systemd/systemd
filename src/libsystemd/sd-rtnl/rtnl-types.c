@@ -165,6 +165,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
+        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] = "gretap",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
 };
@@ -189,6 +190,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
+                                                    .types = rtnl_link_info_data_ipgre_types },
+        [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipgre_types) - 1,
                                                     .types = rtnl_link_info_data_ipgre_types },
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },

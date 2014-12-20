@@ -166,9 +166,10 @@
                                                 <literal>macvlan</literal>,
                                                 <literal>ipvlan</literal>, <literal>vxlan</literal>,
                                                 <literal>ipip</literal>, <literal>gre</literal>,
-                                                <literal>sit</literal>, <literal>vti</literal>,
-                                                <literal>veth</literal>, <literal>tun</literal>,
-                                                <literal>tap</literal> and <literal>dummy</literal>
+                                                <literal>gretap</literal>, <literal>sit</literal>,
+                                                <literal>vti</literal>, <literal>veth</literal>,
+                                                <literal>tun</literal>, <literal>tap</literal> and
+                                                <literal>dummy</literal>
                                                 are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
@@ -329,8 +330,8 @@
                 <title>[Tunnel] Section Options</title>
 
                         <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
-                        <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal> and
-                        <literal>vti</literal> and accepts the following keys:</para>
+                        <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal>, <literal>gretap</literal>,
+                        and <literal>vti</literal> and accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
