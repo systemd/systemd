@@ -229,6 +229,9 @@ struct kdbus_policy_access {
  * @KDBUS_ITEM_PAYLOAD_OFF:		Data at returned offset to message head
  * @KDBUS_ITEM_PAYLOAD_MEMFD:		Data as sealed memfd
  * @KDBUS_ITEM_FDS:			Attached file descriptors
+ * @KDBUS_ITEM_CANCEL_FD:		FD used to cancel a synchronous
+ *					operation by writing to it from
+ *					userspace
  * @KDBUS_ITEM_BLOOM_PARAMETER:		Bus-wide bloom parameters, used with
  *					KDBUS_CMD_BUS_MAKE, carries a
  *					struct kdbus_bloom_parameter
@@ -292,6 +295,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_PAYLOAD_OFF,
 	KDBUS_ITEM_PAYLOAD_MEMFD,
 	KDBUS_ITEM_FDS,
+	KDBUS_ITEM_CANCEL_FD,
 	KDBUS_ITEM_BLOOM_PARAMETER,
 	KDBUS_ITEM_BLOOM_FILTER,
 	KDBUS_ITEM_BLOOM_MASK,
@@ -301,6 +305,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_ATTACH_FLAGS_RECV,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_NAME,
+	KDBUS_ITEM_SIGMASK,
 
 	/* keep these item types in sync with KDBUS_ATTACH_* flags */
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
@@ -380,6 +385,7 @@ struct kdbus_item {
 		struct kdbus_notify_name_change name_change;
 		struct kdbus_notify_id_change id_change;
 		struct kdbus_policy_access policy_access;
+		__u64 sigmask;
 	};
 };
 
@@ -565,26 +571,6 @@ struct kdbus_cmd_recv {
 } __attribute__((aligned(8)));
 
 /**
- * struct kdbus_cmd_cancel - struct to cancel a synchronously pending message
- * @size:		Overall size of this object
- * @flags:		Flags for the free command. Currently unused.
- * @kernel_flags:	Supported flags of CANCEL, kernel → userspace
- * @return_flags:	Command return flags, kernel → userspace
- * @cookie:		The cookie of the pending message
- * @items:		Items to modify the command behavior
- *
- * This struct is used with the KDBUS_CMD_CANCEL ioctl.
- */
-struct kdbus_cmd_cancel {
-	__u64 size;
-	__u64 flags;
-	__u64 kernel_flags;
-	__u64 return_flags;
-	__u64 cookie;
-	struct kdbus_item items[0];
-} __attribute__((aligned(8)));
-
-/**
  * struct kdbus_cmd_free - struct to free a slice of memory in the pool
  * @size:		Overall size of this structure
  * @offset:		The offset of the memory slice, as returned by other
@@ -719,8 +705,6 @@ enum kdbus_attach_flags {
  *			kdbus_item_list are stored. They contain information
  *			about the bus and the newly created connection.
  * @items_size:		Copy of item_list.size stored in @offset.
- * @bloom:		The bloom properties of the bus, specified
- *			by the bus creator (kernel → userspace)
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *
@@ -861,7 +845,9 @@ enum kdbus_name_list_flags {
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
  *			allocated memory.
+ * @list_size:		Returned size of list in bytes
  * @size:		Output buffer to report size of data at @offset.
+ * @items:		Items for the command. Reserved for future use.
  *
  * This structure is used with the KDBUS_CMD_NAME_LIST ioctl.
  */
@@ -998,9 +984,6 @@ struct kdbus_cmd_match {
  *				the kernel.
  * KDBUS_CMD_RECV:		Receive a message from the kernel which is
  *				placed in the receiver's pool.
- * KDBUS_CMD_CANCEL:		Cancel a pending request of a message that
- *				blocks while waiting for a reply. The parameter
- *				denotes the cookie of the message in flight.
  * KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
  *				pool.
  * KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
@@ -1022,7 +1005,7 @@ struct kdbus_cmd_match {
  *				a connection is attached to.
  * KDBUS_CMD_ENDPOINT_UPDATE:	Update the properties of a custom enpoint. Used
  *				to update the policy.
- * KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
+ * KDBUS_CMD_MATCH_ADD:		Install a match which broadcast messages should
  *				be delivered to the connection.
  * KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
  */
@@ -1036,11 +1019,9 @@ struct kdbus_cmd_match {
 #define KDBUS_CMD_BYEBYE		_IO(KDBUS_IOCTL_MAGIC, 0x21)	\
 
 #define KDBUS_CMD_SEND			_IOWR(KDBUS_IOCTL_MAGIC, 0x30,	\
-					      struct kdbus_msg)
+					      struct kdbus_cmd_send)
 #define KDBUS_CMD_RECV			_IOWR(KDBUS_IOCTL_MAGIC, 0x31,	\
 					      struct kdbus_cmd_recv)
-#define KDBUS_CMD_CANCEL		_IOW(KDBUS_IOCTL_MAGIC, 0x32,	\
-					     struct kdbus_cmd_cancel)
 #define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x33,	\
 					     struct kdbus_cmd_free)
 
