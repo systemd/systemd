@@ -118,6 +118,10 @@ mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=400@125
 
+# Lenovo USB mouse model MO28UOL
+mouse:usb:v04b3p310c:name:USB Optical Mouse:
+ MOUSE_DPI=400@142
+
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech Optical USB Mouse
