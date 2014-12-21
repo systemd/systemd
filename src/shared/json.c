@@ -150,7 +150,7 @@ static int json_parse_string(const char **p, char **ret) {
                                 if (!GREEDY_REALLOC(s, allocated, n + 4))
                                         return -ENOMEM;
 
-                                n += utf8_encode_unichar(x, s + n);
+                                n += utf8_encode_unichar(s + n, x);
                                 c += 5;
                                 continue;
                         } else

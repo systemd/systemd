@@ -30,6 +30,7 @@
 #include "macro.h"
 #include "term-internal.h"
 #include "util.h"
+#include "utf8.h"
 
 static void test_term_utf8_invalid(void) {
         term_utf8 p = { };
@@ -74,7 +75,7 @@ static void test_term_utf8_range(void) {
         /* Convert all ucs-4 chars to utf-8 and back */
 
         for (i = 0; i < 0x10FFFF; ++i) {
-                ulen = term_utf8_encode(u8, i);
+                ulen = utf8_encode_unichar(u8, i);
                 if (!ulen)
                         continue;
 

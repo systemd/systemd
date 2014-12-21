@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
         test_one("{\"foo\" : [true, false]}", JSON_OBJECT_OPEN, JSON_STRING, "foo", JSON_COLON, JSON_ARRAY_OPEN, JSON_BOOLEAN, true, JSON_COMMA, JSON_BOOLEAN, false, JSON_ARRAY_CLOSE, JSON_OBJECT_CLOSE, JSON_END);
         test_one("\"\xef\xbf\xbd\"", JSON_STRING, "\xef\xbf\xbd", JSON_END);
         test_one("\"\\ufffd\"", JSON_STRING, "\xef\xbf\xbd", JSON_END);
+        test_one("\"\\uf\"", -EINVAL);
 
         return 0;
 }

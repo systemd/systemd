@@ -51,6 +51,7 @@
 #include "macro.h"
 #include "term-internal.h"
 #include "util.h"
+#include "utf8.h"
 
 int term_screen_new(term_screen **out, term_screen_write_fn write_fn, void *write_fn_data, term_screen_cmd_fn cmd_fn, void *cmd_fn_data) {
         _cleanup_(term_screen_unrefp) term_screen *screen = NULL;
@@ -4107,7 +4108,7 @@ static char *screen_map_key(term_screen *screen,
 
         /* map unicode keys */
         for (i = 0; i < n_syms; ++i)
-                p += term_utf8_encode(p, ucs4[i]);
+                p += utf8_encode_unichar(p, ucs4[i]);
 
         return p;
 }

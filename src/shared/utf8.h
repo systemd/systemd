@@ -36,7 +36,7 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pu
 char *utf8_escape_invalid(const char *s);
 char *utf8_escape_non_printable(const char *str);
 
-int utf8_encode_unichar(uint16_t c, char *p);
+size_t utf8_encode_unichar(char *out_utf8, uint32_t g);
 char *utf16_to_utf8(const void *s, size_t length);
 
 int utf8_encoded_valid_unichar(const char *str);

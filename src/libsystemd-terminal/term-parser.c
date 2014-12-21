@@ -152,49 +152,6 @@ void term_attr_to_argb32(const term_attr *attr, uint32_t *fg, uint32_t *bg, cons
 }
 
 /**
- * term_utf8_encode() - Encode single UCS-4 character as UTF-8
- * @out_utf8: output buffer of at least 4 bytes or NULL
- * @g: UCS-4 character to encode
- *
- * This encodes a single UCS-4 character as UTF-8 and writes it into @out_utf8.
- * The length of the character is returned. It is not zero-terminated! If the
- * output buffer is NULL, only the length is returned.
- *
- * Returns: The length in bytes that the UTF-8 representation does or would
- *          occupy.
- */
-size_t term_utf8_encode(char *out_utf8, uint32_t g) {
-        if (g < (1 << 7)) {
-                if (out_utf8)
-                        out_utf8[0] = g & 0x7f;
-                return 1;
-        } else if (g < (1 << 11)) {
-                if (out_utf8) {
-                        out_utf8[0] = 0xc0 | ((g >> 6) & 0x1f);
-                        out_utf8[1] = 0x80 | (g & 0x3f);
-                }
-                return 2;
-        } else if (g < (1 << 16)) {
-                if (out_utf8) {
-                        out_utf8[0] = 0xe0 | ((g >> 12) & 0x0f);
-                        out_utf8[1] = 0x80 | ((g >> 6) & 0x3f);
-                        out_utf8[2] = 0x80 | (g & 0x3f);
-                }
-                return 3;
-        } else if (g < (1 << 21)) {
-                if (out_utf8) {
-                        out_utf8[0] = 0xf0 | ((g >> 18) & 0x07);
-                        out_utf8[1] = 0x80 | ((g >> 12) & 0x3f);
-                        out_utf8[2] = 0x80 | ((g >> 6) & 0x3f);
-                        out_utf8[3] = 0x80 | (g & 0x3f);
-                }
-                return 4;
-        } else {
-                return 0;
-        }
-}
-
-/**
  * term_utf8_decode() - Try decoding the next UCS-4 character
  * @p: decoder object to operate on or NULL
  * @out_len: output storage for pointer to decoded UCS-4 string or NULL

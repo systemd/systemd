@@ -112,7 +112,6 @@ struct term_utf8 {
         unsigned int valid : 1;
 };
 
-size_t term_utf8_encode(char *out_utf8, uint32_t g);
 size_t term_utf8_decode(term_utf8 *p, uint32_t **out_buf, char c);
 
 /*
