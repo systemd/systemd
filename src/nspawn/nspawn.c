@@ -3519,7 +3519,7 @@ int main(int argc, char *argv[]) {
                         /* simply exit on sigchld */
                         sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
 
-                        r = pty_forward_new(event, master, &forward);
+                        r = pty_forward_new(event, master, true, &forward);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create PTY forwarder: %m");
                                 goto finish;

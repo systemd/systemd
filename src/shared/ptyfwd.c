@@ -53,6 +53,11 @@ struct PTYForward {
         bool master_writable:1;
         bool master_hangup:1;
 
+        bool repeat:1;
+
+        bool last_char_set:1;
+        char last_char;
+
         char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full, out_buffer_full;
 
@@ -169,11 +174,12 @@ static int shovel(PTYForward *f) {
                                  * might be cause by vhangup() or
                                  * temporary closing of everything on
                                  * the other side, we treat it like
-                                 * EAGAIN here and try again. */
+                                 * EAGAIN here and try again, unless
+                                 * repeat is off. */
 
-                                if (errno == EAGAIN || errno == EIO)
+                                if (errno == EAGAIN || (errno == EIO && f->repeat))
                                         f->master_readable = false;
-                                else if (errno == EPIPE || errno == ECONNRESET) {
+                                else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -203,6 +209,12 @@ static int shovel(PTYForward *f) {
                                 }
 
                         } else {
+
+                                if (k > 0) {
+                                        f->last_char = f->out_buffer[k-1];
+                                        f->last_char_set = true;
+                                }
+
                                 assert(f->out_buffer_full >= (size_t) k);
                                 memmove(f->out_buffer, f->out_buffer + k, f->out_buffer_full - k);
                                 f->out_buffer_full -= k;
@@ -285,7 +297,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         return 0;
 }
 
-int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
+int pty_forward_new(sd_event *event, int master, bool repeat, PTYForward **ret) {
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
@@ -293,6 +305,8 @@ int pty_forward_new(sd_event *event, int master, PTYForward **ret) {
         f = new0(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
+
+        f->repeat = repeat;
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -387,4 +401,15 @@ PTYForward *pty_forward_free(PTYForward *f) {
         fd_nonblock(STDOUT_FILENO, false);
 
         return NULL;
+}
+
+int pty_forward_last_char(PTYForward *f, char *ch) {
+        assert(f);
+        assert(ch);
+
+        if (!f->last_char_set)
+                return -ENXIO;
+
+        *ch = f->last_char;
+        return 0;
 }

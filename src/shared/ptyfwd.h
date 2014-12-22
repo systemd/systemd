@@ -28,7 +28,9 @@
 
 typedef struct PTYForward PTYForward;
 
-int pty_forward_new(sd_event *event, int master, PTYForward **f);
+int pty_forward_new(sd_event *event, int master, bool repeat, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
+
+int pty_forward_last_char(PTYForward *f, char *ch);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);
