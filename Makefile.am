@@ -5131,8 +5131,8 @@ bin_PROGRAMS += \
 
 systemd_import_SOURCES = \
 	src/import/import.c \
-	src/import/import-dck.c \
-	src/import/import-dck.h \
+	src/import/import-dkr.c \
+	src/import/import-dkr.h \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
 	src/import/aufs-util.c \

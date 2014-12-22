@@ -25,11 +25,13 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
-#include "import-dck.h"
+#include "import-dkr.h"
 
 static bool arg_force = false;
 
-static void on_finished(DckImport *import, int error, void *userdata) {
+static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
+
+static void on_finished(DkrImport *import, int error, void *userdata) {
         sd_event *event = userdata;
         assert(import);
 
@@ -41,11 +43,16 @@ static void on_finished(DckImport *import, int error, void *userdata) {
         sd_event_exit(event, error);
 }
 
-static int pull_dck(int argc, char *argv[], void *userdata) {
-        _cleanup_(dck_import_unrefp) DckImport *import = NULL;
+static int pull_dkr(int argc, char *argv[], void *userdata) {
+        _cleanup_(dkr_import_unrefp) DkrImport *import = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *name, *tag, *local;
         int r;
+
+        if (!arg_dkr_index_url) {
+                log_error("Please specify an index URL with --dkr-index-url=");
+                return -EINVAL;
+        }
 
         tag = strchr(argv[1], ':');
         if (tag) {
@@ -69,12 +76,12 @@ static int pull_dck(int argc, char *argv[], void *userdata) {
         if (streq(local, "-") || isempty(local))
                 local = NULL;
 
-        if (!dck_name_is_valid(name)) {
+        if (!dkr_name_is_valid(name)) {
                 log_error("Remote name '%s' is not valid.", name);
                 return -EINVAL;
         }
 
-        if (!dck_tag_is_valid(tag)) {
+        if (!dkr_tag_is_valid(tag)) {
                 log_error("Tag name '%s' is not valid.", tag);
                 return -EINVAL;
         }
@@ -108,11 +115,11 @@ static int pull_dck(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
-        r = dck_import_new(&import, event, on_finished, event);
+        r = dkr_import_new(&import, event, on_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = dck_import_pull(import, name, tag, local, arg_force);
+        r = dkr_import_pull(import, arg_dkr_index_url, name, tag, local, arg_force);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -131,9 +138,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "Import container or virtual machine image.\n\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
-               "     --force                  Force creation of image\n\n"
+               "     --force                  Force creation of image\n"
+               "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
-               "  pull-dck REMOTE [NAME]      Download an image\n",
+               "  pull-dkr REMOTE [NAME]      Download an image\n",
                program_invocation_short_name);
 
         return 0;
@@ -144,12 +152,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
+                ARG_DKR_INDEX_URL,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
+                { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 {}
         };
 
@@ -174,6 +184,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
+                case ARG_DKR_INDEX_URL:
+                        if (!dkr_url_is_valid(optarg)) {
+                                log_error("Index URL is not valid: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_dkr_index_url = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -188,7 +207,7 @@ static int import_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",     VERB_ANY, VERB_ANY, 0, help     },
-                { "pull-dck", 2,        3,        0, pull_dck },
+                { "pull-dkr", 2,        3,        0, pull_dkr },
                 {}
         };
 

@@ -27,9 +27,10 @@
 #include "json.h"
 #include "strv.h"
 #include "curl-util.h"
-#include "import-dck.h"
+#include "import-dkr.h"
 #include "btrfs-util.h"
 #include "aufs-util.h"
+#include "utf8.h"
 
 /* TODO:
   - convert json bits
@@ -37,25 +38,25 @@
   - fall back to btrfs loop pool device
 */
 
-typedef struct DckImportJob DckImportJob;
-typedef struct DckImportName DckImportName;
+typedef struct DkrImportJob DkrImportJob;
+typedef struct DkrImportName DkrImportName;
 
-typedef enum DckImportJobType {
-        DCK_IMPORT_JOB_IMAGES,
-        DCK_IMPORT_JOB_TAGS,
-        DCK_IMPORT_JOB_ANCESTRY,
-        DCK_IMPORT_JOB_JSON,
-        DCK_IMPORT_JOB_LAYER,
-} DckImportJobType;
+typedef enum DkrImportJobType {
+        DKR_IMPORT_JOB_IMAGES,
+        DKR_IMPORT_JOB_TAGS,
+        DKR_IMPORT_JOB_ANCESTRY,
+        DKR_IMPORT_JOB_JSON,
+        DKR_IMPORT_JOB_LAYER,
+} DkrImportJobType;
 
-struct DckImportJob {
-        DckImport *import;
-        DckImportJobType type;
+struct DkrImportJob {
+        DkrImport *import;
+        DkrImportJobType type;
         bool done;
 
         char *url;
 
-        Set *needed_by; /* DckImport Name objects */
+        Set *needed_by; /* DkrImport Name objects */
 
         CURL *curl;
         struct curl_slist *request_header;
@@ -72,15 +73,16 @@ struct DckImportJob {
         FILE *tar_stream;
 };
 
-struct DckImportName {
-        DckImport *import;
+struct DkrImportName {
+        DkrImport *import;
 
+        char *index_url;
         char *name;
         char *tag;
         char *id;
         char *local;
 
-        DckImportJob *job_images, *job_tags, *job_ancestry, *job_json, *job_layer;
+        DkrImportJob *job_images, *job_tags, *job_ancestry, *job_json, *job_layer;
 
         char **ancestry;
         unsigned current_ancestry;
@@ -88,19 +90,18 @@ struct DckImportName {
         bool force_local;
 };
 
-struct DckImport {
+struct DkrImport {
         sd_event *event;
         CurlGlue *glue;
 
         Hashmap *names;
         Hashmap *jobs;
 
-        dck_import_on_finished on_finished;
+        dkr_import_on_finished on_finished;
         void *userdata;
 };
 
 #define PROTOCOL_PREFIX "https://"
-#define INDEX_HOST "index.do" /* the URL we get the data from */ "cker.io"
 
 #define HEADER_TOKEN "X-Do" /* the HTTP header for the auth token */ "cker-Token:"
 #define HEADER_REGISTRY "X-Do" /*the HTTP header for the registry */ "cker-Endpoints:"
@@ -108,9 +109,9 @@ struct DckImport {
 #define PAYLOAD_MAX (16*1024*1024)
 #define LAYERS_MAX 2048
 
-static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, const char *url, DckImportJob **ret);
+static int dkr_import_name_add_job(DkrImportName *name, DkrImportJobType type, const char *url, DkrImportJob **ret);
 
-static DckImportJob *dck_import_job_unref(DckImportJob *job) {
+static DkrImportJob *dkr_import_job_unref(DkrImportJob *job) {
         if (!job)
                 return NULL;
 
@@ -143,7 +144,7 @@ static DckImportJob *dck_import_job_unref(DckImportJob *job) {
         return NULL;
 }
 
-static DckImportName *dck_import_name_unref(DckImportName *name) {
+static DkrImportName *dkr_import_name_unref(DkrImportName *name) {
         if (!name)
                 return NULL;
 
@@ -162,6 +163,7 @@ static DckImportName *dck_import_name_unref(DckImportName *name) {
         if (name->job_layer)
                 set_remove(name->job_layer->needed_by, name);
 
+        free(name->index_url);
         free(name->name);
         free(name->id);
         free(name->tag);
@@ -173,10 +175,10 @@ static DckImportName *dck_import_name_unref(DckImportName *name) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DckImportJob*, dck_import_job_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DckImportName*, dck_import_name_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImportJob*, dkr_import_job_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImportName*, dkr_import_name_unref);
 
-static void dck_import_finish(DckImport *import, int error) {
+static void dkr_import_finish(DkrImport *import, int error) {
         assert(import);
 
         if (import->on_finished)
@@ -218,7 +220,7 @@ static int parse_id(const void *payload, size_t size, char **ret) {
         if (t != JSON_END)
                 return -EBADMSG;
 
-        if (!dck_id_is_valid(id))
+        if (!dkr_id_is_valid(id))
                 return -EBADMSG;
 
         *ret = id;
@@ -272,7 +274,7 @@ static int parse_ancestry(const void *payload, size_t size, char ***ret) {
 
                 case STATE_ITEM:
                         if (t == JSON_STRING) {
-                                if (!dck_id_is_valid(str))
+                                if (!dkr_id_is_valid(str))
                                         return -EBADMSG;
 
                                 if (n+1 > LAYERS_MAX)
@@ -324,7 +326,7 @@ static int parse_ancestry(const void *payload, size_t size, char ***ret) {
         }
 }
 
-static const char *dck_import_name_current_layer(DckImportName *name) {
+static const char *dkr_import_name_current_layer(DkrImportName *name) {
         assert(name);
 
         if (strv_isempty(name->ancestry))
@@ -333,7 +335,7 @@ static const char *dck_import_name_current_layer(DckImportName *name) {
         return name->ancestry[name->current_ancestry];
 }
 
-static const char *dck_import_name_current_base_layer(DckImportName *name) {
+static const char *dkr_import_name_current_base_layer(DkrImportName *name) {
         assert(name);
 
         if (strv_isempty(name->ancestry))
@@ -345,7 +347,7 @@ static const char *dck_import_name_current_base_layer(DckImportName *name) {
         return name->ancestry[name->current_ancestry-1];
 }
 
-static char** dck_import_name_get_registries(DckImportName *name) {
+static char** dkr_import_name_get_registries(DkrImportName *name) {
         assert(name);
 
         if (!name->job_images)
@@ -360,7 +362,7 @@ static char** dck_import_name_get_registries(DckImportName *name) {
         return name->job_images->response_registries;
 }
 
-static const char*dck_import_name_get_token(DckImportName *name) {
+static const char*dkr_import_name_get_token(DkrImportName *name) {
         assert(name);
 
         if (!name->job_images)
@@ -372,7 +374,7 @@ static const char*dck_import_name_get_token(DckImportName *name) {
         return name->job_images->response_token;
 }
 
-static void dck_import_name_maybe_finish(DckImportName *name) {
+static void dkr_import_name_maybe_finish(DkrImportName *name) {
         int r;
 
         assert(name);
@@ -389,7 +391,7 @@ static void dck_import_name_maybe_finish(DckImportName *name) {
         if (name->job_layer && !name->job_json->done)
                 return;
 
-        if (dck_import_name_current_layer(name))
+        if (dkr_import_name_current_layer(name))
                 return;
 
         if (name->local) {
@@ -398,7 +400,7 @@ static void dck_import_name_maybe_finish(DckImportName *name) {
                 assert(name->id);
 
                 p = strappenda("/var/lib/container/", name->local);
-                q = strappenda("/var/lib/container/.dck-", name->id);
+                q = strappenda("/var/lib/container/.dkr-", name->id);
 
                 if (name->force_local) {
                         (void) btrfs_subvol_remove(p);
@@ -408,17 +410,17 @@ static void dck_import_name_maybe_finish(DckImportName *name) {
                 r = btrfs_subvol_snapshot(q, p, false, false);
                 if (r < 0) {
                         log_error_errno(r, "Failed to snapshot final image: %m");
-                        dck_import_finish(name->import, r);
+                        dkr_import_finish(name->import, r);
                         return;
                 }
 
                 log_info("Created new image %s.", p);
         }
 
-        dck_import_finish(name->import, 0);
+        dkr_import_finish(name->import, 0);
 }
 
-static int dck_import_job_run_tar(DckImportJob *job) {
+static int dkr_import_job_run_tar(DkrImportJob *job) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
         bool gzip;
 
@@ -505,7 +507,7 @@ static int dck_import_job_run_tar(DckImportJob *job) {
         return 0;
 }
 
-static int dck_import_name_pull_layer(DckImportName *name) {
+static int dkr_import_name_pull_layer(DkrImportName *name) {
         _cleanup_free_ char *path = NULL, *temp = NULL;
         const char *url, *layer = NULL, *base = NULL;
         char **rg;
@@ -519,13 +521,13 @@ static int dck_import_name_pull_layer(DckImportName *name) {
         }
 
         for (;;) {
-                layer = dck_import_name_current_layer(name);
+                layer = dkr_import_name_current_layer(name);
                 if (!layer) {
-                        dck_import_name_maybe_finish(name);
+                        dkr_import_name_maybe_finish(name);
                         return 0;
                 }
 
-                path = strjoin("/var/lib/container/.dck-", layer, NULL);
+                path = strjoin("/var/lib/container/.dkr-", layer, NULL);
                 if (!path)
                         return log_oom();
 
@@ -544,11 +546,11 @@ static int dck_import_name_pull_layer(DckImportName *name) {
                 path = NULL;
         }
 
-        rg = dck_import_name_get_registries(name);
+        rg = dkr_import_name_get_registries(name);
         assert(rg && rg[0]);
 
         url = strappenda(PROTOCOL_PREFIX, rg[0], "/v1/images/", layer, "/layer");
-        r = dck_import_name_add_job(name, DCK_IMPORT_JOB_LAYER, url, &name->job_layer);
+        r = dkr_import_name_add_job(name, DKR_IMPORT_JOB_LAYER, url, &name->job_layer);
         if (r < 0) {
                 log_error_errno(r, "Failed to issue HTTP request: %m");
                 return r;
@@ -562,11 +564,11 @@ static int dck_import_name_pull_layer(DckImportName *name) {
         if (r < 0)
                 return log_oom();
 
-        base = dck_import_name_current_base_layer(name);
+        base = dkr_import_name_current_base_layer(name);
         if (base) {
                 const char *base_path;
 
-                base_path = strappend("/var/lib/container/.dck-", base);
+                base_path = strappend("/var/lib/container/.dkr-", base);
                 r = btrfs_subvol_snapshot(base_path, temp, false, true);
         } else
                 r = btrfs_subvol_make(temp);
@@ -581,7 +583,7 @@ static int dck_import_name_pull_layer(DckImportName *name) {
         return 0;
 }
 
-static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job) {
+static void dkr_import_name_job_finished(DkrImportName *name, DkrImportJob *job) {
         int r;
 
         assert(name);
@@ -596,7 +598,7 @@ static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job)
                 assert(!name->job_json);
                 assert(!name->job_layer);
 
-                rg = dck_import_name_get_registries(name);
+                rg = dkr_import_name_get_registries(name);
                 if (strv_isempty(rg)) {
                         log_error("Didn't get registry information.");
                         r = -EBADMSG;
@@ -607,7 +609,7 @@ static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job)
 
                 url = strappenda(PROTOCOL_PREFIX, rg[0], "/v1/repositories/", name->name, "/tags/", name->tag);
 
-                r = dck_import_name_add_job(name, DCK_IMPORT_JOB_TAGS, url, &name->job_tags);
+                r = dkr_import_name_add_job(name, DKR_IMPORT_JOB_TAGS, url, &name->job_tags);
                 if (r < 0) {
                         log_error_errno(r, "Failed to issue HTTP request: %m");
                         goto fail;
@@ -630,20 +632,20 @@ static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job)
                 free(name->id);
                 name->id = id;
 
-                rg = dck_import_name_get_registries(name);
+                rg = dkr_import_name_get_registries(name);
                 assert(rg && rg[0]);
 
                 log_info("Tag lookup succeeded, resolved to layer %s.", name->id);
 
                 url = strappenda(PROTOCOL_PREFIX, rg[0], "/v1/images/", name->id, "/ancestry");
-                r = dck_import_name_add_job(name, DCK_IMPORT_JOB_ANCESTRY, url, &name->job_ancestry);
+                r = dkr_import_name_add_job(name, DKR_IMPORT_JOB_ANCESTRY, url, &name->job_ancestry);
                 if (r < 0) {
                         log_error_errno(r, "Failed to issue HTTP request: %m");
                         goto fail;
                 }
 
                 url = strappenda(PROTOCOL_PREFIX, rg[0], "/v1/images/", name->id, "/json");
-                r = dck_import_name_add_job(name, DCK_IMPORT_JOB_JSON, url, &name->job_json);
+                r = dkr_import_name_add_job(name, DKR_IMPORT_JOB_JSON, url, &name->job_json);
                 if (r < 0) {
                         log_error_errno(r, "Failed to issue HTTP request: %m");
                         goto fail;
@@ -674,18 +676,18 @@ static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job)
                 name->ancestry = ancestry;
 
                 name->current_ancestry = 0;
-                r = dck_import_name_pull_layer(name);
+                r = dkr_import_name_pull_layer(name);
                 if (r < 0)
                         goto fail;
 
         } else if (name->job_json == job) {
 
-                dck_import_name_maybe_finish(name);
+                dkr_import_name_maybe_finish(name);
 
         } else if (name->job_layer == job) {
 
                 name->current_ancestry ++;
-                r = dck_import_name_pull_layer(name);
+                r = dkr_import_name_pull_layer(name);
                 if (r < 0)
                         goto fail;
 
@@ -695,13 +697,13 @@ static void dck_import_name_job_finished(DckImportName *name, DckImportJob *job)
         return;
 
 fail:
-        dck_import_finish(name->import, r);
+        dkr_import_finish(name->import, r);
 }
 
-static void dck_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
-        DckImportJob *job = NULL;
+static void dkr_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
+        DkrImportJob *job = NULL;
         CURLcode code;
-        DckImportName *n;
+        DkrImportName *n;
         long status;
         Iterator i;
         int r;
@@ -737,7 +739,7 @@ static void dck_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
 
         switch (job->type) {
 
-        case DCK_IMPORT_JOB_LAYER: {
+        case DKR_IMPORT_JOB_LAYER: {
                 siginfo_t si;
 
                 if (!job->tar_stream) {
@@ -791,16 +793,16 @@ static void dck_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         }
 
         SET_FOREACH(n, job->needed_by, i)
-                dck_import_name_job_finished(n, job);
+                dkr_import_name_job_finished(n, job);
 
         return;
 
 fail:
-        dck_import_finish(job->import, r);
+        dkr_import_finish(job->import, r);
 }
 
-static size_t dck_import_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        DckImportJob *j = userdata;
+static size_t dkr_import_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        DkrImportJob *j = userdata;
         size_t sz = size * nmemb;
         char *p;
         int r;
@@ -835,21 +837,21 @@ static size_t dck_import_job_write_callback(void *contents, size_t size, size_t 
         j->payload_size += sz;
         j->payload = p;
 
-        r = dck_import_job_run_tar(j);
+        r = dkr_import_job_run_tar(j);
         if (r < 0)
                 goto fail;
 
         return sz;
 
 fail:
-        dck_import_finish(j->import, r);
+        dkr_import_finish(j->import, r);
         return 0;
 }
 
-static size_t dck_import_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+static size_t dkr_import_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         _cleanup_free_ char *registry = NULL;
         size_t sz = size * nmemb;
-        DckImportJob *j = userdata;
+        DkrImportJob *j = userdata;
         char *token;
         int r;
 
@@ -896,13 +898,13 @@ static size_t dck_import_job_header_callback(void *contents, size_t size, size_t
         return sz;
 
 fail:
-        dck_import_finish(j->import, r);
+        dkr_import_finish(j->import, r);
         return 0;
 }
 
-static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, const char *url, DckImportJob **ret) {
-        _cleanup_(dck_import_job_unrefp) DckImportJob *j = NULL;
-        DckImportJob *f = NULL;
+static int dkr_import_name_add_job(DkrImportName *name, DkrImportJobType type, const char *url, DkrImportJob **ret) {
+        _cleanup_(dkr_import_job_unrefp) DkrImportJob *j = NULL;
+        DkrImportJob *f = NULL;
         const char *t, *token;
         int r;
 
@@ -927,7 +929,7 @@ static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, c
         if (r < 0)
                 return r;
 
-        j = new0(DckImportJob, 1);
+        j = new0(DkrImportJob, 1);
         if (!j)
                 return -ENOMEM;
 
@@ -945,7 +947,7 @@ static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, c
         if (r < 0)
                 return r;
 
-        token = dck_import_name_get_token(name);
+        token = dkr_import_name_get_token(name);
         if (token)
                 t = strappenda("Authorization: Token ", token);
         else
@@ -958,13 +960,13 @@ static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, c
         if (curl_easy_setopt(j->curl, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, dck_import_job_write_callback) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, dkr_import_job_write_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(j->curl, CURLOPT_WRITEDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, dck_import_job_header_callback) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, dkr_import_job_header_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(j->curl, CURLOPT_HEADERDATA, j) != CURLE_OK)
@@ -990,24 +992,24 @@ static int dck_import_name_add_job(DckImportName *name, DckImportJobType type, c
         return 1;
 }
 
-static int dck_import_name_begin(DckImportName *name) {
+static int dkr_import_name_begin(DkrImportName *name) {
         const char *url;
 
         assert(name);
         assert(!name->job_images);
 
-        url = strappenda(PROTOCOL_PREFIX, INDEX_HOST, "/v1/repositories/", name->name, "/images");
+        url = strappenda(name->index_url, "/v1/repositories/", name->name, "/images");
 
-        return dck_import_name_add_job(name, DCK_IMPORT_JOB_IMAGES, url, &name->job_images);
+        return dkr_import_name_add_job(name, DKR_IMPORT_JOB_IMAGES, url, &name->job_images);
 }
 
-int dck_import_new(DckImport **import, sd_event *event, dck_import_on_finished on_finished, void *userdata) {
-        _cleanup_(dck_import_unrefp) DckImport *i = NULL;
+int dkr_import_new(DkrImport **import, sd_event *event, dkr_import_on_finished on_finished, void *userdata) {
+        _cleanup_(dkr_import_unrefp) DkrImport *i = NULL;
         int r;
 
         assert(import);
 
-        i = new0(DckImport, 1);
+        i = new0(DkrImport, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -1026,7 +1028,7 @@ int dck_import_new(DckImport **import, sd_event *event, dck_import_on_finished o
         if (r < 0)
                 return r;
 
-        i->glue->on_finished = dck_import_curl_on_finished;
+        i->glue->on_finished = dkr_import_curl_on_finished;
         i->glue->userdata = i;
 
         *import = i;
@@ -1035,30 +1037,31 @@ int dck_import_new(DckImport **import, sd_event *event, dck_import_on_finished o
         return 0;
 }
 
-DckImport* dck_import_unref(DckImport *import) {
-        DckImportName *n;
-        DckImportJob *j;
+DkrImport* dkr_import_unref(DkrImport *import) {
+        DkrImportName *n;
+        DkrImportJob *j;
 
         if (!import)
                 return NULL;
 
         while ((n = hashmap_steal_first(import->names)))
-               dck_import_name_unref(n);
+               dkr_import_name_unref(n);
         hashmap_free(import->names);
 
         while ((j = hashmap_steal_first(import->jobs)))
-                dck_import_job_unref(j);
+                dkr_import_job_unref(j);
         hashmap_free(import->jobs);
 
         curl_glue_unref(import->glue);
         sd_event_unref(import->event);
 
         free(import);
+
         return NULL;
 }
 
-int dck_import_cancel(DckImport *import, const char *name) {
-        DckImportName *n;
+int dkr_import_cancel(DkrImport *import, const char *name) {
+        DkrImportName *n;
 
         assert(import);
         assert(name);
@@ -1067,17 +1070,19 @@ int dck_import_cancel(DckImport *import, const char *name) {
         if (!n)
                 return 0;
 
-        dck_import_name_unref(n);
+        dkr_import_name_unref(n);
         return 1;
 }
 
-int dck_import_pull(DckImport *import, const char *name, const char *tag, const char *local, bool force_local) {
-        _cleanup_(dck_import_name_unrefp) DckImportName *n = NULL;
+int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, const char *tag, const char *local, bool force_local) {
+        _cleanup_(dkr_import_name_unrefp) DkrImportName *n = NULL;
+        char *e;
         int r;
 
         assert(import);
-        assert(dck_name_is_valid(name));
-        assert(dck_tag_is_valid(tag));
+        assert(dkr_url_is_valid(index_url));
+        assert(dkr_name_is_valid(name));
+        assert(dkr_tag_is_valid(tag));
         assert(!local || machine_name_is_valid(local));
 
         if (hashmap_get(import->names, name))
@@ -1087,11 +1092,18 @@ int dck_import_pull(DckImport *import, const char *name, const char *tag, const 
         if (r < 0)
                 return r;
 
-        n = new0(DckImportName, 1);
+        n = new0(DkrImportName, 1);
         if (!n)
                 return -ENOMEM;
 
         n->import = import;
+
+        n->index_url = strdup(index_url);
+        if (!n->index_url)
+                return -ENOMEM;
+        e = endswith(n->index_url, "/");
+        if (e)
+                *e = NULL;
 
         n->name = strdup(name);
         if (!n->name)
@@ -1112,9 +1124,9 @@ int dck_import_pull(DckImport *import, const char *name, const char *tag, const 
         if (r < 0)
                 return r;
 
-        r = dck_import_name_begin(n);
+        r = dkr_import_name_begin(n);
         if (r < 0) {
-                dck_import_cancel(import, n->name);
+                dkr_import_cancel(import, n->name);
                 n = NULL;
                 return r;
         }
@@ -1124,7 +1136,7 @@ int dck_import_pull(DckImport *import, const char *name, const char *tag, const 
         return 0;
 }
 
-bool dck_name_is_valid(const char *name) {
+bool dkr_name_is_valid(const char *name) {
         const char *slash, *p;
 
         if (isempty(name))
@@ -1144,7 +1156,7 @@ bool dck_name_is_valid(const char *name) {
         return true;
 }
 
-bool dck_id_is_valid(const char *id) {
+bool dkr_id_is_valid(const char *id) {
 
         if (!filename_is_valid(id))
                 return false;
@@ -1153,4 +1165,13 @@ bool dck_id_is_valid(const char *id) {
                 return false;
 
         return true;
+}
+
+bool dkr_url_is_valid(const char *url) {
+
+        if (!startswith(url, "http://") &&
+            !startswith(url, "https://"))
+                return false;
+
+        return ascii_is_valid(url);
 }
