@@ -232,8 +232,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>When invoking a command as service connects
         its standard input and output to the invoking tty via a
         pseudo TTY device. This allows invoking binaries as services
-        that expect interactive user input, such as an interactive
+        that expect interactive user input, such as interactive
         command shells.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses additional informational output
+        while running. This is particularly useful in combination with
+        <option>--pty</option> when it will suppress the initial
+        message explaining how to terminate the TTY connection.</para></listitem>
       </varlistentry>
 
       <varlistentry>

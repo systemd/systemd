@@ -59,6 +59,7 @@ static usec_t arg_on_unit_active = 0;
 static usec_t arg_on_unit_inactive = 0;
 static char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
+static bool arg_quiet = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
@@ -82,7 +83,8 @@ static void help(void) {
                "     --gid=GROUP                  Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "     --setenv=NAME=VALUE          Set environment\n"
-               "  -t --pty                        Run service on pseudo tty\n\n"
+               "  -t --pty                        Run service on pseudo tty\n"
+               "  -q --quiet                      Suppress information messages during runtime\n\n"
                "Timer options:\n\n"
                "     --on-active=SEC              Run after seconds\n"
                "     --on-boot=SEC                Run after seconds from machine was booted up\n"
@@ -144,6 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setenv",            required_argument, NULL, ARG_SETENV           },
                 { "property",          required_argument, NULL, 'p'                  },
                 { "tty",               no_argument,       NULL, 't'                  },
+                { "quiet",             no_argument,       NULL, 'q'                  },
                 { "on-active",         required_argument, NULL, ARG_ON_ACTIVE        },
                 { "on-boot",           required_argument, NULL, ARG_ON_BOOT          },
                 { "on-startup",        required_argument, NULL, ARG_ON_STARTUP       },
@@ -160,7 +163,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:p:t", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:p:tq", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -253,6 +256,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         arg_pty = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case ARG_ON_ACTIVE:
@@ -736,7 +743,8 @@ static int start_transient_service(
                 sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
                 sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
-                log_info("Running as unit %s.\nPress ^] three times within 1s to disconnect TTY.", service);
+                if (!arg_quiet)
+                        log_info("Running as unit %s.\nPress ^] three times within 1s to disconnect TTY.", service);
 
                 r = pty_forward_new(event, master, false, &forward);
                 if (r < 0)
@@ -750,10 +758,10 @@ static int start_transient_service(
 
                 forward = pty_forward_free(forward);
 
-                if (last_char != '\n')
+                if (!arg_quiet && last_char != '\n')
                         fputc('\n', stdout);
 
-        } else
+        } else if (!arg_quiet)
                 log_info("Running as unit %s.", service);
 
         return 0;
@@ -871,7 +879,8 @@ static int start_transient_scope(
         if (!env)
                 return log_oom();
 
-        log_info("Running as unit %s.", scope);
+        if (!arg_quiet)
+                log_info("Running as unit %s.", scope);
 
         execvpe(argv[0], argv, env);
 
