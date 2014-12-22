@@ -1110,6 +1110,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         pid_t leader;
         sigset_t mask;
         int r, ret = 0;
+        char last_char = 0;
 
         assert(bus);
 
@@ -1186,9 +1187,12 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
+        pty_forward_last_char(forward, &last_char);
+
         forward = pty_forward_free(forward);
 
-        fputc('\n', stdout);
+        if (last_char != '\n')
+                fputc('\n', stdout);
 
         log_info("Connection to container %s terminated.", argv[1]);
 

@@ -3462,6 +3462,7 @@ int main(int argc, char *argv[]) {
                 if (barrier_place_and_sync(&barrier)) {
                         _cleanup_event_unref_ sd_event *event = NULL;
                         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+                        char last_char = 0;
                         int ifi = 0;
 
                         r = move_network_interfaces(pid);
@@ -3531,9 +3532,11 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
+                        pty_forward_last_char(forward, &last_char);
+
                         forward = pty_forward_free(forward);
 
-                        if (!arg_quiet)
+                        if (!arg_quiet && last_char != '\n')
                                 putc('\n', stdout);
 
                         /* Kill if it is not dead yet anyway */
