@@ -730,7 +730,9 @@ static int busname_peek_message(BusName *n) {
                 .size = sizeof(cmd_recv),
                 .flags = KDBUS_RECV_PEEK,
         };
-        struct kdbus_cmd_free cmd_free = {};
+        struct kdbus_cmd_free cmd_free = {
+                .size = sizeof(cmd_free),
+        };
         const char *comm = NULL;
         struct kdbus_item *d;
         struct kdbus_msg *k;
