@@ -53,6 +53,42 @@ static void inc_lines(unsigned *line, const char *s, size_t n) {
         }
 }
 
+static int unhex_ucs2(const char *c, uint16_t *ret) {
+        int aa, bb, cc, dd;
+        uint16_t x;
+
+        assert(c);
+        assert(ret);
+
+        aa = unhexchar(c[0]);
+        if (aa < 0)
+                return -EINVAL;
+
+        bb = unhexchar(c[1]);
+        if (bb < 0)
+                return -EINVAL;
+
+        cc = unhexchar(c[2]);
+        if (cc < 0)
+                return -EINVAL;
+
+        dd = unhexchar(c[3]);
+        if (dd < 0)
+                return -EINVAL;
+
+        x =     ((uint16_t) aa << 12) |
+                ((uint16_t) bb << 8) |
+                ((uint16_t) cc << 4) |
+                ((uint16_t) dd);
+
+        if (x <= 0)
+                return -EINVAL;
+
+        *ret = x;
+
+        return 0;
+}
+
 static int json_parse_string(const char **p, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t n = 0, allocated = 0;
@@ -119,39 +155,40 @@ static int json_parse_string(const char **p, char **ret) {
                         else if (*c == 't')
                                 ch = '\t';
                         else if (*c == 'u') {
-                                int aa, bb, cc, dd;
                                 uint16_t x;
+                                int r;
 
-                                aa = unhexchar(c[1]);
-                                if (aa < 0)
-                                        return -EINVAL;
+                                r = unhex_ucs2(c + 1, &x);
+                                if (r < 0)
+                                        return r;
 
-                                bb = unhexchar(c[2]);
-                                if (bb < 0)
-                                        return -EINVAL;
-
-                                cc = unhexchar(c[3]);
-                                if (cc < 0)
-                                        return -EINVAL;
-
-                                dd = unhexchar(c[4]);
-                                if (dd < 0)
-                                        return -EINVAL;
-
-
-                                x =     ((uint16_t) aa << 12) |
-                                        ((uint16_t) bb << 8) |
-                                        ((uint16_t) cc << 4) |
-                                        ((uint16_t) dd);
-
-                                if (x <= 0)
-                                        return -EINVAL;
+                                c += 5;
 
                                 if (!GREEDY_REALLOC(s, allocated, n + 4))
                                         return -ENOMEM;
 
-                                n += utf8_encode_unichar(s + n, x);
-                                c += 5;
+                                if (!utf16_is_surrogate(x))
+                                        n += utf8_encode_unichar(s + n, x);
+                                else if (utf16_is_trailing_surrogate(x))
+                                        return -EINVAL;
+                                else {
+                                        uint16_t y;
+
+                                        if (c[0] != '\\' || c[1] != 'u')
+                                                return -EINVAL;
+
+                                        r = unhex_ucs2(c + 2, &y);
+                                        if (r < 0)
+                                                return r;
+
+                                        c += 6;
+
+                                        if (!utf16_is_trailing_surrogate(y))
+                                                return -EINVAL;
+
+                                        n += utf8_encode_unichar(s + n, utf16_surrogate_pair_to_unichar(x, y));
+                                }
+
                                 continue;
                         } else
                                 return -EINVAL;

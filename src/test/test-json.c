@@ -99,6 +99,9 @@ int main(int argc, char *argv[]) {
         test_one("\"\xef\xbf\xbd\"", JSON_STRING, "\xef\xbf\xbd", JSON_END);
         test_one("\"\\ufffd\"", JSON_STRING, "\xef\xbf\xbd", JSON_END);
         test_one("\"\\uf\"", -EINVAL);
+        test_one("\"\\ud800a\"", -EINVAL);
+        test_one("\"\\udc00\\udc00\"", -EINVAL);
+        test_one("\"\\ud801\\udc37\"", JSON_STRING, "\xf0\x90\x90\xb7", JSON_END);
 
         return 0;
 }
