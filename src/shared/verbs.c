@@ -73,7 +73,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
 
         if (verb->max_args != VERB_ANY &&
             (unsigned) left > verb->max_args) {
-                log_error("Too many argument.s");
+                log_error("Too many arguments.");
                 return -EINVAL;
         }
 
