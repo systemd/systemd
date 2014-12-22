@@ -310,12 +310,42 @@ char *utf16_to_utf8(const void *s, size_t length) {
         const uint8_t *f;
         char *r, *t;
 
-        r = new(char, (length*3+1)/2 + 1);
+        r = new(char, (length * 4 + 1) / 2 + 1);
         if (!r)
                 return NULL;
 
-        for (f = s, t = r; f < (const uint8_t*) s + length; f += 2)
-                t += utf8_encode_unichar(t, (f[1] << 8) | f[0]);
+        f = s;
+        t = r;
+
+        while (f < (const uint8_t*) s + length) {
+                uint16_t w1, w2;
+
+                /* see RFC 2781 section 2.2 */
+
+                w1 = f[1] << 8 | f[0];
+                f += 2;
+
+                if (!utf16_is_surrogate(w1)) {
+                        t += utf8_encode_unichar(t, w1);
+
+                        continue;
+                }
+
+                if (utf16_is_trailing_surrogate(w1))
+                        continue;
+                else if (f >= (const uint8_t*) s + length)
+                        break;
+
+                w2 = f[1] << 8 | f[0];
+                f += 2;
+
+                if (!utf16_is_trailing_surrogate(w2)) {
+                        f -= 2;
+                        continue;
+                }
+
+                t += utf8_encode_unichar(t, utf16_surrogate_pair_to_unichar(w1, w2));
+        }
 
         *t = 0;
         return r;

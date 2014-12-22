@@ -93,6 +93,18 @@ static void test_utf8_escaping_printable(void) {
         assert_se(utf8_is_valid(p6));
 }
 
+static void test_utf16_to_utf8(void) {
+        char *a = NULL;
+        const uint16_t utf16[] = { 'a', 0xd800, 'b', 0xdc00, 'c', 0xd801, 0xdc37 };
+        const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7, 0 };
+
+        a = utf16_to_utf8(utf16, 14);
+        assert_se(a);
+        assert_se(streq(a, utf8));
+
+        free(a);
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -100,6 +112,7 @@ int main(int argc, char *argv[]) {
         test_utf8_encoded_valid_unichar();
         test_utf8_escaping();
         test_utf8_escaping_printable();
+        test_utf16_to_utf8();
 
         return 0;
 }
