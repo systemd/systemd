@@ -319,14 +319,14 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 
         r = namespace_open(m->leader, NULL, &mntns_fd, NULL, &root_fd);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         child = fork();
         if (child < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         if (child == 0) {
                 _cleanup_close_ int fd = -1;
@@ -355,37 +355,137 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 
         f = fdopen(pair[0], "re");
         if (!f)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         pair[0] = -1;
 
         r = load_env_file_pairs(f, "/etc/os-release", NULL, &l);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         r = wait_for_terminate(child, &si);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
         if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return sd_bus_error_set_errno(error, EIO);
+                return -EIO;
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "{ss}");
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         STRV_FOREACH_PAIR(k, v, l) {
                 r = sd_bus_message_append(reply, "{ss}", *k, *v);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int master = -1;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        Machine *m = userdata;
+        struct cmsghdr *cmsg;
+        siginfo_t si;
+        pid_t child;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = namespace_open(m->leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (master < 0)
+                        _exit(EXIT_FAILURE);
+
+                cmsg = CMSG_FIRSTHDR(&mh);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
+
+                mh.msg_controllen = cmsg->cmsg_len;
+
+                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+                return -errno;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                        int *fds;
+                        unsigned n_fds;
+
+                        fds = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        if (n_fds != 1) {
+                                close_many(fds, n_fds);
+                                return -EIO;
+                        }
+
+                        master = fds[0];
+                }
+
+        if (master < 0)
+                return -EIO;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "hs", master, ptsname(master));
+        if (r < 0)
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -407,6 +507,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
         SD_BUS_VTABLE_END
 };
 

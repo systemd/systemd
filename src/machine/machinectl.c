@@ -1010,106 +1010,17 @@ finish:
         return r;
 }
 
-static int openpt_in_namespace(pid_t pid, int flags) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        int master = -1, r;
-        pid_t child;
-        siginfo_t si;
-
-        assert(pid > 0);
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
-                return -errno;
-
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
-                pair[0] = safe_close(pair[0]);
-
-                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                master = posix_openpt(flags);
-                if (master < 0)
-                        _exit(EXIT_FAILURE);
-
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
-
-                mh.msg_controllen = cmsg->cmsg_len;
-
-                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        pair[1] = safe_close(pair[1]);
-
-        r = wait_for_terminate(child, &si);
-        if (r < 0)
-                return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return -EIO;
-
-        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
-                return -errno;
-
-        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        int *fds;
-                        unsigned n_fds;
-
-                        fds = (int*) CMSG_DATA(cmsg);
-                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                        if (n_fds != 1) {
-                                close_many(fds, n_fds);
-                                return -EIO;
-                        }
-
-                        master = fds[0];
-                }
-
-        if (master < 0)
-                return -EIO;
-
-        return master;
-}
-
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
+        int master = -1, r, ret = 0;
         sd_bus *bus = userdata;
         const char *pty, *p;
-        pid_t leader;
         sigset_t mask;
-        int r, ret = 0;
         char last_char = 0;
 
         assert(bus);
@@ -1127,17 +1038,22 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = machine_get_leader(bus, argv[1], &leader);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "OpenMachinePTY",
+                               &error,
+                               &reply,
+                               "s", argv[1]);
+        if (r < 0) {
+                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "hs", &master, &pty);
         if (r < 0)
                 return r;
-
-        master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
-        if (master < 0)
-                return log_error_errno(master, "Failed to acquire pseudo tty: %m");
-
-        pty = ptsname(master);
-        if (!pty)
-                return log_error_errno(errno, "Failed to get pty name: %m");
 
         p = startswith(pty, "/dev/pts/");
         if (!p) {
@@ -1161,7 +1077,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                                "/org/freedesktop/systemd1",
                                "org.freedesktop.systemd1.Manager",
                                "StartUnit",
-                               &error, &reply,
+                               &error, NULL,
                                "ss", getty, "replace");
         if (r < 0) {
                 log_error("Failed to start getty service: %s", bus_error_message(&error, r));
