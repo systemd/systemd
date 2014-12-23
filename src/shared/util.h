@@ -42,6 +42,7 @@
 #include <locale.h>
 #include <mntent.h>
 #include <sys/socket.h>
+#include <sys/inotify.h>
 
 #if SIZEOF_PID_T == 4
 #  define PID_FMT "%" PRIu32
@@ -1047,9 +1048,14 @@ int sethostname_idempotent(const char *s);
 #define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
 
 #define FOREACH_INOTIFY_EVENT(e, buffer, sz) \
-        for ((e) = (struct inotify_event*) (buffer);    \
-             (uint8_t*) (e) < (uint8_t*) (buffer) + (sz); \
+        for ((e) = &buffer.ev;                                \
+             (uint8_t*) (e) < (uint8_t*) (buffer.raw) + (sz); \
              (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))
+
+union inotify_event_buffer {
+        struct inotify_event ev;
+        uint8_t raw[INOTIFY_EVENT_MAX];
+};
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 

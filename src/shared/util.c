@@ -39,7 +39,6 @@
 #include <linux/tiocl.h>
 #include <termios.h>
 #include <stdarg.h>
-#include <sys/inotify.h>
 #include <sys/poll.h>
 #include <ctype.h>
 #include <sys/prctl.h>
@@ -2106,7 +2105,7 @@ int acquire_terminal(
                 assert(notify >= 0);
 
                 for (;;) {
-                        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+                        union inotify_event_buffer buffer;
                         struct inotify_event *e;
                         ssize_t l;
 
@@ -2129,7 +2128,7 @@ int acquire_terminal(
                                 }
                         }
 
-                        l = read(notify, buffer, sizeof(buffer));
+                        l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
                                 if (errno == EINTR || errno == EAGAIN)
                                         continue;

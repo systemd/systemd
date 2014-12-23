@@ -157,7 +157,7 @@ void path_spec_unwatch(PathSpec *s) {
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
-        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+        union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
         int r = 0;
@@ -167,7 +167,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return -EINVAL;
         }
 
-        l = read(s->inotify_fd, buffer, sizeof(buffer));
+        l = read(s->inotify_fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;

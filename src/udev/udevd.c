@@ -816,11 +816,11 @@ static int synthesize_change(struct udev_device *dev) {
 }
 
 static int handle_inotify(struct udev *udev) {
-        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+        union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
 
-        l = read(fd_inotify, buffer, sizeof(buffer));
+        l = read(fd_inotify, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;

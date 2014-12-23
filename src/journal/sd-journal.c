@@ -2188,11 +2188,11 @@ _public_ int sd_journal_process(sd_journal *j) {
         j->last_process_usec = now(CLOCK_MONOTONIC);
 
         for (;;) {
-                uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+                union inotify_event_buffer buffer;
                 struct inotify_event *e;
                 ssize_t l;
 
-                l = read(j->inotify_fd, buffer, sizeof(buffer));
+                l = read(j->inotify_fd, &buffer, sizeof(buffer));
                 if (l < 0) {
                         if (errno == EAGAIN || errno == EINTR)
                                 return got_something ? determine_change(j) : SD_JOURNAL_NOP;

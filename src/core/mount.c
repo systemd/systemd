@@ -1701,11 +1701,11 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                  * internal behaviour of libmount here. */
 
                 for (;;) {
-                        uint8_t buffer[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
+                        union inotify_event_buffer buffer;
                         struct inotify_event *e;
                         ssize_t l;
 
-                        l = read(fd, buffer, sizeof(buffer));
+                        l = read(fd, &buffer, sizeof(buffer));
                         if (l < 0) {
                                 if (errno == EAGAIN || errno == EINTR)
                                         break;
