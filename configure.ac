@@ -1270,11 +1270,6 @@ AC_ARG_WITH([dbussystemservicedir],
         [],
         [with_dbussystemservicedir=${datadir}/dbus-1/system-services])
 
-AC_ARG_WITH([dbusinterfacedir],
-        AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
-        [],
-        [with_dbusinterfacedir=${datadir}/dbus-1/interfaces])
-
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
         [],
@@ -1373,7 +1368,6 @@ test -z "$enable_debug" && enable_debug="none"
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
-AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
@@ -1476,7 +1470,6 @@ AC_MSG_RESULT([
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
-        D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Bash completions dir:    ${with_bashcompletiondir}
         Zsh completions dir:     ${with_zshcompletiondir}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
