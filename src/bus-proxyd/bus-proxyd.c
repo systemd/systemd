@@ -988,9 +988,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                         return 0;
 
                 /* The message came from the kernel, and is sent to our legacy client. */
-                r = sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
-                if (r < 0)
-                        return r;
+                sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
 
                 (void) sd_bus_creds_get_uid(&m->creds, &sender_uid);
                 (void) sd_bus_creds_get_gid(&m->creds, &sender_gid);
@@ -1054,13 +1052,11 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                         if (r < 0)
                                 return handle_policy_error(m, r);
 
-                        r = sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
-                        if (r < 0)
-                                return handle_policy_error(m, r);
-
                         r = sd_bus_creds_get_unique_name(destination_creds, &destination_unique);
                         if (r < 0)
                                 return handle_policy_error(m, r);
+
+                        sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
 
                         (void) sd_bus_creds_get_uid(destination_creds, &destination_uid);
                         (void) sd_bus_creds_get_gid(destination_creds, &destination_gid);
