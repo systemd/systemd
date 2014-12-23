@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/prctl.h>
-#include <sys/capability.h>
 #include <getopt.h>
 #include <termios.h>
 #include <sys/signalfd.h>
@@ -90,6 +89,7 @@
 #include "base-filesystem.h"
 #include "barrier.h"
 #include "event-util.h"
+#include "capability.h"
 #include "cap-list.h"
 #include "btrfs-util.h"
 
