@@ -31,6 +31,7 @@
 #include "list.h"
 #include "util.h"
 #include "refcnt.h"
+#include "socket-util.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"

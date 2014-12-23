@@ -46,7 +46,8 @@
 #include "util.h"
 #include "architecture.h"
 #include "link-config.h"
-#include "bus-policy.h"
+#include "bus-xml-policy.h"
+#include "busname.h"
 #include "journald-server.h"
 #include "locale-util.h"
 

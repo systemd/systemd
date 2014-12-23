@@ -24,8 +24,8 @@
 typedef struct BusEndpoint BusEndpoint;
 typedef struct BusEndpointPolicy BusEndpointPolicy;
 
-#include "bus-common.h"
 #include "hashmap.h"
+#include "bus-policy.h"
 
 struct BusEndpointPolicy {
         char *name;
@@ -40,3 +40,5 @@ int bus_endpoint_new(BusEndpoint **ep);
 void bus_endpoint_free(BusEndpoint *endpoint);
 
 int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess access);
+
+int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep);

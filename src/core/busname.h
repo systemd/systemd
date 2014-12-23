@@ -25,7 +25,6 @@ typedef struct BusName BusName;
 typedef struct BusNamePolicy BusNamePolicy;
 
 #include "unit.h"
-#include "bus-common.h"
 
 typedef enum BusNameState {
         BUSNAME_DEAD,
@@ -51,22 +50,6 @@ typedef enum BusNameResult {
         _BUSNAME_RESULT_MAX,
         _BUSNAME_RESULT_INVALID = -1
 } BusNameResult;
-
-typedef enum BusNamePolicyType {
-        BUSNAME_POLICY_TYPE_USER,
-        BUSNAME_POLICY_TYPE_GROUP,
-        _BUSNAME_POLICY_TYPE_MAX,
-        _BUSNAME_POLICY_TYPE_INVALID = -1
-} BusNamePolicyType;
-
-struct BusNamePolicy {
-        BusNamePolicyType type;
-        BusPolicyAccess access;
-
-        char *name;
-
-        LIST_FIELDS(BusNamePolicy, policy);
-};
 
 struct BusName {
         Unit meta;

@@ -44,9 +44,10 @@
 #include "strv.h"
 #include "def.h"
 #include "capability.h"
-#include "bus-policy.h"
 #include "bus-control.h"
 #include "smack-util.h"
+#include "set.h"
+#include "bus-xml-policy.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;

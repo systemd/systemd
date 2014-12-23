@@ -28,6 +28,7 @@
 #include "pager.h"
 #include "xml.h"
 #include "path-util.h"
+#include "set.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"

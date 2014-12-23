@@ -40,11 +40,9 @@
 #include "strv.h"
 #include "def.h"
 #include "capability.h"
+#include "bus-xml-policy.h"
 
-#include <bus-proxyd/bus-policy.h>
-
-static int test_policy_load(Policy *p, const char *name)
-{
+static int test_policy_load(Policy *p, const char *name) {
         _cleanup_free_ char *path = NULL;
         int r = 0;
 

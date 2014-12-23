@@ -19,10 +19,56 @@
 
 #include <stdlib.h>
 
+#include "kdbus.h"
+#include "bus-kernel.h"
+#include "bus-policy.h"
 #include "bus-endpoint.h"
 
-int bus_endpoint_new(BusEndpoint **ep)
-{
+int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep) {
+
+        struct kdbus_cmd_update *update;
+        struct kdbus_item *n;
+        BusEndpointPolicy *po;
+        Iterator i;
+        size_t size;
+        int r;
+
+        size = ALIGN8(offsetof(struct kdbus_cmd_update, items));
+
+        HASHMAP_FOREACH(po, ep->policy_hash, i) {
+                size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(po->name) + 1);
+                size += ALIGN8(offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access));
+        }
+
+        update = alloca0_align(size, 8);
+        update->size = size;
+
+        n = update->items;
+
+        HASHMAP_FOREACH(po, ep->policy_hash, i) {
+                n->type = KDBUS_ITEM_NAME;
+                n->size = offsetof(struct kdbus_item, str) + strlen(po->name) + 1;
+                strcpy(n->str, po->name);
+                n = KDBUS_ITEM_NEXT(n);
+
+                n->type = KDBUS_ITEM_POLICY_ACCESS;
+                n->size = offsetof(struct kdbus_item, policy_access) + sizeof(struct kdbus_policy_access);
+
+                n->policy_access.type = KDBUS_POLICY_ACCESS_USER;
+                n->policy_access.access = bus_kernel_translate_access(po->access);
+                n->policy_access.id = uid;
+
+                n = KDBUS_ITEM_NEXT(n);
+        }
+
+        r = ioctl(fd, KDBUS_CMD_ENDPOINT_UPDATE, update);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bus_endpoint_new(BusEndpoint **ep) {
         assert(ep);
 
         *ep = new0(BusEndpoint, 1);
@@ -32,8 +78,7 @@ int bus_endpoint_new(BusEndpoint **ep)
         return 0;
 }
 
-int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess access)
-{
+int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess access) {
         _cleanup_free_ BusEndpointPolicy *po = NULL;
         _cleanup_free_ char *key = NULL;
         int r;
@@ -80,8 +125,7 @@ int bus_endpoint_add_policy(BusEndpoint *ep, const char *name, BusPolicyAccess a
         return 0;
 }
 
-void bus_endpoint_free(BusEndpoint *endpoint)
-{
+void bus_endpoint_free(BusEndpoint *endpoint) {
         if (!endpoint)
                 return;
 

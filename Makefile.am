@@ -1046,10 +1046,10 @@ libsystemd_core_la_SOURCES = \
 	src/core/socket.h \
 	src/core/busname.c \
 	src/core/busname.h \
-	src/core/bus-common.c \
-	src/core/bus-common.h \
 	src/core/bus-endpoint.c \
 	src/core/bus-endpoint.h \
+	src/core/bus-policy.c \
+	src/core/bus-policy.h \
 	src/core/target.c \
 	src/core/target.h \
 	src/core/snapshot.c \
@@ -1713,8 +1713,8 @@ test_unaligned_SOURCES = \
 test_tables_SOURCES = \
 	src/test/test-tables.c \
 	src/shared/test-tables.h \
-	src/bus-proxyd/bus-policy.c \
-	src/bus-proxyd/bus-policy.h \
+	src/bus-proxyd/bus-xml-policy.c \
+	src/bus-proxyd/bus-xml-policy.h \
 	src/journal/journald-server.c \
 	src/journal/journald-server.h
 
@@ -1948,9 +1948,9 @@ test_conf_files_LDADD = \
 	libsystemd-shared.la
 
 test_bus_policy_SOURCES = \
-	src/bus-proxyd/test-bus-policy.c \
-	src/bus-proxyd/bus-policy.c \
-	src/bus-proxyd/bus-policy.h
+	src/bus-proxyd/test-bus-xml-policy.c \
+	src/bus-proxyd/bus-xml-policy.c \
+	src/bus-proxyd/bus-xml-policy.h
 
 test_bus_policy_LDADD = \
 	libsystemd-internal.la \
@@ -2598,8 +2598,8 @@ systemd_run_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-proxyd.c \
-	src/bus-proxyd/bus-policy.c \
-	src/bus-proxyd/bus-policy.h
+	src/bus-proxyd/bus-xml-policy.c \
+	src/bus-proxyd/bus-xml-policy.h
 
 systemd_bus_proxyd_LDADD = \
 	libsystemd-internal.la \

@@ -84,7 +84,7 @@
 #include "mkdir.h"
 #include "apparmor-util.h"
 #include "smack-util.h"
-#include "bus-kernel.h"
+#include "bus-endpoint.h"
 #include "label.h"
 #include "cap-list.h"
 
