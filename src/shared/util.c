@@ -2785,23 +2785,36 @@ char *getusername_malloc(void) {
         return lookup_uid(getuid());
 }
 
-int getttyname_malloc(int fd, char **r) {
-        char path[PATH_MAX], *c;
-        int k;
+int getttyname_malloc(int fd, char **ret) {
+        size_t l = 100;
+        int r;
 
-        assert(r);
+        assert(fd >= 0);
+        assert(ret);
 
-        k = ttyname_r(fd, path, sizeof(path));
-        if (k > 0)
-                return -k;
+        for (;;) {
+                char path[l];
 
-        char_array_0(path);
+                r = ttyname_r(fd, path, sizeof(path));
+                if (r == 0) {
+                        const char *p;
+                        char *c;
 
-        c = strdup(startswith(path, "/dev/") ? path + 5 : path);
-        if (!c)
-                return -ENOMEM;
+                        p = startswith(path, "/dev/");
+                        c = strdup(p ?: path);
+                        if (!c)
+                                return -ENOMEM;
 
-        *r = c;
+                        *ret = c;
+                        return 0;
+                }
+
+                if (r != ERANGE)
+                        return -r;
+
+                l *= 2;
+        }
+
         return 0;
 }
 
@@ -7436,6 +7449,9 @@ int sethostname_idempotent(const char *s) {
 
 int ptsname_malloc(int fd, char **ret) {
         size_t l = 100;
+
+        assert(fd >= 0);
+        assert(ret);
 
         for (;;) {
                 char *c;
