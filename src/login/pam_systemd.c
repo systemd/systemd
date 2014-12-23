@@ -24,7 +24,6 @@
 #include <sys/file.h>
 #include <pwd.h>
 #include <endian.h>
-#include <sys/capability.h>
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
