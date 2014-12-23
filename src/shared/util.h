@@ -1054,3 +1054,5 @@ int sethostname_idempotent(const char *s);
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 
 int ptsname_malloc(int fd, char **ret);
+
+int openpt_in_namespace(pid_t pid, int flags);

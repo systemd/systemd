@@ -32,6 +32,8 @@
 #include "fileio.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
+#include "path-util.h"
+#include "bus-internal.h"
 #include "machine.h"
 
 static int property_get_id(
@@ -391,98 +393,95 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 }
 
 int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int master = -1;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        Machine *m = userdata;
         _cleanup_free_ char *pty_name = NULL;
-        struct cmsghdr *cmsg;
-        siginfo_t si;
-        pid_t child;
+        _cleanup_close_ int master = -1;
+        Machine *m = userdata;
         int r;
 
         assert(bus);
         assert(message);
         assert(m);
 
-        r = namespace_open(m->leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
-                return -errno;
-
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
-                pair[0] = safe_close(pair[0]);
-
-                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC);
-                if (master < 0)
-                        _exit(EXIT_FAILURE);
-
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
-
-                mh.msg_controllen = cmsg->cmsg_len;
-
-                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        pair[1] = safe_close(pair[1]);
-
-        r = wait_for_terminate(child, &si);
-        if (r < 0)
-                return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return -EIO;
-
-        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
-                return -errno;
-
-        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        int *fds;
-                        unsigned n_fds;
-
-                        fds = (int*) CMSG_DATA(cmsg);
-                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                        if (n_fds != 1) {
-                                close_many(fds, n_fds);
-                                return -EIO;
-                        }
-
-                        master = fds[0];
-                }
-
+        master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (master < 0)
-                return -EIO;
+                return master;
 
         r = ptsname_malloc(master, &pty_name);
         if (r < 0)
                 return r;
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "hs", master, pty_name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ char *pty_name = NULL, *getty = NULL;
+        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_close_ int master = -1;
+        Machine *m = userdata;
+        const char *p;
+        int r;
+
+        master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (master < 0)
+                return master;
+
+        r = ptsname_malloc(master, &pty_name);
+        if (r < 0)
+                return r;
+
+        p = path_startswith(pty_name, "/dev/pts/");
+        if (!p)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PTS name %s is invalid", pty_name);
+
+        if (unlockpt(master) < 0)
+                return -errno;
+
+        r = sd_bus_new(&container_bus);
+        if (r < 0)
+                return r;
+
+#ifdef ENABLE_KDBUS
+        asprintf(&container_bus->address, "x-container-kernel:pid=" PID_FMT ";x-container-unix:pid=" PID_FMT, m->leader, m->leader);
+#else
+        asprintf(&container_bus->address, "x-container-kernel:pid=" PID_FMT, m->leader);
+#endif
+        if (!container_bus->address)
+                return -ENOMEM;
+
+        container_bus->bus_client = true;
+        container_bus->trusted = false;
+        container_bus->is_system = true;
+
+        r = sd_bus_start(container_bus);
+        if (r < 0)
+                return r;
+
+        getty = strjoin("container-getty@", p, ".service", NULL);
+        if (!getty)
+                return -ENOMEM;
+
+        r = sd_bus_call_method(
+                        container_bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        error, NULL,
+                        "ss", getty, "replace");
+        if (r < 0)
+                return r;
+
+        container_bus = sd_bus_unref(container_bus);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
