@@ -214,7 +214,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
 
@@ -679,7 +679,7 @@ static int start_transient_service(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine tty name: %m");
 
-                } else if (arg_transport == BUS_TRANSPORT_CONTAINER) {
+                } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_bus_unref_ sd_bus *system_bus = NULL;
                         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                         const char *s;

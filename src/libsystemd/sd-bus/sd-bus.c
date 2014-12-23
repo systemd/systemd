@@ -950,7 +950,7 @@ static int bus_parse_next_address(sd_bus *b) {
                                 return r;
 
                         break;
-                } else if (startswith(a, "x-container-unix:")) {
+                } else if (startswith(a, "x-machine-unix:")) {
 
                         a += 17;
                         r = parse_container_unix_address(b, &a, &guid);
@@ -958,7 +958,7 @@ static int bus_parse_next_address(sd_bus *b) {
                                 return r;
 
                         break;
-                } else if (startswith(a, "x-container-kernel:")) {
+                } else if (startswith(a, "x-machine-kernel:")) {
 
                         a += 19;
                         r = parse_container_kernel_address(b, &a, &guid);
@@ -1334,7 +1334,7 @@ fail:
         return r;
 }
 
-int bus_set_address_system_container(sd_bus *b, const char *machine) {
+int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         _cleanup_free_ char *e = NULL;
 
         assert(b);
@@ -1345,9 +1345,9 @@ int bus_set_address_system_container(sd_bus *b, const char *machine) {
                 return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-        b->address = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-machine-kernel:machine=", e, ";x-machine-unix:machine=", e, NULL);
 #else
-        b->address = strjoin("x-container-unix:machine=", e, NULL);
+        b->address = strjoin("x-machine-unix:machine=", e, NULL);
 #endif
         if (!b->address)
                 return -ENOMEM;
@@ -1355,7 +1355,7 @@ int bus_set_address_system_container(sd_bus *b, const char *machine) {
         return 0;
 }
 
-_public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
+_public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
         sd_bus *bus;
         int r;
 
@@ -1367,7 +1367,7 @@ _public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
         if (r < 0)
                 return r;
 
-        r = bus_set_address_system_container(bus, machine);
+        r = bus_set_address_system_machine(bus, machine);
         if (r < 0)
                 goto fail;
 

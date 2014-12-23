@@ -1854,7 +1854,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
 
@@ -2035,8 +2035,8 @@ int main(int argc, char *argv[]) {
                         r = bus_set_address_system_remote(bus, arg_host);
                         break;
 
-                case BUS_TRANSPORT_CONTAINER:
-                        r = bus_set_address_system_container(bus, arg_host);
+                case BUS_TRANSPORT_MACHINE:
+                        r = bus_set_address_system_machine(bus, arg_host);
                         break;
 
                 default:

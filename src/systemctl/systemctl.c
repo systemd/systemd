@@ -622,7 +622,7 @@ static int get_unit_list_recursive(
                         _cleanup_bus_close_unref_ sd_bus *container = NULL;
                         int k;
 
-                        r = sd_bus_open_system_container(&container, *i);
+                        r = sd_bus_open_system_machine(&container, *i);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to connect to container %s: %m", *i);
                                 continue;
@@ -1713,7 +1713,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
         assert(mi);
 
         if (!bus) {
-                r = sd_bus_open_system_container(&container, mi->name);
+                r = sd_bus_open_system_machine(&container, mi->name);
                 if (r < 0)
                         return r;
 
@@ -3704,12 +3704,12 @@ static void print_status_info(
 
         if (i->control_group &&
             (i->main_pid > 0 || i->control_pid > 0 ||
-             ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_CONTAINER) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0))) {
+             ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0))) {
                 unsigned c;
 
                 printf("   CGroup: %s\n", i->control_group);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_CONTAINER) {
+                if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_MACHINE) {
                         unsigned k = 0;
                         pid_t extra[2];
                         static const char prefix[] = "           ";
@@ -4603,7 +4603,7 @@ static int show_system_status(sd_bus *bus) {
                format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
-        if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_CONTAINER) {
+        if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_MACHINE) {
                 int flags =
                         arg_all * OUTPUT_SHOW_ALL |
                         (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
@@ -6682,7 +6682,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
                         break;
 

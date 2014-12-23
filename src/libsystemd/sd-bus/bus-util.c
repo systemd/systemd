@@ -1156,8 +1156,8 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
                 r = sd_bus_open_system_remote(bus, host);
                 break;
 
-        case BUS_TRANSPORT_CONTAINER:
-                r = sd_bus_open_system_container(bus, host);
+        case BUS_TRANSPORT_MACHINE:
+                r = sd_bus_open_system_machine(bus, host);
                 break;
 
         default:
@@ -1191,8 +1191,8 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
                 r = sd_bus_open_system_remote(bus, host);
                 break;
 
-        case BUS_TRANSPORT_CONTAINER:
-                r = sd_bus_open_system_container(bus, host);
+        case BUS_TRANSPORT_MACHINE:
+                r = sd_bus_open_system_machine(bus, host);
                 break;
 
         default:

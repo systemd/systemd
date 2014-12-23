@@ -30,7 +30,7 @@
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
         BUS_TRANSPORT_REMOTE,
-        BUS_TRANSPORT_CONTAINER,
+        BUS_TRANSPORT_MACHINE,
         _BUS_TRANSPORT_MAX,
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
