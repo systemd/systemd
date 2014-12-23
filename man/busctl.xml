@@ -313,11 +313,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg></term>
+        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable></arg></term>
 
         <listitem><para>Show interfaces, methods, properties and
         signals of the specified object (identified by its path) on
-        the specified service.</para></listitem>
+        the specified service. If the interface argument is passed the
+        output is limited to members of the specified
+        interface.</para></listitem>
       </varlistentry>
 
       <varlistentry>

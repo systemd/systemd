@@ -883,10 +883,16 @@ static int introspect(sd_bus *bus, char **argv) {
         int r;
         unsigned name_width,  type_width, signature_width, result_width;
         Member **sorted = NULL;
-        unsigned k = 0, j;
+        unsigned k = 0, j, n_args;
 
-        if (strv_length(argv) != 3) {
+        n_args = strv_length(argv);
+        if (n_args < 3) {
                 log_error("Requires service and object path argument.");
+                return -EINVAL;
+        }
+
+        if (n_args > 4) {
+                log_error("Too many arguments.");
                 return -EINVAL;
         }
 
@@ -916,6 +922,9 @@ static int introspect(sd_bus *bus, char **argv) {
                         continue;
 
                 if (m->value)
+                        continue;
+
+                if (argv[3] && !streq(argv[3], m->interface))
                         continue;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
@@ -995,6 +1004,10 @@ static int introspect(sd_bus *bus, char **argv) {
         sorted = newa(Member*, set_size(members));
 
         SET_FOREACH(m, members, i) {
+
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
                 if (m->interface)
                         name_width = MAX(name_width, strlen(m->interface));
                 if (m->name)
@@ -1014,7 +1027,6 @@ static int introspect(sd_bus *bus, char **argv) {
         if (result_width > 40)
                 result_width = 40;
 
-        assert(k == set_size(members));
         qsort(sorted, k, sizeof(Member*), member_compare_funcp);
 
         if (arg_legend) {
@@ -1033,7 +1045,13 @@ static int introspect(sd_bus *bus, char **argv) {
 
                 m = sorted[j];
 
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
                 is_interface = streq(m->type, "interface");
+
+                if (argv[3] && is_interface)
+                        continue;
 
                 if (m->value) {
                         ellipsized = ellipsize(m->value, result_width, 100);
@@ -1686,7 +1704,7 @@ static int help(void) {
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  capture [SERVICE...]    Capture bus traffic as pcap\n"
                "  tree [SERVICE...]       Show object tree of service\n"
-               "  introspect SERVICE OBJECT\n"
+               "  introspect SERVICE OBJECT [INTERFACE]\n"
                "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
                "                          Call a method\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
