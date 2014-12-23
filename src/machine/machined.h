@@ -43,6 +43,8 @@ struct Manager {
         Hashmap *machine_units;
         Hashmap *machine_leaders;
 
+        Hashmap *polkit_registry;
+
         LIST_HEAD(Machine, machine_gc_queue);
 };
 

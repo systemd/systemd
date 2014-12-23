@@ -76,6 +76,8 @@ void manager_free(Manager *m) {
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
 
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
 

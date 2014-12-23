@@ -5090,6 +5090,12 @@ dist_dbussystemservice_DATA += \
 dist_dbuspolicy_DATA += \
 	src/machine/org.freedesktop.machine1.conf
 
+polkitpolicy_files += \
+	src/machine/org.freedesktop.machine1.policy
+
+polkitpolicy_in_files += \
+	src/machine/org.freedesktop.machine1.policy.in
+
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_machinectl \
 	shell-completion/zsh/_sd_machines

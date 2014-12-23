@@ -1012,7 +1012,7 @@ finish:
 
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r, ret = 0;
@@ -1037,14 +1037,24 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "OpenMachineLogin",
-                               &error,
-                               &reply,
-                               "s", argv[1]);
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.machine1",
+                                           "/org/freedesktop/machine1",
+                                           "org.freedesktop.machine1.Manager",
+                                           "OpenMachineLogin");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", argv[1]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
                 return r;

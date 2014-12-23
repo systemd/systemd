@@ -431,6 +431,18 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         const char *p;
         int r;
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.login",
+                        false,
+                        &m->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (master < 0)
                 return master;
@@ -512,6 +524,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
+        SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
