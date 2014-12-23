@@ -1103,7 +1103,7 @@ int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, 
                 return -ENOMEM;
         e = endswith(n->index_url, "/");
         if (e)
-                *e = NULL;
+                *e = 0;
 
         n->name = strdup(name);
         if (!n->name)
