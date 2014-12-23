@@ -7433,3 +7433,27 @@ int sethostname_idempotent(const char *s) {
 
         return 1;
 }
+
+int ptsname_malloc(int fd, char **ret) {
+        size_t l = 100;
+
+        for (;;) {
+                char *c;
+
+                c = new(char, l);
+                if (!c)
+                        return -ENOMEM;
+
+                if (ptsname_r(fd, c, l) == 0) {
+                        *ret = c;
+                        return 0;
+                }
+                if (errno != ERANGE) {
+                        free(c);
+                        return -errno;
+                }
+
+                free(c);
+                l *= 2;
+        }
+}

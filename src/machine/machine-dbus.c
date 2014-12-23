@@ -404,6 +404,7 @@ int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *user
                 .msg_controllen = sizeof(control),
         };
         Machine *m = userdata;
+        _cleanup_free_ char *pty_name = NULL;
         struct cmsghdr *cmsg;
         siginfo_t si;
         pid_t child;
@@ -479,11 +480,15 @@ int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *user
         if (master < 0)
                 return -EIO;
 
+        r = ptsname_malloc(master, &pty_name);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "hs", master, ptsname(master));
+        r = sd_bus_message_append(reply, "hs", master, pty_name);
         if (r < 0)
                 return r;
 

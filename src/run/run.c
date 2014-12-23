@@ -657,26 +657,63 @@ static int transient_timer_set_properties(sd_bus_message *m) {
 
 static int start_transient_service(
                 sd_bus *bus,
-                char **argv,
-                sd_bus_error *error) {
+                char **argv) {
 
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_free_ char *service = NULL;
+        _cleanup_free_ char *service = NULL, *pty_path = NULL;
         _cleanup_close_ int master = -1;
-        const char *pty_path = NULL;
         int r;
 
         assert(bus);
         assert(argv);
 
         if (arg_pty) {
-                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
-                if (master < 0)
-                        return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
 
-                pty_path = ptsname(master);
-                if (!pty_path)
-                        return log_error_errno(errno, "Failed to determine tty name: %m");
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
+                        if (master < 0)
+                                return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
+
+                        r = ptsname_malloc(master, &pty_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine tty name: %m");
+
+                } else if (arg_transport == BUS_TRANSPORT_CONTAINER) {
+                        _cleanup_bus_unref_ sd_bus *system_bus = NULL;
+                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                        const char *s;
+
+                        r = sd_bus_open_system(&system_bus);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to connect to system bus: %m");
+
+                        r = sd_bus_call_method(system_bus,
+                                               "org.freedesktop.machine1",
+                                               "/org/freedesktop/machine1",
+                                               "org.freedesktop.machine1.Manager",
+                                               "OpenMachinePTY",
+                                               &error,
+                                               &reply,
+                                               "s", arg_host);
+                        if (r < 0) {
+                                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
+                                return r;
+                        }
+
+                        r = sd_bus_message_read(reply, "hs", &master, &s);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        master = fcntl(master, F_DUPFD_CLOEXEC, 3);
+                        if (master < 0)
+                                return log_error_errno(errno, "Failed to duplicate master fd: %m");
+
+                        pty_path = strdup(s);
+                        if (!pty_path)
+                                return log_oom();
+                } else
+                        assert_not_reached("Can't allocate tty via ssh");
 
                 if (unlockpt(master) < 0)
                         return log_error_errno(errno, "Failed to unlock tty: %m");
@@ -722,9 +759,11 @@ static int start_transient_service(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, error, NULL);
-        if (r < 0)
-                return bus_log_create_error(r);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("Failed to start transient service unit: %s", bus_error_message(&error, -r));
+                return r;
+        }
 
         if (master >= 0) {
                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -769,9 +808,9 @@ static int start_transient_service(
 
 static int start_transient_scope(
                 sd_bus *bus,
-                char **argv,
-                sd_bus_error *error) {
+                char **argv) {
 
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *scope = NULL;
@@ -815,15 +854,16 @@ static int start_transient_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* aux */
+        /* Auxiliary units */
         r = sd_bus_message_append(m, "a(sa(sv))", 0);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* send dbus */
-        r = sd_bus_call(bus, m, 0, error, NULL);
-        if (r < 0)
-                return bus_log_create_error(r);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("Failed to start transient scope unit: %s", bus_error_message(&error, -r));
+                return r;
+        }
 
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
@@ -889,9 +929,9 @@ static int start_transient_scope(
 
 static int start_transient_timer(
                 sd_bus *bus,
-                char **argv,
-                sd_bus_error *error) {
+                char **argv) {
 
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *timer = NULL, *service = NULL;
         int r;
@@ -999,10 +1039,11 @@ static int start_transient_timer(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* send dbus */
-        r = sd_bus_call(bus, m, 0, error, NULL);
-        if (r < 0)
-                return bus_log_create_error(r);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("Failed to start transient timer unit: %s", bus_error_message(&error, -r));
+                return r;
+        }
 
         log_info("Running as unit %s.", timer);
         if (argv[0])
@@ -1012,7 +1053,6 @@ static int start_transient_timer(
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
@@ -1062,11 +1102,11 @@ int main(int argc, char* argv[]) {
         }
 
         if (arg_scope)
-                r = start_transient_scope(bus, argv + optind, &error);
+                r = start_transient_scope(bus, argv + optind);
         else if (with_timer())
-                r = start_transient_timer(bus, argv + optind, &error);
+                r = start_transient_timer(bus, argv + optind);
         else
-                r = start_transient_service(bus, argv + optind, &error);
+                r = start_transient_service(bus, argv + optind);
 
 finish:
         strv_free(arg_environment);

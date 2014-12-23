@@ -1053,7 +1053,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_message_read(reply, "hs", &master, &pty);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         p = startswith(pty, "/dev/pts/");
         if (!p) {

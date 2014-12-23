@@ -1052,3 +1052,5 @@ int sethostname_idempotent(const char *s);
              (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
+
+int ptsname_malloc(int fd, char **ret);
