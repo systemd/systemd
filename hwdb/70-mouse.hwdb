@@ -188,6 +188,10 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4026:
 mouse:bluetooth:v046dpb00d:name:Ultrathin Touch Mouse:
  MOUSE_DPI=1000@1000
 
+# ImExPS/2 Logitech Wheel Mouse
+mouse:ps2:*:name:ImExPS/2 Logitech Wheel Mouse:
+ MOUSE_DPI=400@250
+
 ##########################################
 # Microsoft
 ##########################################

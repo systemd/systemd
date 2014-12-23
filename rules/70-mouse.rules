@@ -11,5 +11,8 @@ KERNELS=="input*", ENV{ID_BUS}=="usb", \
 KERNELS=="input*", ENV{ID_BUS}=="bluetooth", \
         IMPORT{builtin}="hwdb 'mouse:$env{ID_BUS}:v$attr{id/vendor}p$attr{id/product}:name:$attr{name}:'", \
         GOTO="mouse_end"
+DRIVERS=="psmouse", SUBSYSTEMS=="serio", \
+        IMPORT{builtin}="hwdb 'mouse:ps2::name:$attr{device/name}:'", \
+        GOTO="mouse_end"
 
 LABEL="mouse_end"
