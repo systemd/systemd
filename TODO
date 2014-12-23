@@ -31,6 +31,8 @@ External:
 
 Features:
 
+* rename sd_bus_open_system_container() to sd_bus_open_system_machine()
+
 * Port various tools to make use of verbs.[ch], where applicable
 
 * Check all invocations of access() and consider turning them into laccess()
@@ -46,8 +48,6 @@ Features:
 * "machinectl diff"
 
 * "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
-
-* make "machinectl login" use a new machined call OpenMachineLogin() or so to get a pty in a machine. That would open up logins to unprivileged clients
 
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
