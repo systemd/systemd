@@ -38,7 +38,6 @@
 #include <sys/param.h>
 #include <glob.h>
 #include <fnmatch.h>
-#include <sys/capability.h>
 #include <sys/xattr.h>
 
 #include "log.h"
