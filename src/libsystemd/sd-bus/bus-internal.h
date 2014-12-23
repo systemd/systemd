@@ -245,6 +245,7 @@ struct sd_bus {
 
         char *kernel;
         char *machine;
+        pid_t nspid;
 
         sd_id128_t server_id;
 

@@ -30,19 +30,22 @@
 
 int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
-        pid_t leader, child;
+        pid_t child;
         siginfo_t si;
         int r;
 
         assert(b);
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
+        assert(b->nspid > 0 || b->machine);
 
-        r = container_get_leader(b->machine, &leader);
-        if (r < 0)
-                return r;
+        if (b->nspid <= 0) {
+                r = container_get_leader(b->machine, &b->nspid);
+                if (r < 0)
+                        return r;
+        }
 
-        r = namespace_open(leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
 
@@ -127,7 +130,7 @@ int bus_container_connect_kernel(sd_bus *b) {
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
-        pid_t leader, child;
+        pid_t child;
         siginfo_t si;
         int r;
         _cleanup_close_ int fd = -1;
@@ -135,12 +138,15 @@ int bus_container_connect_kernel(sd_bus *b) {
         assert(b);
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
+        assert(b->nspid > 0 || b->machine);
 
-        r = container_get_leader(b->machine, &leader);
-        if (r < 0)
-                return r;
+        if (b->nspid <= 0) {
+                r = container_get_leader(b->machine, &b->nspid);
+                if (r < 0)
+                        return r;
+        }
 
-        r = namespace_open(leader, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, NULL, &rootfd);
         if (r < 0)
                 return r;
 

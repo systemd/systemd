@@ -756,7 +756,7 @@ static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
 }
 
 static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *machine = NULL;
+        _cleanup_free_ char *machine = NULL, *pid = NULL;
         int r;
 
         assert(b);
@@ -777,18 +777,36 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 else if (r > 0)
                         continue;
 
+                r = parse_address_key(p, "pid", &pid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
                 skip_address_key(p);
         }
 
-        if (!machine)
+        if (!machine == !pid)
                 return -EINVAL;
 
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
+        if (machine) {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
 
-        free(b->machine);
-        b->machine = machine;
-        machine = NULL;
+                free(b->machine);
+                b->machine = machine;
+                machine = NULL;
+        } else {
+                free(b->machine);
+                b->machine = NULL;
+        }
+
+        if (pid) {
+                r = parse_pid(pid, &b->nspid);
+                if (r < 0)
+                        return r;
+        } else
+                b->nspid = 0;
 
         b->sockaddr.un.sun_family = AF_UNIX;
         strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
@@ -798,7 +816,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
 }
 
 static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *machine = NULL;
+        _cleanup_free_ char *machine = NULL, *pid = NULL;
         int r;
 
         assert(b);
@@ -819,18 +837,36 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
                 else if (r > 0)
                         continue;
 
+                r = parse_address_key(p, "pid", &pid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
                 skip_address_key(p);
         }
 
-        if (!machine)
+        if (!machine == !pid)
                 return -EINVAL;
 
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
+        if (machine) {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
 
-        free(b->machine);
-        b->machine = machine;
-        machine = NULL;
+                free(b->machine);
+                b->machine = machine;
+                machine = NULL;
+        } else {
+                free(b->machine);
+                b->machine = NULL;
+        }
+
+        if (pid) {
+                r = parse_pid(pid, &b->nspid);
+                if (r < 0)
+                        return r;
+        } else
+                b->nspid = 0;
 
         free(b->kernel);
         b->kernel = strdup("/sys/fs/kdbus/0-system/bus");
@@ -854,6 +890,7 @@ static void bus_reset_parsed_address(sd_bus *b) {
         b->kernel = NULL;
         free(b->machine);
         b->machine = NULL;
+        b->nspid = 0;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -958,9 +995,9 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
-                else if (b->machine && b->kernel)
+                else if ((b->nspid > 0 || b->machine) && b->kernel)
                         r = bus_container_connect_kernel(b);
-                else if (b->machine && b->sockaddr.sa.sa_family != AF_UNSPEC)
+                else if ((b->nspid > 0 || b->machine) && b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_container_connect_socket(b);
                 else if (b->kernel)
                         r = bus_kernel_connect(b);
