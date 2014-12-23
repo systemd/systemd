@@ -1013,19 +1013,18 @@ finish:
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_free_ char *getty = NULL;
         int master = -1, r, ret = 0;
         sd_bus *bus = userdata;
-        const char *pty, *p;
+        const char *pty;
         sigset_t mask;
         char last_char = 0;
 
         assert(bus);
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+        if (arg_transport != BUS_TRANSPORT_LOCAL &&
+            arg_transport != BUS_TRANSPORT_CONTAINER) {
                 log_error("Login only supported on local machines.");
                 return -ENOTSUP;
         }
@@ -1042,7 +1041,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                                "org.freedesktop.machine1",
                                "/org/freedesktop/machine1",
                                "org.freedesktop.machine1.Manager",
-                               "OpenMachinePTY",
+                               "OpenMachineLogin",
                                &error,
                                &reply,
                                "s", argv[1]);
@@ -1054,37 +1053,6 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_read(reply, "hs", &master, &pty);
         if (r < 0)
                 return bus_log_parse_error(r);
-
-        p = startswith(pty, "/dev/pts/");
-        if (!p) {
-                log_error("Invalid pty name %s.", pty);
-                return -EIO;
-        }
-
-        r = sd_bus_open_system_container(&container_bus, argv[1]);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get container bus: %m");
-
-        getty = strjoin("container-getty@", p, ".service", NULL);
-        if (!getty)
-                return log_oom();
-
-        if (unlockpt(master) < 0)
-                return log_error_errno(errno, "Failed to unlock tty: %m");
-
-        r = sd_bus_call_method(container_bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "StartUnit",
-                               &error, NULL,
-                               "ss", getty, "replace");
-        if (r < 0) {
-                log_error("Failed to start getty service: %s", bus_error_message(&error, r));
-                return r;
-        }
-
-        container_bus = sd_bus_unref(container_bus);
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
