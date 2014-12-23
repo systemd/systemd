@@ -897,7 +897,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/btrfs-util.c \
 	src/shared/btrfs-util.h \
 	src/shared/verbs.c \
-	src/shared/verbs.h
+	src/shared/verbs.h \
+	src/shared/build.h
 
 if HAVE_UTMP
 libsystemd_shared_la_SOURCES += \
@@ -1140,8 +1141,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/loopback-setup.c \
 	src/core/namespace.c \
 	src/core/namespace.h \
-	src/core/build.h \
-	src/core/sysfs-show.h \
 	src/core/killall.h \
 	src/core/killall.c \
 	src/core/audit-fd.c \
@@ -5507,6 +5506,7 @@ rootlibexec_PROGRAMS += \
 
 loginctl_SOURCES = \
 	src/login/loginctl.c \
+	src/login/sysfs-show.h \
 	src/login/sysfs-show.c
 
 loginctl_LDADD = \
