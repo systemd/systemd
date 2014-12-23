@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/capability.h>
 #include <arpa/inet.h>
 
 #include "bus-util.h"
