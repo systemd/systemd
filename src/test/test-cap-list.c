@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "util.h"
 #include "log.h"
 #include "cap-list.h"
 #include "capability.h"
@@ -27,9 +28,9 @@ int main(int argc, char *argv[]) {
         int i;
 
         assert_se(!capability_to_name(-1));
-        assert_se(!capability_to_name(cap_last_cap()+1));
+        assert_se(!capability_to_name(capability_list_length()));
 
-        for (i = 0; i <= (int) cap_last_cap(); i++) {
+        for (i = 0; i < capability_list_length(); i++) {
                 const char *n;
 
                 assert_se(n = capability_to_name(i));
@@ -45,7 +46,7 @@ int main(int argc, char *argv[]) {
         assert_se(capability_from_name("15") == 15);
         assert_se(capability_from_name("-1") == -EINVAL);
 
-        for (i = 0; i <= (int) cap_last_cap(); i++) {
+        for (i = 0; i < capability_list_length(); i++) {
                 _cleanup_cap_free_charp_ char *a = NULL;
                 const char *b;
                 unsigned u;

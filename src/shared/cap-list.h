@@ -23,3 +23,4 @@
 
 const char *capability_to_name(int id);
 int capability_from_name(const char *name);
+int capability_list_length(void);

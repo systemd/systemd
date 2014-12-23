@@ -60,3 +60,7 @@ int capability_from_name(const char *name) {
 
         return sc->id;
 }
+
+int capability_list_length(void) {
+        return (int) ELEMENTSOF(capability_names);
+}
