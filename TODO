@@ -140,8 +140,6 @@ Features:
 
 * systemd --user should issue sd_notify() upon reaching basic.target, not on becoming idle
 
-* configure.ac pretends dbus was optional but actually hardcodes use of dbus' pkg-config file to determine various dbus dirs such as policy and activation dirs
-
 * consider showing the unit names during boot up in the status output, not just the unit descriptions
 
 * dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?

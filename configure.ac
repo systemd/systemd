@@ -1258,22 +1258,22 @@ AC_SUBST(TTY_GID)
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
-        [with_dbuspolicydir=$($PKG_CONFIG --variable=sysconfdir dbus-1)/dbus-1/system.d])
+        [with_dbuspolicydir=${sysconfdir}/dbus-1/system.d])
 
 AC_ARG_WITH([dbussessionservicedir],
         AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
         [],
-        [with_dbussessionservicedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)])
+        [with_dbussessionservicedir=${datadir}/dbus-1/services])
 
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
-        [with_dbussystemservicedir=$(readlink -m $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../system-services)])
+        [with_dbussystemservicedir=${datadir}/dbus-1/system-services])
 
 AC_ARG_WITH([dbusinterfacedir],
         AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
         [],
-        [with_dbusinterfacedir=$(readlink -m $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../interfaces)])
+        [with_dbusinterfacedir=${datadir}/dbus-1/interfaces])
 
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
