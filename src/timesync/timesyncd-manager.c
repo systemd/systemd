@@ -147,10 +147,6 @@ static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
 
-static double square(double d) {
-        return d * d;
-}
-
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Manager *m = userdata;
@@ -428,7 +424,7 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
 
         j = 0;
         for (i = 0; i < ELEMENTSOF(m->samples); i++)
-                j += square(m->samples[i].offset - m->samples[idx_min].offset);
+                j += pow(m->samples[i].offset - m->samples[idx_min].offset, 2);
         m->samples_jitter = sqrt(j / (ELEMENTSOF(m->samples) - 1));
 
         /* ignore samples when resyncing */
