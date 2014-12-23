@@ -51,8 +51,6 @@ Features:
 
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
-* machined: open up certain commands to unprivileged clients via polkit
-
 * hostnamectl: show root image uuid
 
 * sysfs set api in libudev is not const
@@ -61,8 +59,6 @@ Features:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
 * port libmount hookup to use API's own inotify interface, as soon as that is table in libmount
-
-* bash completion for busctl, to make it truly useful
 
 * journald: broken file systems are real (btrfs), we need to handle
   SIGBUS in some way if we cannot write or read from the disk.
