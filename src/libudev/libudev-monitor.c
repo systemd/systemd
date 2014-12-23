@@ -582,7 +582,10 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         struct cmsghdr *cmsg;
         union sockaddr_union snl;
         struct ucred *cred;
-        char buf[8192];
+        union {
+                struct udev_monitor_netlink_header nlh;
+                char raw[8192];
+        } buf;
         ssize_t buflen;
         ssize_t bufpos;
 
@@ -642,29 +645,26 @@ retry:
         if (udev_device == NULL)
                 return NULL;
 
-        if (memcmp(buf, "libudev", 8) == 0) {
-                struct udev_monitor_netlink_header *nlh;
-
+        if (memcmp(buf.raw, "libudev", 8) == 0) {
                 /* udev message needs proper version magic */
-                nlh = (struct udev_monitor_netlink_header *) buf;
-                if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
+                if (buf.nlh.magic != htonl(UDEV_MONITOR_MAGIC)) {
                         log_debug("unrecognized message signature (%x != %x)",
-                                 nlh->magic, htonl(UDEV_MONITOR_MAGIC));
+                                 buf.nlh.magic, htonl(UDEV_MONITOR_MAGIC));
                         udev_device_unref(udev_device);
                         return NULL;
                 }
-                if (nlh->properties_off+32 > (size_t)buflen) {
+                if (buf.nlh.properties_off+32 > (size_t)buflen) {
                         udev_device_unref(udev_device);
                         return NULL;
                 }
 
-                bufpos = nlh->properties_off;
+                bufpos = buf.nlh.properties_off;
 
                 /* devices received from udev are always initialized */
                 udev_device_set_is_initialized(udev_device);
         } else {
                 /* kernel message with header */
-                bufpos = strlen(buf) + 1;
+                bufpos = strlen(buf.raw) + 1;
                 if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
                         log_debug("invalid message length");
                         udev_device_unref(udev_device);
@@ -672,7 +672,7 @@ retry:
                 }
 
                 /* check message header */
-                if (strstr(buf, "@/") == NULL) {
+                if (strstr(buf.raw, "@/") == NULL) {
                         log_debug("unrecognized message header");
                         udev_device_unref(udev_device);
                         return NULL;
@@ -685,7 +685,7 @@ retry:
                 char *key;
                 size_t keylen;
 
-                key = &buf[bufpos];
+                key = &buf.raw[bufpos];
                 keylen = strlen(key);
                 if (keylen == 0)
                         break;
