@@ -3055,6 +3055,7 @@ libsystemd_network_la_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-dhcp6-lease.h \
 	src/systemd/sd-pppoe.h \
+	src/systemd/sd-lldp.h \
 	src/libsystemd-network/sd-dhcp-client.c \
 	src/libsystemd-network/sd-dhcp-server.c \
 	src/libsystemd-network/dhcp-network.c \
@@ -3090,7 +3091,6 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/lldp-internal.h \
 	src/libsystemd-network/lldp-internal.c \
 	src/libsystemd-network/lldp-util.h \
-	src/libsystemd-network/sd-lldp.h \
 	src/libsystemd-network/sd-lldp.c
 
 libsystemd_network_la_LIBADD = \
