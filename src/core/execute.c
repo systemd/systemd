@@ -2026,6 +2026,17 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
                 c[i] = exec_command_free_list(c[i]);
 }
 
+typedef struct InvalidEnvInfo {
+        const char *unit_id;
+        const char *path;
+} InvalidEnvInfo;
+
+static void invalid_env(const char *p, void *userdata) {
+        InvalidEnvInfo *info = userdata;
+
+        log_unit_error(info->unit_id, "Ignoring invalid environment assignment '%s': %s", p, info->path);
+}
+
 int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l) {
         char **i, **r = NULL;
 
@@ -2082,8 +2093,14 @@ int exec_context_load_environment(const ExecContext *c, const char *unit_id, cha
                                 return k;
                         }
                         /* Log invalid environment variables with filename */
-                        if (p)
-                                p = strv_env_clean_log(p, unit_id, pglob.gl_pathv[n]);
+                        if (p) {
+                                InvalidEnvInfo info = {
+                                        .unit_id = unit_id,
+                                        .path = pglob.gl_pathv[n]
+                                };
+
+                                p = strv_env_clean_with_callback(p, invalid_env, &info);
+                        }
 
                         if (r == NULL)
                                 r = p;

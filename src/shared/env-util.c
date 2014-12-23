@@ -28,7 +28,6 @@
 #include "util.h"
 #include "env-util.h"
 #include "def.h"
-#include "unit.h"
 
 #define VALID_CHARS_ENV_NAME                    \
         DIGITS LETTERS                          \
@@ -415,7 +414,7 @@ char *strv_env_get(char **l, const char *name) {
         return strv_env_get_n(l, name, strlen(name));
 }
 
-char **strv_env_clean_log(char **e, const char *unit_id, const char *message) {
+char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         char **p, **q;
         int k = 0;
 
@@ -424,8 +423,8 @@ char **strv_env_clean_log(char **e, const char *unit_id, const char *message) {
                 bool duplicate = false;
 
                 if (!env_assignment_is_valid(*p)) {
-                        if (message)
-                                log_unit_error(unit_id, "Ignoring invalid environment '%s': %s", *p, message);
+                        if (invalid_callback)
+                                invalid_callback(*p, userdata);
                         free(*p);
                         continue;
                 }
@@ -449,8 +448,4 @@ char **strv_env_clean_log(char **e, const char *unit_id, const char *message) {
                 e[k] = NULL;
 
         return e;
-}
-
-char **strv_env_clean(char **e) {
-        return strv_env_clean_log(e, NULL, NULL);
 }

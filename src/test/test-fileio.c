@@ -90,7 +90,7 @@ static void test_parse_env_file(void) {
         assert_se(streq_ptr(a[9], "ten="));
         assert_se(a[10] == NULL);
 
-        strv_env_clean_log(a, NULL, "test");
+        strv_env_clean(a);
 
         k = 0;
         STRV_FOREACH(i, b) {
