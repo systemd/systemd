@@ -31,7 +31,6 @@
 #include "virt.h"
 #include "path-util.h"
 #include "fileio.h"
-#include "unit.h"
 #include "architecture.h"
 #include "smack-util.h"
 #include "apparmor-util.h"
