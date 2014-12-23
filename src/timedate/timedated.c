@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/capability.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
