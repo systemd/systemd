@@ -960,6 +960,13 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
         }
 }
 
+static int handle_policy_error(sd_bus_message *m, int r) {
+        if (r == -ESRCH || r == -ENXIO)
+                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", m->destination);
+
+        return r;
+}
+
 static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *policy, const struct ucred *our_ucred, Set *owned_names) {
         int r;
 
@@ -1045,15 +1052,15 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                                                      SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID,
                                                      true, &destination_creds);
                         if (r < 0)
-                                return r;
+                                return handle_policy_error(m, r);
 
                         r = sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
                         if (r < 0)
-                                return r;
+                                return handle_policy_error(m, r);
 
                         r = sd_bus_creds_get_unique_name(destination_creds, &destination_unique);
                         if (r < 0)
-                                return r;
+                                return handle_policy_error(m, r);
 
                         (void) sd_bus_creds_get_uid(destination_creds, &destination_uid);
                         (void) sd_bus_creds_get_gid(destination_creds, &destination_gid);
