@@ -20,7 +20,6 @@
 ***/
 
 #include <sys/socket.h>
-#include <sys/capability.h>
 
 #include "systemd/sd-daemon.h"
 

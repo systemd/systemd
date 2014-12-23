@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/capability.h>
-
 #include "strv.h"
 #include "set.h"
 #include "bus-internal.h"
