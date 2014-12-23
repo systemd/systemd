@@ -2931,13 +2931,12 @@ static int determine_names(void) {
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
+        _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *console = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, image_fd = -1;
         _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1;
-        const char *console = NULL;
         char veth_name[IFNAMSIZ];
         bool secondary = false, remove_subvol = false;
         sigset_t mask, mask_chld;
@@ -3094,9 +3093,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        console = ptsname(master);
-        if (!console) {
-                r = log_error_errno(errno, "Failed to determine tty name: %m");
+        r = ptsname_malloc(master, &console);
+        if (r < 0) {
+                r = log_error_errno(r, "Failed to determine tty name: %m");
                 goto finish;
         }
 
