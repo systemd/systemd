@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/capability.h>
 
 #include "strv.h"
 #include "bus-util.h"
