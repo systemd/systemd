@@ -167,7 +167,7 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 r = image_new(IMAGE_GPT,
                               name,
                               path,
-                              !!(st.st_mode & 0111),
+                              !!(st.st_mode & 0222),
                               timespec_load(&st.st_mtim),
                               0,
                               ret);
