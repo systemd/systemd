@@ -100,6 +100,8 @@ struct DkrImport {
 
         dkr_import_on_finished on_finished;
         void *userdata;
+
+        bool finished;
 };
 
 #define PROTOCOL_PREFIX "https://"
@@ -180,6 +182,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImportName*, dkr_import_name_unref);
 
 static void dkr_import_finish(DkrImport *import, int error) {
         assert(import);
+
+        if (import->finished)
+                return;
+
+        import->finished = true;
 
         if (import->on_finished)
                 import->on_finished(import, error, import->userdata);
