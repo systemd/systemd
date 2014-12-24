@@ -115,11 +115,11 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
-        r = dkr_import_new(&import, event, on_finished, event);
+        r = dkr_import_new(&import, event, arg_dkr_index_url, on_dkr_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = dkr_import_pull(import, arg_dkr_index_url, name, tag, local, arg_force);
+        r = dkr_import_pull(import, name, tag, local, arg_force);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 

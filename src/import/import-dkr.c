@@ -76,7 +76,6 @@ struct DkrImportJob {
 struct DkrImportName {
         DkrImport *import;
 
-        char *index_url;
         char *name;
         char *tag;
         char *id;
@@ -93,6 +92,8 @@ struct DkrImportName {
 struct DkrImport {
         sd_event *event;
         CurlGlue *glue;
+
+        char *index_url;
 
         Hashmap *names;
         Hashmap *jobs;
@@ -163,7 +164,6 @@ static DkrImportName *dkr_import_name_unref(DkrImportName *name) {
         if (name->job_layer)
                 set_remove(name->job_layer->needed_by, name);
 
-        free(name->index_url);
         free(name->name);
         free(name->id);
         free(name->tag);
@@ -998,16 +998,18 @@ static int dkr_import_name_begin(DkrImportName *name) {
         assert(name);
         assert(!name->job_images);
 
-        url = strappenda(name->index_url, "/v1/repositories/", name->name, "/images");
+        url = strappenda(name->import->index_url, "/v1/repositories/", name->name, "/images");
 
         return dkr_import_name_add_job(name, DKR_IMPORT_JOB_IMAGES, url, &name->job_images);
 }
 
-int dkr_import_new(DkrImport **import, sd_event *event, dkr_import_on_finished on_finished, void *userdata) {
+int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, dkr_import_on_finished on_finished, void *userdata) {
         _cleanup_(dkr_import_unrefp) DkrImport *i = NULL;
+        char *e;
         int r;
 
         assert(import);
+        assert(dkr_url_is_valid(index_url));
 
         i = new0(DkrImport, 1);
         if (!i)
@@ -1015,6 +1017,14 @@ int dkr_import_new(DkrImport **import, sd_event *event, dkr_import_on_finished o
 
         i->on_finished = on_finished;
         i->userdata = userdata;
+
+        i->index_url = strdup(index_url);
+        if (!i->index_url)
+                return -ENOMEM;
+
+        e = endswith(i->index_url, "/");
+        if (e)
+                *e = 0;
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -1055,6 +1065,8 @@ DkrImport* dkr_import_unref(DkrImport *import) {
         curl_glue_unref(import->glue);
         sd_event_unref(import->event);
 
+        free(import->index_url);
+
         free(import);
 
         return NULL;
@@ -1074,13 +1086,11 @@ int dkr_import_cancel(DkrImport *import, const char *name) {
         return 1;
 }
 
-int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, const char *tag, const char *local, bool force_local) {
+int dkr_import_pull(DkrImport *import, const char *name, const char *tag, const char *local, bool force_local) {
         _cleanup_(dkr_import_name_unrefp) DkrImportName *n = NULL;
-        char *e;
         int r;
 
         assert(import);
-        assert(dkr_url_is_valid(index_url));
         assert(dkr_name_is_valid(name));
         assert(dkr_tag_is_valid(tag));
         assert(!local || machine_name_is_valid(local));
@@ -1097,13 +1107,6 @@ int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, 
                 return -ENOMEM;
 
         n->import = import;
-
-        n->index_url = strdup(index_url);
-        if (!n->index_url)
-                return -ENOMEM;
-        e = endswith(n->index_url, "/");
-        if (e)
-                *e = 0;
 
         n->name = strdup(name);
         if (!n->name)
@@ -1132,7 +1135,6 @@ int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, 
         }
 
         n = NULL;
-
         return 0;
 }
 
@@ -1168,6 +1170,8 @@ bool dkr_id_is_valid(const char *id) {
 }
 
 bool dkr_url_is_valid(const char *url) {
+        if (isempty(url))
+                return false;
 
         if (!startswith(url, "http://") &&
             !startswith(url, "https://"))

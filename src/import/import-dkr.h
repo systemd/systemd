@@ -26,12 +26,12 @@ typedef struct DkrImport DkrImport;
 
 typedef void (*dkr_import_on_finished)(DkrImport *import, int error, void *userdata);
 
-int dkr_import_new(DkrImport **import, sd_event *event, dkr_import_on_finished on_finished, void *userdata);
+int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, dkr_import_on_finished on_finished, void *userdata);
 DkrImport* dkr_import_unref(DkrImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImport*, dkr_import_unref);
 
-int dkr_import_pull(DkrImport *import, const char *index_url, const char *name, const char *tag, const char *local, bool force_local);
+int dkr_import_pull(DkrImport *import, const char *name, const char *tag, const char *local, bool force_local);
 int dkr_import_cancel(DkrImport *import, const char *name);
 
 bool dkr_name_is_valid(const char *name);
