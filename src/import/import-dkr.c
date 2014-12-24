@@ -1131,7 +1131,7 @@ int dkr_import_pull(DkrImport *import, const char *name, const char *tag, const 
                 n->force_local = force_local;
         }
 
-        r = hashmap_put(import->names, name, n);
+        r = hashmap_put(import->names, n->name, n);
         if (r < 0)
                 return r;
 

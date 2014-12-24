@@ -73,7 +73,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                         local = name;
         }
 
-        if (streq(local, "-") || isempty(local))
+        if (isempty(local) || streq(local, "-"))
                 local = NULL;
 
         if (!dkr_name_is_valid(name)) {
@@ -89,7 +89,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (local) {
                 const char *p;
 
-                if (!machine_name_is_valid(tag)) {
+                if (!machine_name_is_valid(local)) {
                         log_error("Local image name '%s' is not valid.", local);
                         return -EINVAL;
                 }
