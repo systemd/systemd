@@ -413,3 +413,34 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         *value = s;
         return 1;
 }
+
+int curl_parse_http_time(const char *t, time_t *ret) {
+        struct tm tm;
+        time_t v;
+
+        assert(t);
+        assert(ret);
+
+        RUN_WITH_LOCALE(LC_TIME, "C") {
+                const char *e;
+
+                /* RFC822 */
+                e = strptime(t, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+                if (!e || *e != 0)
+                        /* RFC 850 */
+                        e = strptime(t, "%A, %d-%b-%y %H:%M:%S %Z", &tm);
+                if (!e || *e != 0)
+                        /* ANSI C */
+                        e = strptime(t, "%a %b %d %H:%M:%S %Y", &tm);
+                if (!e || *e != 0)
+                        return -EINVAL;
+
+                v = timegm(&tm);
+        }
+
+        if (v == (time_t) -1)
+                return -EINVAL;
+
+        *ret = v;
+        return 0;
+}

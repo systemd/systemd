@@ -5136,6 +5136,8 @@ bin_PROGRAMS += \
 
 systemd_import_SOURCES = \
 	src/import/import.c \
+	src/import/import-gpt.c \
+	src/import/import-gpt.h \
 	src/import/import-dkr.c \
 	src/import/import-dkr.h \
 	src/import/curl-util.c \

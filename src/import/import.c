@@ -25,13 +25,103 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
+#include "import-gpt.h"
 #include "import-dkr.h"
 
 static bool arg_force = false;
 
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
-static void on_finished(DkrImport *import, int error, void *userdata) {
+static void on_gpt_finished(GptImport *import, int error, void *userdata) {
+        sd_event *event = userdata;
+        assert(import);
+
+        if (error == 0)
+                log_info("Operation completed successfully.");
+        else
+                log_info_errno(error, "Operation failed: %m");
+
+        sd_event_exit(event, error);
+}
+
+static int pull_gpt(int argc, char *argv[], void *userdata) {
+        _cleanup_(gpt_import_unrefp) GptImport *import = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_free_ char *local_truncated = NULL, *local_generated = NULL;
+        const char *url, *local, *suffix;
+        int r;
+
+        url = argv[1];
+        local = argv[2];
+
+        if (!gpt_url_is_valid(url)) {
+                log_error("URL '%s' is not valid.", url);
+                return -EINVAL;
+        }
+
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (!local) {
+                const char *e, *p;
+
+                e = url + strlen(url);
+                while (e > url && e[-1] == '/')
+                        e--;
+
+                p = e;
+                while (p > url && p[-1] != '/')
+                        p--;
+
+                local_generated = strndup(p, e - p);
+                if (!local_generated)
+                        return log_oom();
+
+                local = local_generated;
+        }
+
+        suffix = endswith(local, ".gpt");
+        if (suffix) {
+                local_truncated = strndup(local, suffix - local);
+                if (!local_truncated)
+                        return log_oom();
+
+                local = local_truncated;
+        }
+
+        if (!machine_name_is_valid(local)) {
+                log_error("Local image name '%s' is not valid.", local);
+                return -EINVAL;
+        }
+
+        log_info("Pulling '%s' as '%s'", url, local);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
+        sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
+        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+
+        r = gpt_import_new(&import, event, on_gpt_finished, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate importer: %m");
+
+        r = gpt_import_pull(import, url, local, arg_force);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pull image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+
+        return 0;
+}
+
+static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
         sd_event *event = userdata;
         assert(import);
 
@@ -141,7 +231,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Force creation of image\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
-               "  pull-dkr REMOTE [NAME]      Download an image\n",
+               "  pull-dkr REMOTE [NAME]      Download a DKR image\n"
+               "  pull-gpt URL [NAME]         Download a GPT image\n",
                program_invocation_short_name);
 
         return 0;
@@ -208,6 +299,7 @@ static int import_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",     VERB_ANY, VERB_ANY, 0, help     },
                 { "pull-dkr", 2,        3,        0, pull_dkr },
+                { "pull-gpt", 2,        3,        0, pull_gpt },
                 {}
         };
 
