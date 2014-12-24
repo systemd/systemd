@@ -31,6 +31,8 @@ External:
 
 Features:
 
+* nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
+
 * Port various tools to make use of verbs.[ch], where applicable
 
 * Check all invocations of access() and consider turning them into laccess()
