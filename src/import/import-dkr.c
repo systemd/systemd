@@ -822,7 +822,7 @@ static size_t dkr_import_job_write_callback(void *contents, size_t size, size_t 
 
                 l = fwrite(contents, size, nmemb, j->tar_stream);
                 if (l != nmemb) {
-                        r = -errno;
+                        r = log_error_errno(errno, "Failed to write to tar: %m");
                         goto fail;
                 }
 
@@ -830,13 +830,14 @@ static size_t dkr_import_job_write_callback(void *contents, size_t size, size_t 
         }
 
         if (j->payload_size + sz > PAYLOAD_MAX) {
+                log_error("Payload too large.");
                 r = -EFBIG;
                 goto fail;
         }
 
         p = realloc(j->payload, j->payload_size + sz);
         if (!p) {
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
