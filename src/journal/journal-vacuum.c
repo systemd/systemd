@@ -75,9 +75,8 @@ static void patch_realtime(
                 const struct stat *st,
                 unsigned long long *realtime) {
 
-        usec_t x;
-        uint64_t crtime;
         _cleanup_free_ const char *path = NULL;
+        usec_t x, crtime;
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name
@@ -112,10 +111,8 @@ static void patch_realtime(
         if (!path)
                 return;
 
-        if (getxattr(path, "user.crtime_usec", &crtime, sizeof(crtime)) == sizeof(crtime)) {
-                crtime = le64toh(crtime);
-
-                if (crtime > 0 && crtime != (uint64_t) -1 && crtime < *realtime)
+        if (path_getcrtime(path, &crtime) >= 0) {
+                if (crtime < *realtime)
                         *realtime = crtime;
         }
 }

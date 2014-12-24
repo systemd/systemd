@@ -1062,3 +1062,7 @@ union inotify_event_buffer {
 int ptsname_malloc(int fd, char **ret);
 
 int openpt_in_namespace(pid_t pid, int flags);
+
+int fd_setcrtime(int fd, usec_t usec);
+int fd_getcrtime(int fd, usec_t *usec);
+int path_getcrtime(const char *p, usec_t *usec);

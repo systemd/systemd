@@ -26,7 +26,6 @@
 #include <sys/statvfs.h>
 #include <fcntl.h>
 #include <stddef.h>
-#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -2526,8 +2525,6 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size == 0 && f->writable) {
-                uint64_t crtime;
-
                 /* Let's attach the creation time to the journal file,
                  * so that the vacuuming code knows the age of this
                  * file even if the file might end up corrupted one
@@ -2538,8 +2535,7 @@ int journal_file_open(
                  * attributes are not supported we'll just skip this,
                  * and rely solely on mtime/atime/ctime of the file. */
 
-                crtime = htole64((uint64_t) now(CLOCK_REALTIME));
-                fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
+                fd_setcrtime(f->fd, now(CLOCK_REALTIME));
 
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then

@@ -59,6 +59,7 @@
 #include <langinfo.h>
 #include <locale.h>
 #include <sys/personality.h>
+#include <sys/xattr.h>
 #include <libgen.h>
 #undef basename
 
@@ -84,6 +85,7 @@
 #include "gunicode.h"
 #include "virt.h"
 #include "def.h"
+#include "sparse-endian.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -7557,4 +7559,63 @@ int openpt_in_namespace(pid_t pid, int flags) {
                 }
 
         return -EIO;
+}
+
+int fd_getcrtime(int fd, usec_t *usec) {
+        uint64_t u;
+        le64_t le;
+        ssize_t n;
+
+        assert(fd >= 0);
+        assert(usec);
+
+        /* Until Linux gets a real concept of birthtime/creation time,
+         * let's fake one with xattrs */
+
+        n = fgetxattr(fd, "user.crtime_usec", &le, sizeof(le));
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(le))
+                return -EIO;
+
+        u = le64toh(le);
+        if (u == 0 || u == (uint64_t) -1)
+                return -EIO;
+
+        *usec = (usec_t) u;
+        return 0;
+}
+
+int path_getcrtime(const char *p, usec_t *usec) {
+        uint64_t u;
+        le64_t le;
+        ssize_t n;
+
+        assert(p);
+        assert(usec);
+
+        n = getxattr(p, "user.crtime_usec", &le, sizeof(le));
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(le))
+                return -EIO;
+
+        u = le64toh(le);
+        if (u == 0 || u == (uint64_t) -1)
+                return -EIO;
+
+        *usec = (usec_t) u;
+        return 0;
+}
+
+int fd_setcrtime(int fd, usec_t usec) {
+        le64_t le;
+
+        assert(fd >= 0);
+
+        le = htole64((uint64_t) usec);
+        if (fsetxattr(fd, "user.crtime_usec", &le, sizeof(le), XATTR_CREATE) < 0)
+                return -errno;
+
+        return 0;
 }
