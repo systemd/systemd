@@ -415,7 +415,6 @@ int main(int argc, char *argv[])
                 uint16_t wyde[256];
                 uint64_t octa[64];
         } identify;
-        uint16_t *identify_words;
         char model[41];
         char model_enc[256];
         char serial[21];
@@ -500,7 +499,6 @@ int main(int argc, char *argv[])
                         return 2;
                 }
         }
-        identify_words = &identify.wyde;
 
         memcpy (model, id.model, 40);
         model[40] = '\0';
@@ -614,7 +612,8 @@ int main(int argc, char *argv[])
                  * the device does not claim compliance with the Serial ATA specification and words
                  * 76 through 79 are not valid and shall be ignored.
                  */
-                word = identify_words[76];
+
+                word = identify.wyde[76];
                 if (word != 0x0000 && word != 0xffff) {
                         printf("ID_ATA_SATA=1\n");
                         /*
@@ -631,7 +630,7 @@ int main(int argc, char *argv[])
                 }
 
                 /* Word 217 indicates the nominal media rotation rate of the device */
-                word = identify_words[217];
+                word = identify.wyde[217];
                 if (word == 0x0001)
                         printf ("ID_ATA_ROTATION_RATE_RPM=0\n"); /* non-rotating e.g. SSD */
                 else if (word >= 0x0401 && word <= 0xfffe)
@@ -642,16 +641,16 @@ int main(int argc, char *argv[])
                  * format. Word 108 bits (15:12) shall contain 5h, indicating that the naming authority is IEEE.
                  * All other values are reserved.
                  */
-                word = identify_words[108];
+                word = identify.wyde[108];
                 if ((word & 0xf000) == 0x5000)
                         printf("ID_WWN=0x%1$"PRIu64"x\n"
                                "ID_WWN_WITH_EXTENSION=0x%1$"PRIu64"x\n",
                                identify.octa[108/4]);
 
                 /* from Linux's include/linux/ata.h */
-                if (identify_words[0] == 0x848a ||
-                    identify_words[0] == 0x844a ||
-                    (identify_words[83] & 0xc004) == 0x4004)
+                if (identify.wyde[0] == 0x848a ||
+                    identify.wyde[0] == 0x844a ||
+                    (identify.wyde[83] & 0xc004) == 0x4004)
                         printf("ID_ATA_CFA=1\n");
         } else {
                 if (serial[0] != '\0')
