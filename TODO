@@ -31,6 +31,10 @@ External:
 
 Features:
 
+* teach fd_get_crtime_at() the btrfs crtime
+
+* import pull-gpt: create writable snapshot of downloaded image, by the right name
+
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
 * Port various tools to make use of verbs.[ch], where applicable
@@ -46,6 +50,8 @@ Features:
 * "machinectl history"
 
 * "machinectl diff"
+
+* show btrfs quota in machinectl
 
 * "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
 
