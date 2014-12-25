@@ -43,6 +43,7 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
+#include "udev-util.h"
 #include "log.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
@@ -407,7 +408,7 @@ out:
 
 int main(int argc, char *argv[])
 {
-        struct udev *udev;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
         struct hd_driveid id;
         union {
                 uint8_t  byte[512];
@@ -421,9 +422,8 @@ int main(int argc, char *argv[])
         char revision[9];
         const char *node = NULL;
         int export = 0;
-        int fd;
+        _cleanup_close_ int fd = -1;
         uint16_t word;
-        int rc = 0;
         int is_packet_device = 0;
         static const struct option options[] = {
                 { "export", no_argument, NULL, 'x' },
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 
         udev = udev_new();
         if (udev == NULL)
-                goto exit;
+                return 0;
 
         while (1) {
                 int option;
@@ -453,22 +453,20 @@ int main(int argc, char *argv[])
                         printf("Usage: ata_id [--export] [--help] <device>\n"
                                "  --export    print values as environment keys\n"
                                "  --help      print this help text\n\n");
-                        goto exit;
+                        return 0;
                 }
         }
 
         node = argv[optind];
         if (node == NULL) {
                 log_error("no node specified");
-                rc = 1;
-                goto exit;
+                return 1;
         }
 
         fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
         if (fd < 0) {
                 log_error("unable to open '%s'", node);
-                rc = 1;
-                goto exit;
+                return 1;
         }
 
         if (disk_identify(udev, fd, identify.byte, &is_packet_device) == 0) {
@@ -499,8 +497,7 @@ int main(int argc, char *argv[])
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
                         log_debug_errno(errno, "HDIO_GET_IDENTITY failed for '%s': %m", node);
-                        rc = 2;
-                        goto close;
+                        return 2;
                 }
         }
         identify_words = &identify.wyde;
@@ -553,8 +550,8 @@ int main(int argc, char *argv[])
                 }
 
                 if (id.command_set_1 & (1<<5)) {
-                        printf ("ID_ATA_WRITE_CACHE=1\n");
-                        printf ("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
+                        printf("ID_ATA_WRITE_CACHE=1\n");
+                        printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
                 }
                 if (id.command_set_1 & (1<<10)) {
                         printf("ID_ATA_FEATURE_SET_HPA=1\n");
@@ -635,13 +632,10 @@ int main(int argc, char *argv[])
 
                 /* Word 217 indicates the nominal media rotation rate of the device */
                 word = identify_words[217];
-                if (word != 0x0000) {
-                        if (word == 0x0001) {
-                                printf ("ID_ATA_ROTATION_RATE_RPM=0\n"); /* non-rotating e.g. SSD */
-                        } else if (word >= 0x0401 && word <= 0xfffe) {
-                                printf ("ID_ATA_ROTATION_RATE_RPM=%d\n", word);
-                        }
-                }
+                if (word == 0x0001)
+                        printf ("ID_ATA_ROTATION_RATE_RPM=0\n"); /* non-rotating e.g. SSD */
+                else if (word >= 0x0401 && word <= 0xfffe)
+                        printf ("ID_ATA_ROTATION_RATE_RPM=%d\n", word);
 
                 /*
                  * Words 108-111 contain a mandatory World Wide Name (WWN) in the NAA IEEE Registered identifier
@@ -649,33 +643,22 @@ int main(int argc, char *argv[])
                  * All other values are reserved.
                  */
                 word = identify_words[108];
-                if ((word & 0xf000) == 0x5000) {
-                        uint64_t wwwn;
-
-                        wwwn = identify.octa[108/4];
-                        printf("ID_WWN=0x%llx\n", (unsigned long long int) wwwn);
-                        /* ATA devices have no vendor extension */
-                        printf("ID_WWN_WITH_EXTENSION=0x%llx\n", (unsigned long long int) wwwn);
-                }
+                if ((word & 0xf000) == 0x5000)
+                        printf("ID_WWN=0x%1$"PRIu64"x\n"
+                               "ID_WWN_WITH_EXTENSION=0x%1$"PRIu64"x\n",
+                               identify.octa[108/4]);
 
                 /* from Linux's include/linux/ata.h */
-                if (identify_words[0] == 0x848a || identify_words[0] == 0x844a) {
+                if (identify_words[0] == 0x848a ||
+                    identify_words[0] == 0x844a ||
+                    (identify_words[83] & 0xc004) == 0x4004)
                         printf("ID_ATA_CFA=1\n");
-                } else {
-                        if ((identify_words[83] & 0xc004) == 0x4004) {
-                                printf("ID_ATA_CFA=1\n");
-                        }
-                }
         } else {
                 if (serial[0] != '\0')
                         printf("%s_%s\n", model, serial);
                 else
                         printf("%s\n", model);
         }
-close:
-        close(fd);
-exit:
-        udev_unref(udev);
-        log_close();
-        return rc;
+
+        return 0;
 }
