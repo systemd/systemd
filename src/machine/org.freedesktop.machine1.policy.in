@@ -17,8 +17,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.machine1.login">
-                <_description>Login into a local container</_description>
-                <_message>Authentication is required to allow login into a local container.</_message>
+                <_description>Log into a local container</_description>
+                <_message>Authentication is required to allow logging into a local container.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
