@@ -51,7 +51,7 @@ void curl_glue_remove_and_free(CurlGlue *g, CURL *c);
 
 struct curl_slist *curl_slist_new(const char *first, ...) _sentinel_;
 int curl_header_strdup(const void *contents, size_t sz, const char *field, char **value);
-int curl_parse_http_time(const char *t, time_t *ret);
+int curl_parse_http_time(const char *t, usec_t *ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CURL*, curl_easy_cleanup);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct curl_slist*, curl_slist_free_all);

@@ -46,7 +46,7 @@ struct GptImportFile {
         uint64_t content_length;
         uint64_t written;
 
-        time_t mtime;
+        usec_t mtime;
 
         bool force_local;
         bool done;
@@ -167,7 +167,7 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         if (f->mtime != 0) {
                 struct timespec ut[2];
 
-                timespec_store(&ut[0], (usec_t) f->mtime * USEC_PER_SEC);
+                timespec_store(&ut[0], f->mtime);
                 ut[1] = ut[0];
 
                 (void) futimens(f->disk_fd, ut);

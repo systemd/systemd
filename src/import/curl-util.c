@@ -414,7 +414,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         return 1;
 }
 
-int curl_parse_http_time(const char *t, time_t *ret) {
+int curl_parse_http_time(const char *t, usec_t *ret) {
         struct tm tm;
         time_t v;
 
@@ -441,6 +441,6 @@ int curl_parse_http_time(const char *t, time_t *ret) {
         if (v == (time_t) -1)
                 return -EINVAL;
 
-        *ret = v;
+        *ret = (usec_t) v * USEC_PER_SEC;
         return 0;
 }
