@@ -423,16 +423,12 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
 }
 
 static int transient_kill_set_properties(sd_bus_message *m) {
-        int r;
         assert(m);
 
-        if (arg_send_sighup) {
-                r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
-                if (r < 0)
-                        return r;
-        }
-
-        return r;
+        if (arg_send_sighup)
+                return sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
+        else
+                return 0;
 }
 
 static int transient_service_set_properties(sd_bus_message *m, char **argv, const char *pty_path) {
