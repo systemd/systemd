@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="systemd-hwdb">
+<refentry id="systemd-hwdb" conditional="ENABLE_HWDB">
   <refentryinfo>
     <title>systemd-hwdb</title>
     <productname>systemd</productname>
