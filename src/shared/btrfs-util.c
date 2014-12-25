@@ -33,6 +33,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "copy.h"
+#include "btrfs-ctree.h"
 #include "btrfs-util.h"
 
 static int validate_subvolume_name(const char *name) {
@@ -129,7 +130,7 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_
                         }
 
                         if (read_only) {
-                                r = btrfs_subvol_read_only(new_path, true);
+                                r = btrfs_subvol_set_read_only(new_path, true);
                                 if (r < 0) {
                                         btrfs_subvol_remove(new_path);
                                         return r;
@@ -207,7 +208,7 @@ int btrfs_subvol_remove(const char *path) {
         return 0;
 }
 
-int btrfs_subvol_read_only(const char *path, bool b) {
+int btrfs_subvol_set_read_only(const char *path, bool b) {
         _cleanup_close_ int fd = -1;
         uint64_t flags, nflags;
 
@@ -232,7 +233,7 @@ int btrfs_subvol_read_only(const char *path, bool b) {
         return 0;
 }
 
-int btrfs_subvol_is_read_only_fd(int fd) {
+int btrfs_subvol_get_read_only_fd(int fd) {
         uint64_t flags;
 
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
@@ -300,4 +301,79 @@ int btrfs_get_block_device(const char *path, dev_t *dev) {
         }
 
         return -ENODEV;
+}
+
+int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
+        struct btrfs_ioctl_ino_lookup_args args = {
+                .objectid = BTRFS_FIRST_FREE_OBJECTID
+        };
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &args) < 0)
+                return -errno;
+
+        *ret = args.treeid;
+        return 0;
+}
+
+int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *ret) {
+        struct btrfs_ioctl_search_args args = {
+                /* Tree of tree roots */
+                .key.tree_id = 1,
+
+                /* Look precisely for the subvolume items */
+                .key.min_type = BTRFS_ROOT_ITEM_KEY,
+                .key.max_type = BTRFS_ROOT_ITEM_KEY,
+
+                /* No restrictions on the other components */
+                .key.min_offset = 0,
+                .key.max_offset = (uint64_t) -1,
+                .key.min_transid = 0,
+                .key.max_transid = (uint64_t) -1,
+
+                /* Some large value */
+                .key.nr_items = 2,
+        };
+
+        struct btrfs_ioctl_search_header *sh;
+        struct btrfs_root_item *ri;
+        uint64_t subvol_id;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = btrfs_subvol_get_id_fd(fd, &subvol_id);
+        if (r < 0)
+                return r;
+
+        args.key.min_objectid = args.key.max_objectid = subvol_id;
+        if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                return -errno;
+
+        if (args.key.nr_items != 1)
+                return -EIO;
+
+        sh = (struct btrfs_ioctl_search_header*) args.buf;
+        assert(sh->type == BTRFS_ROOT_ITEM_KEY);
+        assert(sh->objectid == subvol_id);
+
+        if (sh->len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
+                return -ENOTSUP;
+
+        ri = (struct btrfs_root_item *)(args.buf + sizeof(struct btrfs_ioctl_search_header));
+
+        ret->otime = (usec_t) le64toh(ri->otime.sec) * USEC_PER_SEC +
+                     (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
+
+        ret->subvol_id = subvol_id;
+        ret->read_only = !!(le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY);
+
+        assert_cc(sizeof(ri->uuid) == sizeof(ret->uuid));
+        memcpy(&ret->uuid, ri->uuid, sizeof(ret->uuid));
+        memcpy(&ret->parent_uuid, ri->parent_uuid, sizeof(ret->parent_uuid));
+
+        return 0;
 }

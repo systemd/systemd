@@ -46,8 +46,8 @@ static int image_new(
                 const char *name,
                 const char *path,
                 bool read_only,
+                usec_t crtime,
                 usec_t mtime,
-                usec_t btime,
                 Image **ret) {
 
         _cleanup_(image_unrefp) Image *i = NULL;
@@ -63,8 +63,8 @@ static int image_new(
 
         i->type = t;
         i->read_only = read_only;
+        i->crtime = crtime;
         i->mtime = mtime;
-        i->btime = btime;
 
         i->name = strdup(name);
         if (!i->name)
@@ -116,25 +116,20 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                                 return -errno;
 
                         if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC)) {
-                                usec_t btime = 0;
-                                int ro;
+                                BtrfsSubvolInfo info;
 
                                 /* It's a btrfs subvolume */
 
-                                ro = btrfs_subvol_is_read_only_fd(fd);
-                                if (ro < 0)
-                                        return ro;
-
-                                /* r = btrfs_subvol_get_btime(fd, &btime); */
-                                /* if (r < 0) */
-                                /*         return r; */
+                                r = btrfs_subvol_get_info_fd(fd, &info);
+                                if (r < 0)
+                                        return r;
 
                                 r = image_new(IMAGE_SUBVOLUME,
                                               name,
                                               path,
-                                              ro,
+                                              info.read_only,
+                                              info.otime,
                                               0,
-                                              btime,
                                               ret);
                                 if (r < 0)
                                         return r;
@@ -158,18 +153,24 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 return 1;
 
         } else if (S_ISREG(st.st_mode) && endswith(name, ".gpt")) {
+                const char *truncated;
+                usec_t crtime = 0;
 
                 /* It's a GPT block device */
 
                 if (!ret)
                         return 1;
 
+                fd_getcrtime_at(dfd, name, &crtime, 0);
+
+                truncated = strndupa(name, strlen(name) - 4);
+
                 r = image_new(IMAGE_GPT,
-                              name,
+                              truncated,
                               path,
-                              !!(st.st_mode & 0222),
+                              !(st.st_mode & 0222),
+                              crtime,
                               timespec_load(&st.st_mtim),
-                              0,
                               ret);
                 if (r < 0)
                         return r;

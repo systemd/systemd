@@ -129,6 +129,8 @@ typedef struct ImageInfo {
         const char *name;
         const char *type;
         bool read_only;
+        usec_t crtime;
+        usec_t mtime;
 } ImageInfo;
 
 static int compare_image_info(const void *a, const void *b) {
@@ -140,14 +142,14 @@ static int compare_image_info(const void *a, const void *b) {
 static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t max_name = strlen("NAME"), max_type = strlen("TYPE");
+        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
         const char *name, *type, *object;
         sd_bus *bus = userdata;
-        int read_only;
-        int r;
+        uint64_t crtime, mtime;
+        int read_only, r;
 
         assert(bus);
 
@@ -167,11 +169,13 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssbo)");
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssbtto)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ssbo)", &name, &type, &read_only, &object)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(ssbtto)", &name, &type, &read_only, &crtime, &mtime, &object)) > 0) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                size_t l;
 
                 if (name[0] == '.' && !arg_all)
                         continue;
@@ -182,12 +186,28 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 images[n_images].name = name;
                 images[n_images].type = type;
                 images[n_images].read_only = read_only;
+                images[n_images].crtime = crtime;
+                images[n_images].mtime = mtime;
 
-                if (strlen(name) > max_name)
-                        max_name = strlen(name);
+                l = strlen(name);
+                if (l > max_name)
+                        max_name = l;
 
-                if (strlen(type) > max_type)
-                        max_type = strlen(type);
+                l = strlen(type);
+                if (l > max_type)
+                        max_type = l;
+
+                if (crtime != 0) {
+                        l = strlen(format_timestamp(buf, sizeof(buf), crtime));
+                        if (l > max_crtime)
+                                max_crtime = l;
+                }
+
+                if (mtime != 0) {
+                        l = strlen(format_timestamp(buf, sizeof(buf), mtime));
+                        if (l > max_mtime)
+                                max_mtime = l;
+                }
 
                 n_images++;
         }
@@ -201,13 +221,22 @@ static int list_images(int argc, char *argv[], void *userdata) {
         qsort_safe(images, n_images, sizeof(ImageInfo), compare_image_info);
 
         if (arg_legend)
-                printf("%-*s %-*s %-3s\n", (int) max_name, "NAME", (int) max_type, "TYPE", "RO");
+                printf("%-*s %-*s %-3s %*s %*s\n",
+                       (int) max_name, "NAME",
+                       (int) max_type, "TYPE",
+                       "RO",
+                       (int) max_crtime, "CREATED",
+                       (int) max_mtime, "MODIFIED");
 
         for (j = 0; j < n_images; j++) {
-                printf("%-*s %-*s %-3s\n",
+                char crtime_buf[FORMAT_TIMESTAMP_MAX], mtime_buf[FORMAT_TIMESTAMP_MAX];
+
+                printf("%-*s %-*s %-3s %*s %*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
-                       yes_no(images[j].read_only));
+                       yes_no(images[j].read_only),
+                       (int) max_crtime, images[j].crtime != 0 ? format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime) : "-",
+                       (int) max_mtime, images[j].mtime != 0 ? format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime) : "-");
         }
 
         if (r < 0)

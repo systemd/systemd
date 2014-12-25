@@ -22,13 +22,28 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "time-util.h"
+
+typedef struct BtrfsSubvolInfo {
+        uint64_t subvol_id;
+        usec_t otime;
+
+        sd_id128_t uuid;
+        sd_id128_t parent_uuid;
+
+        bool read_only;
+} BtrfsSubvolInfo;
+
 int btrfs_is_snapshot(int fd);
 
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_remove(const char *path);
 int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy);
-int btrfs_subvol_read_only(const char *path, bool b);
-int btrfs_subvol_is_read_only_fd(int fd);
+
+int btrfs_subvol_set_read_only(const char *path, bool b);
+int btrfs_subvol_get_read_only_fd(int fd);
+int btrfs_subvol_get_id_fd(int fd, uint64_t *ret);
+int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *info);
 
 int btrfs_reflink(int infd, int outfd);
 

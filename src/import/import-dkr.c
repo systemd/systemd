@@ -780,7 +780,7 @@ static void dkr_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                         goto fail;
                 }
 
-                r = btrfs_subvol_read_only(job->temp_path, true);
+                r = btrfs_subvol_set_read_only(job->temp_path, true);
                 if (r < 0) {
                         log_error_errno(r, "Failed to mark snapshot read-only: %m");
                         goto fail;

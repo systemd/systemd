@@ -7561,8 +7561,37 @@ int openpt_in_namespace(pid_t pid, int flags) {
         return -EIO;
 }
 
-int fd_getcrtime(int fd, usec_t *usec) {
+ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags) {
+        _cleanup_close_ int fd = -1;
+        ssize_t l;
+
+        /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
+
+        fd = openat(dirfd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOATIME|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+        if (fd < 0)
+                return -errno;
+
+        l = fgetxattr(fd, attribute, value, size);
+        if (l < 0)
+                return -errno;
+
+        return l;
+}
+
+static int parse_crtime(le64_t le, usec_t *usec) {
         uint64_t u;
+
+        assert(usec);
+
+        u = le64toh(le);
+        if (u == 0 || u == (uint64_t) -1)
+                return -EIO;
+
+        *usec = (usec_t) u;
+        return 0;
+}
+
+int fd_getcrtime(int fd, usec_t *usec) {
         le64_t le;
         ssize_t n;
 
@@ -7578,16 +7607,23 @@ int fd_getcrtime(int fd, usec_t *usec) {
         if (n != sizeof(le))
                 return -EIO;
 
-        u = le64toh(le);
-        if (u == 0 || u == (uint64_t) -1)
+        return parse_crtime(le, usec);
+}
+
+int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags) {
+        le64_t le;
+        ssize_t n;
+
+        n = fgetxattrat_fake(dirfd, name, "user.crtime_usec", &le, sizeof(le), flags);
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(le))
                 return -EIO;
 
-        *usec = (usec_t) u;
-        return 0;
+        return parse_crtime(le, usec);
 }
 
 int path_getcrtime(const char *p, usec_t *usec) {
-        uint64_t u;
         le64_t le;
         ssize_t n;
 
@@ -7600,12 +7636,7 @@ int path_getcrtime(const char *p, usec_t *usec) {
         if (n != sizeof(le))
                 return -EIO;
 
-        u = le64toh(le);
-        if (u == 0 || u == (uint64_t) -1)
-                return -EIO;
-
-        *usec = (usec_t) u;
-        return 0;
+        return parse_crtime(le, usec);
 }
 
 int fd_setcrtime(int fd, usec_t usec) {

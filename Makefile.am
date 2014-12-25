@@ -896,6 +896,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/nss-util.h \
 	src/shared/btrfs-util.c \
 	src/shared/btrfs-util.h \
+	src/shared/btrfs-ctree.h \
 	src/shared/verbs.c \
 	src/shared/verbs.h \
 	src/shared/build.h

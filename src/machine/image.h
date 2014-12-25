@@ -39,8 +39,8 @@ typedef struct Image {
         char *path;
         bool read_only;
 
+        usec_t crtime;
         usec_t mtime;
-        usec_t btime;
 } Image;
 
 Image *image_unref(Image *i);

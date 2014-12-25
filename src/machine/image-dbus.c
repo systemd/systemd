@@ -159,12 +159,68 @@ static int property_get_read_only(
         return 1;
 }
 
+static int property_get_crtime(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = image_find_by_bus_path_with_error(path, &image, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "t", image->crtime);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int property_get_mtime(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = image_find_by_bus_path_with_error(path, &image, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "t", image->mtime);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Name",     "s", property_get_name,      0, 0),
-        SD_BUS_PROPERTY("Path",     "s", property_get_path,      0, 0),
-        SD_BUS_PROPERTY("Type",     "s", property_get_type,      0, 0),
-        SD_BUS_PROPERTY("ReadOnly", "b", property_get_read_only, 0, 0),
+        SD_BUS_PROPERTY("Name",                  "s", property_get_name,      0, 0),
+        SD_BUS_PROPERTY("Path",                  "s", property_get_path,      0, 0),
+        SD_BUS_PROPERTY("Type",                  "s", property_get_type,      0, 0),
+        SD_BUS_PROPERTY("ReadOnly",              "b", property_get_read_only, 0, 0),
+        SD_BUS_PROPERTY("CreationTimestamp",     "t", property_get_crtime,    0, 0),
+        SD_BUS_PROPERTY("ModificationTimestamp", "t", property_get_mtime,     0, 0),
         SD_BUS_VTABLE_END
 };
 

@@ -20,13 +20,36 @@
 ***/
 
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include "log.h"
-#include "btrfs-util.h"
 #include "fileio.h"
+#include "util.h"
+#include "btrfs-util.h"
 
 int main(int argc, char *argv[]) {
         int r;
+        BtrfsSubvolInfo info;
+        char ts[FORMAT_TIMESTAMP_MAX];
+        int fd;
+
+        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                log_error_errno(errno, "Failed to open root directory: %m");
+        else {
+                r = btrfs_subvol_get_info_fd(fd, &info);
+                if (r < 0)
+                        log_error_errno(r, "Failed to get subvolume info: %m");
+                else {
+                        log_info("otime: %s", format_timestamp(ts, sizeof(ts), info.otime));
+                        log_info("read-only: %s", yes_no(info.read_only));
+                }
+
+                r = btrfs_subvol_get_read_only_fd(fd);
+                assert_se(r >= 0);
+
+                log_info("read-only: %s", yes_no(r));
+        }
 
         r = btrfs_subvol_make("/xxxtest");
         if (r < 0)

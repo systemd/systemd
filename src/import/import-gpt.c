@@ -171,6 +171,8 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 ut[1] = ut[0];
 
                 (void) futimens(f->disk_fd, ut);
+
+                fd_setcrtime(f->disk_fd, f->mtime);
         }
 
         if (fstat(f->disk_fd, &st) < 0) {

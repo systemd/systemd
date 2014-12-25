@@ -250,6 +250,14 @@ struct btrfs_ioctl_fs_info_args {
                                  struct btrfs_ioctl_vol_args)
 #endif
 
+#ifndef BTRFS_FIRST_FREE_OBJECTID
+#define BTRFS_FIRST_FREE_OBJECTID 256
+#endif
+
+#ifndef BTRFS_ROOT_ITEM_KEY
+#define BTRFS_ROOT_ITEM_KEY 132
+#endif
+
 #ifndef BTRFS_SUPER_MAGIC
 #define BTRFS_SUPER_MAGIC 0x9123683E
 #endif
