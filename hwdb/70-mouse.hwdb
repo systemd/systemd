@@ -215,6 +215,14 @@ mouse:bluetooth:v045ep0702:name:Microsoft  Wireless Laser Mouse 8000:
 # Oklick
 ##########################################
 
-# Oklick 406S Bluetooth Laster Mouse
+# Oklick 406S Bluetooth Laser Mouse
 mouse:bluetooth:v056ep0061:name:Laser  BTmouse:
  MOUSE_DPI=*800@333 1600@333
+
+##########################################
+# Razer
+##########################################
+
+# Razer Abyssus
+mouse:usb:v1532p0042:name:Razer Razer Abyssus:
+ MOUSE_DPI=3500@1000
