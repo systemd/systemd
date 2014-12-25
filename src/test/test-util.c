@@ -1336,10 +1336,16 @@ static void test_raw_clone(void) {
         pid2 = raw_getpid();
         log_info("raw_clone: "PID_FMT" getpid()→"PID_FMT" raw_getpid()→"PID_FMT,
                  pid, getpid(), pid2);
-        if (pid == 0)
+        if (pid == 0) {
                 assert_se(pid2 != parent);
-        else
+                _exit(EXIT_SUCCESS);
+        } else {
+                int status;
+
                 assert_se(pid2 == parent);
+                waitpid(pid, &status, __WCLONE);
+                assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
+        }
 }
 
 int main(int argc, char *argv[]) {
