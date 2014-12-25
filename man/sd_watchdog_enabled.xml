@@ -129,7 +129,7 @@
                 <varname>$WATCHDOG_PID</varname> and
                 <varname>$WATCHDOG_USEC</varname> environment
                 variable. The call will ignore these variables if
-                <varname>$WATCHDOG_PID</varname> does containe the PID
+                <varname>$WATCHDOG_PID</varname> does not contain the PID
                 of the current process, under the assumption that in
                 that case, the variables were set for a different
                 process further up the process tree.</para>
