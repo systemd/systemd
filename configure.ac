@@ -566,7 +566,7 @@ AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 # ------------------------------------------------------------------------------
 have_lz4=no
 AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
-AS_IF([test "x$enable_lz4" == "xyes"], [
+AS_IF([test "x$enable_lz4" = "xyes"], [
         AC_CHECK_HEADERS(lz4.h,
                [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available]) have_lz4=yes],
                [AC_MSG_ERROR([*** LZ4 support requested but headers not found])])
