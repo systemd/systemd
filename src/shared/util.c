@@ -7645,7 +7645,7 @@ int fd_setcrtime(int fd, usec_t usec) {
         assert(fd >= 0);
 
         le = htole64((uint64_t) usec);
-        if (fsetxattr(fd, "user.crtime_usec", &le, sizeof(le), XATTR_CREATE) < 0)
+        if (fsetxattr(fd, "user.crtime_usec", &le, sizeof(le), 0) < 0)
                 return -errno;
 
         return 0;
