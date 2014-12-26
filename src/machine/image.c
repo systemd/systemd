@@ -86,6 +86,7 @@ static int image_new(
 
 static int image_make(int dfd, const char *name, const char *path, Image **ret) {
         struct stat st;
+        bool writable;
         int r;
 
         assert(dfd >= 0);
@@ -97,6 +98,8 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
 
         if (fstatat(dfd, name, &st, 0) < 0)
                 return -errno;
+
+        writable = faccessat(dfd, name, W_OK, AT_EACCESS) >= 0;
 
         if (S_ISDIR(st.st_mode)) {
 
@@ -127,7 +130,7 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                                 r = image_new(IMAGE_SUBVOLUME,
                                               name,
                                               path,
-                                              info.read_only,
+                                              info.read_only || !writable,
                                               info.otime,
                                               0,
                                               ret);
@@ -143,7 +146,7 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 r = image_new(IMAGE_DIRECTORY,
                               name,
                               path,
-                              false,
+                              !writable,
                               0,
                               0,
                               ret);
@@ -168,7 +171,7 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 r = image_new(IMAGE_GPT,
                               truncated,
                               path,
-                              !(st.st_mode & 0222),
+                              !(st.st_mode & 0222) || !writable,
                               crtime,
                               timespec_load(&st.st_mtim),
                               ret);
