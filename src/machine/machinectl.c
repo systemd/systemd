@@ -525,7 +525,7 @@ static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return 0;
 }
 
-static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
+static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
                 { "Name",              "s",  NULL,          offsetof(MachineStatusInfo, name) },
@@ -572,7 +572,7 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
         return r;
 }
 
-static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line) {
         int r;
 
         assert(bus);
@@ -591,7 +591,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         return r;
 }
 
-static int show(int argc, char *argv[], void *userdata) {
+static int show_machine(int argc, char *argv[], void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -609,7 +609,7 @@ static int show(int argc, char *argv[], void *userdata) {
 
                 /* If no argument is specified, inspect the manager
                  * itself */
-                r = show_properties(bus, "/org/freedesktop/machine1", &new_line);
+                r = show_machine_properties(bus, "/org/freedesktop/machine1", &new_line);
                 if (r < 0)
                         return r;
         }
@@ -636,9 +636,169 @@ static int show(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
 
                 if (properties)
-                        r = show_properties(bus, path, &new_line);
+                        r = show_machine_properties(bus, path, &new_line);
                 else
-                        r = show_info(argv[0], bus, path, &new_line);
+                        r = show_machine_info(argv[0], bus, path, &new_line);
+        }
+
+        return r;
+}
+
+typedef struct ImageStatusInfo {
+        char *name;
+        char *path;
+        char *type;
+        int read_only;
+        usec_t crtime;
+        usec_t mtime;
+} ImageStatusInfo;
+
+static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
+        char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
+        char ts_absolute[FORMAT_TIMESTAMP_MAX], *s2;
+
+        assert(bus);
+        assert(i);
+
+        if (i->name) {
+                fputs(i->name, stdout);
+                putchar('\n');
+        }
+
+        if (i->path)
+                printf("\t    Type: %s\n", i->type);
+
+        if (i->path)
+                printf("\t    Path: %s\n", i->path);
+
+        printf("\t      RO: %s%s%s\n",
+               i->read_only ? ansi_highlight_red() : "",
+               i->read_only ? "read-only" : "writable",
+               i->read_only ? ansi_highlight_off() : "");
+
+        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
+        s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->crtime);
+        if (s1)
+                printf("\t Created: %s; %s\n", s2, s1);
+        else if (s2)
+                printf("\t Created: %s\n", s2);
+
+        s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->mtime);
+        s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->mtime);
+        if (s1)
+                printf("\tModified: %s; %s\n", s2, s1);
+        else if (s2)
+                printf("\tModified: %s\n", s2);
+}
+
+static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
+
+        static const struct bus_properties_map map[]  = {
+                { "Name",                  "s",  NULL, offsetof(ImageStatusInfo, name)      },
+                { "Path",                  "s",  NULL, offsetof(ImageStatusInfo, path)      },
+                { "Type",                  "s",  NULL, offsetof(ImageStatusInfo, type)      },
+                { "ReadOnly",              "b",  NULL, offsetof(ImageStatusInfo, read_only) },
+                { "CreationTimestamp",     "t",  NULL, offsetof(ImageStatusInfo, crtime)    },
+                { "ModificationTimestamp", "t",  NULL, offsetof(ImageStatusInfo, mtime)     },
+                {}
+        };
+
+        ImageStatusInfo info = {};
+        int r;
+
+        assert(verb);
+        assert(bus);
+        assert(path);
+        assert(new_line);
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.machine1",
+                                   path,
+                                   map,
+                                   &info);
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
+
+        if (*new_line)
+                printf("\n");
+        *new_line = true;
+
+        print_image_status_info(bus, &info);
+
+        free(info.name);
+        free(info.path);
+        free(info.type);
+
+        return r;
+}
+
+static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) {
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(new_line);
+
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
+
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_all);
+        if (r < 0)
+                log_error_errno(r, "Could not get properties: %m");
+
+        return r;
+}
+
+static int show_image(int argc, char *argv[], void *userdata) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        bool properties, new_line = false;
+        sd_bus *bus = userdata;
+        int r = 0, i;
+
+        assert(bus);
+
+        properties = !strstr(argv[0], "status");
+
+        pager_open_if_enabled();
+
+        if (properties && argc <= 1) {
+
+                /* If no argument is specified, inspect the manager
+                 * itself */
+                r = show_image_properties(bus, "/org/freedesktop/machine1", &new_line);
+                if (r < 0)
+                        return r;
+        }
+
+        for (i = 1; i < argc; i++) {
+                const char *path = NULL;
+
+                r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.machine1",
+                                        "/org/freedesktop/machine1",
+                                        "org.freedesktop.machine1.Manager",
+                                        "GetImage",
+                                        &error,
+                                        &reply,
+                                        "s", argv[i]);
+                if (r < 0) {
+                        log_error("Could not get path to image: %s", bus_error_message(&error, -r));
+                        return r;
+                }
+
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (properties)
+                        r = show_image_properties(bus, path, &new_line);
+                else
+                        r = show_image_info(argv[0], bus, path, &new_line);
         }
 
         return r;
@@ -1143,7 +1303,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --mkdir                  Create directory before bind mounting, if missing\n\n"
                "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
-               "  status NAME...              Show VM/container status\n"
+               "  status NAME...              Show VM/container details\n"
                "  show NAME...                Show properties of one or more VMs/containers\n"
                "  login NAME                  Get a login prompt on a container\n"
                "  poweroff NAME...            Power off one or more containers\n"
@@ -1153,8 +1313,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n\n"
-               "Image commands:\n"
-               "  list-images                 Show available images\n",
+               "Image Commands:\n"
+               "  list-images                 Show available images\n"
+               "  image-status NAME...        Show image details\n"
+               "  show-image NAME...          Show properties of image\n",
                program_invocation_short_name);
 
         return 0;
@@ -1278,8 +1440,10 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "help",        VERB_ANY, VERB_ANY, 0,            help              },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
                 { "list-images", VERB_ANY, 1,        0,            list_images       },
-                { "status",      2,        VERB_ANY, 0,            show              },
-                { "show",        VERB_ANY, VERB_ANY, 0,            show              },
+                { "status",      2,        VERB_ANY, 0,            show_machine      },
+                { "image-status",2,        VERB_ANY, 0,            show_image        },
+                { "show",        VERB_ANY, VERB_ANY, 0,            show_machine      },
+                { "show-image",  VERB_ANY, VERB_ANY, 0,            show_image        },
                 { "terminate",   2,        VERB_ANY, 0,            terminate_machine },
                 { "reboot",      2,        VERB_ANY, 0,            reboot_machine    },
                 { "poweroff",    2,        VERB_ANY, 0,            poweroff_machine  },
