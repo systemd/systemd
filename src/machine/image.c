@@ -243,7 +243,7 @@ int image_find(const char *name, Image **ret) {
         }
 
         if (streq(name, ".host"))
-                return image_make(NULL, AT_FDCWD, NULL, "/", ret);
+                return image_make(".host", AT_FDCWD, NULL, "/", ret);
 
         return 0;
 };
