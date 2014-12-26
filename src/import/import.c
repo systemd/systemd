@@ -47,22 +47,18 @@ static void on_gpt_finished(GptImport *import, int error, void *userdata) {
 static int pull_gpt(int argc, char *argv[], void *userdata) {
         _cleanup_(gpt_import_unrefp) GptImport *import = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_free_ char *local_truncated = NULL, *local_generated = NULL;
         const char *url, *local, *suffix;
         int r;
 
         url = argv[1];
-        local = argv[2];
-
         if (!gpt_url_is_valid(url)) {
                 log_error("URL '%s' is not valid.", url);
                 return -EINVAL;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
-
-        if (!local) {
+        if (argc >= 3)
+                local = argv[2];
+        else {
                 const char *e, *p;
 
                 e = url + strlen(url);
@@ -73,28 +69,36 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
                 while (p > url && p[-1] != '/')
                         p--;
 
-                local_generated = strndup(p, e - p);
-                if (!local_generated)
-                        return log_oom();
-
-                local = local_generated;
+                local = strndupa(p, e - p);
         }
 
-        suffix = endswith(local, ".gpt");
-        if (suffix) {
-                local_truncated = strndup(local, suffix - local);
-                if (!local_truncated)
-                        return log_oom();
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
 
-                local = local_truncated;
-        }
+        if (local) {
+                const char *p;
 
-        if (!machine_name_is_valid(local)) {
-                log_error("Local image name '%s' is not valid.", local);
-                return -EINVAL;
-        }
+                suffix = endswith(local, ".gpt");
+                if (suffix)
+                        local = strndupa(local, suffix - local);
 
-        log_info("Pulling '%s' as '%s'", url, local);
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local image name '%s' is not valid.", local);
+                        return -EINVAL;
+                }
+
+                p = strappenda("/var/lib/container/", local, ".gpt");
+                if (laccess(p, F_OK) >= 0) {
+                        if (!arg_force) {
+                                log_info("Image '%s' already exists.", local);
+                                return 0;
+                        }
+                } else if (errno != ENOENT)
+                        return log_error_errno(errno, "Can't check if image '%s' already exists: %m", local);
+
+                log_info("Pulling '%s', saving as '%s'.", url, local);
+        } else
+                log_info("Pulling '%s'.", url);
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -153,6 +157,16 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 tag = "latest";
         }
 
+        if (!dkr_name_is_valid(name)) {
+                log_error("Remote name '%s' is not valid.", name);
+                return -EINVAL;
+        }
+
+        if (!dkr_tag_is_valid(tag)) {
+                log_error("Tag name '%s' is not valid.", tag);
+                return -EINVAL;
+        }
+
         if (argc >= 3)
                 local = argv[2];
         else {
@@ -165,16 +179,6 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
 
         if (isempty(local) || streq(local, "-"))
                 local = NULL;
-
-        if (!dkr_name_is_valid(name)) {
-                log_error("Remote name '%s' is not valid.", name);
-                return -EINVAL;
-        }
-
-        if (!dkr_tag_is_valid(tag)) {
-                log_error("Tag name '%s' is not valid.", tag);
-                return -EINVAL;
-        }
 
         if (local) {
                 const char *p;

@@ -26,6 +26,8 @@
 #include "utf8.h"
 #include "curl-util.h"
 #include "import-gpt.h"
+#include "strv.h"
+#include "copy.h"
 
 typedef struct GptImportFile GptImportFile;
 
@@ -41,7 +43,7 @@ struct GptImportFile {
         char *temp_path;
         char *final_path;
         char *etag;
-        char *old_etag;
+        char **old_etags;
 
         uint64_t content_length;
         uint64_t written;
@@ -66,6 +68,8 @@ struct GptImport {
         bool finished;
 };
 
+#define FILENAME_ESCAPE "/.#\"\'"
+
 static GptImportFile *gpt_import_file_unref(GptImportFile *f) {
         if (!f)
                 return NULL;
@@ -86,7 +90,7 @@ static GptImportFile *gpt_import_file_unref(GptImportFile *f) {
         free(f->url);
         free(f->local);
         free(f->etag);
-        free(f->old_etag);
+        strv_free(f->old_etags);
         free(f);
 
         return NULL;
@@ -108,6 +112,108 @@ static void gpt_import_finish(GptImport *import, int error) {
                 sd_event_exit(import->event, error);
 }
 
+static int gpt_import_file_make_final_path(GptImportFile *f) {
+        _cleanup_free_ char *escaped_url = NULL, *escaped_etag = NULL;
+
+        assert(f);
+
+        if (f->final_path)
+                return 0;
+
+        escaped_url = xescape(f->url, FILENAME_ESCAPE);
+        if (!escaped_url)
+                return -ENOMEM;
+
+        if (f->etag) {
+                escaped_etag = xescape(f->etag, FILENAME_ESCAPE);
+                if (!escaped_etag)
+                        return -ENOMEM;
+
+                f->final_path = strjoin("/var/lib/container/.gpt-", escaped_url, ".", escaped_etag, ".gpt", NULL);
+        } else
+                f->final_path = strjoin("/var/lib/container/.gpt-", escaped_url, ".gpt", NULL);
+        if (!f->final_path)
+                return -ENOMEM;
+
+        return 0;
+}
+
+static void gpt_import_file_success(GptImportFile *f) {
+        int r;
+
+        assert(f);
+
+        f->done = true;
+
+        if (f->local) {
+                _cleanup_free_ char *tp = NULL;
+                _cleanup_close_ int dfd = -1;
+                const char *p;
+
+                if (f->disk_fd >= 0) {
+                        if (lseek(f->disk_fd, SEEK_SET, 0) == (off_t) -1) {
+                                r = log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
+                                goto finish;
+                        }
+                } else {
+                        r = gpt_import_file_make_final_path(f);
+                        if (r < 0) {
+                                log_oom();
+                                goto finish;
+                        }
+
+                        f->disk_fd = open(f->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                        if (f->disk_fd < 0) {
+                                r = log_error_errno(errno, "Failed top open vendor image: %m");
+                                goto finish;
+                        }
+                }
+
+                p = strappenda("/var/lib/container/", f->local, ".gpt");
+                if (f->force_local)
+                        (void) rm_rf_dangerous(p, false, true, false);
+
+                r = tempfn_random(p, &tp);
+                if (r < 0) {
+                        log_oom();
+                        goto finish;
+                }
+
+                dfd = open(tp, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                if (dfd < 0) {
+                        r = log_error_errno(errno, "Failed to create writable copy of image: %m");
+                        goto finish;
+                }
+
+                r = copy_bytes(f->disk_fd, dfd, (off_t) -1, true);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to make writable copy of image: %m");
+                        unlink(tp);
+                        goto finish;
+                }
+
+                (void) copy_times(f->disk_fd, dfd);
+                (void) copy_xattr(f->disk_fd, dfd);
+
+                dfd = safe_close(dfd);
+
+                r = rename(tp, p);
+                if (r < 0) {
+                        r = log_error_errno(errno, "Failed to move writable image into place: %m");
+                        unlink(tp);
+                        goto finish;
+                }
+
+                log_info("Created new local image %s.", p);
+        }
+
+        f->disk_fd = safe_close(f->disk_fd);
+        r = 0;
+
+finish:
+        gpt_import_finish(f->import, r);
+}
+
 static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         GptImportFile *f = NULL;
         struct stat st;
@@ -118,7 +224,7 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, &f) != CURLE_OK)
                 return;
 
-        if (!f)
+        if (!f || f->done)
                 return;
 
         f->done = true;
@@ -135,9 +241,9 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 r = -EIO;
                 goto fail;
         } else if (status == 304) {
-                log_info("File unmodified.");
-                r = 0;
-                goto fail;
+                log_info("Image already downloaded. Skipping download.");
+                gpt_import_file_success(f);
+                return;
         } else if (status >= 300) {
                 log_error("HTTP request to %s failed with code %li.", f->url, status);
                 r = -EIO;
@@ -162,14 +268,15 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         }
 
         if (f->etag)
-                (void) fsetxattr(f->disk_fd, "user.etag", f->etag, strlen(f->etag), XATTR_CREATE);
+                (void) fsetxattr(f->disk_fd, "user.source_etag", f->etag, strlen(f->etag), 0);
+        if (f->url)
+                (void) fsetxattr(f->disk_fd, "user.source_url", f->url, strlen(f->url), 0);
 
         if (f->mtime != 0) {
                 struct timespec ut[2];
 
                 timespec_store(&ut[0], f->mtime);
                 ut[1] = ut[0];
-
                 (void) futimens(f->disk_fd, ut);
 
                 fd_setcrtime(f->disk_fd, f->mtime);
@@ -183,8 +290,6 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         /* Mark read-only */
         (void) fchmod(f->disk_fd, st.st_mode & 07444);
 
-        f->disk_fd = safe_close(f->disk_fd);
-
         assert(f->temp_path);
         assert(f->final_path);
 
@@ -194,13 +299,19 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 goto fail;
         }
 
-        r = 0;
+        free(f->temp_path);
+        f->temp_path = NULL;
+
+        log_info("Completed writing vendor image %s.", f->final_path);
+
+        gpt_import_file_success(f);
+        return;
 
 fail:
         gpt_import_finish(f->import, r);
 }
 
-static int gpt_import_file_open_disk(GptImportFile *f) {
+static int gpt_import_file_open_disk_for_write(GptImportFile *f) {
         int r;
 
         assert(f);
@@ -208,7 +319,9 @@ static int gpt_import_file_open_disk(GptImportFile *f) {
         if (f->disk_fd >= 0)
                 return 0;
 
-        assert(f->final_path);
+        r = gpt_import_file_make_final_path(f);
+        if (r < 0)
+                return log_oom();
 
         if (!f->temp_path) {
                 r = tempfn_random(f->final_path, &f->temp_path);
@@ -216,7 +329,7 @@ static int gpt_import_file_open_disk(GptImportFile *f) {
                         return log_oom();
         }
 
-        f->disk_fd = open(f->temp_path, O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC|O_WRONLY, 0644);
+        f->disk_fd = open(f->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
         if (f->disk_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", f->temp_path);
 
@@ -232,7 +345,12 @@ static size_t gpt_import_file_write_callback(void *contents, size_t size, size_t
         assert(contents);
         assert(f);
 
-        r = gpt_import_file_open_disk(f);
+        if (f->done) {
+                r = -ESTALE;
+                goto fail;
+        }
+
+        r = gpt_import_file_open_disk_for_write(f);
         if (r < 0)
                 goto fail;
 
@@ -280,6 +398,11 @@ static size_t gpt_import_file_header_callback(void *contents, size_t size, size_
         assert(contents);
         assert(f);
 
+        if (f->done) {
+                r = -ESTALE;
+                goto fail;
+        }
+
         r = curl_header_strdup(contents, sz, "ETag:", &etag);
         if (r < 0) {
                 log_oom();
@@ -289,9 +412,9 @@ static size_t gpt_import_file_header_callback(void *contents, size_t size, size_
                 free(f->etag);
                 f->etag = etag;
 
-                if (streq_ptr(f->old_etag, f->etag)) {
-                        log_info("Image already up to date. Finishing.");
-                        gpt_import_finish(f->import, 0);
+                if (strv_contains(f->old_etags, f->etag)) {
+                        log_info("Image already downloaded. Skipping download.");
+                        gpt_import_file_success(f);
                         return sz;
                 }
 
@@ -325,6 +448,79 @@ fail:
         return 0;
 }
 
+static bool etag_is_valid(const char *etag) {
+
+        if (!endswith(etag, "\""))
+                return false;
+
+        if (!startswith(etag, "\"") && !startswith(etag, "W/\""))
+                return false;
+
+        return true;
+}
+
+static int gpt_import_file_find_old_etags(GptImportFile *f) {
+        _cleanup_free_ char *escaped_url = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r;
+
+        escaped_url = xescape(f->url, FILENAME_ESCAPE);
+        if (!escaped_url)
+                return -ENOMEM;
+
+        d = opendir("/var/lib/container/");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+                const char *a, *b;
+                char *u;
+
+                if (de->d_type != DT_UNKNOWN &&
+                    de->d_type != DT_REG)
+                        continue;
+
+                a = startswith(de->d_name, ".gpt-");
+                if (!a)
+                        continue;
+
+                a = startswith(a, escaped_url);
+                if (!a)
+                        continue;
+
+                a = startswith(a, ".");
+                if (!a)
+                        continue;
+
+                b = endswith(de->d_name, ".gpt");
+                if (!b)
+                        continue;
+
+                if (a >= b)
+                        continue;
+
+                u = cunescape_length(a, b - a);
+                if (!u)
+                        return -ENOMEM;
+
+                if (!etag_is_valid(u)) {
+                        free(u);
+                        continue;
+                }
+
+                r = strv_consume(&f->old_etags, u);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int gpt_import_file_begin(GptImportFile *f) {
         int r;
 
@@ -333,14 +529,24 @@ static int gpt_import_file_begin(GptImportFile *f) {
 
         log_info("Getting %s.", f->url);
 
+        r = gpt_import_file_find_old_etags(f);
+        if (r < 0)
+                return r;
+
         r = curl_glue_make(&f->curl, f->url, f);
         if (r < 0)
                 return r;
 
-        if (f->old_etag) {
-                const char *hdr;
+        if (!strv_isempty(f->old_etags)) {
+                _cleanup_free_ char *cc = NULL, *hdr = NULL;
 
-                hdr = strappenda("If-None-Match: ", f->old_etag);
+                cc = strv_join(f->old_etags, ", ");
+                if (!cc)
+                        return -ENOMEM;
+
+                hdr = strappend("If-None-Match: ", cc);
+                if (!hdr)
+                        return -ENOMEM;
 
                 f->request_header = curl_slist_new(hdr, NULL);
                 if (!f->request_header)
@@ -437,13 +643,11 @@ int gpt_import_cancel(GptImport *import, const char *url) {
 
 int gpt_import_pull(GptImport *import, const char *url, const char *local, bool force_local) {
         _cleanup_(gpt_import_file_unrefp) GptImportFile *f = NULL;
-        char etag[LINE_MAX];
-        ssize_t n;
         int r;
 
         assert(import);
         assert(gpt_url_is_valid(url));
-        assert(machine_name_is_valid(local));
+        assert(!local || machine_name_is_valid(local));
 
         if (hashmap_get(import->files, url))
                 return -EEXIST;
@@ -464,19 +668,12 @@ int gpt_import_pull(GptImport *import, const char *url, const char *local, bool 
         if (!f->url)
                 return -ENOMEM;
 
-        f->local = strdup(local);
-        if (!f->local)
-                return -ENOMEM;
-
-        f->final_path = strjoin("/var/lib/container/", local, ".gpt", NULL);
-        if (!f->final_path)
-                return -ENOMEM;
-
-        n = getxattr(f->final_path, "user.etag", etag, sizeof(etag));
-        if (n > 0) {
-                f->old_etag = strndup(etag, n);
-                if (!f->old_etag)
+        if (local) {
+                f->local = strdup(local);
+                if (!f->local)
                         return -ENOMEM;
+
+                f->force_local = force_local;
         }
 
         r = hashmap_put(import->files, f->url, f);
