@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/sendfile.h>
+#include <sys/xattr.h>
 
 #include "util.h"
 #include "btrfs-util.h"
@@ -145,6 +146,9 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
 
+        (void) copy_times(fdf, fdt);
+        (void) copy_xattr(fdf, fdt);
+
         q = close(fdt);
         fdt = -1;
 
@@ -244,6 +248,9 @@ static int fd_copy_directory(
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
+
+                (void) copy_times(fdf, fdt);
+                (void) copy_xattr(fdf, fdt);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -326,6 +333,7 @@ int copy_directory_fd(int dirfd, const char *to, bool merge) {
 
 int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         _cleanup_close_ int fdf = -1;
+        int r;
 
         assert(from);
         assert(fdt >= 0);
@@ -334,7 +342,12 @@ int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         if (fdf < 0)
                 return -errno;
 
-        return copy_bytes(fdf, fdt, (off_t) -1, try_reflink);
+        r = copy_bytes(fdf, fdt, (off_t) -1, try_reflink);
+
+        (void) copy_times(fdf, fdt);
+        (void) copy_xattr(fdf, fdt);
+
+        return r;
 }
 
 int copy_file(const char *from, const char *to, int flags, mode_t mode) {
@@ -360,4 +373,92 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         }
 
         return 0;
+}
+
+int copy_times(int fdf, int fdt) {
+        struct timespec ut[2];
+        struct stat st;
+        usec_t crtime;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        ut[0] = st.st_atim;
+        ut[1] = st.st_mtim;
+
+        if (futimens(fdt, ut) < 0)
+                return -errno;
+
+        if (fd_getcrtime(fdf, &crtime) >= 0)
+                (void) fd_setcrtime(fdt, crtime);
+
+        return 0;
+}
+
+int copy_xattr(int fdf, int fdt) {
+        _cleanup_free_ char *bufa = NULL, *bufb = NULL;
+        size_t sza = 100, szb = 100;
+        ssize_t n;
+        int ret = 0;
+        const char *p;
+
+        for (;;) {
+                bufa = malloc(sza);
+                if (!bufa)
+                        return -ENOMEM;
+
+                n = flistxattr(fdf, bufa, sza);
+                if (n == 0)
+                        return 0;
+                if (n > 0)
+                        break;
+                if (errno != ERANGE)
+                        return -errno;
+
+                sza *= 2;
+
+                free(bufa);
+                bufa = NULL;
+        }
+
+        p = bufa;
+        while (n > 0) {
+                size_t l;
+
+                l = strlen(p);
+                assert(l < (size_t) n);
+
+                if (startswith(p, "user.")) {
+                        ssize_t m;
+
+                        if (!bufb) {
+                                bufb = malloc(szb);
+                                if (!bufb)
+                                        return -ENOMEM;
+                        }
+
+                        m = fgetxattr(fdf, p, bufb, szb);
+                        if (m < 0) {
+                                if (errno == ERANGE) {
+                                        szb *= 2;
+                                        free(bufb);
+                                        bufb = NULL;
+                                        continue;
+                                }
+
+                                return -errno;
+                        }
+
+                        if (fsetxattr(fdt, p, bufb, m, 0) < 0)
+                                ret = -errno;
+                }
+
+                p += l + 1;
+                n -= l + 1;
+        }
+
+        return ret;
 }
