@@ -231,10 +231,10 @@ static int list_images(int argc, char *argv[], void *userdata) {
         for (j = 0; j < n_images; j++) {
                 char crtime_buf[FORMAT_TIMESTAMP_MAX], mtime_buf[FORMAT_TIMESTAMP_MAX];
 
-                printf("%-*s %-*s %-3s %-*s %-*s\n",
+                printf("%-*s %-*s %s%-3s%s %-*s %-*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
-                       yes_no(images[j].read_only),
+                       images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_highlight_off() : "",
                        (int) max_crtime, images[j].crtime != 0 ? format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime) : "-",
                        (int) max_mtime, images[j].mtime != 0 ? format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime) : "-");
         }
