@@ -221,7 +221,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         qsort_safe(images, n_images, sizeof(ImageInfo), compare_image_info);
 
         if (arg_legend)
-                printf("%-*s %-*s %-3s %*s %*s\n",
+                printf("%-*s %-*s %-3s %-*s %-*s\n",
                        (int) max_name, "NAME",
                        (int) max_type, "TYPE",
                        "RO",
@@ -231,7 +231,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         for (j = 0; j < n_images; j++) {
                 char crtime_buf[FORMAT_TIMESTAMP_MAX], mtime_buf[FORMAT_TIMESTAMP_MAX];
 
-                printf("%-*s %-*s %-3s %*s %*s\n",
+                printf("%-*s %-*s %-3s %-*s %-*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
                        yes_no(images[j].read_only),
