@@ -45,8 +45,9 @@ Image *image_unref(Image *i) {
 
 static int image_new(
                 ImageType t,
-                const char *name,
+                const char *pretty,
                 const char *path,
+                const char *filename,
                 bool read_only,
                 usec_t crtime,
                 usec_t mtime,
@@ -56,7 +57,8 @@ static int image_new(
 
         assert(t >= 0);
         assert(t < _IMAGE_TYPE_MAX);
-        assert(name);
+        assert(pretty);
+        assert(filename);
         assert(ret);
 
         i = new0(Image, 1);
@@ -68,17 +70,19 @@ static int image_new(
         i->crtime = crtime;
         i->mtime = mtime;
 
-        i->name = strdup(name);
+        i->name = strdup(pretty);
         if (!i->name)
                 return -ENOMEM;
 
-        if (path) {
-                i->path = strjoin(path, "/", name, NULL);
-                if (!i->path)
-                        return -ENOMEM;
+        if (path)
+                i->path = strjoin(path, "/", filename, NULL);
+        else
+                i->path = strdup(filename);
 
-                path_kill_slashes(i->path);
-        }
+        if (!i->path)
+                return -ENOMEM;
+
+        path_kill_slashes(i->path);
 
         *ret = i;
         i = NULL;
@@ -86,34 +90,44 @@ static int image_new(
         return 0;
 }
 
-static int image_make(int dfd, const char *name, const char *path, Image **ret) {
+static int image_make(
+                const char *pretty,
+                int dfd,
+                const char *path,
+                const char *filename,
+                Image **ret) {
+
         struct stat st;
-        bool writable;
+        bool read_only;
         int r;
 
-        assert(dfd >= 0);
-        assert(name);
+        assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to
          * allow symlinking trees into /var/lib/container/, and treat
          * them normally. */
 
-        if (fstatat(dfd, name, &st, 0) < 0)
+        if (fstatat(dfd, filename, &st, 0) < 0)
                 return -errno;
 
-        writable = faccessat(dfd, name, W_OK, AT_EACCESS) >= 0;
+        read_only =
+                (path && path_startswith(path, "/usr")) ||
+                faccessat(dfd, filename, W_OK, AT_EACCESS) < 0;
 
         if (S_ISDIR(st.st_mode)) {
 
                 if (!ret)
                         return 1;
 
+                if (!pretty)
+                        pretty = filename;
+
                 /* btrfs subvolumes have inode 256 */
                 if (st.st_ino == 256) {
                         _cleanup_close_ int fd = -1;
                         struct statfs sfs;
 
-                        fd = openat(dfd, name, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                        fd = openat(dfd, filename, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
                         if (fd < 0)
                                 return -errno;
 
@@ -130,9 +144,10 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                                         return r;
 
                                 r = image_new(IMAGE_SUBVOLUME,
-                                              name,
+                                              pretty,
                                               path,
-                                              info.read_only || !writable,
+                                              filename,
+                                              info.read_only || read_only,
                                               info.otime,
                                               0,
                                               ret);
@@ -146,9 +161,10 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 /* It's just a normal directory. */
 
                 r = image_new(IMAGE_DIRECTORY,
-                              name,
+                              pretty,
                               path,
-                              !writable,
+                              filename,
+                              read_only,
                               0,
                               0,
                               ret);
@@ -157,8 +173,7 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
 
                 return 1;
 
-        } else if (S_ISREG(st.st_mode) && endswith(name, ".gpt")) {
-                const char *truncated;
+        } else if (S_ISREG(st.st_mode) && endswith(filename, ".gpt")) {
                 usec_t crtime = 0;
 
                 /* It's a GPT block device */
@@ -166,14 +181,16 @@ static int image_make(int dfd, const char *name, const char *path, Image **ret) 
                 if (!ret)
                         return 1;
 
-                fd_getcrtime_at(dfd, name, &crtime, 0);
+                fd_getcrtime_at(dfd, filename, &crtime, 0);
 
-                truncated = strndupa(name, strlen(name) - 4);
+                if (!pretty)
+                        pretty = strndupa(filename, strlen(filename) - 4);
 
                 r = image_new(IMAGE_GPT,
-                              truncated,
+                              pretty,
                               path,
-                              !(st.st_mode & 0222) || !writable,
+                              filename,
+                              !(st.st_mode & 0222) || read_only,
                               crtime,
                               timespec_load(&st.st_mtim),
                               ret);
@@ -207,14 +224,26 @@ int image_find(const char *name, Image **ret) {
                         return -errno;
                 }
 
-                r = image_make(dirfd(d), name, path, ret);
-                if (r == 0 || r == -ENOENT)
-                        continue;
+                r = image_make(NULL, dirfd(d), path, name, ret);
+                if (r == 0 || r == -ENOENT) {
+                        _cleanup_free_ char *gpt = NULL;
+
+                        gpt = strappend(name, ".gpt");
+                        if (!gpt)
+                                return -ENOMEM;
+
+                        r = image_make(NULL, dirfd(d), path, gpt, ret);
+                        if (r == 0 || r == -ENOENT)
+                                continue;
+                }
                 if (r < 0)
                         return r;
 
                 return 1;
         }
+
+        if (streq(name, ".host"))
+                return image_make(NULL, AT_FDCWD, NULL, "/", ret);
 
         return 0;
 };
@@ -246,7 +275,7 @@ int image_discover(Hashmap *h) {
                         if (hashmap_contains(h, de->d_name))
                                 continue;
 
-                        r = image_make(dirfd(d), de->d_name, path, &image);
+                        r = image_make(NULL, dirfd(d), path, de->d_name, &image);
                         if (r == 0 || r == -ENOENT)
                                 continue;
                         if (r < 0)
@@ -258,6 +287,21 @@ int image_discover(Hashmap *h) {
 
                         image = NULL;
                 }
+        }
+
+        if (!hashmap_contains(h, ".host")) {
+                _cleanup_(image_unrefp) Image *image = NULL;
+
+                r = image_make(".host", AT_FDCWD, NULL, "/", &image);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(h, image->name, image);
+                if (r < 0)
+                        return r;
+
+                image = NULL;
+
         }
 
         return 0;
