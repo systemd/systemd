@@ -28,8 +28,10 @@
 #include "image.h"
 
 static const char image_search_path[] =
+        "/var/lib/machines\0"
         "/var/lib/container\0"
-        "/var/lib/machine\0";
+        "/usr/local/lib/machines\0"
+        "/usr/lib/machines\0";
 
 Image *image_unref(Image *i) {
         if (!i)
