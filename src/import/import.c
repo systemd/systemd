@@ -29,6 +29,7 @@
 #include "import-dkr.h"
 
 static bool arg_force = false;
+static const char *arg_image_root = "/var/lib/container";
 
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
@@ -87,7 +88,7 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
                         return -EINVAL;
                 }
 
-                p = strappenda("/var/lib/container/", local, ".gpt");
+                p = strappenda(arg_image_root, "/", local, ".gpt");
                 if (laccess(p, F_OK) >= 0) {
                         if (!arg_force) {
                                 log_info("Image '%s' already exists.", local);
@@ -108,7 +109,7 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
-        r = gpt_import_new(&import, event, on_gpt_finished, event);
+        r = gpt_import_new(&import, event, arg_image_root, on_gpt_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
@@ -188,7 +189,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                         return -EINVAL;
                 }
 
-                p = strappenda("/var/lib/container/", local);
+                p = strappenda(arg_image_root, "/", local);
                 if (laccess(p, F_OK) >= 0) {
                         if (!arg_force) {
                                 log_info("Image '%s' already exists.", local);
@@ -209,7 +210,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
-        r = dkr_import_new(&import, event, arg_dkr_index_url, on_dkr_finished, event);
+        r = dkr_import_new(&import, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
@@ -233,6 +234,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"
+               "     --image-root=            Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
                "  pull-dkr REMOTE [NAME]      Download a DKR image\n"
@@ -248,6 +250,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
                 ARG_DKR_INDEX_URL,
+                ARG_IMAGE_ROOT,
         };
 
         static const struct option options[] = {
@@ -255,6 +258,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
+                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 {}
         };
 
@@ -286,6 +290,10 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_dkr_index_url = optarg;
+                        break;
+
+                case ARG_IMAGE_ROOT:
+                        arg_image_root = optarg;
                         break;
 
                 case '?':

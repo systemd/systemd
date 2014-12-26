@@ -60,6 +60,7 @@ struct GptImport {
         sd_event *event;
         CurlGlue *glue;
 
+        char *image_root;
         Hashmap *files;
 
         gpt_import_on_finished on_finished;
@@ -129,9 +130,9 @@ static int gpt_import_file_make_final_path(GptImportFile *f) {
                 if (!escaped_etag)
                         return -ENOMEM;
 
-                f->final_path = strjoin("/var/lib/container/.gpt-", escaped_url, ".", escaped_etag, ".gpt", NULL);
+                f->final_path = strjoin(f->import->image_root, "/.gpt-", escaped_url, ".", escaped_etag, ".gpt", NULL);
         } else
-                f->final_path = strjoin("/var/lib/container/.gpt-", escaped_url, ".gpt", NULL);
+                f->final_path = strjoin(f->import->image_root, "/.gpt-", escaped_url, ".gpt", NULL);
         if (!f->final_path)
                 return -ENOMEM;
 
@@ -169,7 +170,7 @@ static void gpt_import_file_success(GptImportFile *f) {
                         }
                 }
 
-                p = strappenda("/var/lib/container/", f->local, ".gpt");
+                p = strappenda(f->import->image_root, "/", f->local, ".gpt");
                 if (f->force_local)
                         (void) rm_rf_dangerous(p, false, true, false);
 
@@ -469,7 +470,7 @@ static int gpt_import_file_find_old_etags(GptImportFile *f) {
         if (!escaped_url)
                 return -ENOMEM;
 
-        d = opendir("/var/lib/container/");
+        d = opendir(f->import->image_root);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
@@ -575,11 +576,12 @@ static int gpt_import_file_begin(GptImportFile *f) {
         return 0;
 }
 
-int gpt_import_new(GptImport **import, sd_event *event, gpt_import_on_finished on_finished, void *userdata) {
+int gpt_import_new(GptImport **import, sd_event *event, const char *image_root, gpt_import_on_finished on_finished, void *userdata) {
         _cleanup_(gpt_import_unrefp) GptImport *i = NULL;
         int r;
 
         assert(import);
+        assert(image_root);
 
         i = new0(GptImport, 1);
         if (!i)
@@ -587,6 +589,10 @@ int gpt_import_new(GptImport **import, sd_event *event, gpt_import_on_finished o
 
         i->on_finished = on_finished;
         i->userdata = userdata;
+
+        i->image_root = strdup(image_root);
+        if (!i->image_root)
+                return -ENOMEM;
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -622,6 +628,7 @@ GptImport* gpt_import_unref(GptImport *import) {
         curl_glue_unref(import->glue);
         sd_event_unref(import->event);
 
+        free(import->image_root);
         free(import);
 
         return NULL;

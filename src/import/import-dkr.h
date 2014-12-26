@@ -26,7 +26,7 @@ typedef struct DkrImport DkrImport;
 
 typedef void (*dkr_import_on_finished)(DkrImport *import, int error, void *userdata);
 
-int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, dkr_import_on_finished on_finished, void *userdata);
+int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, const char *image_root, dkr_import_on_finished on_finished, void *userdata);
 DkrImport* dkr_import_unref(DkrImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImport*, dkr_import_unref);

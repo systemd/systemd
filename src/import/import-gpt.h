@@ -26,7 +26,7 @@ typedef struct GptImport GptImport;
 
 typedef void (*gpt_import_on_finished)(GptImport *import, int error, void *userdata);
 
-int gpt_import_new(GptImport **import, sd_event *event, gpt_import_on_finished on_finished, void *userdata);
+int gpt_import_new(GptImport **import, sd_event *event, const char *image_root, gpt_import_on_finished on_finished, void *userdata);
 GptImport* gpt_import_unref(GptImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(GptImport*, gpt_import_unref);

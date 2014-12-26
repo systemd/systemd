@@ -94,6 +94,7 @@ struct DkrImport {
         CurlGlue *glue;
 
         char *index_url;
+        char *image_root;
 
         Hashmap *names;
         Hashmap *jobs;
@@ -406,8 +407,8 @@ static void dkr_import_name_maybe_finish(DkrImportName *name) {
 
                 assert(name->id);
 
-                p = strappenda("/var/lib/container/", name->local);
-                q = strappenda("/var/lib/container/.dkr-", name->id);
+                p = strappenda(name->import->image_root, "/", name->local);
+                q = strappenda(name->import->image_root, "/.dkr-", name->id);
 
                 if (name->force_local) {
                         (void) btrfs_subvol_remove(p);
@@ -534,7 +535,7 @@ static int dkr_import_name_pull_layer(DkrImportName *name) {
                         return 0;
                 }
 
-                path = strjoin("/var/lib/container/.dkr-", layer, NULL);
+                path = strjoin(name->import->image_root, "/.dkr-", layer, NULL);
                 if (!path)
                         return log_oom();
 
@@ -575,7 +576,7 @@ static int dkr_import_name_pull_layer(DkrImportName *name) {
         if (base) {
                 const char *base_path;
 
-                base_path = strappend("/var/lib/container/.dkr-", base);
+                base_path = strappenda(name->import->image_root, "/.dkr-", base);
                 r = btrfs_subvol_snapshot(base_path, temp, false, true);
         } else
                 r = btrfs_subvol_make(temp);
@@ -1021,13 +1022,21 @@ static int dkr_import_name_begin(DkrImportName *name) {
         return dkr_import_name_add_job(name, DKR_IMPORT_JOB_IMAGES, url, &name->job_images);
 }
 
-int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, dkr_import_on_finished on_finished, void *userdata) {
+int dkr_import_new(
+                DkrImport **import,
+                sd_event *event,
+                const char *index_url,
+                const char *image_root,
+                dkr_import_on_finished on_finished,
+                void *userdata) {
+
         _cleanup_(dkr_import_unrefp) DkrImport *i = NULL;
         char *e;
         int r;
 
         assert(import);
         assert(dkr_url_is_valid(index_url));
+        assert(image_root);
 
         i = new0(DkrImport, 1);
         if (!i)
@@ -1038,6 +1047,10 @@ int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, d
 
         i->index_url = strdup(index_url);
         if (!i->index_url)
+                return -ENOMEM;
+
+        i->image_root = strdup(image_root);
+        if (!i->image_root)
                 return -ENOMEM;
 
         e = endswith(i->index_url, "/");
@@ -1084,7 +1097,7 @@ DkrImport* dkr_import_unref(DkrImport *import) {
         sd_event_unref(import->event);
 
         free(import->index_url);
-
+        free(import->image_root);
         free(import);
 
         return NULL;
