@@ -134,8 +134,8 @@ void server_process_native_message(
 
                 /* A property follows */
 
-                /* n received properties, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS + !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
+                /* n existing properties, 1 new, +1 for _TRANSPORT */
+                if (!GREEDY_REALLOC(iovec, m, n + 2 + N_IOVEC_META_FIELDS + !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
                         log_oom();
                         break;
                 }
