@@ -421,7 +421,7 @@ static void dkr_import_name_maybe_finish(DkrImportName *name) {
                         return;
                 }
 
-                log_info("Created new image %s.", p);
+                log_info("Created new local image %s.", p);
         }
 
         dkr_import_finish(name->import, 0);
@@ -718,7 +718,7 @@ static void dkr_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, &job) != CURLE_OK)
                 return;
 
-        if (!job)
+        if (!job || job->done)
                 return;
 
         job->done = true;
@@ -817,6 +817,11 @@ static size_t dkr_import_job_write_callback(void *contents, size_t size, size_t 
         assert(contents);
         assert(j);
 
+        if (j->done) {
+                r = -ESTALE;
+                goto fail;
+        }
+
         if (j->tar_stream) {
                 size_t l;
 
@@ -865,6 +870,11 @@ static size_t dkr_import_job_header_callback(void *contents, size_t size, size_t
 
         assert(contents);
         assert(j);
+
+        if (j->done) {
+                r = -ESTALE;
+                goto fail;
+        }
 
         r = curl_header_strdup(contents, sz, HEADER_TOKEN, &token);
         if (r < 0) {
