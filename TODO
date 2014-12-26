@@ -31,7 +31,7 @@ External:
 
 Features:
 
-* teach fd_get_crtime_at() the btrfs crtime
+* change default container location from /var/lib/container to /var/lib/machines
 
 * import pull-gpt: create writable snapshot of downloaded image, by the right name
 
@@ -50,6 +50,8 @@ Features:
 * "machinectl history"
 
 * "machinectl diff"
+
+* "machinectl read-only"
 
 * show btrfs quota in machinectl
 
