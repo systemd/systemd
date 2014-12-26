@@ -411,12 +411,12 @@ static void dkr_import_name_maybe_finish(DkrImportName *name) {
 
                 if (name->force_local) {
                         (void) btrfs_subvol_remove(p);
-                        (void) rm_rf(p, false, true, false);
+                        (void) rm_rf_dangerous(p, false, true, false);
                 }
 
                 r = btrfs_subvol_snapshot(q, p, false, false);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to snapshot final image: %m");
+                        log_error_errno(r, "Failed to snapshot local image: %m");
                         dkr_import_finish(name->import, r);
                         return;
                 }
