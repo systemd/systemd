@@ -232,7 +232,7 @@ int image_discover(Hashmap *h) {
                 d = opendir(path);
                 if (!d) {
                         if (errno == ENOENT)
-                                return 0;
+                                continue;
 
                         return -errno;
                 }
