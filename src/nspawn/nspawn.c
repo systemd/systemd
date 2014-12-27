@@ -92,6 +92,7 @@
 #include "capability.h"
 #include "cap-list.h"
 #include "btrfs-util.h"
+#include "machine-image.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -2882,15 +2883,33 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 }
 
 static int determine_names(void) {
+        int r;
 
         if (!arg_image && !arg_directory) {
-                if (arg_machine)
-                        arg_directory = strappend("/var/lib/container/", arg_machine);
-                else
+                if (arg_machine) {
+                        _cleanup_(image_unrefp) Image *i = NULL;
+
+                        r = image_find(arg_machine, &i);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
+                        else if (r == 0) {
+                                log_error("No image for machine '%s': %m", arg_machine);
+                                return -ENOENT;
+                        }
+
+                        if (i->type == IMAGE_GPT)
+                                r = set_sanitized_path(&arg_image, i->path);
+                        else
+                                r = set_sanitized_path(&arg_directory, i->path);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid image directory: %m");
+
+                        arg_read_only = arg_read_only || i->read_only;
+                } else
                         arg_directory = get_current_dir_name();
 
-                if (!arg_directory) {
-                        log_error("Failed to determine path, please use -D.");
+                if (!arg_directory && !arg_machine) {
+                        log_error("Failed to determine path, please use -D or -i.");
                         return -EINVAL;
                 }
         }
