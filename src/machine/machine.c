@@ -32,9 +32,10 @@
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "machine.h"
 #include "bus-util.h"
 #include "bus-error.h"
+#include "machine.h"
+#include "machine-dbus.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;

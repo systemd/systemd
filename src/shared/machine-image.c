@@ -25,7 +25,7 @@
 #include "utf8.h"
 #include "btrfs-util.h"
 #include "path-util.h"
-#include "image.h"
+#include "machine-image.h"
 
 static const char image_search_path[] =
         "/var/lib/machines\0"

@@ -23,7 +23,6 @@
 
 #include "time-util.h"
 #include "hashmap.h"
-#include "machined.h"
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,
@@ -51,13 +50,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, image_hashmap_free);
 
 int image_find(const char *name, Image **ret);
 int image_discover(Hashmap *map);
-
-extern const sd_bus_vtable image_vtable[];
-
-char *image_bus_path(const char *name);
-
-int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;

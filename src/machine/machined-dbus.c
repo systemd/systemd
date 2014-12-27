@@ -38,8 +38,10 @@
 #include "bus-common-errors.h"
 #include "time-util.h"
 #include "cgroup-util.h"
-#include "image.h"
+#include "machine-image.h"
+#include "image-dbus.h"
 #include "machined.h"
+#include "machine-dbus.h"
 
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;

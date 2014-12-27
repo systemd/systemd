@@ -22,7 +22,8 @@
 #include "bus-label.h"
 #include "bus-common-errors.h"
 #include "strv.h"
-#include "image.h"
+#include "machine-image.h"
+#include "image-dbus.h"
 
 static int image_find_by_bus_path(const char *path, Image **ret) {
         _cleanup_free_ char *e = NULL;

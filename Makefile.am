@@ -899,6 +899,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/btrfs-ctree.h \
 	src/shared/verbs.c \
 	src/shared/verbs.h \
+	src/shared/machine-image.c \
+	src/shared/machine-image.h \
 	src/shared/build.h
 
 if HAVE_UTMP
@@ -5039,11 +5041,10 @@ rootlibexec_PROGRAMS += \
 libsystemd_machine_core_la_SOURCES = \
 	src/machine/machine.c \
 	src/machine/machine.h \
-	src/machine/image.c \
-	src/machine/image.h \
 	src/machine/machined-dbus.c \
 	src/machine/machine-dbus.c \
-	src/machine/image-dbus.c
+	src/machine/image-dbus.c \
+	src/machine/image-dbus.h
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
