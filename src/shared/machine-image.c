@@ -20,11 +20,13 @@
 ***/
 
 #include <sys/statfs.h>
+#include <fcntl.h>
 
 #include "strv.h"
 #include "utf8.h"
 #include "btrfs-util.h"
 #include "path-util.h"
+#include "copy.h"
 #include "machine-image.h"
 
 static const char image_search_path[] =
@@ -317,18 +319,158 @@ void image_hashmap_free(Hashmap *map) {
 }
 
 int image_remove(Image *i) {
-        int r;
-
         assert(i);
 
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
 
-        if (i->type == IMAGE_SUBVOLUME)
+        switch (i->type) {
+
+        case IMAGE_SUBVOLUME:
                 return btrfs_subvol_remove(i->path);
-        else
+
+        case IMAGE_DIRECTORY:
+        case IMAGE_GPT:
                 return rm_rf_dangerous(i->path, false, true, false);
+
+        default:
+                return -ENOTSUP;
+        }
+}
+
+int image_rename(Image *i, const char *new_name) {
+        _cleanup_free_ char *new_path = NULL, *nn = NULL;
+        int r;
+
+        assert(i);
+
+        if (!image_name_is_valid(new_name))
+                return -EINVAL;
+
+        if (path_equal(i->path, "/") ||
+            path_startswith(i->path, "/usr"))
+                return -EROFS;
+
+        r = image_find(new_name, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return -EEXIST;
+
+        switch (i->type) {
+
+        case IMAGE_SUBVOLUME:
+        case IMAGE_DIRECTORY:
+                new_path = file_in_same_dir(i->path, new_name);
+                break;
+
+        case IMAGE_GPT: {
+                const char *fn;
+
+                fn = strappenda(new_name, ".gpt");
+                new_path = file_in_same_dir(i->path, fn);
+                break;
+        }
+
+        default:
+                return -ENOTSUP;
+        }
+
+        if (!new_path)
+                return -ENOMEM;
+
+        nn = strdup(new_name);
+        if (!nn)
+                return -ENOMEM;
+
+        if (renameat2(AT_FDCWD, i->path, AT_FDCWD, new_path, RENAME_NOREPLACE) < 0)
+                return -errno;
+
+        free(i->path);
+        i->path = new_path;
+        new_path = NULL;
+
+        free(i->name);
+        i->name = nn;
+        nn = NULL;
+
+        return 0;
+}
+
+int image_clone(Image *i, const char *new_name, bool read_only) {
+        const char *new_path;
+        int r;
+
+        assert(i);
+
+        if (!image_name_is_valid(new_name))
+                return -EINVAL;
+
+        r = image_find(new_name, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return -EEXIST;
+
+        switch (i->type) {
+
+        case IMAGE_SUBVOLUME:
+        case IMAGE_DIRECTORY:
+                new_path = strappenda("/var/lib/container/", new_name);
+
+                r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
+                break;
+
+        case IMAGE_GPT:
+                new_path = strappenda("/var/lib/container/", new_name, ".gpt");
+
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false);
+                break;
+
+        default:
+                return -ENOTSUP;
+        }
+
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int image_read_only(Image *i, bool b) {
+        int r;
+        assert(i);
+
+        if (path_equal(i->path, "/") ||
+            path_startswith(i->path, "/usr"))
+                return -EROFS;
+
+        switch (i->type) {
+
+        case IMAGE_SUBVOLUME:
+                r = btrfs_subvol_set_read_only(i->path, b);
+                if (r < 0)
+                        return r;
+                break;
+
+        case IMAGE_GPT: {
+                struct stat st;
+
+                if (stat(i->path, &st) < 0)
+                        return -errno;
+
+                if (chmod(i->path, (st.st_mode & 0444) | (b ? 0000 : 0200)) < 0)
+                        return -errno;
+                break;
+        }
+
+        case IMAGE_DIRECTORY:
+        default:
+                return -ENOTSUP;
+        }
+
+        return 0;
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {

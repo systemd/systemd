@@ -236,6 +236,95 @@ static int method_remove(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_rename(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        const char *new_name;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &new_name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(new_name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
+
+        r = image_rename(image, new_name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_clone(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        const char *new_name;
+        int r, read_only;
+
+        assert(bus);
+        assert(message);
+
+        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "sb", &new_name, &read_only);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(new_name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
+
+        r = image_clone(image, new_name, read_only);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_mark_read_only(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        int r, read_only;
+
+        assert(bus);
+        assert(message);
+
+        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "b", &read_only);
+        if (r < 0)
+                return r;
+
+        r = image_read_only(image, read_only);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name",                  "s", property_get_name,      0, 0),
@@ -245,6 +334,9 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("CreationTimestamp",     "t", property_get_crtime,    0, 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", property_get_mtime,     0, 0),
         SD_BUS_METHOD("Remove", NULL, NULL, method_remove, 0),
+        SD_BUS_METHOD("Rename", "s", NULL, method_rename, 0),
+        SD_BUS_METHOD("Clone", "sb", NULL, method_clone, 0),
+        SD_BUS_METHOD("MarkeReadOnly", "b", NULL, method_mark_read_only, 0),
         SD_BUS_VTABLE_END
 };
 

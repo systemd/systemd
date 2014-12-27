@@ -1152,7 +1152,7 @@ char *delete_chars(char *s, const char *bad) {
 }
 
 char *file_in_same_dir(const char *path, const char *filename) {
-        char *e, *r;
+        char *e, *ret;
         size_t k;
 
         assert(path);
@@ -1165,17 +1165,17 @@ char *file_in_same_dir(const char *path, const char *filename) {
         if (path_is_absolute(filename))
                 return strdup(filename);
 
-        if (!(e = strrchr(path, '/')))
+        e = strrchr(path, '/');
+        if (!e)
                 return strdup(filename);
 
         k = strlen(filename);
-        if (!(r = new(char, e-path+1+k+1)))
+        ret = new(char, (e + 1 - path) + k + 1);
+        if (!ret)
                 return NULL;
 
-        memcpy(r, path, e-path+1);
-        memcpy(r+(e-path)+1, filename, k+1);
-
-        return r;
+        memcpy(mempcpy(ret, path, e + 1 - path), filename, k + 1);
+        return ret;
 }
 
 int rmdir_parents(const char *path, const char *stop) {

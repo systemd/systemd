@@ -657,3 +657,13 @@ static inline int raw_clone(unsigned long flags, void *child_stack) {
 static inline pid_t raw_getpid(void) {
         return (pid_t) syscall(__NR_getpid);
 }
+
+#if !HAVE_DECL_RENAMEAT2
+static inline int renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
+        return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
+}
+#endif
+
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE (1 << 0)
+#endif

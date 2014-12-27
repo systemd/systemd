@@ -52,6 +52,9 @@ int image_find(const char *name, Image **ret);
 int image_discover(Hashmap *map);
 
 int image_remove(Image *i);
+int image_rename(Image *i, const char *new_name);
+int image_clone(Image *i, const char *new_name, bool read_only);
+int image_read_only(Image *i, bool b);
 
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;

@@ -120,6 +120,7 @@ static int fd_copy_symlink(int df, const char *from, const struct stat *st, int 
 
 static int fd_copy_regular(int df, const char *from, const struct stat *st, int dt, const char *to) {
         _cleanup_close_ int fdf = -1, fdt = -1;
+        struct timespec ts[2];
         int r, q;
 
         assert(from);
@@ -146,7 +147,10 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
 
-        (void) copy_times(fdf, fdt);
+        ts[0] = st->st_atim;
+        ts[1] = st->st_mtim;
+        (void) futimens(fdt, ts);
+
         (void) copy_xattr(fdf, fdt);
 
         q = close(fdt);
@@ -243,14 +247,19 @@ static int fd_copy_directory(
         r = 0;
 
         if (created) {
+                struct timespec ut[2] = {
+                        st->st_atim,
+                        st->st_mtim
+                };
+
                 if (fchown(fdt, st->st_uid, st->st_gid) < 0)
                         r = -errno;
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
 
-                (void) copy_times(fdf, fdt);
-                (void) copy_xattr(fdf, fdt);
+                (void) futimens(fdt, ut);
+                (void) copy_xattr(dirfd(d), fdt);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -356,9 +365,11 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         assert(from);
         assert(to);
 
-        fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
-        if (fdt < 0)
-                return -errno;
+        RUN_WITH_UMASK(0000) {
+                fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
+                if (fdt < 0)
+                        return -errno;
+        }
 
         r = copy_file_fd(from, fdt, true);
         if (r < 0) {
@@ -369,6 +380,29 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
 
         if (close(fdt) < 0) {
                 unlink_noerrno(to);
+                return -errno;
+        }
+
+        return 0;
+}
+
+int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace) {
+        _cleanup_free_ char *t;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        r = tempfn_random(to, &t);
+        if (r < 0)
+                return r;
+
+        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode);
+        if (r < 0)
+                return r;
+
+        if (renameat2(AT_FDCWD, t, AT_FDCWD, to, replace ? 0 : RENAME_NOREPLACE) < 0) {
+                unlink_noerrno(t);
                 return -errno;
         }
 

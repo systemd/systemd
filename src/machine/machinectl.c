@@ -1286,13 +1286,11 @@ static int login_machine(int argc, char *argv[], void *userdata) {
 static int remove_image(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int i;
+        int r, i;
 
         assert(bus);
 
         for (i = 1; i < argc; i++) {
-                int r;
-
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1306,6 +1304,80 @@ static int remove_image(int argc, char *argv[], void *userdata) {
                         log_error("Could not remove image: %s", bus_error_message(&error, -r));
                         return r;
                 }
+        }
+
+        return 0;
+}
+
+static int rename_image(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "RenameImage",
+                        &error,
+                        NULL,
+                        "ss", argv[1], argv[2]);
+        if (r < 0) {
+                log_error("Could not rename image: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int clone_image(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "CloneImage",
+                        &error,
+                        NULL,
+                        "ssb", argv[1], argv[2], arg_read_only);
+        if (r < 0) {
+                log_error("Could not clone image: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int read_only_image(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int b = true, r;
+
+        if (argc > 2) {
+                b = parse_boolean(argv[2]);
+                if (b < 0) {
+                        log_error("Failed to parse boolean argument: %s", argv[2]);
+                        return -EINVAL;
+                }
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "MarkImageReadOnly",
+                        &error,
+                        NULL,
+                        "sb", argv[1], b);
+        if (r < 0) {
+                log_error("Could not mark image read-only: %s", bus_error_message(&error, -r));
+                return r;
         }
 
         return 0;
@@ -1336,15 +1408,18 @@ static int help(int argc, char *argv[], void *userdata) {
                "  login NAME                  Get a login prompt on a container\n"
                "  poweroff NAME...            Power off one or more containers\n"
                "  reboot NAME...              Reboot one or more containers\n"
-               "  kill NAME...                Send signal to processes of a VM/container\n"
                "  terminate NAME...           Terminate one or more VMs/containers\n"
-               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
+               "  kill NAME...                Send signal to processes of a VM/container\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
-               "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n\n"
+               "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
+               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n\n"
                "Image Commands:\n"
                "  list-images                 Show available images\n"
                "  image-status NAME...        Show image details\n"
                "  show-image NAME...          Show properties of image\n"
+               "  clone NAME NAME             Clone an image\n"
+               "  rename NAME NAME            Rename an image\n"
+               "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
                "  remove NAME...              Remove an image\n",
                program_invocation_short_name);
 
@@ -1482,6 +1557,9 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "copy-to",     3,        4,        0,            copy_files        },
                 { "copy-from",   3,        4,        0,            copy_files        },
                 { "remove",      2,        VERB_ANY, 0,            remove_image      },
+                { "rename",      3,        3,        0,            rename_image      },
+                { "clone",       3,        3,        0,            clone_image       },
+                { "read-only",   2,        3,        0,            read_only_image   },
                 {}
         };
 
