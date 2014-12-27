@@ -64,7 +64,7 @@ static int check_loopback(void) {
                 struct sockaddr_in in;
         } sa = {
                 .in.sin_family = AF_INET,
-                .in.sin_addr.s_addr = INADDR_LOOPBACK,
+                .in.sin_addr.s_addr = htonl(INADDR_LOOPBACK),
         };
 
         /* If we failed to set up the loop back device, check whether
