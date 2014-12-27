@@ -33,8 +33,6 @@ Features:
 
 * change default container location from /var/lib/container to /var/lib/machines
 
-* import pull-gpt: create writable snapshot of downloaded image, by the right name
-
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
 * Port various tools to make use of verbs.[ch], where applicable
@@ -43,17 +41,9 @@ Features:
 
 * "machinectl start/enable/disable foo" as aliases for "systemctl start/enable/disable systemd-nspawn@foo.service"
 
-* "machinectl snapshot" to make a snapshot of a tree or container into /var/lib/containers
-
-* "machinectl rm" to remove a container tree from /var/lib/containers
-
 * "machinectl history"
 
 * "machinectl diff"
-
-* "machinectl read-only"
-
-* show btrfs quota in machinectl
 
 * "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
 
@@ -61,15 +51,7 @@ Features:
 
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
-* systemd-nspawn -M should look for gpt images if neither -D nor -i are specified.
-
-* systemd-nspawn -i should run things read-only if image file has no writable bits
-
 * systemd-nspawn -x should support ephemeral instances of gpt images
-
-* systemd-import pull-gpt should make a read-only download, plus a writable reflinked copy
-
-* machinectl list should show crtimes of snapshots and GPT images
 
 * hostnamectl: show root image uuid
 
