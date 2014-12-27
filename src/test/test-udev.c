@@ -32,6 +32,7 @@
 #include <sys/signalfd.h>
 
 #include "missing.h"
+#include "selinux-util.h"
 #include "udev.h"
 #include "udev-util.h"
 

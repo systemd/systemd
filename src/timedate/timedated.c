@@ -40,6 +40,7 @@
 #include "bus-error.h"
 #include "bus-common-errors.h"
 #include "event-util.h"
+#include "selinux-util.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"

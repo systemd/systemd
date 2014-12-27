@@ -35,7 +35,6 @@
 #include "strv.h"
 #include "util.h"
 #include "path-util.h"
-#include "namespace.h"
 #include "missing.h"
 #include "execute.h"
 #include "loopback-setup.h"
@@ -43,6 +42,8 @@
 #include "dev-setup.h"
 #include "def.h"
 #include "label.h"
+#include "selinux-util.h"
+#include "namespace.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */

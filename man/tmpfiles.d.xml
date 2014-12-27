@@ -168,6 +168,17 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 </varlistentry>
 
                                 <varlistentry>
+                                        <term><varname>v</varname></term>
+                                        <listitem><para>Create a
+                                        subvolume if the path does not
+                                        exist yet and the file system
+                                        supports this (btrfs). Otherwise
+                                        create a normal directory, in
+                                        the same way as
+                                        <varname>d</varname>.</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
                                         <term><varname>p</varname></term>
                                         <term><varname>p+</varname></term>
                                         <listitem><para>Create a named

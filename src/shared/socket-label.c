@@ -35,9 +35,10 @@
 #include "macro.h"
 #include "util.h"
 #include "mkdir.h"
-#include "socket-util.h"
 #include "missing.h"
 #include "label.h"
+#include "selinux-util.h"
+#include "socket-util.h"
 
 int socket_address_listen(
                 const SocketAddress *a,

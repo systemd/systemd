@@ -46,13 +46,14 @@
 #include <sys/inotify.h>
 #include <sys/utsname.h>
 
-#include "udev.h"
-#include "udev-util.h"
-#include "rtnl-util.h"
 #include "sd-daemon.h"
+#include "rtnl-util.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
 #include "fileio.h"
+#include "selinux-util.h"
+#include "udev.h"
+#include "udev-util.h"
 
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;

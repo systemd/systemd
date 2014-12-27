@@ -54,6 +54,8 @@
 #include "specifier.h"
 #include "build.h"
 #include "copy.h"
+#include "selinux-util.h"
+#include "btrfs-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -66,6 +68,7 @@ typedef enum ItemType {
         TRUNCATE_FILE = 'F',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
+        CREATE_SUBVOLUME = 'v',
         CREATE_FIFO = 'p',
         CREATE_SYMLINK = 'L',
         CREATE_CHAR_DEVICE = 'c',
@@ -758,17 +761,27 @@ static int create_item(Item *i) {
 
                 break;
 
-        case TRUNCATE_DIRECTORY:
         case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
+        case CREATE_SUBVOLUME:
 
-                RUN_WITH_UMASK(0000) {
+                RUN_WITH_UMASK(0000)
                         mkdir_parents_label(i->path, 0755);
-                        r = mkdir_label(i->path, i->mode);
+
+                if (i->type == CREATE_SUBVOLUME) {
+                        RUN_WITH_UMASK((~i->mode) & 0777)
+                                r = btrfs_subvol_make(i->path);
+                } else
+                        r = 0;
+
+                if (i->type == CREATE_DIRECTORY || r == -ENOTTY) {
+                        RUN_WITH_UMASK(0000)
+                                r = mkdir_label(i->path, i->mode);
                 }
 
                 if (r < 0) {
                         if (r != -EEXIST)
-                                return log_error_errno(r, "Failed to create directory %s: %m", i->path);
+                                return log_error_errno(r, "Failed to create directory or subvolume %s: %m", i->path);
 
                         if (stat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
@@ -970,6 +983,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_SUBVOLUME:
         case CREATE_FIFO:
         case CREATE_SYMLINK:
         case CREATE_BLOCK_DEVICE:
@@ -1014,6 +1028,7 @@ static int remove_item(Item *i) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_SUBVOLUME:
         case CREATE_FIFO:
         case CREATE_SYMLINK:
         case CREATE_CHAR_DEVICE:
@@ -1091,6 +1106,7 @@ static int clean_item(Item *i) {
 
         switch (i->type) {
         case CREATE_DIRECTORY:
+        case CREATE_SUBVOLUME:
         case TRUNCATE_DIRECTORY:
         case IGNORE_PATH:
         case COPY_FILES:
@@ -1289,6 +1305,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_SUBVOLUME:
         case TRUNCATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
@@ -1429,6 +1446,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         } else
                 i->mode =
                         i->type == CREATE_DIRECTORY ||
+                        i->type == CREATE_SUBVOLUME ||
                         i->type == TRUNCATE_DIRECTORY ? 0755 : 0644;
 
         if (age && !streq(age, "-")) {
@@ -1636,7 +1654,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                         continue;
 
                 HASHMAP_FOREACH(j, items, iter) {
-                        if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY)
+                        if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY && j->type != CREATE_SUBVOLUME)
                                 continue;
 
                         if (path_equal(j->path, i->path)) {

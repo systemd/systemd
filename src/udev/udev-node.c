@@ -31,6 +31,7 @@
 
 #include "udev.h"
 #include "smack-util.h"
+#include "selinux-util.h"
 
 static int node_symlink(struct udev_device *dev, const char *node, const char *slink) {
         struct stat stats;

@@ -39,9 +39,10 @@
 #include "audit.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "logind.h"
 #include "bus-common-errors.h"
 #include "udev-util.h"
+#include "selinux-util.h"
+#include "logind.h"
 
 static int property_get_idle_hint(
                 sd_bus *bus,

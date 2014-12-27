@@ -23,9 +23,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "fileio-label.h"
-#include "label.h"
 #include "util.h"
+#include "selinux-util.h"
+#include "label.h"
+#include "fileio-label.h"
 
 int write_string_file_atomic_label(const char *fn, const char *line) {
         int r;

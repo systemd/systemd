@@ -21,8 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "selinux-util.h"
-#include "smack-util.h"
+#include <stdbool.h>
+#include <sys/types.h>
 
 int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
 

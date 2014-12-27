@@ -39,6 +39,7 @@
 #include "bus-message.h"
 #include "event-util.h"
 #include "locale-util.h"
+#include "selinux-util.h"
 
 #ifdef HAVE_XKBCOMMON
 #include <xkbcommon/xkbcommon.h>

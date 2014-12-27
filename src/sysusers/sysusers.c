@@ -39,6 +39,7 @@
 #include "label.h"
 #include "fileio-label.h"
 #include "uid-range.h"
+#include "selinux-util.h"
 
 typedef enum ItemType {
         ADD_USER = 'u',

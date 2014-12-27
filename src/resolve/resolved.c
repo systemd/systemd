@@ -24,6 +24,7 @@
 #include "mkdir.h"
 #include "label.h"
 #include "capability.h"
+#include "selinux-util.h"
 
 #include "resolved-manager.h"
 #include "resolved-conf.h"

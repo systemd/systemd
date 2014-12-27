@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <getopt.h>
 
+#include "selinux-util.h"
 #include "udev.h"
 
 static int adm_version(struct udev *udev, int argc, char *argv[]) {

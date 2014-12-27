@@ -21,6 +21,7 @@
 
 #include "util.h"
 #include "label.h"
+#include "selinux-util.h"
 
 #define MESSAGE                                                         \
         "This file was created by systemd-update-done. Its only \n"     \
