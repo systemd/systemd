@@ -51,5 +51,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, image_hashmap_free);
 int image_find(const char *name, Image **ret);
 int image_discover(Hashmap *map);
 
+int image_remove(Image *i);
+
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;

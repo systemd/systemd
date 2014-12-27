@@ -1283,6 +1283,34 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
+static int remove_image(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int i;
+
+        assert(bus);
+
+        for (i = 1; i < argc; i++) {
+                int r;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "RemoveImage",
+                                &error,
+                                NULL,
+                                "s", argv[i]);
+                if (r < 0) {
+                        log_error("Could not remove image: %s", bus_error_message(&error, -r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -1316,7 +1344,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "Image Commands:\n"
                "  list-images                 Show available images\n"
                "  image-status NAME...        Show image details\n"
-               "  show-image NAME...          Show properties of image\n",
+               "  show-image NAME...          Show properties of image\n"
+               "  remove NAME...              Remove an image\n",
                program_invocation_short_name);
 
         return 0;
@@ -1452,6 +1481,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "bind",        3,        4,        0,            bind_mount        },
                 { "copy-to",     3,        4,        0,            copy_files        },
                 { "copy-from",   3,        4,        0,            copy_files        },
+                { "remove",      2,        VERB_ANY, 0,            remove_image      },
                 {}
         };
 

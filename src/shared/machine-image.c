@@ -316,6 +316,21 @@ void image_hashmap_free(Hashmap *map) {
         hashmap_free(map);
 }
 
+int image_remove(Image *i) {
+        int r;
+
+        assert(i);
+
+        if (path_equal(i->path, "/") ||
+            path_startswith(i->path, "/usr"))
+                return -EROFS;
+
+        if (i->type == IMAGE_SUBVOLUME)
+                return btrfs_subvol_remove(i->path);
+        else
+                return rm_rf_dangerous(i->path, false, true, false);
+}
+
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",

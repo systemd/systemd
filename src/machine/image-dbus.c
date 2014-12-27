@@ -196,7 +196,6 @@ static int property_get_mtime(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
 
@@ -214,6 +213,29 @@ static int property_get_mtime(
         return 1;
 }
 
+static int method_remove(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
+        if (r < 0)
+                return r;
+
+        r = image_remove(image);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name",                  "s", property_get_name,      0, 0),
@@ -222,6 +244,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("ReadOnly",              "b", property_get_read_only, 0, 0),
         SD_BUS_PROPERTY("CreationTimestamp",     "t", property_get_crtime,    0, 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", property_get_mtime,     0, 0),
+        SD_BUS_METHOD("Remove", NULL, NULL, method_remove, 0),
         SD_BUS_VTABLE_END
 };
 

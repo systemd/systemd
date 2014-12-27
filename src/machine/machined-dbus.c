@@ -551,13 +551,41 @@ static int method_open_machine_login(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         machine = hashmap_get(m->machines, name);
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         return bus_machine_method_open_login(bus, message, machine, error);
+}
+
+static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(image_unrefp) Image* i = NULL;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
+
+        r = image_find(name, &i);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
+
+        r = image_remove(i);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -577,6 +605,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
         SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, 0),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END
