@@ -582,29 +582,23 @@ static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userd
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
-        r = image_remove(i);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_image_method_remove(bus, message, i, error);
 }
 
 static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image* i = NULL;
-        const char *old_name, *new_name;
+        const char *old_name;
         int r;
 
         assert(bus);
         assert(message);
 
-        r = sd_bus_message_read(message, "ss", &old_name, &new_name);
+        r = sd_bus_message_read(message, "s", &old_name);
         if (r < 0)
                 return r;
 
         if (!image_name_is_valid(old_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
-        if (!image_name_is_valid(new_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
         r = image_find(old_name, &i);
         if (r < 0)
@@ -612,27 +606,21 @@ static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userd
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
-        r = image_rename(i, new_name);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_image_method_rename(bus, message, i, error);
 }
 
 static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
-        const char *old_name, *new_name;
-        int read_only, r;
+        const char *old_name;
+        int r;
 
         assert(bus);
-        r = sd_bus_message_read(message, "ssb", &old_name, &new_name, &read_only);
+        r = sd_bus_message_read(message, "s", &old_name);
         if (r < 0)
                 return r;
 
         if (!image_name_is_valid(old_name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
-        if (!image_name_is_valid(new_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
         r = image_find(old_name, &i);
         if (r < 0)
@@ -640,20 +628,16 @@ static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userda
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
-        r = image_clone(i, new_name, read_only);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_image_method_clone(bus, message, i, error);
 }
 
 static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
-        int read_only, r;
+        int r;
 
         assert(bus);
-        r = sd_bus_message_read(message, "sb", &name, &read_only);
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
@@ -666,11 +650,7 @@ static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, voi
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
-        r = image_read_only(i, read_only);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_image_method_mark_read_only(bus, message, i, error);
 }
 
 const sd_bus_vtable manager_vtable[] = {

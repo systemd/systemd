@@ -34,6 +34,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "label.h"
+#include "machine-image.h"
 #include "machined.h"
 
 Manager *manager_new(void) {
@@ -66,6 +67,7 @@ Manager *manager_new(void) {
 
 void manager_free(Manager *m) {
         Machine *machine;
+        Image *i;
 
         assert(m);
 
@@ -75,6 +77,13 @@ void manager_free(Manager *m) {
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
+
+        while ((i = hashmap_steal_first(m->image_cache)))
+                image_unref(i);
+
+        hashmap_free(m->image_cache);
+
+        sd_event_source_unref(m->image_cache_defer_event);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 

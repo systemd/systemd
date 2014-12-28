@@ -22,317 +22,24 @@
 #include "bus-label.h"
 #include "bus-common-errors.h"
 #include "strv.h"
+#include "bus-util.h"
 #include "machine-image.h"
 #include "image-dbus.h"
 
-static int image_find_by_bus_path(const char *path, Image **ret) {
-        _cleanup_free_ char *e = NULL;
-        const char *p;
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
-        assert(path);
-
-        p = startswith(path, "/org/freedesktop/machine1/image/");
-        if (!p)
-                return 0;
-
-        e = bus_label_unescape(p);
-        if (!e)
-                return -ENOMEM;
-
-        return image_find(e, ret);
-}
-
-static int image_find_by_bus_path_with_error(const char *path, Image **ret, sd_bus_error *error) {
-        int r;
-
-        assert(path);
-
-        r = image_find_by_bus_path(path, ret);
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "Image doesn't exist.");
-
-        return r;
-}
-
-static int property_get_name(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "s", image->name);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_path(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "s", image->path);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_type(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "s", image_type_to_string(image->type));
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_read_only(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "b", image->read_only);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_crtime(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->crtime);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_mtime(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->mtime);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_size(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->size);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-
-static int property_get_limit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->limit);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_size_exclusive(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->size_exclusive);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int property_get_limit_exclusive(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_(image_unrefp) Image *image = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = image_find_by_bus_path_with_error(path, &image, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "t", image->limit_exclusive);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int method_remove(
+int bus_image_method_remove(
                 sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(image_unrefp) Image *image = NULL;
+        Image *image = userdata;
         int r;
 
         assert(bus);
         assert(message);
-
-        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
-        if (r < 0)
-                return r;
+        assert(image);
 
         r = image_remove(image);
         if (r < 0)
@@ -341,22 +48,19 @@ static int method_remove(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_rename(
+int bus_image_method_rename(
                 sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(image_unrefp) Image *image = NULL;
+        Image *image = userdata;
         const char *new_name;
         int r;
 
         assert(bus);
         assert(message);
-
-        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
-        if (r < 0)
-                return r;
+        assert(image);
 
         r = sd_bus_message_read(message, "s", &new_name);
         if (r < 0)
@@ -372,22 +76,19 @@ static int method_rename(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_clone(
+int bus_image_method_clone(
                 sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(image_unrefp) Image *image = NULL;
+        Image *image = userdata;
         const char *new_name;
         int r, read_only;
 
         assert(bus);
         assert(message);
-
-        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
-        if (r < 0)
-                return r;
+        assert(image);
 
         r = sd_bus_message_read(message, "sb", &new_name, &read_only);
         if (r < 0)
@@ -403,21 +104,17 @@ static int method_clone(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_mark_read_only(
+int bus_image_method_mark_read_only(
                 sd_bus *bus,
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(image_unrefp) Image *image = NULL;
+        Image *image = userdata;
         int r, read_only;
 
         assert(bus);
         assert(message);
-
-        r = image_find_by_bus_path_with_error(sd_bus_message_get_path(message), &image, error);
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_read(message, "b", &read_only);
         if (r < 0)
@@ -432,24 +129,41 @@ static int method_mark_read_only(
 
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Name",                  "s", property_get_name,            0, 0),
-        SD_BUS_PROPERTY("Path",                  "s", property_get_path,            0, 0),
-        SD_BUS_PROPERTY("Type",                  "s", property_get_type,            0, 0),
-        SD_BUS_PROPERTY("ReadOnly",              "b", property_get_read_only,       0, 0),
-        SD_BUS_PROPERTY("CreationTimestamp",     "t", property_get_crtime,          0, 0),
-        SD_BUS_PROPERTY("ModificationTimestamp", "t", property_get_mtime,           0, 0),
-        SD_BUS_PROPERTY("Size",                  "t", property_get_size,            0, 0),
-        SD_BUS_PROPERTY("Limit",                 "t", property_get_limit,           0, 0),
-        SD_BUS_PROPERTY("SizeExclusive",         "t", property_get_size_exclusive,  0, 0),
-        SD_BUS_PROPERTY("LimitExclusive",        "t", property_get_limit_exclusive, 0, 0),
-        SD_BUS_METHOD("Remove", NULL, NULL, method_remove, 0),
-        SD_BUS_METHOD("Rename", "s", NULL, method_rename, 0),
-        SD_BUS_METHOD("Clone", "sb", NULL, method_clone, 0),
-        SD_BUS_METHOD("MarkeReadOnly", "b", NULL, method_mark_read_only, 0),
+        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
+        SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
+        SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
+        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
+        SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
+        SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
+        SD_BUS_PROPERTY("Size", "t", NULL, offsetof(Image, size), 0),
+        SD_BUS_PROPERTY("Limit", "t", NULL, offsetof(Image, limit), 0),
+        SD_BUS_PROPERTY("SizeExclusive", "t", NULL, offsetof(Image, size_exclusive), 0),
+        SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
+        SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, 0),
+        SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, 0),
+        SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, 0),
+        SD_BUS_METHOD("MarkeReadOnly", "b", NULL, bus_image_method_mark_read_only, 0),
         SD_BUS_VTABLE_END
 };
 
+static int image_flush_cache(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Image *i;
+
+        assert(s);
+        assert(m);
+
+        while ((i = hashmap_steal_first(m->image_cache)))
+                image_unref(i);
+
+        return 0;
+}
+
 int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *e = NULL;
+        Manager *m = userdata;
+        Image *image = NULL;
+        const char *p;
         int r;
 
         assert(bus);
@@ -457,11 +171,49 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
         assert(interface);
         assert(found);
 
-        r = image_find_by_bus_path(path, NULL);
+        p = startswith(path, "/org/freedesktop/machine1/image/");
+        if (!p)
+                return 0;
+
+        e = bus_label_unescape(p);
+        if (!e)
+                return -ENOMEM;
+
+        image = hashmap_get(m->image_cache, e);
+        if (image) {
+                *found = image;
+                return 1;
+        }
+
+        r = hashmap_ensure_allocated(&m->image_cache, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        if (!m->image_cache_defer_event) {
+                r = sd_event_add_defer(m->event, &m->image_cache_defer_event, image_flush_cache, m);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(m->image_cache_defer_event, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_source_set_enabled(m->image_cache_defer_event, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return r;
+
+        r = image_find(e, &image);
         if (r <= 0)
                 return r;
 
-        *found = NULL;
+        r = hashmap_put(m->image_cache, image->name, image);
+        if (r < 0) {
+                image_unref(image);
+                return r;
+        }
+
+        *found = image;
         return 1;
 }
 
