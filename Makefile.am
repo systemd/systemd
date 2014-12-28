@@ -74,7 +74,6 @@ dbussessionservicedir=@dbussessionservicedir@
 dbussystemservicedir=@dbussystemservicedir@
 pamlibdir=@pamlibdir@
 pamconfdir=@pamconfdir@
-pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=@bashcompletiondir@
@@ -1303,7 +1302,7 @@ dist_dbussystemservice_DATA += \
 polkitpolicy_in_in_files += \
 	src/core/org.freedesktop.systemd1.policy.in.in
 
-pkgconfigdata_DATA = \
+pkgconfiglib_DATA += \
 	src/core/systemd.pc
 
 nodist_rpmmacros_DATA = \
@@ -6082,7 +6081,6 @@ EXTRA_DIST += \
 CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
-	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA)
 
