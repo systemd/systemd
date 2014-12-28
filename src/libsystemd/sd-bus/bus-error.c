@@ -265,7 +265,7 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
                 return -ENOMEM;
         }
 
-        /* Of we hit OOM on formatting the pretty message, we ignore
+        /* If we hit OOM on formatting the pretty message, we ignore
          * this, since we at least managed to write the error name */
         if (format)
                 (void) vasprintf((char**) &e->message, format, ap);
