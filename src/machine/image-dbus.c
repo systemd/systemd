@@ -142,7 +142,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, 0),
         SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, 0),
         SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, 0),
-        SD_BUS_METHOD("MarkeReadOnly", "b", NULL, bus_image_method_mark_read_only, 0),
+        SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, 0),
         SD_BUS_VTABLE_END
 };
 
