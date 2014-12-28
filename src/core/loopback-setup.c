@@ -56,30 +56,24 @@ static int start_loopback(sd_rtnl *rtnl) {
         return 0;
 }
 
-static int check_loopback(void) {
+static bool check_loopback(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        unsigned flags;
         int r;
-        _cleanup_close_ int fd = -1;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_in in;
-        } sa = {
-                .in.sin_family = AF_INET,
-                .in.sin_addr.s_addr = htonl(INADDR_LOOPBACK),
-        };
 
-        /* If we failed to set up the loop back device, check whether
-         * it might already be set up */
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, LOOPBACK_IFINDEX);
+        if (r < 0)
+                return r;
 
-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
-        if (fd < 0)
-                return -errno;
+        r = sd_rtnl_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
 
-        if (bind(fd, &sa.sa, sizeof(sa.in)) >= 0)
-                r = 1;
-        else
-                r = errno == EADDRNOTAVAIL ? 0 : -errno;
+        r = sd_rtnl_message_link_get_flags(reply, &flags);
+        if (r < 0)
+                return r;
 
-        return r;
+        return flags & IFF_UP;
 }
 
 int loopback_setup(void) {
@@ -92,7 +86,7 @@ int loopback_setup(void) {
 
         r = start_loopback(rtnl);
         if (r == -EPERM) {
-                if (check_loopback() < 0)
+                if (!check_loopback(rtnl))
                         return log_warning_errno(EPERM, "Failed to configure loopback device: %m");
         } else if (r < 0)
                 return log_warning_errno(r, "Failed to configure loopback device: %m");
