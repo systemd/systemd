@@ -1377,9 +1377,17 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 }
         }
 
-        if (!auth)
+        if (!auth) {
                 /* not from the kernel, ignore */
+                if (peek) {
+                        /* drop the message */
+                        r = recvmsg(fd, &msg, 0);
+                        if (r < 0)
+                                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
+                }
+
                 return 0;
+        }
 
         if (group)
                 *_group = group;
