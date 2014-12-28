@@ -71,6 +71,8 @@ static int image_new(
         i->read_only = read_only;
         i->crtime = crtime;
         i->mtime = mtime;
+        i->size = i->size_exclusive = (uint64_t) -1;
+        i->limit = i->limit_exclusive = (uint64_t) -1;
 
         i->name = strdup(pretty);
         if (!i->name)
@@ -138,6 +140,7 @@ static int image_make(
 
                         if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC)) {
                                 BtrfsSubvolInfo info;
+                                BtrfsQuotaInfo quota;
 
                                 /* It's a btrfs subvolume */
 
@@ -155,6 +158,15 @@ static int image_make(
                                               ret);
                                 if (r < 0)
                                         return r;
+
+                                r = btrfs_subvol_get_quota_fd(fd, &quota);
+                                if (r >= 0) {
+                                        (*ret)->size = quota.referred;
+                                        (*ret)->size_exclusive = quota.exclusive;
+
+                                        (*ret)->limit = quota.referred_max;
+                                        (*ret)->limit_exclusive = quota.exclusive_max;
+                                }
 
                                 return 1;
                         }
@@ -198,6 +210,9 @@ static int image_make(
                               ret);
                 if (r < 0)
                         return r;
+
+                (*ret)->size = (*ret)->size_exclusive = st.st_blocks * 512;
+                (*ret)->limit = (*ret)->limit_exclusive = st.st_size;
 
                 return 1;
         }

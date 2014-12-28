@@ -66,3 +66,26 @@ struct btrfs_root_item {
 } _packed_;
 
 #define BTRFS_ROOT_SUBVOL_RDONLY (1ULL << 0)
+
+struct btrfs_qgroup_info_item {
+        le64_t generation;
+        le64_t rfer;
+        le64_t rfer_cmpr;
+        le64_t excl;
+        le64_t excl_cmpr;
+} _packed_;
+
+#define BTRFS_QGROUP_LIMIT_MAX_RFER     (1ULL << 0)
+#define BTRFS_QGROUP_LIMIT_MAX_EXCL     (1ULL << 1)
+#define BTRFS_QGROUP_LIMIT_RSV_RFER     (1ULL << 2)
+#define BTRFS_QGROUP_LIMIT_RSV_EXCL     (1ULL << 3)
+#define BTRFS_QGROUP_LIMIT_RFER_CMPR    (1ULL << 4)
+#define BTRFS_QGROUP_LIMIT_EXCL_CMPR    (1ULL << 5)
+
+struct btrfs_qgroup_limit_item {
+        le64_t flags;
+        le64_t max_rfer;
+        le64_t max_excl;
+        le64_t rsv_rfer;
+        le64_t rsv_excl;
+} _packed_;

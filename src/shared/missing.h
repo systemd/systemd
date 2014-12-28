@@ -254,8 +254,28 @@ struct btrfs_ioctl_fs_info_args {
 #define BTRFS_FIRST_FREE_OBJECTID 256
 #endif
 
+#ifndef BTRFS_ROOT_TREE_OBJECTID
+#define BTRFS_ROOT_TREE_OBJECTID 1
+#endif
+
+#ifndef BTRFS_QUOTA_TREE_OBJECTID
+#define BTRFS_QUOTA_TREE_OBJECTID 8ULL
+#endif
+
 #ifndef BTRFS_ROOT_ITEM_KEY
 #define BTRFS_ROOT_ITEM_KEY 132
+#endif
+
+#ifndef BTRFS_QGROUP_STATUS_KEY
+#define BTRFS_QGROUP_STATUS_KEY 240
+#endif
+
+#ifndef BTRFS_QGROUP_INFO_KEY
+#define BTRFS_QGROUP_INFO_KEY 242
+#endif
+
+#ifndef BTRFS_QGROUP_LIMIT_KEY
+#define BTRFS_QGROUP_LIMIT_KEY 244
 #endif
 
 #ifndef BTRFS_SUPER_MAGIC

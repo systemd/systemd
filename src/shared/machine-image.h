@@ -40,6 +40,11 @@ typedef struct Image {
 
         usec_t crtime;
         usec_t mtime;
+
+        uint64_t size;
+        uint64_t size_exclusive;
+        uint64_t limit;
+        uint64_t limit_exclusive;
 } Image;
 
 Image *image_unref(Image *i);

@@ -34,6 +34,13 @@ typedef struct BtrfsSubvolInfo {
         bool read_only;
 } BtrfsSubvolInfo;
 
+typedef struct BtrfsQuotaInfo {
+        uint64_t referred;
+        uint64_t exclusive;
+        uint64_t referred_max;
+        uint64_t exclusive_max;
+} BtrfsQuotaInfo;
+
 int btrfs_is_snapshot(int fd);
 
 int btrfs_subvol_make(const char *path);
@@ -45,6 +52,7 @@ int btrfs_subvol_set_read_only(const char *path, bool b);
 int btrfs_subvol_get_read_only_fd(int fd);
 int btrfs_subvol_get_id_fd(int fd, uint64_t *ret);
 int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *info);
+int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *quota);
 
 int btrfs_reflink(int infd, int outfd);
 

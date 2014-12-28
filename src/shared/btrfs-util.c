@@ -341,7 +341,7 @@ int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
 int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *ret) {
         struct btrfs_ioctl_search_args args = {
                 /* Tree of tree roots */
-                .key.tree_id = 1,
+                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
 
                 /* Look precisely for the subvolume items */
                 .key.min_type = BTRFS_ROOT_ITEM_KEY,
@@ -352,14 +352,10 @@ int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *ret) {
                 .key.max_offset = (uint64_t) -1,
                 .key.min_transid = 0,
                 .key.max_transid = (uint64_t) -1,
-
-                /* Some large value */
-                .key.nr_items = 2,
         };
 
-        struct btrfs_ioctl_search_header *sh;
-        struct btrfs_root_item *ri;
         uint64_t subvol_id;
+        bool found = false;
         int r;
 
         assert(fd >= 0);
@@ -370,30 +366,168 @@ int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *ret) {
                 return r;
 
         args.key.min_objectid = args.key.max_objectid = subvol_id;
-        if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
-                return -errno;
 
-        if (args.key.nr_items != 1)
-                return -EIO;
+        for (;;) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
 
-        sh = (struct btrfs_ioctl_search_header*) args.buf;
-        assert(sh->type == BTRFS_ROOT_ITEM_KEY);
-        assert(sh->objectid == subvol_id);
+                args.key.nr_items = 256;
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                        return -errno;
 
-        if (sh->len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
-                return -ENOTSUP;
+                if (args.key.nr_items <= 0)
+                        break;
 
-        ri = (struct btrfs_root_item *)(args.buf + sizeof(struct btrfs_ioctl_search_header));
+                for (i = 0,
+                     sh = (const struct btrfs_ioctl_search_header*) args.buf;
+                     i < args.key.nr_items;
+                     i++,
+                     args.key.min_type = sh->type,
+                     args.key.min_offset = sh->offset,
+                     args.key.min_objectid = sh->objectid,
+                     sh = (const struct btrfs_ioctl_search_header*) ((uint8_t*) sh + sizeof(struct btrfs_ioctl_search_header) + sh->len)) {
 
-        ret->otime = (usec_t) le64toh(ri->otime.sec) * USEC_PER_SEC +
-                     (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
+                        const struct btrfs_root_item *ri;
 
-        ret->subvol_id = subvol_id;
-        ret->read_only = !!(le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY);
+                        if (sh->objectid != subvol_id)
+                                continue;
+                        if (sh->type != BTRFS_ROOT_ITEM_KEY)
+                                continue;
+                        if (sh->len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
+                                continue;
 
-        assert_cc(sizeof(ri->uuid) == sizeof(ret->uuid));
-        memcpy(&ret->uuid, ri->uuid, sizeof(ret->uuid));
-        memcpy(&ret->parent_uuid, ri->parent_uuid, sizeof(ret->parent_uuid));
+                        ri = (const struct btrfs_root_item *)(args.buf + sizeof(struct btrfs_ioctl_search_header));
+
+                        ret->otime = (usec_t) le64toh(ri->otime.sec) * USEC_PER_SEC +
+                                (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
+
+                        ret->subvol_id = subvol_id;
+                        ret->read_only = !!(le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY);
+
+                        assert_cc(sizeof(ri->uuid) == sizeof(ret->uuid));
+                        memcpy(&ret->uuid, ri->uuid, sizeof(ret->uuid));
+                        memcpy(&ret->parent_uuid, ri->parent_uuid, sizeof(ret->parent_uuid));
+
+                        found = true;
+                        goto finish;
+                }
+
+                args.key.min_offset++;
+                if (!args.key.min_offset) /* overflow */
+                        break;
+        }
+
+finish:
+        if (!found)
+                return -ENODATA;
+
+        return 0;
+}
+
+int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *ret) {
+
+        struct btrfs_ioctl_search_args args = {
+                /* Tree of quota items */
+                .key.tree_id = BTRFS_QUOTA_TREE_OBJECTID,
+
+                /* Look precisely for the quota items */
+                .key.min_type = BTRFS_QGROUP_STATUS_KEY,
+                .key.max_type = BTRFS_QGROUP_LIMIT_KEY,
+
+                .key.min_objectid = 0,
+                .key.max_objectid = 0,
+
+                /* No restrictions on the other components */
+                .key.min_transid = 0,
+                .key.max_transid = (uint64_t) -1,
+        };
+
+        uint64_t subvol_id;
+        bool found_info = false, found_limit = false;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = btrfs_subvol_get_id_fd(fd, &subvol_id);
+        if (r < 0)
+                return r;
+
+        args.key.min_offset = args.key.max_offset = subvol_id;
+
+        for (;;) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
+
+                args.key.nr_items = 256;
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                        return -errno;
+
+                if (args.key.nr_items <= 0)
+                        break;
+
+                for (i = 0,
+                     sh = (const struct btrfs_ioctl_search_header*) args.buf;
+                     i < args.key.nr_items;
+                     i++,
+                     args.key.min_type = sh->type,
+                     args.key.min_offset = sh->offset,
+                     args.key.min_objectid = sh->objectid,
+                     sh = (const struct btrfs_ioctl_search_header*) ((uint8_t*) sh + sizeof(struct btrfs_ioctl_search_header) + sh->len)) {
+
+                        const void *body;
+
+                        if (sh->objectid != 0)
+                                continue;
+                        if (sh->offset != subvol_id)
+                                continue;
+
+                        body = (uint8_t*) sh + sizeof(struct btrfs_ioctl_search_header);
+
+                        if (sh->type == BTRFS_QGROUP_INFO_KEY) {
+                                const struct btrfs_qgroup_info_item *qii = body;
+
+                                ret->referred = le64toh(qii->rfer);
+                                ret->exclusive = le64toh(qii->excl);
+
+                                found_info = true;
+
+                        } else if (sh->type == BTRFS_QGROUP_LIMIT_KEY) {
+                                const struct btrfs_qgroup_limit_item *qli = body;
+
+                                ret->referred_max = le64toh(qli->max_rfer);
+                                ret->exclusive_max = le64toh(qli->max_excl);
+
+                                if (ret->referred_max == 0)
+                                        ret->referred_max = (uint64_t) -1;
+                                if (ret->exclusive_max == 0)
+                                        ret->exclusive_max = (uint64_t) -1;
+
+                                found_limit = true;
+                        }
+
+                        if (found_info && found_limit)
+                                goto finish;
+                }
+
+                args.key.min_offset++;
+                if (!args.key.min_offset)
+                        break;
+        }
+
+finish:
+        if (!found_limit && !found_info)
+                return -ENODATA;
+
+        if (!found_info) {
+                ret->referred = (uint64_t) -1;
+                ret->exclusive = (uint64_t) -1;
+        }
+
+        if (!found_limit) {
+                ret->referred_max = (uint64_t) -1;
+                ret->exclusive_max = (uint64_t) -1;
+        }
 
         return 0;
 }

@@ -36,7 +36,8 @@ int main(int argc, char *argv[]) {
                 log_error_errno(errno, "Failed to open root directory: %m");
         else {
                 BtrfsSubvolInfo info;
-                char ts[FORMAT_TIMESTAMP_MAX];
+                BtrfsQuotaInfo quota;
+                char ts[FORMAT_TIMESTAMP_MAX], bs[FORMAT_BYTES_MAX];
 
                 r = btrfs_subvol_get_info_fd(fd, &info);
                 if (r < 0)
@@ -44,6 +45,16 @@ int main(int argc, char *argv[]) {
                 else {
                         log_info("otime: %s", format_timestamp(ts, sizeof(ts), info.otime));
                         log_info("read-only (search): %s", yes_no(info.read_only));
+                }
+
+                r = btrfs_subvol_get_quota_fd(fd, &quota);
+                if (r < 0)
+                        log_error_errno(r, "Failed to get quota info: %m");
+                else {
+                        log_info("referred: %s", strna(format_bytes(bs, sizeof(bs), quota.referred)));
+                        log_info("exclusive: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive)));
+                        log_info("referred_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referred_max)));
+                        log_info("exclusive_max: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive_max)));
                 }
 
                 r = btrfs_subvol_get_read_only_fd(fd);

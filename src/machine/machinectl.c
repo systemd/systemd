@@ -131,6 +131,7 @@ typedef struct ImageInfo {
         bool read_only;
         usec_t crtime;
         usec_t mtime;
+        uint64_t size;
 } ImageInfo;
 
 static int compare_image_info(const void *a, const void *b) {
@@ -142,13 +143,13 @@ static int compare_image_info(const void *a, const void *b) {
 static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
+        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("SIZE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
         const char *name, *type, *object;
         sd_bus *bus = userdata;
-        uint64_t crtime, mtime;
+        uint64_t crtime, mtime, size;
         int read_only, r;
 
         assert(bus);
@@ -169,12 +170,12 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssbtto)");
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssbttto)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ssbtto)", &name, &type, &read_only, &crtime, &mtime, &object)) > 0) {
-                char buf[FORMAT_TIMESTAMP_MAX];
+        while ((r = sd_bus_message_read(reply, "(ssbttto)", &name, &type, &read_only, &crtime, &mtime, &size, &object)) > 0) {
+                char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_BYTES_MAX)];
                 size_t l;
 
                 if (name[0] == '.' && !arg_all)
@@ -188,6 +189,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 images[n_images].read_only = read_only;
                 images[n_images].crtime = crtime;
                 images[n_images].mtime = mtime;
+                images[n_images].size = size;
 
                 l = strlen(name);
                 if (l > max_name)
@@ -198,15 +200,21 @@ static int list_images(int argc, char *argv[], void *userdata) {
                         max_type = l;
 
                 if (crtime != 0) {
-                        l = strlen(format_timestamp(buf, sizeof(buf), crtime));
+                        l = strlen(strna(format_timestamp(buf, sizeof(buf), crtime)));
                         if (l > max_crtime)
                                 max_crtime = l;
                 }
 
                 if (mtime != 0) {
-                        l = strlen(format_timestamp(buf, sizeof(buf), mtime));
+                        l = strlen(strna(format_timestamp(buf, sizeof(buf), mtime)));
                         if (l > max_mtime)
                                 max_mtime = l;
+                }
+
+                if (size != (uint64_t) -1) {
+                        l = strlen(strna(format_bytes(buf, sizeof(buf), size)));
+                        if (l > max_size)
+                                max_size = l;
                 }
 
                 n_images++;
@@ -221,22 +229,24 @@ static int list_images(int argc, char *argv[], void *userdata) {
         qsort_safe(images, n_images, sizeof(ImageInfo), compare_image_info);
 
         if (arg_legend)
-                printf("%-*s %-*s %-3s %-*s %-*s\n",
+                printf("%-*s %-*s %-3s %-*s %-*s %-*s\n",
                        (int) max_name, "NAME",
                        (int) max_type, "TYPE",
                        "RO",
+                       (int) max_size, "SIZE",
                        (int) max_crtime, "CREATED",
                        (int) max_mtime, "MODIFIED");
 
         for (j = 0; j < n_images; j++) {
-                char crtime_buf[FORMAT_TIMESTAMP_MAX], mtime_buf[FORMAT_TIMESTAMP_MAX];
+                char crtime_buf[FORMAT_TIMESTAMP_MAX], mtime_buf[FORMAT_TIMESTAMP_MAX], size_buf[FORMAT_BYTES_MAX];
 
-                printf("%-*s %-*s %s%-3s%s %-*s %-*s\n",
+                printf("%-*s %-*s %s%-3s%s %-*s %-*s %-*s\n",
                        (int) max_name, images[j].name,
                        (int) max_type, images[j].type,
                        images[j].read_only ? ansi_highlight_red() : "", yes_no(images[j].read_only), images[j].read_only ? ansi_highlight_off() : "",
-                       (int) max_crtime, images[j].crtime != 0 ? format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime) : "-",
-                       (int) max_mtime, images[j].mtime != 0 ? format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime) : "-");
+                       (int) max_size, strna(format_bytes(size_buf, sizeof(size_buf), images[j].size)),
+                       (int) max_crtime, strna(format_timestamp(crtime_buf, sizeof(crtime_buf), images[j].crtime)),
+                       (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
         }
 
         if (r < 0)
@@ -651,11 +661,17 @@ typedef struct ImageStatusInfo {
         int read_only;
         usec_t crtime;
         usec_t mtime;
+        uint64_t size;
+        uint64_t limit;
+        uint64_t size_exclusive;
+        uint64_t limit_exclusive;
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char ts_absolute[FORMAT_TIMESTAMP_MAX], *s2;
+        char bs[FORMAT_BYTES_MAX], *s3;
+        char bs_exclusive[FORMAT_BYTES_MAX], *s4;
 
         assert(bus);
         assert(i);
@@ -678,28 +694,46 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
 
         s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->crtime);
         s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->crtime);
-        if (s1)
+        if (s1 && s2)
                 printf("\t Created: %s; %s\n", s2, s1);
         else if (s2)
                 printf("\t Created: %s\n", s2);
 
         s1 = format_timestamp_relative(ts_relative, sizeof(ts_relative), i->mtime);
         s2 = format_timestamp(ts_absolute, sizeof(ts_absolute), i->mtime);
-        if (s1)
+        if (s1 && s2)
                 printf("\tModified: %s; %s\n", s2, s1);
         else if (s2)
                 printf("\tModified: %s\n", s2);
+
+        s3 = format_bytes(bs, sizeof(bs), i->size);
+        s4 = i->size_exclusive != i->size ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->size_exclusive) : NULL;
+        if (s3 && s4)
+                printf("\t    Size: %s (exclusive: %s)\n", s3, s4);
+        else if (s3)
+                printf("\t    Size: %s\n", s3);
+
+        s3 = format_bytes(bs, sizeof(bs), i->limit);
+        s4 = i->limit_exclusive != i->limit ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->limit_exclusive) : NULL;
+        if (s3 && s4)
+                printf("\t   Limit: %s (exclusive: %s)\n", s3, s4);
+        else if (s3)
+                printf("\t   Limit: %s\n", s3);
 }
 
 static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Name",                  "s",  NULL, offsetof(ImageStatusInfo, name)      },
-                { "Path",                  "s",  NULL, offsetof(ImageStatusInfo, path)      },
-                { "Type",                  "s",  NULL, offsetof(ImageStatusInfo, type)      },
-                { "ReadOnly",              "b",  NULL, offsetof(ImageStatusInfo, read_only) },
-                { "CreationTimestamp",     "t",  NULL, offsetof(ImageStatusInfo, crtime)    },
-                { "ModificationTimestamp", "t",  NULL, offsetof(ImageStatusInfo, mtime)     },
+                { "Name",                  "s",  NULL, offsetof(ImageStatusInfo, name)            },
+                { "Path",                  "s",  NULL, offsetof(ImageStatusInfo, path)            },
+                { "Type",                  "s",  NULL, offsetof(ImageStatusInfo, type)            },
+                { "ReadOnly",              "b",  NULL, offsetof(ImageStatusInfo, read_only)       },
+                { "CreationTimestamp",     "t",  NULL, offsetof(ImageStatusInfo, crtime)          },
+                { "ModificationTimestamp", "t",  NULL, offsetof(ImageStatusInfo, mtime)           },
+                { "Size",                  "t",  NULL, offsetof(ImageStatusInfo, size)            },
+                { "Limit",                 "t",  NULL, offsetof(ImageStatusInfo, limit)           },
+                { "SizeExclusive",         "t",  NULL, offsetof(ImageStatusInfo, size_exclusive)  },
+                { "LimitExclusive",        "t",  NULL, offsetof(ImageStatusInfo, limit_exclusive) },
                 {}
         };
 
