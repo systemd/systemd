@@ -5184,6 +5184,9 @@ char *format_bytes(char *buf, size_t l, off_t t) {
                 { "K", 1024ULL },
         };
 
+        if (t == (off_t) -1)
+                return NULL;
+
         for (i = 0; i < ELEMENTSOF(table); i++) {
 
                 if (t >= table[i].factor) {
