@@ -701,6 +701,8 @@ int sd_rtnl_call(sd_rtnl *rtnl,
                 r = rtnl_poll(rtnl, true, left);
                 if (r < 0)
                         return r;
+                else if (r == 0)
+                        return -ETIMEDOUT;
 
                 r = dispatch_wqueue(rtnl);
                 if (r < 0)
