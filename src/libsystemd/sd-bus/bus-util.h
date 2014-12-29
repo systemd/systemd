@@ -201,3 +201,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
 int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment);
+
+typedef struct BusWaitForJobs BusWaitForJobs;
+
+int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
+void bus_wait_for_jobs_free(BusWaitForJobs *d);
+int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
+int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);

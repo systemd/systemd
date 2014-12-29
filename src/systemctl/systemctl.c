@@ -2406,197 +2406,6 @@ static int unit_find_paths(sd_bus *bus,
         return r;
 }
 
-typedef struct WaitData {
-        Set *set;
-
-        char *name;
-        char *result;
-} WaitData;
-
-static int wait_filter(sd_bus *bus, sd_bus_message *m, void *data, sd_bus_error *error) {
-        WaitData *d = data;
-
-        assert(bus);
-        assert(m);
-        assert(d);
-
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  sd_bus_message_get_interface(m),
-                  sd_bus_message_get_member(m),
-                  sd_bus_message_get_path(m));
-
-        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected")) {
-                log_error("Warning! D-Bus connection terminated.");
-                sd_bus_close(bus);
-        } else if (sd_bus_message_is_signal(m, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
-                uint32_t id;
-                const char *path, *result, *unit;
-                char *ret;
-                int r;
-
-                r = sd_bus_message_read(m, "uoss", &id, &path, &unit, &result);
-                if (r >= 0) {
-                        ret = set_remove(d->set, (char*) path);
-                        if (!ret)
-                                return 0;
-
-                        free(ret);
-
-                        if (!isempty(result))
-                                d->result = strdup(result);
-
-                        if (!isempty(unit))
-                                d->name = strdup(unit);
-
-                        return 0;
-                }
-#ifndef NOLEGACY
-                r = sd_bus_message_read(m, "uos", &id, &path, &result);
-                if (r >= 0) {
-                        ret = set_remove(d->set, (char*) path);
-                        if (!ret)
-                                return 0;
-
-                        free(ret);
-
-                        if (*result)
-                                d->result = strdup(result);
-
-                        return 0;
-                }
-#endif
-
-                bus_log_parse_error(r);
-        }
-
-        return 0;
-}
-
-static int enable_wait_for_jobs(sd_bus *bus) {
-        int r;
-
-        assert(bus);
-
-        r = sd_bus_add_match(
-                        bus,
-                        NULL,
-                        "type='signal',"
-                        "sender='org.freedesktop.systemd1',"
-                        "interface='org.freedesktop.systemd1.Manager',"
-                        "member='JobRemoved',"
-                        "path='/org/freedesktop/systemd1'",
-                        NULL, NULL);
-        if (r < 0) {
-                log_error("Failed to add match");
-                return -EIO;
-        }
-
-        /* This is slightly dirty, since we don't undo the match registrations. */
-        return 0;
-}
-
-static int bus_process_wait(sd_bus *bus) {
-        int r;
-
-        for (;;) {
-                r = sd_bus_process(bus, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0;
-                r = sd_bus_wait(bus, (uint64_t) -1);
-                if (r < 0)
-                        return r;
-        }
-}
-
-static int check_wait_response(WaitData *d) {
-        int r = 0;
-
-        assert(d->result);
-
-        if (!arg_quiet) {
-                if (streq(d->result, "canceled"))
-                        log_error("Job for %s canceled.", strna(d->name));
-                else if (streq(d->result, "timeout"))
-                        log_error("Job for %s timed out.", strna(d->name));
-                else if (streq(d->result, "dependency"))
-                        log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
-                else if (streq(d->result, "invalid"))
-                        log_error("Job for %s invalid.", strna(d->name));
-                else if (streq(d->result, "assert"))
-                        log_error("Assertion failed on job for %s.", strna(d->name));
-                else if (streq(d->result, "unsupported"))
-                        log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
-                else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
-                        if (d->name) {
-                                bool quotes;
-
-                                quotes = chars_intersect(d->name, SHELL_NEED_QUOTES);
-
-                                log_error("Job for %s failed. See \"systemctl status %s%s%s\" and \"journalctl -xe\" for details.",
-                                          d->name,
-                                          quotes ? "'" : "", d->name, quotes ? "'" : "");
-                        } else
-                                log_error("Job failed. See \"journalctl -xe\" for details.");
-                }
-        }
-
-        if (streq(d->result, "canceled"))
-                r = -ECANCELED;
-        else if (streq(d->result, "timeout"))
-                r = -ETIME;
-        else if (streq(d->result, "dependency"))
-                r = -EIO;
-        else if (streq(d->result, "invalid"))
-                r = -ENOEXEC;
-        else if (streq(d->result, "assert"))
-                r = -EPROTO;
-        else if (streq(d->result, "unsupported"))
-                r = -ENOTSUP;
-        else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
-                r = -EIO;
-
-        return r;
-}
-
-static int wait_for_jobs(sd_bus *bus, Set *s) {
-        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
-        WaitData d = { .set = s };
-        int r = 0, q;
-
-        assert(bus);
-        assert(s);
-
-        q = sd_bus_add_filter(bus, &slot, wait_filter, &d);
-        if (q < 0)
-                return log_oom();
-
-        while (!set_isempty(s)) {
-                q = bus_process_wait(bus);
-                if (q < 0)
-                        return log_error_errno(q, "Failed to wait for response: %m");
-
-                if (d.result) {
-                        q = check_wait_response(&d);
-                        /* Return the first error as it is most likely to be
-                         * meaningful. */
-                        if (q < 0 && r == 0)
-                                r = q;
-                        log_debug("Got result %s/%s for job %s",
-                                  strna(d.result), strerror(-q), strna(d.name));
-                }
-
-                free(d.name);
-                d.name = NULL;
-
-                free(d.result);
-                d.result = NULL;
-        }
-
-        return r;
-}
-
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *n = NULL, *state = NULL;
@@ -2761,7 +2570,7 @@ static int start_unit_one(
                 const char *name,
                 const char *mode,
                 sd_bus_error *error,
-                Set *s) {
+                BusWaitForJobs *w) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         const char *path;
@@ -2814,15 +2623,9 @@ static int start_unit_one(
         if (need_daemon_reload(bus, name) > 0)
                 warn_unit_file_changed(name);
 
-        if (s) {
-                char *p;
-
-                p = strdup(path);
-                if (!p)
-                        return log_oom();
-
-                log_debug("Adding %s to the set", p);
-                r = set_consume(s, p);
+        if (w) {
+                log_debug("Adding %s to the set", path);
+                r = bus_wait_for_jobs_add(w, path);
                 if (r < 0)
                         return log_oom();
         }
@@ -2911,9 +2714,9 @@ static enum action verb_to_action(const char *verb) {
 }
 
 static int start_unit(sd_bus *bus, char **args) {
-        _cleanup_set_free_free_ Set *s = NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *mode, *one_name, *suffix = NULL;
+        _cleanup_strv_free_ char **names = NULL;
         char **name;
         int r = 0;
 
@@ -2952,20 +2755,16 @@ static int start_unit(sd_bus *bus, char **args) {
         }
 
         if (!arg_no_block) {
-                r = enable_wait_for_jobs(bus);
+                r = bus_wait_for_jobs_new(bus, &w);
                 if (r < 0)
                         return log_error_errno(r, "Could not watch jobs: %m");
-
-                s = set_new(&string_hash_ops);
-                if (!s)
-                        return log_oom();
         }
 
         STRV_FOREACH(name, names) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
-                q = start_unit_one(bus, method, *name, mode, &error, s);
+                q = start_unit_one(bus, method, *name, mode, &error, w);
                 if (r >= 0 && q < 0)
                         r = translate_bus_error_to_exit_status(q, &error);
         }
@@ -2973,7 +2772,7 @@ static int start_unit(sd_bus *bus, char **args) {
         if (!arg_no_block) {
                 int q;
 
-                q = wait_for_jobs(bus, s);
+                q = bus_wait_for_jobs(w, arg_quiet);
                 if (q < 0)
                         return q;
 
