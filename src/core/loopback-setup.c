@@ -63,15 +63,15 @@ static bool check_loopback(sd_rtnl *rtnl) {
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, LOOPBACK_IFINDEX);
         if (r < 0)
-                return r;
+                return false;
 
         r = sd_rtnl_call(rtnl, req, 0, &reply);
         if (r < 0)
-                return r;
+                return false;
 
         r = sd_rtnl_message_link_get_flags(reply, &flags);
         if (r < 0)
-                return r;
+                return false;
 
         return flags & IFF_UP;
 }
