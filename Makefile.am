@@ -549,6 +549,7 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
+	units/machines.target \
 	units/systemd-update-done.service
 
 if HAVE_UTMP

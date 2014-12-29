@@ -6,11 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Container %i
+Description=Container %I
 Documentation=man:systemd-nspawn(1)
+PartOf=machines.target
+Before=machines.target
 
 [Service]
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --directory=/var/lib/container/%i
+ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --machine=%I
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
@@ -18,4 +20,4 @@ SuccessExitStatus=133
 Delegate=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=machines.target
