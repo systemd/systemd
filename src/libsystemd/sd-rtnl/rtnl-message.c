@@ -1348,8 +1348,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 /* no data */
                 if (errno == ENOBUFS)
                         log_debug("rtnl: kernel receive buffer overrun");
+                else if (errno == EAGAIN)
+                        log_debug("rtnl: no data in socket");
 
-                return (errno == EAGAIN) ? 0 : -errno;
+                return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
         } else if (r == 0)
                 /* connection was closed by the kernel */
                 return -ECONNRESET;
