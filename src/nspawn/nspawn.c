@@ -3132,10 +3132,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Container running.");
-
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
@@ -3517,7 +3513,11 @@ int main(int argc, char *argv[]) {
                         /* Notify the child that the parent is ready with all
                          * its setup, and that the child can now hand over
                          * control to the code to run inside the container. */
-                        (void)barrier_place(&barrier);
+                        (void) barrier_place(&barrier);
+
+                        sd_notify(false,
+                                  "READY=1\n"
+                                  "STATUS=Container running.");
 
                         r = sd_event_new(&event);
                         if (r < 0) {
