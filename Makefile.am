@@ -5053,6 +5053,7 @@ libsystemd_machine_core_la_SOURCES = \
 	src/machine/machine.h \
 	src/machine/machined-dbus.c \
 	src/machine/machine-dbus.c \
+	src/machine/machine-dbus.h \
 	src/machine/image-dbus.c \
 	src/machine/image-dbus.h
 
