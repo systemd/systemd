@@ -166,7 +166,7 @@ bluetooth:v0035*
  ID_VENDOR_FROM_DATABASE=Eclipse (HQ Espana) S.L.
 
 bluetooth:v0036*
- ID_VENDOR_FROM_DATABASE=Renesas Technology Corp.
+ ID_VENDOR_FROM_DATABASE=Renesas Electronics Corporation
 
 bluetooth:v0037*
  ID_VENDOR_FROM_DATABASE=Mobilian Corporation
@@ -1301,3 +1301,27 @@ bluetooth:v01AE*
 
 bluetooth:v01AF*
  ID_VENDOR_FROM_DATABASE=Sunrise Micro Devices, Inc.
+
+bluetooth:v01B0*
+ ID_VENDOR_FROM_DATABASE=Star Micronics Co., Ltd.
+
+bluetooth:v01B1*
+ ID_VENDOR_FROM_DATABASE=Netizens Sp. z o.o.
+
+bluetooth:v01B2*
+ ID_VENDOR_FROM_DATABASE=Nymi Inc.
+
+bluetooth:v01B3*
+ ID_VENDOR_FROM_DATABASE=Nytec, Inc.
+
+bluetooth:v01B4*
+ ID_VENDOR_FROM_DATABASE=Trineo Sp. z o.o.
+
+bluetooth:v01B5*
+ ID_VENDOR_FROM_DATABASE=Nest Labs Inc.
+
+bluetooth:v01B6*
+ ID_VENDOR_FROM_DATABASE=LM Technologies Ltd
+
+bluetooth:v01B7*
+ ID_VENDOR_FROM_DATABASE=General Electric Company
