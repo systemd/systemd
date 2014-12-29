@@ -354,8 +354,6 @@ static int method_register_machine_internal(sd_bus *bus, sd_bus_message *message
                 goto fail;
         }
 
-        m->registered = true;
-
         r = machine_start(m, NULL, error);
         if (r < 0)
                 goto fail;

@@ -406,12 +406,10 @@ static int machine_stop_scope(Machine *m) {
         if (!m->unit)
                 return 0;
 
-        if (!m->registered) {
-                r = manager_stop_unit(m->manager, m->unit, &error, &job);
-                if (r < 0) {
-                        log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
-                        return r;
-                }
+        r = manager_stop_unit(m->manager, m->unit, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
+                return r;
         }
 
         free(m->scope_job);
