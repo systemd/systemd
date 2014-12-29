@@ -9,7 +9,7 @@
 Description=Graphical Interface
 Documentation=man:systemd.special(7)
 Requires=multi-user.target
-After=multi-user.target
-Conflicts=rescue.target
 Wants=display-manager.service
+Conflicts=rescue.service rescue.target
+After=multi-user.target rescue.service rescue.target display-manager.service
 AllowIsolate=yes
