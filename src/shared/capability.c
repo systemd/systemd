@@ -54,11 +54,25 @@ int have_effective_cap(int value) {
 unsigned long cap_last_cap(void) {
         static thread_local unsigned long saved;
         static thread_local bool valid = false;
+        _cleanup_free_ char *content = NULL;
         unsigned long p;
+        int r;
 
         if (valid)
                 return saved;
 
+        /* available since linux-3.2 */
+        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        if (r >= 0) {
+                r = safe_atolu(content, &p);
+                if (r >= 0) {
+                        saved = p;
+                        valid = true;
+                        return p;
+                }
+        }
+
+        /* fall back to syscall-probing for pre linux-3.2 */
         p = (unsigned long) CAP_LAST_CAP;
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {

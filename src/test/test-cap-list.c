@@ -21,10 +21,13 @@
 
 #include "util.h"
 #include "log.h"
+#include "fileio.h"
 #include "cap-list.h"
 #include "capability.h"
+#include <sys/prctl.h>
 
-int main(int argc, char *argv[]) {
+/* verify the capability parser */
+static void test_cap_list(void) {
         int i;
 
         assert_se(!capability_to_name(-1));
@@ -64,6 +67,45 @@ int main(int argc, char *argv[]) {
 
                 assert_se(strcasecmp(a, b) == 0);
         }
+}
+
+/* verify cap_last_cap() against /proc/sys/kernel/cap_last_cap */
+static void test_last_cap_file(void) {
+        _cleanup_free_ char *content = NULL;
+        unsigned long val = 0;
+        int r;
+
+        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        assert_se(r >= 0);
+
+        r = safe_atolu(content, &val);
+        assert_se(r >= 0);
+        assert_se(val != 0);
+        assert_se(val == cap_last_cap());
+}
+
+/* verify cap_last_cap() against syscall probing */
+static void test_last_cap_probe(void) {
+        unsigned long p = (unsigned long)CAP_LAST_CAP;
+
+        if (prctl(PR_CAPBSET_READ, p) < 0) {
+                for (p--; p > 0; p --)
+                        if (prctl(PR_CAPBSET_READ, p) >= 0)
+                                break;
+        } else {
+                for (;; p++)
+                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                                break;
+        }
+
+        assert_se(p != 0);
+        assert_se(p == cap_last_cap());
+}
+
+int main(int argc, char *argv[]) {
+        test_cap_list();
+        test_last_cap_file();
+        test_last_cap_probe();
 
         return 0;
 }
