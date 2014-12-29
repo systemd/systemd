@@ -1112,7 +1112,7 @@ static void test_usr(void) {
 static int initialize_join_controllers(void) {
         /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
          * + "net_prio". We'd like to add "cpuset" to the mix, but
-         * "cpuset" does't really work for groups with no initialized
+         * "cpuset" doesn't really work for groups with no initialized
          * attributes. */
 
         arg_join_controllers = new(char**, 3);

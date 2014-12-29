@@ -139,8 +139,8 @@ static int test_pppoe_server(sd_event *e) {
                        "-I", "pppoe-server",
                        "-C", "Test-AC",
                        "-S", "Service-Default",
-                       "-S", "Service-First-Auxillary",
-                       "-S", "Service-Second-Auxillary",
+                       "-S", "Service-First-Auxiliary",
+                       "-S", "Service-Second-Auxiliary",
                        NULL);
                 assert_not_reached("failed to execute pppoe-server. not installed?");
         }

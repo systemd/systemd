@@ -1021,7 +1021,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                 }
 
                 if (granted) {
-                        /* Then check whether us (the recipient) can recieve from the sender's name */
+                        /* Then check whether us (the recipient) can receive from the sender's name */
                         if (strv_isempty(sender_names)) {
                                 if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
                                         return 0;

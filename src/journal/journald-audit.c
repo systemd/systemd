@@ -206,7 +206,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         return r;
 }
 
-/* Kernel fields are those occuring in the audit string before
+/* Kernel fields are those occurring in the audit string before
  * msg='. All of these fields are trusted, hence carry the "_" prefix.
  * We try to translate the fields we know into our native names. The
  * other's are generically mapped to _AUDIT_FIELD_XYZ= */
@@ -240,7 +240,7 @@ static const MapField map_fields_kernel[] = {
         {}
 };
 
-/* Userspace fields are thos occuring in the audit string after
+/* Userspace fields are those occurring in the audit string after
  * msg='. All of these fields are untrusted, hence carry no "_"
  * prefix. We map the fields we don't know to AUDIT_FIELD_XYZ= */
 static const MapField map_fields_userspace[] = {

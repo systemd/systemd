@@ -94,7 +94,7 @@ typedef struct unifont_glyph_header unifont_glyph_header;
  *      +-----------------------------------+
  *
  *  * The first byte specifies the width of the glyph. If it is 0, the glyph
- *    must be treated as non-existant.
+ *    must be treated as non-existent.
  *    All glyphs are "8*n" pixels wide and "16" pixels high. The width-field
  *    specifies the width multiplier "n".
  *  * After the width field padding might be added. This depends on the global

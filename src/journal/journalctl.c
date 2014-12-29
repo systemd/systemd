@@ -1691,7 +1691,7 @@ static int flush_to_var(void) {
                         break;
 
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to check for existance of /run/systemd/journal/flushed: %m");
+                        return log_error_errno(errno, "Failed to check for existence of /run/systemd/journal/flushed: %m");
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
                 if (r < 0)

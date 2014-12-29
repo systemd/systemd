@@ -54,7 +54,7 @@
                 <title>Description</title>
 
                 <para><filename>systemd-machine-id-commit.service</filename> is
-                a service responsible for commiting any transient
+                a service responsible for committing any transient
                 <filename>/etc/machine-id</filename> file to a writable file
                 system. See
                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>

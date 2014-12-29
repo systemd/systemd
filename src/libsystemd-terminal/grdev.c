@@ -708,7 +708,7 @@ void grdev_pipe_ready(grdev_pipe *pipe, bool running) {
 
         /* grdev_pipe_ready() is used by backends to notify about pipe state
          * changed. If a pipe is ready, it can be fully used by us (available,
-         * enabled and accessable). Backends can disable pipes at any time
+         * enabled and accessible). Backends can disable pipes at any time
          * (like for async revocation), but can only enable them from parent
          * context. Otherwise, we might call user-callbacks recursively. */
 

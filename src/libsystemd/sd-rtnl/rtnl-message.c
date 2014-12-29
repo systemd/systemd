@@ -43,7 +43,7 @@ static int message_new_empty(sd_rtnl *rtnl, sd_rtnl_message **ret) {
 
         assert_return(ret, -EINVAL);
 
-        /* Note that 'rtnl' is curretly unused, if we start using it internally
+        /* Note that 'rtnl' is currently unused, if we start using it internally
            we must take care to avoid problems due to mutual references between
            busses and their queued messages. See sd-bus.
          */

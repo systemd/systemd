@@ -3555,7 +3555,7 @@ CHANGES WITH 190:
           keys all the time, even in graphical sessions. If DEs want
           to handle these events on their own they should take the new
           handle-power-key, handle-sleep-key and handle-lid-switch
-          inhibitors during their runtime. A simple way to achiveve
+          inhibitors during their runtime. A simple way to achieve
           that is to invoke the DE wrapped in an invocation of:
 
           systemd-inhibit --what=handle-power-key:handle-sleep-key:handle-lid-switch ...

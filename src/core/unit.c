@@ -609,7 +609,7 @@ static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
 
         /*
          * If u does not have this dependency set allocated, there is no need
-         * to reserve anything. In that case other's set will be transfered
+         * to reserve anything. In that case other's set will be transferred
          * as a whole to u by complete_move().
          */
         if (!u->dependencies[d])

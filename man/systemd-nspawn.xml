@@ -535,7 +535,7 @@
                                 at the same location. <literal>try-host</literal>
                                 and <literal>try-guest</literal> do the same
                                 but do not fail if the host does not have
-                                persistant journalling enabled.
+                                persistent journalling enabled.
                                 If <literal>auto</literal> (the default),
                                 and the right subdirectory of
                                 <filename>/var/log/journal</filename>

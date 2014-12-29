@@ -1066,7 +1066,7 @@ static int hashmap_base_put_boldly(HashmapBase *h, unsigned idx,
 
 /*
  * Returns 0 if resize is not needed.
- *         1 if succesfully resized.
+ *         1 if successfully resized.
  *         -ENOMEM on allocation failure.
  */
 static int resize_buckets(HashmapBase *h, unsigned entries_add) {

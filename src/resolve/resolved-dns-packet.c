@@ -934,7 +934,7 @@ int dns_packet_read_name(DnsPacket *p, char **_ret,
                         if (after_rindex == 0)
                                 after_rindex = p->rindex;
 
-                        /* Jumps are limited to a "prior occurence" (RFC-1035 4.1.4) */
+                        /* Jumps are limited to a "prior occurrence" (RFC-1035 4.1.4) */
                         jump_barrier = ptr;
                         p->rindex = ptr;
                 } else {

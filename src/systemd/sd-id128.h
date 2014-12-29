@@ -60,7 +60,7 @@ int sd_id128_get_boot(sd_id128_t *ret);
 
 /* Note that SD_ID128_FORMAT_VAL will evaluate the passed argument 16
  * times. It is hence not a good idea to call this macro with an
- * expensive function as paramater or an expression with side
+ * expensive function as parameter or an expression with side
  * effects */
 
 #define SD_ID128_FORMAT_STR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"

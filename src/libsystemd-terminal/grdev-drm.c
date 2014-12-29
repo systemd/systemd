@@ -2060,7 +2060,7 @@ static void grdrm_card_configure(grdrm_card *card) {
          *     headache to configure on dynamic demands. Therefore, we only
          *     support it if configured statically beforehand.
          *
-         *   * CRTCs are not created equal. Some might be much more poweful
+         *   * CRTCs are not created equal. Some might be much more powerful
          *     than others, including more advanced plane support. So far, our
          *     CRTC selection is random. You need to supply static
          *     configuration if you want special setups. So far, there is no

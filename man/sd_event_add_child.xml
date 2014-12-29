@@ -147,7 +147,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>An invalid argument has been passed. This includes
         specyfing an empty mask in <parameter>options</parameter> or a mask
-        which constains values different than a combination of
+        which contains values different than a combination of
         <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
         <constant>WCONTINUED</constant>.
         </para></listitem>

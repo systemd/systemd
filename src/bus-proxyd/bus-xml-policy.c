@@ -838,7 +838,7 @@ bool policy_check_recv(Policy *p,
         verdict = policy_check(p, &filter);
 
         log_full(LOG_AUTH | (verdict != ALLOW ? LOG_WARNING : LOG_DEBUG),
-                 "Recieve permission check for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s interface=%s path=%s member=%s: %s",
+                 "Receive permission check for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s interface=%s path=%s member=%s: %s",
                  uid, gid, bus_message_type_to_string(message_type), strna(name), strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
 
         return verdict == ALLOW;

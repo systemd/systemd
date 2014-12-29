@@ -500,7 +500,7 @@ static int client_message_init(sd_dhcp_client *client, DHCPPacket **ret,
 
            Note (from ConnMan): Some DHCP servers will send bigger DHCP packets
            than the defined default size unless the Maximum Messge Size option
-           is explicitely set
+           is explicitly set
 
            RFC3442 "Requirements to Avoid Sizing Constraints":
            Because a full routing table can be quite large, the standard 576

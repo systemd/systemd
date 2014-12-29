@@ -115,7 +115,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_negotiate_creds()</function> controls
     whether implicit sender credentials shall be attached
     automatically to all incoming messages. Takes a bus object, a
-    boolean indicating wether to enable or disable the credential
+    boolean indicating whether to enable or disable the credential
     parts encoded in the bit mask value argument. Note that not all
     transports support attaching sender credentials to messages, or do
     not support all types of sender credential parameters, or might

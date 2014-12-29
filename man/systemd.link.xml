@@ -99,7 +99,7 @@
                                         property "INTERFACE". May contain shell style
                                         globs. This can not be used to match on names
                                         that have already been changed from userspace.
-                                        Caution is adviced when matching on
+                                        Caution is advised when matching on
                                         kernel-assigned names, as they are known to
                                         be unstable between reboots.</para>
                                 </listitem>
