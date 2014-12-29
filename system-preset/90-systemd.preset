@@ -9,6 +9,8 @@
 # generally follow a default-off policy.
 
 enable remote-fs.target
+enable machines.target
+
 enable getty@.service
 enable systemd-timesyncd.service
 enable systemd-networkd.service
