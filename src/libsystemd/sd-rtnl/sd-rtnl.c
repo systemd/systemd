@@ -489,7 +489,7 @@ static int rtnl_poll(sd_rtnl *rtnl, bool need_more, uint64_t timeout_usec) {
         if (need_more)
                 /* Caller wants more data, and doesn't care about
                  * what's been read or any other timeouts. */
-                return e |= POLLIN;
+                e |= POLLIN;
         else {
                 usec_t until;
                 /* Caller wants to process if there is something to
