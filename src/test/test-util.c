@@ -145,6 +145,39 @@ static void test_alloca(void) {
         assert_se(!memcmp(t, zero, 997));
 }
 
+static void test_div_round_up(void) {
+        int div;
+
+        /* basic tests */
+        assert_se(DIV_ROUND_UP(0, 8) == 0);
+        assert_se(DIV_ROUND_UP(1, 8) == 1);
+        assert_se(DIV_ROUND_UP(8, 8) == 1);
+        assert_se(DIV_ROUND_UP(12, 8) == 2);
+        assert_se(DIV_ROUND_UP(16, 8) == 2);
+
+        /* test multiple evaluation */
+        div = 0;
+        assert_se(DIV_ROUND_UP(div++, 8) == 0 && div == 1);
+        assert_se(DIV_ROUND_UP(++div, 8) == 1 && div == 2);
+        assert_se(DIV_ROUND_UP(8, div++) == 4 && div == 3);
+        assert_se(DIV_ROUND_UP(8, ++div) == 2 && div == 4);
+
+        /* overflow test with exact division */
+        assert_se(sizeof(0U) == 4);
+        assert_se(0xfffffffaU % 10U == 0U);
+        assert_se(0xfffffffaU / 10U == 429496729U);
+        assert_se(DIV_ROUND_UP(0xfffffffaU, 10U) == 429496729U);
+        assert_se((0xfffffffaU + 10U - 1U) / 10U == 0U);
+        assert_se(0xfffffffaU / 10U + !!(0xfffffffaU % 10U) == 429496729U);
+
+        /* overflow test with rounded division */
+        assert_se(0xfffffffdU % 10U == 3U);
+        assert_se(0xfffffffdU / 10U == 429496729U);
+        assert_se(DIV_ROUND_UP(0xfffffffdU, 10U) == 429496730U);
+        assert_se((0xfffffffdU + 10U - 1U) / 10U == 0U);
+        assert_se(0xfffffffdU / 10U + !!(0xfffffffdU % 10U) == 429496730U);
+}
+
 static void test_first_word(void) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
@@ -1357,6 +1390,7 @@ int main(int argc, char *argv[]) {
         test_max();
         test_container_of();
         test_alloca();
+        test_div_round_up();
         test_first_word();
         test_close_many();
         test_parse_boolean();

@@ -197,6 +197,17 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                                         UNIQ_T(X,xq);                   \
         })
 
+/* [(x + y - 1) / y] suffers from an integer overflow, even though the
+ * computation should be possible in the given type. Therefore, we use
+ * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
+ * quotient and the remainder, so both should be equally fast. */
+#define DIV_ROUND_UP(_x, _y)                                            \
+        __extension__ ({                                                \
+                const typeof(_x) __x = (_x);                            \
+                const typeof(_y) __y = (_y);                            \
+                (__x / __y + !!(__x % __y));                            \
+        })
+
 #define assert_se(expr)                                                 \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
