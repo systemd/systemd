@@ -1951,32 +1951,6 @@ static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_cha
         }
 }
 
-static int deserialize_and_dump_unit_file_changes(sd_bus_message *m) {
-        const char *type, *path, *source;
-        int r;
-
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sss)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
-                if (!arg_quiet) {
-                        if (streq(type, "symlink"))
-                                log_info("Created symlink from %s to %s.", path, source);
-                        else
-                                log_info("Removed symlink %s.", path);
-                }
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        return 0;
-}
-
 static int set_default(sd_bus *bus, char **args) {
         _cleanup_free_ char *unit = NULL;
         UnitFileChange *changes = NULL;
@@ -2024,7 +1998,7 @@ static int set_default(sd_bus *bus, char **args) {
                         return r;
                 }
 
-                r = deserialize_and_dump_unit_file_changes(reply);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
@@ -5389,7 +5363,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = deserialize_and_dump_unit_file_changes(reply);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
@@ -5488,7 +5462,7 @@ static int add_dependency(sd_bus *bus, char **args) {
                         return r;
                 }
 
-                r = deserialize_and_dump_unit_file_changes(reply);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
@@ -5552,7 +5526,7 @@ static int preset_all(sd_bus *bus, char **args) {
                         return r;
                 }
 
-                r = deserialize_and_dump_unit_file_changes(reply);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 

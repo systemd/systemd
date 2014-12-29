@@ -63,6 +63,7 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 static bool arg_read_only = false;
 static bool arg_mkdir = false;
+static bool arg_quiet = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -1480,9 +1481,112 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        r = bus_wait_for_jobs(w, false);
+        r = bus_wait_for_jobs(w, arg_quiet);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static int enable_machine(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int carries_install_info = 0;
+        const char *method = NULL;
+        sd_bus *bus = userdata;
+        int r, i;
+
+        assert(bus);
+
+        method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "s");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *e = NULL, *unit = NULL;
+
+                if (!machine_name_is_valid(argv[i])) {
+                        log_error("Invalid machine name %s.", argv[i]);
+                        return -EINVAL;
+                }
+
+                e = unit_name_escape(argv[i]);
+                if (!e)
+                        return log_oom();
+
+                unit = unit_name_build("systemd-nspawn", e, ".service");
+                if (!unit)
+                        return log_oom();
+
+                r = sd_bus_message_append(m, "s", unit);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (streq(argv[0], "enable"))
+                r = sd_bus_message_append(m, "bb", false, false);
+        else
+                r = sd_bus_message_append(m, "b", false);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("Failed to enable or disable unit: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        if (streq(argv[0], "enable")) {
+                r = sd_bus_message_read(reply, "b", carries_install_info);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
+        if (r < 0)
+                return r;
+
+        m = sd_bus_message_unref(m);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Reload");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                log_error("Failed to reload daemon: %s", bus_error_message(&error, -r));
+                return r;
+        }
 
         return 0;
 }
@@ -1499,6 +1603,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
                "  -p --property=NAME          Show only properties by this name\n"
+               "  -q --quiet                  Suppress output\n"
                "  -a --all                    Show all properties, including empty ones\n"
                "  -l --full                   Do not ellipsize output\n"
                "     --kill-who=WHO           Who to send signal to\n"
@@ -1511,6 +1616,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  show NAME...                Show properties of one or more VMs/containers\n"
                "  login NAME                  Get a login prompt on a container\n"
                "  start NAME...               Start container as a service\n"
+               "  enable NAME...              Enable automatic container start at boot\n"
+               "  disable NAME...             Disable automatic container start at boot\n"
                "  poweroff NAME...            Power off one or more containers\n"
                "  reboot NAME...              Reboot one or more containers\n"
                "  terminate NAME...           Terminate one or more VMs/containers\n"
@@ -1556,6 +1663,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
                 { "mkdir",           no_argument,       NULL, ARG_MKDIR           },
+                { "quiet",           no_argument,       NULL, 'q'                 },
                 {}
         };
 
@@ -1564,7 +1672,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:q", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1633,6 +1741,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_mkdir = true;
                         break;
 
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1666,6 +1778,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "clone",       3,        3,        0,            clone_image       },
                 { "read-only",   2,        3,        0,            read_only_image   },
                 { "start",       2,        VERB_ANY, 0,            start_machine     },
+                { "enable",      2,        VERB_ANY, 0,            enable_machine    },
+                { "disable",     2,        VERB_ANY, 0,            enable_machine    },
                 {}
         };
 

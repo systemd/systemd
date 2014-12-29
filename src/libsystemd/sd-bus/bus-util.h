@@ -210,3 +210,5 @@ int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
+
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
