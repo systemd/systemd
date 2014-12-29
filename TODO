@@ -47,8 +47,6 @@ Features:
 
 * "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
 
-* machinectl terminate doesn't work
-
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
 * systemd-nspawn -x should support ephemeral instances of gpt images
@@ -582,8 +580,6 @@ Features:
 * nspawn:
   - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
-  - systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
-  - PID 1 doesn't apply nspawns devices cgroup policy
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
