@@ -345,6 +345,17 @@ static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error
         return synthetic_driver_send(call->bus, m);
 }
 
+static int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        va_list ap;
+
+        va_start(ap, format);
+        bus_error_setfv(&error, name, format, ap);
+        va_end(ap);
+
+        return synthetic_reply_method_error(call, &error);
+}
+
 static int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
 
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
@@ -963,7 +974,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
 
 static int handle_policy_error(sd_bus_message *m, int r) {
         if (r == -ESRCH || r == -ENXIO)
-                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", m->destination);
+                return synthetic_reply_method_errorf(m, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", m->destination);
 
         return r;
 }
@@ -1026,7 +1037,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* Return an error back to the caller */
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML receiver policy.");
+                        return synthetic_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML receiver policy.");
 
                 /* Return 1, indicating that the message shall not be processed any further */
                 return 1;
@@ -1115,7 +1126,7 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* Return an error back to the caller */
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML sender policy.");
+                        return synthetic_reply_method_errorf(m, SD_BUS_ERROR_ACCESS_DENIED, "Access prohibited by XML sender policy.");
 
                 /* Return 1, indicating that the message shall not be processed any further */
                 return 1;
