@@ -738,6 +738,8 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
                 return 0;
 
         r = unit_name_from_dbus_path(path, &unit);
+        if (r == -EINVAL) /* not for a unit */
+                return 0;
         if (r < 0)
                 return r;
 

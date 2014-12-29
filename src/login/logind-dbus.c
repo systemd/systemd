@@ -2111,9 +2111,10 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
                 return 0;
 
         r = unit_name_from_dbus_path(path, &unit);
+        if (r == -EINVAL) /* not a unit */
+                return 0;
         if (r < 0)
-                /* quietly ignore non-units paths */
-                return r == -EINVAL ? 0 : r;
+                return r;
 
         session = hashmap_get(m->session_units, unit);
         if (session)
