@@ -310,6 +310,8 @@ int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, con
 int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names);
 int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_;
 
+int sd_bus_emit_object_added(sd_bus *bus, const char *path);
+int sd_bus_emit_object_removed(sd_bus *bus, const char *path);
 int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces);
 int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces);

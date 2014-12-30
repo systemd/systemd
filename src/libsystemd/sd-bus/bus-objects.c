@@ -2111,6 +2111,375 @@ _public_ int sd_bus_emit_properties_changed(
         return sd_bus_emit_properties_changed_strv(bus, path, interface, names);
 }
 
+static int object_added_append_all_prefix(
+                sd_bus *bus,
+                sd_bus_message *m,
+                Set *s,
+                const char *prefix,
+                const char *path,
+                bool require_fallback) {
+
+        const char *previous_interface = NULL;
+        struct node_vtable *c;
+        struct node *n;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(s);
+        assert(prefix);
+        assert(path);
+
+        n = hashmap_get(bus->nodes, prefix);
+        if (!n)
+                return 0;
+
+        LIST_FOREACH(vtables, c, n->vtables) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                void *u = NULL;
+
+                if (require_fallback && !c->is_fallback)
+                        continue;
+
+                r = node_vtable_get_userdata(bus, path, c, &u, &error);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified)
+                        return 0;
+                if (r == 0)
+                        continue;
+
+                if (!streq_ptr(c->interface, previous_interface)) {
+                        /* If a child-node already handled this interface, we
+                         * skip it on any of its parents. The child vtables
+                         * always fully override any conflicting vtables of
+                         * any parent node. */
+                        if (set_get(s, c->interface))
+                                continue;
+
+                        r = set_put(s, c->interface);
+                        if (r < 0)
+                                return r;
+
+                        if (previous_interface) {
+                                r = sd_bus_message_close_container(m);
+                                if (r < 0)
+                                        return r;
+                                r = sd_bus_message_close_container(m);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = sd_bus_message_open_container(m, 'e', "sa{sv}");
+                        if (r < 0)
+                                return r;
+                        r = sd_bus_message_append(m, "s", c->interface);
+                        if (r < 0)
+                                return r;
+                        r = sd_bus_message_open_container(m, 'a', "{sv}");
+                        if (r < 0)
+                                return r;
+
+                        previous_interface = c->interface;
+                }
+
+                r = vtable_append_all_properties(bus, m, path, c, u, &error);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified)
+                        return 0;
+        }
+
+        if (previous_interface) {
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
+        _cleanup_set_free_ Set *s = NULL;
+        char *prefix;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(path);
+
+        /*
+         * This appends all interfaces registered on path @path. We first add
+         * the builtin interfaces, which are always available and handled by
+         * sd-bus. Then, we add all interfaces registered on the exact node,
+         * followed by all fallback interfaces registered on any parent prefix.
+         *
+         * If an interface is registered multiple times on the same node with
+         * different vtables, we merge all the properties across all vtables.
+         * However, if a child node has the same interface registered as one of
+         * its parent nodes has as fallback, we make the child overwrite the
+         * parent instead of extending it. Therefore, we keep a "Set" of all
+         * handled interfaces during parent traversal, so we skip interfaces on
+         * a parent that were overwritten by a child.
+         */
+
+        s = set_new(&string_hash_ops);
+        if (!s)
+                return -ENOMEM;
+
+        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.Peer", 0);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.Introspectable", 0);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.Properties", 0);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
+        if (r < 0)
+                return r;
+
+        r = object_added_append_all_prefix(bus, m, s, path, path, false);
+        if (r < 0)
+                return r;
+        if (bus->nodes_modified)
+                return 0;
+
+        prefix = alloca(strlen(path) + 1);
+        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                r = object_added_append_all_prefix(bus, m, s, prefix, path, true);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified)
+                        return 0;
+        }
+
+        return 0;
+}
+
+int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
+        BUS_DONT_DESTROY(bus);
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        /*
+         * This emits an InterfacesAdded signal on the given path, by iterating
+         * all registered vtables and fallback vtables on the path. All
+         * properties are queried and included in the signal.
+         * This call is equivalent to sd_bus_emit_interfaces_added() with an
+         * explicit list of registered interfaces. However, unlike
+         * interfaces_added(), this call can figure out the list of supported
+         * interfaces itself. Furthermore, it properly adds the builtin
+         * org.freedesktop.DBus.* interfaces.
+         */
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+
+        do {
+                bus->nodes_modified = false;
+                m = sd_bus_message_unref(m);
+
+                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_basic(m, 'o', path);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'a', "{sa{sv}}");
+                if (r < 0)
+                        return r;
+
+                r = object_added_append_all(bus, m, path);
+                if (r < 0)
+                        return r;
+
+                if (bus->nodes_modified)
+                        continue;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+        } while (bus->nodes_modified);
+
+        return sd_bus_send(bus, m, NULL);
+}
+
+static int object_removed_append_all_prefix(
+                sd_bus *bus,
+                sd_bus_message *m,
+                Set *s,
+                const char *prefix,
+                const char *path,
+                bool require_fallback) {
+
+        const char *previous_interface = NULL;
+        struct node_vtable *c;
+        struct node *n;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(s);
+        assert(prefix);
+        assert(path);
+
+        n = hashmap_get(bus->nodes, prefix);
+        if (!n)
+                return 0;
+
+        LIST_FOREACH(vtables, c, n->vtables) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                void *u = NULL;
+
+                if (require_fallback && !c->is_fallback)
+                        continue;
+                if (streq_ptr(c->interface, previous_interface))
+                        continue;
+
+                /* If a child-node already handled this interface, we
+                 * skip it on any of its parents. The child vtables
+                 * always fully override any conflicting vtables of
+                 * any parent node. */
+                if (set_get(s, c->interface))
+                        continue;
+
+                r = node_vtable_get_userdata(bus, path, c, &u, &error);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified)
+                        return 0;
+                if (r == 0)
+                        continue;
+
+                r = set_put(s, c->interface);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "s", c->interface);
+                if (r < 0)
+                        return r;
+
+                previous_interface = c->interface;
+        }
+
+        return 0;
+}
+
+static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
+        _cleanup_set_free_ Set *s = NULL;
+        char *prefix;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(path);
+
+        /* see sd_bus_emit_object_added() for details */
+
+        s = set_new(&string_hash_ops);
+        if (!s)
+                return -ENOMEM;
+
+        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.Peer");
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.Introspectable");
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.Properties");
+        if (r < 0)
+                return r;
+        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.ObjectManager");
+        if (r < 0)
+                return r;
+
+        r = object_removed_append_all_prefix(bus, m, s, path, path, false);
+        if (r < 0)
+                return r;
+        if (bus->nodes_modified)
+                return 0;
+
+        prefix = alloca(strlen(path) + 1);
+        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                r = object_removed_append_all_prefix(bus, m, s, prefix, path, true);
+                if (r < 0)
+                        return r;
+                if (bus->nodes_modified)
+                        return 0;
+        }
+
+        return 0;
+}
+
+int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
+        BUS_DONT_DESTROY(bus);
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        /*
+         * This is like sd_bus_emit_object_added(), but emits an
+         * InterfacesRemoved signal on the given path. This only includes any
+         * registered interfaces but skips the properties. Note that this will
+         * call into the find() callbacks of any registered vtable. Therefore,
+         * you must call this function before destroying/unlinking your object.
+         * Otherwise, the list of interfaces will be incomplete. However, note
+         * that this will *NOT* call into any property callback. Therefore, the
+         * object might be in an "destructed" state, as long as we can find it.
+         */
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+
+        do {
+                bus->nodes_modified = false;
+                m = sd_bus_message_unref(m);
+
+                r = sd_bus_message_new_signal(bus, &m, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_basic(m, 'o', path);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                r = object_removed_append_all(bus, m, path);
+                if (r < 0)
+                        return r;
+
+                if (bus->nodes_modified)
+                        continue;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+
+        } while (bus->nodes_modified);
+
+        return sd_bus_send(bus, m, NULL);
+}
+
 static int interfaces_added_append_one_prefix(
                 sd_bus *bus,
                 sd_bus_message *m,

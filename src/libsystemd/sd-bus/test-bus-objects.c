@@ -176,6 +176,28 @@ static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdat
         return 1;
 }
 
+static int emit_object_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int r;
+
+        assert_se(sd_bus_emit_object_added(bus, m->path) >= 0);
+
+        r = sd_bus_reply_method_return(m, NULL);
+        assert_se(r >= 0);
+
+        return 1;
+}
+
+static int emit_object_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int r;
+
+        assert_se(sd_bus_emit_object_removed(bus, m->path) >= 0);
+
+        r = sd_bus_reply_method_return(m, NULL);
+        assert_se(r >= 0);
+
+        return 1;
+}
+
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
@@ -186,6 +208,8 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("NoOperation", NULL, NULL, NULL, 0),
         SD_BUS_METHOD("EmitInterfacesAdded", NULL, NULL, emit_interfaces_added, 0),
         SD_BUS_METHOD("EmitInterfacesRemoved", NULL, NULL, emit_interfaces_removed, 0),
+        SD_BUS_METHOD("EmitObjectAdded", NULL, NULL, emit_object_added, 0),
+        SD_BUS_METHOD("EmitObjectRemoved", NULL, NULL, emit_object_removed, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -445,6 +469,30 @@ static int client(struct context *c) {
         reply = NULL;
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesRemoved", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectAdded", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
+        bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectRemoved", &error, NULL, "");
         assert_se(r >= 0);
 
         r = sd_bus_process(bus, &reply);
