@@ -33,6 +33,7 @@
 #include "bus-control.h"
 #include "bus-bloom.h"
 #include "bus-util.h"
+#include "capability.h"
 #include "cgroup-util.h"
 
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
@@ -520,8 +521,11 @@ static int bus_populate_creds_from_items(
                              SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
 
                         if (m) {
-                                c->capability_size = item->size - offsetof(struct kdbus_item, caps.caps);
-                                c->capability = memdup(item->caps.caps, c->capability_size);
+                                if (item->caps.last_cap != cap_last_cap() ||
+                                    item->size - offsetof(struct kdbus_item, caps.caps) < DIV_ROUND_UP(item->caps.last_cap, 32U) * 4 * 4)
+                                        return -EBADMSG;
+
+                                c->capability = memdup(item->caps.caps, item->size - offsetof(struct kdbus_item, caps.caps));
                                 if (!c->capability)
                                         return -ENOMEM;
 

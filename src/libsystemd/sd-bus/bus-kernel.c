@@ -32,6 +32,7 @@
 #include "util.h"
 #include "strv.h"
 #include "memfd-util.h"
+#include "capability.h"
 #include "cgroup-util.h"
 #include "fileio.h"
 
@@ -673,8 +674,13 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_CAPS:
+                        if (d->caps.last_cap != cap_last_cap() ||
+                            d->size - offsetof(struct kdbus_item, caps.caps) < DIV_ROUND_UP(d->caps.last_cap, 32U) * 4 * 4) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
                         m->creds.capability = (uint8_t *) d->caps.caps;
-                        m->creds.capability_size = d->size - offsetof(struct kdbus_item, caps.caps);
                         m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
                         break;
 
