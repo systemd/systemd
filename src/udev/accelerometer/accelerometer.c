@@ -198,8 +198,8 @@ static void test_orientation(struct udev *udev,
 static void help(void)
 {
         printf("Usage: accelerometer [options] <device path>\n"
-               "  --debug         debug to stderr\n"
-               "  --help          print this help text\n\n");
+               "  -d,--debug         debug to stderr\n"
+               "  -h,--help          print this help text\n\n");
 }
 
 int main (int argc, char** argv)
