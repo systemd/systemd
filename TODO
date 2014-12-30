@@ -578,7 +578,6 @@ Features:
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
 * nspawn:
-  - bind mount read-only the cgroup tree higher than nspawn
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
 
 * cryptsetup:
