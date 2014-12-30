@@ -68,8 +68,11 @@ REQUIREMENTS:
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
-        Required for PrivateNetwork in service units:
+        Required for PrivateNetwork and PrivateDevices in service units:
           CONFIG_NET_NS
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES
+        Note that systemd-localed.service and other systemd units use
+        PrivateNetwork and PrivateDevices so this is effectively required.
 
         Optional but strongly recommended:
           CONFIG_IPV6
