@@ -82,6 +82,14 @@
 # For mice with switchable resolution, sort by the starred entry.
 
 ##########################################
+# Chicony
+##########################################
+
+# Chicony 2.4G Multimedia Wireless Kit MG-0919
+mouse:usb:v04f2p0963:name:Chicony 2.4G Multimedia Wireless Kit:
+ MOUSE_DPI=1000@142
+
+##########################################
 # Dell
 ##########################################
 
