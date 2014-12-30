@@ -44,6 +44,7 @@
 #include "efivars.h"
 #include "smack-util.h"
 #include "def.h"
+#include "cgroup-util.h"
 
 typedef enum MountMode {
         MNT_NONE  =        0,
@@ -227,49 +228,17 @@ int mount_setup_early(void) {
 
 int mount_cgroup_controllers(char ***join_controllers) {
         _cleanup_set_free_free_ Set *controllers = NULL;
-        _cleanup_fclose_ FILE *f;
-        char buf[LINE_MAX];
         int r;
 
         /* Mount all available cgroup controllers that are built into the kernel. */
-
-        f = fopen("/proc/cgroups", "re");
-        if (!f) {
-                log_error_errno(errno, "Failed to enumerate cgroup controllers: %m");
-                return 0;
-        }
 
         controllers = set_new(&string_hash_ops);
         if (!controllers)
                 return log_oom();
 
-        /* Ignore the header line */
-        (void) fgets(buf, sizeof(buf), f);
-
-        for (;;) {
-                char *controller;
-                int enabled = 0;
-
-                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
-
-                        if (feof(f))
-                                break;
-
-                        log_error("Failed to parse /proc/cgroups.");
-                        return -EIO;
-                }
-
-                if (!enabled) {
-                        free(controller);
-                        continue;
-                }
-
-                r = set_consume(controllers, controller);
-                if (r < 0) {
-                        log_error("Failed to add controller to set.");
-                        return r;
-                }
-        }
+        r = cg_kernel_controllers(controllers);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
 
         for (;;) {
                 _cleanup_free_ char *options = NULL, *controller = NULL, *where = NULL;
@@ -348,7 +317,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
         /* Now that we mounted everything, let's make the tmpfs the
          * cgroup file systems are mounted into read-only. */
-        mount("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+        (void) mount("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 
         return 0;
 }

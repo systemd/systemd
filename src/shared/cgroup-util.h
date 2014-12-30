@@ -132,3 +132,5 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
 int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
 
 CGroupControllerMask cg_mask_supported(void);
+
+int cg_kernel_controllers(Set *controllers);

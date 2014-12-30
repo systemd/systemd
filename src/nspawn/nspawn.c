@@ -869,6 +869,112 @@ static int mount_binds(const char *dest, char **l, bool ro) {
         return 0;
 }
 
+static int mount_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy, bool read_only) {
+        char *to;
+        int r;
+
+        to = strappenda(dest, "/sys/fs/cgroup/", hierarchy);
+
+        r = path_is_mount_point(to, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if %s is mounted already: %m", to);
+        if (r > 0)
+                return 0;
+
+        mkdir_p(to, 0755);
+
+        if (mount("cgroup", to, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV|(read_only ? MS_RDONLY : 0), controller) < 0)
+                return log_error_errno(errno, "Failed to mount to %s: %m", to);
+
+        return 1;
+}
+
+static int mount_cgroup(const char *dest) {
+        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_free_ char *own_cgroup_path = NULL;
+        const char *cgroup_root, *systemd_root, *systemd_own;
+        int r;
+
+        controllers = set_new(&string_hash_ops);
+        if (!controllers)
+                return log_oom();
+
+        r = cg_kernel_controllers(controllers);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine cgroup controllers: %m");
+
+        r = cg_pid_get_path(NULL, 0, &own_cgroup_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine our own cgroup path: %m");
+
+        cgroup_root = strappenda(dest, "/sys/fs/cgroup");
+        if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
+                return log_error_errno(errno, "Failed to mount tmpfs to /sys/fs/cgroup: %m");
+
+        for (;;) {
+                _cleanup_free_ char *controller = NULL, *origin = NULL, *combined = NULL;
+
+                controller = set_steal_first(controllers);
+                if (!controller)
+                        break;
+
+                origin = strappend("/sys/fs/cgroup/", controller);
+                if (!origin)
+                        return log_oom();
+
+                r = readlink_malloc(origin, &combined);
+                if (r == -EINVAL) {
+                        /* Not a symbolic link, but directly a single cgroup hierarchy */
+
+                        r = mount_cgroup_hierarchy(dest, controller, controller, true);
+                        if (r < 0)
+                                return r;
+
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to read link %s: %m", origin);
+                else {
+                        _cleanup_free_ char *target = NULL;
+
+                        target = strjoin(dest, "/sys/fs/cgroup/", controller, NULL);
+                        if (!target)
+                                return log_oom();
+
+                        /* A symbolic link, a combination of controllers in one hierarchy */
+
+                        if (!filename_is_valid(combined)) {
+                                log_warning("Ignoring invalid combined hierarchy %s.", combined);
+                                continue;
+                        }
+
+                        r = mount_cgroup_hierarchy(dest, combined, combined, true);
+                        if (r < 0)
+                                return r;
+
+                        if (symlink(combined, target) < 0)
+                                return log_error_errno(errno, "Failed to create symlink for combined hiearchy: %m");
+                }
+        }
+
+        r = mount_cgroup_hierarchy(dest, "name=systemd", "systemd", false);
+        if (r < 0)
+                return r;
+
+        /* Make our own cgroup a (writable) bind mount */
+        systemd_own = strappenda(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
+        if (mount(systemd_own, systemd_own,  NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "Failed to turn %s into a bind mount: %m", own_cgroup_path);
+
+        /* And then remount the systemd cgroup root read-only */
+        systemd_root = strappenda(dest, "/sys/fs/cgroup/systemd");
+        if (mount(NULL, systemd_root, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount cgroup root read-only: %m");
+
+        if (mount(NULL, cgroup_root, NULL, MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755") < 0)
+                return log_error_errno(errno, "Failed to remount %s read-only: %m", cgroup_root);
+
+        return 0;
+}
+
 static int mount_tmpfs(const char *dest) {
         char **i, **o;
 
@@ -3309,6 +3415,11 @@ int main(int argc, char *argv[]) {
 
                         kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
 
+                        /* Tell the parent that we are ready, and that
+                         * it can cgroupify us to that we lack access
+                         * to certain devices and resources. */
+                        (void) barrier_place(&barrier);
+
                         if (setup_boot_id(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -3330,10 +3441,12 @@ int main(int argc, char *argv[]) {
                         if (mount_tmpfs(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
 
-                        /* Tell the parent that we are ready, and that
-                         * it can cgroupify us to that we lack access
-                         * to certain devices and resources. */
-                        (void)barrier_place(&barrier);
+                        /* Wait until we are cgroup-ified, so that we
+                         * can mount the right cgroup path writable */
+                        (void) barrier_sync_next(&barrier);
+
+                        if (mount_cgroup(arg_directory) < 0)
+                                _exit(EXIT_FAILURE);
 
                         if (chdir(arg_directory) < 0) {
                                 log_error_errno(errno, "chdir(%s) failed: %m", arg_directory);
@@ -3472,8 +3585,10 @@ int main(int argc, char *argv[]) {
                 fdset_free(fds);
                 fds = NULL;
 
-                /* wait for child-setup to be done */
-                if (barrier_place_and_sync(&barrier)) {
+                /* Wait for the most basic Child-setup to be done,
+                 * before we add hardware to it, and place it in a
+                 * cgroup. */
+                if (barrier_sync_next(&barrier)) {
                         _cleanup_event_unref_ sd_event *event = NULL;
                         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
                         char last_char = 0;
@@ -3514,6 +3629,9 @@ int main(int argc, char *argv[]) {
                          * its setup, and that the child can now hand over
                          * control to the code to run inside the container. */
                         (void) barrier_place(&barrier);
+
+                        /* And wait that the child is completely ready now. */
+                        (void) barrier_place_and_sync(&barrier);
 
                         sd_notify(false,
                                   "READY=1\n"

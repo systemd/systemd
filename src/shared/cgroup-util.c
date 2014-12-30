@@ -502,14 +502,16 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 }
 
 static int check_hierarchy(const char *p) {
-        char *cc;
+        const char *cc;
 
         assert(p);
 
+        if (!filename_is_valid(p))
+                return 0;
+
         /* Check if this controller actually really exists */
-        cc = alloca(strlen("/sys/fs/cgroup/") + strlen(p) + 1);
-        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
-        if (access(cc, F_OK) < 0)
+        cc = strappenda("/sys/fs/cgroup/", p);
+        if (laccess(cc, F_OK) < 0)
                 return -errno;
 
         return 0;
@@ -1731,4 +1733,55 @@ CGroupControllerMask cg_mask_supported(void) {
         }
 
         return mask;
+}
+
+int cg_kernel_controllers(Set *controllers) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char buf[LINE_MAX];
+        int r;
+
+        assert(controllers);
+
+        f = fopen("/proc/cgroups", "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        /* Ignore the header line */
+        (void) fgets(buf, sizeof(buf), f);
+
+        for (;;) {
+                char *controller;
+                int enabled = 0;
+
+                errno = 0;
+                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
+
+                        if (feof(f))
+                                break;
+
+                        if (ferror(f) && errno)
+                                return -errno;
+
+                        return -EBADMSG;
+                }
+
+                if (!enabled) {
+                        free(controller);
+                        continue;
+                }
+
+                if (!filename_is_valid(controller)) {
+                        free(controller);
+                        return -EBADMSG;
+                }
+
+                r = set_consume(controllers, controller);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
