@@ -452,6 +452,7 @@ bool shall_try_append_again(JournalFile *f, int r) {
            -EFBIG            Hit fs limit
            -EDQUOT           Quota limit hit
            -ENOSPC           Disk full
+           -EIO              I/O error of some kind (mmap)
            -EHOSTDOWN        Other machine
            -EBUSY            Unclean shutdown
            -EPROTONOSUPPORT  Unsupported feature
@@ -469,6 +470,8 @@ bool shall_try_append_again(JournalFile *f, int r) {
                 log_info("%s: Unsupported feature, rotating.", f->path);
         else if (r == -EBADMSG || r == -ENODATA || r == ESHUTDOWN)
                 log_warning("%s: Journal file corrupted, rotating.", f->path);
+        else if (r == -EIO)
+                log_warning("%s: IO error, rotating.", f->path);
         else
                 return false;
 

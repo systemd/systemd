@@ -901,6 +901,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/verbs.h \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
+	src/shared/sigbus.c \
+	src/shared/sigbus.h \
 	src/shared/build.h
 
 if HAVE_UTMP
@@ -1386,7 +1388,8 @@ tests += \
 	test-locale-util \
 	test-execute \
 	test-copy \
-	test-cap-list
+	test-cap-list \
+	test-sigbus
 
 EXTRA_DIST += \
 	test/a.service \
@@ -1578,6 +1581,12 @@ test_copy_SOURCES = \
 	src/test/test-copy.c
 
 test_copy_LDADD = \
+	libsystemd-shared.la
+
+test_sigbus_SOURCES = \
+	src/test/test-sigbus.c
+
+test_sigbus_LDADD = \
 	libsystemd-shared.la
 
 test_condition_SOURCES = \

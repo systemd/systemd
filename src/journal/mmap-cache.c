@@ -29,6 +29,7 @@
 #include "log.h"
 #include "util.h"
 #include "macro.h"
+#include "sigbus.h"
 #include "mmap-cache.h"
 
 typedef struct Window Window;
@@ -38,6 +39,7 @@ typedef struct FileDescriptor FileDescriptor;
 struct Window {
         MMapCache *cache;
 
+        bool invalidated;
         bool keep_always;
         bool in_unused;
 
@@ -65,6 +67,7 @@ struct Context {
 struct FileDescriptor {
         MMapCache *cache;
         int fd;
+        bool sigbus;
         LIST_HEAD(Window, windows);
 };
 
@@ -132,6 +135,21 @@ static void window_unlink(Window *w) {
                 assert(c->window == w);
                 c->window = NULL;
         }
+}
+
+static void window_invalidate(Window *w) {
+        assert(w);
+
+        if (w->invalidated)
+                return;
+
+        /* Replace the window with anonymous pages. This is useful
+         * when we hit a SIGBUS and want to make sure the file cannot
+         * trigger any further SIGBUS, possibly overrunning the sigbus
+         * queue. */
+
+        assert_se(mmap(w->ptr, w->size, w->prot, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == w->ptr);
+        w->invalidated = true;
 }
 
 static void window_free(Window *w) {
@@ -383,6 +401,9 @@ static int try_context(
                 return 0;
         }
 
+        if (c->window->fd->sigbus)
+                return -EIO;
+
         c->window->keep_always |= keep_always;
 
         *ret = (uint8_t*) c->window->ptr + (offset - c->window->offset);
@@ -413,6 +434,9 @@ static int find_mmap(
                 return 0;
 
         assert(f->fd == fd);
+
+        if (f->sigbus)
+                return -EIO;
 
         LIST_FOREACH(by_fd, w, f->windows)
                 if (window_matches(w, fd, prot, offset, size))
@@ -572,19 +596,6 @@ int mmap_cache_get(
         return add_mmap(m, fd, prot, context, keep_always, offset, size, st, ret);
 }
 
-void mmap_cache_close_fd(MMapCache *m, int fd) {
-        FileDescriptor *f;
-
-        assert(m);
-        assert(fd >= 0);
-
-        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
-        if (!f)
-                return;
-
-        fd_free(f);
-}
-
 unsigned mmap_cache_get_hit(MMapCache *m) {
         assert(m);
 
@@ -595,4 +606,101 @@ unsigned mmap_cache_get_missed(MMapCache *m) {
         assert(m);
 
         return m->n_missed;
+}
+
+static void mmap_cache_process_sigbus(MMapCache *m) {
+        bool found = false;
+        FileDescriptor *f;
+        Iterator i;
+        int r;
+
+        assert(m);
+
+        /* Iterate through all triggered pages and mark their files as
+         * invalidated */
+        for (;;) {
+                bool ours;
+                void *addr;
+
+                r = sigbus_pop(&addr);
+                if (_likely_(r == 0))
+                        break;
+                if (r < 0) {
+                        log_error_errno(r, "SIGBUS handling failed: %m");
+                        abort();
+                }
+
+                ours = false;
+                HASHMAP_FOREACH(f, m->fds, i) {
+                        Window *w;
+
+                        LIST_FOREACH(by_fd, w, f->windows) {
+                                if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
+                                    (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
+                                        found = ours = f->sigbus = true;
+                                        break;
+                                }
+                        }
+
+                        if (ours)
+                                break;
+                }
+
+                /* Didn't find a matching window, give up */
+                if (!ours) {
+                        log_error("Unknown SIGBUS page, aborting.");
+                        abort();
+                }
+        }
+
+        /* The list of triggered pages is now empty. Now, let's remap
+         * all windows of the triggered file to anonymous maps, so
+         * that no page of the file in question is triggered again, so
+         * that we can be sure not to hit the queue size limit. */
+        if (_likely_(!found))
+                return;
+
+        HASHMAP_FOREACH(f, m->fds, i) {
+                Window *w;
+
+                if (!f->sigbus)
+                        continue;
+
+                LIST_FOREACH(by_fd, w, f->windows)
+                        window_invalidate(w);
+        }
+}
+
+bool mmap_cache_got_sigbus(MMapCache *m, int fd) {
+        FileDescriptor *f;
+
+        assert(m);
+        assert(fd >= 0);
+
+        mmap_cache_process_sigbus(m);
+
+        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        if (!f)
+                return false;
+
+        return f->sigbus;
+}
+
+void mmap_cache_close_fd(MMapCache *m, int fd) {
+        FileDescriptor *f;
+
+        assert(m);
+        assert(fd >= 0);
+
+        /* Make sure that any queued SIGBUS are first dispatched, so
+         * that we don't end up with a SIGBUS entry we cannot relate
+         * to any existing memory map */
+
+        mmap_cache_process_sigbus(m);
+
+        f = hashmap_get(m->fds, INT_TO_PTR(fd + 1));
+        if (!f)
+                return;
+
+        fd_free(f);
 }

@@ -67,6 +67,9 @@
 /* How much to increase the journal file size at once each time we allocate something new. */
 #define FILE_SIZE_INCREASE (8ULL*1024ULL*1024ULL)              /* 8MB */
 
+/* The mmap context to use for the header we pick as one above the last defined typed */
+#define CONTEXT_HEADER _OBJECT_TYPE_MAX
+
 static int journal_file_set_online(JournalFile *f) {
         assert(f);
 
@@ -75,6 +78,9 @@ static int journal_file_set_online(JournalFile *f) {
 
         if (!(f->fd >= 0 && f->header))
                 return -EINVAL;
+
+        if (mmap_cache_got_sigbus(f->mmap, f->fd))
+                return -EIO;
 
         switch(f->header->state) {
                 case STATE_ONLINE:
@@ -104,7 +110,13 @@ int journal_file_set_offline(JournalFile *f) {
 
         fsync(f->fd);
 
+        if (mmap_cache_got_sigbus(f->mmap, f->fd))
+                return -EIO;
+
         f->header->state = STATE_OFFLINE;
+
+        if (mmap_cache_got_sigbus(f->mmap, f->fd))
+                return -EIO;
 
         fsync(f->fd);
 
@@ -120,14 +132,10 @@ void journal_file_close(JournalFile *f) {
                 journal_file_append_tag(f);
 #endif
 
-        /* Sync everything to disk, before we mark the file offline */
-        if (f->mmap && f->fd >= 0)
-                mmap_cache_close_fd(f->mmap, f->fd);
-
         journal_file_set_offline(f);
 
-        if (f->header)
-                munmap(f->header, PAGE_ALIGN(sizeof(Header)));
+        if (f->mmap && f->fd >= 0)
+                mmap_cache_close_fd(f->mmap, f->fd);
 
         safe_close(f->fd);
         free(f->path);
@@ -194,8 +202,8 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
-        int r;
         sd_id128_t boot_id;
+        int r;
 
         assert(f);
 
@@ -212,12 +220,12 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         f->header->boot_id = boot_id;
 
-        journal_file_set_online(f);
+        r = journal_file_set_online(f);
 
         /* Sync the online state to disk */
         fsync(f->fd);
 
-        return 0;
+        return r;
 }
 
 static int journal_file_verify_header(JournalFile *f) {
@@ -321,6 +329,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
          * for sure, since we always call posix_fallocate()
          * ourselves */
 
+        if (mmap_cache_got_sigbus(f->mmap, f->fd))
+                return -EIO;
+
         old_size =
                 le64toh(f->header->header_size) +
                 le64toh(f->header->arena_size);
@@ -376,6 +387,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 static unsigned type_to_context(ObjectType type) {
         /* One context for each type, plus one catch-all for the rest */
         assert_cc(_OBJECT_TYPE_MAX <= MMAP_CACHE_MAX_CONTEXTS);
+        assert_cc(CONTEXT_HEADER < MMAP_CACHE_MAX_CONTEXTS);
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
@@ -1357,6 +1369,14 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 
+        /* If the memory mapping triggered a SIGBUS then we return an
+         * IO error and ignore the error code passed down to us, since
+         * it is very likely just an effect of a nullified replacement
+         * mapping page */
+
+        if (mmap_cache_got_sigbus(f->mmap, f->fd))
+                r = -EIO;
+
         journal_file_post_change(f);
 
         return r;
@@ -1711,7 +1731,6 @@ found:
 
         return 1;
 }
-
 
 static int generic_array_bisect_plus_one(
                 JournalFile *f,
@@ -2457,9 +2476,10 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret) {
 
-        JournalFile *f;
-        int r;
         bool newly_created = false;
+        JournalFile *f;
+        void *h;
+        int r;
 
         assert(fname);
         assert(ret);
@@ -2564,12 +2584,13 @@ int journal_file_open(
                 goto fail;
         }
 
-        f->header = mmap(NULL, PAGE_ALIGN(sizeof(Header)), prot_from_flags(flags), MAP_SHARED, f->fd, 0);
-        if (f->header == MAP_FAILED) {
-                f->header = NULL;
+        r = mmap_cache_get(f->mmap, f->fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        if (r < 0) {
                 r = -errno;
                 goto fail;
         }
+
+        f->header = h;
 
         if (!newly_created) {
                 r = journal_file_verify_header(f);
@@ -2627,10 +2648,18 @@ int journal_file_open(
         if (r < 0)
                 goto fail;
 
+        if (mmap_cache_got_sigbus(f->mmap, f->fd)) {
+                r = -EIO;
+                goto fail;
+        }
+
         *ret = f;
         return 0;
 
 fail:
+        if (f->fd >= 0 && mmap_cache_got_sigbus(f->mmap, f->fd))
+                r = -EIO;
+
         journal_file_close(f);
 
         return r;
@@ -2697,7 +2726,8 @@ int journal_file_open_reliably(
             r != -EHOSTDOWN && /* other machine */
             r != -EPROTONOSUPPORT && /* incompatible feature */
             r != -EBUSY && /* unclean shutdown */
-            r != -ESHUTDOWN /* already archived */)
+            r != -ESHUTDOWN && /* already archived */
+            r != -EIO /* IO error, including SIGBUS on mmap */)
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
@@ -2804,7 +2834,12 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        return journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
+
+        if (mmap_cache_got_sigbus(to->mmap, to->fd))
+                return -EIO;
+
+        return r;
 }
 
 void journal_default_metrics(JournalMetrics *m, int fd) {

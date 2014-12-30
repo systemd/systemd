@@ -233,6 +233,7 @@
 /test-rtnl-manual
 /test-sched-prio
 /test-set
+/test-sigbus
 /test-sleep
 /test-socket-util
 /test-ssd

@@ -25,7 +25,8 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-#define MMAP_CACHE_MAX_CONTEXTS 8
+/* One context per object type, plus one of the header, plus one "additional" one */
+#define MMAP_CACHE_MAX_CONTEXTS 9
 
 typedef struct MMapCache MMapCache;
 
@@ -47,3 +48,5 @@ void mmap_cache_close_fd(MMapCache *m, int fd);
 
 unsigned mmap_cache_get_hit(MMapCache *m);
 unsigned mmap_cache_get_missed(MMapCache *m);
+
+bool mmap_cache_got_sigbus(MMapCache *m, int fd);

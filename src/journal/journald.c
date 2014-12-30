@@ -33,6 +33,8 @@
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 
+#include "sigbus.h"
+
 int main(int argc, char *argv[]) {
         Server server;
         int r;
@@ -48,6 +50,8 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+
+        sigbus_install();
 
         r = server_init(&server);
         if (r < 0)
