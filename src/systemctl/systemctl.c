@@ -2966,7 +2966,7 @@ static int start_special(sd_bus *bus, char **args) {
              a == ACTION_HIBERNATE ||
              a == ACTION_HYBRID_SLEEP)) {
                 r = reboot_with_logind(bus, a);
-                if (r >= 0)
+                if (r >= 0 || IN_SET(r, -ENOTSUP, -EINPROGRESS))
                         return r;
         }
 
