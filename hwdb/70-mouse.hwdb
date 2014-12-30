@@ -178,6 +178,10 @@ mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
  MOUSE_DPI=1000@125
 
+# Logitech MK260 Wireless Combo Receiver aka M-R0011
+mouse:usb:v046dpc52e:name:Logitech USB Receiver:
+ MOUSE_DPI=1000@200
+
 # Logitech G700 Laser Mouse (Wired)
 mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 # Logitech G700 Laser Mouse (Wireless)
