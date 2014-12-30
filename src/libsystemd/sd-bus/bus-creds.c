@@ -20,6 +20,7 @@
 ***/
 
 #include <stdlib.h>
+#include <linux/capability.h>
 
 #include "util.h"
 #include "capability.h"
@@ -592,11 +593,11 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
         assert(capability >= 0);
         assert(c->capability);
 
-        sz = DIV_ROUND_UP(cap_last_cap(), 32U) * 4;
+        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
         if ((unsigned)capability > cap_last_cap())
                 return 0;
 
-        return !!(c->capability[offset * sz + (capability / 8)] & (1 << (capability % 8)));
+        return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
 }
 
 _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
@@ -641,38 +642,42 @@ _public_ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability) {
 
 static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
         size_t sz, max;
-        unsigned i;
+        unsigned i, j;
 
         assert(c);
         assert(p);
 
-        max = DIV_ROUND_UP(cap_last_cap(), 32U) * 4;
+        max = DIV_ROUND_UP(cap_last_cap(), 32U);
         p += strspn(p, WHITESPACE);
 
         sz = strlen(p);
-        if (sz % 2 != 0)
+        if (sz % 8 != 0)
                 return -EINVAL;
 
-        sz /= 2;
+        sz /= 8;
         if (sz > max)
                 return -EINVAL;
 
         if (!c->capability) {
-                c->capability = new0(uint8_t, max * 4);
+                c->capability = new0(uint32_t, max * 4);
                 if (!c->capability)
                         return -ENOMEM;
         }
 
         for (i = 0; i < sz; i ++) {
-                int x, y;
+                uint32_t v = 0;
 
-                x = unhexchar(p[i*2]);
-                y = unhexchar(p[i*2+1]);
+                for (j = 0; j < 8; ++j) {
+                        int t;
 
-                if (x < 0 || y < 0)
-                        return -EINVAL;
+                        t = unhexchar(*p++);
+                        if (t < 0)
+                                return -EINVAL;
 
-                c->capability[offset * max + (sz - i - 1)] = (uint8_t) x << 4 | (uint8_t) y;
+                        v = (v << 4) | t;
+                }
+
+                c->capability[offset * max + (sz - i - 1)] = v;
         }
 
         return 0;

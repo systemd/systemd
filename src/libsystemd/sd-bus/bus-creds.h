@@ -60,7 +60,7 @@ struct sd_bus_creds {
         char *user_unit;
         char *slice;
 
-        uint8_t *capability;
+        uint32_t *capability;
 
         uint32_t audit_session_id;
         uid_t audit_login_uid;
