@@ -173,7 +173,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Note that any <varname>After=</varname> dependency is
           automatically mirrored to create a
           <varname>Before=</varname> dependency. Temporal dependencies
-          may be specified explictly, but are also created implicitly
+          may be specified explicitly, but are also created implicitly
           for units which are <varname>WantedBy=</varname> targets
           (see
           <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>),

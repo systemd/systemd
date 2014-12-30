@@ -95,7 +95,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <structname>const struct signalfd_siginfo</structname> containing
     the information about the received signal. See
     <citerefentry><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for futher information.</para>
+    for further information.</para>
 
     <para>Only a single handler may be installed for a specific
     signal. The signal will be unblocked, and must be

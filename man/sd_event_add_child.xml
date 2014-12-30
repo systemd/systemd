@@ -100,7 +100,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     being stopped by a signal), and <constant>WCONTINUED</constant>
     (watch for the child being resumed by a signal). See
     <citerefentry><refentrytitle>waitid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for futher information.</para>
+    for further information.</para>
 
     <para>Only a single handler may be installed for a specific
     child. The handler is enabled
