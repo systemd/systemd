@@ -484,6 +484,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 t = strappend(s, buf);
 
                                 free(k);
+                                k = NULL;
                         } else {
 
                                 mac = port_id;
