@@ -443,7 +443,7 @@ void lldp_neighbour_port_free(lldp_neighbour_port *p) {
 int lldp_neighbour_port_new(lldp_chassis *c,
                             tlv_packet *tlv,
                             lldp_neighbour_port **ret) {
-        _cleanup_lldp_neighbour_port_free_ lldp_neighbour_port *p;
+        _cleanup_lldp_neighbour_port_free_ lldp_neighbour_port *p = NULL;
         uint16_t length, ttl;
         uint8_t *data;
         uint8_t type;
