@@ -195,6 +195,10 @@ mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 mouse:usb:v046dpc531:name:Logitech USB Receiver:
  MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
 
+# Logitech USB Laser Mouse M-UAS144 [LS1 Laser Mouse]
+mouse:usb:v046dpc062:name:Logitech USB Laser Mouse:
+ MOUSE_DPI=1200@125
+
 # Logitech T620 (or, the soap)
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4027:
  MOUSE_DPI=1200@250
