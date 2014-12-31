@@ -880,7 +880,7 @@ static char *lldp_system_caps(uint16_t cap) {
         }
 
         t = strappend(s, "]");
-        if (!s)
+        if (!t)
                 return NULL;
 
         free(s);
