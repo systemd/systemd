@@ -183,6 +183,8 @@ mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101d:
 mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
 # Logitech M100 Optical Mouse
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
+# Logitech USB Laser Mouse M-U0011-O rebranded as "terra Laser"
+mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
  MOUSE_DPI=1000@125
 
 # Logitech MK260 Wireless Combo Receiver aka M-R0011
