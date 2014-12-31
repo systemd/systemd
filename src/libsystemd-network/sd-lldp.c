@@ -429,7 +429,6 @@ static void lldp_mib_objects_flush(sd_lldp *lldp) {
 }
 
 int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
-        _cleanup_free_ char *s = NULL, *t = NULL, *k = NULL;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         uint8_t *mac, *port_id, type;
@@ -452,12 +451,12 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
 
         HASHMAP_FOREACH(c, lldp->neighbour_mib, i) {
                 LIST_FOREACH(port, p, c->ports) {
+                        _cleanup_free_ char *s = NULL;
+                        char *k, *t;
 
                         r = lldp_read_chassis_id(p->packet, &type, &length, &mac);
                         if (r < 0)
                                 continue;
-
-                        memzero(buf, LINE_MAX);
 
                         sprintf(buf, "'_Chassis=%02x:%02x:%02x:%02x:%02x:%02x' '_CType=%d' ",
                                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], type);
@@ -467,57 +466,43 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                 return -ENOMEM;
 
                         r = lldp_read_port_id(p->packet, &type, &length, &port_id);
-                        if (r < 0) {
-                                free(s);
+                        if (r < 0)
                                 continue;
-                        }
 
-                        memzero(buf, LINE_MAX);
                         if (type != LLDP_PORT_SUBTYPE_MAC_ADDRESS) {
-
                                 k = strndup((char *) port_id, length -1);
                                 if (!k)
                                         return -ENOMEM;
 
                                 sprintf(buf, "'_Port=%s' '_PType=%d' ", k , type);
-
-                                t = strappend(s, buf);
-
                                 free(k);
-                                k = NULL;
                         } else {
-
                                 mac = port_id;
-
                                 sprintf(buf, "'_Port=%02x:%02x:%02x:%02x:%02x:%02x' '_PType=%d' ",
                                         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], type);
-
-                                t = strappend(s, buf);
                         }
 
-                        if (!t)
+                        k = strappend(s, buf);
+                        if (!k)
                                 return -ENOMEM;
 
                         free(s);
-                        s = t;
+                        s = k;
 
                         time = now(CLOCK_BOOTTIME);
 
                         /* Don't write expired packets */
-                        if(time - p->until <= 0) {
-                                free(s);
+                        if (time - p->until <= 0)
                                 continue;
-                        }
 
-                        memzero(buf, LINE_MAX);
                         sprintf(buf, "'_TTL=%lu' ", p->until);
 
-                        t = strappend(s, buf);
-                        if (!t)
+                        k = strappend(s, buf);
+                        if (!k)
                                 return -ENOMEM;
 
                         free(s);
-                        s = t;
+                        s = k;
 
                         r = lldp_read_system_name(p->packet, &length, &k);
                         if (r < 0)
@@ -528,6 +513,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                                         return -ENOMEM;
 
                                 k = strjoin(s, "'_NAME=", t, "' ", NULL);
+                                free(t);
                         }
 
                         if (!k)
@@ -536,27 +522,21 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        memzero(buf, LINE_MAX);
-
                         (void)lldp_read_system_capability(p->packet, &data);
 
                         sprintf(buf, "'_CAP=%x'", data);
 
-                        t = strappend(s, buf);
-                        if (!t)
+                        k = strappend(s, buf);
+                        if (!k)
                                 return -ENOMEM;
 
-                        fprintf(f, "%s\n", t);
-
                         free(s);
-                        free(t);
+                        s = k;
+
+                        fprintf(f, "%s\n", s);
                 }
         }
         r = 0;
-
-        s = NULL;
-        t = NULL;
-        k = NULL;
 
         fflush(f);
 
