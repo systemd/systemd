@@ -144,6 +144,7 @@ static int lldp_parse_port_id_tlv(tlv_packet *m) {
                 assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
                 p = malloc0(length + 1);
+                assert_se(p);
                 strncpy(p, str, length-1);
 
                 assert_se(streq(p, TEST_LLDP_PORT) == 1);
@@ -182,6 +183,7 @@ static int lldp_parse_system_desc_tlv(tlv_packet *m) {
         assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
         p = malloc0(length + 1);
+        assert_se(p);
         strncpy(p, str, length);
 
         assert_se(streq(p, TEST_LLDP_TYPE_SYSTEM_DESC) == 1);
