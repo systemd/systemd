@@ -496,7 +496,7 @@ int lldp_chassis_new(tlv_packet *tlv,
                      Prioq *by_expiry,
                      Hashmap *neighbour_mib,
                      lldp_chassis **ret) {
-        _cleanup_lldp_chassis_free_ lldp_chassis *c;
+        _cleanup_lldp_chassis_free_ lldp_chassis *c = NULL;
         uint16_t length;
         uint8_t *data;
         uint8_t type;
