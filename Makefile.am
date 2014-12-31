@@ -506,7 +506,8 @@ dist_systemunit_DATA = \
 	units/systemd-udevd-control.socket \
 	units/systemd-udevd-kernel.socket \
 	units/system-update.target \
-	units/initrd-switch-root.target
+	units/initrd-switch-root.target \
+	units/machines.target
 
 if ENABLE_KDBUS
 dist_systemunit_DATA += \
@@ -549,7 +550,6 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/machines.target \
 	units/systemd-update-done.service
 
 if HAVE_UTMP
