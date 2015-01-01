@@ -495,7 +495,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         if (time - p->until <= 0)
                                 continue;
 
-                        sprintf(buf, "'_TTL=%lu' ", p->until);
+                        sprintf(buf, "'_TTL="USEC_FMT"' ", p->until);
 
                         k = strappend(s, buf);
                         if (!k)

@@ -972,7 +972,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
                                         time = now(CLOCK_BOOTTIME);
 
-                                        sscanf(b, "%lu", &until);
+                                        sscanf(b, USEC_FMT, &until);
 
                                         ttl = (until - time) / USEC_PER_SEC;
 
@@ -986,7 +986,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         }
 
                         if (until > time) {
-                                printf("%10s %24s %16s %16lu %16s\n", links[i].name, chassis, port, ttl, cap);
+                                printf("%10s %24s %16s %16"PRIu64" %16s\n", links[i].name, chassis, port, ttl, cap);
                                 j++;
                         }
                 }
