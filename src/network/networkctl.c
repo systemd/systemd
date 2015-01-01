@@ -898,7 +898,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         const char *state, *word;
 
-        usec_t time, until, ttl;
+        double ttl = -1;
         uint32_t capability;
         int i, r, c, j;
         size_t ll;
@@ -964,13 +964,19 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                                 return -ENOMEM;
 
                                 } else if (streq(a, "_TTL")) {
+                                        long long unsigned x;
+                                        usec_t time;
+
+                                        r = safe_atollu(b, &x);
+                                        if (r < 0 || (usec_t) x != x)
+                                                return log_warning_errno(r < 0 ? r : ERANGE,
+                                                                         "Failed to parse TTL \"%s\": %m", b);
 
                                         time = now(CLOCK_BOOTTIME);
+                                        if (x < time)
+                                                continue;
 
-                                        sscanf(b, USEC_FMT, &until);
-
-                                        ttl = (until - time) / USEC_PER_SEC;
-
+                                        ttl = (double) (x - time) / USEC_PER_SEC;
 
                                 } else if (streq(a, "_CAP")) {
                                         sscanf(b, "%x", &capability);
@@ -980,8 +986,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
                         }
 
-                        if (until > time) {
-                                printf("%10s %24s %16s %16"PRIu64" %16s\n", links[i].name, chassis, port, ttl, cap);
+                        if (ttl >= 0) {
+                                printf("%10s %24s %16s %16f %16s\n",
+                                       links[i].name,
+                                       strna(chassis), strna(port),
+                                       ttl, cap);
                                 j++;
                         }
                 }
