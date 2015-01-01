@@ -213,8 +213,8 @@
                 <programlisting>Thu,Fri 2012-*-1,5 11:12:13</programlisting>
 
                 <para>The above refers to 11:12:13 of the first or
-                fifth day of any month of the year 2012, given that it
-                is a Thursday or Friday.</para>
+                fifth day of any month of the year 2012, but only if that
+                day is a Thursday or Friday.</para>
 
                 <para>The weekday specification is optional. If
                 specified, it should consist of one or more English
