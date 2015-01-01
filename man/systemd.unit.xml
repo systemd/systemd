@@ -229,12 +229,17 @@
                 the file system namespace. If this applies, a special
                 way to escape the path name is used, so that the
                 result is usable as part of a filename. Basically,
-                given a path, "/" is replaced by "-", and all
-                unprintable characters and the "-" are replaced by
-                C-style "\x2d" escapes. The root directory "/" is
-                encoded as single dash, while otherwise the initial
-                and ending "/" is removed from all paths during
-                transformation. This escaping is reversible.</para>
+                given a path, "/" is replaced by "-" and all other
+                characters which are not ASCII alphanumerics are
+                replaced by C-style "\x2d" escapes (except that "_"
+                is never replaced and "." is only replaced when it
+                would be the first character in the escaped path).
+                The root directory "/" is encoded as single dash,
+                while otherwise the initial and ending "/" are removed
+                from all paths during transformation. This escaping
+                is reversible. Properly escaped paths can be generated
+                using the <citerefentry><refentrytitle>systemd-escape</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                command.</para>
 
                 <para>Optionally, units may be instantiated from a
                 template file at runtime. This allows creation of
