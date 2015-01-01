@@ -1,13 +1,13 @@
 # translation of ru.po to Rissian
 # Julia Dronova <juliette.tux@gmail.com>, 2013.
-# Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2014.
+# Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: 0comffdiz@inbox.ru\n"
 "POT-Creation-Date: 2013-03-24 19:22+0300\n"
-"PO-Revision-Date: 2014-08-29 19:29+0400\n"
+"PO-Revision-Date: 2015-01-01 21:29+0300\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -246,6 +246,14 @@ msgstr "Перевести систему в спящий режим, несмо
 msgid "Authentication is required for hibernating the system while an application asked to inhibit it."
 msgstr "Чтобы перевести систему в спящий режим, несмотря на то, что приложение запросило блокировку, необходимо пройти аутентификацию."
 
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+msgid "Log into a local container"
+msgstr "Зайти в локальный контейнер"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+msgid "Authentication is required to log into a local container."
+msgstr "Чтобы зайти в локальный контейнер, необходимо пройти аутентификацию."
+
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
 msgstr "Настроить системное время"
@@ -287,33 +295,25 @@ msgid "Authentication is required to send the entered passphrase back to the sys
 msgstr "Чтобы отправить пароль системе, необходимо пройти аутентификацию."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Privileged system and service manager access"
-msgstr "Привилегированный доступ к системному менеджеру"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to access the system and service manager."
-msgstr "Для привилегированного доступа к системному менеджеру необходимо пройти аутентификацию."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system services or units"
 msgstr "Управление системными службами и юнитами"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
 msgid "Authentication is required to manage system services or units."
 msgstr "Для управления системными службами и юнитами, необходимо пройти аутентификацию."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
 msgstr "Управление файлами конфигурации системных служб и юнитов"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
 msgid "Authentication is required to manage system service or unit files."
 msgstr "Для управления файлами конфигурации системных служб и юнитов, необходимо пройти аутентификацию."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
 msgid "Reload the systemd state"
 msgstr "Перечитать конфигурацию systemd"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
 msgid "Authentication is required to reload the systemd state."
 msgstr "Чтобы заставить systemd перечитать конфигурацию, необходимо пройти аутентификацию."
