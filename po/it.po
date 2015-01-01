@@ -67,7 +67,7 @@ msgstr "Consenti alle applicazioni di inibire lo spegnimento del sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "shutdown."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazione di inibire "
@@ -79,7 +79,7 @@ msgstr "Consenti alle applicazioni di ritardare lo spegnimento del sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
 msgid ""
-"Authentication is required to allow an application to delay system shutdown."
+"Authentication is required for an application to delay system shutdown."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazione di ritardare lo spegnimento del sistema."
 
@@ -89,7 +89,7 @@ msgstr "Consenti alle applicazioni di inibire il sistema in pausa"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
 msgid ""
-"Authentication is required to allow an application to inhibit system sleep."
+"Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazioni di inibire il sistema in pausa."
 
@@ -99,7 +99,7 @@ msgstr "Consenti alle applicazioni di ritardare il sistema in pausa"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
 msgid ""
-"Authentication is required to allow an application to delay system sleep."
+"Authentication is required for an application to delay system sleep."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazioni di ritardare il sistema in pausa."
 
@@ -109,7 +109,7 @@ msgstr "Consenti alle applicazioni di inibire la sospesione automatica del siste
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required to allow an application to inhibit automatic "
+"Authentication is required for an application to inhibit automatic "
 "system suspend."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazioni di inibire "
@@ -121,7 +121,7 @@ msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto d
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the power key."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazioni di inibire al sistema la gestione "
@@ -133,7 +133,7 @@ msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto d
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the suspend key."
 msgstr ""
 "Autenticazione richiesta per consentire ad un'applicazione di inibire al sistema la gestione "
@@ -145,7 +145,7 @@ msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto d
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the hibernate key."
 msgstr ""
 "Autenticazione richiesta per consentire ad un'applicazione di inibire "
@@ -158,7 +158,7 @@ msgstr "Consenti alle applicazioni di inibire al sistema la gestione degli event
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the lid switch."
 msgstr ""
 "Autenticazione richiesta per consentire alle applicazioni di inibire "
@@ -170,7 +170,7 @@ msgstr "Consenti agli utenti non connessi di eseguire programmi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
 msgid ""
-"Authentication is required to allow a non-logged-in user to run programs."
+"Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Autenticazione richiesta per consentire agli utenti non connessi di eseguire programmi."
 

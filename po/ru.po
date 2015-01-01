@@ -59,7 +59,7 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr "Разрешить приложениям устанавливать блокировку на выключение системы"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
-msgid "Authentication is required to allow an application to inhibit system shutdown."
+msgid "Authentication is required for an application to inhibit system shutdown."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку на выключение системы, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:3
@@ -67,7 +67,7 @@ msgid "Allow applications to delay system shutdown"
 msgstr "Разрешить приложениям устанавливать задержку на выключение системы"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
-msgid "Authentication is required to allow an application to delay system shutdown."
+msgid "Authentication is required for an application to delay system shutdown."
 msgstr "Чтобы разрешить приложениям устанавливать задержку на выключение системы, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:5
@@ -75,7 +75,7 @@ msgid "Allow applications to inhibit system sleep"
 msgstr "Разрешить приложениям устанавливать блокировку на засыпание системы"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
-msgid "Authentication is required to allow an application to inhibit system sleep."
+msgid "Authentication is required for an application to inhibit system sleep."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку на засыпание системы, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:7
@@ -83,7 +83,7 @@ msgid "Allow applications to delay system sleep"
 msgstr "Разрешить приложениям устанавливать задержку на засыпание системы"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
-msgid "Authentication is required to allow an application to delay system sleep."
+msgid "Authentication is required for an application to delay system sleep."
 msgstr "Чтобы разрешить приложениям устанавливать задержку на засыпание системы, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:9
@@ -91,7 +91,7 @@ msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Разрешить приложениям устанавливать блокировку на автоматический переход системы в ждущий режим"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
-msgid "Authentication is required to allow an application to inhibit automatic system suspend."
+msgid "Authentication is required for an application to inhibit automatic system suspend."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку на автоматический переход системы в ждущий режим, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
@@ -99,7 +99,7 @@ msgid "Allow applications to inhibit system handling of the power key"
 msgstr "Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку выключения"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
-msgid "Authentication is required to allow an application to inhibit system handling of the power key."
+msgid "Authentication is required for an application to inhibit system handling of the power key."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку обработки нажатий на кнопку выключения, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:13
@@ -107,7 +107,7 @@ msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку перехода в ждущий режим"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
-msgid "Authentication is required to allow an application to inhibit system handling of the suspend key."
+msgid "Authentication is required for an application to inhibit system handling of the suspend key."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку обработки нажатий на кнопку перехода в ждущий режим, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:15
@@ -115,7 +115,7 @@ msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку перехода в спящий режим"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
-msgid "Authentication is required to allow an application to inhibit system handling of the hibernate key."
+msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку обработки нажатий на кнопку перехода в спящий режим, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:17
@@ -123,7 +123,7 @@ msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr "Разрешить приложениям устанавливать блокировку на обработку закрытия крышки ноутбука"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
-msgid "Authentication is required to allow an application to inhibit system handling of the lid switch."
+msgid "Authentication is required for an application to inhibit system handling of the lid switch."
 msgstr "Чтобы разрешить приложениям устанавливать блокировку на обработку закрытия крышки ноутбука, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
@@ -131,7 +131,7 @@ msgid "Allow non-logged-in users to run programs"
 msgstr "Разрешить пользователям оставлять программы в фоновом режиме после завершения сеанса"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid "Authentication is required to allow a non-logged-in user to run programs."
+msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr "Чтобы разрешить пользователям оставлять программы в фоновом режиме после завершения сеанса, необходимо пройти аутентификацию."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:21

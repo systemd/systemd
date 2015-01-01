@@ -68,7 +68,7 @@ msgstr "Permet aux applications d'empêcher l'arrêt du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "shutdown."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher l'arrêt "
@@ -80,7 +80,7 @@ msgstr "Permet aux applications de retarder l'arrêt du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
 msgid ""
-"Authentication is required to allow an application to delay system shutdown."
+"Authentication is required for an application to delay system shutdown."
 msgstr ""
 "Authentification requise pour permettre à une application de retarder l'arrêt "
 "du système."
@@ -91,7 +91,7 @@ msgstr "Permet aux applications d'empêcher la mise en veille du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
 msgid ""
-"Authentication is required to allow an application to inhibit system sleep."
+"Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la mise "
 "en veille du système."
@@ -102,7 +102,7 @@ msgstr "Permet aux applications de retarder la mise en veille du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
 msgid ""
-"Authentication is required to allow an application to delay system sleep."
+"Authentication is required for an application to delay system sleep."
 msgstr ""
 "Authentification requise pour permettre à une application de retarder la mise "
 "en veille du système."
@@ -113,7 +113,7 @@ msgstr "Permet aux applications d'empêcher l'hibernation automatique du systèm
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required to allow an application to inhibit automatic "
+"Authentication is required for an application to inhibit automatic "
 "system suspend."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher "
@@ -126,7 +126,7 @@ msgstr "Permet aux applications d'empêcher la gestion du bouton d'alimentation 
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the power key."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la "
@@ -140,7 +140,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the suspend key."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la gestion "
@@ -154,7 +154,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the hibernate key."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la gestion "
@@ -168,7 +168,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the lid switch."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la "
@@ -180,7 +180,7 @@ msgstr "Permet aux utilisateurs non connectés d'exécuter des programmes"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
 msgid ""
-"Authentication is required to allow a non-logged-in user to run programs."
+"Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Authentification requise pour permettre aux utilisateurs non connectés "
 "d'exécuter des programmes."

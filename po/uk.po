@@ -70,7 +70,7 @@ msgstr "Дозволити програмам перешкоджати вимк�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "shutdown."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати вимкненню системи."
@@ -81,7 +81,7 @@ msgstr "Дозволити програмам затримувати вимкн�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
 msgid ""
-"Authentication is required to allow an application to delay system shutdown."
+"Authentication is required for an application to delay system shutdown."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам затримувати вимкнення системи."
 
@@ -91,7 +91,7 @@ msgstr "Дозволити програмам перешкоджати заси�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
 msgid ""
-"Authentication is required to allow an application to inhibit system sleep."
+"Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати засинанню системи."
 
@@ -101,7 +101,7 @@ msgstr "Дозволити програмами затримувати заси�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
 msgid ""
-"Authentication is required to allow an application to delay system sleep."
+"Authentication is required for an application to delay system sleep."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам затримувати засинання системи."
 
@@ -111,7 +111,7 @@ msgstr "Дозволити програмам перешкоджати авто�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required to allow an application to inhibit automatic "
+"Authentication is required for an application to inhibit automatic "
 "system suspend."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати автоматичному "
@@ -123,7 +123,7 @@ msgstr "Дозволити програмам перешкоджати обро�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the power key."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
@@ -136,7 +136,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the suspend key."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
@@ -148,7 +148,7 @@ msgstr "Дозволити програмам перешкоджати обро�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the hibernate key."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
@@ -162,7 +162,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the lid switch."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити програмам перешкоджати обробленню "
@@ -174,7 +174,7 @@ msgstr "Дозволити незареєстрованим користувач
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
 msgid ""
-"Authentication is required to allow a non-logged-in user to run programs."
+"Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Засвідчення потрібно, щоб дозволити незареєстрованим користувачам запускати "
 "програми."

@@ -73,7 +73,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "shutdown."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει τον "
@@ -86,7 +86,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
 msgid ""
-"Authentication is required to allow an application to delay system shutdown."
+"Authentication is required for an application to delay system shutdown."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει "
 "τον τερματισμό του συστήματος."
@@ -97,7 +97,7 @@ msgstr "Να επιτρέπεται στις εφαρμογές να αποτρ�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
 msgid ""
-"Authentication is required to allow an application to inhibit system sleep."
+"Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
 "ύπνωση του συστήματος."
@@ -108,7 +108,7 @@ msgstr "Να επιτρέπεται στις εφαρμογές να καθυσ�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
 msgid ""
-"Authentication is required to allow an application to delay system sleep."
+"Authentication is required for an application to delay system sleep."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει "
 "την ύπνωση του συστήματος."
@@ -121,7 +121,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required to allow an application to inhibit automatic "
+"Authentication is required for an application to inhibit automatic "
 "system suspend."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
@@ -135,7 +135,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the power key."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
@@ -149,7 +149,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the suspend key."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
@@ -163,7 +163,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the hibernate key."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
@@ -177,7 +177,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required to allow an application to inhibit system "
+"Authentication is required for an application to inhibit system "
 "handling of the lid switch."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
@@ -189,7 +189,7 @@ msgstr "Να επιτρέπεται σε μη συνδεμένους χρήστ�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
 msgid ""
-"Authentication is required to allow a non-logged-in user to run programs."
+"Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Απαιτείται πιστοποίηση για να επιτρέπεται σε μη συνδεμένους χρήστες να "
 "εκτελούν προγράμματα."

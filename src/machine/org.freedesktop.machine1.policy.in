@@ -18,7 +18,7 @@
 
         <action id="org.freedesktop.machine1.login">
                 <_description>Log into a local container</_description>
-                <_message>Authentication is required to allow logging into a local container.</_message>
+                <_message>Authentication is required to log into a local container</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
