@@ -900,7 +900,6 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         usec_t time, until, ttl;
         uint32_t capability;
-        char buf[LINE_MAX];
         int i, r, c, j;
         size_t ll;
         char **s;
@@ -955,15 +954,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                         continue;
 
                                 if (streq(a, "_Chassis")) {
-
-                                        memzero(buf, LINE_MAX);
-
                                         chassis = strdup(b);
                                         if (!chassis)
                                                 return -ENOMEM;
 
                                 } else if (streq(a, "_Port")) {
-
                                         port = strdup(b);
                                         if (!port)
                                                 return -ENOMEM;
