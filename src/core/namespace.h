@@ -50,7 +50,7 @@ int setup_namespace(char **read_write_dirs,
                     bool private_dev,
                     ProtectHome protect_home,
                     ProtectSystem protect_system,
-                    unsigned mount_flags);
+                    unsigned long mount_flags);
 
 int setup_tmp_dirs(const char *id,
                   char **tmp_dir,

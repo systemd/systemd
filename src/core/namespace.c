@@ -422,7 +422,7 @@ int setup_namespace(
                 bool private_dev,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
-                unsigned mount_flags) {
+                unsigned long mount_flags) {
 
         BindMount *m, *mounts = NULL;
         unsigned n;
