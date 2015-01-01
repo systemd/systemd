@@ -679,6 +679,30 @@ static inline pid_t raw_getpid(void) {
 }
 
 #if !HAVE_DECL_RENAMEAT2
+
+#ifndef __NR_renameat2
+#  if defined __x86_64__
+#    define __NR_renameat2 316
+#  elif defined __arm__
+#    define __NR_renameat2 382
+#  elif defined _MIPS_SIM
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define __NR_renameat2 4351
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_NABI32
+#      define __NR_renameat2 6315
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_ABI64
+#      define __NR_renameat2 5311
+#    endif
+#  elif defined __i386__
+#    define __NR_renameat2 353
+#  else
+#    warning "__NR_renameat2 unknown for your architecture"
+#    define __NR_renameat2 0xffffffff
+#  endif
+#endif
+
 static inline int renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
         return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
 }
