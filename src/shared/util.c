@@ -3456,7 +3456,7 @@ unsigned columns(void) {
                 c = 80;
 
         cached_columns = c;
-        return c;
+        return cached_columns;
 }
 
 int fd_lines(int fd) {
@@ -3473,7 +3473,7 @@ int fd_lines(int fd) {
 
 unsigned lines(void) {
         const char *e;
-        unsigned l;
+        int l;
 
         if (_likely_(cached_lines > 0))
                 return cached_lines;
@@ -3481,7 +3481,7 @@ unsigned lines(void) {
         l = 0;
         e = getenv("LINES");
         if (e)
-                (void) safe_atou(e, &l);
+                (void) safe_atoi(e, &l);
 
         if (l <= 0)
                 l = fd_lines(STDOUT_FILENO);
