@@ -879,11 +879,9 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        r = exec_command_set(m->control_command,
-                             "/bin/umount",
-                             "-n",
-                             m->where,
-                             NULL);
+        r = exec_command_set(m->control_command, "/bin/umount", m->where, NULL);
+        if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                r = exec_command_append(m->control_command, "-n", NULL);
         if (r < 0)
                 goto fail;
 
@@ -926,17 +924,18 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        if (m->from_fragment)
-                r = exec_command_set(
-                                m->control_command,
-                                "/bin/mount",
-                                m->sloppy_options ? "-ns" : "-n",
-                                m->parameters_fragment.what,
-                                m->where,
-                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
-                                m->parameters_fragment.options ? "-o" : NULL, m->parameters_fragment.options,
-                                NULL);
-        else
+        if (m->from_fragment) {
+                r = exec_command_set(m->control_command, "/bin/mount",
+                                     m->parameters_fragment.what, m->where, NULL);
+                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                        r = exec_command_append(m->control_command, "-n", NULL);
+                if (r >= 0 && m->sloppy_options)
+                        r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->parameters_fragment.fstype)
+                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
+                if (r >= 0 && m->parameters_fragment.options)
+                        r = exec_command_append(m->control_command, "-o", m->parameters_fragment.options, NULL);
+        } else
                 r = -ENOENT;
 
         if (r < 0)
@@ -975,15 +974,15 @@ static void mount_enter_remounting(Mount *m) {
                 else
                         o = "remount";
 
-                r = exec_command_set(
-                                m->control_command,
-                                "/bin/mount",
-                                m->sloppy_options ? "-ns" : "-n",
-                                m->parameters_fragment.what,
-                                m->where,
-                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
-                                "-o", o,
-                                NULL);
+                r = exec_command_set(m->control_command, "/bin/mount",
+                                     m->parameters_fragment.what, m->where,
+                                     "-o", o, NULL);
+                if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                        r = exec_command_append(m->control_command, "-n", NULL);
+                if (r >= 0 && m->sloppy_options)
+                        r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->parameters_fragment.fstype)
+                        r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
         } else
                 r = -ENOENT;
 
