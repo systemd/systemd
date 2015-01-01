@@ -313,7 +313,7 @@ static void help(void) {
                "  -g,--whitelisted                 treat device as whitelisted\n"
                "  -u,--replace-whitespace          replace all whitespace by underscores\n"
                "  -v,--verbose                     verbose logging\n"
-               "     --version                     print version\n"
+               "  -V,--version                     print version\n"
                "  -x,--export                      print values as environment keys\n"
                "  -h,--help                        print this help text\n\n");
 

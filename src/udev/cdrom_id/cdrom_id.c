@@ -891,11 +891,11 @@ int main(int argc, char *argv[])
                         break;
                 case 'h':
                         printf("Usage: cdrom_id [options] <device>\n"
-                               "  --lock-media    lock the media (to enable eject request events)\n"
-                               "  --unlock-media  unlock the media\n"
-                               "  --eject-media   eject the media\n"
-                               "  --debug         debug to stderr\n"
-                               "  --help          print this help text\n\n");
+                               "  -l,--lock-media    lock the media (to enable eject request events)\n"
+                               "  -u,--unlock-media  unlock the media\n"
+                               "  -e,--eject-media   eject the media\n"
+                               "  -d,--debug         debug to stderr\n"
+                               "  -h,--help          print this help text\n\n");
                         goto exit;
                 default:
                         rc = 1;

@@ -68,15 +68,17 @@ noreturn static void sig_alrm(int signo)
 
 static void usage(void)
 {
-        printf("usage: collect [--add|--remove] [--debug] <checkpoint> <id> <idlist>\n"
-               "\n"
+        printf("Usage: collect [options] <checkpoint> <id> <idlist>\n"
+               "  -a,--add         add ID <id> to the list <idlist>\n"
+               "  -r,--remove      remove ID <id> from the list <idlist>\n"
+               "  -d,--debug       debug to stderr\n"
+               "  -h,--help        print this help text\n\n"
                "  Adds ID <id> to the list governed by <checkpoint>.\n"
                "  <id> must be part of the list <idlist>.\n"
                "  If all IDs given by <idlist> are listed (ie collect has been\n"
                "  invoked for each ID in <idlist>) collect returns 0, the\n"
                "  number of missing IDs otherwise.\n"
-               "  On error a negative number is returned.\n"
-               "\n");
+               "  On error a negative number is returned.\n\n");
 }
 
 /*
