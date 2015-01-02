@@ -679,7 +679,7 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                 putchar('\n');
         }
 
-        if (i->path)
+        if (i->type)
                 printf("\t    Type: %s\n", i->type);
 
         if (i->path)
