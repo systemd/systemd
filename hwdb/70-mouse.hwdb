@@ -139,8 +139,6 @@ mouse:usb:v04b3p310c:name:USB Optical Mouse:
 
 # Logitech USB-PS/2 M-BZ96C
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
-# Logitech Optical USB Mouse
-mouse:usb:v046dpc016:name:Logitech Optical USB Mouse:
  MOUSE_DPI=600@125
 
 # Logitech Wirless Mouse M325
