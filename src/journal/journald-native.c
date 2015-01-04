@@ -453,7 +453,7 @@ int server_open_native_socket(Server*s) {
         if (r < 0)
                 return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
+        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 

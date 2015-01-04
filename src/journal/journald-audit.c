@@ -538,7 +538,7 @@ int server_open_audit(Server *s) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to set SO_PASSCRED on audit socket: %m");
 
-        r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, process_datagram, s);
+        r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 

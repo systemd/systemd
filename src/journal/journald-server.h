@@ -167,7 +167,6 @@ const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
 void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
-bool shall_try_append_again(JournalFile *f, int r);
 int server_init(Server *s);
 void server_done(Server *s);
 void server_sync(Server *s);
@@ -176,4 +175,4 @@ void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
 void server_maybe_append_tags(Server *s);
-int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
+int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);

@@ -446,7 +446,7 @@ static void server_cache_hostname(Server *s) {
         s->hostname_field = x;
 }
 
-bool shall_try_append_again(JournalFile *f, int r) {
+static bool shall_try_append_again(JournalFile *f, int r) {
 
         /* -E2BIG            Hit configured limit
            -EFBIG            Hit fs limit
@@ -1106,7 +1106,7 @@ finish:
         return r;
 }
 
-int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Server *s = userdata;
 
         assert(s);
