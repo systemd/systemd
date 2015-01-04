@@ -141,7 +141,7 @@ mouse:usb:v04b3p310c:name:USB Optical Mouse:
 mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=600@125
 
-# Logitech Wirless Mouse M325
+# Logitech Wireless Mouse M325
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
  MOUSE_DPI=600@166
 
