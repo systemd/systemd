@@ -61,6 +61,7 @@
 #include <sys/personality.h>
 #include <sys/xattr.h>
 #include <libgen.h>
+#include <sys/statvfs.h>
 #undef basename
 
 #ifdef HAVE_SYS_AUXV_H
@@ -6858,6 +6859,15 @@ int umount_recursive(const char *prefix, int flags) {
         return r ? r : n;
 }
 
+static int get_mount_flags(const char *path, unsigned long *flags) {
+        struct statvfs buf;
+
+        if (statvfs(path, &buf) < 0)
+                return -errno;
+        *flags = buf.f_flag;
+        return 0;
+}
+
 int bind_remount_recursive(const char *prefix, bool ro) {
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *cleaned = NULL;
@@ -6892,6 +6902,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                 _cleanup_set_free_free_ Set *todo = NULL;
                 bool top_autofs = false;
                 char *x;
+                unsigned long orig_flags;
 
                 todo = set_new(&string_hash_ops);
                 if (!todo)
@@ -6969,7 +6980,11 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
                                 return -errno;
 
-                        if (mount(NULL, prefix, NULL, MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                        r = get_mount_flags(prefix, &orig_flags);
+                        if (r < 0)
+                                return r;
+                        orig_flags &= ~MS_RDONLY;
+                        if (mount(NULL, prefix, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
 
                         x = strdup(cleaned);
@@ -6989,7 +7004,11 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (r < 0)
                                 return r;
 
-                        if (mount(NULL, x, NULL, MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
+                        r = get_mount_flags(x, &orig_flags);
+                        if (r < 0)
+                                return r;
+                        orig_flags &= ~MS_RDONLY;
+                        if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
 
                                 /* Deal with mount points that are
                                  * obstructed by a later mount */
