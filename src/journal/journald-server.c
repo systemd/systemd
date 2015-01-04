@@ -297,8 +297,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         return f;
 }
 
-static int do_rotate(Server *s, JournalFile **f, const char* name,
-                     bool seal, uint32_t uid) {
+static int do_rotate(
+                Server *s,
+                JournalFile **f,
+                const char* name,
+                bool seal,
+                uint32_t uid) {
+
         int r;
         assert(s);
 
@@ -308,11 +313,9 @@ static int do_rotate(Server *s, JournalFile **f, const char* name,
         r = journal_file_rotate(f, s->compress, seal);
         if (r < 0)
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m",
-                                        (*f)->path);
+                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error_errno(r, "Failed to create new %s journal: %m",
-                                        name);
+                        log_error_errno(r, "Failed to create new %s journal: %m", name);
         else
                 server_fix_perms(s, *f, uid);
         return r;
@@ -366,15 +369,20 @@ void server_sync(Server *s) {
         s->sync_scheduled = false;
 }
 
-static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
-                      JournalMetrics *metrics) {
-        char *p;
+static void do_vacuum(
+                Server *s,
+                const char *id,
+                JournalFile *f,
+                const char* path,
+                JournalMetrics *metrics) {
+
+        const char *p;
         int r;
 
         if (!f)
                 return;
 
-        p = strappenda(path, ids);
+        p = strappenda(path, id);
         r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
                 log_error_errno(r, "Failed to vacuum %s: %m", p);
