@@ -952,7 +952,7 @@ static int bus_parse_next_address(sd_bus *b) {
                         break;
                 } else if (startswith(a, "x-machine-unix:")) {
 
-                        a += 17;
+                        a += 15;
                         r = parse_container_unix_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
@@ -960,7 +960,7 @@ static int bus_parse_next_address(sd_bus *b) {
                         break;
                 } else if (startswith(a, "x-machine-kernel:")) {
 
-                        a += 19;
+                        a += 17;
                         r = parse_container_kernel_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
