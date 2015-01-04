@@ -26,8 +26,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "systemd/sd-journal.h"
-
+#include "sd-journal.h"
 #include "build.h"
 #include "set.h"
 #include "util.h"
@@ -38,6 +37,7 @@
 #include "journal-internal.h"
 #include "copy.h"
 #include "compress.h"
+#include "sigbus.h"
 
 static enum {
         ACTION_NONE,
@@ -802,6 +802,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_NONE)
                 goto end;
+
+        sigbus_install();
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
         if (r < 0) {

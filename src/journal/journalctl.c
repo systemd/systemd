@@ -54,6 +54,7 @@
 #include "pager.h"
 #include "strv.h"
 #include "set.h"
+#include "sigbus.h"
 #include "journal-internal.h"
 #include "journal-def.h"
 #include "journal-verify.h"
@@ -1723,6 +1724,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         signal(SIGWINCH, columns_lines_cache_reset);
+        sigbus_install();
 
         if (arg_action == ACTION_NEW_ID128) {
                 r = generate_new_id128();

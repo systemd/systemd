@@ -31,20 +31,21 @@
 #include <gnutls/gnutls.h>
 #endif
 
-#include "log.h"
-#include "util.h"
 #include "sd-journal.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
+#include "log.h"
+#include "util.h"
 #include "bus-util.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
 #include "build.h"
 #include "fileio.h"
+#include "sigbus.h"
 
-static char *key_pem = NULL;
-static char *cert_pem = NULL;
-static char *trust_pem = NULL;
+static char *arg_key_pem = NULL;
+static char *arg_cert_pem = NULL;
+static char *arg_trust_pem = NULL;
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -833,7 +834,7 @@ static int request_handler(
                 return MHD_YES;
         }
 
-        if (trust_pem) {
+        if (arg_trust_pem) {
                 r = check_permissions(connection, &code, NULL);
                 if (r < 0)
                         return code;
@@ -904,37 +905,37 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case ARG_KEY:
-                        if (key_pem) {
+                        if (arg_key_pem) {
                                 log_error("Key file specified twice");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &key_pem, NULL);
+                        r = read_full_file(optarg, &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
-                        assert(key_pem);
+                        assert(arg_key_pem);
                         break;
 
                 case ARG_CERT:
-                        if (cert_pem) {
+                        if (arg_cert_pem) {
                                 log_error("Certificate file specified twice");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &cert_pem, NULL);
+                        r = read_full_file(optarg, &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
-                        assert(cert_pem);
+                        assert(arg_cert_pem);
                         break;
 
                 case ARG_TRUST:
 #ifdef HAVE_GNUTLS
-                        if (trust_pem) {
+                        if (arg_trust_pem) {
                                 log_error("CA certificate file specified twice");
                                 return -EINVAL;
                         }
-                        r = read_full_file(optarg, &trust_pem, NULL);
+                        r = read_full_file(optarg, &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
-                        assert(trust_pem);
+                        assert(arg_trust_pem);
                         break;
 #else
                         log_error("Option --trust is not available.");
@@ -952,12 +953,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (!!key_pem != !!cert_pem) {
+        if (!!arg_key_pem != !!arg_cert_pem) {
                 log_error("Certificate and key files must be specified together");
                 return -EINVAL;
         }
 
-        if (trust_pem && !key_pem) {
+        if (arg_trust_pem && !arg_key_pem) {
                 log_error("CA certificate can only be used with certificate file");
                 return -EINVAL;
         }
@@ -978,6 +979,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         if (r == 0)
                 return EXIT_SUCCESS;
+
+        sigbus_install();
 
 #ifdef HAVE_GNUTLS
         gnutls_global_set_log_function(log_func_gnutls);
@@ -1008,18 +1011,18 @@ int main(int argc, char *argv[]) {
                 if (n > 0)
                         opts[opts_pos++] = (struct MHD_OptionItem)
                                 {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START};
-                if (key_pem) {
-                        assert(cert_pem);
+                if (arg_key_pem) {
+                        assert(arg_cert_pem);
                         opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_KEY, 0, key_pem};
+                                {MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem};
                         opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_CERT, 0, cert_pem};
+                                {MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem};
                         flags |= MHD_USE_SSL;
                 }
-                if (trust_pem) {
+                if (arg_trust_pem) {
                         assert(flags & MHD_USE_SSL);
                         opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, trust_pem};
+                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem};
                 }
 
                 d = MHD_start_daemon(flags, 19531,
