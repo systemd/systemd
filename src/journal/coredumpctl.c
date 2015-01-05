@@ -50,8 +50,7 @@ static const char* arg_field = NULL;
 static int arg_no_pager = false;
 static int arg_no_legend = false;
 static int arg_one = false;
-
-static FILE* output = NULL;
+static FILE* arg_output = NULL;
 
 static Set *new_matches(void) {
         Set *set;
@@ -184,13 +183,13 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         break;
 
                 case 'o':
-                        if (output) {
+                        if (arg_output) {
                                 log_error("cannot set output more than once");
                                 return -EINVAL;
                         }
 
-                        output = fopen(optarg, "we");
-                        if (!output)
+                        arg_output = fopen(optarg, "we");
+                        if (!arg_output)
                                 return log_error_errno(errno, "writing to '%s': %m", optarg);
 
                         break;
@@ -687,14 +686,14 @@ static int dump_core(sd_journal* j) {
         if (r < 0)
                 return r;
 
-        print_info(output ? stdout : stderr, j, false);
+        print_info(arg_output ? stdout : stderr, j, false);
 
-        if (on_tty() && !output) {
+        if (on_tty() && !arg_output) {
                 log_error("Refusing to dump core to tty.");
                 return -ENOTTY;
         }
 
-        r = save_core(j, output ? fileno(output) : STDOUT_FILENO, NULL, NULL);
+        r = save_core(j, arg_output ? fileno(arg_output) : STDOUT_FILENO, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Coredump retrieval failed: %m");
 
@@ -855,8 +854,8 @@ int main(int argc, char *argv[]) {
 end:
         pager_close();
 
-        if (output)
-                fclose(output);
+        if (arg_output)
+                fclose(arg_output);
 
         return r >= 0 ? r : EXIT_FAILURE;
 }
