@@ -1,14 +1,14 @@
 # Italian translations for systemd package
 # Traduzione in italiano per il pacchetto systemd
 # This file is distributed under the same license as the systemd package.
-# Daniele Medri <dmedri@gmail.com>, 2013.
+# Daniele Medri <dmedri@gmail.com>, 2013-2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-11-22 17:49+0100\n"
-"PO-Revision-Date: 2013-11-22 17:57+0100\n"
+"POT-Creation-Date: 2015-01-05 09:26+0100\n"
+"PO-Revision-Date: 2015-01-05 10:19+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian\n"
 "Language: it\n"
@@ -16,6 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 1.5.4\n"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -34,8 +35,8 @@ msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
 msgstr ""
-"Autenticazione richiesta per configurare staticamente il nome host locale "
-"e il nome host descrittivo."
+"Autenticazione richiesta per configurare staticamente il nome host locale e "
+"il nome host descrittivo."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
 msgid "Set machine information"
@@ -43,7 +44,9 @@ msgstr "Configura le informazioni sulla macchina"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
-msgstr "Autenticazione richiesta per configurare le informazioni sulla macchina locale."
+msgstr ""
+"Autenticazione richiesta per configurare le informazioni sulla macchina "
+"locale."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -51,7 +54,9 @@ msgstr "Configura le impostazioni regionali di sistema"
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:2
 msgid "Authentication is required to set the system locale."
-msgstr "Autenticazione richiesta per configurare le impostazioni regionali di sistema."
+msgstr ""
+"Autenticazione richiesta per configurare le impostazioni regionali di "
+"sistema."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:3
 msgid "Set system keyboard settings"
@@ -67,112 +72,118 @@ msgstr "Consenti alle applicazioni di inibire lo spegnimento del sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required for an application to inhibit system "
-"shutdown."
+"Authentication is required for an application to inhibit system shutdown."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazione di inibire "
-"lo spegnimento del sistema"
+"Autenticazione richiesta per un'applicazione per inibire lo spegnimento del "
+"sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:3
 msgid "Allow applications to delay system shutdown"
 msgstr "Consenti alle applicazioni di ritardare lo spegnimento del sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
-msgid ""
-"Authentication is required for an application to delay system shutdown."
+msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazione di ritardare lo spegnimento del sistema."
+"Autenticazione richiesta per un'applicazione per ritardare lo spegnimento "
+"del sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:5
 msgid "Allow applications to inhibit system sleep"
 msgstr "Consenti alle applicazioni di inibire il sistema in pausa"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
-msgid ""
-"Authentication is required for an application to inhibit system sleep."
+msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazioni di inibire il sistema in pausa."
+"Autenticazione richiesta per un'applicazione per inibire il sistema in pausa."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:7
 msgid "Allow applications to delay system sleep"
 msgstr "Consenti alle applicazioni di ritardare il sistema in pausa"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
-msgid ""
-"Authentication is required for an application to delay system sleep."
+msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazioni di ritardare il sistema in pausa."
+"Autenticazione richiesta per un'applicazione per ritardare il sistema in "
+"pausa."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:9
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr "Consenti alle applicazioni di inibire la sospesione automatica del sistema"
+msgstr ""
+"Consenti alle applicazioni di inibire la sospesione automatica del sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required for an application to inhibit automatic "
-"system suspend."
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazioni di inibire "
-"la sospensione automatica del sistema."
+"Autenticazione richiesta per un'applicazione per inibire la sospensione "
+"automatica del sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto di accensione"
+msgstr ""
+"Consenti alle applicazioni di inibire la gestione di sistema del tasto di "
+"accensione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the power key."
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazioni di inibire al sistema la gestione "
-"del tasto di accensione."
+"Autenticazione richiesta per un'applicazione per inibire la gestione di "
+"sistema del tasto di accensione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:13
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto di sospensione"
+msgstr ""
+"Consenti alle applicazioni di inibire la gestione di sistema del tasto di "
+"sospensione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the suspend key."
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
 msgstr ""
-"Autenticazione richiesta per consentire ad un'applicazione di inibire al sistema la gestione "
-"del tasto di sospensione."
+"Autenticazione richiesta per un'applicazione per inibire la gestione di "
+"sistema del tasto di sospensione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:15
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Consenti alle applicazioni di inibire al sistema la gestione del tasto di ibernazione"
+msgstr ""
+"Consenti alle applicazioni di inibire la gestione di sistema del tasto di "
+"ibernazione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the hibernate key."
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
 msgstr ""
-"Autenticazione richiesta per consentire ad un'applicazione di inibire "
-"al sistema la gestione del tasto di ibernazione."
+"Autenticazione richiesta per un'applicazione per inibire la gestione di "
+"sistema del tasto di ibernazione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:17
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "Consenti alle applicazioni di inibire al sistema la gestione degli eventi "
-"relativi alla chiusura del portatile"
+msgstr ""
+"Consenti alle applicazioni di inibire la gestione di sistema alla apertura/"
+"chiusura del portatile"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the lid switch."
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
 msgstr ""
-"Autenticazione richiesta per consentire alle applicazioni di inibire "
-"al sistema la gestione degli eventi relativi alla chiusura del portatile."
+"Autenticazione richiesta per consentire ad un'applicazione di inibire la "
+"gestione di sistema alla apertura/chiusura del portatile."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
 msgid "Allow non-logged-in users to run programs"
 msgstr "Consenti agli utenti non connessi di eseguire programmi"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid ""
-"Authentication is required to run programs as a non-logged-in user."
+msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
-"Autenticazione richiesta per consentire agli utenti non connessi di eseguire programmi."
+"Autenticazione richiesta per consentire agli utenti non connessi di eseguire "
+"programmi."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:21
 msgid "Allow attaching devices to seats"
@@ -180,7 +191,8 @@ msgstr "Consenti di collegare dispositivi alle postazioni"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
 msgid "Authentication is required for attaching a device to a seat."
-msgstr "Autenticazione richiesta per collegare un dispositivo alla postazione."
+msgstr ""
+"Autenticazione richiesta per collegare un dispositivo ad una postazione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Flush device to seat attachments"
@@ -190,7 +202,8 @@ msgstr "Scollega i dispositivi dalla postazione"
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
-"Autenticazione richiesta per scollegare i dispositivi dalla postazione."
+"Autenticazione richiesta per ripristinare come i dispositivi sono collegati "
+"alle postazioni."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Power off the system"
@@ -209,20 +222,20 @@ msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
 msgstr ""
-"Autenticazione richiesta per spegnere il sistema mentre altri utenti "
-"sono connessi."
+"Autenticazione richiesta per spegnere il sistema mentre altri utenti sono "
+"connessi."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
 msgid "Power off the system while an application asked to inhibit it"
-msgstr "Spegnere il sistema nonostante l'inibizione di una applicazione"
+msgstr "Spegnere il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Autenticazione richiesta per spegnere il sistema nonostante l'inibizione "
-"di una applicazione."
+"Autenticazione richiesta per spegnere il sistema mentre un'applicazione "
+"chiede di inibirne l'azione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Reboot the system"
@@ -241,20 +254,21 @@ msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
 msgstr ""
-"Autenticazione richiesta per riavviare il sistema mentre altri utenti "
-"sono connessi."
+"Autenticazione richiesta per riavviare il sistema mentre altri utenti sono "
+"connessi."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while an application asked to inhibit it"
-msgstr "Riavviare il sistema nonostante l'inibizione di una applicazione"
+msgstr ""
+"Riavviare il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Autenticazione richiesta per riavviare il sistema nonostante l'inibizione "
-"di una applicazione."
+"Autenticazione richiesta per riavviare il sistema mentre un'applicazione "
+"chiede di inibirne l'azione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Suspend the system"
@@ -273,20 +287,21 @@ msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
 msgstr ""
-"Autenticazione richiesta per sospendere il sistema mentre altri utenti "
-"sono connessi."
+"Autenticazione richiesta per sospendere il sistema mentre altri utenti sono "
+"connessi."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while an application asked to inhibit it"
-msgstr "Sospendere il sistema nonostante l'inibizione di una applicazione"
+msgstr ""
+"Sospendere il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Autenticazione richiesta per sospendere il sistema nonostante l'inibizione "
-"di una applicazione."
+"Autenticazione richiesta per sospendere il sistema mentre un'applicazione "
+"chiede di inibirne l'azione."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
 msgid "Hibernate the system"
@@ -305,20 +320,28 @@ msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
 msgstr ""
-"Autenticazione richiesta per ibernare il sistema mentre altri utenti "
-"sono connessi."
+"Autenticazione richiesta per ibernare il sistema mentre altri utenti sono "
+"connessi."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
 msgid "Hibernate the system while an application asked to inhibit it"
-msgstr "Ibernare il sistema nonostante l'inibizione di una applicazione"
+msgstr "Ibernare il sistema mentre un'applicazione chiede di inibirne l'azione"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Autenticazione richiesta per ibernare il sistema nonostante l'inibizione "
-"di una applicazione."
+"Autenticazione richiesta per ibernare il sistema mentre un'applicazione "
+"chiede di inibirne l'azione."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+msgid "Log into a local container"
+msgstr "Accedi in un container locale"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+msgid "Authentication is required to log into a local container"
+msgstr "Autenticazione richiesta per accedere in un container locale"
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -338,15 +361,17 @@ msgstr "Autenticazione richiesta per configurare il fuso orario di sistema."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
 msgid "Set RTC to local timezone or UTC"
-msgstr "Configura l'orologio di sistema (RTC) al fuso orario locale o al tempo civile (UTC)"
+msgstr ""
+"Configura l'orologio di sistema (RTC) al fuso orario locale o al tempo "
+"civile (UTC)"
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
-"Autenticazione richiesta per verificare se l'orologio di sistema (RTC) "
-"è configurato all'orario locale o al tempo civile (UTC)."
+"Autenticazione richiesta per verificare se l'orologio di sistema (RTC) è "
+"configurato all'orario locale o al tempo civile (UTC)."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
 msgid "Turn network time synchronization on or off"
@@ -358,7 +383,7 @@ msgid ""
 "shall be enabled."
 msgstr ""
 "Autenticazione richiesta per verificare se la sincronizzazione dell'orario "
-"in rete debba essere attivata."
+"in rete possa essere attivata."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -368,12 +393,34 @@ msgstr "Inviare la frase segreta (passphrase) al sistema"
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"Autenticazione richiesta per inviare la frase segreta (passphrase) al sistema."
+"Autenticazione richiesta per inviare la frase segreta (passphrase) al "
+"sistema."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Privileged system and service manager access"
-msgstr "Accesso privilegiato per la gestione del sistema e dei servizi"
+msgid "Manage system services or units"
+msgstr "Gestisci i servizi o le unità di sistema"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to access the system and service manager."
-msgstr "Autenticazione richiesta per la gestione del sistema e dei servizi."
+msgid "Authentication is required to manage system services or units."
+msgstr "Autenticazione richiesta per gestire servizi e unità di sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Gestisci i file dei servizi o delle unità di sistema"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Autenticazione richiesta per gestire i file dei servizi o delle unità di "
+"sistema."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Reload the systemd state"
+msgstr "Riavviare lo stato di systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to reload the systemd state."
+msgstr "Autenticazione richiesta per riavviare lo stato di sistemd."
+
+#~ msgid "Privileged system and service manager access"
+#~ msgstr "Accesso privilegiato per la gestione del sistema e dei servizi"
