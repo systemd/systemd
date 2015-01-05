@@ -1182,6 +1182,10 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                         log_error_errno(errno, "recvmsg() failed: %m");
                         return -errno;
                 }
+                if (n == 0) {
+                        log_error("Got EOF on socket.");
+                        return -ECONNRESET;
+                }
 
                 for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
 
@@ -1462,6 +1466,7 @@ static int server_open_hostname(Server *s) {
 }
 
 int server_init(Server *s) {
+        _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
 
         assert(s);
@@ -1558,15 +1563,26 @@ int server_init(Server *s) {
                         s->audit_fd = fd;
 
                 } else {
-                        log_warning("Unknown socket passed as file descriptor %d, ignoring.", fd);
 
-                        /* Let's close the fd, better be safe than
-                           sorry. The fd might reference some resource
-                           that we really want to release if we don't
-                           make use of it. */
+                        if (!fds) {
+                                fds = fdset_new();
+                                if (!fds)
+                                        return log_oom();
+                        }
 
-                        safe_close(fd);
+                        r = fdset_put(fds, fd);
+                        if (r < 0)
+                                return log_oom();
                 }
+        }
+
+        r = server_open_stdout_socket(s, fds);
+        if (r < 0)
+                return r;
+
+        if (fdset_size(fds) > 0) {
+                log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
+                fds = fdset_free(fds);
         }
 
         r = server_open_syslog_socket(s);
@@ -1574,10 +1590,6 @@ int server_init(Server *s) {
                 return r;
 
         r = server_open_native_socket(s);
-        if (r < 0)
-                return r;
-
-        r = server_open_stdout_socket(s);
         if (r < 0)
                 return r;
 
