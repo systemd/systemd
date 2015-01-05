@@ -408,10 +408,12 @@ struct kdbus_item_list {
  *				in cookie_reply
  * @KDBUS_MSG_NO_AUTO_START:	Do not start a service, if the addressed
  *				name is not currently active
+ * @KDBUS_MSG_SIGNAL:		Treat this message as signal
  */
 enum kdbus_msg_flags {
 	KDBUS_MSG_EXPECT_REPLY	= 1ULL << 0,
 	KDBUS_MSG_NO_AUTO_START	= 1ULL << 1,
+	KDBUS_MSG_SIGNAL	= 1ULL << 2,
 };
 
 /**
@@ -1022,7 +1024,7 @@ struct kdbus_cmd_match {
 					      struct kdbus_cmd_send)
 #define KDBUS_CMD_RECV			_IOWR(KDBUS_IOCTL_MAGIC, 0x31,	\
 					      struct kdbus_cmd_recv)
-#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x33,	\
+#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x32,	\
 					     struct kdbus_cmd_free)
 
 #define KDBUS_CMD_NAME_ACQUIRE		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,	\

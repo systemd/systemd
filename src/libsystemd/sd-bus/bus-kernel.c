@@ -296,7 +296,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         m->kdbus->flags =
                 ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_EXPECT_REPLY) |
-                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_NO_AUTO_START : 0);
+                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_NO_AUTO_START : 0) |
+                ((m->header->type == SD_BUS_MESSAGE_SIGNAL) ? KDBUS_MSG_SIGNAL : 0);
 
         if (well_known)
                 /* verify_destination_id will usually be 0, which makes the kernel driver only look
