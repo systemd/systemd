@@ -112,6 +112,27 @@ static int add_symlink(const char *service, const char *where) {
         return 1;
 }
 
+static int add_alias(const char *service, const char *alias) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        assert(service);
+        assert(alias);
+
+        link = strjoin(arg_dest, "/", alias, NULL);
+        if (!link)
+                return log_oom();
+
+        r = symlink(service, link);
+        if (r < 0) {
+                if (errno == EEXIST)
+                        return 0;
+                return -errno;
+        }
+
+        return 1;
+}
+
 static int generate_unit_file(SysvStub *s) {
         char **p;
         _cleanup_fclose_ FILE *f = NULL;
@@ -457,7 +478,9 @@ static int load_sysv(SysvStub *s) {
                                         if (r == 0)
                                                 continue;
 
-                                        if (unit_name_to_type(m) != UNIT_SERVICE) {
+                                        if (unit_name_to_type(m) == UNIT_SERVICE) {
+                                                r = add_alias(s->name, m);
+                                        } else {
                                                 /* NB: SysV targets
                                                  * which are provided
                                                  * by a service are
