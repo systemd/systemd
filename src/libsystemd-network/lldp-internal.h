@@ -31,7 +31,7 @@
 typedef struct lldp_neighbour_port lldp_neighbour_port;
 typedef struct lldp_chassis lldp_chassis;
 typedef struct lldp_chassis_id lldp_chassis_id;
-typedef struct lldp_agent_statitics lldp_agent_statitics;
+typedef struct lldp_agent_statistics lldp_agent_statistics;
 
 struct lldp_neighbour_port {
         uint8_t type;

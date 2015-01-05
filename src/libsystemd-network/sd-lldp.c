@@ -48,7 +48,7 @@ typedef enum LLDPAgentRXState {
 } LLDPAgentRXState;
 
 /* Section 10.5.2.2 Reception counters */
-struct lldp_agent_statitics {
+struct lldp_agent_statistics {
         uint64_t stats_ageouts_total;
         uint64_t stats_frames_discarded_total;
         uint64_t stats_frames_in_errors_total;
@@ -68,7 +68,7 @@ struct sd_lldp {
         void *userdata;
 
         LLDPAgentRXState rx_state;
-        lldp_agent_statitics statitics;
+        lldp_agent_statistics statistics;
 };
 
 static unsigned long chassis_id_hash_func(const void *p,
@@ -134,7 +134,7 @@ static int lldp_receive_frame(sd_lldp *lldp, tlv_packet *tlv) {
                  hashmap_size(lldp->neighbour_mib),
                  prioq_size(lldp->by_expiry));
 
-        lldp->statitics.stats_frames_in_total ++;
+        lldp->statistics.stats_frames_in_total ++;
 
         return 0;
 
@@ -339,8 +339,8 @@ int lldp_handle_packet(tlv_packet *tlv, uint16_t length) {
         lldp_set_state(lldp, LLDP_AGENT_RX_WAIT_FOR_FRAME);
 
         if (malformed) {
-                lldp->statitics.stats_frames_discarded_total ++;
-                lldp->statitics.stats_frames_in_errors_total ++;
+                lldp->statistics.stats_frames_discarded_total ++;
+                lldp->statistics.stats_frames_in_errors_total ++;
         }
 
         tlv_packet_free(tlv);
@@ -404,7 +404,7 @@ static void lldp_mib_delete_objects(sd_lldp *lldp) {
 
                 lldp_neighbour_port_remove_and_free(p);
 
-                lldp->statitics.stats_ageouts_total ++;
+                lldp->statistics.stats_ageouts_total ++;
         }
 }
 
