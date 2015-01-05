@@ -774,7 +774,7 @@ static int create_item(Item *i) {
                 } else
                         r = 0;
 
-                if (i->type == CREATE_DIRECTORY || r == -ENOTTY) {
+                if (i->type == CREATE_DIRECTORY || i->type == TRUNCATE_DIRECTORY || r == -ENOTTY) {
                         RUN_WITH_UMASK(0000)
                                 r = mkdir_label(i->path, i->mode);
                 }
