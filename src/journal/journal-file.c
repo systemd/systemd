@@ -658,7 +658,7 @@ static int journal_file_link_field(
                 uint64_t offset,
                 uint64_t hash) {
 
-        uint64_t p, h;
+        uint64_t p, h, m;
         int r;
 
         assert(f);
@@ -668,11 +668,14 @@ static int journal_file_link_field(
         if (o->object.type != OBJECT_FIELD)
                 return -EINVAL;
 
-        /* This might alter the window we are looking at */
+        m = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
+        if (m <= 0)
+                return -EBADMSG;
 
+        /* This might alter the window we are looking at */
         o->field.next_hash_offset = o->field.head_data_offset = 0;
 
-        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        h = hash % m;
         p = le64toh(f->field_hash_table[h].tail_hash_offset);
         if (p == 0)
                 f->field_hash_table[h].head_hash_offset = htole64(offset);
@@ -698,7 +701,7 @@ static int journal_file_link_data(
                 uint64_t offset,
                 uint64_t hash) {
 
-        uint64_t p, h;
+        uint64_t p, h, m;
         int r;
 
         assert(f);
@@ -708,13 +711,16 @@ static int journal_file_link_data(
         if (o->object.type != OBJECT_DATA)
                 return -EINVAL;
 
-        /* This might alter the window we are looking at */
+        m = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        if (m <= 0)
+                return -EBADMSG;
 
+        /* This might alter the window we are looking at */
         o->data.next_hash_offset = o->data.next_field_offset = 0;
         o->data.entry_offset = o->data.entry_array_offset = 0;
         o->data.n_entries = 0;
 
-        h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
+        h = hash % m;
         p = le64toh(f->data_hash_table[h].tail_hash_offset);
         if (p == 0)
                 /* Only entry in the hash table is easy */
@@ -743,7 +749,7 @@ int journal_file_find_field_object_with_hash(
                 const void *field, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t p, osize, h;
+        uint64_t p, osize, h, m;
         int r;
 
         assert(f);
@@ -751,10 +757,12 @@ int journal_file_find_field_object_with_hash(
 
         osize = offsetof(Object, field.payload) + size;
 
-        if (f->header->field_hash_table_size == 0)
+        m = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
+
+        if (m <= 0)
                 return -EBADMSG;
 
-        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        h = hash % m;
         p = le64toh(f->field_hash_table[h].head_hash_offset);
 
         while (p > 0) {
@@ -804,7 +812,7 @@ int journal_file_find_data_object_with_hash(
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t p, osize, h;
+        uint64_t p, osize, h, m;
         int r;
 
         assert(f);
@@ -812,10 +820,11 @@ int journal_file_find_data_object_with_hash(
 
         osize = offsetof(Object, data.payload) + size;
 
-        if (f->header->data_hash_table_size == 0)
+        m = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        if (m <= 0)
                 return -EBADMSG;
 
-        h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
+        h = hash % m;
         p = le64toh(f->data_hash_table[h].head_hash_offset);
 
         while (p > 0) {
