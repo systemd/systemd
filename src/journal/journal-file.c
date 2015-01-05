@@ -67,6 +67,9 @@
 /* How much to increase the journal file size at once each time we allocate something new. */
 #define FILE_SIZE_INCREASE (8ULL*1024ULL*1024ULL)              /* 8MB */
 
+/* Reread fstat() of the file for detecting deletions at least this often */
+#define LAST_STAT_REFRESH_USEC (5*USEC_PER_SEC)
+
 /* The mmap context to use for the header we pick as one above the last defined typed */
 #define CONTEXT_HEADER _OBJECT_TYPE_MAX
 
@@ -319,6 +322,22 @@ static int journal_file_verify_header(JournalFile *f) {
         return 0;
 }
 
+static int journal_file_fstat(JournalFile *f) {
+        assert(f);
+        assert(f->fd >= 0);
+
+        if (fstat(f->fd, &f->last_stat) < 0)
+                return -errno;
+
+        f->last_stat_usec = now(CLOCK_MONOTONIC);
+
+        /* Refuse appending to files that are already deleted */
+        if (f->last_stat.st_nlink <= 0)
+                return -EIDRM;
+
+        return 0;
+}
+
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
         uint64_t old_size, new_size;
         int r;
@@ -340,8 +359,21 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (new_size < le64toh(f->header->header_size))
                 new_size = le64toh(f->header->header_size);
 
-        if (new_size <= old_size)
-                return 0;
+        if (new_size <= old_size) {
+
+                /* We already pre-allocated enough space, but before
+                 * we write to it, let's check with fstat() if the
+                 * file got deleted, in order make sure we don't throw
+                 * away the data immediately. Don't check fstat() for
+                 * all writes though, but only once ever 10s. */
+
+                if (f->last_stat_usec + LAST_STAT_REFRESH_USEC > now(CLOCK_MONOTONIC))
+                        return 0;
+
+                return journal_file_fstat(f);
+        }
+
+        /* Allocate more space. */
 
         if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
                 return -E2BIG;
@@ -376,12 +408,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (r != 0)
                 return -r;
 
-        if (fstat(f->fd, &f->last_stat) < 0)
-                return -errno;
-
         f->header->arena_size = htole64(new_size - le64toh(f->header->header_size));
 
-        return 0;
+        return journal_file_fstat(f);
 }
 
 static unsigned type_to_context(ObjectType type) {
@@ -392,6 +421,8 @@ static unsigned type_to_context(ObjectType type) {
 }
 
 static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
+        int r;
+
         assert(f);
         assert(ret);
 
@@ -403,8 +434,11 @@ static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_alway
                 /* Hmm, out of range? Let's refresh the fstat() data
                  * first, before we trust that check. */
 
-                if (fstat(f->fd, &f->last_stat) < 0 ||
-                    offset + size > (uint64_t) f->last_stat.st_size)
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+
+                if (offset + size > (uint64_t) f->last_stat.st_size)
                         return -EADDRNOTAVAIL;
         }
 
@@ -2548,10 +2582,9 @@ int journal_file_open(
                 goto fail;
         }
 
-        if (fstat(f->fd, &f->last_stat) < 0) {
-                r = -errno;
+        r = journal_file_fstat(f);
+        if (r < 0)
                 goto fail;
-        }
 
         if (f->last_stat.st_size == 0 && f->writable) {
                 /* Let's attach the creation time to the journal file,
@@ -2580,10 +2613,9 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-                if (fstat(f->fd, &f->last_stat) < 0) {
-                        r = -errno;
+                r = journal_file_fstat(f);
+                if (r < 0)
                         goto fail;
-                }
 
                 newly_created = true;
         }
@@ -2700,8 +2732,11 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         if (r < 0)
                 return -ENOMEM;
 
+        /* Try to rename the file to the archived version. If the file
+         * already was deleted, we'll get ENOENT, let's ignore that
+         * case. */
         r = rename(old_file->path, p);
-        if (r < 0)
+        if (r < 0 && errno != ENOENT)
                 return -errno;
 
         old_file->header->state = STATE_ARCHIVED;

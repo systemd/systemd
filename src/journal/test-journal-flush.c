@@ -39,8 +39,6 @@ int main(int argc, char *argv[]) {
         r = journal_file_open(fn, O_CREAT|O_RDWR, 0644, false, false, NULL, NULL, NULL, &new_journal);
         assert_se(r >= 0);
 
-        unlink(fn);
-
         r = sd_journal_open(&j, 0);
         assert_se(r >= 0);
 
@@ -68,6 +66,7 @@ int main(int argc, char *argv[]) {
 
         journal_file_close(new_journal);
 
+        unlink(fn);
         assert_se(rmdir(dn) == 0);
 
         return 0;

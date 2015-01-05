@@ -318,6 +318,7 @@ static int do_rotate(
                         log_error_errno(r, "Failed to create new %s journal: %m", name);
         else
                 server_fix_perms(s, *f, uid);
+
         return r;
 }
 
@@ -466,7 +467,8 @@ static bool shall_try_append_again(JournalFile *f, int r) {
            -EPROTONOSUPPORT  Unsupported feature
            -EBADMSG          Corrupted
            -ENODATA          Truncated
-           -ESHUTDOWN        Already archived */
+           -ESHUTDOWN        Already archived
+           -EIDRM            Journal file has been deleted */
 
         if (r == -E2BIG || r == -EFBIG || r == -EDQUOT || r == -ENOSPC)
                 log_debug("%s: Allocation limit reached, rotating.", f->path);
@@ -480,6 +482,8 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_warning("%s: Journal file corrupted, rotating.", f->path);
         else if (r == -EIO)
                 log_warning("%s: IO error, rotating.", f->path);
+        else if (r == -EIDRM)
+                log_warning("%s: Journal file has been deleted, rotating.", f->path);
         else
                 return false;
 

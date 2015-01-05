@@ -82,6 +82,7 @@ typedef struct JournalFile {
 
         char *path;
         struct stat last_stat;
+        usec_t last_stat_usec;
 
         Header *header;
         HashItem *data_hash_table;
