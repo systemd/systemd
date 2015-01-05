@@ -5188,8 +5188,10 @@ static int enable_sysv_units(const char *verb, char **args) {
                         return -EPROTO;
 
                 /* Remove this entry, so that we don't try enabling it as native unit */
-                assert(f > 0 && streq(args[f-1], name));
-                assert_se(strv_remove(args + f - 1, name));
+                assert(f > 0);
+                f--;
+                assert(args[f] == name);
+                strv_remove(args, name);
         }
 
 #endif
