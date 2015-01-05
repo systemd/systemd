@@ -521,12 +521,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                size_t size = 0;
-                unsigned i;
-                for (i = 0; i < n; i++)
-                        size += iovec[i].iov_len;
-
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, size);
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
@@ -539,14 +534,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-        if (r < 0) {
-                size_t size = 0;
-                unsigned i;
-                for (i = 0; i < n; i++)
-                        size += iovec[i].iov_len;
-
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, size);
-        } else
+        if (r < 0)
+                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+        else
                 server_schedule_sync(s, priority);
 }
 
