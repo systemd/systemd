@@ -2674,7 +2674,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 if (streq(l, "job")) {
                         if (v[0] == '\0') {
                                 /* new-style serialized job */
-                                Job *j = job_new_raw(u);
+                                Job *j;
+
+                                j = job_new_raw(u);
                                 if (!j)
                                         return -ENOMEM;
 
@@ -2696,12 +2698,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         job_free(j);
                                         return r;
                                 }
-
-                                if (j->state == JOB_RUNNING)
-                                        u->manager->n_running_jobs++;
                         } else {
                                 /* legacy */
-                                JobType type = job_type_from_string(v);
+                                JobType type;
+
+                                type = job_type_from_string(v);
                                 if (type < 0)
                                         log_debug("Failed to parse job type value %s", v);
                                 else

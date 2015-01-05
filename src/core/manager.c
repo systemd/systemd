@@ -162,6 +162,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         uint64_t x;
 
         assert(m);
+        assert(m->n_running_jobs > 0);
 
         manager_flip_auto_status(m, true);
 
@@ -184,8 +185,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         m->jobs_in_progress_iteration++;
 
         if (m->n_running_jobs > 1)
-                if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
-                        job_of_n = NULL;
+                asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
         format_timespan(time, sizeof(time), now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
         if (job_get_timeout(j, &x) > 0)
@@ -197,7 +197,6 @@ static void manager_print_jobs_in_progress(Manager *m) {
                               job_type_to_string(j->type),
                               unit_description(j->unit),
                               time, limit);
-
 }
 
 static int have_ask_password(void) {
@@ -2634,9 +2633,6 @@ void manager_check_finished(Manager *m) {
         Iterator i;
 
         assert(m);
-
-        if (m->n_running_jobs == 0)
-                m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
 
         if (hashmap_size(m->jobs) > 0) {
 
