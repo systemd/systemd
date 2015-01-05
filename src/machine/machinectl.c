@@ -250,7 +250,6 @@ static int list_images(int argc, char *argv[], void *userdata) {
                        (int) max_mtime, strna(format_timestamp(mtime_buf, sizeof(mtime_buf), images[j].mtime)));
         }
 
-
         if (arg_legend)
                 printf("\n%zu images listed.\n", n_images);
 
