@@ -38,7 +38,7 @@
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
  * IPv6 we use ::1 which unfortunately will not translate back to the
- * hostname but instead something like "localhost6" or so. */
+ * hostname but instead something like "localhost" or so. */
 
 #define LOCALADDRESS_IPV4 (htonl(0x7F000002))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
@@ -415,6 +415,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         _cleanup_free_ char *hn = NULL;
         int n_addresses = 0;
         struct local_address *a;
+        bool additional_from_hostname = false;
         unsigned n;
 
         assert(addr);
@@ -436,7 +437,6 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         }
 
         if (af == AF_INET) {
-
                 if ((*(uint32_t*) addr) == LOCALADDRESS_IPV4)
                         goto found;
 
@@ -450,10 +450,10 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 assert(af == AF_INET6);
 
                 if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
-                        additional = "localhost";
+                        canonical = "localhost";
+                        additional_from_hostname = true;
                         goto found;
                 }
-
         }
 
         n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
@@ -462,18 +462,8 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                         if (af != a->family)
                                 continue;
 
-                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
-
-                                hn = gethostname_malloc();
-                                if (!hn) {
-                                        *errnop = ENOMEM;
-                                        *h_errnop = NO_RECOVERY;
-                                        return NSS_STATUS_TRYAGAIN;
-                                }
-
-                                canonical = hn;
+                        if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
                                 goto found;
-                        }
                 }
         }
 
@@ -487,7 +477,6 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                                 continue;
 
                         if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
-
                                 canonical = "gateway";
                                 goto found;
                         }
@@ -500,6 +489,20 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         return NSS_STATUS_NOTFOUND;
 
 found:
+        if (!canonical || (!additional && additional_from_hostname)) {
+                hn = gethostname_malloc();
+                if (!hn) {
+                        *errnop = ENOMEM;
+                        *h_errnop = NO_RECOVERY;
+                        return NSS_STATUS_TRYAGAIN;
+                }
+
+                if (!canonical)
+                        canonical = hn;
+
+                if (!additional && additional_from_hostname)
+                        additional = hn;
+        }
 
         return fill_in_hostent(
                         canonical, additional,
@@ -511,7 +514,6 @@ found:
                         errnop, h_errnop,
                         ttlp,
                         NULL);
-
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(myhostname);
