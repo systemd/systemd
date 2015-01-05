@@ -202,6 +202,9 @@ int machine_save(Machine *m) {
                 goto finish;
         }
 
+        free(temp_path);
+        temp_path = NULL;
+
         if (m->unit) {
                 char *sl;
 
@@ -213,12 +216,11 @@ int machine_save(Machine *m) {
         }
 
 finish:
-        if (r < 0) {
-                if (temp_path)
-                        unlink(temp_path);
+        if (temp_path)
+                unlink(temp_path);
 
+        if (r < 0)
                 log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
-        }
 
         return r;
 }
