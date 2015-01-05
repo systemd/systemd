@@ -1004,14 +1004,15 @@ static void kernel_cmdline_options(struct udev *udev) {
 static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Manages devices.\n\n"
-               "  --daemon\n"
-               "  --debug\n"
-               "  --children-max=<maximum number of workers>\n"
-               "  --exec-delay=<seconds to wait before executing RUN=>\n"
-               "  --event-timeout=<seconds to wait before terminating an event>\n"
-               "  --resolve-names=early|late|never\n"
-               "  --version\n"
-               "  --help\n"
+               "  -h --help                   Print this message\n"
+               "     --version                Print version of the program\n"
+               "     --daemon                 Detach and run in the background\n"
+               "     --debug                  Enable debug output\n"
+               "     --children-max=INT       Set maximum number of workers\n"
+               "     --exec-delay=SECONDS     Seconds to wait before executing RUN=\n"
+               "     --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
+               "     --resolve-names=early|late|never\n"
+               "                              When to resolve users and groups\n"
                , program_invocation_short_name);
 }
 

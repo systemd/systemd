@@ -31,6 +31,17 @@
 #include "udev.h"
 #include "udev-util.h"
 
+static void help(void) {
+
+        printf("%s test OPTIONS <syspath>\n\n"
+               "Test an event run.\n"
+               "  -h --help                            Show this help\n"
+               "     --version                         Show package version\n"
+               "  -a --action=ACTION                   Set action string\n"
+               "  -N --resolve-names=early|late|never  When to resolve names\n"
+               , program_invocation_short_name);
+}
+
 static int adm_test(struct udev *udev, int argc, char *argv[]) {
         int resolve_names = 1;
         char filename[UTIL_PATH_SIZE];
@@ -71,11 +82,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                         }
                         break;
                 case 'h':
-                        printf("Usage: udevadm test OPTIONS <syspath>\n"
-                               "  -a,--action=ACTION                  set action string\n"
-                               "  -N,--resolve-names=early|late|never when to resolve names\n"
-                               "  -h,--help                           print this help string\n"
-                               "\n");
+                        help();
                         exit(EXIT_SUCCESS);
                 case '?':
                         exit(EXIT_FAILURE);
@@ -161,6 +168,6 @@ out:
 const struct udevadm_cmd udevadm_test = {
         .name = "test",
         .cmd = adm_test,
-        .help = "test an event run",
+        .help = "Test an event run",
         .debug = true,
 };

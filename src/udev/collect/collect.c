@@ -68,17 +68,19 @@ noreturn static void sig_alrm(int signo)
 
 static void usage(void)
 {
-        printf("Usage: collect [options] <checkpoint> <id> <idlist>\n"
-               "  -a,--add         add ID <id> to the list <idlist>\n"
-               "  -r,--remove      remove ID <id> from the list <idlist>\n"
-               "  -d,--debug       debug to stderr\n"
-               "  -h,--help        print this help text\n\n"
+        printf("%s [options] <checkpoint> <id> <idlist>\n\n"
+               "Collect variables across events.\n\n"
+               "  -h --help        Print this message\n"
+               "  -a --add         Add ID <id> to the list <idlist>\n"
+               "  -r --remove      Remove ID <id> from the list <idlist>\n"
+               "  -d --debug       Debug to stderr\n\n"
                "  Adds ID <id> to the list governed by <checkpoint>.\n"
                "  <id> must be part of the list <idlist>.\n"
                "  If all IDs given by <idlist> are listed (ie collect has been\n"
                "  invoked for each ID in <idlist>) collect returns 0, the\n"
                "  number of missing IDs otherwise.\n"
-               "  On error a negative number is returned.\n\n");
+               "  On error a negative number is returned.\n\n"
+               , program_invocation_short_name);
 }
 
 /*

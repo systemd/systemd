@@ -165,5 +165,5 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
 const struct udev_builtin udev_builtin_keyboard = {
         .name = "keyboard",
         .cmd = builtin_keyboard,
-        .help = "keyboard scan code to key mapping",
+        .help = "Keyboard scan code to key mapping",
 };

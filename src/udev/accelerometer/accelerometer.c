@@ -195,11 +195,13 @@ static void test_orientation(struct udev *udev,
         puts(text);
 }
 
-static void help(void)
-{
-        printf("Usage: accelerometer [options] <device path>\n"
-               "  -d,--debug         debug to stderr\n"
-               "  -h,--help          print this help text\n\n");
+static void help(void) {
+
+        printf("%s [options] <device path>\n\n"
+               "Accelerometer device identification.\n\n"
+               "  -h --help  Print this message\n"
+               "  -d --debug Debug to stderr\n"
+               , program_invocation_short_name);
 }
 
 int main (int argc, char** argv)

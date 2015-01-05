@@ -37,10 +37,13 @@
 #include "util.h"
 
 static void help(void) {
-        printf("Usage: udevadm settle OPTIONS\n"
-               "  -t,--timeout=<seconds>     maximum time to wait for events\n"
-               "  -E,--exit-if-exists=<file> stop waiting if file exists\n"
-               "  -h,--help\n\n");
+        printf("%s settle OPTIONS\n\n"
+               "Wait for pending udev events.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "  -t --timeout=SECONDS      Maximum time to wait for events\n"
+               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
+               , program_invocation_short_name);
 }
 
 static int adm_settle(struct udev *udev, int argc, char *argv[]) {
@@ -145,5 +148,5 @@ out:
 const struct udevadm_cmd udevadm_settle = {
         .name = "settle",
         .cmd = adm_settle,
-        .help = "wait for pending udev events",
+        .help = "Wait for pending udev events",
 };

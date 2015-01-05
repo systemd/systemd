@@ -562,5 +562,5 @@ out:
 const struct udev_builtin udev_builtin_net_id = {
         .name = "net_id",
         .cmd = builtin_net_id,
-        .help = "network device properties",
+        .help = "Network device properties",
 };

@@ -73,23 +73,26 @@ static const char *keyval(const char *str, const char **val, char *buf, size_t s
 }
 
 static void help(void) {
-        printf("Usage: udevadm trigger OPTIONS\n"
-               "  -v,--verbose                       print the list of devices while running\n"
-               "  -n,--dry-run                       do not actually trigger the events\n"
-               "  -t,--type=                         type of events to trigger\n"
-               "          devices                       sys devices (default)\n"
-               "          subsystems                    sys subsystems and drivers\n"
-               "  -c,--action=<action>               event action value, default is \"change\"\n"
-               "  -s,--subsystem-match=<subsystem>   trigger devices from a matching subsystem\n"
-               "  -S,--subsystem-nomatch=<subsystem> exclude devices from a matching subsystem\n"
-               "  -a,--attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
-               "  -A,--attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
-               "  -p,--property-match=<key>=<value>  trigger devices with a matching property\n"
-               "  -g,--tag-match=<key>=<value>       trigger devices with a matching property\n"
-               "  -y,--sysname-match=<name>          trigger devices with this /sys path\n"
-               "     --name-match=<name>             trigger devices with this /dev name\n"
-               "  -b,--parent-match=<name>           trigger devices with that parent device\n"
-               "  -h,--help\n\n");
+        printf("%s trigger OPTIONS\n\n"
+               "Request events from the kernel.\n\n"
+               "  -h --help                         Show this help\n"
+               "     --version                      Show package version\n"
+               "  -v --verbose                      Print the list of devices while running\n"
+               "  -n --dry-run                      Do not actually trigger the events\n"
+               "  -t --type=                        Type of events to trigger\n"
+               "          devices                     sysfs devices (default)\n"
+               "          subsystems                  sysfs subsystems and drivers\n"
+               "  -c --action=ACTION                Event action value, default is \"change\"\n"
+               "  -s --subsystem-match=SUBSYSTEM    Trigger devices from a matching subsystem\n"
+               "  -S --subsystem-nomatch=SUBSYSTEM  Exclude devices from a matching subsystem\n"
+               "  -a --attr-match=FILE[=VALUE]      Trigger devices with a matching attribute\n"
+               "  -A --attr-nomatch=FILE[=VALUE]    Exclude devices with a matching attribute\n"
+               "  -p --property-match=KEY=VALUE     Trigger devices with a matching property\n"
+               "  -g --tag-match=KEY=VALUE          Trigger devices with a matching property\n"
+               "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
+               "     --name-match=NAME              Trigger devices with this /dev name\n"
+               "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               , program_invocation_short_name);
 }
 
 static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
@@ -245,5 +248,5 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
 const struct udevadm_cmd udevadm_trigger = {
         .name = "trigger",
         .cmd = adm_trigger,
-        .help = "request events from the kernel",
+        .help = "Request events from the kernel",
 };

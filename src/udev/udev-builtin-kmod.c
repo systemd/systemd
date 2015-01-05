@@ -122,6 +122,6 @@ const struct udev_builtin udev_builtin_kmod = {
         .init = builtin_kmod_init,
         .exit = builtin_kmod_exit,
         .validate = builtin_kmod_validate,
-        .help = "kernel module loader",
+        .help = "Kernel module loader",
         .run_once = false,
 };

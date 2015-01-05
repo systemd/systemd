@@ -34,10 +34,14 @@
 #include "udev.h"
 
 static void help(struct udev *udev) {
-        fprintf(stderr, "\n");
-        fprintf(stderr, "Usage: udevadm builtin [--help] COMMAND SYSPATH\n");
+        printf("%s builtin [--help] COMMAND SYSPATH\n\n"
+               "Test a built-in command.\n\n"
+               "  -h --help     Print this message\n"
+               "     --version  Print version of the program\n\n"
+               "Commands:\n"
+               , program_invocation_short_name);
+
         udev_builtin_list(udev);
-        fprintf(stderr, "\n");
 }
 
 static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
@@ -112,6 +116,6 @@ out:
 const struct udevadm_cmd udevadm_test_builtin = {
         .name = "test-builtin",
         .cmd = adm_builtin,
-        .help = "test a built-in command",
+        .help = "Test a built-in command",
         .debug = true,
 };

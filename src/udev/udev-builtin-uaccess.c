@@ -89,5 +89,5 @@ finish:
 const struct udev_builtin udev_builtin_uaccess = {
         .name = "uaccess",
         .cmd = builtin_uaccess,
-        .help = "manage device node user ACL",
+        .help = "Manage device node user ACL",
 };

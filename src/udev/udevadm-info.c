@@ -258,6 +258,31 @@ static void cleanup_db(struct udev *udev) {
         }
 }
 
+static void help(void) {
+
+        printf("%s info [OPTIONS] [DEVPATH|FILE]\n\n"
+               "Query sysfs or the udev database.\n\n"
+               "  -h --help                   Print this message\n"
+               "     --version                Print version of the program\n"
+               "  -q --query=TYPE             Query device information:\n"
+               "       name                     Name of device node\n"
+               "       symlink                  Pointing to node\n"
+               "       path                     sysfs device path\n"
+               "       property                 The device properties\n"
+               "       all                      All values\n"
+               "  -p --path=SYSPATH           sysfs device path used for query or attribute walk\n"
+               "  -n --name=NAME              Node or symlink name used for query or attribute walk\n"
+               "  -r --root                   Prepend dev directory to path names\n"
+               "  -a --attribute-walk         Print all key matches walking along the chain\n"
+               "                              of parent devices\n"
+               "  -d --device-id-of-file=FILE Print major:minor of device containing this file\n"
+               "  -x --export                 Export key/value pairs\n"
+               "  -P --export-prefix          Export the key name with a prefix\n"
+               "  -e --export-db              Export the content of the udev database\n"
+               "  -c --cleanup-db             Clean up the udev database\n"
+               , program_invocation_short_name);
+}
+
 static int uinfo(struct udev *udev, int argc, char *argv[]) {
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         bool root = 0;
@@ -282,27 +307,6 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                 { "help",              no_argument,       NULL, 'h' },
                 {}
         };
-
-        static const char *usage =
-                "Usage: udevadm info [OPTIONS] [DEVPATH|FILE]\n"
-                " -q,--query=TYPE             query device information:\n"
-                "      name                     name of device node\n"
-                "      symlink                  pointing to node\n"
-                "      path                     sys device path\n"
-                "      property                 the device properties\n"
-                "      all                      all values\n"
-                " -p,--path=SYSPATH           sys device path used for query or attribute walk\n"
-                " -n,--name=NAME              node or symlink name used for query or attribute walk\n"
-                " -r,--root                   prepend dev directory to path names\n"
-                " -a,--attribute-walk         print all key matches walking along the chain\n"
-                "                             of parent devices\n"
-                " -d,--device-id-of-file=FILE print major:minor of device containing this file\n"
-                " -x,--export                 export key/value pairs\n"
-                " -P,--export-prefix          export the key name with a prefix\n"
-                " -e,--export-db              export the content of the udev database\n"
-                " -c,--cleanup-db             cleanup the udev database\n"
-                "    --version                print version of the program\n"
-                " -h,--help                   print this message\n";
 
         enum action_type {
                 ACTION_QUERY,
@@ -388,7 +392,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         printf("%s\n", VERSION);
                         return 0;
                 case 'h':
-                        printf("%s\n", usage);
+                        help();
                         return 0;
                 default:
                         return 1;
@@ -398,7 +402,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
         case ACTION_QUERY:
                 if (!device) {
                         if (!argv[optind]) {
-                                fprintf(stderr, "%s\n", usage);
+                                help();
                                 return 2;
                         }
                         device = find_device(udev, argv[optind], NULL);
@@ -489,5 +493,5 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
 const struct udevadm_cmd udevadm_info = {
         .name = "info",
         .cmd = uinfo,
-        .help = "query sysfs or the udev database",
+        .help = "Query sysfs or the udev database",
 };

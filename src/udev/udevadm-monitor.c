@@ -64,13 +64,16 @@ static void print_device(struct udev_device *device, const char *source, int pro
 }
 
 static void help(void) {
-        printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
-               "  -p,--property                            print the event properties\n"
-               "  -k,--kernel                              print kernel uevents\n"
-               "  -u,--udev                                print udev events\n"
-               "  -s,--subsystem-match=SUBSYSTEM[/DEVTYPE] filter events by subsystem\n"
-               "  -t,--tag-match=TAG                       filter events by tag\n"
-               "  -h,--help\n\n");
+        printf("%s monitor [--property] [--kernel] [--udev] [--help]\n\n"
+               "Listen to kernel and udev events.\n\n"
+               "  -h --help                                Show this help\n"
+               "     --version                             Show package version\n"
+               "  -p --property                            Print the event properties\n"
+               "  -k --kernel                              Print kernel uevents\n"
+               "  -u --udev                                Print udev events\n"
+               "  -s --subsystem-match=SUBSYSTEM[/DEVTYPE] Filter events by subsystem\n"
+               "  -t --tag-match=TAG                       Filter events by tag\n"
+               , program_invocation_short_name);
 }
 
 static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
@@ -276,5 +279,5 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
 const struct udevadm_cmd udevadm_monitor = {
         .name = "monitor",
         .cmd = adm_monitor,
-        .help = "listen to kernel and udev events",
+        .help = "Listen to kernel and udev events",
 };

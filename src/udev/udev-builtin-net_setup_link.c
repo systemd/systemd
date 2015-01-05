@@ -103,6 +103,6 @@ const struct udev_builtin udev_builtin_net_setup_link = {
         .init = builtin_net_setup_link_init,
         .exit = builtin_net_setup_link_exit,
         .validate = builtin_net_setup_link_validate,
-        .help = "configure network link",
+        .help = "Configure network link",
         .run_once = false,
 };

@@ -222,5 +222,5 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
 const struct udev_builtin udev_builtin_input_id = {
         .name = "input_id",
         .cmd = builtin_input_id,
-        .help = "input device properties",
+        .help = "Input device properties",
 };

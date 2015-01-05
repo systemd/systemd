@@ -304,18 +304,20 @@ static int get_file_options(struct udev *udev,
 }
 
 static void help(void) {
-        printf("Usage: scsi_id [OPTION...] DEVICE\n"
-               "  -d,--device=                     device node for SG_IO commands\n"
-               "  -f,--config=                     location of config file\n"
-               "  -p,--page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
-               "  -s,--sg-version=3|4              use SGv3 or SGv4\n"
-               "  -b,--blacklisted                 treat device as blacklisted\n"
-               "  -g,--whitelisted                 treat device as whitelisted\n"
-               "  -u,--replace-whitespace          replace all whitespace by underscores\n"
-               "  -v,--verbose                     verbose logging\n"
-               "  -V,--version                     print version\n"
-               "  -x,--export                      print values as environment keys\n"
-               "  -h,--help                        print this help text\n\n");
+        printf("Usage: %s [OPTION...] DEVICE\n\n"
+               "SCSI device identification.\n\n"
+               "  -h --help                        Print this message\n"
+               "     --version                     Print version of the program\n\n"
+               "  -d --device=                     Device node for SG_IO commands\n"
+               "  -f --config=                     Location of config file\n"
+               "  -p --page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
+               "  -s --sg-version=3|4              Use SGv3 or SGv4\n"
+               "  -b --blacklisted                 Treat device as blacklisted\n"
+               "  -g --whitelisted                 Treat device as whitelisted\n"
+               "  -u --replace-whitespace          Replace all whitespace by underscores\n"
+               "  -v --verbose                     Verbose logging\n"
+               "  -x --export                      Print values as environment keys\n"
+               , program_invocation_short_name);
 
 }
 
@@ -606,7 +608,7 @@ int main(int argc, char **argv)
                 exit(1);
 
         if (!dev_specified) {
-                log_error("no device specified");
+                log_error("No device specified.");
                 retval = 1;
                 goto exit;
         }

@@ -325,6 +325,6 @@ out:
 const struct udev_builtin udev_builtin_blkid = {
         .name = "blkid",
         .cmd = builtin_blkid,
-        .help = "filesystem and partition probing",
+        .help = "Filesystem and partition probing",
         .run_once = true,
 };

@@ -471,6 +471,6 @@ fallback:
 const struct udev_builtin udev_builtin_usb_id = {
         .name = "usb_id",
         .cmd = builtin_usb_id,
-        .help = "usb device properties",
+        .help = "USB device properties",
         .run_once = true,
 };
