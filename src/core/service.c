@@ -242,6 +242,42 @@ static void service_reset_watchdog(Service *s) {
         service_start_watchdog(s);
 }
 
+static void service_fd_store_unlink(ServiceFDStore *fs) {
+
+        if (!fs)
+                return;
+
+        if (fs->service) {
+                assert(fs->service->n_fd_store > 0);
+                LIST_REMOVE(fd_store, fs->service->fd_store, fs);
+                fs->service->n_fd_store--;
+        }
+
+        if (fs->event_source) {
+                sd_event_source_set_enabled(fs->event_source, SD_EVENT_OFF);
+                sd_event_source_unref(fs->event_source);
+        }
+
+        safe_close(fs->fd);
+        free(fs);
+}
+
+static void service_release_resources(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        if (!s->fd_store)
+                return;
+
+        log_debug("Releasing all resources for %s", u->id);
+
+        while (s->fd_store)
+                service_fd_store_unlink(s->fd_store);
+
+        assert(s->n_fd_store == 0);
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -286,6 +322,8 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+
+        service_release_resources(u);
 }
 
 static int service_arm_timer(Service *s, usec_t usec) {
@@ -549,6 +587,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
+
+        if (s->n_fd_store_max > 0) {
+                fprintf(f,
+                        "%sFile Descriptor Store Max: %u\n"
+                        "%sFile Descriptor Store Current: %u\n",
+                        prefix, s->n_fd_store_max,
+                        prefix, s->n_fd_store);
+        }
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
@@ -806,10 +852,10 @@ static int service_coldplug(Unit *u) {
 }
 
 static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
+        _cleanup_free_ int *rfds = NULL;
+        unsigned rn_fds = 0;
         Iterator i;
         int r;
-        int *rfds = NULL;
-        unsigned rn_fds = 0;
         Unit *u;
 
         assert(s);
@@ -831,10 +877,12 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
 
                 r = socket_collect_fds(sock, &cfds, &cn_fds);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
-                if (!cfds)
+                if (cn_fds <= 0) {
+                        free(cfds);
                         continue;
+                }
 
                 if (!rfds) {
                         rfds = cfds;
@@ -842,32 +890,39 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                 } else {
                         int *t;
 
-                        t = new(int, rn_fds+cn_fds);
+                        t = realloc(rfds, (rn_fds + cn_fds) * sizeof(int));
                         if (!t) {
                                 free(cfds);
-                                r = -ENOMEM;
-                                goto fail;
+                                return -ENOMEM;
                         }
 
-                        memcpy(t, rfds, rn_fds * sizeof(int));
-                        memcpy(t+rn_fds, cfds, cn_fds * sizeof(int));
-                        free(rfds);
+                        memcpy(t + rn_fds, cfds, cn_fds * sizeof(int));
+                        rfds = t;
+                        rn_fds += cn_fds;
+
                         free(cfds);
 
-                        rfds = t;
-                        rn_fds = rn_fds+cn_fds;
                 }
+        }
+
+        if (s->n_fd_store > 0) {
+                ServiceFDStore *fs;
+                int *t;
+
+                t = realloc(rfds, (rn_fds + s->n_fd_store) * sizeof(int));
+                if (!t)
+                        return -ENOMEM;
+
+                rfds = t;
+                LIST_FOREACH(fd_store, fs, s->fd_store)
+                        rfds[rn_fds++] = fs->fd;
         }
 
         *fds = rfds;
         *n_fds = rn_fds;
 
+        rfds = NULL;
         return 0;
-
-fail:
-        free(rfds);
-
-        return r;
 }
 
 static int service_spawn(
@@ -2543,7 +2598,75 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static void service_notify_message(Unit *u, pid_t pid, char **tags) {
+static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
+        ServiceFDStore *fs = userdata;
+
+        assert(e);
+        assert(fs);
+
+        /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
+        service_fd_store_unlink(fs);
+        return 0;
+}
+
+static int service_add_fd_set(Service *s, FDSet *fds) {
+        int r;
+
+        assert(s);
+
+        if (fdset_size(fds) <= 0)
+                return 0;
+
+        while (s->n_fd_store < s->n_fd_store_max) {
+                _cleanup_close_ int fd = -1;
+                ServiceFDStore *fs;
+                bool same = false;
+
+                fd = fdset_steal_first(fds);
+                if (fd < 0)
+                        break;
+
+                LIST_FOREACH(fd_store, fs, s->fd_store) {
+                        r = same_fd(fs->fd, fd);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s)->id, r, "%s: Couldn't check if same fd: %m", UNIT(s)->id);
+                        if (r > 0) {
+                                same = true;
+                                break;
+                        }
+                }
+
+                if (same)
+                        continue;
+
+                fs = new0(ServiceFDStore, 1);
+                if (!fs)
+                        return log_oom();
+
+                fs->fd = fd;
+                fs->service = s;
+
+                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
+                if (r < 0) {
+                        free(fs);
+                        return log_unit_error_errno(UNIT(s)->id, r, "%s: Failed to add even source: %m", UNIT(s)->id);
+                }
+
+                LIST_PREPEND(fd_store, s->fd_store, fs);
+                s->n_fd_store++;
+
+                fd = -1;
+
+                log_unit_debug(UNIT(s)->id, "%s: added fd to fd store.", UNIT(s)->id);
+        }
+
+        if (fdset_size(fds) > 0)
+                log_unit_warning(UNIT(s)->id, "%s: tried to store more fds than FDStoreMax=%u allows, closing remaining.", UNIT(s)->id, s->n_fd_store_max);
+
+        return 0;
+}
+
+static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
         Service *s = SERVICE(u);
         _cleanup_free_ char *cc = NULL;
         bool notify_dbus = false;
@@ -2673,6 +2796,12 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if (strv_find(tags, "WATCHDOG=1")) {
                 log_unit_debug(u->id, "%s: got WATCHDOG=1", u->id);
                 service_reset_watchdog(s);
+        }
+
+        /* Add the passed fds to the fd store */
+        if (strv_find(tags, "FDSTORE=1")) {
+                log_unit_debug(u->id, "%s: got FDSTORE=1", u->id);
+                service_add_fd_set(s, fds);
         }
 
         /* Notify clients about changed status or main pid */
@@ -2917,6 +3046,7 @@ const UnitVTable service_vtable = {
         .init = service_init,
         .done = service_done,
         .load = service_load,
+        .release_resources = service_release_resources,
 
         .coldplug = service_coldplug,
 

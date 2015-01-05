@@ -345,6 +345,10 @@ struct UnitVTable {
          * way */
         bool (*check_gc)(Unit *u);
 
+        /* When the unit is not running and no job for it queued we
+         * shall release its runtime resources */
+        void (*release_resources)(Unit *u);
+
         /* Return true when this unit is suitable for snapshotting */
         bool (*check_snapshot)(Unit *u);
 
@@ -359,7 +363,7 @@ struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, pid_t pid, char **tags);
+        void (*notify_message)(Unit *u, pid_t pid, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or
          * goes away. */

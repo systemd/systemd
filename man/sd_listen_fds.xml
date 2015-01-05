@@ -73,7 +73,7 @@
                 <para>If the <parameter>unset_environment</parameter>
                 parameter is non-zero,
                 <function>sd_listen_fds()</function> will unset the
-                <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
+                <varname>$LISTEN_FDS</varname> and <varname>$LISTEN_PID</varname>
                 environment variables before returning (regardless of
                 whether the function call itself succeeded or
                 not). Further calls to
@@ -83,10 +83,11 @@
 
                 <para>If a daemon receives more than one file
                 descriptor, they will be passed in the same order as
-                configured in the systemd socket definition
-                file. Nonetheless, it is recommended to verify the
-                correct socket types before using them. To simplify
-                this checking, the functions
+                configured in the systemd socket unit file (see
+                <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details). Nonetheless, it is recommended to verify
+                the correct socket types before using them. To
+                simplify this checking, the functions
                 <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_is_socket</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -103,6 +104,16 @@
                 <para>This function call will set the FD_CLOEXEC flag
                 for all passed file descriptors to avoid further
                 inheritance to children of the calling process.</para>
+
+                <para>If multiple socket units activate the same
+                service the order of the file descriptors passed to
+                its main process is undefined. If additional file
+                descriptors have been passed to the service manager
+                using
+                <citerefentry><refentrytitle>sd_pid_notify_with_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>'s
+                <literal>FDSTORE=1</literal> messages, these file
+                descriptors are passed last, in arbitrary order, and
+                with duplicates removed.</para>
         </refsect1>
 
         <refsect1>

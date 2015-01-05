@@ -41,7 +41,31 @@ FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-void fdset_free(FDSet *s) {
+int fdset_new_array(FDSet **ret, int *fds, unsigned n_fds) {
+        unsigned i;
+        FDSet *s;
+        int r;
+
+        assert(ret);
+
+        s = fdset_new();
+        if (!s)
+                return -ENOMEM;
+
+        for (i = 0; i < n_fds; i++) {
+
+                r = fdset_put(s, fds[i]);
+                if (r < 0) {
+                        set_free(MAKE_SET(s));
+                        return r;
+                }
+        }
+
+        *ret = s;
+        return 0;
+}
+
+FDSet* fdset_free(FDSet *s) {
         void *p;
 
         while ((p = set_steal_first(MAKE_SET(s)))) {
@@ -61,6 +85,7 @@ void fdset_free(FDSet *s) {
         }
 
         set_free(MAKE_SET(s));
+        return NULL;
 }
 
 int fdset_put(FDSet *s, int fd) {
@@ -68,6 +93,19 @@ int fdset_put(FDSet *s, int fd) {
         assert(fd >= 0);
 
         return set_put(MAKE_SET(s), FD_TO_PTR(fd));
+}
+
+int fdset_consume(FDSet *s, int fd) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        r = fdset_put(s, fd);
+        if (r <= 0)
+                safe_close(fd);
+
+        return r;
 }
 
 int fdset_put_dup(FDSet *s, int fd) {
@@ -223,10 +261,24 @@ unsigned fdset_size(FDSet *fds) {
         return set_size(MAKE_SET(fds));
 }
 
+bool fdset_isempty(FDSet *fds) {
+        return set_isempty(MAKE_SET(fds));
+}
+
 int fdset_iterate(FDSet *s, Iterator *i) {
         void *p;
 
         p = set_iterate(MAKE_SET(s), i);
+        if (!p)
+                return -ENOENT;
+
+        return PTR_TO_FD(p);
+}
+
+int fdset_steal_first(FDSet *fds) {
+        void *p;
+
+        p = set_steal_first(MAKE_SET(fds));
         if (!p)
                 return -ENOENT;
 

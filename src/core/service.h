@@ -22,6 +22,7 @@
 ***/
 
 typedef struct Service Service;
+typedef struct ServiceFDStore ServiceFDStore;
 
 #include "unit.h"
 #include "path.h"
@@ -115,6 +116,15 @@ typedef enum ServiceResult {
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
 
+struct ServiceFDStore {
+        Service *service;
+
+        int fd;
+        sd_event_source *event_source;
+
+        LIST_FIELDS(ServiceFDStore, fd_store);
+};
+
 struct Service {
         Unit meta;
 
@@ -198,6 +208,10 @@ struct Service {
 
         NotifyAccess notify_access;
         NotifyState notify_state;
+
+        ServiceFDStore *fd_store;
+        unsigned n_fd_store;
+        unsigned n_fd_store_max;
 };
 
 extern const UnitVTable service_vtable;

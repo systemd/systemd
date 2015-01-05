@@ -1069,3 +1069,5 @@ int fd_setcrtime(int fd, usec_t usec);
 int fd_getcrtime(int fd, usec_t *usec);
 int path_getcrtime(const char *p, usec_t *usec);
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
+
+int same_fd(int a, int b);

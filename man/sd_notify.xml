@@ -46,6 +46,9 @@
         <refnamediv>
                 <refname>sd_notify</refname>
                 <refname>sd_notifyf</refname>
+                <refname>sd_pid_notify</refname>
+                <refname>sd_pid_notifyf</refname>
+                <refname>sd_pid_notify_with_fds</refname>
                 <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
         </refnamediv>
 
@@ -64,6 +67,30 @@
                                 <paramdef>int <parameter>unset_environment</parameter></paramdef>
                                 <paramdef>const char *<parameter>format</parameter></paramdef>
                                 <paramdef>...</paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_notify</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const char *<parameter>state</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_notifyf</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const char *<parameter>format</parameter></paramdef>
+                                <paramdef>...</paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_notify_with_fds</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>int <parameter>unset_environment</parameter></paramdef>
+                                <paramdef>const char *<parameter>state</parameter></paramdef>
+                                <paramdef>const int *<parameter>fds</parameter></paramdef>
+                                <paramdef>unsigned <parameter>n_fds</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -175,7 +202,7 @@
                         <varlistentry>
                                 <term>MAINPID=...</term>
 
-                                <listitem><para>The main pid of the
+                                <listitem><para>The main process ID (PID) of the
                                 service, in case the service manager did
                                 not fork off the process
                                 itself. Example:
@@ -185,7 +212,7 @@
                         <varlistentry>
                                 <term>WATCHDOG=1</term>
 
-                                <listitem><para>Tells systemd to
+                                <listitem><para>Tells the service manager to
                                 update the watchdog timestamp. This is
                                 the keep-alive ping that services need
                                 to issue in regular intervals if
@@ -199,12 +226,53 @@
                                 check if the the watchdog is enabled.
                                 </para></listitem>
                         </varlistentry>
+
+
+                        <varlistentry>
+                                <term>FDSTORE=1</term>
+
+                                <listitem><para>Stores additional file
+                                descriptors in the service
+                                manager. File descriptors sent this
+                                way will be maintained per-service by
+                                the service manager and be passed
+                                again using the usual file descriptor
+                                passing logic on the next invocation
+                                of the service (see
+                                <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>). This
+                                is useful for implementing service
+                                restart schemes where services
+                                serialize their state to
+                                <filename>/run</filename>, push their
+                                file descriptors to the system
+                                manager, and are then restarted,
+                                retrieving their state again via
+                                socket passing and
+                                <filename>/run</filename>. Note that
+                                the service manager will accept
+                                messages for a service only if
+                                <varname>FileDescriptorStoreMax=</varname>
+                                is set to non-zero for it (defaults to
+                                zero). See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. Multiple arrays of file
+                                descriptors may be sent in seperate
+                                messages, in which case the arrays are
+                                combined. Note that the service
+                                manager removes duplicate file
+                                descriptors before passing them to the
+                                service. Use
+                                <function>sd_pid_notify_with_fds()</function>
+                                to send messages with
+                                <literal>FDSTORE=1</literal>, see
+                                below.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>It is recommended to prefix variable names that
-                are not shown in the list above with
-                <varname>X_</varname> to avoid namespace
-                clashes.</para>
+                are not listed above with <varname>X_</varname> to
+                avoid namespace clashes.</para>
 
                 <para>Note that systemd will accept status data sent
                 from a service only if the
@@ -217,6 +285,36 @@
                 <function>sd_notify()</function> but takes a
                 <function>printf()</function>-like format string plus
                 arguments.</para>
+
+                <para><function>sd_pid_notify()</function> and
+                <function>sd_pid_notifyf()</function> are similar to
+                <function>sd_notify()</function> and
+                <function>sd_notifyf()</function> but take a process
+                ID (PID) to use as originating PID for the message as
+                first argument. This is useful to send notification
+                messages on behalf of other processes, provided the
+                appropriate privileges are available. If the PID
+                argument is specified as 0 the process ID of the
+                calling process is used, in which case the calls are
+                fully equivalent to <function>sd_notify()</function>
+                and <function>sd_notifyf()</function>.</para>
+
+                <para><function>sd_pid_notify_with_fds()</function> is
+                similar to <function>sd_pid_notify()</function> but
+                takes an additional array of file descriptors. These
+                file descriptors are sent along the notification
+                message to the service manager. This is particularly
+                useful for sending <literal>FDSTORE=1</literal>
+                messages, as described above. The additional arguments
+                are a pointer to the file descriptor array plus the
+                number of file descriptors in the array. If the number
+                of file descriptors is passed as 0, the call is fully
+                equivalent to <function>sd_pid_notify()</function>,
+                i.e. no file descriptors are passed. Note that sending
+                file descriptors to the service manager on messages
+                that do not expect them (i.e. without
+                <literal>FDSTORE=1</literal>) they are immediately
+                closed on reception.</para>
         </refsect1>
 
         <refsect1>
@@ -295,12 +393,24 @@
                 <example>
                         <title>Error Cause Notification</title>
 
-                        <para>A service could send the following shortly before exiting, on failure</para>
+                        <para>A service could send the following shortly before exiting, on failure:</para>
 
                         <programlisting>sd_notifyf(0, "STATUS=Failed to start up: %s\n"
               "ERRNO=%i",
               strerror(errno),
               errno);</programlisting>
+                </example>
+
+                <example>
+                        <title>Store a File Descriptor in the Service Manager</title>
+
+                        <para>To store an open file descriptor in the
+                        service manager, in order to continue
+                        operation after a service restart without
+                        losing state use
+                        <literal>FDSTORE=1</literal>:</para>
+
+                        <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1", &amp;fd, 1);</programlisting>
                 </example>
         </refsect1>
 

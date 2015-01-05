@@ -340,19 +340,36 @@ _public_ int sd_is_mq(int fd, const char *path) {
         return 1;
 }
 
-_public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
-        union sockaddr_union sockaddr = {};
-        _cleanup_close_ int fd = -1;
-        struct msghdr msghdr = {};
-        struct iovec iovec = {};
-        const char *e;
+_public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds) {
+        union sockaddr_union sockaddr = {
+                .sa.sa_family = AF_UNIX,
+        };
+        struct iovec iovec = {
+                .iov_base = (char*) state,
+        };
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_name = &sockaddr,
+        };
         union {
                 struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-        } control = {};
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(int) * n_fds)];
+        } control;
+        _cleanup_close_ int fd = -1;
+        struct cmsghdr *cmsg = NULL;
+        const char *e;
+        size_t controllen_without_ucred = 0;
+        bool try_without_ucred = false;
         int r;
 
         if (!state) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        if (n_fds > 0 && !fds) {
                 r = -EINVAL;
                 goto finish;
         }
@@ -373,42 +390,50 @@ _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) 
                 goto finish;
         }
 
-        sockaddr.sa.sa_family = AF_UNIX;
-        strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
+        iovec.iov_len = strlen(state);
 
+        strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        iovec.iov_base = (char*) state;
-        iovec.iov_len = strlen(state);
-
-        msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
-
         if (msghdr.msg_namelen > sizeof(struct sockaddr_un))
                 msghdr.msg_namelen = sizeof(struct sockaddr_un);
 
-        msghdr.msg_iov = &iovec;
-        msghdr.msg_iovlen = 1;
-
-        if (pid != 0 && pid != getpid()) {
-                struct cmsghdr *cmsg;
-                struct ucred ucred = {};
-
+        if (n_fds > 0) {
                 msghdr.msg_control = &control;
-                msghdr.msg_controllen = sizeof(control);
+                msghdr.msg_controllen = CMSG_LEN(sizeof(int) * n_fds);
 
                 cmsg = CMSG_FIRSTHDR(&msghdr);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int) * n_fds);
+
+                memcpy(CMSG_DATA(cmsg), fds, sizeof(int) * n_fds);
+        }
+
+        if (pid != 0 && pid != getpid()) {
+                struct ucred *ucred;
+
+                try_without_ucred = true;
+                controllen_without_ucred = msghdr.msg_controllen;
+
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen += CMSG_LEN(sizeof(struct ucred));
+
+                if (cmsg)
+                        cmsg = CMSG_NXTHDR(&msghdr, cmsg);
+                else
+                        cmsg = CMSG_FIRSTHDR(&msghdr);
+
                 cmsg->cmsg_level = SOL_SOCKET;
                 cmsg->cmsg_type = SCM_CREDENTIALS;
                 cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
 
-                ucred.pid = pid;
-                ucred.uid = getuid();
-                ucred.gid = getgid();
-
-                memcpy(CMSG_DATA(cmsg), &ucred, sizeof(struct ucred));
-                msghdr.msg_controllen = cmsg->cmsg_len;
+                ucred = (struct ucred*) CMSG_DATA(cmsg);
+                ucred->pid = pid;
+                ucred->uid = getuid();
+                ucred->gid = getgid();
         }
 
         /* First try with fake ucred data, as requested */
@@ -417,10 +442,11 @@ _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) 
                 goto finish;
         }
 
-        /* If that failed, try with our own instead */
-        if (msghdr.msg_control) {
-                msghdr.msg_control = NULL;
-                msghdr.msg_controllen = 0;
+        /* If that failed, try with our own ucred instead */
+        if (try_without_ucred) {
+                if (controllen_without_ucred <= 0)
+                        msghdr.msg_control = NULL;
+                msghdr.msg_controllen = controllen_without_ucred;
 
                 if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
                         r = 1;
@@ -437,8 +463,12 @@ finish:
         return r;
 }
 
+_public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
+        return sd_pid_notify_with_fds(pid, unset_environment, state, NULL, 0);
+}
+
 _public_ int sd_notify(int unset_environment, const char *state) {
-        return sd_pid_notify(0, unset_environment, state);
+        return sd_pid_notify_with_fds(0, unset_environment, state, NULL, 0);
 }
 
 _public_ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) {

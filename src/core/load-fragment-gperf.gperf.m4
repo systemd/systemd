@@ -226,6 +226,7 @@ Service.SuccessExitStatus,       config_parse_set_status,            0,         
 Service.SysVStartPriority,       config_parse_warn_compat,           DISABLED_LEGACY,               0
 Service.NonBlocking,             config_parse_bool,                  0,                             offsetof(Service, exec_context.non_blocking)
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
+Service.FileDescriptorStoreMax,  config_parse_unsigned,              0,                             offsetof(Service, n_fd_store_max)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 m4_ifdef(`ENABLE_KDBUS',

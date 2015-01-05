@@ -27,24 +27,29 @@
 typedef struct FDSet FDSet;
 
 FDSet* fdset_new(void);
-void fdset_free(FDSet *s);
+FDSet* fdset_free(FDSet *s);
 
 int fdset_put(FDSet *s, int fd);
 int fdset_put_dup(FDSet *s, int fd);
+int fdset_consume(FDSet *s, int fd);
 
 bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);
 
-int fdset_new_fill(FDSet **_s);
-int fdset_new_listen_fds(FDSet **_s, bool unset);
+int fdset_new_array(FDSet **ret, int *fds, unsigned n_fds);
+int fdset_new_fill(FDSet **ret);
+int fdset_new_listen_fds(FDSet **ret, bool unset);
 
 int fdset_cloexec(FDSet *fds, bool b);
 
 int fdset_close_others(FDSet *fds);
 
 unsigned fdset_size(FDSet *fds);
+bool fdset_isempty(FDSet *fds);
 
 int fdset_iterate(FDSet *s, Iterator *i);
+
+int fdset_steal_first(FDSet *fds);
 
 #define FDSET_FOREACH(fd, fds, i) \
         for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))

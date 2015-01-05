@@ -158,6 +158,11 @@ global:
         sd_session_get_desktop;
 } LIBSYSTEMD_216;
 
+LIBSYSTEMD_219 {
+global:
+        sd_pid_notify_with_fds;
+} LIBSYSTEMD_217;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:

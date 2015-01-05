@@ -7672,3 +7672,28 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         return 0;
 }
+
+int same_fd(int a, int b) {
+        struct stat sta, stb;
+
+        assert(a >= 0);
+        assert(b >= 0);
+
+        if (a == b)
+                return true;
+
+        if (fstat(a, &sta) < 0)
+                return -errno;
+
+        if (fstat(b, &stb) < 0)
+                return -errno;
+
+        if ((sta.st_mode & S_IFMT) != (stb.st_mode & S_IFMT))
+                return false;
+
+        if (S_ISREG(sta.st_mode) || S_ISDIR(sta.st_mode) || S_ISFIFO(sta.st_mode) || S_ISSOCK(sta.st_mode) || S_ISLNK(sta.st_mode))
+                return (sta.st_dev == stb.st_dev) && (sta.st_ino == stb.st_ino);
+
+        /* We consider all device fds different... */
+        return false;
+}
