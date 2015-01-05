@@ -87,6 +87,11 @@ static int add_swap(
         assert(what);
         assert(me);
 
+        if (access("/proc/swaps", F_OK) < 0) {
+                log_info("Swap not supported, ignoring fstab swap entry for %s.", what);
+                return 0;
+        }
+
         if (detect_container(NULL) > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
@@ -355,7 +360,7 @@ static int parse_fstab(bool initrd) {
                 if (!what)
                         return log_oom();
 
-                if (detect_container(NULL) > 0 && is_device_path(what)) {
+                if (is_device_path(what) && path_is_read_only_fs("sys") > 0) {
                         log_info("Running in a container, ignoring fstab device entry for %s.", what);
                         continue;
                 }
