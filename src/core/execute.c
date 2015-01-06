@@ -797,7 +797,7 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        if (log_get_max_level() < LOG_PRI(LOG_DEBUG))
+        if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
         pam_code = pam_start(name, user, &conv, &handle);
@@ -1782,7 +1782,7 @@ static int exec_child(ExecCommand *command,
 
         final_env = strv_env_clean(final_env);
 
-        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);

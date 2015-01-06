@@ -1875,7 +1875,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);
