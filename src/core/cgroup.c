@@ -380,7 +380,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 }
         }
 
-        if (mask & CGROUP_MEMORY) {
+        if ((mask & CGROUP_MEMORY) & !is_root) {
                 if (c->memory_limit != (uint64_t) -1) {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
