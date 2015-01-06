@@ -295,6 +295,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         /* Some cgroup attributes are not support on the root cgroup,
          * hence silently ignore */
         is_root = isempty(path) || path_equal(path, "/");
+        if (is_root)
+                /* Make sure we don't try to display messages with an empty path. */
+                path = "/";
 
         /* We generally ignore errors caused by read-only mounted
          * cgroup trees (assuming we are running in a container then),
