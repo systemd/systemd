@@ -21,575 +21,483 @@
 -->
 <refentry id="tmpfiles.d">
 
-        <refentryinfo>
-                <title>tmpfiles.d</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>tmpfiles.d</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Documentation</contrib>
-                                <firstname>Brandon</firstname>
-                                <surname>Philips</surname>
-                                <email>brandon@ifup.org</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Documentation</contrib>
+        <firstname>Brandon</firstname>
+        <surname>Philips</surname>
+        <email>brandon@ifup.org</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>tmpfiles.d</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>tmpfiles.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>tmpfiles.d</refname>
-                <refpurpose>Configuration for creation, deletion and
-                cleaning of volatile and temporary files</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>tmpfiles.d</refname>
+    <refpurpose>Configuration for creation, deletion and cleaning of
+    volatile and temporary files</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
-                <para><filename>/run/tmpfiles.d/*.conf</filename></para>
-                <para><filename>/usr/lib/tmpfiles.d/*.conf</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
+    <para><filename>/run/tmpfiles.d/*.conf</filename></para>
+    <para><filename>/usr/lib/tmpfiles.d/*.conf</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>systemd-tmpfiles</command> uses the
-                configuration files from the above directories to describe the
-                creation, cleaning and removal of volatile and
-                temporary files and directories which usually reside
-                in directories such as <filename>/run</filename>
-                or <filename>/tmp</filename>.</para>
+    <para><command>systemd-tmpfiles</command> uses the configuration
+    files from the above directories to describe the creation,
+    cleaning and removal of volatile and temporary files and
+    directories which usually reside in directories such as
+    <filename>/run</filename> or <filename>/tmp</filename>.</para>
 
-                <para>Volatile and temporary files and directories are
-                those located in <filename>/run</filename> (and its
-                alias <filename>/var/run</filename>),
-                <filename>/tmp</filename>,
-                <filename>/var/tmp</filename>, the API file systems
-                such as <filename>/sys</filename> or
-                <filename>/proc</filename>, as well as some other
-                directories below <filename>/var</filename>.</para>
+    <para>Volatile and temporary files and directories are those
+    located in <filename>/run</filename> (and its alias
+    <filename>/var/run</filename>), <filename>/tmp</filename>,
+    <filename>/var/tmp</filename>, the API file systems such as
+    <filename>/sys</filename> or <filename>/proc</filename>, as well
+    as some other directories below <filename>/var</filename>.</para>
 
-                <para>System daemons frequently require private
-                runtime directories below <filename>/run</filename> to
-                place communication sockets and similar in. For these,
-                consider declaring them in their unit files using
-                <varname>RuntimeDirectory=</varname>
-                (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details),
-                if this is feasible.</para>
-        </refsect1>
+    <para>System daemons frequently require private runtime
+    directories below <filename>/run</filename> to place communication
+    sockets and similar in. For these, consider declaring them in
+    their unit files using <varname>RuntimeDirectory=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details), if this is feasible.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Configuration Format</title>
+  <refsect1>
+    <title>Configuration Format</title>
 
-                <para>Each configuration file shall be named in the
-                style of
-                <filename><replaceable>package</replaceable>.conf</filename>
-                or
-                <filename><replaceable>package</replaceable>-<replaceable>part</replaceable>.conf</filename>.
-                The second variant should be used when it is desirable
-                to make it easy to override just this part of
-                configuration.</para>
+    <para>Each configuration file shall be named in the style of
+    <filename><replaceable>package</replaceable>.conf</filename> or
+    <filename><replaceable>package</replaceable>-<replaceable>part</replaceable>.conf</filename>.
+    The second variant should be used when it is desirable to make it
+    easy to override just this part of configuration.</para>
 
-                <para>Files in <filename>/etc/tmpfiles.d</filename>
-                override files with the same name in
-                <filename>/usr/lib/tmpfiles.d</filename> and
-                <filename>/run/tmpfiles.d</filename>. Files in
-                <filename>/run/tmpfiles.d</filename> override files
-                with the same name in
-                <filename>/usr/lib/tmpfiles.d</filename>. Packages
-                should install their configuration files in
-                <filename>/usr/lib/tmpfiles.d</filename>. Files in
-                <filename>/etc/tmpfiles.d</filename> are reserved for
-                the local administrator, who may use this logic to
-                override the configuration files installed by vendor
-                packages. All configuration files are sorted by their
-                filename in lexicographic order, regardless of which
-                of the directories they reside in. If multiple files
-                specify the same path, the entry in the file with the
-                lexicographically earliest name will be applied.
-                All other conflicting entries will be logged as
-                errors. When two lines are prefix and suffix of each
-                other, then the prefix is always processed first, the
-                suffix later. Otherwise, the files/directories are
-                processed in the order they are listed.</para>
+    <para>Files in <filename>/etc/tmpfiles.d</filename> override files
+    with the same name in <filename>/usr/lib/tmpfiles.d</filename> and
+    <filename>/run/tmpfiles.d</filename>. Files in
+    <filename>/run/tmpfiles.d</filename> override files with the same
+    name in <filename>/usr/lib/tmpfiles.d</filename>. Packages should
+    install their configuration files in
+    <filename>/usr/lib/tmpfiles.d</filename>. Files in
+    <filename>/etc/tmpfiles.d</filename> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All
+    configuration files are sorted by their filename in lexicographic
+    order, regardless of which of the directories they reside in. If
+    multiple files specify the same path, the entry in the file with
+    the lexicographically earliest name will be applied.  All other
+    conflicting entries will be logged as errors. When two lines are
+    prefix and suffix of each other, then the prefix is always
+    processed first, the suffix later. Otherwise, the
+    files/directories are processed in the order they are
+    listed.</para>
 
-                <para>If the administrator wants to disable a
-                configuration file supplied by the vendor, the
-                recommended way is to place a symlink to
-                <filename>/dev/null</filename> in
-                <filename>/etc/tmpfiles.d/</filename> bearing the
-                same filename.</para>
+    <para>If the administrator wants to disable a configuration file
+    supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in
+    <filename>/etc/tmpfiles.d/</filename> bearing the same filename.
+    </para>
 
-                <para>The configuration format is one line per path
-                containing type, path, mode, ownership, age, and argument
-                fields:</para>
+    <para>The configuration format is one line per path containing
+    type, path, mode, ownership, age, and argument fields:</para>
 
-                <programlisting>#Type Path        Mode UID  GID  Age Argument
-d    /run/user   0755 root root 10d -
-L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
+    <programlisting>#Type Path        Mode UID  GID  Age Argument
+    d    /run/user   0755 root root 10d -
+    L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
-                <refsect2>
-                        <title>Type</title>
+    <refsect2>
+      <title>Type</title>
 
-                        <para>The type consists of a single letter and
-                        optionally an exclamation mark.</para>
+      <para>The type consists of a single letter and optionally an
+      exclamation mark.</para>
 
-                        <para>The following line types are understood:</para>
+      <para>The following line types are understood:</para>
 
-                        <variablelist>
-                                <varlistentry>
-                                        <term><varname>f</varname></term>
-                                        <listitem><para>Create a file if it does not exist yet. If the argument parameter is given, it will be written to the file.</para></listitem>
-                                </varlistentry>
+      <variablelist>
+        <varlistentry>
+          <term><varname>f</varname></term>
+          <listitem><para>Create a file if it does not exist yet. If
+          the argument parameter is given, it will be written to the
+          file.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>F</varname></term>
-                                        <listitem><para>Create or truncate a file. If the argument parameter is given, it will be written to the file.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>F</varname></term>
+          <listitem><para>Create or truncate a file. If the argument
+          parameter is given, it will be written to the file.</para>
+          </listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>w</varname></term>
-                                        <listitem><para>Write the argument parameter to a file, if the file exists.
-                                            Lines of this type accept shell-style globs in place of normal path
-                                            names. The argument parameter will be written without a trailing
-                                            newline. C-style backslash escapes are interpreted.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>w</varname></term>
+          <listitem><para>Write the argument parameter to a file, if
+          the file exists.  Lines of this type accept shell-style
+          globs in place of normal path names. The argument parameter
+          will be written without a trailing newline. C-style
+          backslash escapes are interpreted.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>d</varname></term>
-                                        <listitem><para>Create a directory if it does not exist yet.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>d</varname></term>
+          <listitem><para>Create a directory if it does not exist yet.
+          </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>D</varname></term>
-                                        <listitem><para>Create or empty a directory.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>D</varname></term>
+          <listitem><para>Create or empty a directory.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>v</varname></term>
-                                        <listitem><para>Create a
-                                        subvolume if the path does not
-                                        exist yet and the file system
-                                        supports this (btrfs). Otherwise
-                                        create a normal directory, in
-                                        the same way as
-                                        <varname>d</varname>.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>v</varname></term>
+          <listitem><para>Create a subvolume if the path does not
+          exist yet and the file system supports this
+          (btrfs). Otherwise create a normal directory, in the same
+          way as <varname>d</varname>.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>p</varname></term>
-                                        <term><varname>p+</varname></term>
-                                        <listitem><para>Create a named
-                                        pipe (FIFO) if it does not
-                                        exist yet. If suffixed with
-                                        <varname>+</varname> and a
-                                        file already exists where the
-                                        pipe is to be created, it will
-                                        be removed and be replaced by
-                                        the pipe.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>p</varname></term>
+          <term><varname>p+</varname></term>
+          <listitem><para>Create a named pipe (FIFO) if it does not
+          exist yet. If suffixed with <varname>+</varname> and a file
+          already exists where the pipe is to be created, it will be
+          removed and be replaced by the pipe.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>L</varname></term>
-                                        <term><varname>L+</varname></term>
-                                        <listitem><para>Create a
-                                        symlink if it does not exist
-                                        yet. If suffixed with
-                                        <varname>+</varname> and a
-                                        file already exists where the
-                                        symlink is to be created, it
-                                        will be removed and be
-                                        replaced by the
-                                        symlink. If the argument is omitted,
-                                        symlinks to files with the same name
-                                        residing in the directory
-                                        <filename>/usr/share/factory/</filename>
-                                        are created.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>L</varname></term>
+          <term><varname>L+</varname></term>
+          <listitem><para>Create a symlink if it does not exist
+          yet. If suffixed with <varname>+</varname> and a file
+          already exists where the symlink is to be created, it will
+          be removed and be replaced by the symlink. If the argument
+          is omitted, symlinks to files with the same name residing in
+          the directory <filename>/usr/share/factory/</filename> are
+          created.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>c</varname></term>
-                                        <term><varname>c+</varname></term>
-                                        <listitem><para>Create a
-                                        character device node if it
-                                        does not exist yet. If
-                                        suffixed with
-                                        <varname>+</varname> and a
-                                        file already exists where the
-                                        device node is to be created,
-                                        it will be removed and be
-                                        replaced by the device
-                                        node. It is recommended to suffix this
-                                        entry with an exclamation mark to only
-                                        create static device nodes at boot,
-                                        as udev will not manage static device
-                                        nodes that are created at runtime.
-                                        </para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>c</varname></term>
+          <term><varname>c+</varname></term>
+          <listitem><para>Create a character device node if it does
+          not exist yet. If suffixed with <varname>+</varname> and a
+          file already exists where the device node is to be created,
+          it will be removed and be replaced by the device node. It is
+          recommended to suffix this entry with an exclamation mark to
+          only create static device nodes at boot, as udev will not
+          manage static device nodes that are created at runtime.
+          </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>b</varname></term>
-                                        <term><varname>b+</varname></term>
-                                        <listitem><para>Create a block
-                                        device node if it does not
-                                        exist yet. If suffixed with
-                                        <varname>+</varname> and a
-                                        file already exists where the
-                                        device node is to be created,
-                                        it will be removed and be
-                                        replaced by the device
-                                        node. It is recommended to suffix this
-                                        entry with an exclamation mark to only
-                                        create static device nodes at boot,
-                                        as udev will not manage static device
-                                        nodes that are created at runtime.
-                                        </para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>b</varname></term>
+          <term><varname>b+</varname></term>
+          <listitem><para>Create a block device node if it does not
+          exist yet. If suffixed with <varname>+</varname> and a file
+          already exists where the device node is to be created, it
+          will be removed and be replaced by the device node. It is
+          recommended to suffix this entry with an exclamation mark to
+          only create static device nodes at boot, as udev will not
+          manage static device nodes that are created at runtime.
+          </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>C</varname></term>
-                                        <listitem><para>Recursively
-                                        copy a file or directory, if
-                                        the destination files or
-                                        directories do not exist
-                                        yet. Note that this command
-                                        will not descend into
-                                        subdirectories if the
-                                        destination directory already
-                                        exists. Instead, the entire
-                                        copy operation is
-                                        skipped. If the argument is omitted,
-                                        files from the source directory
-                                        <filename>/usr/share/factory/</filename>
-                                        with the same name are copied.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>C</varname></term>
+          <listitem><para>Recursively copy a file or directory, if the
+          destination files or directories do not exist yet. Note that
+          this command will not descend into subdirectories if the
+          destination directory already exists. Instead, the entire
+          copy operation is skipped. If the argument is omitted, files
+          from the source directory
+          <filename>/usr/share/factory/</filename> with the same name
+          are copied.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>x</varname></term>
-                                        <listitem><para>Ignore a path
-                                        during cleaning. Use this type
-                                        to exclude paths from clean-up
-                                        as controlled with the Age
-                                        parameter. Note that lines of
-                                        this type do not influence the
-                                        effect of <varname>r</varname>
-                                        or <varname>R</varname> lines.
-                                        Lines of this type accept
-                                        shell-style globs in place of
-                                        normal path names.
-                                        </para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>x</varname></term>
+          <listitem><para>Ignore a path during cleaning. Use this type
+          to exclude paths from clean-up as controlled with the Age
+          parameter. Note that lines of this type do not influence the
+          effect of <varname>r</varname> or <varname>R</varname>
+          lines.  Lines of this type accept shell-style globs in place
+          of normal path names.  </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>X</varname></term>
-                                        <listitem><para>Ignore a path
-                                        during cleaning. Use this type
-                                        to exclude paths from clean-up
-                                        as controlled with the Age
-                                        parameter. Unlike
-                                        <varname>x</varname>, this
-                                        parameter will not exclude the
-                                        content if path is a
-                                        directory, but only directory
-                                        itself. Note that lines of
-                                        this type do not influence the
-                                        effect of <varname>r</varname>
-                                        or <varname>R</varname> lines.
-                                        Lines of this type accept
-                                        shell-style globs in place of
-                                        normal path names.
-                                        </para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>X</varname></term>
+          <listitem><para>Ignore a path during cleaning. Use this type
+          to exclude paths from clean-up as controlled with the Age
+          parameter. Unlike <varname>x</varname>, this parameter will
+          not exclude the content if path is a directory, but only
+          directory itself. Note that lines of this type do not
+          influence the effect of <varname>r</varname> or
+          <varname>R</varname> lines.  Lines of this type accept
+          shell-style globs in place of normal path names.
+          </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>r</varname></term>
-                                        <listitem><para>Remove a file
-                                        or directory if it exists.
-                                        This may not be used to remove
-                                        non-empty directories, use
-                                        <varname>R</varname> for that.
-                                        Lines of this type accept
-                                        shell-style globs in place of
-                                        normal path
-                                        names.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>r</varname></term>
+          <listitem><para>Remove a file or directory if it exists.
+          This may not be used to remove non-empty directories, use
+          <varname>R</varname> for that.  Lines of this type accept
+          shell-style globs in place of normal path
+          names.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>R</varname></term>
-                                        <listitem><para>Recursively
-                                        remove a path and all its
-                                        subdirectories (if it is a
-                                        directory). Lines of this type
-                                        accept shell-style globs in
-                                        place of normal path
-                                        names.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>R</varname></term>
+          <listitem><para>Recursively remove a path and all its
+          subdirectories (if it is a directory). Lines of this type
+          accept shell-style globs in place of normal path
+          names.</para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>z</varname></term>
-                                        <listitem><para>Adjust the
-                                        access mode, group and user,
-                                        and restore the SELinux security
-                                        context of a file or directory,
-                                        if it exists. Lines of this
-                                        type accept shell-style globs
-                                        in place of normal path names.
-                                        </para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>z</varname></term>
+          <listitem><para>Adjust the access mode, group and user, and
+          restore the SELinux security context of a file or directory,
+          if it exists. Lines of this type accept shell-style globs in
+          place of normal path names.  </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>Z</varname></term>
-                                        <listitem><para>Recursively
-                                        set the access mode, group and
-                                        user, and restore the SELinux
-                                        security context of a file or
-                                        directory if it exists, as
-                                        well as of its subdirectories
-                                        and the files contained
-                                        therein (if applicable). Lines
-                                        of this type accept
-                                        shell-style globs in place of
-                                        normal path
-                                        names.</para></listitem>
-                                </varlistentry>
+        <varlistentry>
+          <term><varname>Z</varname></term>
+          <listitem><para>Recursively set the access mode, group and
+          user, and restore the SELinux security context of a file or
+          directory if it exists, as well as of its subdirectories and
+          the files contained therein (if applicable). Lines of this
+          type accept shell-style globs in place of normal path names.
+          </para></listitem>
+        </varlistentry>
 
-                                <varlistentry>
-                                        <term><varname>t</varname></term>
-                                        <listitem><para>Set extended
-                                        attributes on item. It may be
-                                        used in conjunction with other
-                                        types (only <varname>d</varname>,
-                                        <varname>D</varname>, <varname>f</varname>,
-                                        <varname>F</varname>, <varname>L</varname>,
-                                        <varname>p</varname>, <varname>c</varname>,
-                                        <varname>b</varname>, makes sense).
-                                        If used as a standalone line, then
-                                        <command>systemd-tmpfiles</command>
-                                        will try to set extended
-                                        attributes on specified path.
-                                        This can be especially used to set
-                                        SMACK labels.
-                                        </para></listitem>
-                                </varlistentry>
-                        </variablelist>
+        <varlistentry>
+          <term><varname>t</varname></term>
+          <listitem><para>Set extended attributes on item. It may be
+          used in conjunction with other types (only
+          <varname>d</varname>, <varname>D</varname>,
+          <varname>f</varname>, <varname>F</varname>,
+          <varname>L</varname>, <varname>p</varname>,
+          <varname>c</varname>, <varname>b</varname>, makes sense).
+          If used as a standalone line, then
+          <command>systemd-tmpfiles</command> will try to set extended
+          attributes on specified path.  This can be especially used
+          to set SMACK labels.  </para></listitem>
+        </varlistentry>
+      </variablelist>
 
-                        <para>If the exclamation mark is used, this
-                        line is only safe of execute during boot, and
-                        can break a running system. Lines without the
-                        exclamation mark are presumed to be safe to
-                        execute at any time, e.g. on package upgrades.
-                        <command>systemd-tmpfiles</command> will
-                        execute line with an exclamation mark only if
-                        option <option>--boot</option> is given.
-                        </para>
+      <para>If the exclamation mark is used, this line is only safe of
+      execute during boot, and can break a running system. Lines
+      without the exclamation mark are presumed to be safe to execute
+      at any time, e.g. on package upgrades.
+      <command>systemd-tmpfiles</command> will execute line with an
+      exclamation mark only if option <option>--boot</option> is
+      given.</para>
 
-                        <para>For example:
-                        <programlisting># Make sure these are created by default so that nobody else can
-d /tmp/.X11-unix 1777 root root 10d
+      <para>For example:
+      <programlisting># Make sure these are created by default so that nobody else can
+      d /tmp/.X11-unix 1777 root root 10d
 
-# Unlink the X11 lock files
-r! /tmp/.X[0-9]*-lock</programlisting>
-                        The second line in contrast to the first one
-                        would break a running system, and will only be
-                        executed with <option>--boot</option>.</para>
-                </refsect2>
+      # Unlink the X11 lock files
+      r! /tmp/.X[0-9]*-lock</programlisting>
+      The second line in contrast to the first one would break a
+      running system, and will only be executed with
+      <option>--boot</option>.</para>
+    </refsect2>
 
-                <refsect2>
-                        <title>Path</title>
+    <refsect2>
+      <title>Path</title>
 
-                        <para>The file system path specification supports simple specifier
-                        expansion. The following expansions are
-                        understood:</para>
+      <para>The file system path specification supports simple
+      specifier expansion. The following expansions are
+      understood:</para>
 
-                        <table>
-                                <title>Specifiers available</title>
-                                <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-                                        <colspec colname="spec" />
-                                        <colspec colname="mean" />
-                                        <colspec colname="detail" />
-                                        <thead>
-                                                <row>
-                                                        <entry>Specifier</entry>
-                                                        <entry>Meaning</entry>
-                                                        <entry>Details</entry>
-                                                </row>
-                                        </thead>
-                                        <tbody>
-                                                <row>
-                                                        <entry><literal>%m</literal></entry>
-                                                        <entry>Machine ID</entry>
-                                                        <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-                                                </row>
-                                                <row>
-                                                        <entry><literal>%b</literal></entry>
-                                                        <entry>Boot ID</entry>
-                                                        <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-                                                </row>
-                                                <row>
-                                                        <entry><literal>%H</literal></entry>
-                                                        <entry>Host name</entry>
-                                                        <entry>The hostname of the running system.</entry>
-                                                </row>
-                                                <row>
-                                                        <entry><literal>%v</literal></entry>
-                                                        <entry>Kernel release</entry>
-                                                        <entry>Identical to <command>uname -r</command> output.</entry>
-                                                </row>
-                                                <row>
-                                                        <entry><literal>%%</literal></entry>
-                                                        <entry>Escaped %</entry>
-                                                        <entry>Single percent sign.</entry>
-                                                </row>
-                                        </tbody>
-                                </tgroup>
-                        </table>
-                </refsect2>
+      <table>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>%m</literal></entry>
+              <entry>Machine ID</entry>
+              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%b</literal></entry>
+              <entry>Boot ID</entry>
+              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%H</literal></entry>
+              <entry>Host name</entry>
+              <entry>The hostname of the running system.</entry>
+            </row>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel release</entry>
+              <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%%</literal></entry>
+              <entry>Escaped %</entry>
+              <entry>Single percent sign.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+    </refsect2>
 
-                <refsect2>
-                        <title>Mode</title>
+    <refsect2>
+      <title>Mode</title>
 
-                        <para>The file access mode to use when
-                        creating this file or directory. If omitted or
-                        when set to -, the default is used: 0755 for
-                        directories, 0644 for all other file objects.
-                        For <varname>z</varname>, <varname>Z</varname>
-                        lines, if omitted or when set to
-                        <literal>-</literal>, the file access mode
-                        will not be modified. This parameter is
-                        ignored for <varname>x</varname>,
-                        <varname>r</varname>, <varname>R</varname>,
-                        <varname>L</varname>, <varname>t</varname> lines.</para>
+      <para>The file access mode to use when creating this file or
+      directory. If omitted or when set to <literal>-</literal>, the
+      default is used: 0755 for directories, 0644 for all other file
+      objects.  For <varname>z</varname>, <varname>Z</varname> lines,
+      if omitted or when set to <literal>-</literal>, the file access
+      mode will not be modified. This parameter is ignored for
+      <varname>x</varname>, <varname>r</varname>,
+      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>
+      lines.</para>
 
-                        <para>Optionally, if prefixed with
-                        <literal>~</literal>, the access mode is masked
-                        based on the already set access bits for
-                        existing file or directories: if the existing
-                        file has all executable bits unset, all
-                        executable bits are removed from the new
-                        access mode, too. Similarly, if all read bits
-                        are removed from the old access mode, they will
-                        be removed from the new access mode too, and
-                        if all write bits are removed, they will be
-                        removed from the new access mode too. In
-                        addition, the sticky/SUID/SGID bit is removed unless
-                        applied to a directory. This
-                        functionality is particularly useful in
-                        conjunction with <varname>Z</varname>.</para>
-                </refsect2>
+      <para>Optionally, if prefixed with <literal>~</literal>, the
+      access mode is masked based on the already set access bits for
+      existing file or directories: if the existing file has all
+      executable bits unset, all executable bits are removed from the
+      new access mode, too. Similarly, if all read bits are removed
+      from the old access mode, they will be removed from the new
+      access mode too, and if all write bits are removed, they will be
+      removed from the new access mode too. In addition, the
+      sticky/SUID/SGID bit is removed unless applied to a
+      directory. This functionality is particularly useful in
+      conjunction with <varname>Z</varname>.</para>
+    </refsect2>
 
-                <refsect2>
-                        <title>UID, GID</title>
+    <refsect2>
+      <title>UID, GID</title>
 
-                        <para>The user and group to use for this file
-                        or directory. This may either be a numeric
-                        user/group ID or a user or group name. If
-                        omitted or when set to <literal>-</literal>,
-                        the default 0 (root) is used. For
-                        <varname>z</varname>, <varname>Z</varname>
-                        lines, when omitted or when set to -, the file
-                        ownership will not be modified. These
-                        parameters are ignored for
-                        <varname>x</varname>, <varname>r</varname>,
-                        <varname>R</varname>, <varname>L</varname>,
-                        <varname>t</varname> lines.</para>
-                </refsect2>
+      <para>The user and group to use for this file or directory. This
+      may either be a numeric user/group ID or a user or group
+      name. If omitted or when set to <literal>-</literal>, the
+      default 0 (root) is used. For <varname>z</varname>,
+      <varname>Z</varname> lines, when omitted or when set to -, the
+      file ownership will not be modified. These parameters are
+      ignored for <varname>x</varname>, <varname>r</varname>,
+      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>
+      lines.</para>
+    </refsect2>
 
-                <refsect2>
-                        <title>Age</title>
-                        <para>The date field, when set, is used to
-                        decide what files to delete when cleaning. If
-                        a file or directory is older than the current
-                        time minus the age field, it is deleted. The
-                        field format is a series of integers each
-                        followed by one of the following
-                        postfixes for the respective time units:</para>
+    <refsect2>
+      <title>Age</title>
+      <para>The date field, when set, is used to decide what files to
+      delete when cleaning. If a file or directory is older than the
+      current time minus the age field, it is deleted. The field
+      format is a series of integers each followed by one of the
+      following postfixes for the respective time units:</para>
 
-                        <variablelist>
-                                <varlistentry>
-                                <term><varname>s</varname></term>
-                                <term><varname>min</varname></term>
-                                <term><varname>h</varname></term>
-                                <term><varname>d</varname></term>
-                                <term><varname>w</varname></term>
-                                <term><varname>ms</varname></term>
-                                <term><varname>m</varname></term>
-                                <term><varname>us</varname></term></varlistentry>
-                        </variablelist>
+      <variablelist>
+        <varlistentry>
+          <term><varname>s</varname></term>
+          <term><varname>min</varname></term>
+          <term><varname>h</varname></term>
+          <term><varname>d</varname></term>
+          <term><varname>w</varname></term>
+          <term><varname>ms</varname></term>
+          <term><varname>m</varname></term>
+        <term><varname>us</varname></term></varlistentry>
+      </variablelist>
 
-                        <para>If multiple integers and units are specified, the time
-                        values are summed up. If an integer is given without a unit,
-                        s is assumed.
-                        </para>
+      <para>If multiple integers and units are specified, the time
+      values are summed up. If an integer is given without a unit,
+      <varname>s</varname> is assumed.
+      </para>
 
-                        <para>When the age is set to zero, the files are cleaned
-                        unconditionally.</para>
+      <para>When the age is set to zero, the files are cleaned
+      unconditionally.</para>
 
-                        <para>The age field only applies to lines
-                        starting with <varname>d</varname>,
-                        <varname>D</varname>, and
-                        <varname>x</varname>. If omitted or set to
-                        <literal>-</literal>, no automatic clean-up is
-                        done.</para>
+      <para>The age field only applies to lines
+      starting with <varname>d</varname>,
+      <varname>D</varname>, and
+      <varname>x</varname>. If omitted or set to
+      <literal>-</literal>, no automatic clean-up is
+      done.</para>
 
-                        <para>If the age field starts with a tilde
-                        character <literal>~</literal>, the clean-up
-                        is only applied to files and directories one
-                        level inside the directory specified, but not
-                        the files and directories immediately inside
-                        it.</para>
-                </refsect2>
+      <para>If the age field starts with a tilde character
+      <literal>~</literal>, the clean-up is only applied to files and
+      directories one level inside the directory specified, but not
+      the files and directories immediately inside it.</para>
+    </refsect2>
 
-                <refsect2>
-                        <title>Argument</title>
+    <refsect2>
+      <title>Argument</title>
 
-                        <para>For <varname>L</varname> lines
-                        determines the destination path of the
-                        symlink. For <varname>c</varname>,
-                        <varname>b</varname> determines the
-                        major/minor of the device node, with major and
-                        minor formatted as integers, separated by
-                        <literal>:</literal>, e.g.
-                        <literal>1:3</literal>. For
-                        <varname>f</varname>, <varname>F</varname>,
-                        and <varname>w</varname> may be used to
-                        specify a short string that is written to the
-                        file, suffixed by a newline. For
-                        <varname>C</varname>, specifies the source file
-                        or directory. For <varname>t</varname> determines
-                        extended attributes to be set. Ignored for all other lines.</para>
-                </refsect2>
+      <para>For <varname>L</varname> lines determines the destination
+      path of the symlink. For <varname>c</varname>,
+      <varname>b</varname> determines the major/minor of the device
+      node, with major and minor formatted as integers, separated by
+      <literal>:</literal>, e.g.  <literal>1:3</literal>. For
+      <varname>f</varname>, <varname>F</varname>, and
+      <varname>w</varname> may be used to specify a short string that
+      is written to the file, suffixed by a newline. For
+      <varname>C</varname>, specifies the source file or
+      directory. For <varname>t</varname> determines extended
+      attributes to be set. Ignored for all other lines.</para>
+    </refsect2>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>Example</title>
-                <example>
-                        <title>/etc/tmpfiles.d/screen.conf example</title>
-                        <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>/etc/tmpfiles.d/screen.conf example</title>
+      <para><command>screen</command> needs two directories created at
+      boot with specific modes and ownership.</para>
 
-                        <programlisting>d /run/screens  1777 root root 10d
-d /run/uscreens 0755 root root 10d12h
-t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
-                </example>
-                <example>
-                        <title>/etc/tmpfiles.d/abrt.conf example</title>
-                        <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
+      <programlisting>d /run/screens  1777 root root 10d
+      d /run/uscreens 0755 root root 10d12h
+      t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
+    </example>
+    <example>
+      <title>/etc/tmpfiles.d/abrt.conf example</title>
+      <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
 
-                        <programlisting>d /var/tmp/abrt 0755 abrt abrt
-x /var/tmp/abrt/*</programlisting>
-                </example>
-        </refsect1>
+      <programlisting>d /var/tmp/abrt 0755 abrt abrt
+      x /var/tmp/abrt/*</programlisting>
+    </example>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>
