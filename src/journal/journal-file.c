@@ -2780,7 +2780,8 @@ int journal_file_open_reliably(
             r != -EPROTONOSUPPORT && /* incompatible feature */
             r != -EBUSY && /* unclean shutdown */
             r != -ESHUTDOWN && /* already archived */
-            r != -EIO /* IO error, including SIGBUS on mmap */)
+            r != -EIO && /* IO error, including SIGBUS on mmap */
+            r != -EIDRM /* File has been deleted */)
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
