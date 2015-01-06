@@ -1123,7 +1123,7 @@ static int clean_item(Item *i) {
 }
 
 static int process_item(Item *i) {
-        int r, q, p;
+        int r, q, p, s, t = 0;
         _cleanup_free_ char *prefix = NULL;
 
         assert(i);
@@ -1141,21 +1141,23 @@ static int process_item(Item *i) {
                 Item *j;
 
                 j = hashmap_get(items, prefix);
-                if (j)
-                        process_item(j);
+                if (j) {
+                        int s;
+
+                        s = process_item(j);
+                        if (s < 0 && t == 0)
+                                t = s;
+                }
         }
 
         r = arg_create ? create_item(i) : 0;
         q = arg_remove ? remove_item(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
 
-        if (r < 0)
-                return r;
-
-        if (q < 0)
-                return q;
-
-        return p;
+        return t < 0 ? t :
+                r < 0 ? r :
+                q < 0 ? q :
+                p;
 }
 
 static void item_free(Item *i) {
@@ -1735,11 +1737,17 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        HASHMAP_FOREACH(i, globs, iterator)
-                process_item(i);
+        HASHMAP_FOREACH(i, globs, iterator) {
+                k = process_item(i);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
 
-        HASHMAP_FOREACH(i, items, iterator)
-                process_item(i);
+        HASHMAP_FOREACH(i, items, iterator) {
+                k = process_item(i);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
 
 finish:
         while ((i = hashmap_steal_first(items)))
