@@ -236,8 +236,9 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
                             LOG_ERR, return -EXFULL);
 
-                /* enable verbose for easier tracing */
-                easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
+                if (_unlikely_(log_get_max_level() >= LOG_DEBUG))
+                        /* enable verbose for easier tracing */
+                        easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
 
                 easy_setopt(curl, CURLOPT_USERAGENT,
                             "systemd-journal-upload " PACKAGE_STRING,
