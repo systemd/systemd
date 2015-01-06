@@ -1123,7 +1123,7 @@ static int clean_item(Item *i) {
 }
 
 static int process_item(Item *i) {
-        int r, q, p, s, t = 0;
+        int r, q, p, t = 0;
         _cleanup_free_ char *prefix = NULL;
 
         assert(i);
