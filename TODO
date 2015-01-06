@@ -31,6 +31,14 @@ External:
 
 Features:
 
+* support mbr raw disk images in systemd-nspawn, so that we can boot fedora cloud images unmodified
+
+* add fd store to pid 1 serialization
+
+* rework sigbus stuff to use mutex
+
+* create importd daemon, move "systemd-import" tool into machinectl
+
 * change default container location from /var/lib/container to /var/lib/machines
 
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
