@@ -1291,7 +1291,7 @@ static int copy_devnodes(const char *dest) {
                         }
 
                         if (mknod(to, st.st_mode, st.st_rdev) < 0)
-                                return log_error_errno(errno, "mknod(%s) failed: %m", dest);
+                                return log_error_errno(errno, "mknod(%s) failed: %m", to);
                 }
         }
 
