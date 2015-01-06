@@ -57,3 +57,6 @@ int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *quota);
 int btrfs_reflink(int infd, int outfd);
 
 int btrfs_get_block_device(const char *path, dev_t *dev);
+
+int btrfs_defrag_fd(int fd);
+int btrfs_defrag(const char *p);

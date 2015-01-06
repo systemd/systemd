@@ -531,3 +531,22 @@ finish:
 
         return 0;
 }
+
+int btrfs_defrag_fd(int fd) {
+        assert(fd >= 0);
+
+        if (ioctl(fd, BTRFS_IOC_DEFRAG, NULL) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_defrag(const char *p) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_defrag_fd(fd);
+}

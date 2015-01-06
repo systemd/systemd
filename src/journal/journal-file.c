@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <stddef.h>
 
+#include "btrfs-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-authenticate.h"
@@ -139,6 +140,9 @@ void journal_file_close(JournalFile *f) {
 
         if (f->mmap && f->fd >= 0)
                 mmap_cache_close_fd(f->mmap, f->fd);
+
+        if (f->fd >= 0 && f->defrag_on_close)
+                btrfs_defrag_fd(f->fd);
 
         safe_close(f->fd);
         free(f->path);
@@ -2741,6 +2745,11 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
 
         old_file->header->state = STATE_ARCHIVED;
 
+        /* Currently, btrfs is not very good with out write patterns
+         * and fragments heavily. Let's defrag our journal files when
+         * we archive them */
+        old_file->defrag_on_close = true;
+
         r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
         journal_file_close(old_file);
 
@@ -2795,6 +2804,10 @@ int journal_file_open_reliably(
         r = rename(fname, p);
         if (r < 0)
                 return -errno;
+
+        /* btrfs doesn't cope well with our write pattern and
+         * fragments heavily. Let's defrag all files we rotate */
+        (void) btrfs_defrag(p);
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
