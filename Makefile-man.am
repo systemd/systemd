@@ -1337,8 +1337,10 @@ if HAVE_MYHOSTNAME
 MANPAGES += \
 	man/nss-myhostname.8
 MANPAGES_ALIAS += \
-	#
-
+	man/libnss_myhostname.so.2.8
+man/libnss_myhostname.so.2.8: man/nss-myhostname.8
+man/libnss_myhostname.so.2.html: man/nss-myhostname.html
+	$(html-alias)
 
 endif
 
