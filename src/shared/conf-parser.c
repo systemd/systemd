@@ -61,7 +61,7 @@ int log_syntax_internal(
 
         if (unit)
                 r = log_struct_internal(level,
-                                        error > 0 ? error : EINVAL,
+                                        error,
                                         file, line, func,
                                         getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
                                         LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
@@ -71,7 +71,7 @@ int log_syntax_internal(
                                         NULL);
         else
                 r = log_struct_internal(level,
-                                        error > 0 ? error : EINVAL,
+                                        error,
                                         file, line, func,
                                         LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
                                         "CONFIG_FILE=%s", config_file,
