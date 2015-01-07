@@ -1760,6 +1760,7 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet) {
                         if (q < 0 && r == 0)
                                 r = q;
 
+                        errno = 0;
                         log_debug_errno(q, "Got result %s/%m for job %s", strna(d->result), strna(d->name));
                 }
 
