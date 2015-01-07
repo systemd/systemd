@@ -45,6 +45,10 @@ Release 219 preparations:
 
 Features:
 
+* "machinectl list-images" should show os-release data
+
+* should we set nocow chattr attribute on journal files by default? does this have any drawbacks?
+
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
 * Port various tools to make use of verbs.[ch], where applicable
