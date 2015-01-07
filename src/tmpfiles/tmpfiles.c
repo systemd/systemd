@@ -230,10 +230,7 @@ static bool unix_socket_alive(const char *fn) {
 
 static int dir_is_mount_point(DIR *d, const char *subdir) {
 
-        union file_handle_union h = {
-                .handle.handle_bytes = MAX_HANDLE_SZ
-        };
-
+        union file_handle_union h = FILE_HANDLE_INIT;
         int mount_id_parent, mount_id;
         int r_p, r;
 
