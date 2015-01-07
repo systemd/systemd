@@ -495,8 +495,7 @@ static int service_add_default_dependencies(Service *s) {
                 return r;
 
         /* Second, activate normal shutdown */
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
-        return r;
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static void service_fix_output(Service *s) {
@@ -515,6 +514,67 @@ static void service_fix_output(Service *s) {
         if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_input == EXEC_INPUT_NULL)
                 s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+}
+
+static int service_add_extras(Service *s) {
+        int r;
+
+        assert(s);
+
+        if (s->type == _SERVICE_TYPE_INVALID) {
+                /* Figure out a type automatically */
+                if (s->bus_name)
+                        s->type = SERVICE_DBUS;
+                else if (s->exec_command[SERVICE_EXEC_START])
+                        s->type = SERVICE_SIMPLE;
+                else
+                        s->type = SERVICE_ONESHOT;
+        }
+
+        /* Oneshot services have disabled start timeout by default */
+        if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
+                s->timeout_start_usec = 0;
+
+        service_fix_output(s);
+
+        r = unit_patch_contexts(UNIT(s));
+        if (r < 0)
+                return r;
+
+        r = unit_add_exec_dependencies(UNIT(s), &s->exec_context);
+        if (r < 0)
+                return r;
+
+        r = unit_add_default_slice(UNIT(s), &s->cgroup_context);
+        if (r < 0)
+                return r;
+
+        if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
+                s->notify_access = NOTIFY_MAIN;
+
+        if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
+                s->notify_access = NOTIFY_MAIN;
+
+        if (s->bus_name) {
+                const char *n;
+
+                r = unit_watch_bus_name(UNIT(s), s->bus_name);
+                if (r < 0)
+                        return r;
+
+                n = strappenda(s->bus_name, ".busname");
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
+                if (r < 0)
+                        return r;
+        }
+
+        if (UNIT(s)->default_dependencies) {
+                r = service_add_default_dependencies(s);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int service_load(Unit *u) {
@@ -541,52 +601,11 @@ static int service_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (s->type == _SERVICE_TYPE_INVALID) {
-                        /* Figure out a type automatically */
-                        if (s->bus_name)
-                                s->type = SERVICE_DBUS;
-                        else if (s->exec_command[SERVICE_EXEC_START])
-                                s->type = SERVICE_SIMPLE;
-                        else
-                                s->type = SERVICE_ONESHOT;
-                }
-
-                /* Oneshot services have disabled start timeout by default */
-                if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
-                        s->timeout_start_usec = 0;
-
-                service_fix_output(s);
-
-                r = unit_patch_contexts(u);
+                /* This is a new unit? Then let's add in some
+                 * extras */
+                r = service_add_extras(s);
                 if (r < 0)
                         return r;
-
-                r = unit_add_exec_dependencies(u, &s->exec_context);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_default_slice(u, &s->cgroup_context);
-                if (r < 0)
-                        return r;
-
-                if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
-                        s->notify_access = NOTIFY_MAIN;
-
-                if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
-                        s->notify_access = NOTIFY_MAIN;
-
-                if (s->bus_name) {
-                        r = unit_watch_bus_name(u, s->bus_name);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (u->default_dependencies) {
-                        r = service_add_default_dependencies(s);
-                        if (r < 0)
-
-                                return r;
-                }
         }
 
         return service_verify(s);
