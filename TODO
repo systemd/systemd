@@ -29,15 +29,21 @@ External:
 * When lz4 gets an API for lz4 command output, make use of it to
   compress coredumps in a way compatible with /usr/bin/lz4.
 
-Features:
+Release 219 preparations:
 
-* support mbr raw disk images in systemd-nspawn, so that we can boot fedora cloud images unmodified
+* support mbr raw disk images in systemd-nspawn, so that we can boot
+  fedora cloud images unmodified (change suffix for search for files
+  .gpt → .raw).
 
-* rework sigbus stuff to use mutex
+* dkr import hash verification
+
+* rework journald sigbus stuff to use mutex
 
 * create importd daemon, move "systemd-import" tool into machinectl
 
 * change default container location from /var/lib/container to /var/lib/machines
+
+Features:
 
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
