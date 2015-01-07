@@ -57,6 +57,8 @@ Features:
 
 * systemd-nspawn -x should support ephemeral instances of gpt images
 
+* move machinectl's mount and copy commands into machined
+
 * hostnamectl: show root image uuid
 
 * sysfs set api in libudev is not const
