@@ -1528,6 +1528,16 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
         assert(b);
         assert(m);
 
+        /* Fake some timestamps, if they were requested, and not
+         * already initialized */
+        if (b->attach_flags & KDBUS_ATTACH_TIMESTAMP) {
+                if (m->realtime <= 0)
+                        m->realtime = now(CLOCK_REALTIME);
+
+                if (m->monotonic <= 0)
+                        m->monotonic = now(CLOCK_MONOTONIC);
+        }
+
         /* The bus specification says the serial number cannot be 0,
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
@@ -1535,7 +1545,6 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * pick a fixed, artificial one. We use (uint32_t) -1 rather
          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
-
         return bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
@@ -2236,6 +2245,11 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                                 &synthetic_reply);
                 if (r < 0)
                         return r;
+
+                /* Copy over original timestamp */
+                synthetic_reply->realtime = m->realtime;
+                synthetic_reply->monotonic = m->monotonic;
+                synthetic_reply->seqnum = m->seqnum;
 
                 r = bus_seal_synthetic_message(bus, synthetic_reply);
                 if (r < 0)
