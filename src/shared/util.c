@@ -6980,10 +6980,10 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
                                 return -errno;
 
-                        r = get_mount_flags(prefix, &orig_flags);
-                        if (r < 0)
-                                return r;
+                        orig_flags = 0;
+                        (void) get_mount_flags(cleaned, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
+
                         if (mount(NULL, prefix, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
 
@@ -7004,10 +7004,13 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                         if (r < 0)
                                 return r;
 
-                        r = get_mount_flags(x, &orig_flags);
-                        if (r < 0)
-                                return r;
+                        /* Try to reuse the original flag set, but
+                         * don't care for errors, in case of
+                         * obstructed mounts */
+                        orig_flags = 0;
+                        (void) get_mount_flags(x, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
+
                         if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0) {
 
                                 /* Deal with mount points that are
