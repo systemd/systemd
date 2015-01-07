@@ -67,11 +67,12 @@
 
                 <itemizedlist>
                         <listitem><para>The local, configured hostname
-                        is resolved to all locally configured public
-                        IP addresses, or -- if none are configured --
-                        the IPv4 address 127.0.0.2 (which is on the
-                        local loopback) and the IPv6 address ::1
-                        (which is the local host).</para></listitem>
+                        is resolved to all locally configured IP
+                        addresses ordered by their scope, or -- if
+                        none are configured -- the IPv4 address
+                        127.0.0.2 (which is on the local loopback) and
+                        the IPv6 address ::1 (which is the local
+                        host).</para></listitem>
 
                         <listitem><para>The hostname
                         <literal>localhost</literal> is resolved to
@@ -125,7 +126,7 @@
 group:          compat
 shadow:         compat
 
-hosts:          files dns <command>myhostname</command>
+hosts:          files dns mymachines <command>myhostname</command>
 networks:       files
 
 protocols:      db files
@@ -153,6 +154,7 @@ netgroup:       nis</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>

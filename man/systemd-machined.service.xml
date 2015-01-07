@@ -63,8 +63,13 @@
 
                 <para>See
                 <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                for some examples on how to start a container the systemd
-                way.</para>
+                for some examples on how to run containers with OS tools.</para>
+
+                <para>Use
+                <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                to make the names of local containers known to
+                <command>systemd-machined</command> locally resolvable
+                as host names.</para>
 
                 <para>See the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/machined">
@@ -78,7 +83,9 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

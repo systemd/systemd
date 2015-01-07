@@ -1171,10 +1171,16 @@ endif
 if ENABLE_MACHINED
 MANPAGES += \
 	man/machinectl.1 \
+	man/nss-mymachines.8 \
 	man/systemd-machined.service.8
 MANPAGES_ALIAS += \
+	man/libnss_mymachines.so.2.8 \
 	man/systemd-machined.8
+man/libnss_mymachines.so.2.8: man/nss-mymachines.8
 man/systemd-machined.8: man/systemd-machined.service.8
+man/libnss_mymachines.so.2.html: man/nss-mymachines.html
+	$(html-alias)
+
 man/systemd-machined.html: man/systemd-machined.service.html
 	$(html-alias)
 
@@ -1637,6 +1643,7 @@ EXTRA_DIST += \
 	man/machinectl.xml \
 	man/modules-load.d.xml \
 	man/nss-myhostname.xml \
+	man/nss-mymachines.xml \
 	man/os-release.xml \
 	man/pam_systemd.xml \
 	man/resolved.conf.xml \
