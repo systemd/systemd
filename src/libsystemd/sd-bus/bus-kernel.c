@@ -400,6 +400,21 @@ static void unset_memfds(struct sd_bus_message *m) {
                         part->memfd = -1;
 }
 
+static void message_set_timestamp(sd_bus *bus, sd_bus_message *m, const struct kdbus_timestamp *ts) {
+        assert(bus);
+        assert(m);
+
+        if (!ts)
+                return;
+
+        if (!(bus->attach_flags & KDBUS_ATTACH_TIMESTAMP))
+                return;
+
+        m->realtime = ts->realtime_ns / NSEC_PER_USEC;
+        m->monotonic = ts->monotonic_ns / NSEC_PER_USEC;
+        m->seqnum = ts->seqnum;
+}
+
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
@@ -620,13 +635,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         break;
 
                 case KDBUS_ITEM_TIMESTAMP:
-
-                        if (bus->attach_flags & KDBUS_ATTACH_TIMESTAMP) {
-                                m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
-                                m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
-                                m->seqnum = d->timestamp.seqnum;
-                        }
-
+                        message_set_timestamp(bus, m, &d->timestamp);
                         break;
 
                 case KDBUS_ITEM_PID_COMM:
@@ -1154,7 +1163,13 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
         return 1;
 }
 
-static int push_name_owner_changed(sd_bus *bus, const char *name, const char *old_owner, const char *new_owner) {
+static int push_name_owner_changed(
+                sd_bus *bus,
+                const char *name,
+                const char *old_owner,
+                const char *new_owner,
+                const struct kdbus_timestamp *ts) {
+
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
@@ -1174,6 +1189,7 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
                 return r;
 
         bus_message_set_sender_driver(bus, m);
+        message_set_timestamp(bus, m, ts);
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
@@ -1185,7 +1201,12 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
         return 1;
 }
 
-static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
+static int translate_name_change(
+                sd_bus *bus,
+                const struct kdbus_msg *k,
+                const struct kdbus_item *d,
+                const struct kdbus_timestamp *ts) {
+
         char new_owner[UNIQUE_NAME_MAX], old_owner[UNIQUE_NAME_MAX];
 
         assert(bus);
@@ -1206,10 +1227,15 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         } else
                 sprintf(new_owner, ":1.%llu", (unsigned long long) d->name_change.new_id.id);
 
-        return push_name_owner_changed(bus, d->name_change.name, old_owner, new_owner);
+        return push_name_owner_changed(bus, d->name_change.name, old_owner, new_owner, ts);
 }
 
-static int translate_id_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
+static int translate_id_change(
+                sd_bus *bus,
+                const struct kdbus_msg *k,
+                const struct kdbus_item *d,
+                const struct kdbus_timestamp *ts) {
+
         char owner[UNIQUE_NAME_MAX];
 
         assert(bus);
@@ -1221,10 +1247,16 @@ static int translate_id_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_it
         return push_name_owner_changed(
                         bus, owner,
                         d->type == KDBUS_ITEM_ID_ADD ? NULL : owner,
-                        d->type == KDBUS_ITEM_ID_ADD ? owner : NULL);
+                        d->type == KDBUS_ITEM_ID_ADD ? owner : NULL,
+                        ts);
 }
 
-static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
+static int translate_reply(
+                sd_bus *bus,
+                const struct kdbus_msg *k,
+                const struct kdbus_item *d,
+                const struct kdbus_timestamp *ts) {
+
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
@@ -1243,6 +1275,7 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
                 return r;
 
         bus_message_set_sender_driver(bus, m);
+        message_set_timestamp(bus, m, ts);
 
         r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
@@ -1255,9 +1288,7 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
 }
 
 static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
-        struct kdbus_item *d, *found = NULL;
-
-        static int (* const translate[])(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) = {
+        static int (* const translate[])(sd_bus *bus, const struct kdbus_msg *k, const struct kdbus_item *d, const struct kdbus_timestamp *ts) = {
                 [KDBUS_ITEM_NAME_ADD - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
                 [KDBUS_ITEM_NAME_REMOVE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
                 [KDBUS_ITEM_NAME_CHANGE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
@@ -1269,13 +1300,16 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
                 [KDBUS_ITEM_REPLY_DEAD - _KDBUS_ITEM_KERNEL_BASE] = translate_reply,
         };
 
+        struct kdbus_item *d, *found = NULL;
+        struct kdbus_timestamp *ts = NULL;
+
         assert(bus);
         assert(k);
         assert(k->payload_type == KDBUS_PAYLOAD_KERNEL);
 
         KDBUS_ITEM_FOREACH(d, k, items) {
                 if (d->type == KDBUS_ITEM_TIMESTAMP)
-                        continue;
+                        ts = &d->timestamp;
 
                 if (d->type >= _KDBUS_ITEM_KERNEL_BASE && d->type < _KDBUS_ITEM_KERNEL_BASE + ELEMENTSOF(translate)) {
                         if (found)
@@ -1290,7 +1324,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
                 return 0;
         }
 
-        return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found);
+        return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found, ts);
 }
 
 int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
