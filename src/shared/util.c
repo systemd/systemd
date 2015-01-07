@@ -7678,13 +7678,35 @@ int fd_setcrtime(int fd, usec_t usec) {
 
 int same_fd(int a, int b) {
         struct stat sta, stb;
+        pid_t pid;
+        int r, fa, fb;
 
         assert(a >= 0);
         assert(b >= 0);
 
+        /* Compares two file descriptors. Note that semantics are
+         * quite different depending on whether we have kcmp() or we
+         * don't. If we have kcmp() this will only return true for
+         * dup()ed file descriptors, but not otherwise. If we don't
+         * have kcmp() this will also return true for two fds of the same
+         * file, created by separate open() calls. Since we use this
+         * call mostly for filtering out duplicates in the fd store
+         * this difference hopefully doesn't matter too much. */
+
         if (a == b)
                 return true;
 
+        /* Try to use kcmp() if we have it. */
+        pid = getpid();
+        r = kcmp(pid, pid, KCMP_FILE, a, b);
+        if (r == 0)
+                return true;
+        if (r > 0)
+                return false;
+        if (errno != ENOSYS)
+                return -errno;
+
+        /* We don't have kcmp(), use fstat() instead. */
         if (fstat(a, &sta) < 0)
                 return -errno;
 
@@ -7694,9 +7716,27 @@ int same_fd(int a, int b) {
         if ((sta.st_mode & S_IFMT) != (stb.st_mode & S_IFMT))
                 return false;
 
-        if (S_ISREG(sta.st_mode) || S_ISDIR(sta.st_mode) || S_ISFIFO(sta.st_mode) || S_ISSOCK(sta.st_mode) || S_ISLNK(sta.st_mode))
-                return (sta.st_dev == stb.st_dev) && (sta.st_ino == stb.st_ino);
+        /* We consider all device fds different, since two device fds
+         * might refer to quite different device contexts even though
+         * they share the same inode and backing dev_t. */
 
-        /* We consider all device fds different... */
-        return false;
+        if (S_ISCHR(sta.st_mode) || S_ISBLK(sta.st_mode))
+                return false;
+
+        if (sta.st_dev != stb.st_dev || sta.st_ino != stb.st_ino)
+                return false;
+
+        /* The fds refer to the same inode on disk, let's also check
+         * if they have the same fd flags. This is useful to
+         * distuingish the read and write side of a pipe created with
+         * pipe(). */
+        fa = fcntl(a, F_GETFL);
+        if (fa < 0)
+                return -errno;
+
+        fb = fcntl(b, F_GETFL);
+        if (fb < 0)
+                return -errno;
+
+        return fa == fb;
 }

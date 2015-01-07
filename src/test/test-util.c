@@ -1381,6 +1381,40 @@ static void test_raw_clone(void) {
         }
 }
 
+static void test_same_fd(void) {
+        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        _cleanup_close_ int a = -1, b = -1, c = -1;
+
+        assert_se(pipe2(p, O_CLOEXEC) >= 0);
+        assert_se((a = dup(p[0])) >= 0);
+        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((c = dup(a)) >= 0);
+
+        assert_se(same_fd(p[0], p[0]) > 0);
+        assert_se(same_fd(p[1], p[1]) > 0);
+        assert_se(same_fd(a, a) > 0);
+        assert_se(same_fd(b, b) > 0);
+
+        assert_se(same_fd(a, p[0]) > 0);
+        assert_se(same_fd(p[0], a) > 0);
+        assert_se(same_fd(c, p[0]) > 0);
+        assert_se(same_fd(p[0], c) > 0);
+        assert_se(same_fd(a, c) > 0);
+        assert_se(same_fd(c, a) > 0);
+
+        assert_se(same_fd(p[0], p[1]) == 0);
+        assert_se(same_fd(p[1], p[0]) == 0);
+        assert_se(same_fd(p[0], b) == 0);
+        assert_se(same_fd(b, p[0]) == 0);
+        assert_se(same_fd(p[1], a) == 0);
+        assert_se(same_fd(a, p[1]) == 0);
+        assert_se(same_fd(p[1], b) == 0);
+        assert_se(same_fd(b, p[1]) == 0);
+
+        assert_se(same_fd(a, b) == 0);
+        assert_se(same_fd(b, a) == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1455,6 +1489,7 @@ int main(int argc, char *argv[]) {
         test_unquote_many_words();
         test_parse_proc_cmdline();
         test_raw_clone();
+        test_same_fd();
 
         return 0;
 }
