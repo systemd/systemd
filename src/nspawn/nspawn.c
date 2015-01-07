@@ -3668,7 +3668,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        pty_forward_last_char(forward, &last_char);
+                        pty_forward_get_last_char(forward, &last_char);
 
                         forward = pty_forward_free(forward);
 

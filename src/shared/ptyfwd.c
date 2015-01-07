@@ -52,6 +52,7 @@ struct PTYForward {
         bool master_readable:1;
         bool master_writable:1;
         bool master_hangup:1;
+        bool master_suppressed_hangup:1;
 
         bool repeat:1;
 
@@ -170,16 +171,22 @@ static int shovel(PTYForward *f) {
                         k = read(f->master, f->out_buffer + f->out_buffer_full, LINE_MAX - f->out_buffer_full);
                         if (k < 0) {
 
-                                /* Note that EIO on the master device
-                                 * might be cause by vhangup() or
-                                 * temporary closing of everything on
-                                 * the other side, we treat it like
-                                 * EAGAIN here and try again, unless
-                                 * repeat is off. */
-
-                                if (errno == EAGAIN || (errno == EIO && f->repeat))
+                                if (errno == EAGAIN)
                                         f->master_readable = false;
-                                else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
+
+                                else if (errno == EIO && f->repeat) {
+
+                                        /* Note that EIO on the master device
+                                         * might be cause by vhangup() or
+                                         * temporary closing of everything on
+                                         * the other side, we treat it like
+                                         * EAGAIN here and try again, unless
+                                         * repeat is off. */
+
+                                        f->master_readable = false;
+                                        f->master_suppressed_hangup = true;
+
+                                } else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -242,6 +249,8 @@ static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *u
         assert(e == f->master_event_source);
         assert(fd >= 0);
         assert(fd == f->master);
+
+        f->master_suppressed_hangup = false;
 
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->master_readable = true;
@@ -403,7 +412,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
         return NULL;
 }
 
-int pty_forward_last_char(PTYForward *f, char *ch) {
+int pty_forward_get_last_char(PTYForward *f, char *ch) {
         assert(f);
         assert(ch);
 
@@ -412,4 +421,37 @@ int pty_forward_last_char(PTYForward *f, char *ch) {
 
         *ch = f->last_char;
         return 0;
+}
+
+int pty_forward_set_repeat(PTYForward *f, bool repeat) {
+        int r;
+
+        assert(f);
+
+        if (f->repeat == repeat)
+                return 0;
+
+        f->repeat = repeat;
+
+        /* Are we currently in a suppress hangup phase? If so, let's
+         * immediately terminate things */
+        if (!f->repeat && f->master_suppressed_hangup) {
+
+                /* Let's try to read again from the master fd, and if
+                 * it is this will now cause termination of the
+                 * session. */
+
+                f->master_readable = true;
+                r = shovel(f);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int pty_forward_get_repeat(PTYForward *f) {
+        assert(f);
+
+        return f->repeat;
 }

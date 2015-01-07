@@ -1230,16 +1230,42 @@ finish:
         return r;
 }
 
+static int on_machine_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        PTYForward ** forward = (PTYForward**) userdata;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(forward);
+
+        if (*forward) {
+                /* If the forwarder is already initialized, tell it to
+                 * exit on the next hangup */
+
+                r = pty_forward_set_repeat(*forward, false);
+                if (r >= 0)
+                        return 0;
+
+                log_error_errno(r, "Failed to set repeat flag: %m");
+        }
+
+        /* On error, or when the forwarder is not initialized yet, quit immediately */
+        sd_event_exit(sd_bus_get_event(bus), EXIT_FAILURE);
+        return 0;
+}
+
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         int master = -1, r, ret = 0;
         sd_bus *bus = userdata;
-        const char *pty;
+        const char *pty, *match;
         sigset_t mask;
         char last_char = 0;
+        bool machine_died;
 
         assert(bus);
 
@@ -1256,6 +1282,19 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         r = sd_bus_attach_event(bus, event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
+
+        match = strappenda("type='signal',"
+                           "sender='org.freedesktop.machine1',"
+                           "path='/org/freedesktop/machine1',",
+                           "interface='org.freedesktop.machine1.Manager',"
+                           "member='MachineRemoved',"
+                           "arg0='",
+                           argv[1],
+                           "'");
+
+        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add machine removal match: %m");
 
         r = sd_bus_message_new_method_call(bus,
                                            &m,
@@ -1288,7 +1327,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        log_info("Connected to container %s. Press ^] three times within 1s to exit session.", argv[1]);
+        log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", argv[1]);
 
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
@@ -1301,14 +1340,18 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        pty_forward_last_char(forward, &last_char);
+        pty_forward_get_last_char(forward, &last_char);
+        machine_died = pty_forward_get_repeat(forward) == 0;
 
         forward = pty_forward_free(forward);
 
         if (last_char != '\n')
                 fputc('\n', stdout);
 
-        log_info("Connection to container %s terminated.", argv[1]);
+        if (machine_died)
+                log_info("Machine %s terminated.", argv[1]);
+        else
+                log_info("Connection to machine %s terminated.", argv[1]);
 
         sd_event_get_exit_code(event, &ret);
         return ret;

@@ -789,7 +789,7 @@ static int start_transient_service(
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                pty_forward_last_char(forward, &last_char);
+                pty_forward_get_last_char(forward, &last_char);
 
                 forward = pty_forward_free(forward);
 
