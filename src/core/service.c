@@ -326,6 +326,88 @@ static void service_done(Unit *u) {
         service_release_resources(u);
 }
 
+static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
+        ServiceFDStore *fs = userdata;
+
+        assert(e);
+        assert(fs);
+
+        /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
+        service_fd_store_unlink(fs);
+        return 0;
+}
+
+static int service_add_fd_store(Service *s, int fd) {
+        ServiceFDStore *fs;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        if (s->n_fd_store >= s->n_fd_store_max)
+                return 0;
+
+        LIST_FOREACH(fd_store, fs, s->fd_store) {
+                r = same_fd(fs->fd, fd);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Already included */
+                        safe_close(fd);
+                        return 1;
+                }
+        }
+
+        fs = new0(ServiceFDStore, 1);
+        if (!fs)
+                return -ENOMEM;
+
+        fs->fd = fd;
+        fs->service = s;
+
+        r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
+        if (r < 0) {
+                free(fs);
+                return r;
+        }
+
+        LIST_PREPEND(fd_store, s->fd_store, fs);
+        s->n_fd_store++;
+
+        return 1;
+}
+
+static int service_add_fd_store_set(Service *s, FDSet *fds) {
+        int r;
+
+        assert(s);
+
+        if (fdset_size(fds) <= 0)
+                return 0;
+
+        while (s->n_fd_store < s->n_fd_store_max) {
+                _cleanup_close_ int fd = -1;
+
+                fd = fdset_steal_first(fds);
+                if (fd < 0)
+                        break;
+
+                r = service_add_fd_store(s, fd);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s)->id, r, "%s: Couldn't add fd to fd store: %m", UNIT(s)->id);
+
+                if (r > 0) {
+                        log_unit_debug(UNIT(s)->id, "%s: added fd to fd store.", UNIT(s)->id);
+                        fd = -1;
+                }
+        }
+
+        if (fdset_size(fds) > 0)
+                log_unit_warning(UNIT(s)->id, "%s: tried to store more fds than FDStoreMax=%u allows, closing remaining.", UNIT(s)->id, s->n_fd_store_max);
+
+        return 0;
+}
+
 static int service_arm_timer(Service *s, usec_t usec) {
         int r;
 
@@ -1801,6 +1883,7 @@ _pure_ static bool service_can_reload(Unit *u) {
 
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         Service *s = SERVICE(u);
+        ServiceFDStore *fs;
 
         assert(u);
         assert(f);
@@ -1832,7 +1915,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->socket_fd >= 0) {
                 int copy;
 
-                if ((copy = fdset_put_dup(fds, s->socket_fd)) < 0)
+                copy = fdset_put_dup(fds, s->socket_fd);
+                if (copy < 0)
                         return copy;
 
                 unit_serialize_item_format(u, f, "socket-fd", "%i", copy);
@@ -1841,10 +1925,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->bus_endpoint_fd >= 0) {
                 int copy;
 
-                if ((copy = fdset_put_dup(fds, s->bus_endpoint_fd)) < 0)
+                copy = fdset_put_dup(fds, s->bus_endpoint_fd);
+                if (copy < 0)
                         return copy;
 
                 unit_serialize_item_format(u, f, "endpoint-fd", "%i", copy);
+        }
+
+        LIST_FOREACH(fd_store, fs, s->fd_store) {
+                int copy;
+
+                copy = fdset_put_dup(fds, fs->fd);
+                if (copy < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "fd-store-fd", "%i", copy);
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -1873,6 +1968,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int service_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Service *s = SERVICE(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -1968,6 +2064,19 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         safe_close(s->bus_endpoint_fd);
                         s->bus_endpoint_fd = fdset_remove(fds, fd);
                 }
+        } else if (streq(key, "fd-store-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u->id, "Failed to parse fd-store-fd value %s", value);
+                else {
+                        r = service_add_fd_store(s, fd);
+                        if (r < 0)
+                                log_unit_error_errno(u->id, r, "Failed to add fd to store: %m");
+                        else if (r > 0)
+                                fdset_remove(fds, fd);
+                }
+
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
@@ -2598,74 +2707,6 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        ServiceFDStore *fs = userdata;
-
-        assert(e);
-        assert(fs);
-
-        /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
-        service_fd_store_unlink(fs);
-        return 0;
-}
-
-static int service_add_fd_set(Service *s, FDSet *fds) {
-        int r;
-
-        assert(s);
-
-        if (fdset_size(fds) <= 0)
-                return 0;
-
-        while (s->n_fd_store < s->n_fd_store_max) {
-                _cleanup_close_ int fd = -1;
-                ServiceFDStore *fs;
-                bool same = false;
-
-                fd = fdset_steal_first(fds);
-                if (fd < 0)
-                        break;
-
-                LIST_FOREACH(fd_store, fs, s->fd_store) {
-                        r = same_fd(fs->fd, fd);
-                        if (r < 0)
-                                return log_unit_error_errno(UNIT(s)->id, r, "%s: Couldn't check if same fd: %m", UNIT(s)->id);
-                        if (r > 0) {
-                                same = true;
-                                break;
-                        }
-                }
-
-                if (same)
-                        continue;
-
-                fs = new0(ServiceFDStore, 1);
-                if (!fs)
-                        return log_oom();
-
-                fs->fd = fd;
-                fs->service = s;
-
-                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-                if (r < 0) {
-                        free(fs);
-                        return log_unit_error_errno(UNIT(s)->id, r, "%s: Failed to add even source: %m", UNIT(s)->id);
-                }
-
-                LIST_PREPEND(fd_store, s->fd_store, fs);
-                s->n_fd_store++;
-
-                fd = -1;
-
-                log_unit_debug(UNIT(s)->id, "%s: added fd to fd store.", UNIT(s)->id);
-        }
-
-        if (fdset_size(fds) > 0)
-                log_unit_warning(UNIT(s)->id, "%s: tried to store more fds than FDStoreMax=%u allows, closing remaining.", UNIT(s)->id, s->n_fd_store_max);
-
-        return 0;
-}
-
 static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
         Service *s = SERVICE(u);
         _cleanup_free_ char *cc = NULL;
@@ -2801,7 +2842,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         /* Add the passed fds to the fd store */
         if (strv_find(tags, "FDSTORE=1")) {
                 log_unit_debug(u->id, "%s: got FDSTORE=1", u->id);
-                service_add_fd_set(s, fds);
+                service_add_fd_store_set(s, fds);
         }
 
         /* Notify clients about changed status or main pid */
