@@ -50,49 +50,81 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>nss-myhostname.la</filename></para>
+                <para><filename>libnss_myhostname.so.2</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><command>nss-myhostname</command> is a plugin for the GNU Name Service Switch
-                (NSS) functionality of the GNU C Library (<command>glibc</command>)
-                providing hostname resolution for the locally configured system
-                hostname as returned by
-                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-                Various software relies on an always-resolvable local hostname. When
-                using dynamic hostnames, this is usually achieved by patching
-                <filename>/etc/hosts</filename> at the same time as changing the host
-                name. This however is not ideal since it requires a writable
-                <filename>/etc</filename> file system and is fragile because the file
-                might be edited by the administrator at the same time. <command>nss-myhostname</command>
-                simply returns all locally configured public IP addresses, or, if none
-                are configured, the IPv4 address 127.0.0.2 (which is on the local
-                loopback) and the IPv6 address ::1 (which is the local host) for
-                whatever system hostname is configured locally. Patching
-                <filename>/etc/hosts</filename> is thus no longer necessary.</para>
+                <para><command>nss-myhostname</command> is a plugin
+                for the GNU Name Service Switch (NSS) functionality of
+                the GNU C Library (<command>glibc</command>) primarily
+                providing hostname resolution for the locally
+                configured system hostname as returned by
+                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>. The
+                precise hostnames resolved by this module are:</para>
 
-                <para>To activate the NSS modules, <option>myhostname</option>
-                has to be added to the line starting with "<varname>hosts:</varname>" in
-                <filename>/etc/nsswitch.conf</filename></para>
+                <itemizedlist>
+                        <listitem><para>The local, configured hostname
+                        is resolved to all locally configured public
+                        IP addresses, or -- if none are configured --
+                        the IPv4 address 127.0.0.2 (which is on the
+                        local loopback) and the IPv6 address ::1
+                        (which is the local host).</para></listitem>
 
-                <para>It is recommended to put <option>myhostname</option>
-                last in the <filename>nsswitch.conf</filename> line to make
-                sure that this mapping is only used as fallback, and any DNS
-                or <filename>/etc/hosts</filename> based mapping takes precedence.</para>
+                        <listitem><para>The hostname
+                        <literal>localhost</literal> is resolved to
+                        the IP addresses 127.0.0.1 and
+                        ::1.</para></listitem>
+
+                        <listitem><para>The hostname
+                        <literal>gateway</literal> is resolved to all
+                        current default routing gateway addresses,
+                        ordered by their metric. This assigns a stable
+                        hostname to the current gateway, useful for
+                        referencing it independently of the current
+                        network configuration state.</para></listitem>
+
+                </itemizedlist>
+
+                <para>Various software relies on an always-resolvable
+                local hostname. When using dynamic hostnames, this is
+                traditionally achieved by patching
+                <filename>/etc/hosts</filename> at the same time as
+                changing the hostname. This is problematic since it
+                requires a writable <filename>/etc</filename> file
+                system and is fragile because the file might be edited
+                by the administrator at the same time. With
+                <command>nss-myhostname</command> enabled changing
+                <filename>/etc/hosts</filename> is unncessary, and on
+                many systems the file becomes entirely optional.</para>
+
+                <para>To activate the NSS modules,
+                <literal>myhostname</literal> has to be added to the
+                line starting with <literal>hosts:</literal> in
+                <filename>/etc/nsswitch.conf</filename>.</para>
+
+                <para>It is recommended to place
+                <literal>myhostname</literal> last in the
+                <filename>nsswitch.conf</filename> line to make sure
+                that this mapping is only used as fallback, and any
+                DNS or <filename>/etc/hosts</filename> based mapping
+                takes precedence.</para>
         </refsect1>
 
         <refsect1>
                 <title>Example</title>
 
-<programlisting># /etc/nsswitch.conf
+                <para>Here's an example
+                <filename>/etc/nsswitch.conf</filename> file, that
+                enables <command>myhostname</command>
+                correctly:</para>
 
-passwd:         compat
+<programlisting>passwd:         compat
 group:          compat
 shadow:         compat
 
-hosts:          files dns <varname>myhostname</varname>
+hosts:          files dns <command>myhostname</command>
 networks:       files
 
 protocols:      db files
@@ -120,13 +152,8 @@ netgroup:       nis</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry project='die-net'><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
