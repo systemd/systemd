@@ -10,6 +10,11 @@ Description=Network Name Resolution Service Bus Name
 Documentation=man:systemd-resolved.service(8)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/resolved
 
+# This is pulled in by systemd-resolved.service, since it cannot run
+# without its policy set. However, let's conditionalize this unit on
+# non-kdbus system.
+ConditionPathExists=/sys/fs/kdbus/0-system/
+
 [BusName]
 Service=systemd-resolved.service
 AllowWorld=talk
