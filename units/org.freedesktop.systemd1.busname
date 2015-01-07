@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=systemd busname unit
+Description=System and Service Manager Bus Name
 Documentation=man:systemd(1)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd
 
