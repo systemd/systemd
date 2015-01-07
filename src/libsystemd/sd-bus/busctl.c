@@ -1127,6 +1127,8 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
                         return log_error_errno(r, "Failed to add match: %m");
         }
 
+        log_info("Monitoring bus message stream.");
+
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
 
@@ -1136,6 +1138,12 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
 
                 if (m) {
                         dump(m, stdout);
+
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
+                                log_info("Connection terminated, exiting.");
+                                return 0;
+                        }
+
                         continue;
                 }
 
