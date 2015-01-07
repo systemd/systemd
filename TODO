@@ -33,8 +33,6 @@ Features:
 
 * support mbr raw disk images in systemd-nspawn, so that we can boot fedora cloud images unmodified
 
-* add fd store to pid 1 serialization
-
 * rework sigbus stuff to use mutex
 
 * create importd daemon, move "systemd-import" tool into machinectl
