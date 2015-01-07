@@ -74,13 +74,27 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
+typedef struct MachineInfo {
+        const char *name;
+        const char *class;
+        const char *service;
+} MachineInfo;
+
+static int compare_machine_info(const void *a, const void *b) {
+        const MachineInfo *x = a, *y = b;
+
+        return strcmp(x->name, y->name);
+}
+
 static int list_machines(int argc, char *argv[], void *userdata) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"), max_service = strlen("SERVICE");
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ MachineInfo *machines = NULL;
         const char *name, *class, *service, *object;
+        size_t n_machines = 0, n_allocated = 0, j;
         sd_bus *bus = userdata;
-        unsigned k = 0;
         int r;
 
         assert(bus);
@@ -101,17 +115,33 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        if (arg_legend)
-                printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
-
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
-                printf("%-32s %-9s %-16s\n", name, class, service);
+                size_t l;
 
-                k++;
+                if (!GREEDY_REALLOC(machines, n_allocated, n_machines + 1))
+                        return log_oom();
+
+                machines[n_machines].name = name;
+                machines[n_machines].class = class;
+                machines[n_machines].service = service;
+
+                l = strlen(name);
+                if (l > max_name)
+                        max_name = l;
+
+                l = strlen(class);
+                if (l > max_class)
+                        max_class = l;
+
+                l = strlen(service);
+                if (l > max_service)
+                        max_service = l;
+
+                n_machines ++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -120,8 +150,22 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        qsort_safe(machines, n_machines, sizeof(MachineInfo), compare_machine_info);
+
         if (arg_legend)
-                printf("\n%u machines listed.\n", k);
+                printf("%-*s %-*s %-*s\n",
+                       (int) max_name, "MACHINE",
+                       (int) max_class, "CLASS",
+                       (int) max_service, "SERVICE");
+
+        for (j = 0; j < n_machines; j++)
+                printf("%-*s %-*s %-*s\n",
+                       (int) max_name, machines[j].name,
+                       (int) max_class, machines[j].class,
+                       (int) max_service, machines[j].service);
+
+        if (arg_legend)
+                printf("\n%zu machines listed.\n", n_machines);
 
         return 0;
 }
