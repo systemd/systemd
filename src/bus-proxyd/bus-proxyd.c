@@ -829,10 +829,6 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *polic
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (streq(name, "org.freedesktop.DBus"))
-                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS,
-                                                            "Connection is not allowed to own the org.freedesktop.DBus service."));
-
                 if (policy && !policy_check_own(policy, ucred->uid, ucred->gid, name))
                         return synthetic_reply_method_errno(m, -EPERM, NULL);
 
