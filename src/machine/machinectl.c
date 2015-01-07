@@ -1240,13 +1240,14 @@ static int on_machine_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd
 
         if (*forward) {
                 /* If the forwarder is already initialized, tell it to
-                 * exit on the next hangup */
+                 * exit on the next vhangup(), so that we still flush
+                 * out what might be queued and exit then. */
 
-                r = pty_forward_set_repeat(*forward, false);
+                r = pty_forward_set_ignore_vhangup(*forward, false);
                 if (r >= 0)
                         return 0;
 
-                log_error_errno(r, "Failed to set repeat flag: %m");
+                log_error_errno(r, "Failed to set ignore_vhangup flag: %m");
         }
 
         /* On error, or when the forwarder is not initialized yet, quit immediately */
@@ -1341,7 +1342,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         pty_forward_get_last_char(forward, &last_char);
-        machine_died = pty_forward_get_repeat(forward) == 0;
+        machine_died = pty_forward_get_ignore_vhangup(forward) == 0;
 
         forward = pty_forward_free(forward);
 

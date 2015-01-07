@@ -52,9 +52,9 @@ struct PTYForward {
         bool master_readable:1;
         bool master_writable:1;
         bool master_hangup:1;
-        bool master_suppressed_hangup:1;
 
-        bool repeat:1;
+        /* Continue reading after hangup? */
+        bool ignore_vhangup:1;
 
         bool last_char_set:1;
         char last_char;
@@ -171,22 +171,16 @@ static int shovel(PTYForward *f) {
                         k = read(f->master, f->out_buffer + f->out_buffer_full, LINE_MAX - f->out_buffer_full);
                         if (k < 0) {
 
-                                if (errno == EAGAIN)
+                                /* Note that EIO on the master device
+                                 * might be caused by vhangup() or
+                                 * temporary closing of everything on
+                                 * the other side, we treat it like
+                                 * EAGAIN here and try again, unless
+                                 * ignore_vhangup is off. */
+
+                                if (errno == EAGAIN || (errno == EIO && f->ignore_vhangup))
                                         f->master_readable = false;
-
-                                else if (errno == EIO && f->repeat) {
-
-                                        /* Note that EIO on the master device
-                                         * might be cause by vhangup() or
-                                         * temporary closing of everything on
-                                         * the other side, we treat it like
-                                         * EAGAIN here and try again, unless
-                                         * repeat is off. */
-
-                                        f->master_readable = false;
-                                        f->master_suppressed_hangup = true;
-
-                                } else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
+                                else if (errno == EPIPE || errno == ECONNRESET || errno == EIO) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -250,8 +244,6 @@ static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *u
         assert(fd >= 0);
         assert(fd == f->master);
 
-        f->master_suppressed_hangup = false;
-
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->master_readable = true;
 
@@ -306,7 +298,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         return 0;
 }
 
-int pty_forward_new(sd_event *event, int master, bool repeat, PTYForward **ret) {
+int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward **ret) {
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
@@ -315,7 +307,7 @@ int pty_forward_new(sd_event *event, int master, bool repeat, PTYForward **ret) 
         if (!f)
                 return -ENOMEM;
 
-        f->repeat = repeat;
+        f->ignore_vhangup = ignore_vhangup;
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -423,23 +415,19 @@ int pty_forward_get_last_char(PTYForward *f, char *ch) {
         return 0;
 }
 
-int pty_forward_set_repeat(PTYForward *f, bool repeat) {
+int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup) {
         int r;
 
         assert(f);
 
-        if (f->repeat == repeat)
+        if (f->ignore_vhangup == ignore_vhangup)
                 return 0;
 
-        f->repeat = repeat;
+        f->ignore_vhangup = ignore_vhangup;
+        if (!f->ignore_vhangup) {
 
-        /* Are we currently in a suppress hangup phase? If so, let's
-         * immediately terminate things */
-        if (!f->repeat && f->master_suppressed_hangup) {
-
-                /* Let's try to read again from the master fd, and if
-                 * it is this will now cause termination of the
-                 * session. */
+                /* We shall now react to vhangup()s? Let's check
+                 * immediately if we might be in one */
 
                 f->master_readable = true;
                 r = shovel(f);
@@ -450,8 +438,8 @@ int pty_forward_set_repeat(PTYForward *f, bool repeat) {
         return 0;
 }
 
-int pty_forward_get_repeat(PTYForward *f) {
+int pty_forward_get_ignore_vhangup(PTYForward *f) {
         assert(f);
 
-        return f->repeat;
+        return f->ignore_vhangup;
 }
