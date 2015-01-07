@@ -379,15 +379,6 @@ fail:
         return r;
 }
 
-static void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m) {
-        assert(bus);
-        assert(m);
-
-        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
-        m->creds.well_known_names_driver = true;
-        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
-}
-
 static void unset_memfds(struct sd_bus_message *m) {
         struct bus_body_part *part;
         unsigned i;
@@ -1274,7 +1265,6 @@ static int translate_reply(
         if (r < 0)
                 return r;
 
-        bus_message_set_sender_driver(bus, m);
         message_set_timestamp(bus, m, ts);
 
         r = bus_seal_synthetic_message(bus, m);

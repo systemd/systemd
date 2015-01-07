@@ -754,6 +754,24 @@ _public_ int sd_bus_message_new_method_errnof(
         return sd_bus_message_new_method_error(call, m, &berror);
 }
 
+void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus.Local";
+        m->creds.well_known_names_local = true;
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
+}
+
+void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        m->sender = m->creds.unique_name = (char*) "org.freedesktop.DBus";
+        m->creds.well_known_names_driver = true;
+        m->creds.mask |= (SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES) & bus->creds_mask;
+}
+
 int bus_message_new_synthetic_error(
                 sd_bus *bus,
                 uint64_t cookie,
@@ -795,6 +813,8 @@ int bus_message_new_synthetic_error(
         }
 
         t->error._need_free = -1;
+
+        bus_message_set_sender_driver(bus, t);
 
         *m = t;
         return 0;
