@@ -45,9 +45,9 @@ Release 219 preparations:
 
 Features:
 
-* "machinectl list-images" should show os-release data
+* nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
-* should we set nocow chattr attribute on journal files by default? does this have any drawbacks?
+* "machinectl list-images" should show os-release data
 
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
