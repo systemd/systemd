@@ -155,6 +155,7 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
                 { "D-BUS Service", "Exec", config_parse_string, 0, &exec },
                 { "D-BUS Service", "User", config_parse_string, 0, &user },
                 { "D-BUS Service", "SystemdService", config_parse_string, 0, &service },
+                { },
         };
 
         char *p;
