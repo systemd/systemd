@@ -165,6 +165,34 @@
                                 mount.</para></listitem>
                         </varlistentry>
 
+
+                        <varlistentry>
+                                <term><option>-n</option></term>
+                                <term><option>--lines=</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command>, controls
+                                the number of journal lines to show,
+                                counting from the most recent
+                                ones. Takes a positive integer
+                                argument. Defaults to 10.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-o</option></term>
+                                <term><option>--output=</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command>, controls
+                                the formatting of the journal entries
+                                that are shown. For the available
+                                choices, see
+                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                                Defaults to
+                                <literal>short</literal>.</para></listitem>
+                        </varlistentry>
+
                         <xi:include href="user-system-options.xml" xpointer="host" />
                         <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -189,12 +217,19 @@
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
-                                virtual machines and containers. This
-                                function is intended to generate
-                                human-readable output. If you are
-                                looking for computer-parsable output,
-                                use <command>show</command> instead.
-                                </para></listitem>
+                                virtual machines and containers,
+                                followed by the most recent log data
+                                from the journal. This function is
+                                intended to generate human-readable
+                                output. If you are looking for
+                                computer-parsable output, use
+                                <command>show</command> instead. Note
+                                that the log data shown is reported by
+                                the virtual machine or container
+                                manager, and frequently contains
+                                console output of the machine, but not
+                                necessarily journal contents of the
+                                machine itself.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

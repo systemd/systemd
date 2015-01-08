@@ -5078,6 +5078,8 @@ machinectl_SOURCES = \
 
 machinectl_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-logs.la \
+	libsystemd-journal-internal.la \
 	libsystemd-shared.la
 
 rootbin_PROGRAMS += \

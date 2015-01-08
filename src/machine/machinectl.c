@@ -44,6 +44,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "cgroup-show.h"
+#include "logs-show.h"
 #include "cgroup-util.h"
 #include "ptyfwd.h"
 #include "event-util.h"
@@ -64,6 +65,8 @@ static char *arg_host = NULL;
 static bool arg_read_only = false;
 static bool arg_mkdir = false;
 static bool arg_quiet = false;
+static unsigned arg_lines = 10;
+static OutputMode arg_output = OUTPUT_SHORT;
 
 static void pager_open_if_enabled(void) {
 
@@ -72,6 +75,15 @@ static void pager_open_if_enabled(void) {
                 return;
 
         pager_open(false);
+}
+
+static OutputFlags get_output_flags(void) {
+        return
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH |
+                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                on_tty() * OUTPUT_COLOR |
+                !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
 
 typedef struct MachineInfo {
@@ -305,7 +317,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         const char *cgroup;
-        int r, output_flags;
+        int r;
         unsigned c;
 
         assert(bus);
@@ -342,17 +354,13 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup, false) != 0 && leader <= 0)
                 return 0;
 
-        output_flags =
-                arg_all * OUTPUT_SHOW_ALL |
-                arg_full * OUTPUT_FULL_WIDTH;
-
         c = columns();
         if (c > 18)
                 c -= 18;
         else
                 c = 0;
 
-        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, output_flags);
+        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, get_output_flags());
         return 0;
 }
 
@@ -467,7 +475,7 @@ typedef struct MachineStatusInfo {
         char *unit;
         char *root_directory;
         pid_t leader;
-        usec_t timestamp;
+        struct dual_timestamp timestamp;
         int *netif;
         unsigned n_netif;
 } MachineStatusInfo;
@@ -487,8 +495,8 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         else
                 putchar('\n');
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp);
-        s2 = format_timestamp(since2, sizeof(since2), i->timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp.realtime);
+        s2 = format_timestamp(since2, sizeof(since2), i->timestamp.realtime);
 
         if (s1)
                 printf("\t   Since: %s; %s\n", s2, s1);
@@ -552,6 +560,22 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         if (i->unit) {
                 printf("\t    Unit: %s\n", i->unit);
                 show_unit_cgroup(bus, i->unit, i->leader);
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+
+                        show_journal_by_unit(
+                                        stdout,
+                                        i->unit,
+                                        arg_output,
+                                        0,
+                                        i->timestamp.monotonic,
+                                        arg_lines,
+                                        0,
+                                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                        SD_JOURNAL_LOCAL_ONLY,
+                                        true,
+                                        NULL);
+                }
         }
 }
 
@@ -579,15 +603,16 @@ static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Name",              "s",  NULL,          offsetof(MachineStatusInfo, name) },
-                { "Class",             "s",  NULL,          offsetof(MachineStatusInfo, class) },
-                { "Service",           "s",  NULL,          offsetof(MachineStatusInfo, service) },
-                { "Unit",              "s",  NULL,          offsetof(MachineStatusInfo, unit) },
-                { "RootDirectory",     "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
-                { "Leader",            "u",  NULL,          offsetof(MachineStatusInfo, leader) },
-                { "Timestamp",         "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
-                { "Id",                "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
-                { "NetworkInterfaces", "ai", map_netif,     0 },
+                { "Name",               "s",  NULL,          offsetof(MachineStatusInfo, name)                },
+                { "Class",              "s",  NULL,          offsetof(MachineStatusInfo, class)               },
+                { "Service",            "s",  NULL,          offsetof(MachineStatusInfo, service)             },
+                { "Unit",               "s",  NULL,          offsetof(MachineStatusInfo, unit)                },
+                { "RootDirectory",      "s",  NULL,          offsetof(MachineStatusInfo, root_directory)      },
+                { "Leader",             "u",  NULL,          offsetof(MachineStatusInfo, leader)              },
+                { "Timestamp",          "t",  NULL,          offsetof(MachineStatusInfo, timestamp.realtime)  },
+                { "TimestampMonotonic", "t",  NULL,          offsetof(MachineStatusInfo, timestamp.monotonic) },
+                { "Id",                 "ay", bus_map_id128, offsetof(MachineStatusInfo, id)                  },
+                { "NetworkInterfaces",  "ai", map_netif,     0                                                },
                 {}
         };
 
@@ -1693,7 +1718,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-who=WHO           Who to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --read-only              Create read-only bind mount\n"
-               "     --mkdir                  Create directory before bind mounting, if missing\n\n"
+               "     --mkdir                  Create directory before bind mounting, if missing\n"
+               "  -n --lines=INTEGER          Number of journal entries to show\n"
+               "  -o --output=STRING          Change journal output mode (short,\n"
+               "                              short-monotonic, verbose, export, json,\n"
+               "                              json-pretty, json-sse, cat)\n\n"
                "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
@@ -1748,6 +1777,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
                 { "mkdir",           no_argument,       NULL, ARG_MKDIR           },
                 { "quiet",           no_argument,       NULL, 'q'                 },
+                { "lines",           required_argument, NULL, 'n'                 },
+                { "output",          required_argument, NULL, 'o'                 },
                 {}
         };
 
@@ -1756,7 +1787,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:qn:o:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1785,6 +1816,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'l':
                         arg_full = true;
+                        break;
+
+                case 'n':
+                        if (safe_atou(optarg, &arg_lines) < 0) {
+                                log_error("Failed to parse lines '%s'", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case 'o':
+                        arg_output = output_mode_from_string(optarg);
+                        if (arg_output < 0) {
+                                log_error("Unknown output '%s'.", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case ARG_NO_PAGER:

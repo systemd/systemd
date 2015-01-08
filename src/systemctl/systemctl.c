@@ -197,10 +197,10 @@ static void polkit_agent_open_if_enabled(void) {
 static OutputFlags get_output_flags(void) {
         return
                 arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH |
                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 on_tty() * OUTPUT_COLOR |
-                !arg_quiet * OUTPUT_WARN_CUTOFF |
-                arg_full * OUTPUT_FULL_WIDTH;
+                !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
 
 static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
