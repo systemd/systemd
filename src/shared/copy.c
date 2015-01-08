@@ -359,7 +359,7 @@ int copy_file_fd(const char *from, int fdt, bool try_reflink) {
         return r;
 }
 
-int copy_file(const char *from, const char *to, int flags, mode_t mode) {
+int copy_file(const char *from, const char *to, int flags, mode_t mode, int chattr_flags) {
         int fdt, r;
 
         assert(from);
@@ -370,6 +370,9 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
                 if (fdt < 0)
                         return -errno;
         }
+
+        if (chattr_flags != 0)
+                (void) chattr_fd(fdt, true, chattr_flags);
 
         r = copy_file_fd(from, fdt, true);
         if (r < 0) {
@@ -386,7 +389,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         return 0;
 }
 
-int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace) {
+int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace, int chattr_flags) {
         _cleanup_free_ char *t;
         int r;
 
@@ -397,7 +400,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
         if (r < 0)
                 return r;
 
-        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode);
+        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode, chattr_flags);
         if (r < 0)
                 return r;
 

@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/statfs.h>
+#include <linux/fs.h>
 #include <fcntl.h>
 
 #include "strv.h"
@@ -440,7 +441,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_GPT:
                 new_path = strappenda("/var/lib/container/", new_name, ".gpt");
 
-                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
                 break;
 
         default:
@@ -477,6 +478,12 @@ int image_read_only(Image *i, bool b) {
 
                 if (chmod(i->path, (st.st_mode & 0444) | (b ? 0000 : 0200)) < 0)
                         return -errno;
+
+                /* If the images is now read-only, it's a good time to
+                 * defrag it, given that no write patterns will
+                 * fragment it again. */
+                if (b)
+                        (void) btrfs_defrag(i->path);
                 break;
         }
 

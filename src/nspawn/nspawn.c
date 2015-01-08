@@ -1092,7 +1092,7 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644);
+        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0);
         if (r < 0) {
                 log_warning_errno(r, "Failed to copy /etc/resolv.conf to %s: %m", where);
 

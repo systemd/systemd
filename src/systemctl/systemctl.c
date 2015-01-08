@@ -5669,7 +5669,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 return r;
         }
 
-        r = copy_file(original_path, t, 0, 0644);
+        r = copy_file(original_path, t, 0, 0644, 0);
         if (r == -ENOENT) {
                 r = touch(t);
                 if (r < 0) {

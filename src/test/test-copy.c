@@ -44,7 +44,7 @@ static void test_copy_file(void) {
 
         assert_se(write_string_file(fn, "foo bar bar bar foo") == 0);
 
-        assert_se(copy_file(fn, fn_copy, 0, 0644) == 0);
+        assert_se(copy_file(fn, fn_copy, 0, 0644, 0) == 0);
 
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
