@@ -1406,12 +1406,16 @@ static int exec_child(ExecCommand *command,
         }
 
         if (context->oom_score_adjust_set) {
-                char t[16];
+                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
 
-                snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
-                char_array_0(t);
+                /* When we can't make this change due to EPERM, then
+                 * let's silently skip over it. User namespaces
+                 * prohibit write access to this file, and we
+                 * shouldn't trip up over that. */
 
-                if (write_string_file("/proc/self/oom_score_adj", t) < 0) {
+                sprintf(t, "%i", context->oom_score_adjust);
+                err = write_string_file("/proc/self/oom_score_adj", t);
+                if (err < 0 && err != -EPERM) {
                         *error = EXIT_OOM_ADJUST;
                         return -errno;
                 }
