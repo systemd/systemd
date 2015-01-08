@@ -1605,14 +1605,26 @@ int main(int argc, char *argv[]) {
                                 if (!processed) {
                                         k = sd_bus_send(b, m, NULL);
                                         if (k < 0) {
-                                                if (k == -ECONNRESET)
+                                                if (k == -ECONNRESET) {
                                                         r = 0;
-                                                else {
+                                                        goto finish;
+                                                } else if (k == -EPERM && m->reply_cookie > 0) {
+                                                        /* If the peer tries to send a reply and it is rejected with EPERM
+                                                         * by the kernel, we ignore the error. This catches cases where the
+                                                         * original method-call didn't had EXPECT_REPLY set, but the proxy-peer
+                                                         * still sends a reply. This is allowed in dbus1, but not in kdbus. We
+                                                         * don't want to track reply-windows in the proxy, so we simply ignore
+                                                         * EPERM for all replies. The only downside is, that callers are no
+                                                         * longer notified if their replies are dropped. However, this is
+                                                         * equivalent to the caller's timeout to expire, so this should be
+                                                         * acceptable. Nobody sane sends replies without a matching method-call,
+                                                         * so nobody should care. */
+                                                        r = 1;
+                                                } else {
                                                         r = k;
                                                         log_error_errno(r, "Failed to send message to client: %m");
+                                                        goto finish;
                                                 }
-
-                                                goto finish;
                                         } else
                                                 r = 1;
                                 }
@@ -1682,17 +1694,20 @@ int main(int argc, char *argv[]) {
 
                                                 k = sd_bus_send(a, m, NULL);
                                                 if (k < 0) {
-                                                        if (k == -EREMCHG)
+                                                        if (k == -EREMCHG) {
                                                                 /* The name database changed since the policy check, hence let's check again */
                                                                 continue;
-                                                        else if (k == -ECONNRESET)
+                                                        } else if (k == -ECONNRESET) {
                                                                 r = 0;
-                                                        else {
+                                                                goto finish;
+                                                        } else if (k == -EPERM && m->reply_cookie > 0) {
+                                                                /* see above why EPERM is ignored for replies */
+                                                                r = 1;
+                                                        } else {
                                                                 r = k;
                                                                 log_error_errno(r, "Failed to send message to bus: %m");
+                                                                goto finish;
                                                         }
-
-                                                        goto finish;
                                                 } else
                                                         r = 1;
 
