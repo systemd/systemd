@@ -176,7 +176,6 @@ static void ask_password_agent_open_if_enabled(void) {
         ask_password_agent_open();
 }
 
-#ifdef HAVE_LOGIND
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -192,7 +191,6 @@ static void polkit_agent_open_if_enabled(void) {
 
         polkit_agent_open();
 }
-#endif
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2706,6 +2704,7 @@ static int start_unit(sd_bus *bus, char **args) {
         assert(bus);
 
         ask_password_agent_open_if_enabled();
+        polkit_agent_open_if_enabled();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 enum action action;
@@ -3028,6 +3027,8 @@ static int kill_unit(sd_bus *bus, char **args) {
 
         assert(bus);
         assert(args);
+
+        polkit_agent_open_if_enabled();
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -4601,6 +4602,8 @@ static int set_property(sd_bus *bus, char **args) {
         char **i;
         int r;
 
+        polkit_agent_open_if_enabled();
+
         r = sd_bus_message_new_method_call(
                         bus,
                         &m,
@@ -4660,6 +4663,8 @@ static int snapshot(sd_bus *bus, char **args) {
         _cleanup_free_ char *n = NULL, *id = NULL;
         const char *path;
         int r;
+
+        polkit_agent_open_if_enabled();
 
         if (strv_length(args) > 1)
                 n = unit_name_mangle_with_suffix(args[1], MANGLE_NOGLOB, ".snapshot");
@@ -4723,6 +4728,8 @@ static int delete_snapshot(sd_bus *bus, char **args) {
 
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         r = expand_names(bus, args + 1, ".snapshot", &names);
         if (r < 0)
                 log_error_errno(r, "Failed to expand names: %m");
@@ -4765,6 +4772,8 @@ static int daemon_reload(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         const char *method;
         int r;
+
+        polkit_agent_open_if_enabled();
 
         if (arg_action == ACTION_RELOAD)
                 method = "Reload";
@@ -4823,6 +4832,8 @@ static int reset_failed(sd_bus *bus, char **args) {
 
         if (strv_length(args) <= 1)
                 return daemon_reload(bus, args);
+
+        polkit_agent_open_if_enabled();
 
         r = expand_names(bus, args + 1, NULL, &names);
         if (r < 0)
@@ -5285,6 +5296,8 @@ static int enable_unit(sd_bus *bus, char **args) {
                 bool send_force = true, send_preset_mode = false;
                 const char *method;
 
+                polkit_agent_open_if_enabled();
+
                 if (streq(verb, "enable")) {
                         method = "EnableUnitFiles";
                         expect_carries_install_info = true;
@@ -5430,6 +5443,8 @@ static int add_dependency(sd_bus *bus, char **args) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
+                polkit_agent_open_if_enabled();
+
                 r = sd_bus_message_new_method_call(
                                 bus,
                                 &m,
@@ -5492,6 +5507,8 @@ static int preset_all(sd_bus *bus, char **args) {
         } else {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                polkit_agent_open_if_enabled();
 
                 r = sd_bus_message_new_method_call(
                                 bus,

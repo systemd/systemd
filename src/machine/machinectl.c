@@ -72,7 +72,6 @@ static OutputMode arg_output = OUTPUT_SHORT;
 
 static void pager_open_if_enabled(void) {
 
-        /* Cache result before we open the pager */
         if (arg_no_pager)
                 return;
 

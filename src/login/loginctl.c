@@ -50,8 +50,8 @@ static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static bool arg_ask_password = true;
 static char *arg_host = NULL;
+static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
@@ -827,6 +827,8 @@ static int activate(sd_bus *bus, char **args, unsigned n) {
 
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         for (i = 1; i < n; i++) {
 
                 r = sd_bus_call_method (
@@ -855,6 +857,8 @@ static int kill_session(sd_bus *bus, char **args, unsigned n) {
         int r;
 
         assert(args);
+
+        polkit_agent_open_if_enabled();
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -921,6 +925,8 @@ static int terminate_user(sd_bus *bus, char **args, unsigned n) {
 
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         for (i = 1; i < n; i++) {
                 uid_t uid;
 
@@ -951,6 +957,8 @@ static int kill_user(sd_bus *bus, char **args, unsigned n) {
         int r;
 
         assert(args);
+
+        polkit_agent_open_if_enabled();
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
@@ -1036,6 +1044,8 @@ static int lock_sessions(sd_bus *bus, char **args, unsigned n) {
 
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         r = sd_bus_call_method (
                         bus,
                         "org.freedesktop.login1",
@@ -1057,6 +1067,8 @@ static int terminate_seat(sd_bus *bus, char **args, unsigned n) {
 
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         for (i = 1; i < n; i++) {
 
                 r = sd_bus_call_method (
@@ -1077,6 +1089,7 @@ static int terminate_seat(sd_bus *bus, char **args, unsigned n) {
 }
 
 static void help(void) {
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the login manager.\n\n"
                "  -h --help                Show this help\n"
