@@ -2776,7 +2776,6 @@ static void trim_generator_dir(Manager *m, char **generator) {
 }
 
 void manager_run_generators(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
         const char *generator_path;
         const char *argv[5];
         int r;
@@ -2787,13 +2786,13 @@ void manager_run_generators(Manager *m) {
                 return;
 
         generator_path = m->running_as == SYSTEMD_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
-        d = opendir(generator_path);
-        if (!d) {
-                if (errno == ENOENT)
-                        return;
 
-                log_error_errno(errno, "Failed to enumerate generator directory %s: %m",
-                          generator_path);
+        /* Optimize by skipping the whole process by not creating output directories
+         * if no generators are found. */
+        if (access(generator_path, F_OK) != 0) {
+                if (errno != ENOENT)
+                        log_error_errno(errno, "Failed to open generator directory %s: %m",
+                                        generator_path);
                 return;
         }
 
@@ -2816,7 +2815,7 @@ void manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directory(generator_path, d, DEFAULT_TIMEOUT_USEC, (char**) argv);
+                execute_directory(generator_path, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
         trim_generator_dir(m, &m->generator_unit_path);

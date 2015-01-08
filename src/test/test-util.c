@@ -1219,7 +1219,7 @@ static void test_execute_directory(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(touch(name3) >= 0);
 
-        execute_directory(tempdir, NULL, DEFAULT_TIMEOUT_USEC, NULL);
+        execute_directory(tempdir, DEFAULT_TIMEOUT_USEC, NULL);
         assert_se(access("/tmp/test-execute_directory/it_works", F_OK) >= 0);
         assert_se(access("/tmp/test-execute_directory/it_works2", F_OK) >= 0);
 

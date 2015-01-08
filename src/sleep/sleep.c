@@ -107,7 +107,7 @@ static int execute(char **modes, char **states) {
         if (r < 0)
                 return r;
 
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, DEFAULT_TIMEOUT_USEC, arguments);
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_START),
@@ -126,7 +126,7 @@ static int execute(char **modes, char **states) {
                    NULL);
 
         arguments[1] = (char*) "post";
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, DEFAULT_TIMEOUT_USEC, arguments);
 
         return r;
 }
