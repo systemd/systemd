@@ -386,7 +386,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           querying the user for authentication for privileged
           operations.</para>
         </listitem>
-
       </varlistentry>
 
       <varlistentry>
@@ -993,6 +992,56 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
+          <term><command>reenable <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Reenable one or more unit files, as specified on the
+            command line. This is a combination of
+            <command>disable</command> and <command>enable</command> and
+            is useful to reset the symlinks a unit is enabled with to
+            the defaults configured in the <literal>[Install]</literal>
+            section of the unit file.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>preset <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Reset one or more unit files, as specified on the
+            command line, to the defaults configured in the preset
+            policy files. This has the same effect as
+            <command>disable</command> or <command>enable</command>,
+            depending how the unit is listed in the preset files.</para>
+
+            <para>Use <option>--preset-mode=</option> to control
+            whether units shall be enabled and disabled, or only
+            enabled, or only disabled.</para>
+
+            <para>For more information on the preset policy format,
+            see
+            <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            For more information on the concept of presets, please
+            consult the <ulink
+            url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+            document.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>preset-all</command></term>
+
+          <listitem>
+            <para>Resets all installed unit files to the defaults
+            configured in the preset policy file (see above).</para>
+
+            <para>Use <option>--preset-mode=</option> to control
+            whether units shall be enabled and disabled, or only
+            enabled, or only disabled.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>is-enabled <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
@@ -1064,56 +1113,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>reenable <replaceable>NAME</replaceable>...</command></term>
-
-          <listitem>
-            <para>Reenable one or more unit files, as specified on the
-            command line. This is a combination of
-            <command>disable</command> and <command>enable</command> and
-            is useful to reset the symlinks a unit is enabled with to
-            the defaults configured in the <literal>[Install]</literal>
-            section of the unit file.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><command>preset <replaceable>NAME</replaceable>...</command></term>
-
-          <listitem>
-            <para>Reset one or more unit files, as specified on the
-            command line, to the defaults configured in the preset
-            policy files. This has the same effect as
-            <command>disable</command> or <command>enable</command>,
-            depending how the unit is listed in the preset files.</para>
-
-            <para>Use <option>--preset-mode=</option> to control
-            whether units shall be enabled and disabled, or only
-            enabled, or only disabled.</para>
-
-            <para>For more information on the preset policy format,
-            see
-            <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            For more information on the concept of presets, please
-            consult the <ulink
-            url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
-            document.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><command>preset-all</command></term>
-
-          <listitem>
-            <para>Resets all installed unit files to the defaults
-            configured in the preset policy file (see above).</para>
-
-            <para>Use <option>--preset-mode=</option> to control
-            whether units shall be enabled and disabled, or only
-            enabled, or only disabled.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><command>mask <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
@@ -1140,6 +1139,20 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
+          <term><command>link <replaceable>FILENAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Link a unit file that is not in the unit file search
+            paths into the unit file search path. This requires an
+            absolute path to a unit file. The effect of this can be
+            undone with <command>disable</command>. The effect of this
+            command is that a unit file is available for
+            <command>start</command> and other commands although it
+            is not installed directly in the unit search path.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>add-wants <replaceable>TARGET</replaceable>
           <replaceable>NAME</replaceable>...</command></term>
           <term><command>add-requires <replaceable>TARGET</replaceable>
@@ -1155,38 +1168,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <option>--global</option> in a similar way as
             <command>enable</command>.</para>
 
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><command>link <replaceable>FILENAME</replaceable>...</command></term>
-
-          <listitem>
-            <para>Link a unit file that is not in the unit file search
-            paths into the unit file search path. This requires an
-            absolute path to a unit file. The effect of this can be
-            undone with <command>disable</command>. The effect of this
-            command is that a unit file is available for
-            <command>start</command> and other commands although it
-            is not installed directly in the unit search path.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><command>get-default</command></term>
-
-          <listitem>
-            <para>Get the default target specified
-            via <filename>default.target</filename> link.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><command>set-default <replaceable>NAME</replaceable></command></term>
-
-          <listitem>
-            <para>Set the default target to boot into. Command links
-            <filename>default.target</filename> to the given unit.</para>
           </listitem>
         </varlistentry>
 
@@ -1226,6 +1207,27 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <filename>/run</filename>.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>get-default</command></term>
+
+          <listitem>
+            <para>Return the default target to boot into. This returns
+            the target unit name <filename>default.target</filename>
+            is aliased (symlinked) to.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>set-default <replaceable>NAME</replaceable></command></term>
+
+          <listitem>
+            <para>Set the default target to boot into. This sets
+            (symlinks) the <filename>default.target</filename> alias
+            to the given target unit.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
@@ -1547,6 +1549,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <quote>firmware over the air</quote> update.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><command>kexec</command></term>
 
@@ -1560,6 +1563,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             immediately followed by the reboot.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><command>exit</command></term>
 
@@ -1569,35 +1573,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             with the <option>--user</option> option) and will fail
             otherwise.</para>
           </listitem>
-
         </varlistentry>
-        <varlistentry>
-          <term><command>suspend</command></term>
 
-          <listitem>
-            <para>Suspend the system. This will trigger activation of
-            the special <filename>suspend.target</filename> target.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>hibernate</command></term>
-
-          <listitem>
-            <para>Hibernate the system. This will trigger activation of
-            the special <filename>hibernate.target</filename> target.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>hybrid-sleep</command></term>
-
-          <listitem>
-            <para>Hibernate and suspend the system. This will trigger
-            activation of the special
-            <filename>hybrid-sleep.target</filename> target.</para>
-          </listitem>
-        </varlistentry>
         <varlistentry>
           <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
 
@@ -1616,6 +1593,36 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             manager process is passed to the main system manager, which
             allows later introspection of the state of the services
             involved in the initrd boot.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>suspend</command></term>
+
+          <listitem>
+            <para>Suspend the system. This will trigger activation of
+            the special <filename>suspend.target</filename> target.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>hibernate</command></term>
+
+          <listitem>
+            <para>Hibernate the system. This will trigger activation of
+            the special <filename>hibernate.target</filename> target.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>hybrid-sleep</command></term>
+
+          <listitem>
+            <para>Hibernate and suspend the system. This will trigger
+            activation of the special
+            <filename>hybrid-sleep.target</filename> target.</para>
           </listitem>
         </varlistentry>
       </variablelist>
