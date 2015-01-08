@@ -1722,6 +1722,11 @@ int main(int argc, char *argv[]) {
         signal(SIGWINCH, columns_lines_cache_reset);
         sigbus_install();
 
+        /* Increase max number of open files to 16K if we can, we
+         * might needs this when browsing journal files, which might
+         * be split up into many files. */
+        setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
+
         if (arg_action == ACTION_NEW_ID128) {
                 r = generate_new_id128();
                 goto finish;

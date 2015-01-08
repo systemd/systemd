@@ -1074,3 +1074,5 @@ int same_fd(int a, int b);
 
 int chattr_fd(int fd, bool b, int mask);
 int chattr_path(const char *p, bool b, int mask);
+
+#define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })

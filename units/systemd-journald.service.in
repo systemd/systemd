@@ -26,5 +26,7 @@ WatchdogSec=1min
 FileDescriptorStoreMax=1024
 
 # Increase the default a bit in order to allow many simultaneous
-# services being run since we keep one fd open per service.
+# services being run since we keep one fd open per service. Also, when
+# flushing journal files to disk, we might need a lot of fds when many
+# journal files are combined.
 LimitNOFILE=16384
