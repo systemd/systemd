@@ -357,7 +357,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 append_payload_vec(&d, part->data, part->size);
         }
 
-        if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
+        if (m->header->type == SD_BUS_MESSAGE_SIGNAL) {
                 struct kdbus_bloom_filter *bloom;
 
                 bloom = append_bloom(&d, m->bus->bloom_size);
