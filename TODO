@@ -45,6 +45,14 @@ Release 219 preparations:
 
 Features:
 
+* nspawn should lock container images while running off them
+
+* when invoking "loginctl session-status" default to callers session
+
+* logind,machined: add generic catch-all polkit verbs for most priviliged operations, similar to systemd itself
+
+* "machinectl status" should also show logs of the container in question
+
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
 * "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
