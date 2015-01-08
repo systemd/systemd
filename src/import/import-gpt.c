@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/xattr.h>
+#include <linux/fs.h>
 #include <curl/curl.h>
 
 #include "hashmap.h"
@@ -165,7 +166,7 @@ static void gpt_import_file_success(GptImportFile *f) {
 
                         f->disk_fd = open(f->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                         if (f->disk_fd < 0) {
-                                r = log_error_errno(errno, "Failed top open vendor image: %m");
+                                r = log_error_errno(errno, "Failed to open vendor image: %m");
                                 goto finish;
                         }
                 }
@@ -185,6 +186,14 @@ static void gpt_import_file_success(GptImportFile *f) {
                         r = log_error_errno(errno, "Failed to create writable copy of image: %m");
                         goto finish;
                 }
+
+                /* Turn off COW writing. This should greatly improve
+                 * performance on COW file systems like btrfs, since it
+                 * reduces fragmentation caused by not allowing in-place
+                 * writes. */
+                r = chattr_fd(dfd, true, FS_NOCOW_FL);
+                if (r < 0)
+                        log_warning_errno(errno, "Failed to set file attributes on %s: %m", f->temp_path);
 
                 r = copy_bytes(f->disk_fd, dfd, (off_t) -1, true);
                 if (r < 0) {
