@@ -1415,7 +1415,7 @@ static int exec_child(ExecCommand *command,
 
                 sprintf(t, "%i", context->oom_score_adjust);
                 err = write_string_file("/proc/self/oom_score_adj", t);
-                if (err < 0 && err != -EPERM) {
+                if (err < 0 && err != -EPERM && err != EACCES) {
                         *error = EXIT_OOM_ADJUST;
                         return -errno;
                 }
