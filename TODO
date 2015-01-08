@@ -47,7 +47,7 @@ Features:
 
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
-* "machinectl list-images" should show os-release data
+* "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
 
 * nspawn: when start a container "foobar" look for its configuration in a file "foobar.nspawn" in /etc/systemd/nspawn/ as well as next to the actualy directory or image to boot
 
