@@ -77,6 +77,21 @@
         </refsect1>
 
         <refsect1>
+                <title>Files</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/var/lib/systemd/clock</filename></term>
+
+                                <listitem>
+                                        <para>This file contains the timestamp of last
+                                        successful synchronization.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
