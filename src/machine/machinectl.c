@@ -1778,8 +1778,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  clone NAME NAME             Clone an image\n"
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
-               "  remove NAME...              Remove an image\n",
-               program_invocation_short_name);
+               "  remove NAME...              Remove an image\n"
+               , program_invocation_short_name);
 
         return 0;
 }
