@@ -189,7 +189,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
         assert(a);
         assert(b);
 
-        r = sd_bus_get_owner_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
+        r = sd_bus_get_owner_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_AUGMENT, &creds);
         if (r < 0)
                 return r;
 
