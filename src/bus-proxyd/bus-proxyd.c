@@ -405,6 +405,9 @@ static int synthetic_reply_return_strv(sd_bus_message *call, char **l) {
 
         assert(call);
 
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
         r = sd_bus_message_new_method_return(call, &m);
         if (r < 0)
                 return synthetic_reply_method_errno(call, r, NULL);
