@@ -5539,6 +5539,8 @@ loginctl_SOURCES = \
 
 loginctl_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-logs.la \
+	libsystemd-journal-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la
 

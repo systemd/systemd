@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "sysfs-show.h"
+#include "logs-show.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "spawn-polkit-agent.h"
@@ -51,6 +52,8 @@ static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static bool arg_ask_password = true;
 static char *arg_host = NULL;
+static unsigned arg_lines = 10;
+static OutputMode arg_output = OUTPUT_SHORT;
 
 static void pager_open_if_enabled(void) {
 
@@ -71,6 +74,15 @@ static void polkit_agent_open_if_enabled(void) {
                 return;
 
         polkit_agent_open();
+}
+
+static OutputFlags get_output_flags(void) {
+
+        return
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH |
+                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                on_tty() * OUTPUT_COLOR;
 }
 
 static int list_sessions(sd_bus *bus, char **args, unsigned n) {
@@ -206,7 +218,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *cgroup;
-        int r, output_flags;
+        int r;
         unsigned c;
 
         assert(bus);
@@ -239,17 +251,13 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup, false) != 0 && leader <= 0)
                 return 0;
 
-        output_flags =
-                arg_all * OUTPUT_SHOW_ALL |
-                arg_full * OUTPUT_FULL_WIDTH;
-
         c = columns();
         if (c > 18)
                 c -= 18;
         else
                 c = 0;
 
-        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, output_flags);
+        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, get_output_flags());
         return 0;
 }
 
@@ -257,7 +265,7 @@ typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
         const char *name;
-        usec_t timestamp;
+        struct dual_timestamp timestamp;
         unsigned int vtnr;
         const char *seat;
         const char *tty;
@@ -277,7 +285,7 @@ typedef struct SessionStatusInfo {
 typedef struct UserStatusInfo {
         uid_t uid;
         const char *name;
-        usec_t timestamp;
+        struct dual_timestamp timestamp;
         const char *state;
         char **sessions;
         const char *display;
@@ -357,24 +365,25 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
 static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Id",         "s", NULL, offsetof(SessionStatusInfo, id) },
-                { "Name",       "s", NULL, offsetof(SessionStatusInfo, name) },
-                { "TTY",        "s", NULL, offsetof(SessionStatusInfo, tty) },
-                { "Display",    "s", NULL, offsetof(SessionStatusInfo, display) },
-                { "RemoteHost", "s", NULL, offsetof(SessionStatusInfo, remote_host) },
-                { "RemoteUser", "s", NULL, offsetof(SessionStatusInfo, remote_user) },
-                { "Service",    "s", NULL, offsetof(SessionStatusInfo, service) },
-                { "Desktop",    "s", NULL, offsetof(SessionStatusInfo, desktop) },
-                { "Type",       "s", NULL, offsetof(SessionStatusInfo, type) },
-                { "Class",      "s", NULL, offsetof(SessionStatusInfo, class) },
-                { "Scope",      "s", NULL, offsetof(SessionStatusInfo, scope) },
-                { "State",      "s", NULL, offsetof(SessionStatusInfo, state) },
-                { "VTNr",       "u", NULL, offsetof(SessionStatusInfo, vtnr) },
-                { "Leader",     "u", NULL, offsetof(SessionStatusInfo, leader) },
-                { "Remote",     "b", NULL, offsetof(SessionStatusInfo, remote) },
-                { "Timestamp",  "t", NULL, offsetof(SessionStatusInfo, timestamp) },
-                { "User",       "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid) },
-                { "Seat",       "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat) },
+                { "Id",                  "s",    NULL,                     offsetof(SessionStatusInfo, id)                  },
+                { "Name",                "s",    NULL,                     offsetof(SessionStatusInfo, name)                },
+                { "TTY",                 "s",    NULL,                     offsetof(SessionStatusInfo, tty)                 },
+                { "Display",             "s",    NULL,                     offsetof(SessionStatusInfo, display)             },
+                { "RemoteHost",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_host)         },
+                { "RemoteUser",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_user)         },
+                { "Service",             "s",    NULL,                     offsetof(SessionStatusInfo, service)             },
+                { "Desktop",             "s",    NULL,                     offsetof(SessionStatusInfo, desktop)             },
+                { "Type",                "s",    NULL,                     offsetof(SessionStatusInfo, type)                },
+                { "Class",               "s",    NULL,                     offsetof(SessionStatusInfo, class)               },
+                { "Scope",               "s",    NULL,                     offsetof(SessionStatusInfo, scope)               },
+                { "State",               "s",    NULL,                     offsetof(SessionStatusInfo, state)               },
+                { "VTNr",                "u",    NULL,                     offsetof(SessionStatusInfo, vtnr)                },
+                { "Leader",              "u",    NULL,                     offsetof(SessionStatusInfo, leader)              },
+                { "Remote",              "b",    NULL,                     offsetof(SessionStatusInfo, remote)              },
+                { "Timestamp",           "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)  },
+                { "TimestampMonotonic",  "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic) },
+                { "User",                "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                 },
+                { "Seat",                "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                },
                 {}
         };
 
@@ -399,8 +408,8 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         else
                 printf("%u\n", (unsigned) i.uid);
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp);
-        s2 = format_timestamp(since2, sizeof(since2), i.timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
+        s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
 
         if (s1)
                 printf("\t   Since: %s; %s\n", s2, s1);
@@ -471,6 +480,22 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         if (i.scope) {
                 printf("\t    Unit: %s\n", i.scope);
                 show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+
+                        show_journal_by_unit(
+                                        stdout,
+                                        i.scope,
+                                        arg_output,
+                                        0,
+                                        i.timestamp.monotonic,
+                                        arg_lines,
+                                        0,
+                                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                        SD_JOURNAL_LOCAL_ONLY,
+                                        true,
+                                        NULL);
+                }
         }
 
         return 0;
@@ -479,13 +504,14 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Name",       "s",     NULL, offsetof(UserStatusInfo, name) },
-                { "Slice",      "s",     NULL, offsetof(UserStatusInfo, slice) },
-                { "State",      "s",     NULL, offsetof(UserStatusInfo, state) },
-                { "UID",        "u",     NULL, offsetof(UserStatusInfo, uid) },
-                { "Timestamp",  "t",     NULL, offsetof(UserStatusInfo, timestamp) },
-                { "Display",    "(so)",  prop_map_first_of_struct, offsetof(UserStatusInfo, display) },
-                { "Sessions",   "a(so)", prop_map_sessions_strv,   offsetof(UserStatusInfo, sessions) },
+                { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
+                { "Slice",              "s",     NULL,                     offsetof(UserStatusInfo, slice)               },
+                { "State",              "s",     NULL,                     offsetof(UserStatusInfo, state)               },
+                { "UID",                "u",     NULL,                     offsetof(UserStatusInfo, uid)                 },
+                { "Timestamp",          "t",     NULL,                     offsetof(UserStatusInfo, timestamp.realtime)  },
+                { "TimestampMonotonic", "t",     NULL,                     offsetof(UserStatusInfo, timestamp.monotonic) },
+                { "Display",            "(so)",  prop_map_first_of_struct, offsetof(UserStatusInfo, display)             },
+                { "Sessions",           "a(so)", prop_map_sessions_strv,   offsetof(UserStatusInfo, sessions)            },
                 {}
         };
 
@@ -510,8 +536,8 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         else
                 printf("%u\n", (unsigned) i.uid);
 
-        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp);
-        s2 = format_timestamp(since2, sizeof(since2), i.timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), i.timestamp.realtime);
+        s2 = format_timestamp(since2, sizeof(since2), i.timestamp.realtime);
 
         if (s1)
                 printf("\t   Since: %s; %s\n", s2, s1);
@@ -538,6 +564,19 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         if (i.slice) {
                 printf("\t    Unit: %s\n", i.slice);
                 show_unit_cgroup(bus, "org.freedesktop.systemd1.Slice", i.slice, 0);
+
+                show_journal_by_unit(
+                                stdout,
+                                i.slice,
+                                arg_output,
+                                0,
+                                i.timestamp.monotonic,
+                                arg_lines,
+                                0,
+                                get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                SD_JOURNAL_LOCAL_ONLY,
+                                true,
+                                NULL);
         }
 
 finish:
@@ -1051,7 +1090,10 @@ static void help(void) {
                "  -a --all                 Show all properties, including empty ones\n"
                "  -l --full                Do not ellipsize output\n"
                "     --kill-who=WHO        Who to send signal to\n"
-               "  -s --signal=SIGNAL       Which signal to send\n\n"
+               "  -s --signal=SIGNAL       Which signal to send\n"
+               "  -n --lines=INTEGER       Number of journal entries to show\n"
+               "  -o --output=STRING       Change journal output mode (short, short-monotonic,\n"
+               "                           verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Session Commands:\n"
                "  list-sessions            List sessions\n"
                "  session-status ID...     Show session status\n"
@@ -1104,6 +1146,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "lines",           required_argument, NULL, 'n'                 },
+                { "output",          required_argument, NULL, 'o'                 },
                 {}
         };
 
@@ -1112,7 +1156,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:n:o:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1143,6 +1187,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'l':
                         arg_full = true;
+                        break;
+
+                case 'n':
+                        if (safe_atou(optarg, &arg_lines) < 0) {
+                                log_error("Failed to parse lines '%s'", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case 'o':
+                        arg_output = output_mode_from_string(optarg);
+                        if (arg_output < 0) {
+                                log_error("Unknown output '%s'.", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case ARG_NO_PAGER:

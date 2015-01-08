@@ -1234,12 +1234,12 @@ int show_journal_by_unit(
                 unsigned how_many,
                 uid_t uid,
                 OutputFlags flags,
-                bool system,
+                int journal_open_flags,
+                bool system_unit,
                 bool *ellipsized) {
 
         _cleanup_journal_close_ sd_journal*j = NULL;
         int r;
-        int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM;
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
@@ -1248,7 +1248,7 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open(&j, jflags);
+        r = sd_journal_open(&j, journal_open_flags);
         if (r < 0)
                 return r;
 
@@ -1256,7 +1256,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
-        if (system)
+        if (system_unit)
                 r = add_matches_for_unit(j, unit);
         else
                 r = add_matches_for_user_unit(j, unit, uid);

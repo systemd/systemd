@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include "systemd/sd-journal.h"
+#include "sd-journal.h"
 
 #include "util.h"
 #include "output-mode.h"
@@ -58,7 +58,8 @@ int show_journal_by_unit(
                 unsigned how_many,
                 uid_t uid,
                 OutputFlags flags,
-                bool system,
+                int journal_open_flags,
+                bool system_unit,
                 bool *ellipsized);
 
 void json_escape(

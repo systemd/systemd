@@ -194,6 +194,15 @@ static void polkit_agent_open_if_enabled(void) {
 }
 #endif
 
+static OutputFlags get_output_flags(void) {
+        return
+                arg_all * OUTPUT_SHOW_ALL |
+                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                on_tty() * OUTPUT_COLOR |
+                !arg_quiet * OUTPUT_WARN_CUTOFF |
+                arg_full * OUTPUT_FULL_WIDTH;
+}
+
 static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
         assert(error);
 
@@ -3224,12 +3233,6 @@ static void print_status_info(
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *path;
-        int flags =
-                arg_all * OUTPUT_SHOW_ALL |
-                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                on_tty() * OUTPUT_COLOR |
-                !arg_quiet * OUTPUT_WARN_CUTOFF |
-                arg_full * OUTPUT_FULL_WIDTH;
         char **t, **t2;
 
         assert(i);
@@ -3499,21 +3502,23 @@ static void print_status_info(
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, false, extra, k, flags);
+                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, false, extra, k, get_output_flags());
                 }
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL) {
-                show_journal_by_unit(stdout,
-                                     i->id,
-                                     arg_output,
-                                     0,
-                                     i->inactive_exit_timestamp_monotonic,
-                                     arg_lines,
-                                     getuid(),
-                                     flags | OUTPUT_BEGIN_NEWLINE,
-                                     arg_scope == UNIT_FILE_SYSTEM,
-                                     ellipsized);
+                show_journal_by_unit(
+                                stdout,
+                                i->id,
+                                arg_output,
+                                0,
+                                i->inactive_exit_timestamp_monotonic,
+                                arg_lines,
+                                getuid(),
+                                get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                SD_JOURNAL_LOCAL_ONLY,
+                                arg_scope == UNIT_FILE_SYSTEM,
+                                ellipsized);
         }
 
         if (i->need_daemon_reload)
@@ -4377,13 +4382,6 @@ static int show_system_status(sd_bus *bus) {
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
         if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_MACHINE) {
-                int flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                        on_tty() * OUTPUT_COLOR |
-                        !arg_quiet * OUTPUT_WARN_CUTOFF |
-                        arg_full * OUTPUT_FULL_WIDTH;
-
                 static const char prefix[] = "           ";
                 unsigned c;
 
@@ -4393,7 +4391,7 @@ static int show_system_status(sd_bus *bus) {
                 else
                         c = 0;
 
-                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, flags);
+                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, false, get_output_flags());
         }
 
         free(mi.state);
