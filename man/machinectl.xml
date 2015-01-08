@@ -109,6 +109,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--no-ask-password</option></term>
+
+                                <listitem><para>Do not query the user
+                                for authentication for privileged
+                                operations.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--kill-who=</option></term>
 
                                 <listitem><para>When used with

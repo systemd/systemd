@@ -38,6 +38,7 @@
 #include "util.h"
 #include "macro.h"
 #include "pager.h"
+#include "spawn-polkit-agent.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "build.h"
@@ -65,6 +66,7 @@ static char *arg_host = NULL;
 static bool arg_read_only = false;
 static bool arg_mkdir = false;
 static bool arg_quiet = false;
+static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
@@ -75,6 +77,19 @@ static void pager_open_if_enabled(void) {
                 return;
 
         pager_open(false);
+}
+
+static void polkit_agent_open_if_enabled(void) {
+
+        /* Open the polkit agent as a child process if necessary */
+
+        if (!arg_ask_password)
+                return;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return;
+
+        polkit_agent_open();
 }
 
 static OutputFlags get_output_flags(void) {
@@ -911,6 +926,8 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
+        polkit_agent_open_if_enabled();
+
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
@@ -955,6 +972,8 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
         int i;
 
         assert(bus);
+
+        polkit_agent_open_if_enabled();
 
         for (i = 1; i < argc; i++) {
                 int r;
@@ -1345,6 +1364,8 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return -ENOTSUP;
         }
 
+        polkit_agent_open_if_enabled();
+
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
@@ -1375,7 +1396,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1434,6 +1455,8 @@ static int remove_image(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
+        polkit_agent_open_if_enabled();
+
         for (i = 1; i < argc; i++) {
                 r = sd_bus_call_method(
                                 bus,
@@ -1458,6 +1481,8 @@ static int rename_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
+        polkit_agent_open_if_enabled();
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.machine1",
@@ -1479,6 +1504,8 @@ static int clone_image(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call_method(
                         bus,
@@ -1510,6 +1537,8 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
                 }
         }
 
+        polkit_agent_open_if_enabled();
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.machine1",
@@ -1534,6 +1563,8 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         int r, i;
 
         assert(bus);
+
+        polkit_agent_open_if_enabled();
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -1567,7 +1598,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_set_allow_interactive_authorization(m, true);
+                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1607,6 +1638,8 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
+        polkit_agent_open_if_enabled();
+
         method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
 
         r = sd_bus_message_new_method_call(
@@ -1619,7 +1652,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1687,7 +1720,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, true);
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1709,6 +1742,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
                "     --no-legend              Do not show the headers and footers\n"
+               "     --no-ask-password        Do not ask for system passwords\n"
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
                "  -p --property=NAME          Show only properties by this name\n"
@@ -1760,6 +1794,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KILL_WHO,
                 ARG_READ_ONLY,
                 ARG_MKDIR,
+                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -1779,6 +1814,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",           no_argument,       NULL, 'q'                 },
                 { "lines",           required_argument, NULL, 'n'                 },
                 { "output",          required_argument, NULL, 'o'                 },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 {}
         };
 
@@ -1851,6 +1887,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Failed to parse signal string %s.", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case 'H':
@@ -1938,6 +1978,7 @@ int main(int argc, char*argv[]) {
 
 finish:
         pager_close();
+        polkit_agent_close();
 
         strv_free(arg_property);
 
