@@ -32,7 +32,9 @@
 #    MOUSE_DPI=<dpi>[@<frequency>]
 #
 # Where <dpi> is the resolution in dots per inch, and <frequency> the
-# optional sampling frequency in Hz.
+# sampling frequency in Hz (optional). If a device supports dynamic
+# frequency scaling, the maximum frequency should be used. For devices
+# supporting multiple fixed frequencies, see below.
 #
 # The value of MOUSE_DPI is:
 # - a single integer for single-resolution mice, e.g.
@@ -48,7 +50,7 @@
 #   ascending order, whichever appropriate.
 #
 #   The frequency must be given to either none or all resolutions. If the
-#   device supports multiple frequencies, the order of items is
+#   device supports multiple fixed frequencies, the order of items is
 #   MOUSE_DPI=r1@f1 r2@f1 r3@f1 r1@f2 r2@f2 r3@f2
 #
 #   If the default manufacturer-set resolution is unclear, a resolution of
