@@ -151,13 +151,15 @@ mouse:usb:v046dpc50e:name:Logitech USB RECEIVER:
 mouse:usb:v046dpc50e:name:Logitech USB Receiver:
 # Logitech, Inc. RX 300 Optical Mouse
 mouse:usb:v046dpc040:name:Logitech USB-PS/2 Optical Mouse:
-# Logitech, Inc. RX 250 Optical Mouse
-mouse:usb:v046dpc050:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=800@125
 
 # Logitech MX 518
 mouse:usb:v046dpc01e:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=400@125 *800@125 1600@125
+
+# Logitech, Inc. RX 250 Optical Mouse
+mouse:usb:v046dpc050:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=800@142
 
 # Logitech G400 (Wired)
 mouse:usb:v046dpc245:name:Logitech Gaming Mouse G400:
