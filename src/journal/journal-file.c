@@ -26,6 +26,7 @@
 #include <sys/statvfs.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <linux/fs.h>
 
 #include "btrfs-util.h"
 #include "journal-def.h"
@@ -141,8 +142,17 @@ void journal_file_close(JournalFile *f) {
         if (f->mmap && f->fd >= 0)
                 mmap_cache_close_fd(f->mmap, f->fd);
 
-        if (f->fd >= 0 && f->defrag_on_close)
-                btrfs_defrag_fd(f->fd);
+        if (f->fd >= 0 && f->defrag_on_close) {
+
+                /* Be friendly to btrfs: turn COW back on again now,
+                 * and defragment the file. We won't write to the file
+                 * ever again, hence remove all fragmentation, and
+                 * reenable all the good bits COW usually provides
+                 * (such as data checksumming). */
+
+                (void) chattr_fd(f->fd, false, FS_NOCOW_FL);
+                (void) btrfs_defrag_fd(f->fd);
+        }
 
         safe_close(f->fd);
         free(f->path);
@@ -2591,6 +2601,18 @@ int journal_file_open(
                 goto fail;
 
         if (f->last_stat.st_size == 0 && f->writable) {
+
+                /* Before we write anything, turn off COW logic. Given
+                 * our write pattern that is quite unfriendly to COW
+                 * file systems this should greatly improve
+                 * performance on COW file systems, such as btrfs, at
+                 * the expense of data integrity features (which
+                 * shouldn't be too bad, given that we do our own
+                 * checksumming). */
+                r = chattr_fd(f->fd, true, FS_NOCOW_FL);
+                if (r < 0)
+                        log_warning_errno(errno, "Failed to set file attributes: %m");
+
                 /* Let's attach the creation time to the journal file,
                  * so that the vacuuming code knows the age of this
                  * file even if the file might end up corrupted one
@@ -2808,6 +2830,8 @@ int journal_file_open_reliably(
 
         /* btrfs doesn't cope well with our write pattern and
          * fragments heavily. Let's defrag all files we rotate */
+
+        (void) chattr_path(p, false, FS_NOCOW_FL);
         (void) btrfs_defrag(p);
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);

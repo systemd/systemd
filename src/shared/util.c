@@ -62,6 +62,7 @@
 #include <sys/xattr.h>
 #include <libgen.h>
 #include <sys/statvfs.h>
+#include <linux/fs.h>
 #undef basename
 
 #ifdef HAVE_SYS_AUXV_H
@@ -7739,4 +7740,36 @@ int same_fd(int a, int b) {
                 return -errno;
 
         return fa == fb;
+}
+
+int chattr_fd(int fd, bool b, int mask) {
+        int old_attr, new_attr;
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
+                return -errno;
+
+        if (b)
+                new_attr = old_attr | mask;
+        else
+                new_attr = old_attr & ~mask;
+
+        if (new_attr == old_attr)
+                return 0;
+
+        if (ioctl(fd, FS_IOC_SETFLAGS, &new_attr) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int chattr_path(const char *p, bool b, int mask) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return chattr_fd(fd, b, mask);
 }

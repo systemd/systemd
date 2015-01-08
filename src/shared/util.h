@@ -1071,3 +1071,6 @@ int path_getcrtime(const char *p, usec_t *usec);
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
 
 int same_fd(int a, int b);
+
+int chattr_fd(int fd, bool b, int mask);
+int chattr_path(const char *p, bool b, int mask);

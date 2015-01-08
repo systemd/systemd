@@ -1294,7 +1294,7 @@ static int setup_keys(void) {
         size_t mpk_size, seed_size, state_size, i;
         uint8_t *mpk, *seed, *state;
         ssize_t l;
-        int fd = -1, r, attr = 0;
+        int fd = -1, r;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
         struct FSSHeader h;
@@ -1389,13 +1389,9 @@ static int setup_keys(void) {
 
         /* Enable secure remove, exclusion from dump, synchronous
          * writing and in-place updating */
-        if (ioctl(fd, FS_IOC_GETFLAGS, &attr) < 0)
-                log_warning_errno(errno, "FS_IOC_GETFLAGS failed: %m");
-
-        attr |= FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL;
-
-        if (ioctl(fd, FS_IOC_SETFLAGS, &attr) < 0)
-                log_warning_errno(errno, "FS_IOC_SETFLAGS failed: %m");
+        r = chattr_fd(fd, true, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to set file attributes: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);
