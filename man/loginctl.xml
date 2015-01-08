@@ -193,10 +193,15 @@
                         <xi:include href="standard-options.xml" xpointer="version" />
                         <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Commands</title>
 
                 <para>The following commands are understood:</para>
 
-                <variablelist>
+                <refsect2><title>Session Commands</title><variablelist>
+
                         <varlistentry>
                                 <term><command>list-sessions</command></term>
 
@@ -291,7 +296,9 @@
                                 <option>--signal=</option> to select
                                 the signal to send.</para></listitem>
                         </varlistentry>
+                </variablelist></refsect2>
 
+                <refsect2><title>User Commands</title><variablelist>
                         <varlistentry>
                                 <term><command>list-users</command></term>
 
@@ -371,7 +378,9 @@
                                 <option>--signal=</option> to select
                                 the signal to send.</para></listitem>
                         </varlistentry>
+                </variablelist></refsect2>
 
+                <refsect2><title>Seat Commands</title><variablelist>
                         <varlistentry>
                                 <term><command>list-seats</command></term>
 
@@ -458,7 +467,7 @@
                                 and deallocates all runtime resources
                                 attached to them.</para></listitem>
                         </varlistentry>
-                </variablelist>
+                </variablelist></refsect2>
 
         </refsect1>
 
