@@ -219,7 +219,7 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
 
-        /* Don't allow requesting the special driver and local names */
+        /* Don't allow releasing the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
                 return -EINVAL;
 
