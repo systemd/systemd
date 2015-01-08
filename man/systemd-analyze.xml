@@ -352,7 +352,7 @@ Requires=different.service
 [Service]
 Desription=x
 
-$ systemd-verify ./user.slice
+$ systemd-analyze verify ./user.slice
 [./user.slice:9] Unknown lvalue 'WhatIsThis' in section 'Unit'
 [./user.slice:13] Unknown section 'Service'. Ignoring.
 Error: org.freedesktop.systemd1.LoadFailed:
@@ -376,7 +376,7 @@ ListenStream=100
 ListenStream=100
 Accept=yes
 
-$ systemd-verify ./a.socket ./b.socket
+$ systemd-analyze verify ./a.socket ./b.socket
 Service a.service not loaded, a.socket cannot be started.
 Service b@0.service not loaded, b.socket cannot be started.
                         </programlisting>
