@@ -2623,7 +2623,7 @@ int journal_file_open(
                  * attributes are not supported we'll just skip this,
                  * and rely solely on mtime/atime/ctime of the file. */
 
-                fd_setcrtime(f->fd, now(CLOCK_REALTIME));
+                fd_setcrtime(f->fd, 0);
 
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then

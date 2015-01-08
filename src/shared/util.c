@@ -7670,6 +7670,9 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         assert(fd >= 0);
 
+        if (usec <= 0)
+                usec = now(CLOCK_REALTIME);
+
         le = htole64((uint64_t) usec);
         if (fsetxattr(fd, "user.crtime_usec", &le, sizeof(le), 0) < 0)
                 return -errno;
