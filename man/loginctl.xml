@@ -209,16 +209,20 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>session-status</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>session-status</command> <optional><replaceable>ID</replaceable>...</optional></term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
                                 sessions, followed by the most recent
-                                log data from the journal. This
-                                function is intended to generate
-                                human-readable output. If you are
-                                looking for computer-parsable output,
-                                use <command>show-session</command>
+                                log data from the journal. Takes one
+                                or more session identifiers as
+                                parameters. If no session identifiers
+                                are passed the status of the caller's
+                                session is shown. This function is
+                                intended to generate human-readable
+                                output. If you are looking for
+                                computer-parsable output, use
+                                <command>show-session</command>
                                 instead.</para></listitem>
                         </varlistentry>
 
@@ -307,12 +311,16 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>user-status</command> <replaceable>USER</replaceable>...</term>
+                                <term><command>user-status</command> <optional><replaceable>USER</replaceable>...</optional></term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
                                 logged in users, followed by the most
-                                recent log data from the journal. This
+                                recent log data from the
+                                journal. Takes one or more user names
+                                or numeric user IDs as parameters. If
+                                no parameters are passed the status of
+                                the caller's user is shown. This
                                 function is intended to generate
                                 human-readable output. If you are
                                 looking for computer-parsable output,
@@ -390,12 +398,15 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>seat-status</command> <replaceable>NAME</replaceable>...</term>
+                                <term><command>seat-status</command> <optional><replaceable>NAME</replaceable>...</optional></term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
-                                seats. This function is
-                                intended to generate human-readable
+                                seats. Takes one or more seat names as
+                                parameters. If no seat names are
+                                passed the status of the caller's
+                                session's seat is shown. This function
+                                is intended to generate human-readable
                                 output. If you are looking for
                                 computer-parsable output, use
                                 <command>show-seat</command>

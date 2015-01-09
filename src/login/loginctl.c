@@ -684,10 +684,14 @@ static int show_session(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        if (properties && argc <= 1) {
+        if (argc <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+
+                /* And in the pretty case, show data of the calling session */
+                return print_session_status_info(bus, "/org/freedesktop/login1/session/self", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -736,10 +740,13 @@ static int show_user(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        if (properties && argc <= 1) {
+        if (argc <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+
+                return print_user_status_info(bus, "/org/freedesktop/login1/user/self", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -793,10 +800,13 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        if (properties && argc <= 1) {
+        if (argc <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+
+                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/self", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -1133,7 +1143,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                           verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Session Commands:\n"
                "  list-sessions            List sessions\n"
-               "  session-status ID...     Show session status\n"
+               "  session-status [ID...]   Show session status\n"
                "  show-session [ID...]     Show properties of sessions or the manager\n"
                "  activate ID              Activate a session\n"
                "  lock-session ID...       Screen lock one or more sessions\n"
@@ -1144,7 +1154,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  kill-session ID...       Send signal to processes of a session\n\n"
                "User Commands:\n"
                "  list-users               List users\n"
-               "  user-status USER...      Show user status\n"
+               "  user-status [USER...]    Show user status\n"
                "  show-user [USER...]      Show properties of users or the manager\n"
                "  enable-linger USER...    Enable linger state of one or more users\n"
                "  disable-linger USER...   Disable linger state of one or more users\n"
@@ -1152,8 +1162,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  kill-user USER...        Send signal to processes of a user\n\n"
                "Seat Commands:\n"
                "  list-seats               List seats\n"
-               "  seat-status NAME...      Show seat status\n"
-               "  show-seat NAME...        Show properties of one or more seats\n"
+               "  seat-status [NAME...]    Show seat status\n"
+               "  show-seat [NAME...]      Show properties of seats or the manager\n"
                "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
                "  flush-devices            Flush all device associations\n"
                "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
@@ -1292,7 +1302,7 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
         static const Verb verbs[] = {
                 { "help",              VERB_ANY, VERB_ANY, 0,            help              },
                 { "list-sessions",     VERB_ANY, 1,        VERB_DEFAULT, list_sessions     },
-                { "session-status",    2,        VERB_ANY, 0,            show_session      },
+                { "session-status",    VERB_ANY, VERB_ANY, 0,            show_session      },
                 { "show-session",      VERB_ANY, VERB_ANY, 0,            show_session      },
                 { "activate",          2,        2,        0,            activate          },
                 { "lock-session",      2,        VERB_ANY, 0,            activate          },
@@ -1302,15 +1312,15 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "terminate-session", 2,        VERB_ANY, 0,            activate          },
                 { "kill-session",      2,        VERB_ANY, 0,            kill_session      },
                 { "list-users",        VERB_ANY, 1,        0,            list_users        },
-                { "user-status",       2,        VERB_ANY, 0,            show_user         },
+                { "user-status",       VERB_ANY, VERB_ANY, 0,            show_user         },
                 { "show-user",         VERB_ANY, VERB_ANY, 0,            show_user         },
                 { "enable-linger",     2,        VERB_ANY, 0,            enable_linger     },
                 { "disable-linger",    2,        VERB_ANY, 0,            enable_linger     },
                 { "terminate-user",    2,        VERB_ANY, 0,            terminate_user    },
                 { "kill-user",         2,        VERB_ANY, 0,            kill_user         },
                 { "list-seats",        VERB_ANY, 1,        0,            list_seats        },
-                { "seat-status",       2,        VERB_ANY, 0,            show_seat         },
-                { "show-seat",         VERB_ANY, 1,        0,            show_seat         },
+                { "seat-status",       VERB_ANY, VERB_ANY, 0,            show_seat         },
+                { "show-seat",         VERB_ANY, VERB_ANY, 0,            show_seat         },
                 { "attach",            3,        VERB_ANY, 0,            attach            },
                 { "flush-devices",     VERB_ANY, 1,        0,            flush_devices     },
                 { "terminate-seat",    2,        VERB_ANY, 0,            terminate_seat    },
