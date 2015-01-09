@@ -1704,8 +1704,8 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
 
         /* If this is a reply and no reply was requested, then let's
          * suppress this, if we can */
-        if (m->dont_send && !cookie)
-                return 1;
+        if (m->dont_send)
+                goto finish;
 
         if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
@@ -1718,7 +1718,9 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                         }
 
                         return r;
-                } else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
+                }
+
+                if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1728,6 +1730,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                         bus->wqueue_size = 1;
                         bus->windex = idx;
                 }
+
         } else {
                 /* Just append it to the queue. */
 
@@ -1740,6 +1743,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                 bus->wqueue[bus->wqueue_size ++] = sd_bus_message_ref(m);
         }
 
+finish:
         if (cookie)
                 *cookie = BUS_MESSAGE_COOKIE(m);
 
