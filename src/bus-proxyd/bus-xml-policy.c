@@ -421,8 +421,10 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
-                                i->interface = name;
-                                name = NULL;
+                                if (!streq(name, "*")) {
+                                        i->interface = name;
+                                        name = NULL;
+                                }
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (9) at %s:%u.", path, line);
@@ -440,8 +442,10 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
-                                i->member = name;
-                                name = NULL;
+                                if (!streq(name, "*")) {
+                                        i->member = name;
+                                        name = NULL;
+                                }
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (10) in %s:%u.", path, line);
@@ -459,8 +463,10 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
-                                i->error = name;
-                                name = NULL;
+                                if (!streq(name, "*")) {
+                                        i->error = name;
+                                        name = NULL;
+                                }
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (11) in %s:%u.", path, line);
@@ -478,8 +484,10 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
-                                i->path = name;
-                                name = NULL;
+                                if (!streq(name, "*")) {
+                                        i->path = name;
+                                        name = NULL;
+                                }
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (12) in %s:%u.", path, line);
@@ -498,10 +506,12 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
-                                r = bus_message_type_from_string(name, &i->message_type);
-                                if (r < 0) {
-                                        log_error("Invalid message type in %s:%u.", path, line);
-                                        return -EINVAL;
+                                if (!streq(name, "*")) {
+                                        r = bus_message_type_from_string(name, &i->message_type);
+                                        if (r < 0) {
+                                                log_error("Invalid message type in %s:%u.", path, line);
+                                                return -EINVAL;
+                                        }
                                 }
 
                                 state = STATE_ALLOW_DENY;
@@ -544,6 +554,17 @@ static int file_load(Policy *p, const char *path) {
                                                         i->gid_valid = true;
                                         }
                                         break;
+
+                                case POLICY_ITEM_SEND:
+                                case POLICY_ITEM_RECV:
+
+                                        if (streq(name, "*")) {
+                                                free(name);
+                                                name = NULL;
+                                        }
+                                        break;
+
+
                                 default:
                                         break;
                                 }
