@@ -44,6 +44,91 @@
 #include "selinux-util.h"
 #include "logind.h"
 
+int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        Session *session;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(ret);
+
+        if (isempty(name)) {
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_session(creds, &name);
+                if (r < 0)
+                        return r;
+        }
+
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+
+        *ret = session;
+        return 0;
+}
+
+int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret) {
+        User *user;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(ret);
+
+        if (uid == UID_INVALID) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                /* Note that we get the owner UID of the session, not the actual client UID here! */
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_owner_uid(creds, &uid);
+                if (r < 0)
+                        return r;
+        }
+
+        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        if (!user)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
+
+        *ret = user;
+        return 0;
+}
+
+int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret) {
+        Seat *seat;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(ret);
+
+        if (isempty(name)) {
+                Session *session;
+
+                r = manager_get_session_from_creds(m, message, NULL, error, &session);
+                if (r < 0)
+                        return r;
+
+                seat = session->seat;
+
+                if (!seat)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "Session has no seat.");
+        } else {
+                seat = hashmap_get(m->seats, name);
+                if (!seat)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+        }
+
+        *ret = seat;
+        return 0;
+}
+
 static int property_get_idle_hint(
                 sd_bus *bus,
                 const char *path,
@@ -131,6 +216,7 @@ static int property_get_preparing(
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 
 static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         const char *name;
@@ -145,9 +231,9 @@ static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         p = session_bus_path(session);
         if (!p)
@@ -173,23 +259,18 @@ static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void 
         if (r < 0)
                 return r;
 
-        if (pid == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        if (pid <= 0) {
+                r = manager_get_session_from_creds(m, message, NULL, error, &session);
+                if (r < 0)
+                        return r;
+        } else {
+                r = manager_get_session_by_pid(m, pid, &session);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
+                if (!session)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID, "PID "PID_FMT" does not belong to any known session", pid);
         }
-
-        r = manager_get_session_by_pid(m, pid, &session);
-        if (r < 0)
-                return r;
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID, "PID "PID_FMT" does not belong to any known session", pid);
 
         p = session_bus_path(session);
         if (!p)
@@ -213,9 +294,9 @@ static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata,
         if (r < 0)
                 return r;
 
-        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-        if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
+        r = manager_get_user_from_creds(m, message, uid, error, &user);
+        if (r < 0)
+                return r;
 
         p = user_bus_path(user);
         if (!p)
@@ -241,23 +322,17 @@ static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        if (pid == 0) {
-                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        if (pid <= 0) {
+                r = manager_get_user_from_creds(m, message, UID_INVALID, error, &user);
                 if (r < 0)
                         return r;
-
-                r = sd_bus_creds_get_pid(creds, &pid);
+        } else {
+                r = manager_get_user_by_pid(m, pid, &user);
                 if (r < 0)
                         return r;
+                if (!user)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID "PID_FMT" does not belong to any known or logged in user", pid);
         }
-
-        r = manager_get_user_by_pid(m, pid, &user);
-        if (r < 0)
-                return r;
-        if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID "PID_FMT" does not belong to any known or logged in user", pid);
 
         p = user_bus_path(user);
         if (!p)
@@ -281,9 +356,9 @@ static int method_get_seat(sd_bus *bus, sd_bus_message *message, void *userdata,
         if (r < 0)
                 return r;
 
-        seat = hashmap_get(m->seats, name);
-        if (!seat)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+        r = manager_get_seat_from_creds(m, message, name, error, &seat);
+        if (r < 0)
+                return r;
 
         p = seat_bus_path(seat);
         if (!p)
@@ -570,8 +645,6 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 if (r < 0)
                         return r;
 
-                assert_cc(sizeof(uint32_t) == sizeof(pid_t));
-
                 r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
                 if (r < 0)
                         return r;
@@ -755,9 +828,9 @@ static int method_release_session(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         session_release(session);
 
@@ -778,9 +851,9 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         r = session_activate(session);
         if (r < 0)
@@ -807,13 +880,13 @@ static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message,
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, session_name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", session_name);
+        r = manager_get_session_from_creds(m, message, session_name, error, &session);
+        if (r < 0)
+                return r;
 
-        seat = hashmap_get(m->seats, seat_name);
-        if (!seat)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat_name);
+        r = manager_get_seat_from_creds(m, message, seat_name, error, &seat);
+        if (r < 0)
+                return r;
 
         if (session->seat != seat)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", session_name, seat_name);
@@ -839,9 +912,9 @@ static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         r = session_send_lock(session, streq(sd_bus_message_get_member(message), "LockSession"));
         if (r < 0)
@@ -866,6 +939,7 @@ static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *user
 }
 
 static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *name, *swho;
         Manager *m = userdata;
         Session *session;
@@ -892,9 +966,9 @@ static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userd
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         r = session_kill(session, who, signo);
         if (r < 0)
@@ -921,9 +995,9 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
-        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-        if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
+        r = manager_get_user_from_creds(m, message, uid, error, &user);
+        if (r < 0)
+                return r;
 
         r = user_kill(user, signo);
         if (r < 0)
@@ -933,6 +1007,7 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
 }
 
 static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Manager *m = userdata;
         const char *name;
         Session *session;
@@ -946,9 +1021,9 @@ static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *
         if (r < 0)
                 return r;
 
-        session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        r = manager_get_session_from_creds(m, message, name, error, &session);
+        if (r < 0)
+                return r;
 
         r = session_stop(session, true);
         if (r < 0)
@@ -971,9 +1046,9 @@ static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-        if (!user)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
+        r = manager_get_user_from_creds(m, message, uid, error, &user);
+        if (r < 0)
+                return r;
 
         r = user_stop(user, true);
         if (r < 0)
@@ -996,9 +1071,9 @@ static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        seat = hashmap_get(m->seats, name);
-        if (!seat)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+        r = manager_get_seat_from_creds(m, message, name, error, &seat);
+        if (r < 0)
+                return r;
 
         r = seat_stop_sessions(seat, true);
         if (r < 0)
@@ -1023,6 +1098,19 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
         r = sd_bus_message_read(message, "ubb", &uid, &b, &interactive);
         if (r < 0)
                 return r;
+
+        if (uid == UID_INVALID) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                /* Note that we get the owner UID of the session, not the actual client UID here! */
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_owner_uid(creds, &uid);
+                if (r < 0)
+                        return r;
+        }
 
         errno = 0;
         pw = getpwuid(uid);
