@@ -45,13 +45,19 @@ Release 219 preparations:
 
 Features:
 
-* nspawn should lock container images while running off them
+* bus-proxy: reload policy when PID 1 reports a reload
 
-* when invoking "loginctl session-status" default to callers session
+* the dbus1 connection user id is actually the euid, not the uid, and creds should return that
+
+* add minimal NAT logic to networkd and nspawn. The former should be a simple NAT=yes|no|ipv4|ipv6 and expose a network on all other interfaces as NAT. The latter should get a "--port=" switch or so, which forwards one host port onto the container
+
+* introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
+
+* nspawn should lock container images while running off them
 
 * logind,machined: add generic catch-all polkit verbs for most priviliged operations, similar to systemd itself
 
-* "machinectl status" should also show logs of the container in question
+* "machinectl status" should also show internal logs of the container in question
 
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
@@ -340,6 +346,7 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
+  - GetAllProperties() on a non-existing object does not result in a failure currently
   - kdbus: process fd=-1 for incoming msgs
   - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
   - port to sd-resolve for connecting to TCP dbus servers
