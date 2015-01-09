@@ -279,9 +279,8 @@ static int file_load(Policy *p, const char *path) {
                                         ic = POLICY_ITEM_GROUP;
                                 else if (streq(name, "eavesdrop")) {
                                         log_debug("Unsupported attribute %s= at %s:%u, ignoring.", name, path, line);
-                                        i->class = POLICY_ITEM_IGNORE;
                                         state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
-                                        break;
+                                        ic = POLICY_ITEM_RECV; /* eavesdrop is a type of receive attribute match! */
                                 } else {
                                         log_error("Unknown attribute %s= at %s:%u, ignoring.", name, path, line);
                                         state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
@@ -289,7 +288,7 @@ static int file_load(Policy *p, const char *path) {
                                 }
 
                                 if (i->class != _POLICY_ITEM_CLASS_UNSET && ic != i->class) {
-                                        log_error("send_ and receive_ fields mixed on same tag at %s:%u.", path, line);
+                                        log_error("send_, receive_/eavesdrop fields mixed on same tag at %s:%u.", path, line);
                                         return -EINVAL;
                                 }
 
