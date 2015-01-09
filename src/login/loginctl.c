@@ -853,6 +853,15 @@ static int activate(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_if_enabled();
 
+        if (argc < 2) {
+                /* No argument? Let's convert this into the empty
+                 * session name, which the calls will then resolve to
+                 * the caller's session. */
+
+                argv = STRV_MAKE(argv[0], "");
+                argc = 2;
+        }
+
         for (i = 1; i < argc; i++) {
 
                 r = sd_bus_call_method (
@@ -920,12 +929,21 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
 
         b = streq(argv[0], "enable-linger");
 
+        if (argc < 2) {
+                argv = STRV_MAKE(argv[0], "");
+                argc = 2;
+        }
+
         for (i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                if (isempty(argv[i]))
+                        uid = UID_INVALID;
+                else {
+                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
 
                 r = sd_bus_call_method (
                         bus,
@@ -1145,9 +1163,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-sessions            List sessions\n"
                "  session-status [ID...]   Show session status\n"
                "  show-session [ID...]     Show properties of sessions or the manager\n"
-               "  activate ID              Activate a session\n"
-               "  lock-session ID...       Screen lock one or more sessions\n"
-               "  unlock-session ID...     Screen unlock one or more sessions\n"
+               "  activate [ID]            Activate a session\n"
+               "  lock-session [ID...]     Screen lock one or more sessions\n"
+               "  unlock-session [ID...]   Screen unlock one or more sessions\n"
                "  lock-sessions            Screen lock all current sessions\n"
                "  unlock-sessions          Screen unlock all current sessions\n"
                "  terminate-session ID...  Terminate one or more sessions\n"
@@ -1156,8 +1174,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-users               List users\n"
                "  user-status [USER...]    Show user status\n"
                "  show-user [USER...]      Show properties of users or the manager\n"
-               "  enable-linger USER...    Enable linger state of one or more users\n"
-               "  disable-linger USER...   Disable linger state of one or more users\n"
+               "  enable-linger [USER...]  Enable linger state of one or more users\n"
+               "  disable-linger [USER...] Disable linger state of one or more users\n"
                "  terminate-user USER...   Terminate all sessions of one or more users\n"
                "  kill-user USER...        Send signal to processes of a user\n\n"
                "Seat Commands:\n"
@@ -1304,9 +1322,9 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "list-sessions",     VERB_ANY, 1,        VERB_DEFAULT, list_sessions     },
                 { "session-status",    VERB_ANY, VERB_ANY, 0,            show_session      },
                 { "show-session",      VERB_ANY, VERB_ANY, 0,            show_session      },
-                { "activate",          2,        2,        0,            activate          },
-                { "lock-session",      2,        VERB_ANY, 0,            activate          },
-                { "unlock-session",    2,        VERB_ANY, 0,            activate          },
+                { "activate",          VERB_ANY, 2,        0,            activate          },
+                { "lock-session",      VERB_ANY, VERB_ANY, 0,            activate          },
+                { "unlock-session",    VERB_ANY, VERB_ANY, 0,            activate          },
                 { "lock-sessions",     VERB_ANY, 1,        0,            lock_sessions     },
                 { "unlock-sessions",   VERB_ANY, 1,        0,            lock_sessions     },
                 { "terminate-session", 2,        VERB_ANY, 0,            activate          },
@@ -1314,8 +1332,8 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "list-users",        VERB_ANY, 1,        0,            list_users        },
                 { "user-status",       VERB_ANY, VERB_ANY, 0,            show_user         },
                 { "show-user",         VERB_ANY, VERB_ANY, 0,            show_user         },
-                { "enable-linger",     2,        VERB_ANY, 0,            enable_linger     },
-                { "disable-linger",    2,        VERB_ANY, 0,            enable_linger     },
+                { "enable-linger",     VERB_ANY, VERB_ANY, 0,            enable_linger     },
+                { "disable-linger",    VERB_ANY, VERB_ANY, 0,            enable_linger     },
                 { "terminate-user",    2,        VERB_ANY, 0,            terminate_user    },
                 { "kill-user",         2,        VERB_ANY, 0,            kill_user         },
                 { "list-seats",        VERB_ANY, 1,        0,            list_seats        },

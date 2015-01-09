@@ -250,22 +250,30 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>activate</command> <replaceable>ID</replaceable></term>
+                                <term><command>activate</command> <optional><replaceable>ID</replaceable></optional></term>
 
                                 <listitem><para>Activate a
                                 session. This brings a session into
                                 the foreground, if another session is
                                 currently in the foreground on the
-                                respective seat.</para></listitem>
+                                respective seat. Takes a session
+                                identifier as argument. If no argument
+                                is specified the session of the caller
+                                is put into
+                                foreground.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>lock-session</command> <replaceable>ID</replaceable>...</term>
-                                <term><command>unlock-session</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>lock-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
+                                <term><command>unlock-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on one or more
-                                sessions, if the session supports it.
+                                sessions, if the session supports
+                                it. Takes one or more session
+                                identifiers as arguments. If no
+                                argument is specified the session of
+                                the caller is locked/unlocked.
                                 </para></listitem>
                         </varlistentry>
 
@@ -353,8 +361,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>enable-linger</command> <replaceable>USER</replaceable>...</term>
-                                <term><command>disable-linger</command> <replaceable>USER</replaceable>...</term>
+                                <term><command>enable-linger</command> <optional><replaceable>USER</replaceable>...</optional></term>
+                                <term><command>disable-linger</command> <optional><replaceable>USER</replaceable>...</optional></term>
 
                                 <listitem><para>Enable/disable user
                                 lingering for one or more users. If
@@ -363,7 +371,11 @@
                                 boot and kept around after
                                 logouts. This allows users who are not
                                 logged in to run long-running
-                                services.</para></listitem>
+                                services. Takes one or more user names
+                                or numeric UIDs as argument. If no
+                                argument is specified enables/disables
+                                lingering for the user of the session
+                                of the caller.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -413,7 +425,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-seat</command> <replaceable>NAME</replaceable>...</term>
+                                <term><command>show-seat</command> <optional><replaceable>NAME</replaceable>...</optional></term>
 
                                 <listitem><para>Show properties of one
                                 or more seats or the manager
