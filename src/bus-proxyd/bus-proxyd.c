@@ -1008,6 +1008,24 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                 (void) sd_bus_creds_get_uid(&m->creds, &sender_uid);
                 (void) sd_bus_creds_get_gid(&m->creds, &sender_gid);
 
+                if (sender_uid == UID_INVALID || sender_gid == GID_INVALID) {
+                        _cleanup_bus_creds_unref_ sd_bus_creds *sender_creds = NULL;
+
+                        /* If the message came from another legacy
+                         * client, then the message creds will be
+                         * missing, simply because on legacy clients
+                         * per-message creds were unknown. In this
+                         * case, query the creds of the peer
+                         * instead. */
+
+                        r = bus_get_name_creds_kdbus(from, m->sender, SD_BUS_CREDS_UID|SD_BUS_CREDS_GID, true, &sender_creds);
+                        if (r < 0)
+                                return handle_policy_error(m, r);
+
+                        (void) sd_bus_creds_get_uid(sender_creds, &sender_uid);
+                        (void) sd_bus_creds_get_gid(sender_creds, &sender_gid);
+                }
+
                 /* First check whether the sender can send the message to our name */
                 if (set_isempty(owned_names)) {
                         if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, NULL, m->path, m->interface, m->member))
