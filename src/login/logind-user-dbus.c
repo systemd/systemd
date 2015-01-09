@@ -319,6 +319,10 @@ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                         return r;
         }
 
+        r = strv_extend(&l, "/org/freedesktop/login1/user/self");
+        if (r < 0)
+                return r;
+
         *nodes = l;
         l = NULL;
 
