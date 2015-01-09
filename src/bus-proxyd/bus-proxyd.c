@@ -1282,6 +1282,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *peersec = NULL;
         Policy policy_buffer = {}, *policy = NULL;
         _cleanup_set_free_free_ Set *owned_names = NULL;
+        uid_t original_uid;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -1302,6 +1303,8 @@ int main(int argc, char *argv[]) {
                 log_error("Illegal number of file descriptors passed");
                 goto finish;
         }
+
+        original_uid = getuid();
 
         is_unix =
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
@@ -1444,7 +1447,11 @@ int main(int argc, char *argv[]) {
                 policy = &policy_buffer;
                 /* policy_dump(policy); */
 
-                if (!policy_check_hello(policy, ucred.uid, ucred.gid)) {
+                if (ucred.uid == original_uid)
+                        log_debug("Permitting access, since bus owner matches bus client.");
+                else if (policy_check_hello(policy, ucred.uid, ucred.gid))
+                        log_debug("Permitting access due to XML policy.");
+                else {
                         r = log_error_errno(EPERM, "Policy denied connection.");
                         goto finish;
                 }
