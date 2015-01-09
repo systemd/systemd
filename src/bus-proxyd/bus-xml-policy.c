@@ -280,7 +280,7 @@ static int file_load(Policy *p, const char *path) {
                                 else if (streq(name, "eavesdrop")) {
                                         log_debug("Unsupported attribute %s= at %s:%u, ignoring.", name, path, line);
                                         state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
-                                        ic = POLICY_ITEM_RECV; /* eavesdrop is a type of receive attribute match! */
+                                        break;
                                 } else {
                                         log_error("Unknown attribute %s= at %s:%u, ignoring.", name, path, line);
                                         state = STATE_ALLOW_DENY_OTHER_ATTRIBUTE;
@@ -329,10 +329,9 @@ static int file_load(Policy *p, const char *path) {
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
                                    (t == XML_TAG_CLOSE && streq(name, i->type == POLICY_ITEM_ALLOW ? "allow" : "deny"))) {
 
-                                if (i->class == _POLICY_ITEM_CLASS_UNSET) {
-                                        log_error("Policy not set at %s:%u.", path, line);
-                                        return -EINVAL;
-                                }
+                                /* If the tag is fully empty so far, we consider it a recv */
+                                if (i->class == _POLICY_ITEM_CLASS_UNSET)
+                                        i->class = POLICY_ITEM_RECV;
 
                                 if (policy_category == POLICY_CATEGORY_DEFAULT)
                                         item_append(i, &p->default_items);
