@@ -222,14 +222,14 @@ static char** user_dirs(
 
 char **generator_paths(SystemdRunningAs running_as) {
         if (running_as == SYSTEMD_USER)
-                return strv_new("/etc/systemd/user-generators",
-                                "/run/systemd/user-generators",
+                return strv_new("/run/systemd/user-generators",
+                                "/etc/systemd/user-generators",
                                 "/usr/local/lib/systemd/user-generators",
                                 USER_GENERATOR_PATH,
                                 NULL);
         else
-                return strv_new("/etc/systemd/system-generators",
-                                "/run/systemd/system-generators",
+                return strv_new("/run/systemd/system-generators",
+                                "/etc/systemd/system-generators",
                                 "/usr/local/lib/systemd/system-generators",
                                 SYSTEM_GENERATOR_PATH,
                                 NULL);
