@@ -205,6 +205,8 @@ mouse:usb:v046dpc531:name:Logitech USB Receiver:
 
 # Logitech USB Laser Mouse M-UAS144 [LS1 Laser Mouse]
 mouse:usb:v046dpc062:name:Logitech USB Laser Mouse:
+# Logitech USB Laser Mouse M-U0007
+mouse:usb:v046dpc069:name:Logitech USB Laser Mouse:
  MOUSE_DPI=1200@125
 
 # Logitech T620 (or, the soap)
