@@ -288,16 +288,9 @@
 
         <varlistentry>
           <term><varname>t</varname></term>
-          <listitem><para>Set extended attributes on item. It may be
-          used in conjunction with other types (only
-          <varname>d</varname>, <varname>D</varname>,
-          <varname>f</varname>, <varname>F</varname>,
-          <varname>L</varname>, <varname>p</varname>,
-          <varname>c</varname>, <varname>b</varname>, makes sense).
-          If used as a standalone line, then
-          <command>systemd-tmpfiles</command> will try to set extended
-          attributes on specified path.  This can be especially used
-          to set SMACK labels.  </para></listitem>
+          <listitem><para>Set extended attributes on the specified
+          path. This can be useful for setting SMACK labels.
+          </para></listitem>
         </varlistentry>
       </variablelist>
 

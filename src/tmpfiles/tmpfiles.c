@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering, Kay Sievers
+  Copyright 2015 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -113,6 +114,12 @@ typedef struct Item {
         bool done:1;
 } Item;
 
+typedef struct ItemArray {
+        Item *items;
+        size_t count;
+        size_t size;
+} ItemArray;
+
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
@@ -141,13 +148,40 @@ static bool needs_glob(ItemType t) {
                       RECURSIVE_RELABEL_PATH);
 }
 
+static bool takes_ownership(ItemType t) {
+        return IN_SET(t,
+                      CREATE_FILE,
+                      TRUNCATE_FILE,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY,
+                      CREATE_SUBVOLUME,
+                      CREATE_FIFO,
+                      CREATE_SYMLINK,
+                      CREATE_CHAR_DEVICE,
+                      CREATE_BLOCK_DEVICE,
+                      COPY_FILES,
+
+                      WRITE_FILE,
+                      IGNORE_PATH,
+                      IGNORE_DIRECTORY_PATH,
+                      REMOVE_PATH,
+                      RECURSIVE_REMOVE_PATH);
+}
+
 static struct Item* find_glob(Hashmap *h, const char *match) {
-        Item *j;
+        ItemArray *j;
         Iterator i;
 
-        HASHMAP_FOREACH(j, h, i)
-                if (fnmatch(j->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
-                        return j;
+        HASHMAP_FOREACH(j, h, i) {
+                unsigned n;
+
+                for (n = 0; n < j->count; n++) {
+                        Item *item = j->items + n;
+
+                        if (fnmatch(item->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
+                                return item;
+                }
+        }
 
         return NULL;
 }
@@ -604,10 +638,6 @@ static int write_one_file(Item *i, const char *path) {
         if (r < 0)
                 return r;
 
-        r = item_set_xattrs(i, i->path);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
@@ -790,10 +820,6 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
-                r = item_set_xattrs(i, i->path);
-                if (r < 0)
-                        return r;
-
                 break;
 
         case CREATE_FIFO:
@@ -834,10 +860,6 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
-                r = item_set_xattrs(i, i->path);
-                if (r < 0)
-                        return r;
-
                 break;
 
         case CREATE_SYMLINK:
@@ -868,10 +890,6 @@ static int create_item(Item *i) {
                                 }
                         }
                 }
-
-                r = item_set_xattrs(i, i->path);
-                if (r < 0)
-                       return r;
 
                 break;
 
@@ -933,10 +951,6 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
-                r = item_set_xattrs(i, i->path);
-                if (r < 0)
-                        return r;
-
                 break;
         }
 
@@ -994,7 +1008,7 @@ static int remove_item_instance(Item *i, const char *instance) {
 
         case REMOVE_PATH:
                 if (remove(instance) < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "remove(%s): %m", instance);
+                        return log_error_errno(errno, "rm(%s): %m", instance);
 
                 break;
 
@@ -1116,6 +1130,8 @@ static int clean_item(Item *i) {
         return r;
 }
 
+static int process_item_array(ItemArray *array);
+
 static int process_item(Item *i) {
         int r, q, p, t = 0;
         _cleanup_free_ char *prefix = NULL;
@@ -1132,13 +1148,13 @@ static int process_item(Item *i) {
                 return log_oom();
 
         PATH_FOREACH_PREFIX(prefix, i->path) {
-                Item *j;
+                ItemArray *j;
 
                 j = hashmap_get(items, prefix);
                 if (j) {
                         int s;
 
-                        s = process_item(j);
+                        s = process_item_array(j);
                         if (s < 0 && t == 0)
                                 t = s;
                 }
@@ -1154,57 +1170,66 @@ static int process_item(Item *i) {
                 p;
 }
 
-static void item_free(Item *i) {
+static int process_item_array(ItemArray *array) {
+        unsigned n;
+        int r = 0, k;
 
-        if (!i)
-                return;
+        assert(array);
 
+        for (n = 0; n < array->count; n++) {
+                k = process_item(array->items + n);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static void item_free_contents(Item *i) {
+        assert(i);
         free(i->path);
         free(i->argument);
         strv_free(i->xattrs);
-        free(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
+static void item_array_free(ItemArray *a) {
+        unsigned n;
 
-static bool item_equal(Item *a, Item *b) {
+        if (!a)
+                return;
+
+        for (n = 0; n < a->count; n++)
+                item_free_contents(a->items + n);
+        free(a->items);
+        free(a);
+}
+
+static bool item_compatible(Item *a, Item *b) {
         assert(a);
         assert(b);
+        assert(streq(a->path, b->path));
 
-        if (!streq_ptr(a->path, b->path))
-                return false;
+        if (takes_ownership(a->type) && takes_ownership(b->type))
+                /* check if the items are the same */
+                return  streq_ptr(a->argument, b->argument) &&
 
-        if (a->type != b->type)
-                return false;
+                        a->uid_set == b->uid_set &&
+                        a->uid == b->uid &&
 
-        if (a->uid_set != b->uid_set ||
-            (a->uid_set && a->uid != b->uid))
-            return false;
+                        a->gid_set == b->gid_set &&
+                        a->gid == b->gid &&
 
-        if (a->gid_set != b->gid_set ||
-            (a->gid_set && a->gid != b->gid))
-            return false;
+                        a->mode_set == b->mode_set &&
+                        a->mode == b->mode &&
 
-        if (a->mode_set != b->mode_set ||
-            (a->mode_set && a->mode != b->mode))
-            return false;
+                        a->age_set == b->age_set &&
+                        a->age == b->age &&
 
-        if (a->age_set != b->age_set ||
-            (a->age_set && a->age != b->age))
-            return false;
+                        a->mask_perms == b->mask_perms &&
 
-        if ((a->type == CREATE_FILE ||
-             a->type == TRUNCATE_FILE ||
-             a->type == WRITE_FILE ||
-             a->type == CREATE_SYMLINK ||
-             a->type == COPY_FILES) &&
-            !streq_ptr(a->argument, b->argument))
-                return false;
+                        a->keep_first_level == b->keep_first_level &&
 
-        if ((a->type == CREATE_CHAR_DEVICE ||
-             a->type == CREATE_BLOCK_DEVICE) &&
-            a->major_minor != b->major_minor)
-                return false;
+                        a->major_minor == b->major_minor;
 
         return true;
 }
@@ -1236,10 +1261,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         };
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
-        _cleanup_(item_freep) Item *i = NULL;
-        Item *existing;
+        _cleanup_(item_free_contents) Item i = {};
+        ItemArray *existing;
         Hashmap *h;
-        int r, n = -1, pos;
+        int r, c = -1, pos;
         bool force = false, boot = false;
 
         assert(fname);
@@ -1254,7 +1279,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                    &user,
                    &group,
                    &age,
-                   &n);
+                   &c);
         if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
@@ -1280,29 +1305,25 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (boot && !arg_boot)
                 return 0;
 
-        i = new0(Item, 1);
-        if (!i)
-                return log_oom();
+        i.type = action[0];
+        i.force = force;
 
-        i->type = action[0];
-        i->force = force;
-
-        r = specifier_printf(path, specifier_table, NULL, &i->path);
+        r = specifier_printf(path, specifier_table, NULL, &i.path);
         if (r < 0) {
                 log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, path);
                 return r;
         }
 
-        if (n >= 0)  {
-                n += strspn(buffer+n, WHITESPACE);
-                if (buffer[n] != 0 && (buffer[n] != '-' || buffer[n+1] != 0)) {
-                        i->argument = unquote(buffer+n, "\"");
-                        if (!i->argument)
+        if (c >= 0)  {
+                c += strspn(buffer+c, WHITESPACE);
+                if (buffer[c] != 0 && (buffer[c] != '-' || buffer[c+1] != 0)) {
+                        i.argument = unquote(buffer+c, "\"");
+                        if (!i.argument)
                                 return log_oom();
                 }
         }
 
-        switch (i->type) {
+        switch (i.type) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
@@ -1320,109 +1341,109 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         case CREATE_SYMLINK:
-                if (!i->argument) {
-                        i->argument = strappend("/usr/share/factory/", i->path);
-                        if (!i->argument)
+                if (!i.argument) {
+                        i.argument = strappend("/usr/share/factory/", i.path);
+                        if (!i.argument)
                                 return log_oom();
                 }
                 break;
 
         case WRITE_FILE:
-                if (!i->argument) {
+                if (!i.argument) {
                         log_error("[%s:%u] Write file requires argument.", fname, line);
                         return -EBADMSG;
                 }
                 break;
 
         case COPY_FILES:
-                if (!i->argument) {
-                        i->argument = strappend("/usr/share/factory/", i->path);
-                        if (!i->argument)
+                if (!i.argument) {
+                        i.argument = strappend("/usr/share/factory/", i.path);
+                        if (!i.argument)
                                 return log_oom();
-                } else if (!path_is_absolute(i->argument)) {
+                } else if (!path_is_absolute(i.argument)) {
                         log_error("[%s:%u] Source path is not absolute.", fname, line);
                         return -EBADMSG;
                 }
 
-                path_kill_slashes(i->argument);
+                path_kill_slashes(i.argument);
                 break;
 
         case CREATE_CHAR_DEVICE:
         case CREATE_BLOCK_DEVICE: {
                 unsigned major, minor;
 
-                if (!i->argument) {
+                if (!i.argument) {
                         log_error("[%s:%u] Device file requires argument.", fname, line);
                         return -EBADMSG;
                 }
 
-                if (sscanf(i->argument, "%u:%u", &major, &minor) != 2) {
-                        log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i->argument);
+                if (sscanf(i.argument, "%u:%u", &major, &minor) != 2) {
+                        log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
                         return -EBADMSG;
                 }
 
-                i->major_minor = makedev(major, minor);
+                i.major_minor = makedev(major, minor);
                 break;
         }
 
         case SET_XATTR:
-                if (!i->argument) {
+                if (!i.argument) {
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_xattrs_from_arg(i);
+                r = get_xattrs_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
 
         default:
-                log_error("[%s:%u] Unknown command type '%c'.", fname, line, i->type);
+                log_error("[%s:%u] Unknown command type '%c'.", fname, line, i.type);
                 return -EBADMSG;
         }
 
-        if (!path_is_absolute(i->path)) {
-                log_error("[%s:%u] Path '%s' not absolute.", fname, line, i->path);
+        if (!path_is_absolute(i.path)) {
+                log_error("[%s:%u] Path '%s' not absolute.", fname, line, i.path);
                 return -EBADMSG;
         }
 
-        path_kill_slashes(i->path);
+        path_kill_slashes(i.path);
 
-        if (!should_include_path(i->path))
+        if (!should_include_path(i.path))
                 return 0;
 
         if (arg_root) {
                 char *p;
 
-                p = strappend(arg_root, i->path);
+                p = strappend(arg_root, i.path);
                 if (!p)
                         return log_oom();
 
-                free(i->path);
-                i->path = p;
+                free(i.path);
+                i.path = p;
         }
 
         if (user && !streq(user, "-")) {
                 const char *u = user;
 
-                r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
+                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
                         return r;
                 }
 
-                i->uid_set = true;
+                i.uid_set = true;
         }
 
         if (group && !streq(group, "-")) {
                 const char *g = group;
 
-                r = get_group_creds(&g, &i->gid);
+                r = get_group_creds(&g, &i.gid);
                 if (r < 0) {
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
                         return r;
                 }
 
-                i->gid_set = true;
+                i.gid_set = true;
         }
 
         if (mode && !streq(mode, "-")) {
@@ -1430,7 +1451,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 unsigned m;
 
                 if (*mm == '~') {
-                        i->mask_perms = true;
+                        i.mask_perms = true;
                         mm++;
                 }
 
@@ -1439,66 +1460,51 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -ENOENT;
                 }
 
-                i->mode = m;
-                i->mode_set = true;
+                i.mode = m;
+                i.mode_set = true;
         } else
-                i->mode =
-                        i->type == CREATE_DIRECTORY ||
-                        i->type == CREATE_SUBVOLUME ||
-                        i->type == TRUNCATE_DIRECTORY ? 0755 : 0644;
+                i.mode = IN_SET(i.type, CREATE_DIRECTORY, CREATE_SUBVOLUME, TRUNCATE_DIRECTORY)
+                        ? 0755 : 0644;
 
         if (age && !streq(age, "-")) {
                 const char *a = age;
 
                 if (*a == '~') {
-                        i->keep_first_level = true;
+                        i.keep_first_level = true;
                         a++;
                 }
 
-                if (parse_sec(a, &i->age) < 0) {
+                if (parse_sec(a, &i.age) < 0) {
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
                         return -EBADMSG;
                 }
 
-                i->age_set = true;
+                i.age_set = true;
         }
 
-        h = needs_glob(i->type) ? globs : items;
+        h = needs_glob(i.type) ? globs : items;
 
-        existing = hashmap_get(h, i->path);
+        existing = hashmap_get(h, i.path);
         if (existing) {
-                if (i->type == SET_XATTR) {
-                        r = strv_extend_strv(&existing->xattrs, i->xattrs);
-                        if (r < 0)
-                                return log_oom();
-                        return 0;
-                } else if (existing->type == SET_XATTR) {
-                        r = strv_extend_strv(&i->xattrs, existing->xattrs);
-                        if (r < 0)
-                                return log_oom();
-                        r = hashmap_replace(h, i->path, i);
-                        if (r < 0) {
-                                log_error("Failed to replace item for %s.", i->path);
-                                return r;
-                        }
-                        item_free(existing);
-                } else {
-                        /* Two identical items are fine */
-                        if (!item_equal(existing, i))
+                unsigned n;
+
+                for (n = 0; n < existing->count; n++) {
+                        if (!item_compatible(existing->items + n, &i))
                                 log_warning("[%s:%u] Duplicate line for path \"%s\", ignoring.",
-                                            fname, line, i->path);
-                        return 0;
+                                            fname, line, i.path);
                 }
         } else {
-                r = hashmap_put(h, i->path, i);
-                if (r < 0) {
-                        log_error("Failed to insert item %s: %s", i->path, strerror(-r));
-                        return r;
-                }
+                existing = new0(ItemArray, 1);
+                r = hashmap_put(h, i.path, existing);
+                if (r < 0)
+                        return log_oom();
         }
 
-        i = NULL; /* avoid cleanup */
+        if (!GREEDY_REALLOC(existing->items, existing->size, existing->count + 1))
+                return log_oom();
 
+        memcpy(existing->items + existing->count++, &i, sizeof(i));
+        zero(i);
         return 0;
 }
 
@@ -1683,7 +1689,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
 int main(int argc, char *argv[]) {
         int r, k;
-        Item *i;
+        ItemArray *a;
         Iterator iterator;
 
         r = parse_argv(argc, argv);
@@ -1734,24 +1740,24 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        HASHMAP_FOREACH(i, globs, iterator) {
-                k = process_item(i);
+        HASHMAP_FOREACH(a, globs, iterator) {
+                k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH(i, items, iterator) {
-                k = process_item(i);
+        HASHMAP_FOREACH(a, items, iterator) {
+                k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
 finish:
-        while ((i = hashmap_steal_first(items)))
-                item_free(i);
+        while ((a = hashmap_steal_first(items)))
+                item_array_free(a);
 
-        while ((i = hashmap_steal_first(globs)))
-                item_free(i);
+        while ((a = hashmap_steal_first(globs)))
+                item_array_free(a);
 
         hashmap_free(items);
         hashmap_free(globs);
