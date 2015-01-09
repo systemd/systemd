@@ -105,5 +105,29 @@ int main(int argc, const char *argv[]) {
         LIST_REMOVE(item, head, &items[3]);
         assert_se(LIST_JUST_US(item, &items[3]));
 
+        assert_se(head == NULL);
+
+        for (i = 0; i < ELEMENTSOF(items); i++) {
+                assert_se(LIST_JUST_US(item, &items[i]));
+                LIST_APPEND(item, head, &items[i]);
+        }
+
+        assert_se(!LIST_JUST_US(item, head));
+
+        assert_se(items[0].item_next == &items[1]);
+        assert_se(items[1].item_next == &items[2]);
+        assert_se(items[2].item_next == &items[3]);
+        assert_se(items[3].item_next == NULL);
+
+        assert_se(items[0].item_prev == NULL);
+        assert_se(items[1].item_prev == &items[0]);
+        assert_se(items[2].item_prev == &items[1]);
+        assert_se(items[3].item_prev == &items[2]);
+
+        for (i = 0; i < ELEMENTSOF(items); i++)
+          LIST_REMOVE(item, head, &items[i]);
+
+        assert_se(head == NULL);
+
         return 0;
 }
