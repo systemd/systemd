@@ -1354,6 +1354,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-path-lookup \
 	test-ring \
 	test-barrier \
 	test-pty \
@@ -1618,6 +1619,14 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-shared.la
+
+test_path_lookup_SOURCES = \
+	src/test/test-path-lookup.c
+
+test_path_lookup_LDADD = \
+	-lm \
+	libsystemd-units.la \
 	libsystemd-shared.la
 
 test_uid_range_SOURCES = \
