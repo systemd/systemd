@@ -84,6 +84,7 @@ sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
+xinitrcdir=$(sysconfdir)/X11/xinit/xinitrc.d
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -2473,6 +2474,9 @@ dbus1-generator-install-hook:
 
 dbus1-generator-uninstall-hook:
 	rm -f $(DESTDIR)$(usergeneratordir)/systemd-dbus1-generator
+
+dist_xinitrc_SCRIPTS = \
+	xorg/50-systemd-user.sh
 
 INSTALL_EXEC_HOOKS += dbus1-generator-install-hook
 UNINSTALL_EXEC_HOOKS += dbus1-generator-uninstall-hook
