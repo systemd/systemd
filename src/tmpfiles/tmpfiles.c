@@ -23,7 +23,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <limits.h>
 #include <dirent.h>
 #include <grp.h>
@@ -34,10 +33,11 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <time.h>
-#include <sys/types.h>
-#include <sys/param.h>
 #include <glob.h>
 #include <fnmatch.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/xattr.h>
 
 #include "log.h"
@@ -480,11 +480,9 @@ static int item_set_perms(Item *i, const char *path) {
             (i->uid_set || i->gid_set))
                 if (chown(path,
                           i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID) < 0) {
+                          i->gid_set ? i->gid : GID_INVALID) < 0)
 
-                        log_error_errno(errno, "chown(%s) failed: %m", path);
-                        return -errno;
-                }
+                        return log_error_errno(errno, "chown(%s) failed: %m", path);
 
         return label_fix(path, false, false);
 }
@@ -495,36 +493,36 @@ static int get_xattrs_from_arg(Item *i) {
         int r;
 
         assert(i);
+        assert(i->argument);
 
-        if (!i->argument) {
-                log_error("%s: Argument can't be empty!", i->path);
-                return -EBADMSG;
-        }
         p = i->argument;
 
         while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
-                _cleanup_free_ char *tmp = NULL, *name = NULL, *value = NULL;
+                _cleanup_free_ char *tmp = NULL, *name = NULL,
+                        *value = NULL, *value2 = NULL, *_xattr = xattr;
+
                 r = split_pair(xattr, "=", &name, &value);
                 if (r < 0) {
                         log_warning("Illegal xattr found: \"%s\" - ignoring.", xattr);
-                        free(xattr);
                         continue;
                 }
-                free(xattr);
-                if (streq(name, "") || streq(value, "")) {
-                        log_warning("Malformed xattr found: \"%s=%s\" - ignoring.", name, value);
+
+                if (strempty(name) || strempty(value)) {
+                        log_warning("Malformed xattr found: \"%s\" - ignoring.", xattr);
                         continue;
                 }
+
                 tmp = unquote(value, "\"");
                 if (!tmp)
                         return log_oom();
-                free(value);
-                value = cunescape(tmp);
-                if (!value)
+
+                value2 = cunescape(tmp);
+                if (!value2)
                         return log_oom();
-                if (strv_consume_pair(&i->xattrs, name, value) < 0)
+
+                if (strv_push_pair(&i->xattrs, name, value2) < 0)
                         return log_oom();
-                name = value = NULL;
+                name = value2 = NULL;
         }
 
         return r;
@@ -536,14 +534,13 @@ static int item_set_xattrs(Item *i, const char *path) {
         assert(i);
         assert(path);
 
-        if (strv_isempty(i->xattrs))
-                return 0;
-
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
                 int n;
+
                 n = strlen(*value);
                 if (lsetxattr(path, *name, *value, n, 0) < 0) {
-                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
+                        log_error("Setting extended attribute %s=%s on %s failed: %m",
+                                  *name, *value, path);
                         return -errno;
                 }
         }
@@ -771,7 +768,7 @@ static int create_item(Item *i) {
                 } else
                         r = 0;
 
-                if (i->type == CREATE_DIRECTORY || i->type == TRUNCATE_DIRECTORY || r == -ENOTTY) {
+                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY) {
                         RUN_WITH_UMASK(0000)
                                 r = mkdir_label(i->path, i->mode);
                 }
@@ -1486,7 +1483,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 } else {
                         /* Two identical items are fine */
                         if (!item_equal(existing, i))
-                                log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
+                                log_warning("[%s:%u] Duplicate line for path \"%s\", ignoring.",
+                                            fname, line, i->path);
                         return 0;
                 }
         } else {
