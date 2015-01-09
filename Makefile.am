@@ -769,6 +769,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
+	src/shared/fstab-util.c \
+	src/shared/fstab-util.h \
 	src/shared/path-util.c \
 	src/shared/path-util.h \
 	src/shared/time-util.c \
@@ -1367,6 +1369,7 @@ tests += \
 	test-calendarspec \
 	test-strip-tab-ansi \
 	test-cgroup-util \
+	test-fstab-util \
 	test-prioq \
 	test-fileio \
 	test-time \
@@ -1608,6 +1611,12 @@ test_fdset_SOURCES = \
 test_fdset_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-internal.la
+
+test_fstab_util_SOURCES = \
+	src/test/test-fstab-util.c
+
+test_fstab_util_LDADD = \
+	libsystemd-shared.la
 
 test_ratelimit_SOURCES = \
 	src/test/test-ratelimit.c

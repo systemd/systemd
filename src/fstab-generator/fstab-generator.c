@@ -29,6 +29,7 @@
 #include "util.h"
 #include "unit-name.h"
 #include "path-util.h"
+#include "fstab-util.h"
 #include "mount-setup.h"
 #include "special.h"
 #include "mkdir.h"
@@ -46,33 +47,6 @@ static int arg_root_rw = -1;
 static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
-
-static int mount_find_pri(struct mntent *me, int *ret) {
-        char *end, *opt;
-        unsigned long r;
-
-        assert(me);
-        assert(ret);
-
-        opt = hasmntopt(me, "pri");
-        if (!opt)
-                return 0;
-
-        opt += strlen("pri");
-        if (*opt != '=')
-                return -EINVAL;
-
-        errno = 0;
-        r = strtoul(opt + 1, &end, 10);
-        if (errno > 0)
-                return -errno;
-
-        if (end == opt + 1 || (*end != ',' && *end != 0))
-                return -EINVAL;
-
-        *ret = (int) r;
-        return 1;
-}
 
 static int add_swap(
                 const char *what,
@@ -97,11 +71,9 @@ static int add_swap(
                 return 0;
         }
 
-        r = mount_find_pri(me, &pri);
-        if (r < 0) {
-                log_error("Failed to parse priority");
-                return r;
-        }
+        r = fstab_find_pri(me->mnt_opts, &pri);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse priority: %m");
 
         name = unit_name_from_path(what, ".swap");
         if (!name)
@@ -434,8 +406,7 @@ static int add_root_mount(void) {
         if (!arg_root_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
         else if (arg_root_rw >= 0 ||
-                 (!mount_test_option(arg_root_options, "ro") &&
-                  !mount_test_option(arg_root_options, "rw")))
+                 !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
                 opts = strappenda(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
@@ -492,8 +463,7 @@ static int add_usr_mount(void) {
 
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
-        else if (!mount_test_option(arg_usr_options, "ro") &&
-                 !mount_test_option(arg_usr_options, "rw"))
+        else if (!fstab_test_option(arg_usr_options, "ro\0" "rw\0"))
                 opts = strappenda(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_usr_options;

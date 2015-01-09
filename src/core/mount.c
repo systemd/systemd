@@ -44,6 +44,7 @@
 #include "bus-common-errors.h"
 #include "exit-status.h"
 #include "def.h"
+#include "fstab-util.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -70,7 +71,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 static bool mount_needs_network(const char *options, const char *fstype) {
-        if (mount_test_option(options, "_netdev"))
+        if (fstab_test_option(options, "_netdev\0"))
                 return true;
 
         if (fstype && fstype_is_network(fstype))
@@ -88,16 +89,10 @@ static bool mount_is_network(const MountParameters *p) {
 static bool mount_is_bind(const MountParameters *p) {
         assert(p);
 
-        if (mount_test_option(p->options, "bind"))
+        if (fstab_test_option(p->options, "bind\0" "rbind\0"))
                 return true;
 
-        if (p->fstype && streq(p->fstype, "bind"))
-                return true;
-
-        if (mount_test_option(p->options, "rbind"))
-                return true;
-
-        if (p->fstype && streq(p->fstype, "rbind"))
+        if (p->fstype && STR_IN_SET(p->fstype, "bind", "rbind"))
                 return true;
 
         return false;
@@ -106,7 +101,7 @@ static bool mount_is_bind(const MountParameters *p) {
 static bool mount_is_auto(const MountParameters *p) {
         assert(p);
 
-        return !mount_test_option(p->options, "noauto");
+        return !fstab_test_option(p->options, "noauto\0");
 }
 
 static bool needs_quota(const MountParameters *p) {
@@ -118,11 +113,8 @@ static bool needs_quota(const MountParameters *p) {
         if (mount_is_bind(p))
                 return false;
 
-        return mount_test_option(p->options, "usrquota") ||
-                mount_test_option(p->options, "grpquota") ||
-                mount_test_option(p->options, "quota") ||
-                mount_test_option(p->options, "usrjquota") ||
-                mount_test_option(p->options, "grpjquota");
+        return fstab_test_option(p->options,
+                                 "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
 }
 
 static void mount_init(Unit *u) {
@@ -369,7 +361,7 @@ static bool should_umount(Mount *m) {
                 return false;
 
         p = get_mount_parameters(m);
-        if (p && mount_test_option(p->options, "x-initrd.mount") &&
+        if (p && fstab_test_option(p->options, "x-initrd.mount\0") &&
             !in_initrd())
                 return false;
 

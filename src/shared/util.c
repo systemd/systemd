@@ -6744,23 +6744,6 @@ uint64_t physical_memory(void) {
         return (uint64_t) mem * (uint64_t) page_size();
 }
 
-char* mount_test_option(const char *haystack, const char *needle) {
-
-        struct mntent me = {
-                .mnt_opts = (char*) haystack
-        };
-
-        assert(needle);
-
-        /* Like glibc's hasmntopt(), but works on a string, not a
-         * struct mntent */
-
-        if (!haystack)
-                return NULL;
-
-        return hasmntopt(&me, needle);
-}
-
 void hexdump(FILE *f, const void *p, size_t s) {
         const uint8_t *b = p;
         unsigned n = 0;

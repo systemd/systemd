@@ -41,6 +41,7 @@
 #include "path-util.h"
 #include "virt.h"
 #include "udev-util.h"
+#include "fstab-util.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
@@ -704,71 +705,6 @@ fail:
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
-static int mount_find_pri(const char *options, int *ret) {
-        const char *opt;
-        char *end;
-        unsigned long r;
-
-        assert(ret);
-
-        if (!options)
-                return 0;
-
-        opt = mount_test_option(options, "pri");
-        if (!opt)
-                return 0;
-
-        opt += strlen("pri");
-        if (*opt != '=')
-                return -EINVAL;
-
-        errno = 0;
-        r = strtoul(opt + 1, &end, 10);
-        if (errno > 0)
-                return -errno;
-
-        if (end == opt + 1 || (*end != ',' && *end != 0))
-                return -EINVAL;
-
-        *ret = (int) r;
-        return 1;
-}
-
-static int mount_find_discard(const char *options, char **ret) {
-        const char *opt;
-        char *ans;
-        size_t len;
-
-        assert(ret);
-
-        if (!options)
-                return 0;
-
-        opt = mount_test_option(options, "discard");
-        if (!opt)
-                return 0;
-
-        opt += strlen("discard");
-        if (*opt == ',' || *opt == '\0')
-                ans = strdup("all");
-        else {
-                if (*opt != '=')
-                        return -EINVAL;
-
-                len = strcspn(opt + 1, ",");
-                if (len == 0)
-                        return -EINVAL;
-
-                ans = strndup(opt + 1, len);
-        }
-
-        if (!ans)
-                return -ENOMEM;
-
-        *ret = ans;
-        return 1;
-}
-
 static void swap_enter_activating(Swap *s) {
         _cleanup_free_ char *discard = NULL;
         int r, priority = -1;
@@ -779,11 +715,12 @@ static void swap_enter_activating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
         if (s->from_fragment) {
-                mount_find_discard(s->parameters_fragment.options, &discard);
+                fstab_filter_options(s->parameters_fragment.options, "discard\0",
+                                     NULL, &discard, NULL);
 
                 priority = s->parameters_fragment.priority;
                 if (priority < 0)
-                        mount_find_pri(s->parameters_fragment.options, &priority);
+                        fstab_find_pri(s->parameters_fragment.options, &priority);
         }
 
         r = exec_command_set(s->control_command, "/sbin/swapon", NULL);
