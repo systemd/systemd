@@ -1207,28 +1207,47 @@ static void test_glob_exists(void) {
 }
 
 static void test_execute_directory(void) {
-        char template[] = "/tmp/test-readlink_and_make_absolute.XXXXXXX";
-        const char const* dirs[] = {template, NULL};
-        const char *name, *name2, *name3;
+        char template_lo[] = "/tmp/test-readlink_and_make_absolute-lo.XXXXXXX";
+        char template_hi[] = "/tmp/test-readlink_and_make_absolute-hi.XXXXXXX";
+        const char const* dirs[] = {template_hi, template_lo, NULL};
+        const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
 
-        assert_se(mkdtemp(template));
+        assert_se(mkdtemp(template_lo));
+        assert_se(mkdtemp(template_hi));
 
-        name = strappenda(template, "/script");
-        name2 = strappenda(template, "/script2");
-        name3 = strappenda(template, "/useless");
+        name = strappenda(template_lo, "/script");
+        name2 = strappenda(template_hi, "/script2");
+        name3 = strappenda(template_lo, "/useless");
+        overridden = strappenda(template_lo, "/overridden");
+        override = strappenda(template_hi, "/overridden");
+        masked = strappenda(template_lo, "/masked");
+        mask = strappenda(template_hi, "/masked");
 
         assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
         assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
+        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0") == 0);
+        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed") == 0);
+        assert_se(symlink("/dev/null", mask) == 0);
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(overridden, 0755) == 0);
+        assert_se(chmod(override, 0755) == 0);
+        assert_se(chmod(masked, 0755) == 0);
         assert_se(touch(name3) >= 0);
 
-        assert(chdir(template) == 0);
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL);
-        assert_se(access("it_works", F_OK) >= 0);
-        assert_se(access("it_works2", F_OK) >= 0);
 
-        rm_rf_dangerous(template, false, true, false);
+        assert(chdir(template_lo) == 0);
+        assert_se(access("it_works", F_OK) >= 0);
+        assert_se(access("failed", F_OK) < 0);
+
+        assert(chdir(template_hi) == 0);
+        assert_se(access("it_works2", F_OK) >= 0);
+        assert_se(access("failed", F_OK) < 0);
+
+        rm_rf_dangerous(template_lo, false, true, false);
+        rm_rf_dangerous(template_hi, false, true, false);
 }
 
 static void test_unquote_first_word(void) {
