@@ -250,14 +250,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>activate</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>activate</command> <replaceable>ID</replaceable></term>
 
-                                <listitem><para>Activate one or more
-                                sessions. This brings one or more
-                                sessions into the foreground, if
-                                another session is currently in the
-                                foreground on the respective
-                                seat.</para></listitem>
+                                <listitem><para>Activate a
+                                session. This brings a session into
+                                the foreground, if another session is
+                                currently in the foreground on the
+                                respective seat.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
