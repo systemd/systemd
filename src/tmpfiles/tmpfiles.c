@@ -1238,9 +1238,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
-        char type;
         Hashmap *h;
-        int r, n = -1;
+        int r, n = -1, pos;
+        bool force = false, boot = false;
 
         assert(fname);
         assert(line >= 1);
@@ -1265,21 +1265,27 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EINVAL;
         }
 
-        if (strlen(action) > 1 && !in_charset(action+1, "!+")) {
-                log_error("[%s:%u] Unknown modifiers in command '%s'", fname, line, action);
-                return -EINVAL;
+        for (pos = 1; action[pos]; pos++) {
+                if (action[pos] == '!' && !boot)
+                        boot = true;
+                else if (action[pos] == '+' && !force)
+                        force = true;
+                else {
+                        log_error("[%s:%u] Unknown modifiers in command '%s'",
+                                  fname, line, action);
+                        return -EINVAL;
+                }
         }
 
-        if (strchr(action+1, '!') && !arg_boot)
+        if (boot && !arg_boot)
                 return 0;
-
-        type = action[0];
 
         i = new0(Item, 1);
         if (!i)
                 return log_oom();
 
-        i->force = !!strchr(action+1, '+');
+        i->type = action[0];
+        i->force = force;
 
         r = specifier_printf(path, specifier_table, NULL, &i->path);
         if (r < 0) {
@@ -1296,7 +1302,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         }
 
-        switch (type) {
+        switch (i->type) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
@@ -1372,11 +1378,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         default:
-                log_error("[%s:%u] Unknown command type '%c'.", fname, line, type);
+                log_error("[%s:%u] Unknown command type '%c'.", fname, line, i->type);
                 return -EBADMSG;
         }
-
-        i->type = type;
 
         if (!path_is_absolute(i->path)) {
                 log_error("[%s:%u] Path '%s' not absolute.", fname, line, i->path);
