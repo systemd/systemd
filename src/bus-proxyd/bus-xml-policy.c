@@ -1047,6 +1047,8 @@ void policy_dump(Policy *p) {
 
         printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->mandatory_items, "\t");
+
+        fflush(stdout);
 }
 
 static const char* const policy_item_type_table[_POLICY_ITEM_TYPE_MAX] = {

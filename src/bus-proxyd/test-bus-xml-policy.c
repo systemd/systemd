@@ -50,16 +50,40 @@ static int test_policy_load(Policy *p, const char *name) {
         assert_se(path);
 
         if (access(path, R_OK) == 0)
-                policy_load(p, STRV_MAKE(path));
+                r = policy_load(p, STRV_MAKE(path));
         else
                 r = -ENOENT;
 
         return r;
 }
 
+static int show_policy(const char *fn) {
+        Policy p = {};
+        int r;
+
+        r = policy_load(&p, STRV_MAKE(fn));
+        if (r < 0) {
+                log_error_errno(r, "Failed to load policy %s: %m", fn);
+                return r;
+        }
+
+        policy_dump(&p);
+        policy_free(&p);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         Policy p = {};
+
+        printf("Showing session policy BEGIN\n");
+        show_policy("/etc/dbus-1/session.conf");
+        printf("Showing session policy END\n");
+
+        printf("Showing system policy BEGIN\n");
+        show_policy("/etc/dbus-1/system.conf");
+        printf("Showing system policy END\n");
 
         /* Ownership tests */
         assert_se(test_policy_load(&p, "ownerships.conf") == 0);
