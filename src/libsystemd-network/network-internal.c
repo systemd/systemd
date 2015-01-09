@@ -224,7 +224,7 @@ int config_parse_ifalias(const char *unit,
                          void *userdata) {
 
         char **s = data;
-        char *n;
+        _cleanup_free_ char *n = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -238,17 +238,15 @@ int config_parse_ifalias(const char *unit,
         if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                free(n);
                 return 0;
         }
 
         free(*s);
-        if (*n)
+        if (*n) {
                 *s = n;
-        else {
-                free(n);
+                n = NULL;
+        } else
                 *s = NULL;
-        }
 
         return 0;
 }
