@@ -349,9 +349,6 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
 
-void manager_run_generators(Manager *m);
-void manager_undo_generators(Manager *m);
-
 void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, ShowStatus mode);

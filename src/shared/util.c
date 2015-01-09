@@ -4037,10 +4037,10 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-static int do_execute(const char *directory, usec_t timeout, char *argv[]) {
+static int do_execute(char **directories, usec_t timeout, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
-        _cleanup_closedir_ DIR *d;
-        struct dirent *de;
+        _cleanup_set_free_free_ Set *seen = NULL;
+        char **directory;
 
         /* We fork this all off from a child process so that we can
          * somewhat cleanly make use of SIGALRM to set a time limit */
@@ -4050,57 +4050,80 @@ static int do_execute(const char *directory, usec_t timeout, char *argv[]) {
 
         assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
-        d = opendir(directory);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open directory %s: %m", directory);
-        }
-
         pids = hashmap_new(NULL);
         if (!pids)
                 return log_oom();
 
-        FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL;
-                pid_t pid;
-                int r;
+        seen = set_new(&string_hash_ops);
+        if (!seen)
+                return log_oom();
 
-                if (!dirent_is_file(de))
-                        continue;
+        STRV_FOREACH(directory, directories) {
+                _cleanup_closedir_ DIR *d;
+                struct dirent *de;
 
-                path = strjoin(directory, "/", de->d_name, NULL);
-                if (!path)
-                        return log_oom();
+                d = opendir(*directory);
+                if (!d) {
+                        if (errno == ENOENT)
+                                continue;
 
-                pid = fork();
-                if (pid < 0) {
-                        log_error_errno(errno, "Failed to fork: %m");
-                        continue;
-                } else if (pid == 0) {
-                        char *_argv[2];
-
-                        assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-                        if (!argv) {
-                                _argv[0] = path;
-                                _argv[1] = NULL;
-                                argv = _argv;
-                        } else
-                                argv[0] = path;
-
-                        execv(path, argv);
-                        return log_error_errno(errno, "Failed to execute %s: %m", path);
+                        return log_error_errno(errno, "Failed to open directory %s: %m", *directory);
                 }
 
-                log_debug("Spawned %s as " PID_FMT ".", path, pid);
+                FOREACH_DIRENT(de, d, break) {
+                        _cleanup_free_ char *path = NULL;
+                        pid_t pid;
+                        int r;
 
-                r = hashmap_put(pids, UINT_TO_PTR(pid), path);
-                if (r < 0)
-                        return log_oom();
+                        if (!dirent_is_file(de))
+                                continue;
 
-                path = NULL;
+                        if (set_contains(seen, de->d_name)) {
+                                log_debug("%1$s/%2$s skipped (%2$s was already seen).", *directory, de->d_name);
+                                continue;
+                        }
+
+                        r = set_put_strdup(seen, de->d_name);
+                        if (r < 0)
+                                return log_oom();
+
+                        path = strjoin(*directory, "/", de->d_name, NULL);
+                        if (!path)
+                                return log_oom();
+
+                        if (null_or_empty_path(path)) {
+                                log_debug("%s is empty (a mask).", path);
+                                continue;
+                        } else
+                                log_debug("%s will be executed.", path);
+
+                        pid = fork();
+                        if (pid < 0) {
+                                log_error_errno(errno, "Failed to fork: %m");
+                                continue;
+                        } else if (pid == 0) {
+                                char *_argv[2];
+
+                                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                                if (!argv) {
+                                        _argv[0] = path;
+                                        _argv[1] = NULL;
+                                        argv = _argv;
+                                } else
+                                        argv[0] = path;
+
+                                execv(path, argv);
+                                return log_error_errno(errno, "Failed to execute %s: %m", path);
+                        }
+
+                        log_debug("Spawned %s as " PID_FMT ".", path, pid);
+
+                        r = hashmap_put(pids, UINT_TO_PTR(pid), path);
+                        if (r < 0)
+                                return log_oom();
+                        path = NULL;
+                }
         }
 
         /* Abort execution of this process after the timout. We simply
@@ -4126,14 +4149,21 @@ static int do_execute(const char *directory, usec_t timeout, char *argv[]) {
         return 0;
 }
 
-void execute_directory(const char *directory, usec_t timeout, char *argv[]) {
+void execute_directories(const char* const* directories, usec_t timeout, char *argv[]) {
         pid_t executor_pid;
         int r;
+        char *name;
+        char **dirs = (char**) directories;
 
-        assert(directory);
+        assert(!strv_isempty(dirs));
 
-        /* Executes all binaries in the directory in parallel and waits
-         * for them to finish. Optionally a timeout is applied. */
+        name = basename(dirs[0]);
+        assert(!isempty(name));
+
+        /* Executes all binaries in the directories in parallel and waits
+         * for them to finish. Optionally a timeout is applied. If a file
+         * with the same name exists in more than one directory, the
+         * earliest one wins. */
 
         executor_pid = fork();
         if (executor_pid < 0) {
@@ -4141,11 +4171,11 @@ void execute_directory(const char *directory, usec_t timeout, char *argv[]) {
                 return;
 
         } else if (executor_pid == 0) {
-                r = do_execute(directory, timeout, argv);
+                r = do_execute(dirs, timeout, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
-        wait_for_terminate_and_warn(directory, executor_pid, true);
+        wait_for_terminate_and_warn(name, executor_pid, true);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {

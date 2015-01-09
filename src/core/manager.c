@@ -93,6 +93,8 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
+static int manager_run_generators(Manager *m);
+static void manager_undo_generators(Manager *m);
 
 static int manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
@@ -1086,8 +1088,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         assert(m);
 
         dual_timestamp_get(&m->generators_start_timestamp);
-        manager_run_generators(m);
+        r = manager_run_generators(m);
         dual_timestamp_get(&m->generators_finish_timestamp);
+        if (r < 0)
+                return r;
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
@@ -2517,7 +2521,9 @@ int manager_reload(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
 
         /* Find new unit paths */
-        manager_run_generators(m);
+        q = manager_run_generators(m);
+        if (q < 0 && r >= 0)
+                r = q;
 
         q = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
@@ -2525,19 +2531,19 @@ int manager_reload(Manager *m) {
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
         q = manager_enumerate(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         /* Second, deserialize our stored data */
         q = manager_deserialize(m, f, fds);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         fclose(f);
@@ -2545,12 +2551,12 @@ int manager_reload(Manager *m) {
 
         /* Re-register notify_fd as event source */
         q = manager_setup_notify(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         /* Third, fire things up! */
         q = manager_coldplug(m);
-        if (q < 0)
+        if (q < 0 && r >= 0)
                 r = q;
 
         assert(m->n_reloading > 0);
@@ -2775,27 +2781,33 @@ static void trim_generator_dir(Manager *m, char **generator) {
         return;
 }
 
-void manager_run_generators(Manager *m) {
-        const char *generator_path;
+static int manager_run_generators(Manager *m) {
+        _cleanup_free_ char **paths = NULL;
         const char *argv[5];
+        char **path;
         int r;
 
         assert(m);
 
         if (m->test_run)
-                return;
+                return 0;
 
-        generator_path = m->running_as == SYSTEMD_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
+        paths = generator_paths(m->running_as);
+        if (!paths)
+                return log_oom();
 
         /* Optimize by skipping the whole process by not creating output directories
          * if no generators are found. */
-        if (access(generator_path, F_OK) != 0) {
+        STRV_FOREACH(path, paths) {
+                r = access(*path, F_OK);
+                if (r == 0)
+                        goto found;
                 if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open generator directory %s: %m",
-                                        generator_path);
-                return;
+                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
         }
+        return 0;
 
+ found:
         r = create_generator_dir(m, &m->generator_unit_path, "generator");
         if (r < 0)
                 goto finish;
@@ -2815,12 +2827,13 @@ void manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directory(generator_path, DEFAULT_TIMEOUT_USEC, (char**) argv);
+                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, (char**) argv);
 
 finish:
         trim_generator_dir(m, &m->generator_unit_path);
         trim_generator_dir(m, &m->generator_unit_path_early);
         trim_generator_dir(m, &m->generator_unit_path_late);
+        return r;
 }
 
 static void remove_generator_dir(Manager *m, char **generator) {
@@ -2837,7 +2850,7 @@ static void remove_generator_dir(Manager *m, char **generator) {
         *generator = NULL;
 }
 
-void manager_undo_generators(Manager *m) {
+static void manager_undo_generators(Manager *m) {
         assert(m);
 
         remove_generator_dir(m, &m->generator_unit_path);

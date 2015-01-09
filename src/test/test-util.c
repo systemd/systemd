@@ -1207,23 +1207,28 @@ static void test_glob_exists(void) {
 }
 
 static void test_execute_directory(void) {
-        char name[] = "/tmp/test-execute_directory/script1";
-        char name2[] = "/tmp/test-execute_directory/script2";
-        char name3[] = "/tmp/test-execute_directory/useless";
-        char tempdir[] = "/tmp/test-execute_directory/";
+        char template[] = "/tmp/test-readlink_and_make_absolute.XXXXXXX";
+        const char const* dirs[] = {template, NULL};
+        const char *name, *name2, *name3;
 
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid()) >= 0);
-        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works") == 0);
-        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch /tmp/test-execute_directory/it_works2") == 0);
+        assert_se(mkdtemp(template));
+
+        name = strappenda(template, "/script");
+        name2 = strappenda(template, "/script2");
+        name3 = strappenda(template, "/useless");
+
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
         assert_se(touch(name3) >= 0);
 
-        execute_directory(tempdir, DEFAULT_TIMEOUT_USEC, NULL);
-        assert_se(access("/tmp/test-execute_directory/it_works", F_OK) >= 0);
-        assert_se(access("/tmp/test-execute_directory/it_works2", F_OK) >= 0);
+        assert(chdir(template) == 0);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL);
+        assert_se(access("it_works", F_OK) >= 0);
+        assert_se(access("it_works2", F_OK) >= 0);
 
-        rm_rf_dangerous(tempdir, false, true, false);
+        rm_rf_dangerous(template, false, true, false);
 }
 
 static void test_unquote_first_word(void) {

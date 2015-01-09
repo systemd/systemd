@@ -78,6 +78,33 @@ int user_runtime_dir(char **runtime_dir) {
         return 0;
 }
 
+static int user_data_home_dir(char **dir, const char *suffix) {
+        const char *e;
+        char *res;
+
+        /* We don't treat /etc/xdg/systemd here as the spec
+         * suggests because we assume that that is a link to
+         * /etc/systemd/ anyway. */
+
+        e = getenv("XDG_DATA_HOME");
+        if (e)
+                res = strappend(e, suffix);
+        else {
+                const char *home;
+
+                home = getenv("HOME");
+                if (home)
+                        res = strjoin(home, "/.local/share", suffix, NULL);
+                else
+                        return 0;
+        }
+        if (!res)
+                return -ENOMEM;
+
+        *dir = res;
+        return 0;
+}
+
 static char** user_dirs(
                 const char *generator,
                 const char *generator_early,
@@ -100,10 +127,12 @@ static char** user_dirs(
                 NULL
         };
 
-        const char *home, *e;
+        const char *e;
         _cleanup_free_ char *config_home = NULL, *runtime_dir = NULL, *data_home = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
-        char **r = NULL;
+        _cleanup_free_ char **res = NULL;
+        char **tmp;
+        int r;
 
         /* Implement the mechanisms defined in
          *
@@ -115,33 +144,21 @@ static char** user_dirs(
          */
 
         if (user_config_home(&config_home) < 0)
-                goto fail;
+                return NULL;
 
         if (user_runtime_dir(&runtime_dir) < 0)
-                goto fail;
-
-        home = getenv("HOME");
+                return NULL;
 
         e = getenv("XDG_CONFIG_DIRS");
         if (e) {
                 config_dirs = strv_split(e, ":");
                 if (!config_dirs)
-                        goto fail;
+                        return NULL;
         }
 
-        /* We don't treat /etc/xdg/systemd here as the spec
-         * suggests because we assume that that is a link to
-         * /etc/systemd/ anyway. */
-
-        e = getenv("XDG_DATA_HOME");
-        if (e) {
-                if (asprintf(&data_home, "%s/systemd/user", e) < 0)
-                        goto fail;
-
-        } else if (home) {
-                if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
-                        goto fail;
-        }
+        r = user_data_home_dir(&data_home, "/systemd/user");
+        if (r < 0)
+                return NULL;
 
         e = getenv("XDG_DATA_DIRS");
         if (e)
@@ -151,58 +168,71 @@ static char** user_dirs(
                                      "/usr/share",
                                      NULL);
         if (!data_dirs)
-                goto fail;
+                return NULL;
 
         /* Now merge everything we found. */
         if (generator_early)
-                if (strv_extend(&r, generator_early) < 0)
-                        goto fail;
+                if (strv_extend(&res, generator_early) < 0)
+                        return NULL;
 
         if (config_home)
-                if (strv_extend(&r, config_home) < 0)
-                        goto fail;
+                if (strv_extend(&res, config_home) < 0)
+                        return NULL;
 
         if (!strv_isempty(config_dirs))
-                if (strv_extend_strv_concat(&r, config_dirs, "/systemd/user") < 0)
-                        goto fail;
+                if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
+                        return NULL;
 
-        if (strv_extend_strv(&r, (char**) config_unit_paths) < 0)
-                goto fail;
+        if (strv_extend_strv(&res, (char**) config_unit_paths) < 0)
+                return NULL;
 
         if (runtime_dir)
-                if (strv_extend(&r, runtime_dir) < 0)
-                        goto fail;
+                if (strv_extend(&res, runtime_dir) < 0)
+                        return NULL;
 
-        if (strv_extend(&r, runtime_unit_path) < 0)
-                goto fail;
+        if (strv_extend(&res, runtime_unit_path) < 0)
+                return NULL;
 
         if (generator)
-                if (strv_extend(&r, generator) < 0)
-                        goto fail;
+                if (strv_extend(&res, generator) < 0)
+                        return NULL;
 
         if (data_home)
-                if (strv_extend(&r, data_home) < 0)
-                        goto fail;
+                if (strv_extend(&res, data_home) < 0)
+                        return NULL;
 
         if (!strv_isempty(data_dirs))
-                if (strv_extend_strv_concat(&r, data_dirs, "/systemd/user") < 0)
-                        goto fail;
+                if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
+                        return NULL;
 
-        if (strv_extend_strv(&r, (char**) data_unit_paths) < 0)
-                goto fail;
+        if (strv_extend_strv(&res, (char**) data_unit_paths) < 0)
+                return NULL;
 
         if (generator_late)
-                if (strv_extend(&r, generator_late) < 0)
-                        goto fail;
+                if (strv_extend(&res, generator_late) < 0)
+                        return NULL;
 
-        if (!path_strv_make_absolute_cwd(r))
-                goto fail;
+        if (!path_strv_make_absolute_cwd(res))
+                return NULL;
 
-        return r;
+        tmp = res;
+        res = NULL;
+        return tmp;
+}
 
-fail:
-        strv_free(r);
-        return NULL;
+char **generator_paths(SystemdRunningAs running_as) {
+        if (running_as == SYSTEMD_USER)
+                return strv_new("/etc/systemd/user-generators",
+                                "/run/systemd/user-generators",
+                                "/usr/local/lib/systemd/user-generators",
+                                USER_GENERATOR_PATH,
+                                NULL);
+        else
+                return strv_new("/etc/systemd/system-generators",
+                                "/run/systemd/system-generators",
+                                "/usr/local/lib/systemd/system-generators",
+                                SYSTEM_GENERATOR_PATH,
+                                NULL);
 }
 
 int lookup_paths_init(
