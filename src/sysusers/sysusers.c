@@ -81,12 +81,6 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
-#define UID_TO_PTR(u) (ULONG_TO_PTR(u+1))
-#define PTR_TO_UID(u) ((uid_t) (PTR_TO_ULONG(u)-1))
-
-#define GID_TO_PTR(g) (ULONG_TO_PTR(g+1))
-#define PTR_TO_GID(g) ((gid_t) (PTR_TO_ULONG(g)-1))
-
 #define fix_root(x) (arg_root ? strappenda(arg_root, x) : x)
 
 static int load_user_database(void) {

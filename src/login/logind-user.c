@@ -56,7 +56,7 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
                 goto fail;
 
-        if (hashmap_put(m->users, ULONG_TO_PTR((unsigned long) uid), u) < 0)
+        if (hashmap_put(m->users, UID_TO_PTR(uid), u) < 0)
                 goto fail;
 
         u->manager = m;
@@ -97,7 +97,7 @@ void user_free(User *u) {
 
         free(u->runtime_path);
 
-        hashmap_remove(u->manager->users, ULONG_TO_PTR((unsigned long) u->uid));
+        hashmap_remove(u->manager->users, UID_TO_PTR(u->uid));
 
         free(u->name);
         free(u->state_file);

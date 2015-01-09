@@ -101,7 +101,7 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
         assert(m);
         assert(name);
 
-        u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        u = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!u) {
                 u = user_new(m, uid, gid, name);
                 if (!u)

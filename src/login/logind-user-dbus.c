@@ -270,7 +270,7 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r < 0)
                 return 0;
 
-        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        user = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!user)
                 return 0;
 

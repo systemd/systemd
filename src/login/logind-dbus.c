@@ -92,7 +92,7 @@ int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, 
                         return r;
         }
 
-        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        user = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!user)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user "UID_FMT" known or logged in", uid);
 
@@ -1157,7 +1157,7 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
                 if (r < 0 && errno != ENOENT)
                         return -errno;
 
-                u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+                u = hashmap_get(m->users, UID_TO_PTR(uid));
                 if (u)
                         user_add_to_gc_queue(u);
         }

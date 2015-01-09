@@ -355,7 +355,7 @@ int session_load(Session *s) {
                         return r;
                 }
 
-                user = hashmap_get(s->manager->users, ULONG_TO_PTR((unsigned long) u));
+                user = hashmap_get(s->manager->users, UID_TO_PTR(u));
                 if (!user) {
                         log_error("User of session %s not known.", s->id);
                         return -ENOENT;

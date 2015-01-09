@@ -1415,6 +1415,15 @@ static void test_same_fd(void) {
         assert_se(same_fd(b, a) == 0);
 }
 
+static void test_uid_ptr(void) {
+
+        assert_se(UID_TO_PTR(0) != NULL);
+        assert_se(UID_TO_PTR(1000) != NULL);
+
+        assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
+        assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1490,6 +1499,7 @@ int main(int argc, char *argv[]) {
         test_parse_proc_cmdline();
         test_raw_clone();
         test_same_fd();
+        test_uid_ptr();
 
         return 0;
 }
