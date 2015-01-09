@@ -59,7 +59,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
 
         address->network = network;
 
-        LIST_PREPEND(addresses, network->static_addresses, address);
+        LIST_APPEND(addresses, network->static_addresses, address);
 
         if (section) {
                 address->section = section;
