@@ -63,11 +63,62 @@ static const char* const link_dirs[] = {
 #endif
         NULL};
 
+static void link_config_free(link_config *link) {
+        if (!link)
+                return;
+
+        free(link->filename);
+
+        free(link->match_mac);
+        free(link->match_path);
+        free(link->match_driver);
+        free(link->match_type);
+        free(link->match_name);
+        free(link->match_host);
+        free(link->match_virt);
+        free(link->match_kernel);
+        free(link->match_arch);
+
+        free(link->description);
+        free(link->mac);
+        free(link->name_policy);
+        free(link->name);
+        free(link->alias);
+
+        free(link);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(link_config*, link_config_free);
+
+static void link_configs_free(link_config_ctx *ctx) {
+        link_config *link, *link_next;
+
+        if (!ctx)
+                return;
+
+        LIST_FOREACH_SAFE(links, link, link_next, ctx->links)
+                link_config_free(link);
+}
+
+void link_config_ctx_free(link_config_ctx *ctx) {
+        if (!ctx)
+                return;
+
+        safe_close(ctx->ethtool_fd);
+
+        sd_rtnl_unref(ctx->rtnl);
+
+        link_configs_free(ctx);
+
+        free(ctx);
+
+        return;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
-#define _cleanup_link_config_ctx_free_ _cleanup_(link_config_ctx_freep)
 
 int link_config_ctx_new(link_config_ctx **ret) {
-        _cleanup_link_config_ctx_free_ link_config_ctx *ctx = NULL;
+        _cleanup_(link_config_ctx_freep) link_config_ctx *ctx = NULL;
 
         if (!ret)
                 return -EINVAL;
@@ -88,43 +139,8 @@ int link_config_ctx_new(link_config_ctx **ret) {
         return 0;
 }
 
-static void link_configs_free(link_config_ctx *ctx) {
-        link_config *link, *link_next;
-
-        if (!ctx)
-                return;
-
-        LIST_FOREACH_SAFE(links, link, link_next, ctx->links) {
-                free(link->filename);
-                free(link->name);
-                free(link->match_path);
-                free(link->match_driver);
-                free(link->match_type);
-                free(link->description);
-                free(link->alias);
-                free(link->name_policy);
-
-                free(link);
-        }
-}
-
-void link_config_ctx_free(link_config_ctx *ctx) {
-        if (!ctx)
-                return;
-
-        safe_close(ctx->ethtool_fd);
-
-        sd_rtnl_unref(ctx->rtnl);
-
-        link_configs_free(ctx);
-
-        free(ctx);
-
-        return;
-}
-
 static int load_link(link_config_ctx *ctx, const char *filename) {
-        _cleanup_free_ link_config *link = NULL;
+        _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
