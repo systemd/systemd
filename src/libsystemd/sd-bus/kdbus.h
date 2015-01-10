@@ -305,7 +305,6 @@ enum kdbus_item_type {
 	KDBUS_ITEM_ATTACH_FLAGS_RECV,
 	KDBUS_ITEM_ID,
 	KDBUS_ITEM_NAME,
-	KDBUS_ITEM_SIGMASK,
 
 	/* keep these item types in sync with KDBUS_ATTACH_* flags */
 	_KDBUS_ITEM_ATTACH_BASE	= 0x1000,
@@ -385,7 +384,6 @@ struct kdbus_item {
 		struct kdbus_notify_name_change name_change;
 		struct kdbus_notify_id_change id_change;
 		struct kdbus_policy_access policy_access;
-		__u64 sigmask;
 	};
 };
 
@@ -465,12 +463,12 @@ struct kdbus_msg {
 } __attribute__((aligned(8)));
 
 /**
- * struct kdbus_reply - reply container
+ * struct kdbus_msg_info - returned message container
  * @offset:		Offset of kdbus_msg slice in pool
  * @msg_size:		Copy of the kdbus_msg.size field
  * @return_flags:	Command return flags, kernel → userspace
  */
-struct kdbus_reply {
+struct kdbus_msg_info {
 	__u64 offset;
 	__u64 msg_size;
 	__u64 return_flags;
@@ -511,7 +509,7 @@ struct kdbus_cmd_send {
 	__u64 kernel_msg_flags;
 	__u64 return_flags;
 	__u64 msg_address;
-	struct kdbus_reply reply;
+	struct kdbus_msg_info reply;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -568,7 +566,7 @@ struct kdbus_cmd_recv {
 	__u64 return_flags;
 	__s64 priority;
 	__u64 dropped_msgs;
-	struct kdbus_reply reply;
+	struct kdbus_msg_info reply;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -1011,42 +1009,44 @@ struct kdbus_cmd_match {
  *				be delivered to the connection.
  * KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
  */
-#define KDBUS_CMD_BUS_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x00,	\
-					     struct kdbus_cmd_make)
-#define KDBUS_CMD_ENDPOINT_MAKE		_IOW(KDBUS_IOCTL_MAGIC, 0x10,	\
-					     struct kdbus_cmd_make)
+enum kdbus_ioctl_type {
+	KDBUS_CMD_BUS_MAKE =		_IOW(KDBUS_IOCTL_MAGIC, 0x00,
+					     struct kdbus_cmd_make),
+	KDBUS_CMD_ENDPOINT_MAKE =	_IOW(KDBUS_IOCTL_MAGIC, 0x10,
+					     struct kdbus_cmd_make),
 
-#define KDBUS_CMD_HELLO			_IOWR(KDBUS_IOCTL_MAGIC, 0x20,	\
-					      struct kdbus_cmd_hello)
-#define KDBUS_CMD_BYEBYE		_IO(KDBUS_IOCTL_MAGIC, 0x21)	\
+	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOCTL_MAGIC, 0x20,
+					      struct kdbus_cmd_hello),
+	KDBUS_CMD_BYEBYE =		_IO(KDBUS_IOCTL_MAGIC, 0x21),
 
-#define KDBUS_CMD_SEND			_IOWR(KDBUS_IOCTL_MAGIC, 0x30,	\
-					      struct kdbus_cmd_send)
-#define KDBUS_CMD_RECV			_IOWR(KDBUS_IOCTL_MAGIC, 0x31,	\
-					      struct kdbus_cmd_recv)
-#define KDBUS_CMD_FREE			_IOW(KDBUS_IOCTL_MAGIC, 0x32,	\
-					     struct kdbus_cmd_free)
+	KDBUS_CMD_SEND =		_IOWR(KDBUS_IOCTL_MAGIC, 0x30,
+					      struct kdbus_cmd_send),
+	KDBUS_CMD_RECV =		_IOWR(KDBUS_IOCTL_MAGIC, 0x31,
+					      struct kdbus_cmd_recv),
+	KDBUS_CMD_FREE =		_IOW(KDBUS_IOCTL_MAGIC, 0x32,
+					     struct kdbus_cmd_free),
 
-#define KDBUS_CMD_NAME_ACQUIRE		_IOWR(KDBUS_IOCTL_MAGIC, 0x40,	\
-					      struct kdbus_cmd_name)
-#define KDBUS_CMD_NAME_RELEASE		_IOW(KDBUS_IOCTL_MAGIC, 0x41,	\
-					     struct kdbus_cmd_name)
-#define KDBUS_CMD_NAME_LIST		_IOWR(KDBUS_IOCTL_MAGIC, 0x42,	\
-					      struct kdbus_cmd_name_list)
+	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOCTL_MAGIC, 0x40,
+					      struct kdbus_cmd_name),
+	KDBUS_CMD_NAME_RELEASE =	_IOW(KDBUS_IOCTL_MAGIC, 0x41,
+					     struct kdbus_cmd_name),
+	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOCTL_MAGIC, 0x42,
+					      struct kdbus_cmd_name_list),
 
-#define KDBUS_CMD_CONN_INFO		_IOWR(KDBUS_IOCTL_MAGIC, 0x50,	\
-					      struct kdbus_cmd_info)
-#define KDBUS_CMD_CONN_UPDATE		_IOW(KDBUS_IOCTL_MAGIC, 0x51,	\
-					     struct kdbus_cmd_update)
-#define KDBUS_CMD_BUS_CREATOR_INFO	_IOWR(KDBUS_IOCTL_MAGIC, 0x52,	\
-					      struct kdbus_cmd_info)
+	KDBUS_CMD_CONN_INFO =		_IOWR(KDBUS_IOCTL_MAGIC, 0x50,
+					      struct kdbus_cmd_info),
+	KDBUS_CMD_CONN_UPDATE =		_IOW(KDBUS_IOCTL_MAGIC, 0x51,
+					     struct kdbus_cmd_update),
+	KDBUS_CMD_BUS_CREATOR_INFO =	_IOWR(KDBUS_IOCTL_MAGIC, 0x52,
+					      struct kdbus_cmd_info),
 
-#define KDBUS_CMD_ENDPOINT_UPDATE	_IOW(KDBUS_IOCTL_MAGIC, 0x61,	\
-					     struct kdbus_cmd_update)
+	KDBUS_CMD_ENDPOINT_UPDATE =	_IOW(KDBUS_IOCTL_MAGIC, 0x61,
+					     struct kdbus_cmd_update),
 
-#define KDBUS_CMD_MATCH_ADD		_IOW(KDBUS_IOCTL_MAGIC, 0x70,	\
-					     struct kdbus_cmd_match)
-#define KDBUS_CMD_MATCH_REMOVE		_IOW(KDBUS_IOCTL_MAGIC, 0x71,	\
-					     struct kdbus_cmd_match)
+	KDBUS_CMD_MATCH_ADD =		_IOW(KDBUS_IOCTL_MAGIC, 0x70,
+					     struct kdbus_cmd_match),
+	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOCTL_MAGIC, 0x71,
+					     struct kdbus_cmd_match),
+};
 
 #endif /* _KDBUS_UAPI_H_ */
