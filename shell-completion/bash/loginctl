@@ -33,9 +33,10 @@ _loginctl () {
         local i verb comps
 
         local -A OPTS=(
-               [STANDALONE]='--all -a --help -h --no-pager --privileged -P --version'
-                      [ARG]='--host -H --kill-who --property -p --signal -s'
-        )
+               [STANDALONE]='--all -a --help -h --no-pager --privileged -P --version
+                             --no-legend --no-ask-password -l --full'
+                      [ARG]='--host -H --kill-who --property -p --signal -s --machine'
+                      )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in

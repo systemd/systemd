@@ -28,7 +28,7 @@ _hostnamectl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --transient --static --pretty
-                    --no-ask-password -H --host'
+                    --no-ask-password -H --host --machine'
 
         if [[ $cur = -* ]]; then
                 COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )

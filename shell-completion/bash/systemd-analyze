@@ -36,7 +36,7 @@ _systemd_analyze() {
 
         local -A OPTS=(
                [STANDALONE]='--help --version --system --user --from-pattern --to-pattern --order --require --no-pager'
-                      [ARG]='-H --host -M --machine'
+                      [ARG]='-H --host -M --machine --fuzz --man'
         )
 
         local -A VERBS=(

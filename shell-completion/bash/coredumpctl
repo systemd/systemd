@@ -37,7 +37,7 @@ __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
 _coredumpctl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field'
+        local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field -1'
 
         local -A VERBS=(
             [LIST]='list'

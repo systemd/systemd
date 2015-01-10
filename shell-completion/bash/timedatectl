@@ -28,7 +28,7 @@ _timedatectl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --adjust-system-clock --no-pager
-                    --no-ask-password -H --host'
+                    --no-ask-password -H --host --machine'
 
         if __contains_word "$prev" $OPTS; then
                 case $prev in
