@@ -886,8 +886,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/pty.h \
 	src/shared/async.c \
 	src/shared/async.h \
-	src/shared/copy.c \
-	src/shared/copy.h \
 	src/shared/base-filesystem.c \
 	src/shared/base-filesystem.h \
 	src/shared/memfd-util.c \
@@ -895,13 +893,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
 	src/shared/nss-util.h \
-	src/shared/btrfs-util.c \
-	src/shared/btrfs-util.h \
-	src/shared/btrfs-ctree.h \
 	src/shared/verbs.c \
 	src/shared/verbs.h \
-	src/shared/machine-image.c \
-	src/shared/machine-image.h \
 	src/shared/sigbus.c \
 	src/shared/sigbus.h \
 	src/shared/build.h
@@ -928,7 +921,8 @@ libsystemd_shared_la_CFLAGS = \
 	-pthread
 
 libsystemd_shared_la_LIBADD = \
-	$(CAP_LIBS)
+	$(CAP_LIBS) \
+	-lm
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -968,7 +962,14 @@ libsystemd_label_la_SOURCES = \
 	src/shared/condition.c \
 	src/shared/condition.h \
 	src/shared/generator.h \
-	src/shared/generator.c
+	src/shared/generator.c \
+	src/shared/btrfs-util.c \
+	src/shared/btrfs-util.h \
+	src/shared/btrfs-ctree.h \
+	src/shared/machine-image.c \
+	src/shared/machine-image.h \
+	src/shared/copy.c \
+	src/shared/copy.h
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1583,6 +1584,7 @@ test_copy_SOURCES = \
 	src/test/test-copy.c
 
 test_copy_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_sigbus_SOURCES = \
@@ -1616,7 +1618,6 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
-	-lm \
 	libsystemd-shared.la
 
 test_uid_range_SOURCES = \
@@ -1714,8 +1715,7 @@ test_json_SOURCES = \
 	src/test/test-json.c
 
 test_json_LDADD = \
-	libsystemd-shared.la \
-	-lm
+	libsystemd-shared.la
 
 test_list_SOURCES = \
 	src/test/test-list.c
@@ -1794,6 +1794,7 @@ test_btrfs_SOURCES = \
 	src/test/test-btrfs.c
 
 test_btrfs_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_rtnl_manual_SOURCES = \
@@ -3803,7 +3804,7 @@ accelerometer_SOURCES = \
 	src/udev/accelerometer/accelerometer.c
 
 accelerometer_LDADD = \
-	libudev-internal.la -lm \
+	libudev-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -4350,16 +4351,15 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/journal/catalog.c \
 	src/journal/catalog.h \
 	src/journal/mmap-cache.c \
-	src/journal/mmap-cache.h
+	src/journal/mmap-cache.h \
+	src/journal/compress.c
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 libsystemd_journal_internal_la_CFLAGS = \
 	$(AM_CFLAGS)
 
-libsystemd_journal_internal_la_LIBADD =
-
-libsystemd_journal_internal_la_SOURCES += \
-	src/journal/compress.c
+libsystemd_journal_internal_la_LIBADD = \
+	libsystemd-label.la
 
 if HAVE_XZ
 libsystemd_journal_internal_la_CFLAGS += \
@@ -4999,8 +4999,7 @@ systemd_timesyncd_LDADD = \
 	libsystemd-network.la \
 	libsystemd-label.la \
 	libsystemd-internal.la \
-	libsystemd-shared.la \
-	-lm
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-timesyncd
@@ -5177,9 +5176,9 @@ systemd_import_CFLAGS = \
 
 systemd_import_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-label.la \
 	libsystemd-shared.la \
-	$(LIBCURL_LIBS) \
-	-lm
+	$(LIBCURL_LIBS)
 endif
 
 endif
@@ -5241,7 +5240,6 @@ systemd_resolved_LDADD = \
 	libsystemd-label.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	-lm \
 	$(LIBIDN_LIBS)
 
 rootlibexec_PROGRAMS += \
@@ -5309,8 +5307,8 @@ libnss_resolve_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/nss-resolve/nss-resolve.sym
 
 libnss_resolve_la_LIBADD = \
-	libsystemd-shared.la \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 lib_LTLIBRARIES += \
 	libnss_resolve.la
@@ -5335,7 +5333,6 @@ systemd_resolve_host_SOURCES = \
 systemd_resolve_host_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la \
-	-lm \
 	$(LIBIDN_LIBS)
 
 rootlibexec_PROGRAMS += \
