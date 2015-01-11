@@ -26,6 +26,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-xml-policy.h"
+#include "sd-login.h"
 
 static void policy_item_free(PolicyItem *i) {
         assert(i);
@@ -62,6 +63,7 @@ static int file_load(Policy *p, const char *path) {
                 STATE_BUSCONFIG,
                 STATE_POLICY,
                 STATE_POLICY_CONTEXT,
+                STATE_POLICY_CONSOLE,
                 STATE_POLICY_USER,
                 STATE_POLICY_GROUP,
                 STATE_POLICY_OTHER_ATTRIBUTE,
@@ -80,6 +82,8 @@ static int file_load(Policy *p, const char *path) {
                 POLICY_CATEGORY_NONE,
                 POLICY_CATEGORY_DEFAULT,
                 POLICY_CATEGORY_MANDATORY,
+                POLICY_CATEGORY_ON_CONSOLE,
+                POLICY_CATEGORY_NO_CONSOLE,
                 POLICY_CATEGORY_USER,
                 POLICY_CATEGORY_GROUP
         } policy_category = POLICY_CATEGORY_NONE;
@@ -156,15 +160,14 @@ static int file_load(Policy *p, const char *path) {
                         if (t == XML_ATTRIBUTE_NAME) {
                                 if (streq(name, "context"))
                                         state = STATE_POLICY_CONTEXT;
+                                else if (streq(name, "at_console"))
+                                        state = STATE_POLICY_CONSOLE;
                                 else if (streq(name, "user"))
                                         state = STATE_POLICY_USER;
                                 else if (streq(name, "group"))
                                         state = STATE_POLICY_GROUP;
                                 else {
-                                        if (streq(name, "at_console"))
-                                                log_debug("Attribute %s of <policy> tag unsupported at %s:%u, ignoring.", name, path, line);
-                                        else
-                                                log_warning("Attribute %s of <policy> tag unknown at %s:%u, ignoring.", name, path, line);
+                                        log_warning("Attribute %s of <policy> tag unknown at %s:%u, ignoring.", name, path, line);
                                         state = STATE_POLICY_OTHER_ATTRIBUTE;
                                 }
                         } else if (t == XML_TAG_CLOSE_EMPTY ||
@@ -212,6 +215,26 @@ static int file_load(Policy *p, const char *path) {
                                 }
                         } else {
                                 log_error("Unexpected token (4) at %s:%u.", path, line);
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case STATE_POLICY_CONSOLE:
+
+                        if (t == XML_ATTRIBUTE_VALUE) {
+                                if (streq(name, "true")) {
+                                        policy_category = POLICY_CATEGORY_ON_CONSOLE;
+                                        state = STATE_POLICY;
+                                } else if (streq(name, "false")) {
+                                        policy_category = POLICY_CATEGORY_NO_CONSOLE;
+                                        state = STATE_POLICY;
+                                } else {
+                                        log_error("at_console= parameter %s unknown for <policy> at %s:%u.", name, path, line);
+                                        return -EINVAL;
+                                }
+                        } else {
+                                log_error("Unexpected token (4.1) at %s:%u.", path, line);
                                 return -EINVAL;
                         }
 
@@ -337,6 +360,10 @@ static int file_load(Policy *p, const char *path) {
                                         item_append(i, &p->default_items);
                                 else if (policy_category == POLICY_CATEGORY_MANDATORY)
                                         item_append(i, &p->mandatory_items);
+                                else if (policy_category == POLICY_CATEGORY_ON_CONSOLE)
+                                        item_append(i, &p->on_console_items);
+                                else if (policy_category == POLICY_CATEGORY_NO_CONSOLE)
+                                        item_append(i, &p->no_console_items);
                                 else if (policy_category == POLICY_CATEGORY_USER) {
                                         const char *u = policy_user;
 
@@ -746,7 +773,8 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
          *  1. Check default items
          *  2. Check group items
          *  3. Check user items
-         *  4. Check mandatory items
+         *  4. Check on/no_console items
+         *  5. Check mandatory items
          *
          *  Later rules override earlier rules.
          */
@@ -770,6 +798,13 @@ static int policy_check(Policy *p, const struct policy_check_filter *filter) {
                                 verdict = v;
                 }
         }
+
+        if (filter->uid != UID_INVALID && sd_uid_get_seats(filter->uid, -1, NULL) > 0)
+                v = check_policy_items(p->on_console_items, filter);
+        else
+                v = check_policy_items(p->no_console_items, filter);
+        if (v != DUNNO)
+                verdict = v;
 
         v = check_policy_items(p->mandatory_items, filter);
         if (v != DUNNO)
@@ -943,6 +978,16 @@ void policy_free(Policy *p) {
                 policy_item_free(i);
         }
 
+        while ((i = p->on_console_items)) {
+                LIST_REMOVE(items, p->on_console_items, i);
+                policy_item_free(i);
+        }
+
+        while ((i = p->no_console_items)) {
+                LIST_REMOVE(items, p->no_console_items, i);
+                policy_item_free(i);
+        }
+
         while ((first = hashmap_steal_first(p->user_items))) {
 
                 while ((i = first)) {
@@ -1048,6 +1093,12 @@ void policy_dump(Policy *p) {
 
         printf("%s User Items:\n", draw_special_char(DRAW_ARROW));
         dump_hashmap_items(p->user_items);
+
+        printf("%s On-Console Items:\n", draw_special_char(DRAW_ARROW));
+        dump_items(p->on_console_items, "\t");
+
+        printf("%s No-Console Items:\n", draw_special_char(DRAW_ARROW));
+        dump_items(p->no_console_items, "\t");
 
         printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->mandatory_items, "\t");

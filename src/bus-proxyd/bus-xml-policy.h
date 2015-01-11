@@ -69,6 +69,8 @@ struct PolicyItem {
 typedef struct Policy {
         LIST_HEAD(PolicyItem, default_items);
         LIST_HEAD(PolicyItem, mandatory_items);
+        LIST_HEAD(PolicyItem, on_console_items);
+        LIST_HEAD(PolicyItem, no_console_items);
         Hashmap *user_items;
         Hashmap *group_items;
 } Policy;
