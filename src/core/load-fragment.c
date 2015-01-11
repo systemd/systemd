@@ -589,7 +589,8 @@ int config_parse_exec(const char *unit,
                 }
 
         found:
-                n = new(char*, k + !separate_argv0);
+                /* If seperate_argv0, we'll move first element to path variable */
+                n = new(char*, MAX(k + !separate_argv0, 1u));
                 if (!n)
                         return log_oom();
 

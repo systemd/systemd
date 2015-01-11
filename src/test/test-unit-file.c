@@ -137,6 +137,20 @@ static void test_config_parse_exec(void) {
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", NULL, false);
 
+        log_info("/* honour_argv0, no args */");
+        r = config_parse_exec(NULL, "fake", 3, "section", 1,
+                              "LValue", 0, "@/RValue",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* no command, check for bad memory access */");
+        r = config_parse_exec(NULL, "fake", 3, "section", 1,
+                              "LValue", 0, "    ",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@/RValue///slashes3 argv0a r1",
