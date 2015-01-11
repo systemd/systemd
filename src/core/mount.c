@@ -917,6 +917,13 @@ static void mount_enter_mounting(Mount *m) {
                 goto fail;
 
         if (m->from_fragment) {
+                _cleanup_free_ char *opts = NULL;
+
+                r = fstab_filter_options(m->parameters_fragment.options,
+                                         "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                if (r < 0)
+                        goto fail;
+
                 r = exec_command_set(m->control_command, "/bin/mount",
                                      m->parameters_fragment.what, m->where, NULL);
                 if (r >= 0 && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
@@ -925,8 +932,8 @@ static void mount_enter_mounting(Mount *m) {
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->parameters_fragment.fstype)
                         r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
-                if (r >= 0 && m->parameters_fragment.options)
-                        r = exec_command_append(m->control_command, "-o", m->parameters_fragment.options, NULL);
+                if (r >= 0 && !strempty(opts))
+                        r = exec_command_append(m->control_command, "-o", opts, NULL);
         } else
                 r = -ENOENT;
 
