@@ -30,6 +30,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "fstab-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
@@ -50,35 +51,6 @@ static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
 
-static bool has_option(const char *haystack, const char *needle) {
-        const char *f = haystack;
-        size_t l;
-
-        assert(needle);
-
-        if (!haystack)
-                return false;
-
-        l = strlen(needle);
-
-        while ((f = strstr(f, needle))) {
-
-                if (f > haystack && f[-1] != ',') {
-                        f++;
-                        continue;
-                }
-
-                if (f[l] != 0 && f[l] != ',') {
-                        f++;
-                        continue;
-                }
-
-                return true;
-        }
-
-        return false;
-}
-
 static int create_disk(
                 const char *name,
                 const char *device,
@@ -95,10 +67,10 @@ static int create_disk(
         assert(name);
         assert(device);
 
-        noauto = has_option(options, "noauto");
-        nofail = has_option(options, "nofail");
-        tmp = has_option(options, "tmp");
-        swap = has_option(options, "swap");
+        noauto = fstab_test_option(options, "noauto\0");
+        nofail = fstab_test_option(options, "nofail\0");
+        tmp = fstab_test_option(options, "tmp\0");
+        swap = fstab_test_option(options, "swap\0");
 
         if (tmp && swap) {
                 log_error("Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
