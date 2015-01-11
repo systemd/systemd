@@ -135,17 +135,15 @@ static int add_swap(
 static bool mount_is_network(struct mntent *me) {
         assert(me);
 
-        return
-                hasmntopt(me, "_netdev") ||
-                fstype_is_network(me->mnt_type);
+        return fstab_test_option(me->mnt_opts, "_netdev\0") ||
+               fstype_is_network(me->mnt_type);
 }
 
 static bool mount_in_initrd(struct mntent *me) {
         assert(me);
 
-        return
-                hasmntopt(me, "x-initrd.mount") ||
-                streq(me->mnt_dir, "/usr");
+        return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") ||
+               streq(me->mnt_dir, "/usr");
 }
 
 static int add_mount(
@@ -344,8 +342,8 @@ static int parse_fstab(bool initrd) {
                 if (is_path(where))
                         path_kill_slashes(where);
 
-                noauto = !!hasmntopt(me, "noauto");
-                nofail = !!hasmntopt(me, "nofail");
+                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
+                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
                 log_debug("Found entry what=%s where=%s type=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
                           yes_no(noauto), yes_no(nofail));
@@ -356,10 +354,9 @@ static int parse_fstab(bool initrd) {
                         bool automount;
                         const char *post;
 
-                        automount =
-                                  hasmntopt(me, "comment=systemd.automount") ||
-                                  hasmntopt(me, "x-systemd.automount");
-
+                        automount = fstab_test_option(me->mnt_opts,
+                                                      "comment=systemd.automount\0"
+                                                      "x-systemd.automount\0");
                         if (initrd)
                                 post = SPECIAL_INITRD_FS_TARGET;
                         else if (mount_in_initrd(me))

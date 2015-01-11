@@ -67,8 +67,8 @@ static int create_disk(
         assert(name);
         assert(device);
 
-        noauto = fstab_test_option(options, "noauto\0");
-        nofail = fstab_test_option(options, "nofail\0");
+        noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
+        nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
 

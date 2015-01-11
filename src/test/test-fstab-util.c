@@ -107,6 +107,15 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("", "opt\0", 0, NULL, NULL, "");
 }
 
+static void test_fstab_yes_no_option(void) {
+        assert_se(fstab_test_yes_no_option("nofail,fail,nofail", "nofail\0fail\0") == true);
+        assert_se(fstab_test_yes_no_option("nofail,nofail,fail", "nofail\0fail\0") == false);
+        assert_se(fstab_test_yes_no_option("abc,cde,afail", "nofail\0fail\0") == false);
+        assert_se(fstab_test_yes_no_option("nofail,fail=0,nofail=0", "nofail\0fail\0") == true);
+        assert_se(fstab_test_yes_no_option("nofail,nofail=0,fail=0", "nofail\0fail\0") == false);
+}
+
 int main(void) {
         test_fstab_filter_options();
+        test_fstab_yes_no_option();
 }

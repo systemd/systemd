@@ -69,7 +69,7 @@ static int parse_one_option(const char *option) {
         assert(option);
 
         /* Handled outside of this tool */
-        if (streq(option, "noauto") || streq(option, "nofail"))
+        if (STR_IN_SET(option, "noauto", "auto", "nofail", "fail"))
                 return 0;
 
         if (startswith(option, "cipher=")) {
