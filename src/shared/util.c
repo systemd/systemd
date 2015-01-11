@@ -1352,10 +1352,17 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 memcpy(r, prefix, pl);
 
         for (f = s, t = r + pl; f < s + length; f++) {
+                size_t remaining = s + length - f;
+                assert(remaining > 0);
 
-                if (*f != '\\') {
+                if (*f != '\\') {        /* a literal literal */
                         *(t++) = *f;
                         continue;
+                }
+
+                if (--remaining == 0) {  /* copy trailing backslash verbatim */
+                        *(t++) = *f;
+                        break;
                 }
 
                 f++;
@@ -1400,10 +1407,12 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
                 case 'x': {
                         /* hexadecimal encoding */
-                        int a, b;
+                        int a = -1, b = -1;
 
-                        a = unhexchar(f[1]);
-                        b = unhexchar(f[2]);
+                        if (remaining >= 2) {
+                                a = unhexchar(f[1]);
+                                b = unhexchar(f[2]);
+                        }
 
                         if (a < 0 || b < 0 || (a == 0 && b == 0)) {
                                 /* Invalid escape code, let's take it literal then */
@@ -1426,11 +1435,13 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 case '6':
                 case '7': {
                         /* octal encoding */
-                        int a, b, c;
+                        int a = -1, b = -1, c = -1;
 
-                        a = unoctchar(f[0]);
-                        b = unoctchar(f[1]);
-                        c = unoctchar(f[2]);
+                        if (remaining >= 3) {
+                                a = unoctchar(f[0]);
+                                b = unoctchar(f[1]);
+                                c = unoctchar(f[2]);
+                        }
 
                         if (a < 0 || b < 0 || c < 0 || (a == 0 && b == 0 && c == 0)) {
                                 /* Invalid escape code, let's take it literal then */
@@ -1444,11 +1455,6 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                         break;
                 }
 
-                case 0:
-                        /* premature end of string. */
-                        *(t++) = '\\';
-                        goto finish;
-
                 default:
                         /* Invalid escape code, let's take it literal then */
                         *(t++) = '\\';
@@ -1457,7 +1463,6 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 }
         }
 
-finish:
         *t = 0;
         return r;
 }

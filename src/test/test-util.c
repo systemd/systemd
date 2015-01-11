@@ -416,8 +416,24 @@ static void test_cescape(void) {
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
 
-        assert_se(unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00"));
-        assert_se(streq(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00");
+        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+
+        /* incomplete sequences */
+        unescaped = cunescape("\\x0");
+        assert_se(streq_ptr(unescaped, "\\x0"));
+
+        unescaped = cunescape("\\x");
+        assert_se(streq_ptr(unescaped, "\\x"));
+
+        unescaped = cunescape("\\");
+        assert_se(streq_ptr(unescaped, "\\"));
+
+        unescaped = cunescape("\\11");
+        assert_se(streq_ptr(unescaped, "\\11"));
+
+        unescaped = cunescape("\\1");
+        assert_se(streq_ptr(unescaped, "\\1"));
 }
 
 static void test_foreach_word(void) {
