@@ -158,7 +158,7 @@ void log_assert_failed_return(
 #define log_full_errno(level, error, ...)                                         \
         ({                                                                        \
                 int _l = (level), _e = (error);                                   \
-                (log_get_max_level() >= _l)                                       \
+                (log_get_max_level() >= LOG_PRI(_l))                              \
                 ? log_internal(_l, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
                 : -abs(_e); \
         })
