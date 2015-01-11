@@ -154,8 +154,8 @@
 /test-bus-signature
 /test-bus-zero-copy
 /test-calendarspec
-/test-capability
 /test-cap-list
+/test-capability
 /test-catalog
 /test-cgroup
 /test-cgroup-mask
@@ -173,9 +173,7 @@
 /test-dhcp-option
 /test-dhcp-server
 /test-dhcp6-client
-/test-pppoe
 /test-dns-domain
-/test-icmp6-rs
 /test-ellipsize
 /test-engine
 /test-env-replace
@@ -183,8 +181,10 @@
 /test-execute
 /test-fdset
 /test-fileio
+/test-fstab-util
 /test-hashmap
 /test-hostname
+/test-icmp6-rs
 /test-id128
 /test-inhibit
 /test-install
@@ -206,10 +206,9 @@
 /test-libudev
 /test-libudev-sym*
 /test-list
-/test-unaligned
 /test-lldp
-/test-locale-util
 /test-local-addresses
+/test-locale-util
 /test-log
 /test-login
 /test-login-shared
@@ -222,10 +221,12 @@
 /test-network-tables
 /test-ns
 /test-path
+/test-path-lookup
 /test-path-util
+/test-pppoe
 /test-prioq
-/test-ratelimit
 /test-pty
+/test-ratelimit
 /test-replace-var
 /test-resolve
 /test-ring
@@ -248,6 +249,7 @@
 /test-tmpfiles
 /test-udev
 /test-uid-range
+/test-unaligned
 /test-unifont
 /test-unit-file
 /test-unit-name
