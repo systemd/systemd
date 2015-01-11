@@ -140,6 +140,9 @@ int fstab_find_pri(const char *options, int *ret) {
         if (r < 0)
                 return r;
 
+        if ((int) pri < 0)
+                return -ERANGE;
+
         *ret = (int) r;
         return 1;
 }
