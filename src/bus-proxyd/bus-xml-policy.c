@@ -837,7 +837,8 @@ bool policy_check_recv(Policy *p,
                        const char *name,
                        const char *path,
                        const char *interface,
-                       const char *member) {
+                       const char *member,
+                       bool dbus_to_kernel) {
 
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_RECV,
@@ -857,8 +858,9 @@ bool policy_check_recv(Policy *p,
         verdict = policy_check(p, &filter);
 
         log_full(LOG_AUTH | (verdict != ALLOW ? LOG_WARNING : LOG_DEBUG),
-                 "Receive permission check for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
-                 uid, gid, bus_message_type_to_string(message_type), strna(name), strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
+                 "Receive permission check %s for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
+                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(name),
+                 strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
 
         return verdict == ALLOW;
 }
@@ -870,7 +872,8 @@ bool policy_check_send(Policy *p,
                        const char *name,
                        const char *path,
                        const char *interface,
-                       const char *member) {
+                       const char *member,
+                       bool dbus_to_kernel) {
 
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_SEND,
@@ -890,8 +893,9 @@ bool policy_check_send(Policy *p,
         verdict = policy_check(p, &filter);
 
         log_full(LOG_AUTH | (verdict != ALLOW ? LOG_WARNING : LOG_DEBUG),
-                 "Send permission check for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
-                 uid, gid, bus_message_type_to_string(message_type), strna(name), strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
+                 "Send permission check %s for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
+                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(name),
+                 strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
 
         return verdict == ALLOW;
 }

@@ -85,7 +85,8 @@ bool policy_check_recv(Policy *p,
                        const char *name,
                        const char *path,
                        const char *interface,
-                       const char *member);
+                       const char *member,
+                       bool dbus_to_kernel);
 bool policy_check_send(Policy *p,
                        uid_t uid,
                        gid_t gid,
@@ -93,7 +94,8 @@ bool policy_check_send(Policy *p,
                        const char *name,
                        const char *path,
                        const char *interface,
-                       const char *member);
+                       const char *member,
+                       bool dbus_to_kernel);
 
 void policy_dump(Policy *p);
 

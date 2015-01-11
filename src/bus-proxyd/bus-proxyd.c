@@ -1044,14 +1044,14 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* First check whether the sender can send the message to our name */
                 if (set_isempty(owned_names)) {
-                        if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, NULL, m->path, m->interface, m->member))
+                        if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, NULL, m->path, m->interface, m->member, false))
                                 granted = true;
                 } else {
                         Iterator i;
                         char *n;
 
                         SET_FOREACH(n, owned_names, i)
-                                if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, n, m->path, m->interface, m->member)) {
+                                if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, n, m->path, m->interface, m->member, false)) {
                                         granted = true;
                                         break;
                                 }
@@ -1060,13 +1060,13 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                 if (granted) {
                         /* Then check whether us (the recipient) can receive from the sender's name */
                         if (strv_isempty(sender_names)) {
-                                if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member, false))
                                         return 0;
                         } else {
                                 char **n;
 
                                 STRV_FOREACH(n, sender_names) {
-                                        if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member))
+                                        if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member, false))
                                                 return 0;
                                 }
                         }
@@ -1113,13 +1113,13 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* First check if we (the sender) can send to this name */
                 if (strv_isempty(destination_names)) {
-                        if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member))
+                        if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member, true))
                                 granted = true;
                 } else {
                         char **n;
 
                         STRV_FOREACH(n, destination_names) {
-                                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member)) {
+                                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member, true)) {
 
                                         /* If we made a receiver decision,
                                            then remember which name's policy
@@ -1159,14 +1159,14 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
                                  * skip policy checks in this case. */
                                 return 0;
                         } else if (set_isempty(owned_names)) {
-                                if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, NULL, m->path, m->interface, m->member))
+                                if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, NULL, m->path, m->interface, m->member, true))
                                         return 0;
                         } else {
                                 Iterator i;
                                 char *n;
 
                                 SET_FOREACH(n, owned_names, i)
-                                        if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, n, m->path, m->interface, m->member))
+                                        if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, n, m->path, m->interface, m->member, true))
                                                 return 0;
                         }
                 }
