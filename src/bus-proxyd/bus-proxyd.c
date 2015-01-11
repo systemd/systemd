@@ -992,6 +992,22 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
         if (!policy)
                 return 0;
 
+        /*
+         * dbus-1 distinguishes expected and non-expected replies by tracking
+         * method-calls and timeouts. By default, DENY rules are *NEVER* applied
+         * on expected replies, unless explicitly specified. But we dont track
+         * method-calls, thus, we cannot know whether a reply is expected.
+         * Fortunately, the kdbus forbids non-expected replies, so we can safely
+         * ignore any policy on those and let the kernel deal with it.
+         *
+         * TODO: To be correct, we should only ignore policy-tags that are
+         * applied on non-expected replies. However, so far we don't parse those
+         * tags so we let everything pass. I haven't seen a DENY policy tag on
+         * expected-replies, ever, so don't bother..
+         */
+        if (m->reply_cookie > 0)
+                return 0;
+
         if (from->is_kernel) {
                 uid_t sender_uid = UID_INVALID;
                 gid_t sender_gid = GID_INVALID;
