@@ -1148,7 +1148,17 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
 
                 /* Then check if the recipient can receive from our name */
                 if (granted) {
-                        if (set_isempty(owned_names)) {
+                        if (sd_bus_message_is_signal(m, NULL, NULL)) {
+                                /* If we forward a signal from dbus-1 to kdbus,
+                                 * we have no idea who the recipient is.
+                                 * Therefore, we cannot apply any dbus-1
+                                 * receiver policies that match on receiver
+                                 * credentials. We know sd-bus always sets
+                                 * KDBUS_MSG_SIGNAL, so the kernel applies
+                                 * receiver policies to the message. Therefore,
+                                 * skip policy checks in this case. */
+                                return 0;
+                        } else if (set_isempty(owned_names)) {
                                 if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, NULL, m->path, m->interface, m->member))
                                         return 0;
                         } else {
