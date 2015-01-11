@@ -32,7 +32,7 @@
 #include <net/if.h>
 #include <sys/mount.h>
 #include <libgen.h>
-
+#undef basename
 #include "sd-bus.h"
 #include "log.h"
 #include "util.h"
