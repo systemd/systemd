@@ -3478,6 +3478,7 @@ dist_udevrules_DATA += \
 	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
 	rules/60-drm.rules \
+	rules/60-evdev_id.rules \
 	rules/60-keyboard.rules \
 	rules/70-mouse.rules \
 	rules/60-persistent-storage-tape.rules \
@@ -3561,6 +3562,7 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin.c \
 	src/udev/udev-builtin-btrfs.c \
 	src/udev/udev-builtin-hwdb.c \
+	src/udev/udev-builtin-evdev_id.c \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-keyboard.c \
 	src/udev/udev-builtin-net_id.c \

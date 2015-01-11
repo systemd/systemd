@@ -47,6 +47,7 @@ static const struct udev_builtin *builtins[] = {
 #ifdef HAVE_ACL
         [UDEV_BUILTIN_UACCESS] = &udev_builtin_uaccess,
 #endif
+        [UDEV_BUILTIN_EVDEV_ID] = &udev_builtin_evdev_id,
 };
 
 void udev_builtin_init(struct udev *udev) {
