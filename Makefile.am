@@ -4437,6 +4437,7 @@ dist_catalog_DATA = \
 	catalog/systemd.fr.catalog \
 	catalog/systemd.it.catalog \
 	catalog/systemd.pl.catalog \
+	catalog/systemd.pt_BR.catalog \
 	catalog/systemd.ru.catalog \
 	catalog/systemd.catalog
 
