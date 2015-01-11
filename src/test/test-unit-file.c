@@ -73,15 +73,20 @@ static void check_execcommand(ExecCommand *c,
                               const char* argv1,
                               const char* argv2,
                               bool ignore) {
+        size_t n;
+
         assert_se(c);
         log_info("expect: \"%s\" [\"%s\" \"%s\" \"%s\"]",
                  path, argv0 ?: path, argv1, argv2);
+        n = strv_length(c->argv);
         log_info("actual: \"%s\" [\"%s\" \"%s\" \"%s\"]",
-                 c->path, c->argv[0], c->argv[1], c->argv[2]);
+                 c->path, c->argv[0], n > 0 ? c->argv[1] : NULL, n > 1 ? c->argv[2] : NULL);
         assert_se(streq(c->path, path));
         assert_se(streq(c->argv[0], argv0 ?: path));
-        assert_se(streq_ptr(c->argv[1], argv1));
-        assert_se(streq_ptr(c->argv[2], argv2));
+        if (n > 0)
+                assert_se(streq_ptr(c->argv[1], argv1));
+        if (n > 1)
+                assert_se(streq_ptr(c->argv[2], argv2));
         assert_se(c->ignore == ignore);
 }
 
