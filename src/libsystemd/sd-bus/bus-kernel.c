@@ -1346,7 +1346,7 @@ int bus_kernel_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
                 return -errno;
         }
 
-        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.reply.offset);
+        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + recv.msg.offset);
         if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
                 r = bus_kernel_make_message(bus, k);
 

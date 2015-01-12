@@ -566,7 +566,7 @@ struct kdbus_cmd_recv {
 	__u64 return_flags;
 	__s64 priority;
 	__u64 dropped_msgs;
-	struct kdbus_msg_info reply;
+	struct kdbus_msg_info msg;
 	struct kdbus_item items[0];
 } __attribute__((aligned(8)));
 
@@ -634,15 +634,12 @@ enum kdbus_policy_type {
  *				a service
  * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
  *				bus traffic
- * @KDBUS_HELLO_UNPRIVILEGED:	Don't treat this connection as privileged once
- *				the bus connection was established.
  */
 enum kdbus_hello_flags {
 	KDBUS_HELLO_ACCEPT_FD		=  1ULL <<  0,
 	KDBUS_HELLO_ACTIVATOR		=  1ULL <<  1,
 	KDBUS_HELLO_POLICY_HOLDER	=  1ULL <<  2,
 	KDBUS_HELLO_MONITOR		=  1ULL <<  3,
-	KDBUS_HELLO_UNPRIVILEGED	=  1ULL <<  4,
 };
 
 /**

@@ -770,9 +770,9 @@ static int busname_peek_message(BusName *n) {
          * longer than necessary. */
 
         ps = page_size();
-        start = (cmd_recv.reply.offset / ps) * ps;
-        delta = cmd_recv.reply.offset - start;
-        sz = PAGE_ALIGN(delta + cmd_recv.reply.msg_size);
+        start = (cmd_recv.msg.offset / ps) * ps;
+        delta = cmd_recv.msg.offset - start;
+        sz = PAGE_ALIGN(delta + cmd_recv.msg.msg_size);
 
         p = mmap(NULL, sz, PROT_READ, MAP_SHARED, n->starter_fd, start);
         if (p == MAP_FAILED) {
@@ -804,7 +804,7 @@ finish:
         if (p)
                 (void) munmap(p, sz);
 
-        cmd_free.offset = cmd_recv.reply.offset;
+        cmd_free.offset = cmd_recv.msg.offset;
         if (ioctl(n->starter_fd, KDBUS_CMD_FREE, &cmd_free) < 0)
                 log_unit_warning(UNIT(n)->id, "Failed to free peeked message, ignoring: %m");
 
