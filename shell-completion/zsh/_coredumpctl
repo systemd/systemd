@@ -4,6 +4,7 @@ _coredumpctl_command(){
     local -a _coredumpctl_cmds
     _coredumpctl_cmds=(
             'list:List available coredumps'
+            'info:Show detailed information about one or more coredumps'
             'dump:Print coredump to stdout'
             'gdb:Start gdb on a coredump'
     )
@@ -30,7 +31,9 @@ _coredumpctl_command(){
 _arguments \
     {-o+,--output=}'[Write output to FILE]:output file:_files' \
     {-F+,--field=}'[Show field in list output]:field' \
+    '-1[Show information about most recent entry only]' \
     '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     '*::coredumpctl commands:_coredumpctl_command'
