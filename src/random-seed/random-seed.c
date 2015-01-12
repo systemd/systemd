@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
         ssize_t k;
         int r;
         FILE *f;
+        bool cleanup_seed_file = true;
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
                                 r = -errno;
                                 goto finish;
                         }
+                        cleanup_seed_file = false;
                 }
 
                 random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
@@ -140,20 +142,22 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* This is just a safety measure. Given that we are root and
-         * most likely created the file ourselves the mode and owner
-         * should be correct anyway. */
-        fchmod(seed_fd, 0600);
-        fchown(seed_fd, 0, 0);
+        if (cleanup_seed_file) {
+                /* This is just a safety measure. Given that we are root and
+                 * most likely created the file ourselves the mode and owner
+                 * should be correct anyway. */
+                fchmod(seed_fd, 0600);
+                fchown(seed_fd, 0, 0);
 
-        k = loop_read(random_fd, buf, buf_size, false);
-        if (k <= 0) {
-                log_error("Failed to read new seed from /dev/urandom: %s", r < 0 ? strerror(-r) : "EOF");
-                r = k == 0 ? -EIO : (int) k;
-        } else {
-                r = loop_write(seed_fd, buf, (size_t) k, false);
-                if (r < 0)
-                        log_error_errno(r, "Failed to write new random seed file: %m");
+                k = loop_read(random_fd, buf, buf_size, false);
+                if (k <= 0) {
+                        log_error("Failed to read new seed from /dev/urandom: %s", r < 0 ? strerror(-r) : "EOF");
+                        r = k == 0 ? -EIO : (int) k;
+                } else {
+                        r = loop_write(seed_fd, buf, (size_t) k, false);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to write new random seed file: %m");
+                }
         }
 
 finish:
