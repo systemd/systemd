@@ -43,6 +43,8 @@ Release 219 preparations:
 
 * change default container location from /var/lib/container to /var/lib/machines
 
+* merge input_id and evdev_id into generic input_id
+
 Features:
 
 * bus-proxy: reload policy when PID 1 reports a reload
