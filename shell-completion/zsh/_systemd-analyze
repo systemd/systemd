@@ -42,13 +42,17 @@ _systemd_analyze_command(){
 }
 
 _arguments \
-    {-h,--help}'[Show help text.]' \
-    '--system[Operate on system systemd instance.]' \
-    '--user[Operate on user systemd instance.]' \
-    '--no-pager[Do not user pager.]' \
-    '--no-man[Do not check man pages.]' \
+    {-h,--help}'[Show help text]' \
+    '--version[Show package version]' \
+    '--system[Operate on system systemd instance]' \
+    '--user[Operate on user systemd instance]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--man=[Do (not) check for exietnce of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
+    '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
+    '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
+    '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine' \
     '*::systemd-analyze commands:_systemd_analyze_command'
