@@ -932,7 +932,7 @@ static void mount_enter_mounting(Mount *m) {
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->parameters_fragment.fstype)
                         r = exec_command_append(m->control_command, "-t", m->parameters_fragment.fstype, NULL);
-                if (r >= 0 && !strempty(opts))
+                if (r >= 0 && !isempty(opts))
                         r = exec_command_append(m->control_command, "-o", opts, NULL);
         } else
                 r = -ENOENT;
