@@ -920,7 +920,7 @@ static void mount_enter_mounting(Mount *m) {
                 _cleanup_free_ char *opts = NULL;
 
                 r = fstab_filter_options(m->parameters_fragment.options,
-                                         "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                                         "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
                 if (r < 0)
                         goto fail;
 
