@@ -62,4 +62,5 @@ _arguments -s \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     '*::timedatectl commands:_timedatectl_command'
