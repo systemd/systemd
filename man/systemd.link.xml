@@ -407,6 +407,12 @@ MACAddress=cb:a9:87:65:43:21</programlisting>
                         </citerefentry>,
                         <citerefentry>
                                 <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
+                        </citerefentry>,
+                        <citerefentry>
+                                <refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum>
+                        </citerefentry>,
+                        <citerefentry>
+                                <refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum>
                         </citerefentry>
                 </para>
         </refsect1>
