@@ -107,6 +107,22 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("", "opt\0", 0, NULL, NULL, "");
 }
 
+static void test_fstab_find_pri(void) {
+        int pri = -1;
+
+        assert_se(fstab_find_pri("pri", &pri) == 0);
+        assert_se(pri == -1);
+
+        assert_se(fstab_find_pri("pri=11", &pri) == 1);
+        assert_se(pri == 11);
+
+        assert_se(fstab_find_pri("opt,pri=12,opt", &pri) == 1);
+        assert_se(pri == 12);
+
+        assert_se(fstab_find_pri("opt,opt,pri=12,pri=13", &pri) == 1);
+        assert_se(pri == 13);
+}
+
 static void test_fstab_yes_no_option(void) {
         assert_se(fstab_test_yes_no_option("nofail,fail,nofail", "nofail\0fail\0") == true);
         assert_se(fstab_test_yes_no_option("nofail,nofail,fail", "nofail\0fail\0") == false);
@@ -117,5 +133,6 @@ static void test_fstab_yes_no_option(void) {
 
 int main(void) {
         test_fstab_filter_options();
+        test_fstab_find_pri();
         test_fstab_yes_no_option();
 }
