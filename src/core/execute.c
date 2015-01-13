@@ -1417,7 +1417,7 @@ static int exec_child(
 
                 sprintf(t, "%i", context->oom_score_adjust);
                 r = write_string_file("/proc/self/oom_score_adj", t);
-                if (r == -EPERM || r == EACCES) {
+                if (r == -EPERM || r == -EACCES) {
                         log_open();
                         log_unit_debug_errno(params->unit_id, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                         log_close();
