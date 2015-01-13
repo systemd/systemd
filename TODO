@@ -297,9 +297,6 @@ Features:
   desktop UIs such as gnome-shell to freeze apps that are not visible
   on screen, not unlike how job control works on the shell
 
-* completions:
- - manager property enumeration was broken when systemd moved to /usr/lib/
-
 * cgroups:
   - implement per-slice CPUFairScheduling=1 switch
   - handle jointly mounted controllers correctly
@@ -409,9 +406,6 @@ Features:
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
 
-* after all byte-wise realloc() is slow, even on glibc, so i guess we
-  need manual exponential loops after all
-
 * BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
   that the boot loader should be installed to the ESP. Define a way
   how an installer can figure out whether a BLS compliant boot loader
@@ -504,11 +498,11 @@ Features:
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
-  - journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
+  - journal: store timestamp of journal_file_set_offline() int he header,
+    so it is possible to display when the file was last synced.
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
