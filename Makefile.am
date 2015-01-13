@@ -2658,6 +2658,11 @@ systemd_nspawn_LDADD += \
 	$(SECCOMP_LIBS)
 endif
 
+if HAVE_LIBIPTC
+systemd_nspawn_LDADD += \
+	libsystemd-fw.la
+endif
+
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
 	src/run/run.c

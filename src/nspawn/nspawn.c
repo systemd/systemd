@@ -93,10 +93,21 @@
 #include "cap-list.h"
 #include "btrfs-util.h"
 #include "machine-image.h"
+#include "list.h"
+#include "in-addr-util.h"
+#include "fw-util.h"
+#include "local-addresses.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+
+typedef struct ExposePort {
+        int protocol;
+        uint16_t host_port;
+        uint16_t container_port;
+        LIST_FIELDS(struct ExposePort, ports);
+} ExposePort;
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
@@ -172,6 +183,7 @@ static const char *arg_network_bridge = NULL;
 static unsigned long arg_personality = 0xffffffffLU;
 static char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
+static ExposePort *arg_expose_ports = NULL;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -203,6 +215,8 @@ static void help(void) {
                "                            Add a virtual ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
+               "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
+               "                            Expose a container IP port ont the host\n"
                "  -Z --selinux-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            processes in the container\n"
@@ -225,8 +239,8 @@ static void help(void) {
                "     --register=BOOLEAN     Register container as machine\n"
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n"
-               "     --volatile[=MODE]      Run the system in volatile mode\n",
-               program_invocation_short_name);
+               "     --volatile[=MODE]      Run the system in volatile mode\n"
+               , program_invocation_short_name);
 }
 
 static int set_sanitized_path(char **b, const char *path) {
@@ -309,6 +323,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
                 { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
+                { "port",                  required_argument, NULL, 'p'                   },
                 {}
         };
 
@@ -318,7 +333,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:x", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:xp:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -643,6 +658,65 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'p': {
+                        const char *split, *e;
+                        uint16_t container_port, host_port;
+                        int protocol;
+                        ExposePort *p;
+
+                        if ((e = startswith(optarg, "tcp:")))
+                                protocol = IPPROTO_TCP;
+                        else if ((e = startswith(optarg, "udp:")))
+                                protocol = IPPROTO_UDP;
+                        else {
+                                e = optarg;
+                                protocol = IPPROTO_TCP;
+                        }
+
+                        split = strchr(e, ':');
+                        if (split) {
+                                char v[split - e + 1];
+
+                                memcpy(v, e, split - e);
+                                v[split - e] = 0;
+
+                                r = safe_atou16(v, &host_port);
+                                if (r < 0 || host_port <= 0) {
+                                        log_error("Failed to parse host port: %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                r = safe_atou16(split + 1, &container_port);
+                        } else {
+                                r = safe_atou16(e, &container_port);
+                                host_port = container_port;
+                        }
+
+                        if (r < 0 || container_port <= 0) {
+                                log_error("Failed to parse host port: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        LIST_FOREACH(ports, p, arg_expose_ports) {
+                                if (p->protocol == protocol && p->host_port == host_port) {
+                                        log_error("Duplicate port specification: %s", optarg);
+                                        return -EINVAL;
+                                }
+                        }
+
+                        p = new(ExposePort, 1);
+                        if (!p)
+                                return log_oom();
+
+                        p->protocol = protocol;
+                        p->host_port = host_port;
+                        p->container_port = container_port;
+
+                        LIST_PREPEND(ports, arg_expose_ports, p);
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -695,6 +769,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_volatile != VOLATILE_NO && arg_read_only) {
                 log_error("Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
+                return -EINVAL;
+        }
+
+        if (arg_expose_ports && !arg_private_network) {
+                log_error("Cannot use --port= without private networking.");
                 return -EINVAL;
         }
 
@@ -1349,8 +1428,8 @@ static int setup_dev_console(const char *dest, const char *console) {
 
 static int setup_kmsg(const char *dest, int kmsg_socket) {
         _cleanup_free_ char *from = NULL, *to = NULL;
-        int r, fd, k;
         _cleanup_umask_ mode_t u;
+        int r, fd, k;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -1401,7 +1480,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
-        k = sendmsg(kmsg_socket, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        k = sendmsg(kmsg_socket, &mh, MSG_NOSIGNAL);
         safe_close(fd);
 
         if (k < 0)
@@ -1409,6 +1488,198 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         /* And now make the FIFO unavailable as /dev/kmsg... */
         unlink(from);
+        return 0;
+}
+
+static int send_rtnl(int send_fd) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        _cleanup_close_ int fd = -1;
+        ssize_t k;
+
+        assert(send_fd >= 0);
+
+        if (!arg_expose_ports)
+                return 0;
+
+        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
+        if (fd < 0)
+                return log_error_errno(errno, "failed to allocate container netlink: %m");
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        mh.msg_controllen = cmsg->cmsg_len;
+
+        /* Store away the fd in the socket, so that it stays open as
+         * long as we run the child */
+        k = sendmsg(send_fd, &mh, MSG_NOSIGNAL);
+        if (k < 0)
+                return log_error_errno(errno, "Failed to send netlink fd: %m");
+
+        return 0;
+}
+
+static int flush_ports(union in_addr_union *exposed) {
+        ExposePort *p;
+        int r, af = AF_INET;
+
+        assert(exposed);
+
+        if (!arg_expose_ports)
+                return 0;
+
+        if (in_addr_is_null(af, exposed))
+                return 0;
+
+        log_debug("Lost IP address.");
+
+        LIST_FOREACH(ports, p, arg_expose_ports) {
+                r = fw_add_local_dnat(false,
+                                      af,
+                                      p->protocol,
+                                      NULL,
+                                      NULL, 0,
+                                      NULL, 0,
+                                      p->host_port,
+                                      exposed,
+                                      p->container_port,
+                                      NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to modify firewall: %m");
+        }
+
+        *exposed = IN_ADDR_NULL;
+        return 0;
+}
+
+static int expose_ports(sd_rtnl *rtnl, union in_addr_union *exposed) {
+        _cleanup_free_ struct local_address *addresses = NULL;
+        _cleanup_free_ char *pretty = NULL;
+        union in_addr_union new_exposed;
+        ExposePort *p;
+        bool add;
+        int af = AF_INET, r;
+
+        assert(exposed);
+
+        /* Invoked each time an address is added or removed inside the
+         * container */
+
+        if (!arg_expose_ports)
+                return 0;
+
+        r = local_addresses(rtnl, 0, af, &addresses);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate local addresses: %m");
+
+        add = r > 0 &&
+                addresses[0].family == af &&
+                addresses[0].scope < RT_SCOPE_LINK;
+
+        if (!add)
+                return flush_ports(exposed);
+
+        new_exposed = addresses[0].address;
+        if (in_addr_equal(af, exposed, &new_exposed))
+                return 0;
+
+        in_addr_to_string(af, &new_exposed, &pretty);
+        log_debug("New container IP is %s.", strna(pretty));
+
+        LIST_FOREACH(ports, p, arg_expose_ports) {
+
+                r = fw_add_local_dnat(true,
+                                      af,
+                                      p->protocol,
+                                      NULL,
+                                      NULL, 0,
+                                      NULL, 0,
+                                      p->host_port,
+                                      &new_exposed,
+                                      p->container_port,
+                                      in_addr_is_null(af, exposed) ? NULL : exposed);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to modify firewall: %m");
+        }
+
+        *exposed = new_exposed;
+        return 0;
+}
+
+static int on_address_change(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        union in_addr_union *exposed = userdata;
+
+        assert(rtnl);
+        assert(m);
+        assert(exposed);
+
+        expose_ports(rtnl, exposed);
+        return 0;
+}
+
+static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed, sd_rtnl **ret) {
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        int fd, r;
+        ssize_t k;
+
+        assert(event);
+        assert(recv_fd >= 0);
+        assert(ret);
+
+        if (!arg_expose_ports)
+                return 0;
+
+        k = recvmsg(recv_fd, &mh, MSG_NOSIGNAL);
+        if (k < 0)
+                return log_error_errno(errno, "Failed to recv netlink fd: %m");
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        assert(cmsg->cmsg_level == SOL_SOCKET);
+        assert(cmsg->cmsg_type == SCM_RIGHTS);
+        assert(cmsg->cmsg_len = CMSG_LEN(sizeof(int)));
+        memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
+
+        r = sd_rtnl_open_fd(&rtnl, fd, 1, RTNLGRP_IPV4_IFADDR);
+        if (r < 0) {
+                safe_close(fd);
+                return log_error_errno(r, "Failed to create rtnl object: %m");
+        }
+
+        r = sd_rtnl_add_match(rtnl, RTM_NEWADDR, on_address_change, exposed);
+        if (r < 0)
+                return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
+
+        r = sd_rtnl_add_match(rtnl, RTM_DELADDR, on_address_change, exposed);
+        if (r < 0)
+                return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
+
+        r = sd_rtnl_attach_event(rtnl, event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add to even loop: %m");
+
+        *ret = rtnl;
+        rtnl = NULL;
+
         return 0;
 }
 
@@ -3059,7 +3330,6 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *console = NULL;
         bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
         _cleanup_close_ int master = -1, image_fd = -1;
-        _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, loop_nr = -1;
         char veth_name[IFNAMSIZ];
@@ -3067,6 +3337,7 @@ int main(int argc, char *argv[]) {
         sigset_t mask, mask_chld;
         pid_t pid = 0;
         int ret = EXIT_SUCCESS;
+        union in_addr_union exposed = {};
 
         log_parse_environment();
         log_open();
@@ -3233,11 +3504,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                r = log_error_errno(errno, "Failed to create kmsg socket pair: %m");
-                goto finish;
-        }
-
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
@@ -3246,6 +3512,7 @@ int main(int argc, char *argv[]) {
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
         for (;;) {
+                _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 }, rtnl_socket_pair[2] = { -1, -1 };
                 ContainerStatus container_status;
                 _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
                 struct sigaction sa = {
@@ -3256,6 +3523,16 @@ int main(int argc, char *argv[]) {
                 r = barrier_create(&barrier);
                 if (r < 0) {
                         log_error_errno(r, "Cannot initialize IPC barrier: %m");
+                        goto finish;
+                }
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
+                        r = log_error_errno(errno, "Failed to create kmsg socket pair: %m");
+                        goto finish;
+                }
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0) {
+                        r = log_error_errno(errno, "Failed to create rtnl socket pair: %m");
                         goto finish;
                 }
 
@@ -3317,6 +3594,7 @@ int main(int argc, char *argv[]) {
                         close_nointr(STDERR_FILENO);
 
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
+                        rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
                         reset_all_signal_handlers();
                         reset_signal_mask();
@@ -3412,8 +3690,11 @@ int main(int argc, char *argv[]) {
 
                         if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
                                 _exit(EXIT_FAILURE);
-
                         kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
+
+                        if (send_rtnl(rtnl_socket_pair[1]) < 0)
+                                _exit(EXIT_FAILURE);
+                        rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
 
                         /* Tell the parent that we are ready, and that
                          * it can cgroupify us to that we lack access
@@ -3585,13 +3866,13 @@ int main(int argc, char *argv[]) {
                 fdset_free(fds);
                 fds = NULL;
 
+                kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
+                rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
+
                 /* Wait for the most basic Child-setup to be done,
                  * before we add hardware to it, and place it in a
                  * cgroup. */
                 if (barrier_sync_next(&barrier)) {
-                        _cleanup_event_unref_ sd_event *event = NULL;
-                        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-                        char last_char = 0;
                         int ifi = 0;
 
                         r = move_network_interfaces(pid);
@@ -3631,52 +3912,67 @@ int main(int argc, char *argv[]) {
                         (void) barrier_place(&barrier);
 
                         /* And wait that the child is completely ready now. */
-                        (void) barrier_place_and_sync(&barrier);
+                        if (barrier_place_and_sync(&barrier)) {
+                                _cleanup_event_unref_ sd_event *event = NULL;
+                                _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+                                _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+                                char last_char = 0;
 
-                        sd_notify(false,
-                                  "READY=1\n"
-                                  "STATUS=Container running.");
+                                sd_notify(false,
+                                          "READY=1\n"
+                                          "STATUS=Container running.");
 
-                        r = sd_event_new(&event);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get default event source: %m");
-                                goto finish;
+                                r = sd_event_new(&event);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to get default event source: %m");
+                                        goto finish;
+                                }
+
+                                if (arg_boot) {
+                                        /* Try to kill the init system on SIGINT or SIGTERM */
+                                        sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                                        sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
+                                } else {
+                                        /* Immediately exit */
+                                        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                                        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+                                }
+
+                                /* simply exit on sigchld */
+                                sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
+
+                                if (arg_expose_ports) {
+                                        r = watch_rtnl(event, rtnl_socket_pair[0], &exposed, &rtnl);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        (void) expose_ports(rtnl, &exposed);
+                                }
+
+                                rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
+
+                                r = pty_forward_new(event, master, true, &forward);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to create PTY forwarder: %m");
+                                        goto finish;
+                                }
+
+                                r = sd_event_loop(event);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to run event loop: %m");
+                                        goto finish;
+                                }
+
+                                pty_forward_get_last_char(forward, &last_char);
+
+                                forward = pty_forward_free(forward);
+
+                                if (!arg_quiet && last_char != '\n')
+                                        putc('\n', stdout);
+
+                                /* Kill if it is not dead yet anyway */
+                                terminate_machine(pid);
                         }
-
-                        if (arg_boot) {
-                                /* Try to kill the init system on SIGINT or SIGTERM */
-                                sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
-                                sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
-                        } else {
-                                /* Immediately exit */
-                                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-                                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-                        }
-
-                        /* simply exit on sigchld */
-                        sd_event_add_signal(event, NULL, SIGCHLD, NULL, NULL);
-
-                        r = pty_forward_new(event, master, true, &forward);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to create PTY forwarder: %m");
-                                goto finish;
-                        }
-
-                        r = sd_event_loop(event);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to run event loop: %m");
-                                goto finish;
-                        }
-
-                        pty_forward_get_last_char(forward, &last_char);
-
-                        forward = pty_forward_free(forward);
-
-                        if (!arg_quiet && last_char != '\n')
-                                putc('\n', stdout);
-
-                        /* Kill if it is not dead yet anyway */
-                        terminate_machine(pid);
                 }
 
                 /* Normally redundant, but better safe than sorry */
@@ -3714,6 +4010,8 @@ int main(int argc, char *argv[]) {
                         r = 0;
                         break;
                 }
+
+                flush_ports(&exposed);
         }
 
 finish:
@@ -3752,6 +4050,14 @@ finish:
         strv_free(arg_bind);
         strv_free(arg_bind_ro);
         strv_free(arg_tmpfs);
+
+        flush_ports(&exposed);
+
+        while (arg_expose_ports) {
+                ExposePort *p = arg_expose_ports;
+                LIST_REMOVE(ports, arg_expose_ports, p);
+                free(p);
+        }
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

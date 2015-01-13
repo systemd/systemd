@@ -94,48 +94,75 @@ static int rtnl_compute_groups_ap(uint32_t *_groups, unsigned n_groups, va_list 
         return 0;
 }
 
-int sd_rtnl_open(sd_rtnl **ret, unsigned n_groups, ...) {
+static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap) {
         _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
-        va_list ap;
         socklen_t addrlen;
         int r, one = 1;
 
         assert_return(ret, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
         r = sd_rtnl_new(&rtnl);
         if (r < 0)
                 return r;
 
-        rtnl->fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
-        if (rtnl->fd < 0)
-                return -errno;
-
-        r = setsockopt(rtnl->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(rtnl->fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
+        r = setsockopt(fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
         if (r < 0)
                 return -errno;
 
-        va_start(ap, n_groups);
         r = rtnl_compute_groups_ap(&rtnl->sockaddr.nl.nl_groups, n_groups, ap);
-        va_end(ap);
         if (r < 0)
                 return r;
 
         addrlen = sizeof(rtnl->sockaddr);
 
-        r = bind(rtnl->fd, &rtnl->sockaddr.sa, addrlen);
+        r = bind(fd, &rtnl->sockaddr.sa, addrlen);
         if (r < 0)
                 return -errno;
 
-        r = getsockname(rtnl->fd, &rtnl->sockaddr.sa, &addrlen);
+        r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
         if (r < 0)
                 return r;
 
+        rtnl->fd = fd;
+
         *ret = rtnl;
         rtnl = NULL;
+
+        return 0;
+}
+
+int sd_rtnl_open_fd(sd_rtnl **ret, int fd, unsigned n_groups, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, n_groups);
+        r = rtnl_open_fd_ap(ret, fd, n_groups, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int sd_rtnl_open(sd_rtnl **ret, unsigned n_groups, ...) {
+        va_list ap;
+        int fd, r;
+
+        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
+        if (fd < 0)
+                return -errno;
+
+        va_start(ap, n_groups);
+        r = rtnl_open_fd_ap(ret, fd, n_groups, ap);
+        va_end(ap);
+
+        if (r < 0) {
+                safe_close(fd);
+                return r;
+        }
 
         return 0;
 }

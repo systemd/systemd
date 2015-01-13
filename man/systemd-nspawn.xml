@@ -443,6 +443,32 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-p</option></term>
+                                <term><option>--port=</option></term>
+
+                                <listitem><para>If private networking
+                                is enabled, maps an IP port on the
+                                host onto an IP port on the
+                                container. Takes a protocol specifier
+                                (either <literal>tcp</literal> or
+                                <literal>udp</literal>), separated by
+                                a colon from a host port number in the
+                                range 1 to 65535, separated by a colon
+                                from a container port number in the
+                                range from 1 to 65535. The protocol
+                                specifier and its separating colon may
+                                be omitted, in which case
+                                <literal>tcp</literal> is assumed.
+                                The container port number and its
+                                colon may be ommitted, in which case
+                                the same port as the host port is
+                                implied. This option is only supported
+                                if private networking is used, such as
+                                <option>--network-veth</option> or
+                                <option>--network-bridge=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-Z</option></term>
                                 <term><option>--selinux-context=</option></term>
 
