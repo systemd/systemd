@@ -14,5 +14,4 @@ Driver=veth
 Address=0.0.0.0/28
 IPv4LL=yes
 DHCPServer=yes
-IPForward=yes
 IPMasquerade=yes
