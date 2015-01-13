@@ -800,7 +800,6 @@ Features:
    - write more test cases
    - implement and do duplicate address detection, see rfc 4862, 5.4.
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
-   - implement information request, see 1.2. and 18.1.5.
    - implement support for temporary adressess (IA_TA)
    - implement dhcpv6 authentication
    - investigate the usefulness of Confirm messages; i.e. are there any
