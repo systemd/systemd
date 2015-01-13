@@ -982,6 +982,24 @@ libsystemd_label_la_LIBADD = \
 
 # -----------------------------------------------------------------------------
 
+if HAVE_LIBIPTC
+noinst_LTLIBRARIES += \
+	libsystemd-fw.la
+
+libsystemd_fw_la_SOURCES = \
+	src/shared/fw-util.h \
+	src/shared/fw-util.c
+
+libsystemd_fw_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBIPTC_CFLAGS)
+
+libsystemd_fw_la_LIBADD = \
+	$(LIBIPTC_LIBS)
+endif
+
+# -----------------------------------------------------------------------------
+
 if ENABLE_LDCONFIG
 dist_systemunit_DATA += \
 	units/ldconfig.service
@@ -1334,7 +1352,8 @@ manual_tests += \
 	test-watchdog \
 	test-log \
 	test-ipcrm \
-	test-btrfs
+	test-btrfs \
+	test-fw-util
 
 if HAVE_KMOD
 manual_tests += \
@@ -1814,6 +1833,18 @@ test_btrfs_SOURCES = \
 test_btrfs_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
+
+test_fw_util_SOURCES = \
+	src/test/test-fw-util.c
+
+test_fw_util_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(LIBIPTC_CFLAGS)
+
+test_fw_util_LDADD = \
+	libsystemd-fw.la \
+	libsystemd-shared.la \
+	$(LIBIPTC_LIBS)
 
 test_rtnl_manual_SOURCES = \
 	src/test/test-rtnl-manual.c

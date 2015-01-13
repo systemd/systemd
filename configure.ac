@@ -870,6 +870,21 @@ fi
 AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libiptc=no
+AC_ARG_ENABLE(libiptc, AS_HELP_STRING([--disable-libiptc], [Disable optional LIBIPTC support]))
+if test "x$enable_libiptc" != "xno"; then
+        PKG_CHECK_MODULES(LIBIPTC, [libiptc],
+               [AC_DEFINE(HAVE_LIBIPTC, 1, [Define if libiptc is available])
+                have_libiptc=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIPTC"],
+               [have_libiptc=no])
+        if test "x$have_libiptc" = "xno" -a "x$enable_libiptc" = "xyes"; then
+                AC_MSG_ERROR([*** libiptc support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBIPTC, [test "$have_libiptc" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -1405,6 +1420,7 @@ AC_MSG_RESULT([
         GNUTLS:                  ${have_gnutls}
         libcurl:                 ${have_libcurl}
         libidn:                  ${have_libidn}
+        libiptc:                 ${have_libiptc}
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}

@@ -182,6 +182,7 @@
 /test-fdset
 /test-fileio
 /test-fstab-util
+/test-fw-util
 /test-hashmap
 /test-hostname
 /test-icmp6-rs

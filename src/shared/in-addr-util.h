@@ -39,7 +39,8 @@ int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
 int in_addr_from_string_auto(const char *s, int *family, union in_addr_union *ret);
-unsigned in_addr_netmask_to_prefixlen(const struct in_addr *addr);
+unsigned char in_addr_netmask_to_prefixlen(const struct in_addr *addr);
+struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen);
 int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
 int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
 
