@@ -344,7 +344,7 @@ _public_ sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb) {
 }
 
 _public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
-        if (hwdb && REFCNT_DEC(hwdb->n_ref) <= 0) {
+        if (hwdb && REFCNT_DEC(hwdb->n_ref) == 0) {
                 if (hwdb->map)
                         munmap((void *)hwdb->map, hwdb->st.st_size);
                 if (hwdb->f)

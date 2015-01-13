@@ -1254,7 +1254,7 @@ sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client) {
 }
 
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
-        if (client && REFCNT_DEC(client->n_ref) <= 0) {
+        if (client && REFCNT_DEC(client->n_ref) == 0) {
                 client_reset(client);
 
                 sd_dhcp6_client_detach_event(client);

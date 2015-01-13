@@ -145,7 +145,7 @@ static int icmp6_nd_init(sd_icmp6_nd *nd) {
 }
 
 sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
-        if (nd && REFCNT_DEC(nd->n_ref) <= 0) {
+        if (nd && REFCNT_DEC(nd->n_ref) == 0) {
 
                 icmp6_nd_init(nd);
                 sd_icmp6_nd_detach_event(nd);

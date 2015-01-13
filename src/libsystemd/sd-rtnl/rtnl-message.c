@@ -586,7 +586,7 @@ sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m) {
 }
 
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
-        if (m && REFCNT_DEC(m->n_ref) <= 0) {
+        if (m && REFCNT_DEC(m->n_ref) == 0) {
                 unsigned i;
 
                 free(m->hdr);

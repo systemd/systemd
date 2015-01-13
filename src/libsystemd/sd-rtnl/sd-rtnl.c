@@ -187,7 +187,7 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
 
         assert_return(!rtnl_pid_changed(rtnl), NULL);
 
-        if (REFCNT_DEC(rtnl->n_ref) <= 0) {
+        if (REFCNT_DEC(rtnl->n_ref) == 0) {
                 struct match_callback *f;
                 unsigned i;
 

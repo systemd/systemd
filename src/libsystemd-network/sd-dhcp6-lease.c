@@ -195,7 +195,7 @@ sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease) {
 }
 
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
-        if (lease && REFCNT_DEC(lease->n_ref) <= 0) {
+        if (lease && REFCNT_DEC(lease->n_ref) == 0) {
                 free(lease->serverid);
                 dhcp6_lease_free_ia(&lease->ia);
 

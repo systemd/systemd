@@ -193,7 +193,7 @@ sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease) {
 }
 
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
-        if (lease && REFCNT_DEC(lease->n_ref) <= 0) {
+        if (lease && REFCNT_DEC(lease->n_ref) == 0) {
                 free(lease->hostname);
                 free(lease->domainname);
                 free(lease->dns);

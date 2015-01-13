@@ -605,7 +605,7 @@ sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
 }
 
 sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-        if (ll && REFCNT_DEC(ll->n_ref) <= 0) {
+        if (ll && REFCNT_DEC(ll->n_ref) == 0) {
                 ll->receive_message =
                         sd_event_source_unref(ll->receive_message);
                 ll->fd = safe_close(ll->fd);

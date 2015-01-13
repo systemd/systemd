@@ -1672,7 +1672,7 @@ sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client) {
 }
 
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
-        if (client && REFCNT_DEC(client->n_ref) <= 0) {
+        if (client && REFCNT_DEC(client->n_ref) == 0) {
                 log_dhcp_client(client, "FREE");
 
                 client_initialize(client);
