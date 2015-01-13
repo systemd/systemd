@@ -23,15 +23,15 @@
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
 -- f77379a8490b408bbe5f6940505a777b
-Subject: The Journal has been started
+Subject: The journal has been started
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-The system journal process has been starting up, opened the journal
+The system journal process has started up, opened the journal
 files for writing and is now ready to process requests.
 
 -- d93fb3c9c24d451a97cea615ce59c00b
-Subject: The Journal has been stopped
+Subject: The journal has been stopped
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
@@ -50,8 +50,8 @@ from the service have been dropped.
 Note that only messages from the service in question have been
 dropped, other services' messages are unaffected.
 
-The limits when messages are dropped may be configured with
-RateLimitInterval= and RateLimitBurst= in
+The limits controlling when messages are dropped may be configured
+with RateLimitInterval= and RateLimitBurst= in
 /etc/systemd/journald.conf. See journald.conf(5) for details.
 
 -- e9bf28e6e834481bb6f48f548ad13606
@@ -96,7 +96,7 @@ A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
 The leading process of the session is @LEADER@.
 
 -- 3354939424b4456d9802ca8333ed424a
-Subject: A session @SESSION_ID@ has been terminated
+Subject: Session @SESSION_ID@ has been terminated
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
@@ -112,7 +112,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 A new seat @SEAT_ID@ has been configured and is now available.
 
 -- e7852bfe46784ed0accde04bc864c2d5
-Subject: A seat @SEAT_ID@ has now been removed
+Subject: Seat @SEAT_ID@ has now been removed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
@@ -178,7 +178,7 @@ Systemd shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
-Subject: Unit @UNIT@ has begun with start-up
+Subject: Unit @UNIT@ has begun start-up
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
@@ -217,11 +217,11 @@ Unit @UNIT@ has failed.
 The result is @RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
-Subject: Unit @UNIT@ has begun with reloading its configuration
+Subject: Unit @UNIT@ has begun reloading its configuration
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Unit @UNIT@ has begun with reloading its configuration
+Unit @UNIT@ has begun reloading its configuration
 
 -- 7b05ebc668384222baa8881179cfda54
 Subject: Unit @UNIT@ has finished reloading its configuration
@@ -239,7 +239,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 The process @EXECUTABLE@ could not be executed and failed.
 
-The error number returned while executing this process is @ERRNO@.
+The error number returned by this process is @ERRNO@.
 
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: One or more messages could not be forwarded to syslog
