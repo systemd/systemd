@@ -88,14 +88,24 @@ static bool link_lldp_enabled(Link *link) {
         return link->network->lldp;
 }
 
-static bool link_ip_forward_enabled(Link *link) {
+static bool link_ipv4_forward_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
         if (!link->network)
                 return false;
 
-        return link->network->ip_forward;
+        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+}
+
+static bool link_ipv6_forward_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return IN_SET(link->network->ip_forward, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
 }
 
 #define FLAG_STRING(string, flag, old, new) \
@@ -1225,14 +1235,26 @@ static int link_enter_join_netdev(Link *link) {
         return 0;
 }
 
-static int link_set_ip_forward(Link *link) {
+static int link_set_ipv4_forward(Link *link) {
         const char *p = NULL;
         int r;
 
         p = strappenda("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
-        r = write_string_file_no_create(p, link_ip_forward_enabled(link) ? "1" : "0");
+        r = write_string_file_no_create(p, one_zero(link_ipv4_forward_enabled(link)));
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IP forwarding for interface: %m");
+                log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface: %m");
+
+        return 0;
+}
+
+static int link_set_ipv6_forward(Link *link) {
+        const char *p = NULL;
+        int r;
+
+        p = strappenda("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
+        r = write_string_file_no_create(p, one_zero(link_ipv6_forward_enabled(link)));
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");
 
         return 0;
 }
@@ -1248,7 +1270,11 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_ip_forward(link);
+        r = link_set_ipv4_forward(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_forward(link);
         if (r < 0)
                 return r;
 

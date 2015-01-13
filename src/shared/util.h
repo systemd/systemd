@@ -143,6 +143,10 @@ static inline const char* true_false(bool b) {
         return b ? "true" : "false";
 }
 
+static inline const char* one_zero(bool b) {
+        return b ? "1" : "0";
+}
+
 static inline const char* strempty(const char *s) {
         return s ? s : "";
 }

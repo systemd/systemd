@@ -55,10 +55,11 @@ typedef struct AddressPool AddressPool;
 typedef struct FdbEntry FdbEntry;
 
 typedef enum AddressFamilyBoolean {
-        ADDRESS_FAMILY_NO,
-        ADDRESS_FAMILY_YES,
-        ADDRESS_FAMILY_IPV4,
-        ADDRESS_FAMILY_IPV6,
+        /* This is a bitmask, though it usually doesn't feel that way! */
+        ADDRESS_FAMILY_NO = 0,
+        ADDRESS_FAMILY_IPV4 = 1,
+        ADDRESS_FAMILY_IPV6 = 2,
+        ADDRESS_FAMILY_YES = 3,
         _ADDRESS_FAMILY_BOOLEAN_MAX,
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;
@@ -120,8 +121,8 @@ struct Network {
 
         unsigned cost;
 
+        AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
-        bool ip_forward;
 
         struct ether_addr *mac;
         unsigned mtu;
@@ -391,3 +392,5 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
 AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
+
+int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

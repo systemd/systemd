@@ -686,3 +686,5 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
 
         return _ADDRESS_FAMILY_BOOLEAN_INVALID;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean, address_family_boolean, AddressFamilyBoolean, "Failed to parse option");

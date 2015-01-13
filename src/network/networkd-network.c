@@ -111,7 +111,7 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)
-                network->ip_forward = true;
+                network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
         LIST_PREPEND(networks, manager->networks, network);
 
@@ -488,6 +488,10 @@ int config_parse_dhcp(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        /* Note that this is mostly like
+         * config_parse_address_family_boolean(), except that it
+         * understands some old names for the enum values */
 
         s = address_family_boolean_from_string(rvalue);
         if (s < 0) {

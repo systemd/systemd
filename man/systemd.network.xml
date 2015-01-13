@@ -352,9 +352,14 @@
                                         packets on the network
                                         interface will be forwarded to
                                         other interfaces according to
-                                        the routing table. Takes a
-                                        boolean
-                                        argument.</para></listitem>
+                                        the routing table. Takes
+                                        either a boolean argument, or
+                                        the values
+                                        <literal>ipv4</literal> or
+                                        <literal>ipv6</literal>, which
+                                        only enables IP forwarding for
+                                        the specified address
+                                        family.</para></listitem>
                                 </varlistentry>
                                 <varlistentry>
                                         <term><varname>IPMasquerade=</varname></term>
