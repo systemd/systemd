@@ -116,7 +116,7 @@ int address_establish(Address *address, Link *link) {
                 address->scope < RT_SCOPE_LINK;
 
         /* Add firewall entry if this is requested */
-        if (address->ip_forward_done != masq) {
+        if (address->ip_masquerade_done != masq) {
                 union in_addr_union masked = address->in_addr;
                 in_addr_mask(address->family, &masked, address->prefixlen);
 
@@ -124,7 +124,7 @@ int address_establish(Address *address, Link *link) {
                 if (r < 0)
                         log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
-                address->ip_forward_done = masq;
+                address->ip_masquerade_done = masq;
         }
 
         return 0;
@@ -137,7 +137,7 @@ int address_release(Address *address, Link *link) {
         assert(link);
 
         /* Remove masquerading firewall entry if it was added */
-        if (address->ip_forward_done) {
+        if (address->ip_masquerade_done) {
                 union in_addr_union masked = address->in_addr;
                 in_addr_mask(address->family, &masked, address->prefixlen);
 
@@ -145,7 +145,7 @@ int address_release(Address *address, Link *link) {
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to disable IP masquerading: %m");
 
-                address->ip_forward_done = false;
+                address->ip_masquerade_done = false;
         }
 
         return 0;

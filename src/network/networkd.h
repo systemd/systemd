@@ -160,7 +160,7 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
-        bool ip_forward_done;
+        bool ip_masquerade_done;
 
         LIST_FIELDS(Address, addresses);
 };
