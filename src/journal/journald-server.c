@@ -1182,10 +1182,6 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                         log_error_errno(errno, "recvmsg() failed: %m");
                         return -errno;
                 }
-                if (n == 0) {
-                        log_error("Got EOF on socket.");
-                        return -ECONNRESET;
-                }
 
                 for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
 
