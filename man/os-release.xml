@@ -277,6 +277,7 @@
                                 <term><varname>HOME_URL=</varname></term>
                                 <term><varname>SUPPORT_URL=</varname></term>
                                 <term><varname>BUG_REPORT_URL=</varname></term>
+                                <term><varname>PRIVACY_POLICY_URL=</varname></term>
 
                                 <listitem><para>Links to resources on
                                 the Internet related the operating
@@ -296,15 +297,19 @@
                                 page for the operating system, if
                                 there is any. This is primarily
                                 intended for operating systems that
-                                rely on community QA. These settings
+                                rely on community QA.
+                                <varname>PRIVACY_POLICY_URL=</varname>
+                                should refer to the main privacy policy
+                                page for the operation system, if there
+                                is any. These settings
                                 are optional, and providing only some
                                 of these settings is common. These
                                 URLs are intended to be exposed in
                                 "About this system" UIs behind links
                                 with captions such as "About this
                                 Operating System", "Obtain Support",
-                                and "Report a Bug". The values should
-                                be in <ulink
+                                "Report a Bug", or "Privacy Policy". The
+                                values should be in <ulink
                                 url="https://tools.ietf.org/html/rfc3986">RFC3986
                                 format</ulink>, and should be
                                 <literal>http:</literal> or
