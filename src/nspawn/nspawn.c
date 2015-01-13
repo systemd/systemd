@@ -216,7 +216,7 @@ static void help(void) {
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
-               "                            Expose a container IP port ont the host\n"
+               "                            Expose a container IP port on the host\n"
                "  -Z --selinux-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            processes in the container\n"
