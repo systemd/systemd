@@ -47,6 +47,14 @@ Release 219 preparations:
 
 Features:
 
+* import: add "pull-tar" support, for downloading/verifying tarballs
+
+* import: support compressed raw images
+
+* import: support verifiying raw images with gpg
+
+* core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
+
 * bus-proxy: reload policy when PID 1 reports a reload
 
 * the dbus1 connection user id is actually the euid, not the uid, and creds should return that
