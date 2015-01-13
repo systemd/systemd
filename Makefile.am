@@ -5403,6 +5403,11 @@ systemd_networkd_SOURCES = \
 systemd_networkd_LDADD = \
 	libsystemd-networkd-core.la
 
+if HAVE_LIBIPTC
+systemd_networkd_LDADD += \
+	libsystemd-fw.la
+endif
+
 noinst_LTLIBRARIES += \
 	libsystemd-networkd-core.la
 
@@ -5492,6 +5497,11 @@ test_network_SOURCES = \
 
 test_network_LDADD = \
 	libsystemd-networkd-core.la
+
+if HAVE_LIBIPTC
+test_network_LDADD += \
+	libsystemd-fw.la
+endif
 
 test_network_tables_SOURCES = \
 	src/network/test-network-tables.c \

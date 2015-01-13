@@ -43,8 +43,11 @@ unsigned char in_addr_netmask_to_prefixlen(const struct in_addr *addr);
 struct in_addr* in_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen);
 int in_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
 int in_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
+int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen);
 
 static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         assert(family == AF_INET || family == AF_INET6);
         return family == AF_INET6 ? 16 : 4;
 }
+
+#define IN_ADDR_NULL ((union in_addr_union) {})

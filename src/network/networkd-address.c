@@ -21,13 +21,13 @@
 
 #include <net/if.h>
 
-#include "networkd.h"
-#include "networkd-link.h"
-
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
+#include "fw-util.h"
 #include "network-internal.h"
+#include "networkd.h"
+#include "networkd-link.h"
 
 static void address_init(Address *address) {
         assert(address);
@@ -103,6 +103,54 @@ void address_free(Address *address) {
         free(address);
 }
 
+int address_establish(Address *address, Link *link) {
+        bool masq;
+        int r;
+
+        assert(address);
+        assert(link);
+
+        masq = link->network &&
+                link->network->ip_masquerade &&
+                address->family == AF_INET &&
+                address->scope < RT_SCOPE_LINK;
+
+        /* Add firewall entry if this is requested */
+        if (address->ip_forward_done != masq) {
+                union in_addr_union masked = address->in_addr;
+                in_addr_mask(address->family, &masked, address->prefixlen);
+
+                r = fw_add_masquerade(masq, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
+
+                address->ip_forward_done = masq;
+        }
+
+        return 0;
+}
+
+int address_release(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(link);
+
+        /* Remove masquerading firewall entry if it was added */
+        if (address->ip_forward_done) {
+                union in_addr_union masked = address->in_addr;
+                in_addr_mask(address->family, &masked, address->prefixlen);
+
+                r = fw_add_masquerade(false, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to disable IP masquerading: %m");
+
+                address->ip_forward_done = false;
+        }
+
+        return 0;
+}
+
 int address_drop(Address *address, Link *link,
                  sd_rtnl_message_handler_t callback) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
@@ -114,6 +162,8 @@ int address_drop(Address *address, Link *link,
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        address_release(address, link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -333,6 +383,8 @@ int address_configure(Address *address, Link *link,
 
         link_ref(link);
 
+        address_establish(address, link);
+
         return 0;
 }
 
@@ -549,8 +601,7 @@ bool address_equal(Address *a1, Address *a2) {
                         return (b1 >> (32 - a1->prefixlen)) == (b2 >> (32 - a1->prefixlen));
                 }
 
-        case AF_INET6:
-        {
+        case AF_INET6: {
                 uint64_t *b1, *b2;
 
                 b1 = (uint64_t*)&a1->in_addr.in6;
@@ -558,6 +609,7 @@ bool address_equal(Address *a1, Address *a2) {
 
                 return (((b1[0] ^ b2[0]) | (b1[1] ^ b2[1])) == 0UL);
         }
+
         default:
                 assert_not_reached("Invalid address family");
         }

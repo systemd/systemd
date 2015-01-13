@@ -22,14 +22,14 @@
 #include <ctype.h>
 #include <net/if.h>
 
-#include "networkd.h"
-#include "networkd-netdev.h"
-#include "networkd-link.h"
-#include "network-internal.h"
 #include "path-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"
+#include "networkd.h"
+#include "networkd-netdev.h"
+#include "networkd-link.h"
+#include "network-internal.h"
 
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
@@ -108,6 +108,10 @@ static int network_load_one(Manager *manager, const char *filename) {
                          false, false, true, network);
         if (r < 0)
                 return r;
+
+        /* IPMasquerade=yes implies IPForward=yes */
+        if (network->ip_masquerade)
+                network->ip_forward = true;
 
         LIST_PREPEND(networks, manager->networks, network);
 

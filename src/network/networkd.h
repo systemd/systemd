@@ -120,6 +120,9 @@ struct Network {
 
         unsigned cost;
 
+        bool ip_masquerade;
+        bool ip_forward;
+
         struct ether_addr *mac;
         unsigned mtu;
 
@@ -156,6 +159,8 @@ struct Address {
 
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
+
+        bool ip_forward_done;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -326,6 +331,8 @@ void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_update(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 int address_drop(Address *address, Link *link, sd_rtnl_message_handler_t callback);
+int address_establish(Address *address, Link *link);
+int address_release(Address *address, Link *link);
 bool address_equal(Address *a1, Address *a2);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
