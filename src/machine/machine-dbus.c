@@ -175,6 +175,9 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
         assert(message);
         assert(m);
 
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
+
         r = readlink_malloc("/proc/self/ns/net", &us);
         if (r < 0)
                 return sd_bus_error_set_errno(error, r);
@@ -319,6 +322,9 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
         assert(message);
         assert(m);
 
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
+
         r = namespace_open(m->leader, NULL, &mntns_fd, NULL, &root_fd);
         if (r < 0)
                 return r;
@@ -403,6 +409,9 @@ int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *user
         assert(message);
         assert(m);
 
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening pseudo TTYs is only supported on container machines.");
+
         master = openpt_in_namespace(m->leader, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (master < 0)
                 return master;
@@ -430,6 +439,9 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         Machine *m = userdata;
         const char *p;
         int r;
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening logins is only supported on container machines.");
 
         r = bus_verify_polkit_async(
                         message,
