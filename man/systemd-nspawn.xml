@@ -407,6 +407,7 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-n</option></term>
                                 <term><option>--network-veth</option></term>
 
                                 <listitem><para>Create a virtual

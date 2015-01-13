@@ -209,7 +209,7 @@ static void help(void) {
                "     --network-macvlan=INTERFACE\n"
                "                            Create a macvlan network interface based on an\n"
                "                            existing network interface to the container\n"
-               "     --network-veth         Add a virtual ethernet connection between host\n"
+               "  -n --network-veth         Add a virtual ethernet connection between host\n"
                "                            and container\n"
                "     --network-bridge=INTERFACE\n"
                "                            Add a virtual ethernet connection between host\n"
@@ -283,7 +283,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEEP_UNIT,
                 ARG_NETWORK_INTERFACE,
                 ARG_NETWORK_MACVLAN,
-                ARG_NETWORK_VETH,
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
@@ -318,7 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
                 { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
-                { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH      },
+                { "network-veth",          no_argument,       NULL, 'n'                   },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
                 { "image",                 required_argument, NULL, 'i'                   },
@@ -333,7 +332,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:xp:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:xp:n", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -384,7 +383,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         /* fall through */
 
-                case ARG_NETWORK_VETH:
+                case 'n':
                         arg_network_veth = true;
                         arg_private_network = true;
                         break;
