@@ -493,7 +493,7 @@ static int dkr_import_job_run_tar(DkrImportJob *job) {
                 if (null_fd != STDOUT_FILENO)
                         safe_close(null_fd);
 
-                execlp("tar", "tar", "-C", job->temp_path, gzip ? "-xz" : "-x", NULL);
+                execlp("tar", "tar", "-C", job->temp_path, gzip ? "-xpz" : "-px", "--numeric-owner", NULL);
                 _exit(EXIT_FAILURE);
         }
 
