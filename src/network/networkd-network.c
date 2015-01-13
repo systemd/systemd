@@ -84,7 +84,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
-        network->dhcp = DHCP_SUPPORT_NONE;
+        network->dhcp = ADDRESS_FAMILY_NO;
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
@@ -470,15 +470,6 @@ int config_parse_tunnel(const char *unit,
         return 0;
 }
 
-static const char* const dhcp_support_table[_DHCP_SUPPORT_MAX] = {
-        [DHCP_SUPPORT_NONE] = "none",
-        [DHCP_SUPPORT_BOTH] = "both",
-        [DHCP_SUPPORT_V4] = "v4",
-        [DHCP_SUPPORT_V6] = "v6",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(dhcp_support, DHCPSupport);
-
 int config_parse_dhcp(
                 const char* unit,
                 const char *filename,
@@ -491,34 +482,34 @@ int config_parse_dhcp(
                 void *data,
                 void *userdata) {
 
-        DHCPSupport *dhcp = data;
-        int k;
+        AddressFamilyBoolean *dhcp = data, s;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
+        s = address_family_boolean_from_string(rvalue);
+        if (s < 0) {
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                *dhcp = DHCP_SUPPORT_BOTH;
-        else if (k == 0)
-                *dhcp = DHCP_SUPPORT_NONE;
-        else {
-                DHCPSupport s;
+                /* Previously, we had a slightly different enum here,
+                 * support its values for compatbility. */
 
-                s = dhcp_support_from_string(rvalue);
-                if (s < 0){
-                        log_syntax(unit, LOG_ERR, filename, line, -s, "Failed to parse DHCP option, ignoring: %s", rvalue);
+                if (streq(rvalue, "none"))
+                        s = ADDRESS_FAMILY_NO;
+                else if (streq(rvalue, "v4"))
+                        s = ADDRESS_FAMILY_IPV4;
+                else if (streq(rvalue, "v6"))
+                        s = ADDRESS_FAMILY_IPV6;
+                else if (streq(rvalue, "both"))
+                        s = ADDRESS_FAMILY_YES;
+                else {
+                        log_syntax(unit, LOG_ERR, filename, line, s, "Failed to parse DHCP option, ignoring: %s", rvalue);
                         return 0;
                 }
-
-                *dhcp = s;
         }
 
+        *dhcp = s;
         return 0;
 }
 

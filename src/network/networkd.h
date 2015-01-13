@@ -54,14 +54,14 @@ typedef struct Manager Manager;
 typedef struct AddressPool AddressPool;
 typedef struct FdbEntry FdbEntry;
 
-typedef enum DHCPSupport {
-        DHCP_SUPPORT_NONE,
-        DHCP_SUPPORT_BOTH,
-        DHCP_SUPPORT_V4,
-        DHCP_SUPPORT_V6,
-        _DHCP_SUPPORT_MAX,
-        _DHCP_SUPPORT_INVALID = -1,
-} DHCPSupport;
+typedef enum AddressFamilyBoolean {
+        ADDRESS_FAMILY_NO,
+        ADDRESS_FAMILY_YES,
+        ADDRESS_FAMILY_IPV4,
+        ADDRESS_FAMILY_IPV6,
+        _ADDRESS_FAMILY_BOOLEAN_MAX,
+        _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
+} AddressFamilyBoolean;
 
 typedef enum LLMNRSupport {
         LLMNR_SUPPORT_NO,
@@ -102,7 +102,7 @@ struct Network {
         NetDev *bridge;
         NetDev *bond;
         Hashmap *stacked_netdevs;
-        DHCPSupport dhcp;
+        AddressFamilyBoolean dhcp;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -368,9 +368,6 @@ int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned li
 
 /* DHCP support */
 
-const char* dhcp_support_to_string(DHCPSupport i) _const_;
-DHCPSupport dhcp_support_from_string(const char *s) _pure_;
-
 int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
@@ -391,3 +388,6 @@ int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, cons
 void address_pool_free(AddressPool *p);
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
+
+const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
+AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;

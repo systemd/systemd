@@ -654,3 +654,35 @@ int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, uni
 
         return 0;
 }
+
+const char *address_family_boolean_to_string(AddressFamilyBoolean b) {
+        if (b == ADDRESS_FAMILY_YES ||
+            b == ADDRESS_FAMILY_NO)
+                return yes_no(b == ADDRESS_FAMILY_YES);
+
+        if (b == ADDRESS_FAMILY_IPV4)
+                return "ipv4";
+        if (b == ADDRESS_FAMILY_IPV6)
+                return "ipv6";
+
+        return NULL;
+}
+
+AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
+        int r;
+
+        /* Make this a true superset of a boolean */
+
+        r = parse_boolean(s);
+        if (r > 0)
+                return ADDRESS_FAMILY_YES;
+        if (r == 0)
+                return ADDRESS_FAMILY_NO;
+
+        if (streq(s, "ipv4"))
+                return ADDRESS_FAMILY_IPV4;
+        if (streq(s, "ipv6"))
+                return ADDRESS_FAMILY_IPV6;
+
+        return _ADDRESS_FAMILY_BOOLEAN_INVALID;
+}

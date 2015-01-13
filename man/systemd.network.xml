@@ -220,8 +220,8 @@
                                         <term><varname>DHCP=</varname></term>
                                         <listitem>
                                                 <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
-                                                <literal>both</literal>, <literal>none</literal>,
-                                                <literal>v4</literal> or <literal>v6</literal>.</para>
+                                                <literal>yes</literal>, <literal>no</literal>,
+                                                <literal>ipv4</literal> or <literal>ipv6</literal>.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>

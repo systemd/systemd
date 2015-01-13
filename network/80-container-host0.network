@@ -10,5 +10,5 @@ Virtualization=container
 Name=host0
 
 [Network]
-DHCP=both
+DHCP=yes
 IPv4LL=yes

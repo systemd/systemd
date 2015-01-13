@@ -42,7 +42,7 @@ static bool link_dhcp6_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, DHCP_SUPPORT_V6, DHCP_SUPPORT_BOTH);
+        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
 }
 
 static bool link_dhcp4_enabled(Link *link) {
@@ -52,7 +52,7 @@ static bool link_dhcp4_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->dhcp, DHCP_SUPPORT_V4, DHCP_SUPPORT_BOTH);
+        return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
 }
 
 static bool link_dhcp4_server_enabled(Link *link) {
@@ -1331,7 +1331,7 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
                 if (network->ipv4ll)
                         log_link_debug(link, "ignoring IPv4LL for loopback link");
 
-                if (network->dhcp != DHCP_SUPPORT_NONE)
+                if (network->dhcp != ADDRESS_FAMILY_NO)
                         log_link_debug(link, "ignoring DHCP clients for loopback link");
 
                 if (network->dhcp_server)
