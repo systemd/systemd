@@ -47,6 +47,10 @@ Release 219 preparations:
 
 Features:
 
+* machine: we should fake a read-only flag for simple directory images via a flag file
+
+* import: support import from local files, and export to local files
+
 * import: add "pull-tar" support, for downloading/verifying tarballs
 
 * import: support compressed raw images
@@ -58,8 +62,6 @@ Features:
 * bus-proxy: reload policy when PID 1 reports a reload
 
 * the dbus1 connection user id is actually the euid, not the uid, and creds should return that
-
-* add minimal NAT logic to networkd and nspawn. The former should be a simple NAT=yes|no|ipv4|ipv6 and expose a network on all other interfaces as NAT. The latter should get a "--port=" switch or so, which forwards one host port onto the container
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
 
