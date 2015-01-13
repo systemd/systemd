@@ -76,7 +76,7 @@ static inline int fw_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
-        return -ENOSTUP;
+        return -ENOTSUP;
 }
 
 #endif
