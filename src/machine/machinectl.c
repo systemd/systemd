@@ -1065,11 +1065,11 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        t = strdup(host_path);
+        t = strdupa(host_path);
         host_basename = basename(t);
         host_dirname = dirname(host_path);
 
-        t = strdup(container_path);
+        t = strdupa(container_path);
         container_basename = basename(t);
         container_dirname = dirname(container_path);
 
