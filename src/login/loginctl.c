@@ -846,6 +846,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 static int activate(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
+        char *short_argv[3];
         int r, i;
 
         assert(bus);
@@ -858,7 +859,11 @@ static int activate(int argc, char *argv[], void *userdata) {
                  * session name, which the calls will then resolve to
                  * the caller's session. */
 
-                argv = STRV_MAKE(argv[0], "");
+                short_argv[0] = argv[0];
+                short_argv[1] = (char*) "";
+                short_argv[2] = NULL;
+
+                argv = short_argv;
                 argc = 2;
         }
 
@@ -919,6 +924,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 static int enable_linger(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
+        char* short_argv[3];
         bool b;
         int r, i;
 
@@ -930,7 +936,10 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
         b = streq(argv[0], "enable-linger");
 
         if (argc < 2) {
-                argv = STRV_MAKE(argv[0], "");
+                short_argv[0] = argv[0];
+                short_argv[1] = (char*) "";
+                short_argv[2] = NULL;
+                argv = short_argv;
                 argc = 2;
         }
 
