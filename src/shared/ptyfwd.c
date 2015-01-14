@@ -293,7 +293,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
 
         /* The window size changed, let's forward that. */
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                (void)ioctl(f->master, TIOCSWINSZ, &ws);
+                (void) ioctl(f->master, TIOCSWINSZ, &ws);
 
         return 0;
 }
@@ -373,6 +373,8 @@ int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward
                 return r;
 
         r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
+        if (r < 0)
+                return r;
 
         *ret = f;
         f = NULL;
