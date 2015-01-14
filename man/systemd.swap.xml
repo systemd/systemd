@@ -139,15 +139,12 @@
 
                   <varlistentry>
                     <term><option>nofail</option></term>
-                    <term><option>fail</option></term>
 
                     <listitem><para>With <option>nofail</option> the
                     swap unit will be only wanted, not required by
                     <filename>swap.target</filename>. This means that
                     the boot will continue even if this swap device is
-                    not activated successfully. Option
-                    <option>fail</option> has the opposite meaning and
-                    is the default.</para>
+                    not activated successfully.</para>
                     </listitem>
                   </varlistentry>
                 </variablelist>
