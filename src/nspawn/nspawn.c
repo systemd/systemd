@@ -2963,7 +2963,7 @@ static void loop_remove(int nr, int *image_fd) {
         if (image_fd && *image_fd >= 0) {
                 r = ioctl(*image_fd, LOOP_CLR_FD);
                 if (r < 0)
-                        log_warning_errno(errno, "Failed to close loop image: %m");
+                        log_debug_errno(errno, "Failed to close loop image: %m");
                 *image_fd = safe_close(*image_fd);
         }
 
@@ -2975,7 +2975,7 @@ static void loop_remove(int nr, int *image_fd) {
 
         r = ioctl(control, LOOP_CTL_REMOVE, nr);
         if (r < 0)
-                log_warning_errno(errno, "Failed to remove loop %d: %m", nr);
+                log_debug_errno(errno, "Failed to remove loop %d: %m", nr);
 }
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
