@@ -3947,9 +3947,10 @@ int main(int argc, char *argv[]) {
                                 _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
                                 char last_char = 0;
 
-                                sd_notify(false,
-                                          "READY=1\n"
-                                          "STATUS=Container running.");
+                                sd_notifyf(false,
+                                           "READY=1\n"
+                                           "STATUS=Container running.\n"
+                                           "X_NSPAWN_LEADER_PID=" PID_FMT, pid);
 
                                 r = sd_event_new(&event);
                                 if (r < 0) {
