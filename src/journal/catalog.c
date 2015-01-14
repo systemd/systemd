@@ -26,7 +26,6 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <locale.h>
-#include <libgen.h>
 
 #include "util.h"
 #include "log.h"
