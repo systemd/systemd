@@ -550,15 +550,14 @@ int pty_signal(Pty *pty, int sig) {
 }
 
 int pty_resize(Pty *pty, unsigned short term_width, unsigned short term_height) {
-        struct winsize ws;
+        struct winsize ws = {
+                .ws_col = term_width,
+                .ws_row = term_height,
+        };
 
         assert_return(pty, -EINVAL);
         assert_return(pty_is_open(pty), -ENODEV);
         assert_return(pty_is_parent(pty), -ENODEV);
-
-        zero(ws);
-        ws.ws_col = term_width;
-        ws.ws_row = term_height;
 
         /*
          * This will send SIGWINCH to the pty slave foreground process group.
