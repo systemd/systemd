@@ -419,16 +419,16 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
                 fprintf(f, "%sCGroup=%s%s%s", prefix, color, c->cgroup, suffix);
-        sd_bus_creds_get_unit(c, &u);
+        (void) sd_bus_creds_get_unit(c, &u);
         if (u)
                 fprintf(f, "%sUnit=%s%s%s", prefix, color, u, suffix);
-        sd_bus_creds_get_user_unit(c, &uu);
+        (void) sd_bus_creds_get_user_unit(c, &uu);
         if (uu)
                 fprintf(f, "%sUserUnit=%s%s%s", prefix, color, uu, suffix);
-        sd_bus_creds_get_slice(c, &sl);
+        (void) sd_bus_creds_get_slice(c, &sl);
         if (sl)
                 fprintf(f, "%sSlice=%s%s%s", prefix, color, sl, suffix);
-        sd_bus_creds_get_session(c, &s);
+        (void) sd_bus_creds_get_session(c, &s);
         if (s)
                 fprintf(f, "%sSession=%s%s%s", prefix, color, s, suffix);
 
