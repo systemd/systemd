@@ -755,13 +755,11 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                         service->name = name;
                         service->path = fpath;
 
-                        r = load_sysv(service);
-                        if (r < 0)
-                                continue;
-
                         r = hashmap_put(all_services, service->name, service);
-                        if (r < 0)
+                        if (r < 0) {
+                                free(service);
                                 return log_oom();
+                        }
 
                         name = fpath = NULL;
                 }
@@ -940,6 +938,12 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Failed to read runlevels from rcnd links.");
                 return EXIT_FAILURE;
+        }
+
+        HASHMAP_FOREACH(service, all_services, j) {
+                q = load_sysv(service);
+                if (q < 0)
+                        continue;
         }
 
         HASHMAP_FOREACH(service, all_services, j) {
