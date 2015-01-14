@@ -2557,6 +2557,12 @@ static int setup_image(char **device_path, int *loop_nr) {
         return r;
 }
 
+#define PARTITION_TABLE_BLURB \
+        "Note that the disk image needs to either contain only a single MBR partition of\n" \
+        "type 0x83 that is marked bootable, or follow\n" \
+        "    http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n" \
+        "to be bootable with systemd-nspawn."
+
 static int dissect_image(
                 int fd,
                 char **root_device, bool *root_device_rw,
@@ -2584,6 +2590,7 @@ static int dissect_image(
         blkid_partlist pl;
         struct stat st;
         int r;
+        bool is_gpt, is_mbr;
 
         assert(fd >= 0);
         assert(root_device);
@@ -2612,8 +2619,9 @@ static int dissect_image(
         errno = 0;
         r = blkid_do_safeprobe(b);
         if (r == -2 || r == 1) {
-                log_error("Failed to identify any partition table on %s.\n"
-                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+                log_error("Failed to identify any partition table on\n"
+                          "    %s\n"
+                          PARTITION_TABLE_BLURB, arg_image);
                 return -EINVAL;
         } else if (r != 0) {
                 if (errno == 0)
@@ -2623,9 +2631,14 @@ static int dissect_image(
         }
 
         blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
-        if (!streq_ptr(pttype, "gpt")) {
-                log_error("Image %s does not carry a GUID Partition Table.\n"
-                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+
+        is_gpt = streq_ptr(pttype, "gpt");
+        is_mbr = streq_ptr(pttype, "dos");
+
+        if (!is_gpt && !is_mbr) {
+                log_error("No GPT or MBR partition table discovered on\n"
+                          "    %s\n"
+                          PARTITION_TABLE_BLURB, arg_image);
                 return -EINVAL;
         }
 
@@ -2665,9 +2678,8 @@ static int dissect_image(
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_udev_device_unref_ struct udev_device *q;
-                const char *stype, *node;
+                const char *node;
                 unsigned long long flags;
-                sd_id128_t type_id;
                 blkid_partition pp;
                 dev_t qn;
                 int nr;
@@ -2698,81 +2710,117 @@ static int dissect_image(
                         continue;
 
                 flags = blkid_partition_get_flags(pp);
-                if (flags & GPT_FLAG_NO_AUTO)
+                if (is_gpt && (flags & GPT_FLAG_NO_AUTO))
+                        continue;
+                if (is_mbr && (flags != 0x80)) /* Bootable flag */
                         continue;
 
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
                         continue;
 
-                stype = blkid_partition_get_type_string(pp);
-                if (!stype)
-                        continue;
+                if (is_gpt) {
+                        sd_id128_t type_id;
+                        const char *stype;
 
-                if (sd_id128_from_string(stype, &type_id) < 0)
-                        continue;
-
-                if (sd_id128_equal(type_id, GPT_HOME)) {
-
-                        if (home && nr >= home_nr)
+                        stype = blkid_partition_get_type_string(pp);
+                        if (!stype)
                                 continue;
 
-                        home_nr = nr;
-                        home_rw = !(flags & GPT_FLAG_READ_ONLY);
-
-                        free(home);
-                        home = strdup(node);
-                        if (!home)
-                                return log_oom();
-                } else if (sd_id128_equal(type_id, GPT_SRV)) {
-
-                        if (srv && nr >= srv_nr)
+                        if (sd_id128_from_string(stype, &type_id) < 0)
                                 continue;
 
-                        srv_nr = nr;
-                        srv_rw = !(flags & GPT_FLAG_READ_ONLY);
+                        if (sd_id128_equal(type_id, GPT_HOME)) {
 
-                        free(srv);
-                        srv = strdup(node);
-                        if (!srv)
-                                return log_oom();
-                }
+                                if (home && nr >= home_nr)
+                                        continue;
+
+                                home_nr = nr;
+                                home_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                                r = free_and_strdup(&home, node);
+                                if (r < 0)
+                                        return log_oom();
+
+                        } else if (sd_id128_equal(type_id, GPT_SRV)) {
+
+                                if (srv && nr >= srv_nr)
+                                        continue;
+
+                                srv_nr = nr;
+                                srv_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                                r = free_and_strdup(&srv, node);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 #ifdef GPT_ROOT_NATIVE
-                else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
 
-                        if (root && nr >= root_nr)
-                                continue;
+                                if (root && nr >= root_nr)
+                                        continue;
 
-                        root_nr = nr;
-                        root_rw = !(flags & GPT_FLAG_READ_ONLY);
+                                root_nr = nr;
+                                root_rw = !(flags & GPT_FLAG_READ_ONLY);
 
-                        free(root);
-                        root = strdup(node);
-                        if (!root)
-                                return log_oom();
-                }
+                                r = free_and_strdup(&root, node);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 #endif
 #ifdef GPT_ROOT_SECONDARY
-                else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
+                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
-                        if (secondary_root && nr >= secondary_root_nr)
+                                if (secondary_root && nr >= secondary_root_nr)
+                                        continue;
+
+                                secondary_root_nr = nr;
+                                secondary_root_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                                r = free_and_strdup(&secondary_root, node);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+#endif
+
+                } else if (is_mbr) {
+                        int type;
+
+                        type = blkid_partition_get_type(pp);
+                        if (type != 0x83) /* Linux partition */
                                 continue;
 
-                        secondary_root_nr = nr;
-                        secondary_root_rw = !(flags & GPT_FLAG_READ_ONLY);
+                        /* Note that there's a certain, intended
+                         * asymmetry here: while for GPT we simply
+                         * take the first valid partition and ignore
+                         * all others of the same type, for MBR we
+                         * fail if there are multiple suitable
+                         * partitions. This is because the GPT
+                         * partition types are defined by us, and
+                         * hence we can define their lookup semantics,
+                         * while for the MBR logic we reuse existing
+                         * definitions, and simply don't want to make
+                         * out the situation. */
 
+                        if (root) {
+                                log_error("Identified multiple bootable Linux 0x83 partitions on\n"
+                                          "    %s\n"
+                                          PARTITION_TABLE_BLURB, arg_image);
+                                return -EINVAL;
+                        }
 
-                        free(secondary_root);
-                        secondary_root = strdup(node);
-                        if (!secondary_root)
+                        root_nr = nr;
+
+                        r = free_and_strdup(&root, node);
+                        if (r < 0)
                                 return log_oom();
                 }
-#endif
         }
 
         if (!root && !secondary_root) {
-                log_error("Failed to identify root partition in disk image %s.\n"
-                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+                log_error("Failed to identify root partition in disk image\n"
+                          "    %s\n"
+                          PARTITION_TABLE_BLURB, arg_image);
                 return -EINVAL;
         }
 
