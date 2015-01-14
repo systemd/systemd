@@ -550,7 +550,6 @@ bool hostname_is_valid(const char *s) _pure_;
 char* hostname_cleanup(char *s, bool lowercase);
 
 bool machine_name_is_valid(const char *s) _pure_;
-bool image_name_is_valid(const char *s) _pure_;
 
 char* strshorten(char *s, size_t l);
 
@@ -1079,5 +1078,19 @@ int chattr_path(const char *p, bool b, unsigned mask);
 
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);
+
+typedef struct LockFile {
+        char *path;
+        int fd;
+        int operation;
+} LockFile;
+
+int make_lock_file(const char *p, int operation, LockFile *ret);
+int make_lock_file_for(const char *p, int operation, LockFile *ret);
+void release_lock_file(LockFile *f);
+
+#define _cleanup_release_lock_file_ _cleanup_(release_lock_file)
+
+#define LOCK_FILE_INIT { .fd = -1, .path = NULL }
 
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })

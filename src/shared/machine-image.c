@@ -28,6 +28,7 @@
 #include "btrfs-util.h"
 #include "path-util.h"
 #include "copy.h"
+#include "mkdir.h"
 #include "machine-image.h"
 
 static const char image_search_path[] =
@@ -340,11 +341,19 @@ void image_hashmap_free(Hashmap *map) {
 }
 
 int image_remove(Image *i) {
+        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        int r;
+
         assert(i);
 
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
+
+        /* Make sure we don't interfere with a running nspawn */
+        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        if (r < 0)
+                return r;
 
         switch (i->type) {
 
@@ -366,6 +375,7 @@ int image_remove(Image *i) {
 }
 
 int image_rename(Image *i, const char *new_name) {
+        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
         unsigned file_attr = 0;
         int r;
@@ -378,6 +388,18 @@ int image_rename(Image *i, const char *new_name) {
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
+
+        /* Make sure we don't interfere with a running nspawn */
+        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        if (r < 0)
+                return r;
+
+        /* Make sure nobody takes the new name, between the time we
+         * checked it is currently unused in all search paths, and the
+         * time we take possesion of it */
+        r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
+        if (r < 0)
+                return r;
 
         r = image_find(new_name, NULL);
         if (r < 0)
@@ -438,6 +460,7 @@ int image_rename(Image *i, const char *new_name) {
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
+        _cleanup_release_lock_file_ LockFile name_lock = LOCK_FILE_INIT;
         const char *new_path;
         int r;
 
@@ -445,6 +468,13 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         if (!image_name_is_valid(new_name))
                 return -EINVAL;
+
+        /* Make sure nobody takes the new name, between the time we
+         * checked it is currently unused in all search paths, and the
+         * time we take possesion of it */
+        r = image_name_lock(new_name, LOCK_EX|LOCK_NB, &name_lock);
+        if (r < 0)
+                return r;
 
         r = image_find(new_name, NULL);
         if (r < 0)
@@ -478,12 +508,18 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 }
 
 int image_read_only(Image *i, bool b) {
+        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
         assert(i);
 
         if (path_equal(i->path, "/") ||
             path_startswith(i->path, "/usr"))
                 return -EROFS;
+
+        /* Make sure we don't interfere with a running nspawn */
+        r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
+        if (r < 0)
+                return r;
 
         switch (i->type) {
 
@@ -531,6 +567,88 @@ int image_read_only(Image *i, bool b) {
         }
 
         return 0;
+}
+
+int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local) {
+        _cleanup_free_ char *p = NULL;
+        LockFile t = LOCK_FILE_INIT;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(global);
+        assert(local);
+
+        /* Locks an image path. This actually creates two locks: one
+         * "local" one, next to the image path itself, which might be
+         * shared via NFS. And another "global" one, in /run, that
+         * uses the device/inode number. This has the benefit that we
+         * can even lock a tree that is a mount point, correctly. */
+
+        if (path_equal(path, "/"))
+                return -EBUSY;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        if (stat(path, &st) >= 0) {
+                if (asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
+                        return -ENOMEM;
+        }
+
+        r = make_lock_file_for(path, operation, &t);
+        if (r < 0)
+                return r;
+
+        if (p) {
+                mkdir_p("/run/systemd/nspawn/locks", 0600);
+
+                r = make_lock_file(p, operation, global);
+                if (r < 0) {
+                        release_lock_file(&t);
+                        return r;
+                }
+        }
+
+        *local = t;
+        return 0;
+}
+
+int image_name_lock(const char *name, int operation, LockFile *ret) {
+        const char *p;
+
+        assert(name);
+        assert(ret);
+
+        /* Locks an image name, regardless of the precise path used. */
+
+        if (!image_name_is_valid(name))
+                return -EINVAL;
+
+        if (streq(name, ".host"))
+                return -EBUSY;
+
+        mkdir_p("/run/systemd/nspawn/locks", 0600);
+        p = strappenda("/run/systemd/nspawn/locks/name-", name);
+
+        return make_lock_file(p, operation, ret);
+}
+
+bool image_name_is_valid(const char *s) {
+        if (!filename_is_valid(s))
+                return false;
+
+        if (string_has_cc(s, NULL))
+                return false;
+
+        if (!utf8_is_valid(s))
+                return false;
+
+        /* Temporary files for atomically creating new files */
+        if (startswith(s, ".#"))
+                return false;
+
+        return true;
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {

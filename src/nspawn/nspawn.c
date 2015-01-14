@@ -3337,6 +3337,7 @@ int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int ret = EXIT_SUCCESS;
         union in_addr_union exposed = {};
+        _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
 
         log_parse_environment();
         log_open();
@@ -3382,20 +3383,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (arg_template) {
-                        r = btrfs_subvol_snapshot(arg_template, arg_directory, arg_read_only, true);
-                        if (r == -EEXIST) {
-                                if (!arg_quiet)
-                                        log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
-                        } else if (r < 0) {
-                                log_error_errno(r, "Couldn't create snapshort %s from %s: %m", arg_directory, arg_template);
-                                goto finish;
-                        } else {
-                                if (!arg_quiet)
-                                        log_info("Populated %s from template %s.", arg_directory, arg_template);
-                        }
-
-                } else if (arg_ephemeral) {
+                if (arg_ephemeral) {
+                        _cleanup_release_lock_file_ LockFile original_lock = LOCK_FILE_INIT;
                         char *np;
 
                         /* If the specified path is a mount point we
@@ -3418,6 +3407,12 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
+                        r = image_path_lock(np, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to lock %s: %m", np);
+                                goto finish;
+                        }
+
                         r = btrfs_subvol_snapshot(arg_directory, np, arg_read_only, true);
                         if (r < 0) {
                                 free(np);
@@ -3429,6 +3424,31 @@ int main(int argc, char *argv[]) {
                         arg_directory = np;
 
                         remove_subvol = true;
+
+                } else {
+                        r = image_path_lock(arg_directory, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                        if (r == -EBUSY) {
+                                log_error_errno(r, "Directory tree %s is currently busy.", arg_directory);
+                                goto finish;
+                        }
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to lock %s: %m", arg_directory);
+                                return r;
+                        }
+
+                        if (arg_template) {
+                                r = btrfs_subvol_snapshot(arg_template, arg_directory, arg_read_only, true);
+                                if (r == -EEXIST) {
+                                        if (!arg_quiet)
+                                                log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
+                                } else if (r < 0) {
+                                        log_error_errno(r, "Couldn't create snapshort %s from %s: %m", arg_directory, arg_template);
+                                        goto finish;
+                                } else {
+                                        if (!arg_quiet)
+                                                log_info("Populated %s from template %s.", arg_directory, arg_template);
+                                }
+                        }
                 }
 
                 if (arg_boot) {
@@ -3454,6 +3474,16 @@ int main(int argc, char *argv[]) {
 
                 assert(arg_image);
                 assert(!arg_template);
+
+                r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
+                if (r == -EBUSY) {
+                        r = log_error_errno(r, "Disk image %s is currently busy.", arg_image);
+                        goto finish;
+                }
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to create image lock: %m");
+                        goto finish;
+                }
 
                 if (!mkdtemp(template)) {
                         log_error_errno(errno, "Failed to create temporary directory: %m");
