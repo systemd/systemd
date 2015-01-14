@@ -248,10 +248,6 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0)
-                return EXIT_TEST_SKIP;
-
         assert_se(set_unit_path(TEST_DIR ":") >= 0);
 
         for (test = tests; test && *test; test++) {
