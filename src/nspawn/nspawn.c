@@ -1655,7 +1655,7 @@ static int watch_rtnl(sd_event *event, int recv_fd, union in_addr_union *exposed
         cmsg = CMSG_FIRSTHDR(&mh);
         assert(cmsg->cmsg_level == SOL_SOCKET);
         assert(cmsg->cmsg_type == SCM_RIGHTS);
-        assert(cmsg->cmsg_len = CMSG_LEN(sizeof(int)));
+        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
         memcpy(&fd, CMSG_DATA(cmsg), sizeof(int));
 
         r = sd_rtnl_open_fd(&rtnl, fd, 1, RTNLGRP_IPV4_IFADDR);
