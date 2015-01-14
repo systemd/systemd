@@ -120,6 +120,8 @@ static int image_make(
                 (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
         if (S_ISDIR(st.st_mode)) {
+                _cleanup_close_ int fd = -1;
+                unsigned file_attr = 0;
 
                 if (!ret)
                         return 1;
@@ -127,14 +129,13 @@ static int image_make(
                 if (!pretty)
                         pretty = filename;
 
+                fd = openat(dfd, filename, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                if (fd < 0)
+                        return -errno;
+
                 /* btrfs subvolumes have inode 256 */
                 if (st.st_ino == 256) {
-                        _cleanup_close_ int fd = -1;
                         struct statfs sfs;
-
-                        fd = openat(dfd, filename, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
-                        if (fd < 0)
-                                return -errno;
 
                         if (fstatfs(fd, &sfs) < 0)
                                 return -errno;
@@ -173,13 +174,17 @@ static int image_make(
                         }
                 }
 
-                /* It's just a normal directory. */
+                /* If the IMMUTABLE bit is set, we consider the
+                 * directory read-only. Since the ioctl is not
+                 * supported everywhere we ignore failures. */
+                (void) read_attr_fd(fd, &file_attr);
 
+                /* It's just a normal directory. */
                 r = image_new(IMAGE_DIRECTORY,
                               pretty,
                               path,
                               filename,
-                              read_only,
+                              read_only || (file_attr & FS_IMMUTABLE_FL),
                               0,
                               0,
                               ret);
@@ -347,6 +352,11 @@ int image_remove(Image *i) {
                 return btrfs_subvol_remove(i->path);
 
         case IMAGE_DIRECTORY:
+                /* Allow deletion of read-only directories */
+                (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+
+                /* fall through */
+
         case IMAGE_GPT:
                 return rm_rf_dangerous(i->path, false, true, false);
 
@@ -357,6 +367,7 @@ int image_remove(Image *i) {
 
 int image_rename(Image *i, const char *new_name) {
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
+        unsigned file_attr = 0;
         int r;
 
         assert(i);
@@ -376,8 +387,16 @@ int image_rename(Image *i, const char *new_name) {
 
         switch (i->type) {
 
-        case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
+                /* Turn of the immutable bit while we rename the image, so that we can rename it */
+                (void) read_attr_path(i->path, &file_attr);
+
+                if (file_attr & FS_IMMUTABLE_FL)
+                        (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
+
+                /* fall through */
+
+        case IMAGE_SUBVOLUME:
                 new_path = file_in_same_dir(i->path, new_name);
                 break;
 
@@ -402,6 +421,10 @@ int image_rename(Image *i, const char *new_name) {
 
         if (renameat2(AT_FDCWD, i->path, AT_FDCWD, new_path, RENAME_NOREPLACE) < 0)
                 return -errno;
+
+        /* Restore the immutable bit, if it was set before */
+        if (file_attr & FS_IMMUTABLE_FL)
+                (void) chattr_path(new_path, true, FS_IMMUTABLE_FL);
 
         free(i->path);
         i->path = new_path;
@@ -468,6 +491,22 @@ int image_read_only(Image *i, bool b) {
                 r = btrfs_subvol_set_read_only(i->path, b);
                 if (r < 0)
                         return r;
+
+                break;
+
+        case IMAGE_DIRECTORY:
+                /* For simple directory trees we cannot use the access
+                   mode of the top-level directory, since it has an
+                   effect on the container itself.  However, we can
+                   use the "immutable" flag, to at least make the
+                   top-level directory read-only. It's not as good as
+                   a read-only subvolume, but at least something, and
+                   we can read the value back.*/
+
+                r = chattr_path(i->path, b, FS_IMMUTABLE_FL);
+                if (r < 0)
+                        return r;
+
                 break;
 
         case IMAGE_GPT: {
@@ -487,7 +526,6 @@ int image_read_only(Image *i, bool b) {
                 break;
         }
 
-        case IMAGE_DIRECTORY:
         default:
                 return -ENOTSUP;
         }

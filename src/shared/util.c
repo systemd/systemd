@@ -7791,9 +7791,31 @@ int chattr_path(const char *p, bool b, unsigned mask) {
         if (mask == 0)
                 return 0;
 
-        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
         return chattr_fd(fd, b, mask);
+}
+
+int read_attr_fd(int fd, unsigned *ret) {
+        assert(fd >= 0);
+
+        if (ioctl(fd, FS_IOC_GETFLAGS, ret) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int read_attr_path(const char *p, unsigned *ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(p);
+        assert(ret);
+
+        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return read_attr_fd(fd, ret);
 }

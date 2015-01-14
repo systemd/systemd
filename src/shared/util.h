@@ -1077,4 +1077,7 @@ int same_fd(int a, int b);
 int chattr_fd(int fd, bool b, unsigned mask);
 int chattr_path(const char *p, bool b, unsigned mask);
 
+int read_attr_fd(int fd, unsigned *ret);
+int read_attr_path(const char *p, unsigned *ret);
+
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
