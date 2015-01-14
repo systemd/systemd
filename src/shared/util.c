@@ -7758,10 +7758,13 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-int chattr_fd(int fd, bool b, int mask) {
-        int old_attr, new_attr;
+int chattr_fd(int fd, bool b, unsigned mask) {
+        unsigned old_attr, new_attr;
 
         assert(fd >= 0);
+
+        if (mask == 0)
+                return 0;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
                 return -errno;
@@ -7780,8 +7783,13 @@ int chattr_fd(int fd, bool b, int mask) {
         return 0;
 }
 
-int chattr_path(const char *p, bool b, int mask) {
+int chattr_path(const char *p, bool b, unsigned mask) {
         _cleanup_close_ int fd = -1;
+
+        assert(p);
+
+        if (mask == 0)
+                return 0;
 
         fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
