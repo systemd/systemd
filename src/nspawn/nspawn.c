@@ -4034,7 +4034,7 @@ finish:
         if (arg_machine) {
                 const char *p;
 
-                p = strappenda("/run/systemd/nspawn/propagate", arg_machine);
+                p = strappenda("/run/systemd/nspawn/propagate/", arg_machine);
                 (void) rm_rf(p, false, true, false);
         }
 
