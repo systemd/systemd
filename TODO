@@ -47,7 +47,7 @@ Release 219 preparations:
 
 Features:
 
-* machine: we should fake a read-only flag for simple directory images via a flag file
+* rename "gpt" image type to "raw"
 
 * import: support import from local files, and export to local files
 
@@ -64,8 +64,6 @@ Features:
 * the dbus1 connection user id is actually the euid, not the uid, and creds should return that
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
-
-* nspawn should lock container images while running off them
 
 * logind,machined: add generic catch-all polkit verbs for most priviliged operations, similar to systemd itself
 
