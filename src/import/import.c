@@ -29,7 +29,7 @@
 #include "import-dkr.h"
 
 static bool arg_force = false;
-static const char *arg_image_root = "/var/lib/container";
+static const char *arg_image_root = "/var/lib/machines";
 
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 

@@ -171,7 +171,7 @@
                                 <option>--directory=</option>, nor
                                 <option>--image=</option> is specified
                                 the directory is determined as
-                                <filename>/var/lib/container/</filename>
+                                <filename>/var/lib/machines/</filename>
                                 suffixed by the machine name as
                                 specified with
                                 <option>--machine=</option>. If
@@ -247,10 +247,13 @@
                                 the root directory for the container
                                 from. Takes a path to a regular file
                                 or to a block device node. The file or
-                                block device must contain a GUID
-                                Partition Table with a root partition
-                                which is mounted as the root directory
-                                of the container. Optionally, it may
+                                block device must contain either an
+                                MBR partition table with a single
+                                partition of type 0x83 that is marked
+                                bootable, or a GUID partition table
+                                with a root partition which is mounted
+                                as the root directory of the
+                                container. Optionally, GPT images may
                                 contain a home and/or a server data
                                 partition which are mounted to the
                                 appropriate places in the
@@ -842,7 +845,7 @@
                 <example>
                         <title>Enable Arch Linux container on boot</title>
 
-                        <programlisting># mv ~/arch-tree /var/lib/container/arch
+                        <programlisting># mv ~/arch-tree /var/lib/machines/arch
 # systemctl enable systemd-nspawn@arch.service
 # systemctl start systemd-nspawn@arch.service</programlisting>
 

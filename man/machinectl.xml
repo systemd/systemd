@@ -291,10 +291,10 @@
                                 name. <command>systemd-nspawn</command>
                                 looks for a container image by the
                                 specified name in
-                                <filename>/var/lib/container</filename>
-                                and runs it. Use
-                                <command>list-images</command> (see
-                                below), for listing available
+                                <filename>/var/lib/machines/</filename>
+                                (and other search paths, see below) and runs
+                                it. Use <command>list-images</command>
+                                (see below), for listing available
                                 container images to start.</para>
 
                                 <para>Note that
@@ -488,7 +488,7 @@
                                 images. This enumerates all raw disk
                                 images and container directories and
                                 subvolumes in
-                                <filename>/var/lib/container/</filename>. Use
+                                <filename>/var/lib/machines/</filename> (and other search paths, see below). Use
                                 <command>start</command> (see above)
                                 to run a container off one of the
                                 listed images. Note that by default
@@ -593,6 +593,51 @@
 
                 </variablelist></refsect2>
 
+        </refsect1>
+
+        <refsect1>
+                <title>Files and Directories</title>
+
+                <para>Machine images are preferably stored in
+                <filename>/var/lib/machines/</filename>, but are also
+                searched for in
+                <filename>/usr/local/lib/machines/</filename> and
+                <filename>/usr/lib/machines/</filename>. For
+                compatibility reasons the directory
+                <filename>/var/lib/container/</filename> is searched,
+                too. Note that images stored below
+                <filename>/usr</filename> are always considered
+                read-only. It is possible to symlink machines images
+                from other directories into
+                <filename>/var/lib/machines/</filename> to make them
+                available for control with
+                <command>machinectl</command>.</para>
+
+                <para>Disk images are understood in three formats:</para>
+
+                <itemizedlist>
+                        <listitem><para>A simple directory tree,
+                        containing the files and directories of the
+                        container to boot.</para></listitem>
+
+                        <listitem><para>A subvolume (on btrfs file
+                        systems), which are similar to the simple
+                        directories, described above. However, they
+                        have additional benefits, such as efficient
+                        cloning and quota reporting.</para></listitem>
+
+                        <listitem><para>"Raw" disk images, i.e. binary
+                        images of disks with a GPT or MBR partition
+                        table. Images of this type are regular
+                        files with the suffix
+                        <literal>.raw</literal>.</para></listitem>
+                </itemizedlist>
+
+                <para>See
+                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                for more information on image formats, in particular
+                it's <option>--directory=</option> and
+                <option>--image=</option> options.</para>
         </refsect1>
 
         <refsect1>

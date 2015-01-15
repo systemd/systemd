@@ -110,7 +110,7 @@ static int image_make(
         assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to
-         * allow symlinking trees into /var/lib/container/, and treat
+         * allow symlinking trees into /var/lib/machines/, and treat
          * them normally. */
 
         if (fstatat(dfd, filename, &st, 0) < 0)
@@ -486,13 +486,13 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
-                new_path = strappenda("/var/lib/container/", new_name);
+                new_path = strappenda("/var/lib/machines/", new_name);
 
                 r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
                 break;
 
         case IMAGE_RAW:
-                new_path = strappenda("/var/lib/container/", new_name, ".raw");
+                new_path = strappenda("/var/lib/machines/", new_name, ".raw");
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
                 break;
