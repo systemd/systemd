@@ -942,32 +942,6 @@ int unlink_noerrno(const char *path);
                 _r_;                                                    \
         })
 
-struct _locale_struct_ {
-        locale_t saved_locale;
-        locale_t new_locale;
-        bool quit;
-};
-
-static inline void _reset_locale_(struct _locale_struct_ *s) {
-        PROTECT_ERRNO;
-        if (s->saved_locale != (locale_t) 0)
-                uselocale(s->saved_locale);
-        if (s->new_locale != (locale_t) 0)
-                freelocale(s->new_locale);
-}
-
-#define RUN_WITH_LOCALE(mask, loc) \
-        for (_cleanup_(_reset_locale_) struct _locale_struct_ _saved_locale_ = { (locale_t) 0, (locale_t) 0, false }; \
-             ({                                                         \
-                     if (!_saved_locale_.quit) {                        \
-                             PROTECT_ERRNO;                             \
-                             _saved_locale_.new_locale = newlocale((mask), (loc), (locale_t) 0); \
-                             if (_saved_locale_.new_locale != (locale_t) 0)     \
-                                     _saved_locale_.saved_locale = uselocale(_saved_locale_.new_locale); \
-                     }                                                  \
-                     !_saved_locale_.quit; }) ;                         \
-             _saved_locale_.quit = true)
-
 bool id128_is_valid(const char *s) _pure_;
 
 int split_pair(const char *s, const char *sep, char **l, char **r);

@@ -416,29 +416,31 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
 }
 
 int curl_parse_http_time(const char *t, usec_t *ret) {
+        const char *e;
+        locale_t loc;
         struct tm tm;
         time_t v;
 
         assert(t);
         assert(ret);
 
-        RUN_WITH_LOCALE(LC_TIME, "C") {
-                const char *e;
+        loc = newlocale(LC_TIME_MASK, "C", (locale_t) 0);
+        if (loc == (locale_t) 0)
+                return -errno;
 
-                /* RFC822 */
-                e = strptime(t, "%a, %d %b %Y %H:%M:%S %Z", &tm);
-                if (!e || *e != 0)
-                        /* RFC 850 */
-                        e = strptime(t, "%A, %d-%b-%y %H:%M:%S %Z", &tm);
-                if (!e || *e != 0)
-                        /* ANSI C */
-                        e = strptime(t, "%a %b %d %H:%M:%S %Y", &tm);
-                if (!e || *e != 0)
-                        return -EINVAL;
+        /* RFC822 */
+        e = strptime_l(t, "%a, %d %b %Y %H:%M:%S %Z", &tm, loc);
+        if (!e || *e != 0)
+                /* RFC 850 */
+                e = strptime_l(t, "%A, %d-%b-%y %H:%M:%S %Z", &tm, loc);
+        if (!e || *e != 0)
+                /* ANSI C */
+                e = strptime_l(t, "%a %b %d %H:%M:%S %Y", &tm, loc);
+        freelocale(loc);
+        if (!e || *e != 0)
+                return -EINVAL;
 
-                v = timegm(&tm);
-        }
-
+        v = timegm(&tm);
         if (v == (time_t) -1)
                 return -EINVAL;
 

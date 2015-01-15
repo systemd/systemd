@@ -507,18 +507,24 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 int safe_atod(const char *s, double *ret_d) {
         char *x = NULL;
         double d = 0;
+        locale_t loc;
 
         assert(s);
         assert(ret_d);
 
-        RUN_WITH_LOCALE(LC_NUMERIC_MASK, "C") {
-                errno = 0;
-                d = strtod(s, &x);
+        loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t) 0);
+        if (loc == (locale_t) 0)
+                return -errno;
+
+        errno = 0;
+        d = strtod_l(s, &x, loc);
+
+        if (!x || x == s || *x || errno) {
+                freelocale(loc);
+                return errno ? -errno : -EINVAL;
         }
 
-        if (!x || x == s || *x || errno)
-                return errno ? -errno : -EINVAL;
-
+        freelocale(loc);
         *ret_d = (double) d;
         return 0;
 }
