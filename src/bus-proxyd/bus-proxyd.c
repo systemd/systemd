@@ -570,6 +570,106 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
         return 0;
 }
 
+static int bus_new_destination(sd_bus **out, struct ucred *ucred, const char *peersec, bool negotiate_fds) {
+        _cleanup_bus_close_unref_ sd_bus *a = NULL;
+        int r;
+
+        r = sd_bus_new(&a);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
+
+        r = sd_bus_set_description(a, "sd-proxy");
+        if (r < 0)
+                return log_error_errno(r, "Failed to set bus name: %m");
+
+        r = sd_bus_set_address(a, arg_address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set address to connect to: %m");
+
+        r = sd_bus_negotiate_fds(a, negotiate_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set FD negotiation: %m");
+
+        r = sd_bus_negotiate_creds(a, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set credential negotiation: %m");
+
+        if (ucred->pid > 0) {
+                a->fake_pids.pid = ucred->pid;
+                a->fake_pids_valid = true;
+
+                a->fake_creds.uid = ucred->uid;
+                a->fake_creds.euid = UID_INVALID;
+                a->fake_creds.suid = UID_INVALID;
+                a->fake_creds.fsuid = UID_INVALID;
+                a->fake_creds.gid = ucred->gid;
+                a->fake_creds.egid = GID_INVALID;
+                a->fake_creds.sgid = GID_INVALID;
+                a->fake_creds.fsgid = GID_INVALID;
+                a->fake_creds_valid = true;
+        }
+
+        if (peersec) {
+                a->fake_label = strdup(peersec);
+                if (!a->fake_label)
+                        return log_oom();
+        }
+
+        a->manual_peer_interface = true;
+
+        r = sd_bus_start(a);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start bus client: %m");
+
+        *out = a;
+        a = NULL;
+        return 0;
+}
+
+static int bus_new_local(sd_bus **out, sd_bus *dest, int in_fd, int out_fd, bool negotiate_fds) {
+        _cleanup_bus_close_unref_ sd_bus *b = NULL;
+        sd_id128_t server_id;
+        int r;
+
+        r = sd_bus_new(&b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
+
+        r = sd_bus_set_fd(b, in_fd, out_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set fds: %m");
+
+        r = sd_bus_get_bus_id(dest, &server_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get server ID: %m");
+
+        r = sd_bus_set_server(b, 1, server_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set server mode: %m");
+
+        r = sd_bus_negotiate_fds(b, negotiate_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set FD negotiation: %m");
+
+        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set credential negotiation: %m");
+
+        r = sd_bus_set_anonymous(b, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set anonymous authentication: %m");
+
+        b->manual_peer_interface = true;
+
+        r = sd_bus_start(b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start bus client: %m");
+
+        *out = b;
+        b = NULL;
+        return 0;
+}
+
 static int mac_smack_apply_label_and_drop_cap_mac_admin(pid_t its_pid, const char *new_label) {
 #ifdef HAVE_SMACK
         int r = 0, k;
@@ -591,7 +691,6 @@ static int mac_smack_apply_label_and_drop_cap_mac_admin(pid_t its_pid, const cha
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
-        sd_id128_t server_id;
         int r, in_fd, out_fd;
         bool got_hello = false;
         bool is_unix;
@@ -658,69 +757,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_new(&a);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate bus: %m");
+        r = bus_new_destination(&a, &ucred, peersec, is_unix);
+        if (r < 0)
                 goto finish;
-        }
-
-        r = sd_bus_set_description(a, "sd-proxy");
-        if (r < 0) {
-                log_error_errno(r, "Failed to set bus name: %m");
-                goto finish;
-        }
-
-        r = sd_bus_set_address(a, arg_address);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set address to connect to: %m");
-                goto finish;
-        }
-
-        r = sd_bus_negotiate_fds(a, is_unix);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set FD negotiation: %m");
-                goto finish;
-        }
-
-        r = sd_bus_negotiate_creds(a, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set credential negotiation: %m");
-                goto finish;
-        }
-
-        if (ucred.pid > 0) {
-                a->fake_pids.pid = ucred.pid;
-                a->fake_pids_valid = true;
-
-                a->fake_creds.uid = ucred.uid;
-                a->fake_creds.euid = UID_INVALID;
-                a->fake_creds.suid = UID_INVALID;
-                a->fake_creds.fsuid = UID_INVALID;
-                a->fake_creds.gid = ucred.gid;
-                a->fake_creds.egid = GID_INVALID;
-                a->fake_creds.sgid = GID_INVALID;
-                a->fake_creds.fsgid = GID_INVALID;
-                a->fake_creds_valid = true;
-        }
-
-        if (peersec) {
-                a->fake_label = peersec;
-                peersec = NULL;
-        }
-
-        a->manual_peer_interface = true;
-
-        r = sd_bus_start(a);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start bus client: %m");
-                goto finish;
-        }
-
-        r = sd_bus_get_bus_id(a, &server_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get server ID: %m");
-                goto finish;
-        }
 
         if (a->is_kernel) {
                 if (!arg_configuration) {
@@ -774,49 +813,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = sd_bus_new(&b);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate bus: %m");
+        r = bus_new_local(&b, a, in_fd, out_fd, is_unix);
+        if (r < 0)
                 goto finish;
-        }
-
-        r = sd_bus_set_fd(b, in_fd, out_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set fds: %m");
-                goto finish;
-        }
-
-        r = sd_bus_set_server(b, 1, server_id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set server mode: %m");
-                goto finish;
-        }
-
-        r = sd_bus_negotiate_fds(b, is_unix);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set FD negotiation: %m");
-                goto finish;
-        }
-
-        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set credential negotiation: %m");
-                goto finish;
-        }
-
-        r = sd_bus_set_anonymous(b, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set anonymous authentication: %m");
-                goto finish;
-        }
-
-        b->manual_peer_interface = true;
-
-        r = sd_bus_start(b);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start bus client: %m");
-                goto finish;
-        }
 
         r = rename_service(a, b);
         if (r < 0)
