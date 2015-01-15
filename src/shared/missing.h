@@ -79,6 +79,12 @@
 #define F_SEAL_WRITE    0x0008  /* prevent writes */
 #endif
 
+#ifndef F_OFD_GETLK
+#define F_OFD_GETLK     36
+#define F_OFD_SETLK     37
+#define F_OFD_SETLKW    38
+#endif
+
 #ifndef MFD_ALLOW_SEALING
 #define MFD_ALLOW_SEALING 0x0002U
 #endif
