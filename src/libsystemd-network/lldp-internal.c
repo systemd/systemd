@@ -89,6 +89,7 @@ int lldp_read_port_id(tlv_packet *tlv,
         case LLDP_PORT_SUBTYPE_PORT_COMPONENT:
         case LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
         case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
+        case LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
 
                 r = tlv_packet_read_string(tlv, &s, length);
                 if (r < 0)
