@@ -272,6 +272,7 @@ install_keymaps() {
 
 install_fonts() {
     for i in \
+        /usr/lib/kbd/consolefonts/eurlatgr* \
         /usr/lib/kbd/consolefonts/latarcyrheb-sun16*; do
             [[ -f $i ]] || continue
             inst $i

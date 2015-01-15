@@ -127,7 +127,7 @@
                         <para><filename>/etc/vconsole.conf</filename>:</para>
 
                         <programlisting>KEYMAP=de-latin1
-FONT=latarcyrheb-sun16</programlisting>
+FONT=eurlatgr</programlisting>
                 </example>
 
         </refsect1>
