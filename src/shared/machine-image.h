@@ -27,7 +27,7 @@
 typedef enum ImageType {
         IMAGE_DIRECTORY,
         IMAGE_SUBVOLUME,
-        IMAGE_GPT,
+        IMAGE_RAW,
         _IMAGE_TYPE_MAX,
         _IMAGE_TYPE_INVALID = -1
 } ImageType;

@@ -25,7 +25,7 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
-#include "import-gpt.h"
+#include "import-raw.h"
 #include "import-dkr.h"
 
 static bool arg_force = false;
@@ -33,7 +33,7 @@ static const char *arg_image_root = "/var/lib/container";
 
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
-static void on_gpt_finished(GptImport *import, int error, void *userdata) {
+static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event *event = userdata;
         assert(import);
 
@@ -45,14 +45,14 @@ static void on_gpt_finished(GptImport *import, int error, void *userdata) {
         sd_event_exit(event, error);
 }
 
-static int pull_gpt(int argc, char *argv[], void *userdata) {
-        _cleanup_(gpt_import_unrefp) GptImport *import = NULL;
+static int pull_raw(int argc, char *argv[], void *userdata) {
+        _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *url, *local, *suffix;
         int r;
 
         url = argv[1];
-        if (!gpt_url_is_valid(url)) {
+        if (!raw_url_is_valid(url)) {
                 log_error("URL '%s' is not valid.", url);
                 return -EINVAL;
         }
@@ -79,7 +79,7 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
         if (local) {
                 const char *p;
 
-                suffix = endswith(local, ".gpt");
+                suffix = endswith(local, ".raw");
                 if (suffix)
                         local = strndupa(local, suffix - local);
 
@@ -88,7 +88,7 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
                         return -EINVAL;
                 }
 
-                p = strappenda(arg_image_root, "/", local, ".gpt");
+                p = strappenda(arg_image_root, "/", local, ".raw");
                 if (laccess(p, F_OK) >= 0) {
                         if (!arg_force) {
                                 log_info("Image '%s' already exists.", local);
@@ -109,11 +109,11 @@ static int pull_gpt(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
-        r = gpt_import_new(&import, event, arg_image_root, on_gpt_finished, event);
+        r = raw_import_new(&import, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = gpt_import_pull(import, url, local, arg_force);
+        r = raw_import_pull(import, url, local, arg_force);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -238,7 +238,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
                "  pull-dkr REMOTE [NAME]      Download a DKR image\n"
-               "  pull-gpt URL [NAME]         Download a GPT image\n",
+               "  pull-raw URL [NAME]         Download a RAW image\n",
                program_invocation_short_name);
 
         return 0;
@@ -311,7 +311,7 @@ static int import_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",     VERB_ANY, VERB_ANY, 0, help     },
                 { "pull-dkr", 2,        3,        0, pull_dkr },
-                { "pull-gpt", 2,        3,        0, pull_gpt },
+                { "pull-raw", 2,        3,        0, pull_raw },
                 {}
         };
 

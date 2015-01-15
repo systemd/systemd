@@ -194,10 +194,10 @@ static int image_make(
 
                 return 1;
 
-        } else if (S_ISREG(st.st_mode) && endswith(filename, ".gpt")) {
+        } else if (S_ISREG(st.st_mode) && endswith(filename, ".raw")) {
                 usec_t crtime = 0;
 
-                /* It's a GPT block device */
+                /* It's a RAW disk image */
 
                 if (!ret)
                         return 1;
@@ -207,7 +207,7 @@ static int image_make(
                 if (!pretty)
                         pretty = strndupa(filename, strlen(filename) - 4);
 
-                r = image_new(IMAGE_GPT,
+                r = image_new(IMAGE_RAW,
                               pretty,
                               path,
                               filename,
@@ -250,13 +250,13 @@ int image_find(const char *name, Image **ret) {
 
                 r = image_make(NULL, dirfd(d), path, name, ret);
                 if (r == 0 || r == -ENOENT) {
-                        _cleanup_free_ char *gpt = NULL;
+                        _cleanup_free_ char *raw = NULL;
 
-                        gpt = strappend(name, ".gpt");
-                        if (!gpt)
+                        raw = strappend(name, ".raw");
+                        if (!raw)
                                 return -ENOMEM;
 
-                        r = image_make(NULL, dirfd(d), path, gpt, ret);
+                        r = image_make(NULL, dirfd(d), path, raw, ret);
                         if (r == 0 || r == -ENOENT)
                                 continue;
                 }
@@ -366,7 +366,7 @@ int image_remove(Image *i) {
 
                 /* fall through */
 
-        case IMAGE_GPT:
+        case IMAGE_RAW:
                 return rm_rf_dangerous(i->path, false, true, false);
 
         default:
@@ -422,10 +422,10 @@ int image_rename(Image *i, const char *new_name) {
                 new_path = file_in_same_dir(i->path, new_name);
                 break;
 
-        case IMAGE_GPT: {
+        case IMAGE_RAW: {
                 const char *fn;
 
-                fn = strappenda(new_name, ".gpt");
+                fn = strappenda(new_name, ".raw");
                 new_path = file_in_same_dir(i->path, fn);
                 break;
         }
@@ -491,8 +491,8 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
                 break;
 
-        case IMAGE_GPT:
-                new_path = strappenda("/var/lib/container/", new_name, ".gpt");
+        case IMAGE_RAW:
+                new_path = strappenda("/var/lib/container/", new_name, ".raw");
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
                 break;
@@ -545,7 +545,7 @@ int image_read_only(Image *i, bool b) {
 
                 break;
 
-        case IMAGE_GPT: {
+        case IMAGE_RAW: {
                 struct stat st;
 
                 if (stat(i->path, &st) < 0)
@@ -654,7 +654,7 @@ bool image_name_is_valid(const char *s) {
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
-        [IMAGE_GPT] = "gpt",
+        [IMAGE_RAW] = "raw",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);

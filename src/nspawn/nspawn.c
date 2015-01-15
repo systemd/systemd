@@ -3321,7 +3321,7 @@ static int determine_names(void) {
                                 return -ENOENT;
                         }
 
-                        if (i->type == IMAGE_GPT)
+                        if (i->type == IMAGE_RAW)
                                 r = set_sanitized_path(&arg_image, i->path);
                         else
                                 r = set_sanitized_path(&arg_directory, i->path);

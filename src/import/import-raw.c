@@ -26,14 +26,14 @@
 #include "hashmap.h"
 #include "utf8.h"
 #include "curl-util.h"
-#include "import-gpt.h"
+#include "import-raw.h"
 #include "strv.h"
 #include "copy.h"
 
-typedef struct GptImportFile GptImportFile;
+typedef struct RawImportFile RawImportFile;
 
-struct GptImportFile {
-        GptImport *import;
+struct RawImportFile {
+        RawImport *import;
 
         char *url;
         char *local;
@@ -57,14 +57,14 @@ struct GptImportFile {
         int disk_fd;
 };
 
-struct GptImport {
+struct RawImport {
         sd_event *event;
         CurlGlue *glue;
 
         char *image_root;
         Hashmap *files;
 
-        gpt_import_on_finished on_finished;
+        raw_import_on_finished on_finished;
         void *userdata;
 
         bool finished;
@@ -72,7 +72,7 @@ struct GptImport {
 
 #define FILENAME_ESCAPE "/.#\"\'"
 
-static GptImportFile *gpt_import_file_unref(GptImportFile *f) {
+static RawImportFile *raw_import_file_unref(RawImportFile *f) {
         if (!f)
                 return NULL;
 
@@ -98,9 +98,9 @@ static GptImportFile *gpt_import_file_unref(GptImportFile *f) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(GptImportFile*, gpt_import_file_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(RawImportFile*, raw_import_file_unref);
 
-static void gpt_import_finish(GptImport *import, int error) {
+static void raw_import_finish(RawImport *import, int error) {
         assert(import);
 
         if (import->finished)
@@ -114,7 +114,7 @@ static void gpt_import_finish(GptImport *import, int error) {
                 sd_event_exit(import->event, error);
 }
 
-static int gpt_import_file_make_final_path(GptImportFile *f) {
+static int raw_import_file_make_final_path(RawImportFile *f) {
         _cleanup_free_ char *escaped_url = NULL, *escaped_etag = NULL;
 
         assert(f);
@@ -131,16 +131,16 @@ static int gpt_import_file_make_final_path(GptImportFile *f) {
                 if (!escaped_etag)
                         return -ENOMEM;
 
-                f->final_path = strjoin(f->import->image_root, "/.gpt-", escaped_url, ".", escaped_etag, ".gpt", NULL);
+                f->final_path = strjoin(f->import->image_root, "/.raw-", escaped_url, ".", escaped_etag, ".raw", NULL);
         } else
-                f->final_path = strjoin(f->import->image_root, "/.gpt-", escaped_url, ".gpt", NULL);
+                f->final_path = strjoin(f->import->image_root, "/.raw-", escaped_url, ".raw", NULL);
         if (!f->final_path)
                 return -ENOMEM;
 
         return 0;
 }
 
-static void gpt_import_file_success(GptImportFile *f) {
+static void raw_import_file_success(RawImportFile *f) {
         int r;
 
         assert(f);
@@ -158,7 +158,7 @@ static void gpt_import_file_success(GptImportFile *f) {
                                 goto finish;
                         }
                 } else {
-                        r = gpt_import_file_make_final_path(f);
+                        r = raw_import_file_make_final_path(f);
                         if (r < 0) {
                                 log_oom();
                                 goto finish;
@@ -171,7 +171,7 @@ static void gpt_import_file_success(GptImportFile *f) {
                         }
                 }
 
-                p = strappenda(f->import->image_root, "/", f->local, ".gpt");
+                p = strappenda(f->import->image_root, "/", f->local, ".raw");
                 if (f->force_local)
                         (void) rm_rf_dangerous(p, false, true, false);
 
@@ -221,11 +221,11 @@ static void gpt_import_file_success(GptImportFile *f) {
         r = 0;
 
 finish:
-        gpt_import_finish(f->import, r);
+        raw_import_finish(f->import, r);
 }
 
-static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
-        GptImportFile *f = NULL;
+static void raw_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
+        RawImportFile *f = NULL;
         struct stat st;
         CURLcode code;
         long status;
@@ -252,7 +252,7 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 goto fail;
         } else if (status == 304) {
                 log_info("Image already downloaded. Skipping download.");
-                gpt_import_file_success(f);
+                raw_import_file_success(f);
                 return;
         } else if (status >= 300) {
                 log_error("HTTP request to %s failed with code %li.", f->url, status);
@@ -305,7 +305,7 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
 
         r = rename(f->temp_path, f->final_path);
         if (r < 0) {
-                r = log_error_errno(errno, "Failed to move GPT file into place: %m");
+                r = log_error_errno(errno, "Failed to move RAW file into place: %m");
                 goto fail;
         }
 
@@ -314,14 +314,14 @@ static void gpt_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
 
         log_info("Completed writing vendor image %s.", f->final_path);
 
-        gpt_import_file_success(f);
+        raw_import_file_success(f);
         return;
 
 fail:
-        gpt_import_finish(f->import, r);
+        raw_import_finish(f->import, r);
 }
 
-static int gpt_import_file_open_disk_for_write(GptImportFile *f) {
+static int raw_import_file_open_disk_for_write(RawImportFile *f) {
         int r;
 
         assert(f);
@@ -329,7 +329,7 @@ static int gpt_import_file_open_disk_for_write(GptImportFile *f) {
         if (f->disk_fd >= 0)
                 return 0;
 
-        r = gpt_import_file_make_final_path(f);
+        r = raw_import_file_make_final_path(f);
         if (r < 0)
                 return log_oom();
 
@@ -346,8 +346,8 @@ static int gpt_import_file_open_disk_for_write(GptImportFile *f) {
         return 0;
 }
 
-static size_t gpt_import_file_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        GptImportFile *f = userdata;
+static size_t raw_import_file_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        RawImportFile *f = userdata;
         size_t sz = size * nmemb;
         ssize_t n;
         int r;
@@ -360,7 +360,7 @@ static size_t gpt_import_file_write_callback(void *contents, size_t size, size_t
                 goto fail;
         }
 
-        r = gpt_import_file_open_disk_for_write(f);
+        r = raw_import_file_open_disk_for_write(f);
         if (r < 0)
                 goto fail;
 
@@ -394,12 +394,12 @@ static size_t gpt_import_file_write_callback(void *contents, size_t size, size_t
         return sz;
 
 fail:
-        gpt_import_finish(f->import, r);
+        raw_import_finish(f->import, r);
         return 0;
 }
 
-static size_t gpt_import_file_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        GptImportFile *f = userdata;
+static size_t raw_import_file_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        RawImportFile *f = userdata;
         size_t sz = size * nmemb;
         _cleanup_free_ char *length = NULL, *last_modified = NULL;
         char *etag;
@@ -424,7 +424,7 @@ static size_t gpt_import_file_header_callback(void *contents, size_t size, size_
 
                 if (strv_contains(f->old_etags, f->etag)) {
                         log_info("Image already downloaded. Skipping download.");
-                        gpt_import_file_success(f);
+                        raw_import_file_success(f);
                         return sz;
                 }
 
@@ -454,7 +454,7 @@ static size_t gpt_import_file_header_callback(void *contents, size_t size, size_
         return sz;
 
 fail:
-        gpt_import_finish(f->import, r);
+        raw_import_finish(f->import, r);
         return 0;
 }
 
@@ -469,7 +469,7 @@ static bool etag_is_valid(const char *etag) {
         return true;
 }
 
-static int gpt_import_file_find_old_etags(GptImportFile *f) {
+static int raw_import_file_find_old_etags(RawImportFile *f) {
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -495,7 +495,7 @@ static int gpt_import_file_find_old_etags(GptImportFile *f) {
                     de->d_type != DT_REG)
                         continue;
 
-                a = startswith(de->d_name, ".gpt-");
+                a = startswith(de->d_name, ".raw-");
                 if (!a)
                         continue;
 
@@ -507,7 +507,7 @@ static int gpt_import_file_find_old_etags(GptImportFile *f) {
                 if (!a)
                         continue;
 
-                b = endswith(de->d_name, ".gpt");
+                b = endswith(de->d_name, ".raw");
                 if (!b)
                         continue;
 
@@ -531,7 +531,7 @@ static int gpt_import_file_find_old_etags(GptImportFile *f) {
         return 0;
 }
 
-static int gpt_import_file_begin(GptImportFile *f) {
+static int raw_import_file_begin(RawImportFile *f) {
         int r;
 
         assert(f);
@@ -539,7 +539,7 @@ static int gpt_import_file_begin(GptImportFile *f) {
 
         log_info("Getting %s.", f->url);
 
-        r = gpt_import_file_find_old_etags(f);
+        r = raw_import_file_find_old_etags(f);
         if (r < 0)
                 return r;
 
@@ -566,13 +566,13 @@ static int gpt_import_file_begin(GptImportFile *f) {
                         return -EIO;
         }
 
-        if (curl_easy_setopt(f->curl, CURLOPT_WRITEFUNCTION, gpt_import_file_write_callback) != CURLE_OK)
+        if (curl_easy_setopt(f->curl, CURLOPT_WRITEFUNCTION, raw_import_file_write_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(f->curl, CURLOPT_WRITEDATA, f) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(f->curl, CURLOPT_HEADERFUNCTION, gpt_import_file_header_callback) != CURLE_OK)
+        if (curl_easy_setopt(f->curl, CURLOPT_HEADERFUNCTION, raw_import_file_header_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(f->curl, CURLOPT_HEADERDATA, f) != CURLE_OK)
@@ -585,14 +585,14 @@ static int gpt_import_file_begin(GptImportFile *f) {
         return 0;
 }
 
-int gpt_import_new(GptImport **import, sd_event *event, const char *image_root, gpt_import_on_finished on_finished, void *userdata) {
-        _cleanup_(gpt_import_unrefp) GptImport *i = NULL;
+int raw_import_new(RawImport **import, sd_event *event, const char *image_root, raw_import_on_finished on_finished, void *userdata) {
+        _cleanup_(raw_import_unrefp) RawImport *i = NULL;
         int r;
 
         assert(import);
         assert(image_root);
 
-        i = new0(GptImport, 1);
+        i = new0(RawImport, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -615,7 +615,7 @@ int gpt_import_new(GptImport **import, sd_event *event, const char *image_root, 
         if (r < 0)
                 return r;
 
-        i->glue->on_finished = gpt_import_curl_on_finished;
+        i->glue->on_finished = raw_import_curl_on_finished;
         i->glue->userdata = i;
 
         *import = i;
@@ -624,14 +624,14 @@ int gpt_import_new(GptImport **import, sd_event *event, const char *image_root, 
         return 0;
 }
 
-GptImport* gpt_import_unref(GptImport *import) {
-        GptImportFile *f;
+RawImport* raw_import_unref(RawImport *import) {
+        RawImportFile *f;
 
         if (!import)
                 return NULL;
 
         while ((f = hashmap_steal_first(import->files)))
-                gpt_import_file_unref(f);
+                raw_import_file_unref(f);
         hashmap_free(import->files);
 
         curl_glue_unref(import->glue);
@@ -643,8 +643,8 @@ GptImport* gpt_import_unref(GptImport *import) {
         return NULL;
 }
 
-int gpt_import_cancel(GptImport *import, const char *url) {
-        GptImportFile *f;
+int raw_import_cancel(RawImport *import, const char *url) {
+        RawImportFile *f;
 
         assert(import);
         assert(url);
@@ -653,16 +653,16 @@ int gpt_import_cancel(GptImport *import, const char *url) {
         if (!f)
                 return 0;
 
-        gpt_import_file_unref(f);
+        raw_import_file_unref(f);
         return 1;
 }
 
-int gpt_import_pull(GptImport *import, const char *url, const char *local, bool force_local) {
-        _cleanup_(gpt_import_file_unrefp) GptImportFile *f = NULL;
+int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local) {
+        _cleanup_(raw_import_file_unrefp) RawImportFile *f = NULL;
         int r;
 
         assert(import);
-        assert(gpt_url_is_valid(url));
+        assert(raw_url_is_valid(url));
         assert(!local || machine_name_is_valid(local));
 
         if (hashmap_get(import->files, url))
@@ -672,7 +672,7 @@ int gpt_import_pull(GptImport *import, const char *url, const char *local, bool 
         if (r < 0)
                 return r;
 
-        f = new0(GptImportFile, 1);
+        f = new0(RawImportFile, 1);
         if (!f)
                 return -ENOMEM;
 
@@ -696,9 +696,9 @@ int gpt_import_pull(GptImport *import, const char *url, const char *local, bool 
         if (r < 0)
                 return r;
 
-        r = gpt_import_file_begin(f);
+        r = raw_import_file_begin(f);
         if (r < 0) {
-                gpt_import_cancel(import, f->url);
+                raw_import_cancel(import, f->url);
                 f = NULL;
                 return r;
         }
@@ -707,7 +707,7 @@ int gpt_import_pull(GptImport *import, const char *url, const char *local, bool 
         return 0;
 }
 
-bool gpt_url_is_valid(const char *url) {
+bool raw_url_is_valid(const char *url) {
         if (isempty(url))
                 return false;
 
