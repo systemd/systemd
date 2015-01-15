@@ -1029,7 +1029,7 @@ static int mount_cgroup(const char *dest) {
                                 return r;
 
                         if (symlink(combined, target) < 0)
-                                return log_error_errno(errno, "Failed to create symlink for combined hiearchy: %m");
+                                return log_error_errno(errno, "Failed to create symlink for combined hierarchy: %m");
                 }
         }
 
@@ -3490,7 +3490,7 @@ int main(int argc, char *argv[]) {
                                         if (!arg_quiet)
                                                 log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
                                 } else if (r < 0) {
-                                        log_error_errno(r, "Couldn't create snapshort %s from %s: %m", arg_directory, arg_template);
+                                        log_error_errno(r, "Couldn't create snapshot %s from %s: %m", arg_directory, arg_template);
                                         goto finish;
                                 } else {
                                         if (!arg_quiet)
