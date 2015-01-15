@@ -4,6 +4,7 @@
  * Copyright (C) 2009 Martin Pitt <martin.pitt@ubuntu.com>
  * Portions Copyright (C) 2004 David Zeuthen, <david@fubar.dk>
  * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,12 +49,17 @@ static void get_cap_mask(struct udev_device *dev,
                          struct udev_device *pdev, const char* attr,
                          unsigned long *bitmask, size_t bitmask_size,
                          bool test) {
+        const char *v;
         char text[4096];
         unsigned i;
         char* word;
         unsigned long val;
 
-        snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
+        v = udev_device_get_sysattr_value(pdev, attr);
+        if (!v)
+                v = "";
+
+        snprintf(text, sizeof(text), "%s", v);
         log_debug("%s raw kernel attribute: %s", attr, text);
 
         memzero(bitmask, bitmask_size);
