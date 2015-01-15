@@ -28,3 +28,4 @@ int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...);
 int synthetic_reply_return_strv(sd_bus_message *call, char **l);
 int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error *e);
 int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p);
+int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m);
