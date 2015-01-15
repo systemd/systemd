@@ -31,23 +31,15 @@ External:
 
 Release 219 preparations:
 
-* support mbr raw disk images in systemd-nspawn, so that we can boot
-  fedora cloud images unmodified (change suffix for search for files
-  .gpt → .raw).
-
 * dkr import hash verification
 
 * rework journald sigbus stuff to use mutex
 
 * create importd daemon, move "systemd-import" tool into machinectl
 
-* change default container location from /var/lib/container to /var/lib/machines
-
 * merge input_id and evdev_id into generic input_id
 
 Features:
-
-* rename "gpt" image type to "raw"
 
 * import: support import from local files, and export to local files
 
