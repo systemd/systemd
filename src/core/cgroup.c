@@ -292,7 +292,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         if (mask == 0)
                 return;
 
-        /* Some cgroup attributes are not support on the root cgroup,
+        /* Some cgroup attributes are not supported on the root cgroup,
          * hence silently ignore */
         is_root = isempty(path) || path_equal(path, "/");
         if (is_root)
