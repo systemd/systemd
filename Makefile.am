@@ -5524,6 +5524,11 @@ test_network_tables_LDADD = \
 	libsystemd-networkd-core.la \
 	libudev-core.la
 
+if HAVE_LIBIPTC
+test_network_tables_LDADD += \
+	libsystemd-fw.la
+endif
+
 tests += \
 	test-network \
 	test-network-tables
