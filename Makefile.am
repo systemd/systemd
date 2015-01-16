@@ -5237,13 +5237,15 @@ systemd_import_SOURCES = \
 
 systemd_import_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(LIBCURL_CFLAGS)
+	$(LIBCURL_CFLAGS) \
+	$(XZ_CFLAGS)
 
 systemd_import_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \
-	$(LIBCURL_LIBS)
+	$(LIBCURL_LIBS) \
+	$(XZ_LIBS)
 endif
 
 endif

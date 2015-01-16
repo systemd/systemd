@@ -79,7 +79,11 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (local) {
                 const char *p;
 
-                suffix = endswith(local, ".raw");
+                suffix = endswith(local, ".raw.xz");
+                if (!suffix)
+                        suffix = endswith(local, ".raw");
+                if (!suffix)
+                        suffix = endswith(local, ".xz");
                 if (suffix)
                         local = strndupa(local, suffix - local);
 

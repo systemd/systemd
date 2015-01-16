@@ -22,6 +22,7 @@
 #include <sys/xattr.h>
 #include <linux/fs.h>
 #include <curl/curl.h>
+#include <lzma.h>
 
 #include "hashmap.h"
 #include "utf8.h"
@@ -47,7 +48,11 @@ struct RawImportFile {
         char **old_etags;
 
         uint64_t content_length;
-        uint64_t written;
+        uint64_t written_compressed;
+        uint64_t written_uncompressed;
+
+        void *payload;
+        size_t payload_size;
 
         usec_t mtime;
 
@@ -55,6 +60,9 @@ struct RawImportFile {
         bool done;
 
         int disk_fd;
+
+        lzma_stream lzma;
+        bool compressed;
 };
 
 struct RawImport {
@@ -71,6 +79,8 @@ struct RawImport {
 };
 
 #define FILENAME_ESCAPE "/.#\"\'"
+
+#define RAW_MAX_SIZE (1024LLU*1024LLU*1024LLU*8) /* 8 GB */
 
 static RawImportFile *raw_import_file_unref(RawImportFile *f) {
         if (!f)
@@ -93,6 +103,7 @@ static RawImportFile *raw_import_file_unref(RawImportFile *f) {
         free(f->local);
         free(f->etag);
         strv_free(f->old_etags);
+        free(f->payload);
         free(f);
 
         return NULL;
@@ -271,7 +282,7 @@ static void raw_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
         }
 
         if (f->content_length != (uint64_t) -1 &&
-            f->content_length != f->written) {
+            f->content_length != f->written_compressed) {
                 log_error("Download truncated.");
                 r = -EIO;
                 goto fail;
@@ -346,10 +357,131 @@ static int raw_import_file_open_disk_for_write(RawImportFile *f) {
         return 0;
 }
 
+static int raw_import_file_write_uncompressed(RawImportFile *f, void *p, size_t sz) {
+        ssize_t n;
+
+        assert(f);
+        assert(p);
+        assert(sz > 0);
+        assert(f->disk_fd >= 0);
+
+        if (f->written_uncompressed + sz < f->written_uncompressed) {
+                log_error("File too large, overflow");
+                return -EOVERFLOW;
+        }
+
+        if (f->written_uncompressed + sz > RAW_MAX_SIZE) {
+                log_error("File overly large, refusing");
+                return -EFBIG;
+        }
+
+        n = write(f->disk_fd, p, sz);
+        if (n < 0) {
+                log_error_errno(errno, "Failed to write file: %m");
+                return -errno;
+        }
+        if ((size_t) n < sz) {
+                log_error("Short write");
+                return -EIO;
+        }
+
+        f->written_uncompressed += sz;
+
+        return 0;
+}
+
+static int raw_import_file_write_compressed(RawImportFile *f, void *p, size_t sz) {
+        int r;
+
+        assert(f);
+        assert(p);
+        assert(sz > 0);
+        assert(f->disk_fd >= 0);
+
+        if (f->written_compressed + sz < f->written_compressed) {
+                log_error("File too large, overflow");
+                return -EOVERFLOW;
+        }
+
+        if (f->content_length != (uint64_t) -1 &&
+            f->written_compressed + sz > f->content_length) {
+                log_error("Content length incorrect.");
+                return -EFBIG;
+        }
+
+        if (!f->compressed) {
+                r = raw_import_file_write_uncompressed(f, p, sz);
+                if (r < 0)
+                        return r;
+        } else {
+                f->lzma.next_in = p;
+                f->lzma.avail_in = sz;
+
+                while (f->lzma.avail_in > 0) {
+                        uint8_t buffer[16 * 1024];
+                        lzma_ret lzr;
+
+                        f->lzma.next_out = buffer;
+                        f->lzma.avail_out = sizeof(buffer);
+
+                        lzr = lzma_code(&f->lzma, LZMA_RUN);
+                        if (lzr != LZMA_OK && lzr != LZMA_STREAM_END) {
+                                log_error("Decompression error.");
+                                return -EIO;
+                        }
+
+                        r = raw_import_file_write_uncompressed(f, buffer, sizeof(buffer) - f->lzma.avail_out);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        f->written_compressed += sz;
+
+        return 0;
+}
+
+static int raw_import_file_detect_xz(RawImportFile *f) {
+        static const uint8_t xz_signature[] = {
+                '\xfd', '7', 'z', 'X', 'Z', '\x00'
+        };
+        lzma_ret lzr;
+        int r;
+
+        assert(f);
+
+        if (f->payload_size < sizeof(xz_signature))
+                return 0;
+
+        f->compressed = memcmp(f->payload, xz_signature, sizeof(xz_signature)) == 0;
+        log_debug("Stream is XZ compressed: %s", yes_no(f->compressed));
+
+        if (f->compressed) {
+                lzr = lzma_stream_decoder(&f->lzma, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK);
+                if (lzr != LZMA_OK) {
+                        log_error("Failed to initialize LZMA decoder.");
+                        return -EIO;
+                }
+        }
+
+        r = raw_import_file_open_disk_for_write(f);
+        if (r < 0)
+                return r;
+
+        r = raw_import_file_write_compressed(f, f->payload, f->payload_size);
+        if (r < 0)
+                return r;
+
+        free(f->payload);
+        f->payload = NULL;
+        f->payload_size = 0;
+
+        return 0;
+}
+
 static size_t raw_import_file_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         RawImportFile *f = userdata;
         size_t sz = size * nmemb;
-        ssize_t n;
         int r;
 
         assert(contents);
@@ -360,36 +492,31 @@ static size_t raw_import_file_write_callback(void *contents, size_t size, size_t
                 goto fail;
         }
 
-        r = raw_import_file_open_disk_for_write(f);
+        if (f->disk_fd < 0) {
+                uint8_t *p;
+
+                /* We haven't opened the file yet, let's first check what it actually is */
+
+                p = realloc(f->payload, f->payload_size + sz);
+                if (!p) {
+                        r = log_oom();
+                        goto fail;
+                }
+
+                memcpy(p + f->payload_size, contents, sz);
+                f->payload_size = sz;
+                f->payload = p;
+
+                r = raw_import_file_detect_xz(f);
+                if (r < 0)
+                        goto fail;
+
+                return sz;
+        }
+
+        r = raw_import_file_write_compressed(f, contents, sz);
         if (r < 0)
                 goto fail;
-
-        if (f->written + sz < f->written) {
-                log_error("File too large, overflow");
-                r = -EOVERFLOW;
-                goto fail;
-        }
-
-        if (f->content_length != (uint64_t) -1 &&
-            f->written + sz > f->content_length) {
-                log_error("Content length incorrect.");
-                r = -EFBIG;
-                goto fail;
-        }
-
-        n = write(f->disk_fd, contents, sz);
-        if (n < 0) {
-                log_error_errno(errno, "Failed to write file: %m");
-                goto fail;
-        }
-
-        if ((size_t) n < sz) {
-                log_error("Short write");
-                r = -EIO;
-                goto fail;
-        }
-
-        f->written += sz;
 
         return sz;
 
@@ -438,6 +565,12 @@ static size_t raw_import_file_header_callback(void *contents, size_t size, size_
         }
         if (r > 0) {
                 (void) safe_atou64(length, &f->content_length);
+
+                if (f->content_length != (uint64_t) -1) {
+                        char bytes[FORMAT_BYTES_MAX];
+                        log_info("Downloading %s.", format_bytes(bytes, sizeof(bytes), f->content_length));
+                }
+
                 return sz;
         }
 
