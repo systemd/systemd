@@ -1352,8 +1352,12 @@ manual_tests += \
 	test-watchdog \
 	test-log \
 	test-ipcrm \
-	test-btrfs \
+	test-btrfs
+
+if HAVE_LIBIPTC
+manual_tests += \
 	test-fw-util
+endif
 
 if HAVE_KMOD
 manual_tests += \
@@ -1834,6 +1838,7 @@ test_btrfs_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
+if HAVE_LIBIPTC
 test_fw_util_SOURCES = \
 	src/test/test-fw-util.c
 
@@ -1845,6 +1850,7 @@ test_fw_util_LDADD = \
 	libsystemd-fw.la \
 	libsystemd-shared.la \
 	$(LIBIPTC_LIBS)
+endif
 
 test_rtnl_manual_SOURCES = \
 	src/test/test-rtnl-manual.c
