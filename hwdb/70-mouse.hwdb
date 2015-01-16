@@ -164,6 +164,7 @@ mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech Wireless Mouse M325
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:400a:
  MOUSE_DPI=600@166
+ MOUSE_WHEEL_CLICK_ANGLE=20
 
 # Logitech MX1000 Laser Cordless Mouse
 mouse:usb:v046dpc50e:name:Logitech USB RECEIVER:
