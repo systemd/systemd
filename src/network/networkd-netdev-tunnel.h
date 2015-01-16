@@ -25,15 +25,30 @@ typedef struct Tunnel Tunnel;
 
 #include "networkd-netdev.h"
 
+typedef enum Ip6TnlMode {
+        NETDEV_IP6_TNL_MODE_IP6IP6,
+        NETDEV_IP6_TNL_MODE_IPIP6,
+        NETDEV_IP6_TNL_MODE_ANYIP6,
+        _NETDEV_IP6_TNL_MODE_MAX,
+        _NETDEV_IP6_TNL_MODE_INVALID = -1,
+} Ip6TnlMode;
+
 struct Tunnel {
         NetDev meta;
+
+        uint8_t encap_limit;
 
         int family;
 
         unsigned ttl;
         unsigned tos;
+        unsigned flags;
+
         union in_addr_union local;
         union in_addr_union remote;
+
+        Ip6TnlMode ip6tnl_mode;
+
         bool pmtudisc;
 };
 
@@ -42,3 +57,13 @@ extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;
 extern const NetDevVTable gre_vtable;
 extern const NetDevVTable gretap_vtable;
+extern const NetDevVTable ip6tnl_vtable;
+
+const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
+Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
+
+int config_parse_ip6tnl_mode(const char *unit, const char *filename,
+                             unsigned line, const char *section,
+                             unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data,
+                             void *userdata);

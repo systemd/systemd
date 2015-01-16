@@ -51,6 +51,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_SIT,
         NETDEV_KIND_VETH,
         NETDEV_KIND_VTI,
+        NETDEV_KIND_IP6TNL,
         NETDEV_KIND_DUMMY,
         NETDEV_KIND_TUN,
         NETDEV_KIND_TAP,
@@ -167,6 +168,7 @@ DEFINE_CAST(GRE, Tunnel);
 DEFINE_CAST(GRETAP, Tunnel);
 DEFINE_CAST(SIT, Tunnel);
 DEFINE_CAST(VTI, Tunnel);
+DEFINE_CAST(IP6TNL, Tunnel);
 DEFINE_CAST(VETH, Veth);
 DEFINE_CAST(DUMMY, Dummy);
 DEFINE_CAST(TUN, TunTap);

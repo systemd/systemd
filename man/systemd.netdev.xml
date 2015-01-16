@@ -331,7 +331,7 @@
 
                         <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
                         <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal>, <literal>gretap</literal>,
-                        and <literal>vti</literal> and accepts the following keys:</para>
+                        <literal>vti</literal> and <literal>ip6tnl</literal> and accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
@@ -371,6 +371,23 @@
                                         <term><varname>DiscoverPathMTU=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables Path MTU Discovery on the tunnel.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                  <term><varname>Mode=</varname></term>
+                                  <listitem>
+                                    <para>IPv6 tunnels can have three mode
+                                    <literal>ip6ip6</literal>
+                                    <literal>ip4ipv6</literal>,
+                                    <literal>any</literal>
+                                    </para>
+                                  </listitem>
+                                </varlistentry>
+
+                                   <varlistentry>
+                                        <term><varname>Mode=</varname></term>
+                                        <listitem>
+                                                <para>The mode specifies the ip6 tunnel protocol. Supported type are </para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

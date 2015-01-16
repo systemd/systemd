@@ -3,7 +3,7 @@
 /***
     This file is part of systemd.
 
-    Copyright 2014 Susant Sahani <susant@redhat.com>
+    Copyright 2014 Susant Sahani
 
     systemd is free software; you can redistribute it and/or modify it
     under the terms of the GNU Lesser General Public License as published by
@@ -24,6 +24,7 @@
 #include <net/if.h>
 #include <linux/ip.h>
 #include <linux/if_tunnel.h>
+#include <linux/ip6_tunnel.h>
 
 #include "sd-rtnl.h"
 #include "networkd-netdev-tunnel.h"
@@ -32,6 +33,17 @@
 #include "util.h"
 #include "missing.h"
 #include "conf-parser.h"
+
+#define DEFAULT_TNL_HOP_LIMIT   64
+
+static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
+        [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
+        [NETDEV_IP6_TNL_MODE_IPIP6] = "ip4ipv6",
+        [NETDEV_IP6_TNL_MODE_ANYIP6] = "any",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode, "Failed to parse ip6 tunnel Mode");
 
 static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         Tunnel *t = IPIP(netdev);
@@ -243,6 +255,73 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         return r;
 }
 
+static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = IP6TNL(netdev);
+        uint8_t proto;
+        int r;
+
+        assert(netdev);
+        assert(link);
+        assert(m);
+        assert(t);
+        assert(t->family == AF_INET6);
+
+        r = sd_rtnl_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_IPTUN_LINK attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_IPTUN_LOCAL, &t->local.in6);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_IPTUN_LOCAL attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in6);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_IPTUN_REMOTE attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_IPTUN_TTL attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        switch (t->ip6tnl_mode) {
+        case NETDEV_IP6_TNL_MODE_IP6IP6:
+                proto = IPPROTO_IPV6;
+                break;
+        case NETDEV_IP6_TNL_MODE_IPIP6:
+                proto = IPPROTO_IPIP;
+                break;
+        case NETDEV_IP6_TNL_MODE_ANYIP6:
+        default:
+                proto = 0;
+                break;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_IPTUN_MODE attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        return r;
+}
+
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         Tunnel *t = NULL;
 
@@ -265,6 +344,9 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         case NETDEV_KIND_VTI:
                 t = VTI(netdev);
                 break;
+        case NETDEV_KIND_IP6TNL:
+                t = IP6TNL(netdev);
+                break;
         default:
                 assert_not_reached("Invalid tunnel kind");
         }
@@ -276,9 +358,16 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                return -EINVAL;
         }
 
-        if (t->family != AF_INET) {
+        if (t->family != AF_INET && t->family != AF_INET6) {
               log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
               return -EINVAL;
+        }
+
+        if (netdev->kind == NETDEV_KIND_IP6TNL) {
+                if (t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
+                        log_warning("IP6 Tunnel without mode configured in %s. Ignoring", filename);
+                        return -EINVAL;
+                }
         }
 
         return 0;
@@ -362,6 +451,17 @@ static void gre_init(NetDev *n) {
         t->pmtudisc = true;
 }
 
+static void ip6tnl_init(NetDev *n) {
+        Tunnel *t = IP6TNL(n);
+
+        assert(n);
+        assert(t);
+
+        t->ttl = DEFAULT_TNL_HOP_LIMIT;
+        t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
+        t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
+}
+
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
         .init = ipip_init,
@@ -403,6 +503,15 @@ const NetDevVTable gretap_vtable = {
         .init = gre_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_gre_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable ip6tnl_vtable = {
+        .object_size = sizeof(Tunnel),
+        .init = ip6tnl_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_ip6tnl_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };

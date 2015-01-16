@@ -153,6 +153,17 @@ static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_REMOTE]       = { .type = NLA_IN_ADDR  },
 };
 
+static const NLType rtnl_link_info_data_ip6tnl_types[IFLA_IPTUN_MAX + 1] = {
+        [IFLA_IPTUN_LINK]                = { .type = NLA_U32 },
+        [IFLA_IPTUN_LOCAL]               = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_REMOTE]              = { .type = NLA_IN_ADDR },
+        [IFLA_IPTUN_TTL]                 = { .type = NLA_U8 },
+        [IFLA_IPTUN_FLAGS]               = { .type = NLA_U32 },
+        [IFLA_IPTUN_PROTO]               = { .type = NLA_U8 },
+        [IFLA_IPTUN_ENCAP_LIMIT]         = { .type = NLA_U8 },
+        [IFLA_IPTUN_FLOWINFO]            = { .type = NLA_U32},
+};
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -168,6 +179,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_IPGRETAP_TUNNEL] = "gretap",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
+        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -197,6 +209,9 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
                                                   .types = rtnl_link_info_data_ipvti_types },
+        [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types) - 1,
+                                                     .types = rtnl_link_info_data_ip6tnl_types },
+
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
