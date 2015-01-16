@@ -45,10 +45,48 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event_exit(event, error);
 }
 
+static int strip_raw_suffixes(const char *p, char **ret) {
+        static const char suffixes[] =
+                ".xz\0"
+                ".raw\0"
+                ".qcow2\0"
+                ".img\0";
+
+        _cleanup_free_ char *q = NULL;
+
+        q = strdup(p);
+        if (!q)
+                return -ENOMEM;
+
+        for (;;) {
+                const char *sfx;
+                bool changed = false;
+
+                NULSTR_FOREACH(sfx, suffixes) {
+                        char *e;
+
+                        e = endswith(q, sfx);
+                        if (e) {
+                                *e = 0;
+                                changed = true;
+                        }
+                }
+
+                if (!changed)
+                        break;
+        }
+
+        *ret = q;
+        q = NULL;
+
+        return 0;
+}
+
 static int pull_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
-        const char *url, *local, *suffix;
+        const char *url, *local;
+        _cleanup_free_ char *l = NULL;
         int r;
 
         url = argv[1];
@@ -79,13 +117,11 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (local) {
                 const char *p;
 
-                suffix = endswith(local, ".raw.xz");
-                if (!suffix)
-                        suffix = endswith(local, ".raw");
-                if (!suffix)
-                        suffix = endswith(local, ".xz");
-                if (suffix)
-                        local = strndupa(local, suffix - local);
+                r = strip_raw_suffixes(local, &l);
+                if (r < 0)
+                        return log_oom();
+
+                local = l;
 
                 if (!machine_name_is_valid(local)) {
                         log_error("Local image name '%s' is not valid.", local);

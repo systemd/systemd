@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "utf8.h"
 #include "curl-util.h"
+#include "qcow2-util.h"
 #include "import-raw.h"
 #include "strv.h"
 #include "copy.h"
@@ -235,6 +236,49 @@ finish:
         raw_import_finish(f->import, r);
 }
 
+static int raw_import_maybe_convert_qcow2(RawImportFile *f) {
+        _cleanup_close_ int converted_fd = -1;
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(f);
+        assert(f->disk_fd);
+        assert(f->temp_path);
+
+        r = qcow2_detect(f->disk_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to detect whether this is a QCOW2 image: %m");
+        if (r == 0)
+                return 0;
+
+        /* This is a QCOW2 image, let's convert it */
+        r = tempfn_random(f->final_path, &t);
+        if (r < 0)
+                return log_oom();
+
+        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
+        if (converted_fd < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", t);
+
+        r = qcow2_convert(f->disk_fd, converted_fd);
+        if (r < 0) {
+                unlink(t);
+                return log_error_errno(r, "Failed to convert qcow2 image: %m");
+        }
+
+        unlink(f->temp_path);
+        free(f->temp_path);
+
+        f->temp_path = t;
+        t = NULL;
+
+        safe_close(f->disk_fd);
+        f->disk_fd = converted_fd;
+        converted_fd = -1;
+
+        return 1;
+}
+
 static void raw_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         RawImportFile *f = NULL;
         struct stat st;
@@ -287,6 +331,10 @@ static void raw_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 r = -EIO;
                 goto fail;
         }
+
+        r = raw_import_maybe_convert_qcow2(f);
+        if (r < 0)
+                goto fail;
 
         if (f->etag)
                 (void) fsetxattr(f->disk_fd, "user.source_etag", f->etag, strlen(f->etag), 0);

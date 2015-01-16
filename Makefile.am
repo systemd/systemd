@@ -5233,19 +5233,43 @@ systemd_import_SOURCES = \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
 	src/import/aufs-util.c \
-	src/import/aufs-util.h
+	src/import/aufs-util.h \
+	src/import/qcow2-util.c \
+	src/import/qcow2-util.h
 
 systemd_import_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
-	$(XZ_CFLAGS)
+	$(XZ_CFLAGS) \
+	$(ZLIB_CFLAGS)
 
 systemd_import_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS) \
-	$(XZ_LIBS)
+	$(XZ_LIBS) \
+	$(ZLIB_LIBS)
+
+endif
+
+if HAVE_ZLIB
+manual_tests += \
+	test-qcow2
+
+test_qcow2_SOURCES = \
+	src/import/test-qcow2.c \
+	src/import/qcow2-util.c \
+	src/import/qcow2-util.h
+
+test_qcow2_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(ZLIB_CFLAGS)
+
+test_qcow2_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la \
+	$(ZLIB_LIBS)
 endif
 
 endif

@@ -564,6 +564,18 @@ fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_zlib=no
+AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [Disable optional ZLIB support]))
+if test "x$enable_zlib" != "xno"; then
+        PKG_CHECK_MODULES(ZLIB, [ zlib ],
+                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available]) have_zlib=yes])
+        if test "x$have_zlib" = xno -a "x$enable_zlib" = xyes; then
+                AC_MSG_ERROR([*** ZLIB support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_lz4=no
 AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
 AS_IF([test "x$enable_lz4" = "xyes"], [
@@ -1410,6 +1422,7 @@ AC_MSG_RESULT([
         SELinux:                 ${have_selinux}
         SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
+        ZLIB:                    ${have_zlib}
         XZ:                      ${have_xz}
         LZ4:                     ${have_lz4}
         ACL:                     ${have_acl}
