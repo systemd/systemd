@@ -39,6 +39,8 @@ Release 219 preparations:
 
 Features:
 
+* import: when pulling raw images, detect NUL blocks, and create sparse files
+
 * import: support import from local files, and export to local files
 
 * import: add "pull-tar" support, for downloading/verifying tarballs
