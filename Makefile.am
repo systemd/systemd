@@ -2685,6 +2685,8 @@ systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-xml-policy.h \
 	src/bus-proxyd/driver.c \
 	src/bus-proxyd/driver.h \
+	src/bus-proxyd/proxy.c \
+	src/bus-proxyd/proxy.h \
 	src/bus-proxyd/synthesize.c \
 	src/bus-proxyd/synthesize.h
 
