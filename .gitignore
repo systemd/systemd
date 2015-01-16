@@ -116,6 +116,7 @@
 /systemd-shutdownd
 /systemd-sleep
 /systemd-socket-proxyd
+/systemd-stdio-bridge
 /systemd-subterm
 /systemd-sysctl
 /systemd-system-update-generator

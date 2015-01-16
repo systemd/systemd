@@ -391,6 +391,7 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl \
 	systemd-sleep \
 	systemd-bus-proxyd \
+	systemd-stdio-bridge \
 	systemd-socket-proxyd \
 	systemd-update-done
 
@@ -2023,11 +2024,10 @@ test_conf_files_LDADD = \
 	libsystemd-shared.la
 
 test_bus_policy_SOURCES = \
-	src/bus-proxyd/test-bus-xml-policy.c \
-	src/bus-proxyd/bus-xml-policy.c \
-	src/bus-proxyd/bus-xml-policy.h
+	src/bus-proxyd/test-bus-xml-policy.c
 
 test_bus_policy_LDADD = \
+	libsystemd-proxy.la \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
@@ -2679,8 +2679,10 @@ systemd_run_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-systemd_bus_proxyd_SOURCES = \
-	src/bus-proxyd/bus-proxyd.c \
+noinst_LTLIBRARIES += \
+	libsystemd-proxy.la
+
+libsystemd_proxy_la_SOURCES = \
 	src/bus-proxyd/bus-xml-policy.c \
 	src/bus-proxyd/bus-xml-policy.h \
 	src/bus-proxyd/driver.c \
@@ -2690,20 +2692,25 @@ systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/synthesize.c \
 	src/bus-proxyd/synthesize.h
 
-systemd_bus_proxyd_LDADD = \
+libsystemd_proxy_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-bus-proxyd-install-hook:
-	$(AM_V_at)$(MKDIR_P) $(DESTDIR)$(bindir)
-	$(AM_V_RM)rm -f $(DESTDIR)$(bindir)/systemd-stdio-bridge
-	$(AM_V_LN)$(LN_S) --relative -f $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
+systemd_bus_proxyd_SOURCES = \
+	src/bus-proxyd/bus-proxyd.c
 
-bus-proxyd-uninstall-hook:
-	rm -f $(DESTDIR)$(bindir)/systemd-stdio-bridge
+systemd_bus_proxyd_LDADD = \
+	libsystemd-proxy.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
-INSTALL_EXEC_HOOKS += bus-proxyd-install-hook
-UNINSTALL_EXEC_HOOKS += bus-proxyd-uninstall-hook
+systemd_stdio_bridge_SOURCES = \
+	src/bus-proxyd/stdio-bridge.c
+
+systemd_stdio_bridge_LDADD = \
+	libsystemd-proxy.la \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 if ENABLE_KDBUS
 nodist_systemunit_DATA += \
