@@ -1145,6 +1145,7 @@ SharedPolicy *shared_policy_free(SharedPolicy *sp) {
         policy_free(sp->policy);
         pthread_rwlock_destroy(&sp->rwlock);
         pthread_mutex_destroy(&sp->lock);
+        strv_free(sp->configuration);
         free(sp);
 
         return NULL;
@@ -1161,6 +1162,7 @@ static int shared_policy_reload_unlocked(SharedPolicy *sp, char **configuration)
         if (r < 0)
                 return log_error_errno(r, "Failed to load policy: %m");
 
+        log_debug("Reloading configuration");
         /* policy_dump(&buffer); */
 
         pthread_rwlock_wrlock(&sp->rwlock);
@@ -1176,28 +1178,36 @@ static int shared_policy_reload_unlocked(SharedPolicy *sp, char **configuration)
         return 0;
 }
 
-int shared_policy_reload(SharedPolicy *sp, char **configuration) {
+int shared_policy_reload(SharedPolicy *sp) {
         int r;
 
         assert(sp);
 
         pthread_mutex_lock(&sp->lock);
-        r = shared_policy_reload_unlocked(sp, configuration);
+        r = shared_policy_reload_unlocked(sp, sp->configuration);
         pthread_mutex_unlock(&sp->lock);
 
         return r;
 }
 
 int shared_policy_preload(SharedPolicy *sp, char **configuration) {
-        int r;
+        _cleanup_strv_free_ char **conf = NULL;
+        int r = 0;
 
         assert(sp);
 
+        conf = strv_copy(configuration);
+        if (!conf)
+                return log_oom();
+
         pthread_mutex_lock(&sp->lock);
-        if (!sp->policy)
-                r = shared_policy_reload_unlocked(sp, configuration);
-        else
-                r = 0;
+        if (!sp->policy) {
+                r = shared_policy_reload_unlocked(sp, conf);
+                if (r >= 0) {
+                        sp->configuration = conf;
+                        conf = NULL;
+                }
+        }
         pthread_mutex_unlock(&sp->lock);
 
         return r;

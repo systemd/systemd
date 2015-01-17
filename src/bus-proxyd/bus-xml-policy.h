@@ -77,6 +77,7 @@ typedef struct Policy {
 } Policy;
 
 typedef struct SharedPolicy {
+        char **configuration;
         pthread_mutex_t lock;
         pthread_rwlock_t rwlock;
         Policy buffer;
@@ -122,7 +123,7 @@ PolicyItemClass policy_item_class_from_string(const char *s) _pure_;
 int shared_policy_new(SharedPolicy **out);
 SharedPolicy *shared_policy_free(SharedPolicy *sp);
 
-int shared_policy_reload(SharedPolicy *sp, char **configuration);
+int shared_policy_reload(SharedPolicy *sp);
 int shared_policy_preload(SharedPolicy *sp, char **configuration);
 Policy *shared_policy_acquire(SharedPolicy *sp);
 void shared_policy_release(SharedPolicy *sp, Policy *p);

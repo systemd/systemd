@@ -439,9 +439,11 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (!sd_bus_message_has_signature(m, ""))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
-                r = sd_bus_error_setf(&error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
+                r = shared_policy_reload(sp);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
 
-                return synthetic_reply_method_errno(m, r, &error);
+                return synthetic_reply_method_return(m, NULL);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
                 const char *name;
