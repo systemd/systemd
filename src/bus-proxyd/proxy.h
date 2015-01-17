@@ -37,8 +37,7 @@ struct Proxy {
         sd_bus *dest_bus;
 
         Set *owned_names;
-        Policy policy_buffer;
-        Policy *policy;
+        SharedPolicy *policy;
 
         bool got_hello : 1;
 };
@@ -46,7 +45,7 @@ struct Proxy {
 int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest);
 Proxy *proxy_free(Proxy *p);
 
-int proxy_load_policy(Proxy *p, char **configuration);
+int proxy_set_policy(Proxy *p, SharedPolicy *policy, char **configuration);
 int proxy_hello_policy(Proxy *p, uid_t original_uid);
 int proxy_run(Proxy *p);
 

@@ -22,6 +22,7 @@
 ***/
 
 #include <inttypes.h>
+#include <pthread.h>
 
 #include "list.h"
 #include "hashmap.h"
@@ -75,6 +76,15 @@ typedef struct Policy {
         Hashmap *group_items;
 } Policy;
 
+typedef struct SharedPolicy {
+        pthread_mutex_t lock;
+        pthread_rwlock_t rwlock;
+        Policy buffer;
+        Policy *policy;
+} SharedPolicy;
+
+/* policy */
+
 int policy_load(Policy *p, char **files);
 void policy_free(Policy *p);
 
@@ -106,3 +116,15 @@ PolicyItemType policy_item_type_from_string(const char *s) _pure_;
 
 const char* policy_item_class_to_string(PolicyItemClass t) _const_;
 PolicyItemClass policy_item_class_from_string(const char *s) _pure_;
+
+/* shared policy */
+
+int shared_policy_new(SharedPolicy **out);
+SharedPolicy *shared_policy_free(SharedPolicy *sp);
+
+int shared_policy_reload(SharedPolicy *sp, char **configuration);
+int shared_policy_preload(SharedPolicy *sp, char **configuration);
+Policy *shared_policy_acquire(SharedPolicy *sp);
+void shared_policy_release(SharedPolicy *sp, Policy *p);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SharedPolicy*, shared_policy_free);

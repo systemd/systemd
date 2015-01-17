@@ -61,6 +61,7 @@ static char **arg_configuration = NULL;
 
 typedef struct {
         int fd;
+        SharedPolicy *policy;
 } ClientContext;
 
 static ClientContext *client_context_free(ClientContext *c) {
@@ -75,14 +76,14 @@ static ClientContext *client_context_free(ClientContext *c) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ClientContext*, client_context_free);
 
-static int client_context_new(ClientContext **out, int fd) {
+static int client_context_new(ClientContext **out) {
         _cleanup_(client_context_freep) ClientContext *c = NULL;
 
         c = new0(ClientContext, 1);
         if (!c)
                 return log_oom();
 
-        c->fd = fd;
+        c->fd = -1;
 
         *out = c;
         c = NULL;
@@ -105,7 +106,7 @@ static void *run_client(void *userdata) {
                 comm[sizeof(comm) - 2] = '*';
         (void) prctl(PR_SET_NAME, comm);
 
-        r = proxy_load_policy(p, arg_configuration);
+        r = proxy_set_policy(p, c->policy, arg_configuration);
         if (r < 0)
                 goto exit;
 
@@ -120,6 +121,7 @@ exit:
 }
 
 static int loop_clients(int accept_fd) {
+        _cleanup_(shared_policy_freep) SharedPolicy *sp = NULL;
         pthread_attr_t attr;
         int r;
 
@@ -135,6 +137,10 @@ static int loop_clients(int accept_fd) {
                 goto exit_attr;
         }
 
+        r = shared_policy_new(&sp);
+        if (r < 0)
+                goto exit_attr;
+
         for (;;) {
                 ClientContext *c;
                 pthread_t tid;
@@ -149,12 +155,15 @@ static int loop_clients(int accept_fd) {
                         break;
                 }
 
-                r = client_context_new(&c, fd);
+                r = client_context_new(&c);
                 if (r < 0) {
                         log_oom();
                         close(fd);
                         continue;
                 }
+
+                c->fd = fd;
+                c->policy = sp;
 
                 r = pthread_create(&tid, &attr, run_client, c);
                 if (r < 0) {

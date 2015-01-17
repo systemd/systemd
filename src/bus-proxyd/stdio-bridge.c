@@ -54,7 +54,6 @@
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;
-static char **arg_configuration = NULL;
 
 static int help(void) {
 
@@ -62,7 +61,6 @@ static int help(void) {
                "Connect STDIO to a given bus address.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
-               "     --configuration=PATH Configuration file or directory\n"
                "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
                "                          (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")\n",
@@ -76,7 +74,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ADDRESS,
-                ARG_CONFIGURATION,
                 ARG_MACHINE,
         };
 
@@ -84,12 +81,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "address",         required_argument, NULL, ARG_ADDRESS         },
-                { "configuration",   required_argument, NULL, ARG_CONFIGURATION   },
                 { "machine",         required_argument, NULL, ARG_MACHINE         },
                 {},
         };
 
-        int c, r;
+        int c;
 
         assert(argc >= 0);
         assert(argv);
@@ -118,12 +114,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_address = a;
                         break;
                 }
-
-                case ARG_CONFIGURATION:
-                        r = strv_extend(&arg_configuration, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
 
                 case ARG_MACHINE: {
                         _cleanup_free_ char *e = NULL;
@@ -256,14 +246,6 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = proxy_load_policy(p, arg_configuration);
-        if (r < 0)
-                goto finish;
-
-        r = proxy_hello_policy(p, getuid());
-        if (r < 0)
-                goto finish;
-
         r = rename_service(p->dest_bus, p->local_bus);
         if (r < 0)
                 log_debug_errno(r, "Failed to rename process: %m");
@@ -275,7 +257,6 @@ finish:
                   "STOPPING=1\n"
                   "STATUS=Shutting down.");
 
-        strv_free(arg_configuration);
         free(arg_address);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

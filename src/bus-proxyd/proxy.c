@@ -255,15 +255,26 @@ Proxy *proxy_free(Proxy *p) {
         return NULL;
 }
 
-int proxy_load_policy(Proxy *p, char **configuration) {
+int proxy_set_policy(Proxy *p, SharedPolicy *sp, char **configuration) {
         _cleanup_strv_free_ char **strv = NULL;
+        Policy *policy;
         int r;
 
         assert(p);
+        assert(sp);
 
         /* no need to load legacy policy if destination is not kdbus */
         if (!p->dest_bus->is_kernel)
                 return 0;
+
+        p->policy = sp;
+
+        policy = shared_policy_acquire(sp);
+        if (policy) {
+                /* policy already pre-loaded */
+                shared_policy_release(sp, policy);
+                return 0;
+        }
 
         if (!configuration) {
                 const char *scope;
@@ -291,30 +302,30 @@ int proxy_load_policy(Proxy *p, char **configuration) {
                 configuration = strv;
         }
 
-        r = policy_load(&p->policy_buffer, configuration);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load policy: %m");
-
-        p->policy = &p->policy_buffer;
-        /* policy_dump(p->policy); */
-
-        return 0;
+        return shared_policy_preload(sp, configuration);
 }
 
 int proxy_hello_policy(Proxy *p, uid_t original_uid) {
+        Policy *policy;
+        int r = 0;
+
         assert(p);
 
         if (!p->policy)
                 return 0;
 
+        policy = shared_policy_acquire(p->policy);
+
         if (p->local_creds.uid == original_uid)
                 log_debug("Permitting access, since bus owner matches bus client.");
-        else if (policy_check_hello(p->policy, p->local_creds.uid, p->local_creds.gid))
+        else if (policy_check_hello(policy, p->local_creds.uid, p->local_creds.gid))
                 log_debug("Permitting access due to XML policy.");
         else
-                return log_error_errno(EPERM, "Policy denied connection.");
+                r = log_error_errno(EPERM, "Policy denied connection.");
 
-        return 0;
+        shared_policy_release(p->policy, policy);
+
+        return r;
 }
 
 static int proxy_wait(Proxy *p) {
@@ -384,7 +395,7 @@ static int handle_policy_error(sd_bus_message *m, int r) {
         return r;
 }
 
-static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *policy, const struct ucred *our_ucred, Set *owned_names) {
+static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *policy, const struct ucred *our_ucred, Set *owned_names) {
         int r;
 
         assert(from);
@@ -582,6 +593,19 @@ static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, Policy *p
         }
 
         return 0;
+}
+
+static int process_policy(sd_bus *from, sd_bus *to, sd_bus_message *m, SharedPolicy *sp, const struct ucred *our_ucred, Set *owned_names) {
+        Policy *policy;
+        int r;
+
+        assert(sp);
+
+        policy = shared_policy_acquire(sp);
+        r = process_policy_unlocked(from, to, m, policy, our_ucred, owned_names);
+        shared_policy_release(sp, policy);
+
+        return r;
 }
 
 static int process_hello(Proxy *p, sd_bus_message *m) {

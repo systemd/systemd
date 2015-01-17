@@ -80,7 +80,7 @@ static int get_creds_by_message(sd_bus *bus, sd_bus_message *m, uint64_t mask, s
         return get_creds_by_name(bus, name, mask, _creds, error);
 }
 
-int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred, Set *owned_names) {
+int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPolicy *sp, const struct ucred *ucred, Set *owned_names) {
         int r;
 
         assert(a);
@@ -455,8 +455,16 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *po
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (policy && !policy_check_own(policy, ucred->uid, ucred->gid, name))
-                        return synthetic_reply_method_errno(m, -EPERM, NULL);
+                if (sp) {
+                        Policy *policy;
+                        bool denied;
+
+                        policy = shared_policy_acquire(sp);
+                        denied = !policy_check_own(policy, ucred->uid, ucred->gid, name);
+                        shared_policy_release(sp, policy);
+                        if (denied)
+                                return synthetic_reply_method_errno(m, -EPERM, NULL);
+                }
 
                 if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);

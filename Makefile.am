@@ -2692,6 +2692,10 @@ libsystemd_proxy_la_SOURCES = \
 	src/bus-proxyd/synthesize.c \
 	src/bus-proxyd/synthesize.h
 
+libsystemd_proxy_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
 libsystemd_proxy_la_LIBADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la

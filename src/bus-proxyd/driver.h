@@ -24,4 +24,4 @@
 #include "sd-bus.h"
 #include "bus-xml-policy.h"
 
-int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, Policy *policy, const struct ucred *ucred, Set *owned_names);
+int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPolicy *sp, const struct ucred *ucred, Set *owned_names);

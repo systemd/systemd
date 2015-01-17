@@ -1106,6 +1106,122 @@ void policy_dump(Policy *p) {
         fflush(stdout);
 }
 
+int shared_policy_new(SharedPolicy **out) {
+        SharedPolicy *sp;
+        int r;
+
+        sp = new0(SharedPolicy, 1);
+        if (!sp)
+                return log_oom();
+
+        r = pthread_mutex_init(&sp->lock, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Cannot initialize shared policy mutex: %m");
+                goto exit_free;
+        }
+
+        r = pthread_rwlock_init(&sp->rwlock, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Cannot initialize shared policy rwlock: %m");
+                goto exit_mutex;
+        }
+
+        *out = sp;
+        sp = NULL;
+        return 0;
+
+        /* pthread lock destruction is not fail-safe... meh! */
+exit_mutex:
+        pthread_mutex_destroy(&sp->lock);
+exit_free:
+        free(sp);
+        return r;
+}
+
+SharedPolicy *shared_policy_free(SharedPolicy *sp) {
+        if (!sp)
+                return NULL;
+
+        policy_free(sp->policy);
+        pthread_rwlock_destroy(&sp->rwlock);
+        pthread_mutex_destroy(&sp->lock);
+        free(sp);
+
+        return NULL;
+}
+
+static int shared_policy_reload_unlocked(SharedPolicy *sp, char **configuration) {
+        Policy old, buffer = {};
+        bool free_old;
+        int r;
+
+        assert(sp);
+
+        r = policy_load(&buffer, configuration);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load policy: %m");
+
+        /* policy_dump(&buffer); */
+
+        pthread_rwlock_wrlock(&sp->rwlock);
+        memcpy(&old, &sp->buffer, sizeof(old));
+        memcpy(&sp->buffer, &buffer, sizeof(buffer));
+        free_old = !!sp->policy;
+        sp->policy = &sp->buffer;
+        pthread_rwlock_unlock(&sp->rwlock);
+
+        if (free_old)
+                policy_free(&old);
+
+        return 0;
+}
+
+int shared_policy_reload(SharedPolicy *sp, char **configuration) {
+        int r;
+
+        assert(sp);
+
+        pthread_mutex_lock(&sp->lock);
+        r = shared_policy_reload_unlocked(sp, configuration);
+        pthread_mutex_unlock(&sp->lock);
+
+        return r;
+}
+
+int shared_policy_preload(SharedPolicy *sp, char **configuration) {
+        int r;
+
+        assert(sp);
+
+        pthread_mutex_lock(&sp->lock);
+        if (!sp->policy)
+                r = shared_policy_reload_unlocked(sp, configuration);
+        else
+                r = 0;
+        pthread_mutex_unlock(&sp->lock);
+
+        return r;
+}
+
+Policy *shared_policy_acquire(SharedPolicy *sp) {
+        assert(sp);
+
+        pthread_rwlock_rdlock(&sp->rwlock);
+        if (sp->policy)
+                return sp->policy;
+        pthread_rwlock_unlock(&sp->rwlock);
+
+        return NULL;
+}
+
+void shared_policy_release(SharedPolicy *sp, Policy *p) {
+        assert(sp);
+        assert(!p || sp->policy == p);
+
+        if (p)
+                pthread_rwlock_unlock(&sp->rwlock);
+}
+
 static const char* const policy_item_type_table[_POLICY_ITEM_TYPE_MAX] = {
         [_POLICY_ITEM_TYPE_UNSET] = "unset",
         [POLICY_ITEM_ALLOW] = "allow",
