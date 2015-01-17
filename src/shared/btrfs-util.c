@@ -275,6 +275,26 @@ int btrfs_reflink(int infd, int outfd) {
         return 0;
 }
 
+int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
+        struct btrfs_ioctl_clone_range_args args = {
+                .src_fd = infd,
+                .src_offset = in_offset,
+                .src_length = sz,
+                .dest_offset = out_offset,
+        };
+        int r;
+
+        assert(infd >= 0);
+        assert(outfd >= 0);
+        assert(sz > 0);
+
+        r = ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
 int btrfs_get_block_device(const char *path, dev_t *dev) {
         struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -1;

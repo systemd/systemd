@@ -55,6 +55,7 @@ int btrfs_subvol_get_info_fd(int fd, BtrfsSubvolInfo *info);
 int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *quota);
 
 int btrfs_reflink(int infd, int outfd);
+int btrfs_clone_range(int infd, uint64_t in_offset, int ofd, uint64_t out_offset, uint64_t sz);
 
 int btrfs_get_block_device(const char *path, dev_t *dev);
 

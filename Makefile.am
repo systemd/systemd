@@ -5285,6 +5285,7 @@ test_qcow2_CFLAGS = \
 
 test_qcow2_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(ZLIB_LIBS)
 endif
