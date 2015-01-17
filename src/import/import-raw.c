@@ -64,6 +64,10 @@ struct RawImportFile {
 
         lzma_stream lzma;
         bool compressed;
+
+        unsigned progress_percent;
+        usec_t start_usec;
+        usec_t last_status_usec;
 };
 
 struct RawImport {
@@ -650,6 +654,40 @@ fail:
         return 0;
 }
 
+static int raw_import_file_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        RawImportFile *f = userdata;
+        unsigned percent;
+        usec_t n;
+
+        assert(f);
+
+        if (dltotal <= 0)
+                return 0;
+
+        percent = ((100 * dlnow) / dltotal);
+        n = now(CLOCK_MONOTONIC);
+
+        if (n > f->last_status_usec + USEC_PER_SEC &&
+            percent != f->progress_percent) {
+                char buf[FORMAT_TIMESPAN_MAX];
+
+                if (n - f->start_usec > USEC_PER_SEC && dlnow > 0) {
+                        usec_t left, done;
+
+                        done = n - f->start_usec;
+                        left = (usec_t) (((double) done * (double) dltotal) / dlnow) - done;
+
+                        log_info("Got %u%%. %s left.", percent, format_timespan(buf, sizeof(buf), left, USEC_PER_SEC));
+                } else
+                        log_info("Got %u%%.", percent);
+
+                f->progress_percent = percent;
+                f->last_status_usec = n;
+        }
+
+        return 0;
+}
+
 static bool etag_is_valid(const char *etag) {
 
         if (!endswith(etag, "\""))
@@ -770,6 +808,15 @@ static int raw_import_file_begin(RawImportFile *f) {
         if (curl_easy_setopt(f->curl, CURLOPT_HEADERDATA, f) != CURLE_OK)
                 return -EIO;
 
+        if (curl_easy_setopt(f->curl, CURLOPT_XFERINFOFUNCTION, raw_import_file_progress_callback) != CURLE_OK)
+                return -EIO;
+
+        if (curl_easy_setopt(f->curl, CURLOPT_XFERINFODATA, f) != CURLE_OK)
+                return -EIO;
+
+        if (curl_easy_setopt(f->curl, CURLOPT_NOPROGRESS, 0) != CURLE_OK)
+                return -EIO;
+
         r = curl_glue_add(f->import->glue, f->curl);
         if (r < 0)
                 return r;
@@ -871,6 +918,7 @@ int raw_import_pull(RawImport *import, const char *url, const char *local, bool 
         f->import = import;
         f->disk_fd = -1;
         f->content_length = (uint64_t) -1;
+        f->start_usec = now(CLOCK_MONOTONIC);
 
         f->url = strdup(url);
         if (!f->url)
