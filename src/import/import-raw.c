@@ -332,6 +332,14 @@ static void raw_import_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result
                 goto fail;
         }
 
+        /* Make sure the file size is right, in case the file was
+         * sparse and we just seeked for the last part */
+        if (ftruncate(f->disk_fd, f->written_uncompressed) < 0) {
+                log_error_errno(errno, "Failed to truncate file: %m");
+                r = -errno;
+                goto fail;
+        }
+
         r = raw_import_maybe_convert_qcow2(f);
         if (r < 0)
                 goto fail;
@@ -427,7 +435,7 @@ static int raw_import_file_write_uncompressed(RawImportFile *f, void *p, size_t 
                 return -EFBIG;
         }
 
-        n = write(f->disk_fd, p, sz);
+        n = sparse_write(f->disk_fd, p, sz, 64);
         if (n < 0) {
                 log_error_errno(errno, "Failed to write file: %m");
                 return -errno;

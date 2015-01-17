@@ -1464,6 +1464,42 @@ static void test_uid_ptr(void) {
         assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
 }
 
+static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
+        char check[n];
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(sparse_write(fd, buffer, n, 4) == (ssize_t) n);
+
+        assert_se(lseek(fd, 0, SEEK_CUR) == (off_t) n);
+        assert_se(ftruncate(fd, n) >= 0);
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(read(fd, check, n) == (ssize_t) n);
+
+        assert_se(memcmp(buffer, check, n) == 0);
+}
+
+static void test_sparse_write(void) {
+        const char test_a[] = "test";
+        const char test_b[] = "\0\0\0\0test\0\0\0\0";
+        const char test_c[] = "\0\0test\0\0\0\0";
+        const char test_d[] = "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
+        const char test_e[] = "test\0\0\0\0test";
+        _cleanup_close_ int fd = -1;
+        char fn[] = "/tmp/sparseXXXXXX";
+
+        fd = mkostemp(fn, O_CLOEXEC);
+        assert_se(fd >= 0);
+        unlink(fn);
+
+        test_sparse_write_one(fd, test_a, sizeof(test_a));
+        test_sparse_write_one(fd, test_b, sizeof(test_b));
+        test_sparse_write_one(fd, test_c, sizeof(test_c));
+        test_sparse_write_one(fd, test_d, sizeof(test_d));
+        test_sparse_write_one(fd, test_e, sizeof(test_e));
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -1540,6 +1576,7 @@ int main(int argc, char *argv[]) {
         test_raw_clone();
         test_same_fd();
         test_uid_ptr();
+        test_sparse_write();
 
         return 0;
 }

@@ -7931,3 +7931,65 @@ void release_lock_file(LockFile *f) {
         f->fd = safe_close(f->fd);
         f->operation = 0;
 }
+
+static size_t nul_length(const uint8_t *p, size_t sz) {
+        size_t n = 0;
+
+        while (sz > 0) {
+                if (*p != 0)
+                        break;
+
+                n++;
+                p++;
+                sz--;
+        }
+
+        return n;
+}
+
+ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
+        const uint8_t *q, *w, *e;
+        ssize_t l;
+
+        q = w = p;
+        e = q + sz;
+        while (q < e) {
+                size_t n;
+
+                n = nul_length(q, e - q);
+
+                /* If there are more than the specified run length of
+                 * NUL bytes, or if this is the beginning or the end
+                 * of the buffer, then seek instead of write */
+                if ((n > run_length) ||
+                    (n > 0 && q == p) ||
+                    (n > 0 && q + n >= e)) {
+                        if (q > w) {
+                                l = write(fd, w, q - w);
+                                if (l < 0)
+                                        return -errno;
+                                if (l != q -w)
+                                        return -EIO;
+                        }
+
+                        if (lseek(fd, n, SEEK_CUR) == (off_t) -1)
+                                return -errno;
+
+                        q += n;
+                        w = q;
+                } else if (n > 0)
+                        q += n;
+                else
+                        q ++;
+        }
+
+        if (q > w) {
+                l = write(fd, w, q - w);
+                if (l < 0)
+                        return -errno;
+                if (l != q - w)
+                        return -EIO;
+        }
+
+        return q - (const uint8_t*) p;
+}
