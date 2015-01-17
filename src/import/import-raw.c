@@ -205,7 +205,7 @@ static void raw_import_file_success(RawImportFile *f) {
                  * writes. */
                 r = chattr_fd(dfd, true, FS_NOCOW_FL);
                 if (r < 0)
-                        log_warning_errno(errno, "Failed to set file attributes on %s: %m", f->temp_path);
+                        log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
 
                 r = copy_bytes(f->disk_fd, dfd, (off_t) -1, true);
                 if (r < 0) {
@@ -401,6 +401,10 @@ static int raw_import_file_open_disk_for_write(RawImportFile *f) {
         f->disk_fd = open(f->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
         if (f->disk_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", f->temp_path);
+
+        r = chattr_fd(f->disk_fd, true, FS_NOCOW_FL);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to set file attributes on %s: %m", f->temp_path);
 
         return 0;
 }
