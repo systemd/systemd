@@ -368,6 +368,7 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
+	systemd-stdio-bridge \
 	systemd-path
 
 dist_bin_SCRIPTS = \
@@ -391,7 +392,6 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl \
 	systemd-sleep \
 	systemd-bus-proxyd \
-	systemd-stdio-bridge \
 	systemd-socket-proxyd \
 	systemd-update-done
 
