@@ -152,6 +152,71 @@ static int raw_import_file_make_final_path(RawImportFile *f) {
         return 0;
 }
 
+static int raw_import_file_make_local_copy(RawImportFile *f) {
+        _cleanup_free_ char *tp = NULL;
+        _cleanup_close_ int dfd = -1;
+        const char *p;
+        int r;
+
+        assert(f);
+
+        if (!f->local)
+                return 0;
+
+        if (f->disk_fd >= 0) {
+                if (lseek(f->disk_fd, SEEK_SET, 0) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
+        } else {
+                r = raw_import_file_make_final_path(f);
+                if (r < 0)
+                        return log_oom();
+
+                f->disk_fd = open(f->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (f->disk_fd < 0)
+                        return log_error_errno(errno, "Failed to open vendor image: %m");
+        }
+
+        p = strappenda(f->import->image_root, "/", f->local, ".raw");
+        if (f->force_local)
+                (void) rm_rf_dangerous(p, false, true, false);
+
+        r = tempfn_random(p, &tp);
+        if (r < 0)
+                return log_oom();
+
+        dfd = open(tp, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        if (dfd < 0)
+                return log_error_errno(errno, "Failed to create writable copy of image: %m");
+
+        /* Turn off COW writing. This should greatly improve
+         * performance on COW file systems like btrfs, since it
+         * reduces fragmentation caused by not allowing in-place
+         * writes. */
+        r = chattr_fd(dfd, true, FS_NOCOW_FL);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
+
+        r = copy_bytes(f->disk_fd, dfd, (off_t) -1, true);
+        if (r < 0) {
+                unlink(tp);
+                return log_error_errno(r, "Failed to make writable copy of image: %m");
+        }
+
+        (void) copy_times(f->disk_fd, dfd);
+        (void) copy_xattr(f->disk_fd, dfd);
+
+        dfd = safe_close(dfd);
+
+        r = rename(tp, p);
+        if (r < 0)  {
+                unlink(tp);
+                return log_error_errno(errno, "Failed to move writable image into place: %m");
+        }
+
+        log_info("Created new local image %s.", p);
+        return 0;
+}
+
 static void raw_import_file_success(RawImportFile *f) {
         int r;
 
@@ -159,75 +224,9 @@ static void raw_import_file_success(RawImportFile *f) {
 
         f->done = true;
 
-        if (f->local) {
-                _cleanup_free_ char *tp = NULL;
-                _cleanup_close_ int dfd = -1;
-                const char *p;
-
-                if (f->disk_fd >= 0) {
-                        if (lseek(f->disk_fd, SEEK_SET, 0) == (off_t) -1) {
-                                r = log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
-                                goto finish;
-                        }
-                } else {
-                        r = raw_import_file_make_final_path(f);
-                        if (r < 0) {
-                                log_oom();
-                                goto finish;
-                        }
-
-                        f->disk_fd = open(f->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                        if (f->disk_fd < 0) {
-                                r = log_error_errno(errno, "Failed to open vendor image: %m");
-                                goto finish;
-                        }
-                }
-
-                p = strappenda(f->import->image_root, "/", f->local, ".raw");
-                if (f->force_local)
-                        (void) rm_rf_dangerous(p, false, true, false);
-
-                r = tempfn_random(p, &tp);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
-
-                dfd = open(tp, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-                if (dfd < 0) {
-                        r = log_error_errno(errno, "Failed to create writable copy of image: %m");
-                        goto finish;
-                }
-
-                /* Turn off COW writing. This should greatly improve
-                 * performance on COW file systems like btrfs, since it
-                 * reduces fragmentation caused by not allowing in-place
-                 * writes. */
-                r = chattr_fd(dfd, true, FS_NOCOW_FL);
-                if (r < 0)
-                        log_warning_errno(errno, "Failed to set file attributes on %s: %m", tp);
-
-                r = copy_bytes(f->disk_fd, dfd, (off_t) -1, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to make writable copy of image: %m");
-                        unlink(tp);
-                        goto finish;
-                }
-
-                (void) copy_times(f->disk_fd, dfd);
-                (void) copy_xattr(f->disk_fd, dfd);
-
-                dfd = safe_close(dfd);
-
-                r = rename(tp, p);
-                if (r < 0) {
-                        r = log_error_errno(errno, "Failed to move writable image into place: %m");
-                        unlink(tp);
-                        goto finish;
-                }
-
-                log_info("Created new local image %s.", p);
-        }
+        r = raw_import_file_make_local_copy(f);
+        if (r < 0)
+                goto finish;
 
         f->disk_fd = safe_close(f->disk_fd);
         r = 0;
