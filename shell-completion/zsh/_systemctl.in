@@ -137,7 +137,7 @@ _filter_units_by_property() {
     unit=${units[i]}
     prop=${(f)"$(_call_program units "$service show --no-pager --property="$property" ${unit} 2>/dev/null")"}
     if [[ "${prop}" = "$property=$value" ]]; then
-      echo " ${unit}"
+      echo -E - " ${unit}"
     fi
   done
 }
