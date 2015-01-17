@@ -292,11 +292,28 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        const char *user = "systemd-bus-proxy";
         int r, accept_fd;
+        uid_t uid;
+        gid_t gid;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        if (geteuid() == 0) {
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Cannot resolve user name %s: %m", user);
+                        goto finish;
+                }
+
+                r = drop_privileges(uid, gid, 1ULL << CAP_IPC_OWNER);
+                if (r < 0) {
+                        log_error_errno(r, "Cannot drop privileges: %m");
+                        goto finish;
+                }
+        }
 
         r = parse_argv(argc, argv);
         if (r <= 0)
