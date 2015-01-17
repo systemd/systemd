@@ -6,6 +6,7 @@
   Copyright 2010 Lennart Poettering
   Copyright 2013 Daniel Mack
   Copyright 2014 Kay Sievers
+  Copyright 2015 David Herrmann
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -31,9 +32,11 @@
 #include <sys/poll.h>
 #include <stddef.h>
 #include <getopt.h>
+#include <pthread.h>
 
 #include "log.h"
 #include "util.h"
+#include "hashmap.h"
 #include "socket-util.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
@@ -53,17 +56,118 @@
 #include "synthesize.h"
 
 static char *arg_address = NULL;
-static char *arg_command_line_buffer = NULL;
-static bool arg_drop_privileges = false;
 static char **arg_configuration = NULL;
+
+typedef struct {
+        int fd;
+} ClientContext;
+
+static ClientContext *client_context_free(ClientContext *c) {
+        if (!c)
+                return NULL;
+
+        close(c->fd);
+        free(c);
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ClientContext*, client_context_free);
+
+static int client_context_new(ClientContext **out, int fd) {
+        _cleanup_(client_context_freep) ClientContext *c = NULL;
+
+        c = new0(ClientContext, 1);
+        if (!c)
+                return log_oom();
+
+        c->fd = fd;
+
+        *out = c;
+        c = NULL;
+        return 0;
+}
+
+static void *run_client(void *userdata) {
+        _cleanup_(client_context_freep) ClientContext *c = userdata;
+        _cleanup_(proxy_freep) Proxy *p = NULL;
+        int r;
+
+        r = proxy_new(&p, c->fd, c->fd, arg_address);
+        if (r < 0)
+                goto exit;
+
+        r = proxy_load_policy(p, arg_configuration);
+        if (r < 0)
+                goto exit;
+
+        r = proxy_hello_policy(p, getuid());
+        if (r < 0)
+                goto exit;
+
+        r = proxy_run(p);
+
+exit:
+        return NULL;
+}
+
+static int loop_clients(int accept_fd) {
+        pthread_attr_t attr;
+        int r;
+
+        r = pthread_attr_init(&attr);
+        if (r < 0) {
+                r = log_error_errno(errno, "Cannot initialize pthread attributes: %m");
+                goto exit;
+        }
+
+        r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        if (r < 0) {
+                r = log_error_errno(errno, "Cannot mark pthread attributes as detached: %m");
+                goto exit_attr;
+        }
+
+        for (;;) {
+                ClientContext *c;
+                pthread_t tid;
+                int fd;
+
+                fd = accept4(accept_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+                if (fd < 0) {
+                        if (errno == EAGAIN || errno == EINTR)
+                                continue;
+
+                        r = log_error_errno(errno, "accept4() failed: %m");
+                        break;
+                }
+
+                r = client_context_new(&c, fd);
+                if (r < 0) {
+                        log_oom();
+                        close(fd);
+                        continue;
+                }
+
+                r = pthread_create(&tid, &attr, run_client, c);
+                if (r < 0) {
+                        log_error("Cannot spawn thread: %m");
+                        client_context_free(c);
+                        continue;
+                }
+        }
+
+exit_attr:
+        pthread_attr_destroy(&attr);
+exit:
+        return r;
+}
 
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "Connect STDIO or a socket to a given bus address.\n\n"
+               "DBus proxy server.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
-               "     --drop-privileges    Drop privileges\n"
                "     --configuration=PATH Configuration file or directory\n"
                "     --machine=MACHINE    Connect to specified machine\n"
                "     --address=ADDRESS    Connect to the bus specified by ADDRESS\n"
@@ -78,7 +182,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ADDRESS,
-                ARG_DROP_PRIVILEGES,
                 ARG_CONFIGURATION,
                 ARG_MACHINE,
         };
@@ -87,7 +190,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "address",         required_argument, NULL, ARG_ADDRESS         },
-                { "drop-privileges", no_argument,       NULL, ARG_DROP_PRIVILEGES },
                 { "configuration",   required_argument, NULL, ARG_CONFIGURATION   },
                 { "machine",         required_argument, NULL, ARG_MACHINE         },
                 {},
@@ -122,10 +224,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_address = a;
                         break;
                 }
-
-                case ARG_DROP_PRIVILEGES:
-                        arg_drop_privileges = true;
-                        break;
 
                 case ARG_CONFIGURATION:
                         r = strv_extend(&arg_configuration, optarg);
@@ -162,11 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        /* If the first command line argument is only "x" characters
-         * we'll write who we are talking to into it, so that "ps" is
-         * explanatory */
-        arg_command_line_buffer = argv[optind];
-        if (argc > optind + 1 || (arg_command_line_buffer && !in_charset(arg_command_line_buffer, "x"))) {
+        if (argc > optind) {
                 log_error("Too many arguments");
                 return -EINVAL;
         }
@@ -180,78 +274,8 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int rename_service(sd_bus *a, sd_bus *b) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        _cleanup_free_ char *p = NULL, *name = NULL;
-        const char *comm;
-        char **cmdline;
-        uid_t uid;
-        pid_t pid;
-        int r;
-
-        assert(a);
-        assert(b);
-
-        r = sd_bus_get_owner_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_AUGMENT, &creds);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_pid(creds, &pid);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_cmdline(creds, &cmdline);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_comm(creds, &comm);
-        if (r < 0)
-                return r;
-
-        name = uid_to_name(uid);
-        if (!name)
-                return -ENOMEM;
-
-        p = strv_join(cmdline, " ");
-        if (!p)
-                return -ENOMEM;
-
-        /* The status string gets the full command line ... */
-        sd_notifyf(false,
-                   "STATUS=Processing requests from client PID "PID_FMT" (%s); UID "UID_FMT" (%s)",
-                   pid, p,
-                   uid, name);
-
-        /* ... and the argv line only the short comm */
-        if (arg_command_line_buffer) {
-                size_t m, w;
-
-                m = strlen(arg_command_line_buffer);
-                w = snprintf(arg_command_line_buffer, m,
-                             "[PID "PID_FMT"/%s; UID "UID_FMT"/%s]",
-                             pid, comm,
-                             uid, name);
-
-                if (m > w)
-                        memzero(arg_command_line_buffer + w, m - w);
-        }
-
-        log_debug("Running on behalf of PID "PID_FMT" (%s), UID "UID_FMT" (%s), %s",
-                  pid, p,
-                  uid, name,
-                  a->unique_name);
-
-        return 0;
-}
-
 int main(int argc, char *argv[]) {
-        _cleanup_(proxy_freep) Proxy *p = NULL;
-        int r, in_fd, out_fd;
-        uid_t original_uid;
+        int r, accept_fd;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
@@ -262,52 +286,19 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = sd_listen_fds(0);
-        if (r == 0) {
-                in_fd = STDIN_FILENO;
-                out_fd = STDOUT_FILENO;
-        } else if (r == 1) {
-                in_fd = SD_LISTEN_FDS_START;
-                out_fd = SD_LISTEN_FDS_START;
-        } else {
+        if (r != 1) {
                 log_error("Illegal number of file descriptors passed");
                 goto finish;
         }
 
-        original_uid = getuid();
-
-        if (arg_drop_privileges) {
-                const char *user = "systemd-bus-proxy";
-                uid_t uid;
-                gid_t gid;
-
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                        goto finish;
-                }
-
-                r = drop_privileges(uid, gid, 1ULL << CAP_IPC_OWNER);
-                if (r < 0)
-                        goto finish;
+        accept_fd = SD_LISTEN_FDS_START;
+        r = fd_nonblock(accept_fd, false);
+        if (r < 0) {
+                log_error_errno(r, "Cannot mark accept-fd non-blocking: %m");
+                goto finish;
         }
 
-        r = proxy_new(&p, in_fd, out_fd, arg_address);
-        if (r < 0)
-                goto finish;
-
-        r = proxy_load_policy(p, arg_configuration);
-        if (r < 0)
-                goto finish;
-
-        r = proxy_hello_policy(p, original_uid);
-        if (r < 0)
-                goto finish;
-
-        r = rename_service(p->dest_bus, p->local_bus);
-        if (r < 0)
-                log_debug_errno(r, "Failed to rename process: %m");
-
-        r = proxy_run(p);
+        r = loop_clients(accept_fd);
 
 finish:
         sd_notify(false,

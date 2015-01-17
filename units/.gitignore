@@ -1,4 +1,4 @@
-/systemd-bus-proxyd@.service.m4
+/systemd-bus-proxyd.service.m4
 /user@.service.m4
 /console-getty.service
 /console-getty.service.m4
@@ -24,7 +24,7 @@
 /systemd-backlight@.service
 /systemd-binfmt.service
 /systemd-bootchart.service
-/systemd-bus-proxyd@.service
+/systemd-bus-proxyd.service
 /systemd-firstboot.service
 /systemd-fsck-root.service
 /systemd-fsck@.service

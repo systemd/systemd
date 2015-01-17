@@ -10,4 +10,3 @@ Description=Legacy D-Bus Protocol Compatibility Socket
 
 [Socket]
 ListenStream=/var/run/dbus/system_bus_socket
-Accept=yes

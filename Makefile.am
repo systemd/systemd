@@ -2699,6 +2699,10 @@ libsystemd_proxy_la_LIBADD = \
 systemd_bus_proxyd_SOURCES = \
 	src/bus-proxyd/bus-proxyd.c
 
+systemd_bus_proxyd_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
 systemd_bus_proxyd_LDADD = \
 	libsystemd-proxy.la \
 	libsystemd-internal.la \
@@ -2714,24 +2718,24 @@ systemd_stdio_bridge_LDADD = \
 
 if ENABLE_KDBUS
 nodist_systemunit_DATA += \
-	units/systemd-bus-proxyd@.service
+	units/systemd-bus-proxyd.service
 
 dist_systemunit_DATA += \
 	units/systemd-bus-proxyd.socket
 
 nodist_userunit_DATA += \
-	units/user/systemd-bus-proxyd@.service
+	units/user/systemd-bus-proxyd.service
 
 dist_userunit_DATA += \
 	units/user/systemd-bus-proxyd.socket
 endif
 
 EXTRA_DIST += \
-	units/systemd-bus-proxyd@.service.m4.in \
-	units/user/systemd-bus-proxyd@.service.in
+	units/systemd-bus-proxyd.service.m4.in \
+	units/user/systemd-bus-proxyd.service.in
 
 CLEANFILES += \
-	units/systemd-bus-proxyd@.service.m4
+	units/systemd-bus-proxyd.service.m4
 
 if HAVE_SMACK
 bus-proxyd-set-cap-hook:

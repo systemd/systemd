@@ -9,10 +9,7 @@
 Description=Legacy D-Bus Protocol Compatibility Daemon
 
 [Service]
-# The first argument will be replaced by the service by information on
-# the process requesting the proxy, we need a placeholder to keep the
-# space available for this.
-ExecStart=@rootlibexecdir@/systemd-bus-proxyd --drop-privileges --address=kernel:path=/sys/fs/kdbus/0-system/bus xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ExecStart=@rootlibexecdir@/systemd-bus-proxyd --address=kernel:path=/sys/fs/kdbus/0-system/bus
 NotifyAccess=main
 CapabilityBoundingSet=CAP_IPC_OWNER CAP_SETUID CAP_SETGID CAP_SETPCAP m4_ifdef(`HAVE_SMACK', CAP_MAC_ADMIN )
 PrivateTmp=yes

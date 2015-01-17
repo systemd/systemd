@@ -9,8 +9,5 @@
 Description=Legacy D-Bus Protocol Compatibility Daemon
 
 [Service]
-# The first argument will be replaced by the service by information on
-# the process requesting the proxy, we need a placeholder to keep the
-# space available for this.
-ExecStart=@rootlibexecdir@/systemd-bus-proxyd --address=kernel:path=/sys/fs/kdbus/%U-user/bus xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ExecStart=@rootlibexecdir@/systemd-bus-proxyd --address=kernel:path=/sys/fs/kdbus/%U-user/bus
 NotifyAccess=main
