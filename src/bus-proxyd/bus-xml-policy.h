@@ -26,6 +26,7 @@
 
 #include "list.h"
 #include "hashmap.h"
+#include "set.h"
 
 typedef enum PolicyItemType {
         _POLICY_ITEM_TYPE_UNSET = 0,
@@ -91,24 +92,43 @@ void policy_free(Policy *p);
 
 bool policy_check_own(Policy *p, uid_t uid, gid_t gid, const char *name);
 bool policy_check_hello(Policy *p, uid_t uid, gid_t gid);
+bool policy_check_one_recv(Policy *p,
+                           uid_t uid,
+                           gid_t gid,
+                           int message_type,
+                           const char *name,
+                           const char *path,
+                           const char *interface,
+                           const char *member);
 bool policy_check_recv(Policy *p,
                        uid_t uid,
                        gid_t gid,
                        int message_type,
-                       const char *name,
+                       Set *names,
+                       char **namesv,
                        const char *path,
                        const char *interface,
                        const char *member,
                        bool dbus_to_kernel);
+bool policy_check_one_send(Policy *p,
+                           uid_t uid,
+                           gid_t gid,
+                           int message_type,
+                           const char *name,
+                           const char *path,
+                           const char *interface,
+                           const char *member);
 bool policy_check_send(Policy *p,
                        uid_t uid,
                        gid_t gid,
                        int message_type,
-                       const char *name,
+                       Set *names,
+                       char **namesv,
                        const char *path,
                        const char *interface,
                        const char *member,
-                       bool dbus_to_kernel);
+                       bool dbus_to_kernel,
+                       char **out_used_name);
 
 void policy_dump(Policy *p);
 

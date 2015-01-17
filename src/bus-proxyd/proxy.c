@@ -425,7 +425,6 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 uid_t sender_uid = UID_INVALID;
                 gid_t sender_gid = GID_INVALID;
                 char **sender_names = NULL;
-                bool granted = false;
 
                 /* Driver messages are always OK */
                 if (streq_ptr(m->sender, "org.freedesktop.DBus"))
@@ -456,34 +455,9 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 }
 
                 /* First check whether the sender can send the message to our name */
-                if (set_isempty(owned_names)) {
-                        if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, NULL, m->path, m->interface, m->member, false))
-                                granted = true;
-                } else {
-                        Iterator i;
-                        char *n;
-
-                        SET_FOREACH(n, owned_names, i)
-                                if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, n, m->path, m->interface, m->member, false)) {
-                                        granted = true;
-                                        break;
-                                }
-                }
-
-                if (granted) {
-                        /* Then check whether us (the recipient) can receive from the sender's name */
-                        if (strv_isempty(sender_names)) {
-                                if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member, false))
-                                        return 0;
-                        } else {
-                                char **n;
-
-                                STRV_FOREACH(n, sender_names) {
-                                        if (policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member, false))
-                                                return 0;
-                                }
-                        }
-                }
+                if (policy_check_send(policy, sender_uid, sender_gid, m->header->type, owned_names, NULL, m->path, m->interface, m->member, false, NULL) &&
+                    policy_check_recv(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, sender_names, m->path, m->interface, m->member, false))
+                        return 0;
 
                 /* Return an error back to the caller */
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
@@ -499,7 +473,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 gid_t destination_gid = GID_INVALID;
                 const char *destination_unique = NULL;
                 char **destination_names = NULL;
-                bool granted = false;
+                char *n;
 
                 /* Driver messages are always OK */
                 if (streq_ptr(m->destination, "org.freedesktop.DBus"))
@@ -525,42 +499,24 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 }
 
                 /* First check if we (the sender) can send to this name */
-                if (strv_isempty(destination_names)) {
-                        if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, m->path, m->interface, m->member, true))
-                                granted = true;
-                } else {
-                        char **n;
+                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, NULL, destination_names, m->path, m->interface, m->member, true, &n)) {
+                        if (n) {
+                                /* If we made a receiver decision, then remember which
+                                 * name's policy we used, and to which unique ID it
+                                 * mapped when we made the decision. Then, let's pass
+                                 * this to the kernel when sending the message, so that
+                                 * it refuses the operation should the name and unique
+                                 * ID not map to each other anymore. */
 
-                        STRV_FOREACH(n, destination_names) {
-                                if (policy_check_send(policy, our_ucred->uid, our_ucred->gid, m->header->type, *n, m->path, m->interface, m->member, true)) {
+                                r = free_and_strdup(&m->destination_ptr, n);
+                                if (r < 0)
+                                        return r;
 
-                                        /* If we made a receiver decision,
-                                           then remember which name's policy
-                                           we used, and to which unique ID it
-                                           mapped when we made the
-                                           decision. Then, let's pass this to
-                                           the kernel when sending the
-                                           message, so that it refuses the
-                                           operation should the name and
-                                           unique ID not map to each other
-                                           anymore. */
-
-                                        r = free_and_strdup(&m->destination_ptr, *n);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = bus_kernel_parse_unique_name(destination_unique, &m->verify_destination_id);
-                                        if (r < 0)
-                                                break;
-
-                                        granted = true;
-                                        break;
-                                }
+                                r = bus_kernel_parse_unique_name(destination_unique, &m->verify_destination_id);
+                                if (r < 0)
+                                        return r;
                         }
-                }
 
-                /* Then check if the recipient can receive from our name */
-                if (granted) {
                         if (sd_bus_message_is_signal(m, NULL, NULL)) {
                                 /* If we forward a signal from dbus-1 to kdbus,
                                  * we have no idea who the recipient is.
@@ -571,16 +527,8 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                                  * receiver policies to the message. Therefore,
                                  * skip policy checks in this case. */
                                 return 0;
-                        } else if (set_isempty(owned_names)) {
-                                if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, NULL, m->path, m->interface, m->member, true))
-                                        return 0;
-                        } else {
-                                Iterator i;
-                                char *n;
-
-                                SET_FOREACH(n, owned_names, i)
-                                        if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, n, m->path, m->interface, m->member, true))
-                                                return 0;
+                        } else if (policy_check_recv(policy, destination_uid, destination_gid, m->header->type, owned_names, NULL, m->path, m->interface, m->member, true)) {
+                                return 0;
                         }
                 }
 

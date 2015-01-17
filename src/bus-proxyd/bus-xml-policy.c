@@ -22,6 +22,7 @@
 #include "xml.h"
 #include "fileio.h"
 #include "strv.h"
+#include "set.h"
 #include "conf-files.h"
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -865,15 +866,14 @@ bool policy_check_hello(Policy *p, uid_t uid, gid_t gid) {
         return verdict == ALLOW;
 }
 
-bool policy_check_recv(Policy *p,
-                       uid_t uid,
-                       gid_t gid,
-                       int message_type,
-                       const char *name,
-                       const char *path,
-                       const char *interface,
-                       const char *member,
-                       bool dbus_to_kernel) {
+bool policy_check_one_recv(Policy *p,
+                           uid_t uid,
+                           gid_t gid,
+                           int message_type,
+                           const char *name,
+                           const char *path,
+                           const char *interface,
+                           const char *member) {
 
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_RECV,
@@ -886,29 +886,63 @@ bool policy_check_recv(Policy *p,
                 .member       = member,
         };
 
-        int verdict;
-
         assert(p);
 
-        verdict = policy_check(p, &filter);
-
-        log_full(LOG_AUTH | (verdict != ALLOW ? LOG_WARNING : LOG_DEBUG),
-                 "Receive permission check %s for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
-                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(name),
-                 strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
-
-        return verdict == ALLOW;
+        return policy_check(p, &filter) == ALLOW;
 }
 
-bool policy_check_send(Policy *p,
+bool policy_check_recv(Policy *p,
                        uid_t uid,
                        gid_t gid,
                        int message_type,
-                       const char *name,
+                       Set *names,
+                       char **namesv,
                        const char *path,
                        const char *interface,
                        const char *member,
                        bool dbus_to_kernel) {
+
+        char *n, **nv, *last = NULL;
+        bool allow = false;
+        Iterator i;
+
+        assert(p);
+
+        if (set_isempty(names) && strv_isempty(namesv)) {
+                allow = policy_check_one_recv(p, uid, gid, message_type, NULL, path, interface, member);
+        } else {
+                SET_FOREACH(n, names, i) {
+                        last = n;
+                        allow = policy_check_one_recv(p, uid, gid, message_type, n, path, interface, member);
+                        if (allow)
+                                break;
+                }
+                if (!allow) {
+                        STRV_FOREACH(nv, namesv) {
+                                last = *nv;
+                                allow = policy_check_one_recv(p, uid, gid, message_type, *nv, path, interface, member);
+                                if (allow)
+                                        break;
+                        }
+                }
+        }
+
+        log_full(LOG_AUTH | (!allow ? LOG_WARNING : LOG_DEBUG),
+                 "Receive permission check %s for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
+                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(last),
+                 strna(path), strna(interface), strna(member), allow ? "ALLOW" : "DENY");
+
+        return allow;
+}
+
+bool policy_check_one_send(Policy *p,
+                           uid_t uid,
+                           gid_t gid,
+                           int message_type,
+                           const char *name,
+                           const char *path,
+                           const char *interface,
+                           const char *member) {
 
         struct policy_check_filter filter = {
                 .class        = POLICY_ITEM_SEND,
@@ -921,18 +955,57 @@ bool policy_check_send(Policy *p,
                 .member       = member,
         };
 
-        int verdict;
+        assert(p);
+
+        return policy_check(p, &filter) == ALLOW;
+}
+
+bool policy_check_send(Policy *p,
+                       uid_t uid,
+                       gid_t gid,
+                       int message_type,
+                       Set *names,
+                       char **namesv,
+                       const char *path,
+                       const char *interface,
+                       const char *member,
+                       bool dbus_to_kernel,
+                       char **out_used_name) {
+
+        char *n, **nv, *last = NULL;
+        bool allow = false;
+        Iterator i;
 
         assert(p);
 
-        verdict = policy_check(p, &filter);
+        if (set_isempty(names) && strv_isempty(namesv)) {
+                allow = policy_check_one_send(p, uid, gid, message_type, NULL, path, interface, member);
+        } else {
+                SET_FOREACH(n, names, i) {
+                        last = n;
+                        allow = policy_check_one_send(p, uid, gid, message_type, n, path, interface, member);
+                        if (allow)
+                                break;
+                }
+                if (!allow) {
+                        STRV_FOREACH(nv, namesv) {
+                                last = *nv;
+                                allow = policy_check_one_send(p, uid, gid, message_type, *nv, path, interface, member);
+                                if (allow)
+                                        break;
+                        }
+                }
+        }
 
-        log_full(LOG_AUTH | (verdict != ALLOW ? LOG_WARNING : LOG_DEBUG),
+        if (out_used_name)
+                *out_used_name = last;
+
+        log_full(LOG_AUTH | (!allow ? LOG_WARNING : LOG_DEBUG),
                  "Send permission check %s for uid=" UID_FMT " gid=" GID_FMT" message=%s name=%s path=%s interface=%s member=%s: %s",
-                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(name),
-                 strna(path), strna(interface), strna(member), strna(verdict_to_string(verdict)));
+                 dbus_to_kernel ? "dbus-1 to kernel" : "kernel to dbus-1", uid, gid, bus_message_type_to_string(message_type), strna(last),
+                 strna(path), strna(interface), strna(member), allow ? "ALLOW" : "DENY");
 
-        return verdict == ALLOW;
+        return allow;
 }
 
 int policy_load(Policy *p, char **files) {
