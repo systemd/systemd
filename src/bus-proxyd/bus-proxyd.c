@@ -30,6 +30,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/poll.h>
+#include <sys/prctl.h>
 #include <stddef.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -91,11 +92,18 @@ static int client_context_new(ClientContext **out, int fd) {
 static void *run_client(void *userdata) {
         _cleanup_(client_context_freep) ClientContext *c = userdata;
         _cleanup_(proxy_freep) Proxy *p = NULL;
+        char comm[16];
         int r;
 
         r = proxy_new(&p, c->fd, c->fd, arg_address);
         if (r < 0)
                 goto exit;
+
+        /* set comm to "p$PIDu$UID" and suffix with '*' if truncated */
+        r = snprintf(comm, sizeof(comm), "p" PID_FMT "u" UID_FMT, p->local_creds.pid, p->local_creds.uid);
+        if (r >= (ssize_t)sizeof(comm))
+                comm[sizeof(comm) - 2] = '*';
+        (void) prctl(PR_SET_NAME, comm);
 
         r = proxy_load_policy(p, arg_configuration);
         if (r < 0)
