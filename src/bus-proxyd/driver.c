@@ -595,7 +595,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-               return synthetic_reply_method_return(m, NULL);
+                return synthetic_reply_method_return(m, NULL);
 
         } else {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
