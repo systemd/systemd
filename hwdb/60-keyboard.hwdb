@@ -800,14 +800,16 @@ keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE70*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:pvr*
  KEYBOARD_KEY_c2=ejectcd
 
-#
+# some MSI models generate ACPI/input events on the LNXVIDEO input devices,
+# plus some extra synthesized ones on atkbd as an echo of actually changing the
+# brightness; so ignore those atkbd ones, to avoid loops
 keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U-100*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*U100*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*N033:*
  KEYBOARD_KEY_f7=reserved
  KEYBOARD_KEY_f8=reserved
 
-#
+# MSI Wind U90/U100 generates separate touchpad on/off keycodes so ignore touchpad toggle keycode
 keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
  KEYBOARD_KEY_e4=reserved
 
