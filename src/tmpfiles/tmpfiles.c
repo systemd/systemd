@@ -57,6 +57,7 @@
 #include "copy.h"
 #include "selinux-util.h"
 #include "btrfs-util.h"
+#include "acl-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -76,6 +77,7 @@ typedef enum ItemType {
         CREATE_BLOCK_DEVICE = 'b',
         COPY_FILES = 'C',
         SET_XATTR = 't',
+        SET_ACL = 'a',
 
         /* These ones take globs */
         WRITE_FILE = 'w',
@@ -94,6 +96,10 @@ typedef struct Item {
         char *path;
         char *argument;
         char **xattrs;
+#ifdef HAVE_ACL
+        acl_t acl_access;
+        acl_t acl_default;
+#endif
         uid_t uid;
         gid_t gid;
         mode_t mode;
@@ -581,6 +587,59 @@ static int item_set_xattrs(Item *i, const char *path) {
         return 0;
 }
 
+static int get_acls_from_arg(Item *item) {
+#ifdef HAVE_ACL
+        int r;
+        _cleanup_(acl_freep) acl_t a = NULL, d = NULL;
+
+        assert(item);
+
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_default);
+        if (r < 0)
+                log_warning_errno(errno, "Failed to parse ACL \"%s\": %m. Ignoring",
+                                  item->argument);
+#else
+        log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
+#endif
+
+        return 0;
+}
+
+static int item_set_acl(Item *item, const char *path) {
+#ifdef HAVE_ACL
+        int r;
+
+        assert(item);
+        assert(path);
+
+        if (item->acl_access) {
+                r = acl_set_file(path, ACL_TYPE_ACCESS, item->acl_access);
+                if (r < 0) {
+                        _cleanup_(acl_free_charpp) char *t;
+
+                        t = acl_to_any_text(item->acl_access, NULL, ',', TEXT_ABBREVIATE);
+                        return log_error_errno(errno,
+                                               "Setting access ACL \"%s\" on %s failed: %m",
+                                               strna(t), path);
+                }
+        }
+
+        if (item->acl_default) {
+                r = acl_set_file(path, ACL_TYPE_DEFAULT, item->acl_default);
+                if (r < 0) {
+                        _cleanup_(acl_free_charpp) char *t;
+
+                        t = acl_to_any_text(item->acl_default, NULL, ',', TEXT_ABBREVIATE);
+                        return log_error_errno(errno,
+                                               "Setting default ACL \"%s\" on %s failed: %m",
+                                               strna(t), path);
+                }
+        }
+#endif
+
+        return 0;
+}
+
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
         int flags, r = 0;
@@ -974,6 +1033,11 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
                 break;
+
+        case SET_ACL:
+                r = item_set_acl(i, i->path);
+                if (r < 0)
+                        return r;
         }
 
         log_debug("%s created successfully.", i->path);
@@ -1004,6 +1068,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case WRITE_FILE:
         case COPY_FILES:
         case SET_XATTR:
+        case SET_ACL:
                 break;
 
         case REMOVE_PATH:
@@ -1049,6 +1114,7 @@ static int remove_item(Item *i) {
         case WRITE_FILE:
         case COPY_FILES:
         case SET_XATTR:
+        case SET_ACL:
                 break;
 
         case REMOVE_PATH:
@@ -1190,6 +1256,11 @@ static void item_free_contents(Item *i) {
         free(i->path);
         free(i->argument);
         strv_free(i->xattrs);
+
+#ifdef HAVE_ACL
+        acl_free(i->acl_access);
+        acl_free(i->acl_default);
+#endif
 }
 
 static void item_array_free(ItemArray *a) {
@@ -1392,6 +1463,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EBADMSG;
                 }
                 r = get_xattrs_from_arg(&i);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SET_ACL:
+                if (!i.argument) {
+                        log_error("[%s:%u] Set ACLs requires argument.", fname, line);
+                        return -EBADMSG;
+                }
+                r = get_acls_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;

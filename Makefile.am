@@ -2193,6 +2193,11 @@ systemd_tmpfiles_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
+if HAVE_ACL
+systemd_tmpfiles_LDADD += \
+	libsystemd-acl.la
+endif
+
 rootbin_PROGRAMS += \
 	systemd-tmpfiles
 

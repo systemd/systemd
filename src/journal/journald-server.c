@@ -52,12 +52,7 @@
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"
-
-#ifdef HAVE_ACL
-#include <sys/acl.h>
-#include <acl/libacl.h>
 #include "acl-util.h"
-#endif
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>

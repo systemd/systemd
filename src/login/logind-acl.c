@@ -22,8 +22,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/acl.h>
-#include <acl/libacl.h>
 
 #include "util.h"
 #include "acl-util.h"

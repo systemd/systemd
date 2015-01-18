@@ -292,6 +292,13 @@
           path. This can be useful for setting SMACK labels.
           </para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>a</varname></term>
+          <listitem><para>Set POSIX ACLs (access control lists) on the
+          specified path. This can be useful for allowing aditional
+          access to certain files.</para></listitem>
+        </varlistentry>
       </variablelist>
 
       <para>If the exclamation mark is used, this line is only safe of
@@ -374,8 +381,8 @@
       if omitted or when set to <literal>-</literal>, the file access
       mode will not be modified. This parameter is ignored for
       <varname>x</varname>, <varname>r</varname>,
-      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>
-      lines.</para>
+      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>,
+      and <varname>a</varname> lines.</para>
 
       <para>Optionally, if prefixed with <literal>~</literal>, the
       access mode is masked based on the already set access bits for
@@ -397,11 +404,12 @@
       may either be a numeric user/group ID or a user or group
       name. If omitted or when set to <literal>-</literal>, the
       default 0 (root) is used. For <varname>z</varname>,
-      <varname>Z</varname> lines, when omitted or when set to -, the
-      file ownership will not be modified. These parameters are
-      ignored for <varname>x</varname>, <varname>r</varname>,
-      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>
-      lines.</para>
+      <varname>Z</varname> lines, when omitted or when set to
+      <literal>-</literal>, the file ownership will not be
+      modified. These parameters are ignored for <varname>x</varname>,
+      <varname>r</varname>, <varname>R</varname>,
+      <varname>L</varname>, <varname>t</varname>, and
+      <varname>a</varname> lines.</para>
     </refsect2>
 
     <refsect2>
@@ -458,7 +466,8 @@
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
       directory. For <varname>t</varname> determines extended
-      attributes to be set. Ignored for all other lines.</para>
+      attributes to be set. For <varname>a</varname> determines
+      ACL attributes to be set. Ignored for all other lines.</para>
     </refsect2>
 
   </refsect1>
@@ -489,7 +498,12 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>attr</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>getfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>setfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

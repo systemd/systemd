@@ -20,8 +20,6 @@
 ***/
 
 #include <assert.h>
-#include <sys/acl.h>
-#include <acl/libacl.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -149,5 +147,69 @@ int search_acl_groups(char*** dst, const char* path, bool* belong) {
                 acl_free(acl);
         }
 
+        return 0;
+}
+
+int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default) {
+        _cleanup_free_ char **a = NULL, **d = NULL; /* strings are not be freed */
+        _cleanup_strv_free_ char **split;
+        char **entry;
+        int r = -EINVAL;
+        _cleanup_(acl_freep) acl_t a_acl = NULL, d_acl = NULL;
+
+        split = strv_split(text, ",");
+        if (!split)
+                return log_oom();
+
+        STRV_FOREACH(entry, split) {
+                char *p;
+
+                p = startswith(*entry, "default:");
+                if (!p)
+                        p = startswith(*entry, "d:");
+
+                if (p)
+                        r = strv_push(&d, p);
+                else
+                        r = strv_push(&a, *entry);
+        }
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(a)) {
+                _cleanup_free_ char *join;
+
+                join = strv_join(a, ",");
+                if (!join)
+                        return -ENOMEM;
+
+                a_acl = acl_from_text(join);
+                if (!a_acl)
+                        return -EINVAL;
+
+                r = calc_acl_mask_if_needed(&a_acl);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(d)) {
+                _cleanup_free_ char *join;
+
+                join = strv_join(d, ",");
+                if (!join)
+                        return -ENOMEM;
+
+                d_acl = acl_from_text(join);
+                if (!d_acl)
+                        return -EINVAL;
+
+                r = calc_acl_mask_if_needed(&d_acl);
+                if (r < 0)
+                        return r;
+        }
+
+        *acl_access = a_acl;
+        *acl_default = d_acl;
+        a_acl = d_acl = NULL;
         return 0;
 }

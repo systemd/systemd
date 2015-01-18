@@ -37,17 +37,13 @@
 #include <sys/inotify.h>
 #include <linux/fs.h>
 
-#ifdef HAVE_ACL
-#include <sys/acl.h>
-#include "acl-util.h"
-#endif
-
 #include "sd-journal.h"
 #include "sd-bus.h"
 
 #include "log.h"
 #include "logs-show.h"
 #include "util.h"
+#include "acl-util.h"
 #include "path-util.h"
 #include "fileio.h"
 #include "build.h"
