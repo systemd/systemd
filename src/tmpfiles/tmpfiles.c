@@ -76,10 +76,12 @@ typedef enum ItemType {
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
         COPY_FILES = 'C',
-        SET_XATTR = 't',
-        SET_ACL = 'a',
 
         /* These ones take globs */
+        SET_XATTR = 't',
+        RECURSIVE_SET_XATTR = 'T',
+        SET_ACL = 'a',
+        RECURSIVE_SET_ACL = 'A',
         WRITE_FILE = 'w',
         IGNORE_PATH = 'x',
         IGNORE_DIRECTORY_PATH = 'X',
@@ -151,7 +153,11 @@ static bool needs_glob(ItemType t) {
                       RECURSIVE_REMOVE_PATH,
                       ADJUST_MODE,
                       RELABEL_PATH,
-                      RECURSIVE_RELABEL_PATH);
+                      RECURSIVE_RELABEL_PATH,
+                      SET_XATTR,
+                      RECURSIVE_SET_XATTR,
+                      SET_ACL,
+                      RECURSIVE_SET_ACL);
 }
 
 static bool takes_ownership(ItemType t) {
@@ -486,7 +492,7 @@ finish:
         return r;
 }
 
-static int item_set_perms(Item *i, const char *path) {
+static int path_set_perms(Item *i, const char *path) {
         struct stat st;
         bool st_valid;
 
@@ -568,7 +574,7 @@ static int get_xattrs_from_arg(Item *i) {
         return r;
 }
 
-static int item_set_xattrs(Item *i, const char *path) {
+static int path_set_xattrs(Item *i, const char *path) {
         char **name, **value;
 
         assert(i);
@@ -605,7 +611,7 @@ static int get_acls_from_arg(Item *item) {
         return 0;
 }
 
-static int item_set_acl(Item *item, const char *path) {
+static int path_set_acls(Item *item, const char *path) {
 #ifdef HAVE_ACL
         int r;
 
@@ -693,7 +699,7 @@ static int write_one_file(Item *i, const char *path) {
                 return -EEXIST;
         }
 
-        r = item_set_perms(i, path);
+        r = path_set_perms(i, path);
         if (r < 0)
                 return r;
 
@@ -817,7 +823,7 @@ static int create_item(Item *i) {
                         }
                 }
 
-                r = item_set_perms(i, i->path);
+                r = path_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -861,7 +867,7 @@ static int create_item(Item *i) {
                         }
                 }
 
-                r = item_set_perms(i, i->path);
+                r = path_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -901,7 +907,7 @@ static int create_item(Item *i) {
                         }
                 }
 
-                r = item_set_perms(i, i->path);
+                r = path_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -992,7 +998,7 @@ static int create_item(Item *i) {
                         }
                 }
 
-                r = item_set_perms(i, i->path);
+                r = path_set_perms(i, i->path);
                 if (r < 0)
                         return r;
 
@@ -1001,29 +1007,40 @@ static int create_item(Item *i) {
 
         case ADJUST_MODE:
         case RELABEL_PATH:
-
-                r = glob_item(i, item_set_perms, false);
+                r = glob_item(i, path_set_perms, false);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
-
-                r = glob_item(i, item_set_perms, true);
+                r = glob_item(i, path_set_perms, true);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_XATTR:
-                r = item_set_xattrs(i, i->path);
+                r = glob_item(i, path_set_xattrs, false);
+                if (r < 0)
+                        return r;
+                break;
+
+        case RECURSIVE_SET_XATTR:
+                r = glob_item(i, path_set_xattrs, true);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_ACL:
-                r = item_set_acl(i, i->path);
+                r = glob_item(i, path_set_acls, false);
                 if (r < 0)
                         return r;
+                break;
+
+        case RECURSIVE_SET_ACL:
+                r = glob_item(i, path_set_acls, true);
+                if (r < 0)
+                        return r;
+                break;
         }
 
         log_debug("%s created successfully.", i->path);
@@ -1054,7 +1071,9 @@ static int remove_item_instance(Item *i, const char *instance) {
         case WRITE_FILE:
         case COPY_FILES:
         case SET_XATTR:
+        case RECURSIVE_SET_XATTR:
         case SET_ACL:
+        case RECURSIVE_SET_ACL:
                 break;
 
         case REMOVE_PATH:
@@ -1100,7 +1119,9 @@ static int remove_item(Item *i) {
         case WRITE_FILE:
         case COPY_FILES:
         case SET_XATTR:
+        case RECURSIVE_SET_XATTR:
         case SET_ACL:
+        case RECURSIVE_SET_ACL:
                 break;
 
         case REMOVE_PATH:
@@ -1444,6 +1465,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         case SET_XATTR:
+        case RECURSIVE_SET_XATTR:
                 if (!i.argument) {
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
@@ -1454,6 +1476,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         case SET_ACL:
+        case RECURSIVE_SET_ACL:
                 if (!i.argument) {
                         log_error("[%s:%u] Set ACLs requires argument.", fname, line);
                         return -EBADMSG;

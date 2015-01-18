@@ -273,7 +273,7 @@
           <listitem><para>Adjust the access mode, group and user, and
           restore the SELinux security context of a file or directory,
           if it exists. Lines of this type accept shell-style globs in
-          place of normal path names.  </para></listitem>
+          place of normal path names.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -288,16 +288,35 @@
 
         <varlistentry>
           <term><varname>t</varname></term>
-          <listitem><para>Set extended attributes on the specified
-          path. This can be useful for setting SMACK labels.
+          <listitem><para>Set extended attributes. Lines of this type
+          accept shell-style globs in place of normal path names.
+          This can be useful for setting SMACK labels.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>T</varname></term>
+          <listitem><para>Recursively set extended attributes. Lines
+          of this type accept shell-style globs in place of normal
+          path names.  This can be useful for setting SMACK labels.
           </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>a</varname></term>
-          <listitem><para>Set POSIX ACLs (access control lists) on the
-          specified path. This can be useful for allowing aditional
-          access to certain files.</para></listitem>
+          <listitem><para>Set POSIX ACLs (access control lists).
+          Lines of this type accept shell-style globs in
+          place of normal path names. This can be useful for
+          allowing additional access to certain files.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>A</varname></term>
+          <listitem><para>Recursively set POSIX ACLs. Lines of this
+          type accept shell-style globs in place of normal path
+          names. This can be useful for allowing additional access to
+          certain files.</para></listitem>
         </varlistentry>
       </variablelist>
 
