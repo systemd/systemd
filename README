@@ -178,14 +178,9 @@ USERS AND GROUPS:
         During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will
         be readable by this group (but not writable), which may be used
-        to grant specific users read access.
-
-        It is also recommended to grant read access to all journal
-        files to the system groups "wheel" and "adm" with a command
-        like the following in the post installation script of the
-        package:
-
-        # setfacl -nm g:wheel:rx,d:g:wheel:rx,g:adm:rx,d:g:adm:rx /var/log/journal/
+        to grant specific users read access. In addition, system
+        groups "wheel" and "adm" will be given read-only access to
+        journal files using systemd-tmpfiles.service.
 
         The journal gateway daemon requires the
         "systemd-journal-gateway" system user and group to

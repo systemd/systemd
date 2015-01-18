@@ -26,9 +26,17 @@ d /run/log 0755 root root -
 
 z /run/log/journal 2755 root systemd-journal - -
 Z /run/log/journal/%m ~2750 root systemd-journal - -
+m4_ifdef(`HAVE_ACL',``
+a+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
+A+ /run/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
+'')m4_dnl
 
 z /var/log/journal 2755 root systemd-journal - -
 z /var/log/journal/%m 2755 root systemd-journal - -
+m4_ifdef(`HAVE_ACL',``
+a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x
+A+ /var/log/journal/%m - - - - group:adm:r-x,group:wheel:r-x
+'')m4_dnl
 
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d

@@ -666,6 +666,7 @@ if test "x${have_acl}" != xno ; then
         if test "x$have_acl" = xyes ; then
                 ACL_LIBS="-lacl"
                 AC_DEFINE(HAVE_ACL, 1, [ACL available])
+                M4_DEFINES="$M4_DEFINES -DHAVE_ACL"
         else
                 have_acl=no
         fi
