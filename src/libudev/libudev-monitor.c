@@ -609,7 +609,7 @@ retry:
                 return NULL;
         }
 
-        if (buflen < 32 || (size_t)buflen >= sizeof(buf)) {
+        if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC)) {
                 log_debug("invalid message length");
                 return NULL;
         }
