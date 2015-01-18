@@ -70,9 +70,9 @@ static int audit_callback(
 
         if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
                 snprintf(login_uid_buf, sizeof(login_uid_buf), UID_FMT, login_uid);
-        if (sd_bus_creds_get_uid(audit->creds, &uid) >= 0)
+        if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
                 snprintf(uid_buf, sizeof(uid_buf), UID_FMT, uid);
-        if (sd_bus_creds_get_gid(audit->creds, &gid) >= 0)
+        if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
                 snprintf(gid_buf, sizeof(gid_buf), GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
@@ -203,7 +203,7 @@ int mac_selinux_generic_access_check(
 
         r = sd_bus_query_sender_creds(
                         message,
-                        SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|
+                        SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
                         SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
                         SD_BUS_CREDS_SELINUX_CONTEXT|
                         SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,

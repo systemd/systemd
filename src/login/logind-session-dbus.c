@@ -239,11 +239,11 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
         if (r < 0)
                 return r;
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_uid(creds, &uid);
+        r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -302,11 +302,11 @@ static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_uid(creds, &uid);
+        r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
 

@@ -762,7 +762,7 @@ static int bus_get_name_creds_dbus1(
 
                 if ((mask & SD_BUS_CREDS_PID) ||
                     ((mask & SD_BUS_CREDS_AUGMENT) &&
-                     (mask & (SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                     (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                               SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                               SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                               SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
@@ -798,7 +798,7 @@ static int bus_get_name_creds_dbus1(
                         reply = sd_bus_message_unref(reply);
                 }
 
-                if (mask & SD_BUS_CREDS_UID) {
+                if (mask & SD_BUS_CREDS_EUID) {
                         uint32_t u;
 
                         r = sd_bus_call_method(
@@ -818,8 +818,8 @@ static int bus_get_name_creds_dbus1(
                         if (r < 0)
                                 return r;
 
-                        c->uid = u;
-                        c->mask |= SD_BUS_CREDS_UID;
+                        c->euid = u;
+                        c->mask |= SD_BUS_CREDS_EUID;
 
                         reply = sd_bus_message_unref(reply);
                 }
@@ -961,13 +961,13 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 }
 
                 if (bus->ucred.uid != UID_INVALID) {
-                        c->uid = bus->ucred.uid;
-                        c->mask |= SD_BUS_CREDS_UID & mask;
+                        c->euid = bus->ucred.uid;
+                        c->mask |= SD_BUS_CREDS_EUID & mask;
                 }
 
                 if (bus->ucred.gid != GID_INVALID) {
-                        c->gid = bus->ucred.gid;
-                        c->mask |= SD_BUS_CREDS_GID & mask;
+                        c->egid = bus->ucred.gid;
+                        c->mask |= SD_BUS_CREDS_EGID & mask;
                 }
         }
 

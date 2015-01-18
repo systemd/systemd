@@ -160,7 +160,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 r = sd_bus_get_name_creds(
                                 bus, *i,
                                 (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
-                                SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
+                                SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                 SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
                                 SD_BUS_CREDS_DESCRIPTION, &creds);
                 if (r >= 0) {
@@ -178,7 +178,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         } else
                                 fputs("          - -              ", stdout);
 
-                        r = sd_bus_creds_get_uid(creds, &uid);
+                        r = sd_bus_creds_get_euid(creds, &uid);
                         if (r >= 0) {
                                 _cleanup_free_ char *u = NULL;
 

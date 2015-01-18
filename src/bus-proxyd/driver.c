@@ -252,7 +252,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (!sd_bus_message_has_signature(m, "s"))
                         return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, &error);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_EUID, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
 

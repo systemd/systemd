@@ -1606,11 +1606,11 @@ static int method_do_shutdown_or_sleep(
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb not supported");
         }
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_uid(creds, &uid);
+        r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -1759,11 +1759,11 @@ static int method_can_shutdown_or_sleep(
                         return sd_bus_reply_method_return(message, "s", "na");
         }
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_uid(creds, &uid);
+        r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -1938,11 +1938,11 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_uid(creds, &uid);
+        r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
 

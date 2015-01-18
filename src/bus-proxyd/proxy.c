@@ -73,7 +73,7 @@ static int proxy_create_dest(Proxy *p, const char *dest, const char *local_sec, 
         if (r < 0)
                 return log_error_errno(r, "Failed to set FD negotiation: %m");
 
-        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0)
                 return log_error_errno(r, "Failed to set credential negotiation: %m");
 
@@ -134,7 +134,7 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         if (r < 0)
                 return log_error_errno(r, "Failed to set FD negotiation: %m");
 
-        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_GID|SD_BUS_CREDS_SELINUX_CONTEXT);
+        r = sd_bus_negotiate_creds(b, true, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0)
                 return log_error_errno(r, "Failed to set credential negotiation: %m");
 
@@ -433,8 +433,8 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 /* The message came from the kernel, and is sent to our legacy client. */
                 sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
 
-                (void) sd_bus_creds_get_uid(&m->creds, &sender_uid);
-                (void) sd_bus_creds_get_gid(&m->creds, &sender_gid);
+                (void) sd_bus_creds_get_euid(&m->creds, &sender_uid);
+                (void) sd_bus_creds_get_egid(&m->creds, &sender_gid);
 
                 if (sender_uid == UID_INVALID || sender_gid == GID_INVALID) {
                         _cleanup_bus_creds_unref_ sd_bus_creds *sender_creds = NULL;
@@ -446,12 +446,12 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                          * case, query the creds of the peer
                          * instead. */
 
-                        r = bus_get_name_creds_kdbus(from, m->sender, SD_BUS_CREDS_UID|SD_BUS_CREDS_GID, true, &sender_creds);
+                        r = bus_get_name_creds_kdbus(from, m->sender, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID, true, &sender_creds);
                         if (r < 0)
                                 return handle_policy_error(m, r);
 
-                        (void) sd_bus_creds_get_uid(sender_creds, &sender_uid);
-                        (void) sd_bus_creds_get_gid(sender_creds, &sender_gid);
+                        (void) sd_bus_creds_get_euid(sender_creds, &sender_uid);
+                        (void) sd_bus_creds_get_egid(sender_creds, &sender_gid);
                 }
 
                 /* First check whether the sender can send the message to our name */
@@ -483,7 +483,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                 if (m->destination) {
                         r = bus_get_name_creds_kdbus(to, m->destination,
                                                      SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME|
-                                                     SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID,
+                                                     SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID,
                                                      true, &destination_creds);
                         if (r < 0)
                                 return handle_policy_error(m, r);
@@ -494,8 +494,8 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
 
                         sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
 
-                        (void) sd_bus_creds_get_uid(destination_creds, &destination_uid);
-                        (void) sd_bus_creds_get_gid(destination_creds, &destination_gid);
+                        (void) sd_bus_creds_get_euid(destination_creds, &destination_uid);
+                        (void) sd_bus_creds_get_egid(destination_creds, &destination_gid);
                 }
 
                 /* First check if we (the sender) can send to this name */
