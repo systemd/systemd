@@ -680,6 +680,8 @@ Features:
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
+  - replace F with f+.
+  - instead of ignoring unknown fields, reject them.
 
 * for services: do not set $HOME in services unless requested
 
