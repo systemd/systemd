@@ -644,8 +644,8 @@ int bus_get_name_creds_kdbus(
         cmd->size = size;
         cmd->flags = attach_flags_to_kdbus(mask);
 
-        /* If augmentation is on, and the bus doesn't didn't allow us
-         * to get the bits we want, then ask for the PID/TID so that we
+        /* If augmentation is on, and the bus didn't provide us
+         * the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
         if ((mask & SD_BUS_CREDS_AUGMENT) &&
             (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
