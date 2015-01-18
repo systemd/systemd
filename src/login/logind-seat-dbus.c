@@ -381,6 +381,7 @@ char *seat_bus_path(Seat *s) {
 
 int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
+        sd_bus_message *message;
         Manager *m = userdata;
         Seat *seat;
         Iterator i;
@@ -402,9 +403,25 @@ int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                         return r;
         }
 
-        r = strv_extend(&l, "/org/freedesktop/login1/seat/self");
-        if (r < 0)
-                return r;
+        message = sd_bus_get_current_message(bus);
+        if (message) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                const char *name;
+                Session *session;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                if (r >= 0) {
+                        r = sd_bus_creds_get_session(creds, &name);
+                        if (r >= 0) {
+                                session = hashmap_get(m->sessions, name);
+                                if (session && session->seat) {
+                                        r = strv_extend(&l, "/org/freedesktop/login1/seat/self");
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+                }
+        }
 
         *nodes = l;
         l = NULL;
