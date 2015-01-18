@@ -218,6 +218,57 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         return r;
 }
 
+static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t;
+        int r;
+
+        assert(netdev);
+
+        if (netdev->kind == NETDEV_KIND_IP6GRE)
+                 t = IP6GRE(netdev);
+        else
+                 t = IP6GRETAP(netdev);
+
+        assert(t);
+        assert(t->family == AF_INET6);
+        assert(link);
+        assert(m);
+
+        r = sd_rtnl_message_append_u32(m, IFLA_GRE_LINK, link->ifindex);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_GRE_LINK attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_GRE_LOCAL, &t->local.in6);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_GRE_LOCAL attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_GRE_REMOTE, &t->remote.in6);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_GRE_REMOTE attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_GRE_TTL attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        return r;
+}
+
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         Tunnel *t = VTI(netdev);
         int r;
@@ -341,6 +392,12 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         case NETDEV_KIND_GRETAP:
                 t = GRETAP(netdev);
                 break;
+        case NETDEV_KIND_IP6GRE:
+                t = IP6GRE(netdev);
+                break;
+        case NETDEV_KIND_IP6GRETAP:
+                t = IP6GRETAP(netdev);
+                break;
         case NETDEV_KIND_VTI:
                 t = VTI(netdev);
                 break;
@@ -451,6 +508,21 @@ static void gre_init(NetDev *n) {
         t->pmtudisc = true;
 }
 
+static void ip6gre_init(NetDev *n) {
+        Tunnel *t;
+
+        assert(n);
+
+        if (n->kind == NETDEV_KIND_IP6GRE)
+                t = IP6GRE(n);
+        else
+                t = IP6GRETAP(n);
+
+        assert(t);
+
+        t->ttl = DEFAULT_TNL_HOP_LIMIT;
+}
+
 static void ip6tnl_init(NetDev *n) {
         Tunnel *t = IP6TNL(n);
 
@@ -503,6 +575,24 @@ const NetDevVTable gretap_vtable = {
         .init = gre_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_gre_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable ip6gre_vtable = {
+        .object_size = sizeof(Tunnel),
+        .init = ip6gre_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_ip6gre_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable ip6gretap_vtable = {
+        .object_size = sizeof(Tunnel),
+        .init = ip6gre_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_ip6gre_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };

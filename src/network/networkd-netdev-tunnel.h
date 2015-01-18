@@ -57,6 +57,8 @@ extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;
 extern const NetDevVTable gre_vtable;
 extern const NetDevVTable gretap_vtable;
+extern const NetDevVTable ip6gre_vtable;
+extern const NetDevVTable ip6gretap_vtable;
 extern const NetDevVTable ip6tnl_vtable;
 
 const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;

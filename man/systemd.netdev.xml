@@ -331,7 +331,8 @@
 
                         <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
                         <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal>, <literal>gretap</literal>,
-                        <literal>vti</literal> and <literal>ip6tnl</literal> and accepts the following keys:</para>
+                        <literal>ip6gre</literal>, <literal>ip6gretap</literal>, <literal>vti</literal> and <literal>ip6tnl</literal>
+                        and accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>

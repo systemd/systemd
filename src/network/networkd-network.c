@@ -453,6 +453,8 @@ int config_parse_tunnel(const char *unit,
             netdev->kind != NETDEV_KIND_SIT &&
             netdev->kind != NETDEV_KIND_GRE &&
             netdev->kind != NETDEV_KIND_GRETAP &&
+            netdev->kind != NETDEV_KIND_IP6GRE &&
+            netdev->kind != NETDEV_KIND_IP6GRETAP &&
             netdev->kind != NETDEV_KIND_VTI &&
             netdev->kind != NETDEV_KIND_IP6TNL
             ) {
