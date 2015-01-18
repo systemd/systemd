@@ -22,7 +22,7 @@
 ***/
 
 #include "hashmap.h"
-#include "util.h"
+#include "macro.h"
 
 Set *internal_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) internal_set_new(ops  HASHMAP_DEBUG_SRC_ARGS)

@@ -31,7 +31,7 @@
 
 #include "sparse-endian.h"
 #include "journal-def.h"
-#include "util.h"
+#include "macro.h"
 #include "mmap-cache.h"
 #include "hashmap.h"
 

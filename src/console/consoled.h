@@ -26,7 +26,6 @@
 #include <libudev.h>
 #include <stdlib.h>
 #include "grdev.h"
-#include "hashmap.h"
 #include "idev.h"
 #include "list.h"
 #include "macro.h"
@@ -36,7 +35,6 @@
 #include "sysview.h"
 #include "term.h"
 #include "unifont.h"
-#include "util.h"
 
 typedef struct Manager Manager;
 typedef struct Session Session;
