@@ -256,7 +256,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
 
-                return synthetic_reply_method_return(m, "u", (uint32_t) creds->uid);
+                return synthetic_reply_method_return(m, "u", (uint32_t) creds->euid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetId")) {
                 sd_id128_t server_id;
