@@ -65,7 +65,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
     processes. Internally, this relies on the Control Groups
-    kernel concept for organizing processes in a hierarchial tree of
+    kernel concept for organizing processes in a hierarchical tree of
     named groups for the purpose of resource management.</para>
 
     <para>This man page lists the configuration options shared by
@@ -132,7 +132,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <varname>CPUShares=</varname> applies to normal runtime of
           the system, and if the former is not set also to the startup
           phase. Using <varname>StartupCPUShares=</varname> allows
-          priorizing specific services at boot-up differently than
+          prioritizing specific services at boot-up differently than
           during normal runtime.</para>
 
           <para>Those options imply
@@ -148,7 +148,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           executed. Takes a percentage value, suffixed with "%". The
           percentage specifies how much CPU time the unit shall get at
           maximum, relative to the total CPU time available on one
-          CPU. Use values &gt; 100% for alloting CPU time on more than
+          CPU. Use values &gt; 100% for allotting CPU time on more than
           one CPU. This controls the
           <literal>cpu.cfs_quota_us</literal> control group
           attribute. For details about this control group attribute,
@@ -230,7 +230,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         applies to the startup phase of the system,
         <varname>BlockIOWeight=</varname> applies to the later runtime
         of the system, and if the former is not set also to the
-        startup phase. This allows priorizing specific services at
+        startup phase. This allows prioritizing specific services at
         boot-up differently than during runtime.</para>
 
         <para>Implies
@@ -399,10 +399,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Turns on delegation of further resource control
-          partitioning to processes of the unit. For unpriviliged
+          partitioning to processes of the unit. For unprivileged
           services (i.e. those using the <varname>User=</varname>
           setting) this allows processes to create a subhierarchy
-          beneath its control group path. For priviliged services and
+          beneath its control group path. For privileged services and
           scopes this ensures the processes will have all control
           group controllers enabled.</para>
         </listitem>
