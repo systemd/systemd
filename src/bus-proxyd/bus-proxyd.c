@@ -62,6 +62,7 @@ static char **arg_configuration = NULL;
 typedef struct {
         int fd;
         SharedPolicy *policy;
+        uid_t bus_uid;
 } ClientContext;
 
 static ClientContext *client_context_free(ClientContext *c) {
@@ -110,7 +111,7 @@ static void *run_client(void *userdata) {
         if (r < 0)
                 goto exit;
 
-        r = proxy_hello_policy(p, getuid());
+        r = proxy_hello_policy(p, c->bus_uid);
         if (r < 0)
                 goto exit;
 
@@ -120,7 +121,7 @@ exit:
         return NULL;
 }
 
-static int loop_clients(int accept_fd) {
+static int loop_clients(int accept_fd, uid_t bus_uid) {
         _cleanup_(shared_policy_freep) SharedPolicy *sp = NULL;
         pthread_attr_t attr;
         int r;
@@ -164,6 +165,7 @@ static int loop_clients(int accept_fd) {
 
                 c->fd = fd;
                 c->policy = sp;
+                c->bus_uid = bus_uid;
 
                 r = pthread_create(&tid, &attr, run_client, c);
                 if (r < 0) {
@@ -294,12 +296,14 @@ static int parse_argv(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
         const char *user = "systemd-bus-proxy";
         int r, accept_fd;
-        uid_t uid;
+        uid_t uid, bus_uid;
         gid_t gid;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        bus_uid = getuid();
 
         if (geteuid() == 0) {
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL);
@@ -332,7 +336,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = loop_clients(accept_fd);
+        r = loop_clients(accept_fd, bus_uid);
 
 finish:
         sd_notify(false,
