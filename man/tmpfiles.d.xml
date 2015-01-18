@@ -234,7 +234,7 @@
           to exclude paths from clean-up as controlled with the Age
           parameter. Note that lines of this type do not influence the
           effect of <varname>r</varname> or <varname>R</varname>
-          lines.  Lines of this type accept shell-style globs in place
+          lines. Lines of this type accept shell-style globs in place
           of normal path names.  </para></listitem>
         </varlistentry>
 
@@ -246,7 +246,7 @@
           not exclude the content if path is a directory, but only
           directory itself. Note that lines of this type do not
           influence the effect of <varname>r</varname> or
-          <varname>R</varname> lines.  Lines of this type accept
+          <varname>R</varname> lines. Lines of this type accept
           shell-style globs in place of normal path names.
           </para></listitem>
         </varlistentry>
@@ -304,19 +304,25 @@
 
         <varlistentry>
           <term><varname>a</varname></term>
-          <listitem><para>Set POSIX ACLs (access control lists).
-          Lines of this type accept shell-style globs in
-          place of normal path names. This can be useful for
-          allowing additional access to certain files.
-          </para></listitem>
+          <term><varname>a+</varname></term>
+          <listitem><para>Set POSIX ACLs (access control lists). If
+          suffixed with <varname>+</varname>, specified mask will be
+          added to existing
+          entries. <command>systemd-tmpfiles</command> does not
+          automatically add the required base entries for user and
+          group to the specified mask, so they must be specified
+          explicitly if <varname>+</varname> is not used. The
+          mask will be added if not specified explicitly.
+          Lines of this type accept shell-style globs in place
+          of normal path names. This can be useful for allowing
+          additional access to certain files.  </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>A</varname></term>
-          <listitem><para>Recursively set POSIX ACLs. Lines of this
-          type accept shell-style globs in place of normal path
-          names. This can be useful for allowing additional access to
-          certain files.</para></listitem>
+          <term><varname>A+</varname></term>
+          <listitem><para>Same as <varname>a</varname> and
+          <varname>a+</varname>, but recursive.</para></listitem>
         </varlistentry>
       </variablelist>
 

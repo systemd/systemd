@@ -600,7 +600,9 @@ static int get_acls_from_arg(Item *item) {
 
         assert(item);
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_default);
+        /* If force (= modify) is set, we will not modify the acl
+         * afterwards, so the mask can be added now if necessary. */
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
                 log_warning_errno(errno, "Failed to parse ACL \"%s\": %m. Ignoring",
                                   item->argument);
@@ -611,6 +613,32 @@ static int get_acls_from_arg(Item *item) {
         return 0;
 }
 
+static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
+        _cleanup_(acl_freep) acl_t cleanme = NULL;
+        int r;
+
+        if (modify) {
+                r = acls_for_file(path, type, acl, &cleanme);
+                if (r < 0)
+                        return r;
+                acl = cleanme;
+        };
+
+        r = acl_set_file(path, type, acl);
+        if (r < 0) {
+                _cleanup_(acl_free_charpp) char *t;
+
+                r = -errno;
+                t = acl_to_any_text(acl, NULL, ',', TEXT_ABBREVIATE);
+                log_error_errno(r,
+                                "Setting %s ACL \"%s\" on %s failed: %m",
+                                type == ACL_TYPE_ACCESS ? "access" : "default",
+                                strna(t), path);
+        }
+
+        return r;
+}
+
 static int path_set_acls(Item *item, const char *path) {
 #ifdef HAVE_ACL
         int r;
@@ -619,27 +647,15 @@ static int path_set_acls(Item *item, const char *path) {
         assert(path);
 
         if (item->acl_access) {
-                r = acl_set_file(path, ACL_TYPE_ACCESS, item->acl_access);
-                if (r < 0) {
-                        _cleanup_(acl_free_charpp) char *t;
-
-                        t = acl_to_any_text(item->acl_access, NULL, ',', TEXT_ABBREVIATE);
-                        return log_error_errno(errno,
-                                               "Setting access ACL \"%s\" on %s failed: %m",
-                                               strna(t), path);
-                }
+                r = path_set_acl(path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+                if (r < 0)
+                        return r;
         }
 
         if (item->acl_default) {
-                r = acl_set_file(path, ACL_TYPE_DEFAULT, item->acl_default);
-                if (r < 0) {
-                        _cleanup_(acl_free_charpp) char *t;
-
-                        t = acl_to_any_text(item->acl_default, NULL, ',', TEXT_ABBREVIATE);
-                        return log_error_errno(errno,
-                                               "Setting default ACL \"%s\" on %s failed: %m",
-                                               strna(t), path);
-                }
+                r = path_set_acl(path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+                if (r < 0)
+                        return r;
         }
 #endif
 

@@ -32,7 +32,8 @@
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int search_acl_groups(char*** dst, const char* path, bool* belong);
-int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default);
+int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask);
+int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl);
 
 /* acl_free takes multiple argument types.
  * Multiple cleanup functions are necessary. */

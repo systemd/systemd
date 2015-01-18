@@ -150,7 +150,7 @@ int search_acl_groups(char*** dst, const char* path, bool* belong) {
         return 0;
 }
 
-int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default) {
+int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
         _cleanup_free_ char **a = NULL, **d = NULL; /* strings are not be freed */
         _cleanup_strv_free_ char **split;
         char **entry;
@@ -187,9 +187,11 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default) {
                 if (!a_acl)
                         return -EINVAL;
 
-                r = calc_acl_mask_if_needed(&a_acl);
-                if (r < 0)
-                        return r;
+                if (want_mask) {
+                        r = calc_acl_mask_if_needed(&a_acl);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (!strv_isempty(d)) {
@@ -203,13 +205,46 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default) {
                 if (!d_acl)
                         return -EINVAL;
 
-                r = calc_acl_mask_if_needed(&d_acl);
-                if (r < 0)
-                        return r;
+                if (want_mask) {
+                        r = calc_acl_mask_if_needed(&d_acl);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         *acl_access = a_acl;
         *acl_default = d_acl;
         a_acl = d_acl = NULL;
+        return 0;
+}
+
+int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
+        _cleanup_(acl_freep) acl_t old;
+        acl_entry_t i;
+        int found, r;
+
+        old = acl_get_file(path, type);
+        if (!old)
+                return -errno;
+
+        for (found = acl_get_entry(new, ACL_FIRST_ENTRY, &i);
+             found > 0;
+             found = acl_get_entry(new, ACL_NEXT_ENTRY, &i)) {
+
+                acl_entry_t j;
+
+                if (acl_create_entry(&old, &j) < 0)
+                        return -errno;
+
+                if (acl_copy_entry(j, i) < 0)
+                        return -errno;
+        }
+
+        r = calc_acl_mask_if_needed(&old);
+        if (r < 0)
+                return r;
+
+        *acl = old;
+        old = NULL;
         return 0;
 }
