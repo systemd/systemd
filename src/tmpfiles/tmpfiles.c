@@ -614,22 +614,35 @@ static int get_acls_from_arg(Item *item) {
 }
 
 static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
-        _cleanup_(acl_freep) acl_t cleanme = NULL;
+        _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
 
         if (modify) {
-                r = acls_for_file(path, type, acl, &cleanme);
+                r = acls_for_file(path, type, acl, &dup);
                 if (r < 0)
                         return r;
-                acl = cleanme;
-        };
 
-        r = acl_set_file(path, type, acl);
+                r = calc_acl_mask_if_needed(&dup);
+                if (r < 0)
+                        return r;
+        } else {
+                dup = acl_dup(acl);
+                if (!dup)
+                        return -errno;
+
+                /* the mask was already added earlier if needed */
+        }
+
+        r = add_base_acls_if_needed(&dup, path);
+        if (r < 0)
+                return r;
+
+        r = acl_set_file(path, type, dup);
         if (r < 0) {
                 _cleanup_(acl_free_charpp) char *t;
 
                 r = -errno;
-                t = acl_to_any_text(acl, NULL, ',', TEXT_ABBREVIATE);
+                t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
                 log_error_errno(r,
                                 "Setting %s ACL \"%s\" on %s failed: %m",
                                 type == ACL_TYPE_ACCESS ? "access" : "default",

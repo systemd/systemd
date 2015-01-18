@@ -306,16 +306,16 @@
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists). If
-          suffixed with <varname>+</varname>, specified mask will be
-          added to existing
-          entries. <command>systemd-tmpfiles</command> does not
-          automatically add the required base entries for user and
-          group to the specified mask, so they must be specified
-          explicitly if <varname>+</varname> is not used. The
-          mask will be added if not specified explicitly.
-          Lines of this type accept shell-style globs in place
-          of normal path names. This can be useful for allowing
-          additional access to certain files.  </para></listitem>
+          suffixed with <varname>+</varname>, specified entries will
+          be added to the existing set.
+          <command>systemd-tmpfiles</command> will automatically add
+          the required base entries for user and group based on the
+          access mode of the file, unless base entries already exist
+          or are explictly specified. The mask will be added if not
+          specified explicitly or already present. Lines of this type
+          accept shell-style globs in place of normal path names. This
+          can be useful for allowing additional access to certain
+          files.</para></listitem>
         </varlistentry>
 
         <varlistentry>
