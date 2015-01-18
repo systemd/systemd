@@ -700,7 +700,9 @@ static int write_one_file(Item *i, const char *path) {
         return 0;
 }
 
-static int item_set_perms_children(Item *i, const char *path) {
+typedef int (*action_t)(Item *, const char *);
+
+static int item_do_children(Item *i, const char *path, action_t action) {
         _cleanup_closedir_ DIR *d;
         int r = 0;
 
@@ -735,12 +737,12 @@ static int item_set_perms_children(Item *i, const char *path) {
                 if (!p)
                         return -ENOMEM;
 
-                q = item_set_perms(i, p);
+                q = action(i, p);
                 if (q < 0 && q != -ENOENT && r == 0)
                         r = q;
 
                 if (IN_SET(de->d_type, DT_UNKNOWN, DT_DIR)) {
-                        q = item_set_perms_children(i, p);
+                        q = item_do_children(i, p, action);
                         if (q < 0 && r == 0)
                                 r = q;
                 }
@@ -749,42 +751,26 @@ static int item_set_perms_children(Item *i, const char *path) {
         return r;
 }
 
-static int item_set_perms_recursive(Item *i, const char *path) {
-        int r, q;
-
-        assert(i);
-        assert(path);
-
-        r = item_set_perms(i, path);
-        if (r < 0)
-                return r;
-
-        q = item_set_perms_children(i, path);
-        if (q < 0 && r == 0)
-                r = q;
-
-        return r;
-}
-
-static int glob_item(Item *i, int (*action)(Item *, const char *)) {
+static int glob_item(Item *i, action_t action, bool recursive) {
         _cleanup_globfree_ glob_t g = {};
         int r = 0, k;
         char **fn;
 
         errno = 0;
         k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
-        if (k != 0 && k != GLOB_NOMATCH) {
-                if (errno == 0)
-                        errno = EIO;
-
-                log_error_errno(errno, "glob(%s) failed: %m", i->path);
-                return -errno;
-        }
+        if (k != 0 && k != GLOB_NOMATCH)
+                return log_error_errno(errno ?: EIO, "glob(%s) failed: %m", i->path);
 
         STRV_FOREACH(fn, g.gl_pathv) {
                 k = action(i, *fn);
                 if (k < 0 && r == 0)
                         r = k;
+
+                if (recursive) {
+                        k = item_do_children(i, *fn, action);
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
         }
 
         return r;
@@ -838,7 +824,7 @@ static int create_item(Item *i) {
                 break;
 
         case WRITE_FILE:
-                r = glob_item(i, write_one_file);
+                r = glob_item(i, write_one_file, false);
                 if (r < 0)
                         return r;
 
@@ -1016,14 +1002,14 @@ static int create_item(Item *i) {
         case ADJUST_MODE:
         case RELABEL_PATH:
 
-                r = glob_item(i, item_set_perms);
+                r = glob_item(i, item_set_perms, false);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
 
-                r = glob_item(i, item_set_perms_recursive);
+                r = glob_item(i, item_set_perms, true);
                 if (r < 0)
                         return r;
                 break;
@@ -1120,7 +1106,7 @@ static int remove_item(Item *i) {
         case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                r = glob_item(i, remove_item_instance);
+                r = glob_item(i, remove_item_instance, false);
                 break;
         }
 
@@ -1187,7 +1173,7 @@ static int clean_item(Item *i) {
                 clean_item_instance(i, i->path);
                 break;
         case IGNORE_DIRECTORY_PATH:
-                r = glob_item(i, clean_item_instance);
+                r = glob_item(i, clean_item_instance, false);
                 break;
         default:
                 break;
