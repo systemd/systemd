@@ -90,10 +90,6 @@ static void test_exec_ignoresigpipe(Manager *m) {
 }
 
 static void test_exec_privatetmp(Manager *m) {
-        if (getuid() != 0) {
-                printf("Skipping test_exec_privatetmp: not root\n");
-                return;
-        }
         assert_se(touch("/tmp/test-exec_privatetmp") >= 0);
 
         test(m, "exec-privatetmp-yes.service", 0, CLD_EXITED);
@@ -103,10 +99,6 @@ static void test_exec_privatetmp(Manager *m) {
 }
 
 static void test_exec_privatedevices(Manager *m) {
-        if (getuid() != 0) {
-                printf("Skipping test_exec_privatedevices: not root\n");
-                return;
-        }
         test(m, "exec-privatedevices-yes.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
 }
@@ -127,18 +119,10 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 }
 
 static void test_exec_user(Manager *m) {
-        if (getuid() != 0) {
-                printf("Skipping test_exec_user: not root\n");
-                return;
-        }
         test(m, "exec-user.service", 0, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        if (getuid() != 0) {
-                printf("Skipping test_exec_group: not root\n");
-                return;
-        }
         test(m, "exec-group.service", 0, CLD_EXITED);
 }
 
@@ -149,10 +133,6 @@ static void test_exec_environment(Manager *m) {
 }
 
 static void test_exec_umask(Manager *m) {
-        if (getuid() != 0) {
-                printf("Skipping test_exec_umask: not root\n");
-                return;
-        }
         test(m, "exec-umask-default.service", 0, CLD_EXITED);
         test(m, "exec-umask-0177.service", 0, CLD_EXITED);
 }
@@ -178,6 +158,12 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
+
+        /* It is needed otherwise cgroup creation fails */
+        if (getuid() != 0) {
+                printf("Skipping test: not root\n");
+                return EXIT_TEST_SKIP;
+        }
 
         assert_se(set_unit_path(TEST_DIR ":") >= 0);
 
