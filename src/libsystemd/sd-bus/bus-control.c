@@ -641,9 +641,6 @@ int bus_get_name_creds_kdbus(
                 memcpy(cmd->items[0].str, name, l);
         }
 
-        cmd->size = size;
-        cmd->flags = attach_flags_to_kdbus(mask);
-
         /* If augmentation is on, and the bus didn't provide us
          * the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
@@ -655,7 +652,10 @@ int bus_get_name_creds_kdbus(
                      SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
                      SD_BUS_CREDS_SELINUX_CONTEXT|
                      SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
-                cmd->flags |= KDBUS_ATTACH_PIDS;
+                mask |= SD_BUS_CREDS_PID;
+
+        cmd->size = size;
+        cmd->flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
@@ -907,8 +907,6 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
         if (!c)
                 return -ENOMEM;
 
-        cmd.flags = attach_flags_to_kdbus(mask);
-
         /* If augmentation is on, and the bus doesn't didn't allow us
          * to get the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
@@ -920,7 +918,9 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
                      SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
                      SD_BUS_CREDS_SELINUX_CONTEXT|
                      SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
-                cmd.flags |= KDBUS_ATTACH_PIDS;
+                mask |= SD_BUS_CREDS_PID;
+
+        cmd.flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
         if (r < 0)
