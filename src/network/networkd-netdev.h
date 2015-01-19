@@ -43,6 +43,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_IPVLAN,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
@@ -100,6 +101,7 @@ struct NetDev {
 #include "networkd-netdev-bond.h"
 #include "networkd-netdev-vlan.h"
 #include "networkd-netdev-macvlan.h"
+#include "networkd-netdev-ipvlan.h"
 #include "networkd-netdev-vxlan.h"
 #include "networkd-netdev-veth.h"
 #include "networkd-netdev-tunnel.h"
@@ -157,6 +159,7 @@ DEFINE_CAST(BRIDGE, Bridge);
 DEFINE_CAST(BOND, Bond);
 DEFINE_CAST(VLAN, VLan);
 DEFINE_CAST(MACVLAN, MacVlan);
+DEFINE_CAST(IPVLAN, IPVlan);
 DEFINE_CAST(VXLAN, VxLan);
 DEFINE_CAST(IPIP, Tunnel);
 DEFINE_CAST(GRE, Tunnel);

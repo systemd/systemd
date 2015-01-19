@@ -163,7 +163,8 @@
                                         <listitem>
                                                 <para>The netdev kind. Currently, <literal>bridge</literal>,
                                                 <literal>bond</literal>, <literal>vlan</literal>,
-                                                <literal>macvlan</literal>, <literal>vxlan</literal>,
+                                                <literal>macvlan</literal>,
+                                                <literal>ipvlan</literal>, <literal>vxlan</literal>,
                                                 <literal>ipip</literal>, <literal>gre</literal>,
                                                 <literal>sit</literal>, <literal>vti</literal>,
                                                 <literal>veth</literal>, <literal>tun</literal>,
@@ -233,6 +234,26 @@
                         </variablelist>
 
         </refsect1>
+
+        <refsect1>
+                <title>[IPVLAN] Section Options</title>
+
+                        <para>The <literal>[IPVLAN]</literal> section only applies for netdevs of kind
+                        <literal>ipvlan</literal>, and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Mode=</varname></term>
+                                        <listitem>
+                                                <para>The IPVLAN mode to use. The supported options are
+                                                <literal>L2</literal> and <literal>L3</literal>.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+        </refsect1>
+
         <refsect1>
                 <title>[VXLAN] Section Options</title>
                         <para>The <literal>[VXLAN]</literal> section only applies for netdevs of kind

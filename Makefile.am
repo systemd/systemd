@@ -5481,6 +5481,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-netdev-vxlan.h \
 	src/network/networkd-netdev-vlan.h \
 	src/network/networkd-netdev-macvlan.h \
+	src/network/networkd-netdev-ipvlan.h \
 	src/network/networkd-netdev-dummy.h \
 	src/network/networkd-netdev-tuntap.h \
 	src/network/networkd-netdev-bond.h \
@@ -5491,6 +5492,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-netdev-vxlan.c \
 	src/network/networkd-netdev-vlan.c \
 	src/network/networkd-netdev-macvlan.c \
+	src/network/networkd-netdev-ipvlan.c \
 	src/network/networkd-netdev-dummy.c \
 	src/network/networkd-netdev-tuntap.c \
 	src/network/networkd-netdev-bond.c \

@@ -31,6 +31,7 @@
 #include <linux/if.h>
 
 #include <linux/ip.h>
+#include <linux/if_link.h>
 #include <linux/if_tunnel.h>
 
 #include "macro.h"
@@ -45,6 +46,9 @@ static const NLType rtnl_link_info_data_veth_types[VETH_INFO_MAX + 1] = {
         [VETH_INFO_PEER]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
 };
 
+static const NLType rtnl_link_info_data_ipvlan_types[IFLA_IPVLAN_MAX + 1] = {
+        [IFLA_IPVLAN_MODE]  = { .type = NLA_U16 },
+};
 
 static const NLType rtnl_link_info_data_macvlan_types[IFLA_MACVLAN_MAX + 1] = {
         [IFLA_MACVLAN_MODE]  = { .type = NLA_U32 },
@@ -157,6 +161,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_VETH] = "veth",
         [NL_UNION_LINK_INFO_DATA_DUMMY] = "dummy",
         [NL_UNION_LINK_INFO_DATA_MACVLAN] = "macvlan",
+        [NL_UNION_LINK_INFO_DATA_IPVLAN] = "ipvlan",
         [NL_UNION_LINK_INFO_DATA_VXLAN] = "vxlan",
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = "ipip",
         [NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL] = "gre",
@@ -177,6 +182,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
                                                   .types = rtnl_link_info_data_veth_types },
         [NL_UNION_LINK_INFO_DATA_MACVLAN] =     { .max = ELEMENTSOF(rtnl_link_info_data_macvlan_types) - 1,
                                                   .types = rtnl_link_info_data_macvlan_types },
+        [NL_UNION_LINK_INFO_DATA_IPVLAN] =      { .max = ELEMENTSOF(rtnl_link_info_data_ipvlan_types) - 1,
+                                                  .types = rtnl_link_info_data_ipvlan_types },
         [NL_UNION_LINK_INFO_DATA_VXLAN] =       { .max = ELEMENTSOF(rtnl_link_info_data_vxlan_types) - 1,
                                                   .types = rtnl_link_info_data_vxlan_types },
         [NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL] = { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,

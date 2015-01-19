@@ -441,6 +441,18 @@ static inline int setns(int fd, int nstype) {
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
 #endif
 
+#if !HAVE_DECL_IFLA_IPVLAN_MODE
+#define IFLA_IPVLAN_UNSPEC 0
+#define IFLA_IPVLAN_MODE 1
+#define __IFLA_IPVLAN_MAX 2
+
+#define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
+
+#define IPVLAN_MODE_L2 0
+#define IPVLAN_MODE_L3 1
+#define IPVLAN_MAX 2
+#endif
+
 #if !HAVE_DECL_IFLA_VTI_REMOTE
 #define IFLA_VTI_UNSPEC 0
 #define IFLA_VTI_LINK 1
