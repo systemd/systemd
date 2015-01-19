@@ -410,6 +410,30 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--network-ipvlan=</option></term>
+
+                                <listitem><para>Create a
+                                <literal>ipvlan</literal> interface
+                                of the specified Ethernet network
+                                interface and add it to the
+                                container. An
+                                <literal>ipvlan</literal> interface
+                                is a virtual interface, similar to a
+                                <literal>macvlan</literal> interface, which
+                                uses the same MAC address as the underlying
+                                interface. The interface
+                                in the container will be named after
+                                the interface on the host, prefixed
+                                with <literal>iv-</literal>. Note that
+                                <option>--network-ipvlan=</option>
+                                implies
+                                <option>--private-network</option>. This
+                                option may be used more than once to
+                                add multiple network interfaces to the
+                                container.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-n</option></term>
                                 <term><option>--network-veth</option></term>
 

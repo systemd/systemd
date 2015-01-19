@@ -180,6 +180,7 @@ static bool arg_register = true;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
+static char **arg_network_ipvlan = NULL;
 static bool arg_network_veth = false;
 static const char *arg_network_bridge = NULL;
 static unsigned long arg_personality = 0xffffffffLU;
@@ -210,6 +211,9 @@ static void help(void) {
                "                            container\n"
                "     --network-macvlan=INTERFACE\n"
                "                            Create a macvlan network interface based on an\n"
+               "                            existing network interface to the container\n"
+               "     --network-ipvlan=INTERFACE\n"
+               "                            Create a ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "  -n --network-veth         Add a virtual ethernet connection between host\n"
                "                            and container\n"
@@ -285,6 +289,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEEP_UNIT,
                 ARG_NETWORK_INTERFACE,
                 ARG_NETWORK_MACVLAN,
+                ARG_NETWORK_IPVLAN,
                 ARG_NETWORK_BRIDGE,
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
@@ -319,6 +324,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
                 { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
                 { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
+                { "network-ipvlan",        required_argument, NULL, ARG_NETWORK_IPVLAN    },
                 { "network-veth",          no_argument,       NULL, 'n'                   },
                 { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
                 { "personality",           required_argument, NULL, ARG_PERSONALITY       },
@@ -399,6 +405,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NETWORK_MACVLAN:
                         if (strv_extend(&arg_network_macvlan, optarg) < 0)
+                                return log_oom();
+
+                        arg_private_network = true;
+                        break;
+
+                case ARG_NETWORK_IPVLAN:
+                        if (strv_extend(&arg_network_ipvlan, optarg) < 0)
                                 return log_oom();
 
                         /* fall through */
@@ -2381,6 +2394,87 @@ static int setup_macvlan(pid_t pid) {
         return 0;
 }
 
+static int setup_ipvlan(pid_t pid) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char **i;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (strv_isempty(arg_network_ipvlan))
+                return 0;
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev.");
+                return -ENOMEM;
+        }
+
+        STRV_FOREACH(i, arg_network_ipvlan) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_free_ char *n = NULL;
+                int ifi;
+
+                ifi = parse_interface(udev, *i);
+                if (ifi < 0)
+                        return ifi;
+
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate netlink message: %m");
+
+                r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface index: %m");
+
+                n = strappend("iv-", *i);
+                if (!n)
+                        return log_oom();
+
+                strshorten(n, IFNAMSIZ-1);
+
+                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink interface name: %m");
+
+                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add netlink namespace field: %m");
+
+                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
+
+                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "ipvlan");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open netlink container: %m");
+
+                r = sd_rtnl_message_append_u16(m, IFLA_IPVLAN_MODE, IPVLAN_MODE_L2);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add ipvlan mode: %m");
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close netlink container: %m");
+
+                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add new ipvlan interfaces: %m");
+        }
+
+        return 0;
+}
+
 static int setup_seccomp(void) {
 
 #ifdef HAVE_SECCOMP
@@ -4044,6 +4138,10 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
+                        r = setup_ipvlan(pid);
+                        if (r < 0)
+                                goto finish;
+
                         r = register_machine(pid, ifi);
                         if (r < 0)
                                 goto finish;
@@ -4201,6 +4299,7 @@ finish:
         strv_free(arg_setenv);
         strv_free(arg_network_interfaces);
         strv_free(arg_network_macvlan);
+        strv_free(arg_network_ipvlan);
         strv_free(arg_bind);
         strv_free(arg_bind_ro);
         strv_free(arg_tmpfs);
