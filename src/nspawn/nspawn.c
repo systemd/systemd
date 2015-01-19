@@ -2618,7 +2618,8 @@ static int wait_for_block_device(struct udev *udev, dev_t devnum, struct udev_de
 
 #define PARTITION_TABLE_BLURB \
         "Note that the disk image needs to either contain only a single MBR partition of\n" \
-        "type 0x83 that is marked bootable, or follow\n" \
+        "type 0x83 that is marked bootable, or a sinlge GPT partition of type" \
+        "0FC63DAF-8483-4772-8E79-3D69D8477DE4 or follow\n" \
         "    http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n" \
         "to be bootable with systemd-nspawn."
 
@@ -2637,19 +2638,18 @@ static int dissect_image(
 #ifdef GPT_ROOT_SECONDARY
         int secondary_root_nr = -1;
 #endif
-
-        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL;
+        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL, *generic = NULL;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         struct udev_list_entry *first, *item;
-        bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true;
+        bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true, generic_rw = true;
         const char *pttype = NULL;
         blkid_partlist pl;
         struct stat st;
         int r;
-        bool is_gpt, is_mbr;
+        bool is_gpt, is_mbr, multiple_generic = false;
 
         assert(fd >= 0);
         assert(root_device);
@@ -2769,10 +2769,6 @@ static int dissect_image(
                         continue;
 
                 flags = blkid_partition_get_flags(pp);
-                if (is_gpt && (flags & GPT_FLAG_NO_AUTO))
-                        continue;
-                if (is_mbr && (flags != 0x80)) /* Bootable flag */
-                        continue;
 
                 nr = blkid_partition_get_partno(pp);
                 if (nr < 0)
@@ -2781,6 +2777,9 @@ static int dissect_image(
                 if (is_gpt) {
                         sd_id128_t type_id;
                         const char *stype;
+
+                        if (flags & GPT_FLAG_NO_AUTO)
+                                continue;
 
                         stype = blkid_partition_get_type_string(pp);
                         if (!stype)
@@ -2841,46 +2840,39 @@ static int dissect_image(
                                         return log_oom();
                         }
 #endif
+                        else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+
+                                if (generic)
+                                        multiple_generic = true;
+                                else {
+                                        generic_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                                        r = free_and_strdup(&generic, node);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
 
                 } else if (is_mbr) {
                         int type;
+
+                        if (flags != 0x80) /* Bootable flag */
+                                continue;
 
                         type = blkid_partition_get_type(pp);
                         if (type != 0x83) /* Linux partition */
                                 continue;
 
-                        /* Note that there's a certain, intended
-                         * asymmetry here: while for GPT we simply
-                         * take the first valid partition and ignore
-                         * all others of the same type, for MBR we
-                         * fail if there are multiple suitable
-                         * partitions. This is because the GPT
-                         * partition types are defined by us, and
-                         * hence we can define their lookup semantics,
-                         * while for the MBR logic we reuse existing
-                         * definitions, and simply don't want to make
-                         * out the situation. */
+                        if (generic)
+                                multiple_generic = true;
+                        else {
+                                generic_rw = true;
 
-                        if (root) {
-                                log_error("Identified multiple bootable Linux 0x83 partitions on\n"
-                                          "    %s\n"
-                                          PARTITION_TABLE_BLURB, arg_image);
-                                return -EINVAL;
+                                r = free_and_strdup(&root, node);
+                                if (r < 0)
+                                        return log_oom();
                         }
-
-                        root_nr = nr;
-
-                        r = free_and_strdup(&root, node);
-                        if (r < 0)
-                                return log_oom();
                 }
-        }
-
-        if (!root && !secondary_root) {
-                log_error("Failed to identify root partition in disk image\n"
-                          "    %s\n"
-                          PARTITION_TABLE_BLURB, arg_image);
-                return -EINVAL;
         }
 
         if (root) {
@@ -2895,6 +2887,31 @@ static int dissect_image(
 
                 *root_device_rw = secondary_root_rw;
                 *secondary = true;
+        } else if (generic) {
+
+                /* There were no partitions with precise meanings
+                 * around, but we found generic partitions. In this
+                 * case, if there's only one, we can go ahead and boot
+                 * it, otherwise we bail out, because we really cannot
+                 * make any sense of it. */
+
+                if (multiple_generic) {
+                        log_error("Identified multiple bootable Linux partitions on\n"
+                                  "    %s\n"
+                                  PARTITION_TABLE_BLURB, arg_image);
+                        return -EINVAL;
+                }
+
+                *root_device = generic;
+                generic = NULL;
+
+                *root_device_rw = generic_rw;
+                *secondary = false;
+        } else {
+                log_error("Failed to identify root partition in disk image\n"
+                          "    %s\n"
+                          PARTITION_TABLE_BLURB, arg_image);
+                return -EINVAL;
         }
 
         if (home) {

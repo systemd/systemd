@@ -57,3 +57,5 @@
  * just because we saw no point in defining any other values here. */
 #define GPT_FLAG_READ_ONLY (1ULL << 60)
 #define GPT_FLAG_NO_AUTO (1ULL << 63)
+
+#define GPT_LINUX_GENERIC SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
