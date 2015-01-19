@@ -434,14 +434,12 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 n_shown++;
 
-                if (STR_IN_SET(u->load_state, "error", "not-found", "masked")) {
+                if (STR_IN_SET(u->load_state, "error", "not-found", "masked") && !arg_plain) {
                         on_loaded = ansi_highlight_red();
                         on_circle = ansi_highlight_yellow();
                         off_loaded = off_circle = ansi_highlight_off();
                         circle = true;
-                }
-
-                if (streq(u->active_state, "failed")) {
+                } else if (streq(u->active_state, "failed") && !arg_plain) {
                         on_circle = on_active = ansi_highlight_red();
                         off_circle = off_active = ansi_highlight_off();
                         circle = true;
@@ -1614,8 +1612,6 @@ static int list_dependencies_one(
         qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
-                int state;
-
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
                                 r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
@@ -1625,11 +1621,16 @@ static int list_dependencies_one(
                         continue;
                 }
 
-                state = check_one_unit(bus, *c, "activating\0active\0reloading\0", true);
-                if (state > 0)
-                        printf("%s%s%s ", ansi_highlight_green(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
-                else
-                        printf("%s%s%s ", ansi_highlight_red(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
+                if (arg_plain)
+                        printf("  ");
+                else {
+                        int state;
+                        const char *on;
+
+                        state = check_one_unit(bus, *c, "activating\0active\0reloading\0", true);
+                        on = state > 0 ? ansi_highlight_green() : ansi_highlight_red();
+                        printf("%s%s%s ", on, draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
+                }
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
                 if (r < 0)
@@ -1825,7 +1826,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
 
-                if (!arg_no_legend && !streq_ptr(m->state, "running"))
+                if (!arg_plain && !streq_ptr(m->state, "running"))
                         circle_len = 2;
         }
 
@@ -2035,10 +2036,12 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
         assert(n == 0 || jobs);
 
         if (n == 0) {
-                on = ansi_highlight_green();
-                off = ansi_highlight_off();
+                if (!arg_no_legend) {
+                        on = ansi_highlight_green();
+                        off = ansi_highlight_off();
 
-                printf("%sNo jobs %s.%s\n", on, skipped ? "listed" : "running", off);
+                        printf("%sNo jobs %s.%s\n", on, skipped ? "listed" : "running", off);
+                }
                 return;
         }
 
