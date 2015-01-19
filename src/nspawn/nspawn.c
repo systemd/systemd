@@ -43,6 +43,8 @@
 #include <linux/veth.h>
 #include <sys/personality.h>
 #include <linux/loop.h>
+#include <poll.h>
+#include <sys/file.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -2557,6 +2559,63 @@ static int setup_image(char **device_path, int *loop_nr) {
         return r;
 }
 
+static int wait_for_block_device(struct udev *udev, dev_t devnum, struct udev_device **ret) {
+        _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+        int r;
+
+        assert(udev);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                struct pollfd pfd = {
+                        .events = POLLIN
+                };
+
+                d = udev_device_new_from_devnum(udev, 'b', devnum);
+                if (!d)
+                        return log_oom();
+
+                r = udev_device_get_is_initialized(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if device is initialized: %m");
+                if (r > 0) {
+                        *ret = d;
+                        d = NULL;
+                        return 0;
+                }
+                d = udev_device_unref(d);
+
+                if (!monitor) {
+                        monitor = udev_monitor_new_from_netlink(udev, "udev");
+                        if (!monitor)
+                                return log_oom();
+
+                        r = udev_monitor_filter_add_match_subsystem_devtype(monitor, "block", NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add block match: %m");
+
+                        r = udev_monitor_enable_receiving(monitor);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to turn on monitor: %m");
+
+                        continue;
+                }
+
+                pfd.fd = udev_monitor_get_fd(monitor);
+                if (pfd.fd < 0)
+                        return log_error_errno(r, "Failed to get udev monitor fd: %m");
+
+                r = poll(&pfd, 1, -1);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to wait for device initialization: %m");
+
+                d = udev_monitor_receive_device(monitor);
+        }
+
+        return 0;
+}
+
 #define PARTITION_TABLE_BLURB \
         "Note that the disk image needs to either contain only a single MBR partition of\n" \
         "type 0x83 that is marked bootable, or follow\n" \
@@ -2659,9 +2718,9 @@ static int dissect_image(
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat block device: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
+        r = wait_for_block_device(udev, st.st_rdev, &d);
+        if (r < 0)
+                return r;
 
         e = udev_enumerate_new(udev);
         if (!e)
