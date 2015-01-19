@@ -1349,7 +1349,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>import-environment <replaceable>VARIABLE</replaceable>...</command></term>
+          <term>
+	    <command>import-environment</command>
+	    <optional><replaceable>VARIABLE...</replaceable></optional>
+	  </term>
 
           <listitem>
             <para>Import all, one or more environment variables set on
