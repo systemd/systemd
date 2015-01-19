@@ -264,6 +264,8 @@ static int raw_import_maybe_convert_qcow2(RawImportFile *f) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
+        log_info("Unpacking QCOW2 file.");
+
         r = qcow2_convert(f->disk_fd, converted_fd);
         if (r < 0) {
                 unlink(t);
