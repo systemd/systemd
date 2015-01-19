@@ -214,7 +214,7 @@ static int compare_image_info(const void *a, const void *b) {
 static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("SIZE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
+        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("USAGE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
@@ -304,7 +304,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                        (int) max_name, "NAME",
                        (int) max_type, "TYPE",
                        "RO",
-                       (int) max_size, "SIZE",
+                       (int) max_size, "USAGE",
                        (int) max_crtime, "CREATED",
                        (int) max_mtime, "MODIFIED");
 
@@ -741,9 +741,9 @@ typedef struct ImageStatusInfo {
         int read_only;
         usec_t crtime;
         usec_t mtime;
-        uint64_t size;
+        uint64_t usage;
         uint64_t limit;
-        uint64_t size_exclusive;
+        uint64_t usage_exclusive;
         uint64_t limit_exclusive;
 } ImageStatusInfo;
 
@@ -786,12 +786,12 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         else if (s2)
                 printf("\tModified: %s\n", s2);
 
-        s3 = format_bytes(bs, sizeof(bs), i->size);
-        s4 = i->size_exclusive != i->size ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->size_exclusive) : NULL;
+        s3 = format_bytes(bs, sizeof(bs), i->usage);
+        s4 = i->usage_exclusive != i->usage ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->usage_exclusive) : NULL;
         if (s3 && s4)
-                printf("\t    Size: %s (exclusive: %s)\n", s3, s4);
+                printf("\t   Usage: %s (exclusive: %s)\n", s3, s4);
         else if (s3)
-                printf("\t    Size: %s\n", s3);
+                printf("\t   Usage: %s\n", s3);
 
         s3 = format_bytes(bs, sizeof(bs), i->limit);
         s4 = i->limit_exclusive != i->limit ? format_bytes(bs_exclusive, sizeof(bs_exclusive), i->limit_exclusive) : NULL;
@@ -810,9 +810,9 @@ static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool
                 { "ReadOnly",              "b",  NULL, offsetof(ImageStatusInfo, read_only)       },
                 { "CreationTimestamp",     "t",  NULL, offsetof(ImageStatusInfo, crtime)          },
                 { "ModificationTimestamp", "t",  NULL, offsetof(ImageStatusInfo, mtime)           },
-                { "Size",                  "t",  NULL, offsetof(ImageStatusInfo, size)            },
+                { "Usage",                 "t",  NULL, offsetof(ImageStatusInfo, usage)           },
                 { "Limit",                 "t",  NULL, offsetof(ImageStatusInfo, limit)           },
-                { "SizeExclusive",         "t",  NULL, offsetof(ImageStatusInfo, size_exclusive)  },
+                { "UsageExclusive",        "t",  NULL, offsetof(ImageStatusInfo, usage_exclusive) },
                 { "LimitExclusive",        "t",  NULL, offsetof(ImageStatusInfo, limit_exclusive) },
                 {}
         };

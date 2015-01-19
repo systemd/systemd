@@ -73,7 +73,7 @@ static int image_new(
         i->read_only = read_only;
         i->crtime = crtime;
         i->mtime = mtime;
-        i->size = i->size_exclusive = (uint64_t) -1;
+        i->usage = i->usage_exclusive = (uint64_t) -1;
         i->limit = i->limit_exclusive = (uint64_t) -1;
 
         i->name = strdup(pretty);
@@ -164,8 +164,8 @@ static int image_make(
 
                                 r = btrfs_subvol_get_quota_fd(fd, &quota);
                                 if (r >= 0) {
-                                        (*ret)->size = quota.referred;
-                                        (*ret)->size_exclusive = quota.exclusive;
+                                        (*ret)->usage = quota.referred;
+                                        (*ret)->usage_exclusive = quota.exclusive;
 
                                         (*ret)->limit = quota.referred_max;
                                         (*ret)->limit_exclusive = quota.exclusive_max;
@@ -218,7 +218,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                (*ret)->size = (*ret)->size_exclusive = st.st_blocks * 512;
+                (*ret)->usage = (*ret)->usage_exclusive = st.st_blocks * 512;
                 (*ret)->limit = (*ret)->limit_exclusive = st.st_size;
 
                 return 1;

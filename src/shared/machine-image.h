@@ -41,8 +41,8 @@ typedef struct Image {
         usec_t crtime;
         usec_t mtime;
 
-        uint64_t size;
-        uint64_t size_exclusive;
+        uint64_t usage;
+        uint64_t usage_exclusive;
         uint64_t limit;
         uint64_t limit_exclusive;
 } Image;

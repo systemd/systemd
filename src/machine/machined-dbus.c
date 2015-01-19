@@ -504,7 +504,7 @@ static int method_list_images(sd_bus *bus, sd_bus_message *message, void *userda
                                           image->read_only,
                                           image->crtime,
                                           image->mtime,
-                                          image->size,
+                                          image->usage,
                                           p);
                 if (r < 0)
                         return r;
