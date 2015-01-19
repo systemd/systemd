@@ -90,7 +90,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!raw_url_is_valid(url)) {
+        if (!http_url_is_valid(url)) {
                 log_error("URL '%s' is not valid.", url);
                 return -EINVAL;
         }

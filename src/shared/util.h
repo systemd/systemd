@@ -651,7 +651,8 @@ int setrlimit_closest(int resource, const struct rlimit *rlim);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
-bool is_valid_documentation_url(const char *url) _pure_;
+bool http_url_is_valid(const char *url) _pure_;
+bool documentation_url_is_valid(const char *url) _pure_;
 
 bool in_initrd(void);
 

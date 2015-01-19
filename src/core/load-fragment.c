@@ -2298,7 +2298,7 @@ int config_parse_documentation(const char *unit,
 
         for (a = b = u->documentation; a && *a; a++) {
 
-                if (is_valid_documentation_url(*a))
+                if (documentation_url_is_valid(*a))
                         *(b++) = *a;
                 else {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,

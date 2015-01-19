@@ -28,9 +28,9 @@
 #include "utf8.h"
 #include "curl-util.h"
 #include "qcow2-util.h"
-#include "import-raw.h"
 #include "strv.h"
 #include "copy.h"
+#include "import-raw.h"
 
 typedef struct RawImportFile RawImportFile;
 
@@ -904,7 +904,7 @@ int raw_import_pull(RawImport *import, const char *url, const char *local, bool 
         int r;
 
         assert(import);
-        assert(raw_url_is_valid(url));
+        assert(http_url_is_valid(url));
         assert(!local || machine_name_is_valid(local));
 
         if (hashmap_get(import->files, url))
@@ -948,15 +948,4 @@ int raw_import_pull(RawImport *import, const char *url, const char *local, bool 
 
         f = NULL;
         return 0;
-}
-
-bool raw_url_is_valid(const char *url) {
-        if (isempty(url))
-                return false;
-
-        if (!startswith(url, "http://") &&
-            !startswith(url, "https://"))
-                return false;
-
-        return ascii_is_valid(url);
 }

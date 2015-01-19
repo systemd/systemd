@@ -918,15 +918,15 @@ static void test_files_same(void) {
 }
 
 static void test_is_valid_documentation_url(void) {
-        assert_se(is_valid_documentation_url("http://www.freedesktop.org/wiki/Software/systemd"));
-        assert_se(is_valid_documentation_url("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
-        assert_se(is_valid_documentation_url("file:foo"));
-        assert_se(is_valid_documentation_url("man:systemd.special(7)"));
-        assert_se(is_valid_documentation_url("info:bar"));
+        assert_se(documentation_url_is_valid("http://www.freedesktop.org/wiki/Software/systemd"));
+        assert_se(documentation_url_is_valid("https://www.kernel.org/doc/Documentation/binfmt_misc.txt"));
+        assert_se(documentation_url_is_valid("file:/foo/foo"));
+        assert_se(documentation_url_is_valid("man:systemd.special(7)"));
+        assert_se(documentation_url_is_valid("info:bar"));
 
-        assert_se(!is_valid_documentation_url("foo:"));
-        assert_se(!is_valid_documentation_url("info:"));
-        assert_se(!is_valid_documentation_url(""));
+        assert_se(!documentation_url_is_valid("foo:"));
+        assert_se(!documentation_url_is_valid("info:"));
+        assert_se(!documentation_url_is_valid(""));
 }
 
 static void test_file_in_same_dir(void) {

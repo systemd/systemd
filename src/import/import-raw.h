@@ -33,5 +33,3 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
 int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local);
 int raw_import_cancel(RawImport *import, const char *name);
-
-bool raw_url_is_valid(const char *url);

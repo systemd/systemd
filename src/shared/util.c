@@ -5458,25 +5458,43 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         return r;
 }
 
-bool is_valid_documentation_url(const char *url) {
-        assert(url);
+bool http_url_is_valid(const char *url) {
+        const char *p;
 
-        if (startswith(url, "http://") && url[7])
+        if (isempty(url))
+                return false;
+
+        p = startswith(url, "http://");
+        if (!p)
+                p = startswith(url, "https://");
+        if (!p)
+                return false;
+
+        if (isempty(p))
+                return false;
+
+        return ascii_is_valid(p);
+}
+
+bool documentation_url_is_valid(const char *url) {
+        const char *p;
+
+        if (isempty(url))
+                return false;
+
+        if (http_url_is_valid(url))
                 return true;
 
-        if (startswith(url, "https://") && url[8])
-                return true;
+        p = startswith(url, "file:/");
+        if (!p)
+                p = startswith(url, "info:");
+        if (!p)
+                p = startswith(url, "man:");
 
-        if (startswith(url, "file:") && url[5])
-                return true;
+        if (isempty(p))
+                return false;
 
-        if (startswith(url, "info:") && url[5])
-                return true;
-
-        if (startswith(url, "man:") && url[4])
-                return true;
-
-        return false;
+        return ascii_is_valid(p);
 }
 
 bool in_initrd(void) {
