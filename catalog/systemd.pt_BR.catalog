@@ -52,8 +52,8 @@ período de tempo. Mensagens do serviço foram descartadas.
 Note que apenas mensagens de um serviço em questão foram descartadas; outras
 mensagens dos serviços não foram afetadas.
 
-Os limites de quando as mensagens são descartadas pode ser configurado com
-RateLimitInterval= e RateLimitBurst= no
+Os controles de limites de quando as mensagens são descartadas pode ser
+configurado com RateLimitInterval= e RateLimitBurst= no
 /etc/systemd/journald.conf. Veja journald.conf(5) para detalhes.
 
 -- e9bf28e6e834481bb6f48f548ad13606
@@ -86,7 +86,7 @@ Uma nova sessão com o ID @SESSION_ID@ foi criada para o usuário @USER_ID@.
 O processo originador da sessão é @LEADER@.
 
 -- 3354939424b4456d9802ca8333ed424a
-Subject: A sessão @SESSION_ID@ foi terminada
+Subject: Sessão @SESSION_ID@ foi terminada
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
@@ -102,7 +102,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Um novo seat @SEAT_ID@ foi configurado e está disponível.
 
 -- e7852bfe46784ed0accde04bc864c2d5
-Subject: Um seat @SEAT_ID@ foi removido agora
+Subject: Seat @SEAT_ID@ foi removido agora
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
@@ -224,7 +224,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 O processo @EXECUTABLE@ não pôde ser executado e falhou.
 
-O número de erro retornado enquanto executava este processo foi @ERRNO@.
+O número de erro retornado por este processo é @ERRNO@.
 
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: Uma ou mais mensagens não puderam ser encaminhadas para o syslog
