@@ -104,6 +104,7 @@ static RawImportFile *raw_import_file_unref(RawImportFile *f) {
                 free(f->temp_path);
         }
 
+        lzma_end(&f->lzma);
         free(f->url);
         free(f->local);
         free(f->etag);
