@@ -148,8 +148,9 @@ check_PROGRAMS =
 check_DATA =
 tests=
 manual_tests =
+TEST_EXTENSIONS = .py
+PY_LOG_COMPILER = $(PYTHON)
 if ENABLE_TESTS
-export PYTHON
 noinst_PROGRAMS = $(manual_tests) $(tests)
 TESTS = $(tests)
 else
@@ -3767,7 +3768,13 @@ endif
 # ------------------------------------------------------------------------------
 TESTS += \
 	test/udev-test.pl \
-	test/rules-test.sh
+	$(NULL)
+
+if HAVE_PYTHON
+TESTS += \
+	test/rule-syntax-check.py \
+	$(NULL)
+endif
 
 manual_tests += \
 	test-libudev \
@@ -3811,7 +3818,6 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 EXTRA_DIST += \
 	test/sys.tar.xz \
 	test/udev-test.pl \
-	test/rules-test.sh \
 	test/rule-syntax-check.py
 
 # ------------------------------------------------------------------------------
