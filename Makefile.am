@@ -3773,6 +3773,7 @@ TESTS += \
 if HAVE_PYTHON
 TESTS += \
 	test/rule-syntax-check.py \
+	test/sysv-generator-test.py \
 	$(NULL)
 endif
 
@@ -3818,7 +3819,10 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 EXTRA_DIST += \
 	test/sys.tar.xz \
 	test/udev-test.pl \
-	test/rule-syntax-check.py
+	test/rule-syntax-check.py \
+	test/sysv-generator-test.py \
+	$(NULL)
+
 
 # ------------------------------------------------------------------------------
 ata_id_SOURCES = \
