@@ -58,6 +58,8 @@ int sd_icmp6_prefix_match(struct in6_addr *prefix, uint8_t prefixlen,
 int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu);
 int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
                         uint8_t *prefixlen);
+int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr,
+                                uint8_t *prefixlen);
 
 int sd_icmp6_nd_stop(sd_icmp6_nd *nd);
 int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd);

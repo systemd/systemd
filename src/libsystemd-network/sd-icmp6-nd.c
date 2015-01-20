@@ -65,6 +65,7 @@ struct sd_icmp6_nd {
         int index;
         struct ether_addr mac_addr;
         uint32_t mtu;
+        ICMP6Prefix *expired_prefix;
         LIST_HEAD(ICMP6Prefix, prefixes);
         int fd;
         sd_event_source *recv;
@@ -266,8 +267,11 @@ static int icmp6_ra_prefix_timeout(sd_event_source *s, uint64_t usec,
 
                 LIST_REMOVE(prefixes, nd->prefixes, prefix);
 
+                nd->expired_prefix = prefix;
                 icmp6_nd_notify(nd,
                                 ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED);
+                nd->expired_prefix = NULL;
+
                 prefix = icmp6_prefix_unref(prefix);
 
                 break;
@@ -368,6 +372,22 @@ int sd_icmp6_ra_get_prefixlen(sd_icmp6_nd *nd, const struct in6_addr *addr,
                 return r;
 
         *prefixlen = prefix->len;
+
+        return 0;
+}
+
+int sd_icmp6_ra_get_expired_prefix(sd_icmp6_nd *nd, struct in6_addr **addr,
+                                uint8_t *prefixlen)
+{
+        assert_return(nd, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(prefixlen, -EINVAL);
+
+        if (!nd->expired_prefix)
+                return -EADDRNOTAVAIL;
+
+        *addr = &nd->expired_prefix->addr;
+        *prefixlen = nd->expired_prefix->len;
 
         return 0;
 }
