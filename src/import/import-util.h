@@ -26,6 +26,10 @@
 bool http_etag_is_valid(const char *etag);
 
 int import_make_local_copy(const char *final, const char *root, const char *local, bool force_local);
+
 int import_find_old_etags(const char *url, const char *root, int dt, const char *prefix, const char *suffix, char ***etags);
+
+int import_make_read_only_fd(int fd);
 int import_make_read_only(const char *path);
+
 int import_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);

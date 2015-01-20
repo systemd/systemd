@@ -226,7 +226,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *url, *local;
-        _cleanup_free_ char *l = NULL;
+        _cleanup_free_ char *l = NULL, *ll = NULL;
         int r;
 
         url = argv[1];
@@ -238,44 +238,37 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 local = argv[2];
         else {
-                const char *e, *p;
+                r = url_final_component(url, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed get final component of URL: %m");
 
-                e = url + strlen(url);
-                while (e > url && e[-1] == '/')
-                        e--;
-
-                p = e;
-                while (p > url && p[-1] != '/')
-                        p--;
-
-                local = strndupa(p, e - p);
+                local = l;
         }
 
         if (isempty(local) || streq(local, "-"))
                 local = NULL;
 
         if (local) {
-                const char *p;
-
-                r = strip_raw_suffixes(local, &l);
+                r = strip_raw_suffixes(local, &ll);
                 if (r < 0)
                         return log_oom();
 
-                local = l;
+                local = ll;
 
                 if (!machine_name_is_valid(local)) {
                         log_error("Local image name '%s' is not valid.", local);
                         return -EINVAL;
                 }
 
-                p = strappenda(arg_image_root, "/", local, ".raw");
-                if (laccess(p, F_OK) >= 0) {
-                        if (!arg_force) {
-                                log_info("Image '%s' already exists.", local);
-                                return 0;
+                if (!arg_force) {
+                        r = image_find(local, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        else if (r > 0) {
+                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                return -EEXIST;
                         }
-                } else if (errno != ENOENT)
-                        return log_error_errno(errno, "Can't check if image '%s' already exists: %m", local);
+                }
 
                 log_info("Pulling '%s', saving as '%s'.", url, local);
         } else
@@ -417,7 +410,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-root=            Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
-               "  pull-tar URL                Download a TAR image\n"
+               "  pull-tar URL [NAME]         Download a TAR image\n"
                "  pull-raw URL [NAME]         Download a RAW image\n"
                "  pull-dkr REMOTE [NAME]      Download a DKR image\n",
                program_invocation_short_name);

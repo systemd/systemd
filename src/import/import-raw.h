@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -24,12 +26,11 @@
 
 typedef struct RawImport RawImport;
 
-typedef void (*raw_import_on_finished)(RawImport *import, int error, void *userdata);
+typedef void (*RawImportFinished)(RawImport *import, int error, void *userdata);
 
-int raw_import_new(RawImport **import, sd_event *event, const char *image_root, raw_import_on_finished on_finished, void *userdata);
+int raw_import_new(RawImport **import, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata);
 RawImport* raw_import_unref(RawImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
 int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local);
-int raw_import_cancel(RawImport *import, const char *name);

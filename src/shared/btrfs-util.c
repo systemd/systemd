@@ -228,13 +228,17 @@ int btrfs_subvol_remove(const char *path) {
         return 0;
 }
 
-int btrfs_subvol_set_read_only(const char *path, bool b) {
-        _cleanup_close_ int fd = -1;
+int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         uint64_t flags, nflags;
+        struct stat st;
 
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
                 return -errno;
+
+        if (!S_ISDIR(st.st_mode) || st.st_ino != 256)
+                return -EINVAL;
 
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
                 return -errno;
@@ -251,6 +255,16 @@ int btrfs_subvol_set_read_only(const char *path, bool b) {
                 return -errno;
 
         return 0;
+}
+
+int btrfs_subvol_set_read_only(const char *path, bool b) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_subvol_set_read_only_fd(fd, b);
 }
 
 int btrfs_subvol_get_read_only_fd(int fd) {

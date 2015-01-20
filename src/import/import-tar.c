@@ -22,7 +22,6 @@
 #include <sys/prctl.h>
 #include <curl/curl.h>
 
-#include "hashmap.h"
 #include "utf8.h"
 #include "strv.h"
 #include "copy.h"
@@ -45,8 +44,6 @@ struct TarImport {
 
         TarImportFinished on_finished;
         void *userdata;
-
-        bool finished;
 
         char *local;
         bool force_local;
@@ -74,6 +71,7 @@ TarImport* tar_import_unref(TarImport *i) {
         if (i->temp_path) {
                 (void) btrfs_subvol_remove(i->temp_path);
                 (void) rm_rf_dangerous(i->temp_path, false, true, false);
+                free(i->temp_path);
         }
 
         free(i->final_path);
@@ -124,6 +122,28 @@ int tar_import_new(TarImport **ret, sd_event *event, const char *image_root, Tar
         return 0;
 }
 
+static int tar_import_make_local_copy(TarImport *i) {
+        int r;
+
+        assert(i);
+        assert(i->tar_job);
+
+        if (!i->local)
+                return 0;
+
+        if (!i->final_path) {
+                r = import_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
+                if (r < 0)
+                        return log_oom();
+
+                r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static void tar_import_job_on_finished(ImportJob *j) {
         TarImport *i;
         int r;
@@ -132,7 +152,6 @@ static void tar_import_job_on_finished(ImportJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
-
         if (j->error != 0) {
                 r = j->error;
                 goto finish;
@@ -160,25 +179,18 @@ static void tar_import_job_on_finished(ImportJob *j) {
                         r = log_error_errno(errno, "Failed to rename to final image name: %m");
                         goto finish;
                 }
+
+                free(i->temp_path);
+                i->temp_path = NULL;
         }
 
-        if (i->local) {
-                if (!i->final_path) {
-                        r = import_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
-                        if (r < 0)
-                                goto finish;
-                }
-
-                r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
-                if (r < 0)
-                        goto finish;
-        }
+        r = tar_import_make_local_copy(i);
+        if (r < 0)
+                goto finish;
 
         r = 0;
 
 finish:
-        i->finished = true;
-
         if (i->on_finished)
                 i->on_finished(i, r, i->userdata);
         else

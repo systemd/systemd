@@ -147,26 +147,45 @@ int import_make_local_copy(const char *final, const char *image_root, const char
         return 0;
 }
 
-int import_make_read_only(const char *path) {
+int import_make_read_only_fd(int fd) {
         int r;
 
-        r = btrfs_subvol_set_read_only(path, true);
-        if (r == -ENOTTY) {
+        assert(fd >= 0);
+
+        /* First, let's make this a read-only subvolume if it refers
+         * to a subvolume */
+        r = btrfs_subvol_set_read_only_fd(fd, true);
+        if (r == -ENOTTY || r == -ENOTDIR || r == -EINVAL) {
                 struct stat st;
 
-                r = stat(path, &st);
+                /* This doesn't refer to a subvolume, or the file
+                 * system isn't even btrfs. In that, case fall back to
+                 * chmod()ing */
+
+                r = fstat(fd, &st);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to stat temporary image: %m");
 
-                if (chmod(path, st.st_mode & 0755) < 0)
+                /* Drop "w" flag */
+                if (fchmod(fd, st.st_mode & 07555) < 0)
                         return log_error_errno(errno, "Failed to chmod() final image: %m");
 
                 return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to mark final image read-only: %m");
+
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to make subvolume read-only: %m");
 
         return 0;
+}
+
+int import_make_read_only(const char *path) {
+        _cleanup_close_ int fd = 1;
+
+        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", path);
+
+        return import_make_read_only_fd(fd);
 }
 
 int import_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
