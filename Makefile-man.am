@@ -22,6 +22,7 @@ MANPAGES += \
 	man/localtime.5 \
 	man/machine-id.5 \
 	man/machine-info.5 \
+	man/networkctl.1 \
 	man/os-release.5 \
 	man/sd-daemon.3 \
 	man/sd-id128.3 \
@@ -1642,6 +1643,7 @@ EXTRA_DIST += \
 	man/machine-info.xml \
 	man/machinectl.xml \
 	man/modules-load.d.xml \
+	man/networkctl.xml \
 	man/nss-myhostname.xml \
 	man/nss-mymachines.xml \
 	man/os-release.xml \

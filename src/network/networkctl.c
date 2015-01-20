@@ -1018,7 +1018,7 @@ static void help(void) {
                "  -a --all              Show status for all links\n\n"
                "Commands:\n"
                "  list                  List links\n"
-               "  status LINK           Show link status\n"
+               "  status [LINK...]      Show link status\n"
                "  lldp                  Show lldp information\n"
                , program_invocation_short_name);
 }
