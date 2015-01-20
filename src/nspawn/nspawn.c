@@ -2653,63 +2653,6 @@ static int setup_image(char **device_path, int *loop_nr) {
         return r;
 }
 
-static int wait_for_block_device(struct udev *udev, dev_t devnum, struct udev_device **ret) {
-        _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
-        int r;
-
-        assert(udev);
-        assert(ret);
-
-        for (;;) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                struct pollfd pfd = {
-                        .events = POLLIN
-                };
-
-                d = udev_device_new_from_devnum(udev, 'b', devnum);
-                if (!d)
-                        return log_oom();
-
-                r = udev_device_get_is_initialized(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if device is initialized: %m");
-                if (r > 0) {
-                        *ret = d;
-                        d = NULL;
-                        return 0;
-                }
-                d = udev_device_unref(d);
-
-                if (!monitor) {
-                        monitor = udev_monitor_new_from_netlink(udev, "udev");
-                        if (!monitor)
-                                return log_oom();
-
-                        r = udev_monitor_filter_add_match_subsystem_devtype(monitor, "block", NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add block match: %m");
-
-                        r = udev_monitor_enable_receiving(monitor);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to turn on monitor: %m");
-
-                        continue;
-                }
-
-                pfd.fd = udev_monitor_get_fd(monitor);
-                if (pfd.fd < 0)
-                        return log_error_errno(r, "Failed to get udev monitor fd: %m");
-
-                r = poll(&pfd, 1, -1);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to wait for device initialization: %m");
-
-                d = udev_monitor_receive_device(monitor);
-        }
-
-        return 0;
-}
-
 #define PARTITION_TABLE_BLURB \
         "Note that the disk image needs to either contain only a single MBR partition of\n" \
         "type 0x83 that is marked bootable, or a sinlge GPT partition of type" \
@@ -2739,11 +2682,12 @@ static int dissect_image(
         _cleanup_udev_unref_ struct udev *udev = NULL;
         struct udev_list_entry *first, *item;
         bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true, generic_rw = true;
+        bool is_gpt, is_mbr, multiple_generic = false;
         const char *pttype = NULL;
         blkid_partlist pl;
         struct stat st;
+        unsigned i;
         int r;
-        bool is_gpt, is_mbr, multiple_generic = false;
 
         assert(fd >= 0);
         assert(root_device);
@@ -2812,21 +2756,81 @@ static int dissect_image(
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat block device: %m");
 
-        r = wait_for_block_device(udev, st.st_rdev, &d);
-        if (r < 0)
-                return r;
-
-        e = udev_enumerate_new(udev);
-        if (!e)
+        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!d)
                 return log_oom();
 
-        r = udev_enumerate_add_match_parent(e, d);
-        if (r < 0)
-                return log_oom();
+        for (i = 0;; i++) {
+                int n, m;
 
-        r = udev_enumerate_scan_devices(e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to scan for partition devices of %s: %m", arg_image);
+                if (i >= 10) {
+                        log_error("Kernel partitions never appeared.");
+                        return -ENXIO;
+                }
+
+                e = udev_enumerate_new(udev);
+                if (!e)
+                        return log_oom();
+
+                r = udev_enumerate_add_match_parent(e, d);
+                if (r < 0)
+                        return log_oom();
+
+                r = udev_enumerate_scan_devices(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to scan for partition devices of %s: %m", arg_image);
+
+                /* Count the partitions enumerated by the kernel */
+                n = 0;
+                first = udev_enumerate_get_list_entry(e);
+                udev_list_entry_foreach(item, first)
+                        n++;
+
+                /* Count the partitions enumerated by blkid */
+                m = blkid_partlist_numof_partitions(pl);
+                if (n == m + 1)
+                        break;
+                if (n > m + 1) {
+                        log_error("blkid and kernel partition list do not match.");
+                        return -EIO;
+                }
+                if (n < m + 1) {
+                        unsigned j;
+
+                        /* The kernel has probed fewer partitions than
+                         * blkid? Maybe the kernel prober is still
+                         * running or it got EBUSY because udev
+                         * already opened the device. Let's reprobe
+                         * the device, which is a synchronous call
+                         * that waits until probing is complete. */
+
+                        for (j = 0; j < 20; j++) {
+
+                                r = ioctl(fd, BLKRRPART, 0);
+                                if (r < 0)
+                                        r = -errno;
+                                if (r >= 0 || r != -EBUSY)
+                                        break;
+
+                                /* If something else has the device
+                                 * open, such as an udev rule, the
+                                 * ioctl will return EBUSY. Since
+                                 * there's no way to wait until it
+                                 * isn't busy anymore, let's just wait
+                                 * a bit, and try again.
+                                 *
+                                 * This is really something they
+                                 * should fix in the kernel! */
+
+                                usleep(50 * USEC_PER_MSEC);
+                        }
+
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to reread partition table: %m");
+                }
+
+                e = udev_enumerate_unref(e);
+        }
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
