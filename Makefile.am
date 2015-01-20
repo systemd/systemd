@@ -149,6 +149,7 @@ check_DATA =
 tests=
 manual_tests =
 if ENABLE_TESTS
+export PYTHON
 noinst_PROGRAMS = $(manual_tests) $(tests)
 TESTS = $(tests)
 else

@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Simple udev rules syntax checker
 #
 # (C) 2010 Canonical Ltd.
