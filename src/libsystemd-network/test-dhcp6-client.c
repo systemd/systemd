@@ -286,26 +286,27 @@ static int test_advertise_option(sd_event *e) {
 
         assert_se(opt_clientid);
 
-        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
-                                                   &lt_valid) >= 0);
+        sd_dhcp6_lease_reset_address_iter(lease);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
         assert_se(lt_pref == 150);
         assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) == -ENOMSG);
 
-        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
-                                                   &lt_valid) >= 0);
+        sd_dhcp6_lease_reset_address_iter(lease);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
-        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
-                                                   &lt_valid) >= 0);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) == -ENOMSG);
+        sd_dhcp6_lease_reset_address_iter(lease);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) == -ENOMSG);
 
         assert_se(dhcp6_lease_get_serverid(lease, &opt, &len) >= 0);
         assert_se(len == 14);
@@ -439,14 +440,15 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
         assert_se(found_clientid && found_iana && found_serverid &&
                   found_elapsed_time);
 
-        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
-                                                   &lt_valid) >= 0);
+        sd_dhcp6_lease_reset_address_iter(lease);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) >= 0);
         assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
         assert_se(lt_pref == 150);
         assert_se(lt_valid == 180);
 
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) == -ENOMSG);
 
         return 0;
 }
@@ -587,11 +589,10 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
         assert_se(r == -ENOMSG);
         assert_se(found_clientid && found_elapsed_time);
 
-        assert_se(sd_dhcp6_lease_get_first_address(lease, &addr, &lt_pref,
-                                                   &lt_valid) == -ENOMSG);
+        sd_dhcp6_lease_reset_address_iter(lease);
 
-        assert_se(sd_dhcp6_lease_get_next_address(lease, &addr, &lt_pref,
-                                                  &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
+                                             &lt_valid) == -ENOMSG);
 
         return 0;
 }
