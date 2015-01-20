@@ -28,7 +28,137 @@
 #include "sd-icmp6-nd.h"
 #include "sd-dhcp6-client.h"
 
+static int dhcp6_lease_information_acquired(sd_dhcp6_client *client,
+                                        Link *link) {
+        return 0;
+}
+
+static int dhcp6_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
+                                 void *userdata) {
+        _cleanup_link_unref_ Link *link = userdata;
+        int r;
+
+        assert(link);
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_error(link, "Could not set DHCPv6 address: %s",
+                               strerror(-r));
+
+                link_enter_failed(link);
+
+        } else if (r >= 0)
+                link_rtnl_process_address(rtnl, m, link->manager);
+
+        return 1;
+}
+
+static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
+                                uint8_t prefixlen, uint32_t lifetime_preferred,
+                                uint32_t lifetime_valid) {
+        int r;
+        _cleanup_address_free_ Address *addr = NULL;
+
+        r = address_new_dynamic(&addr);
+        if (r < 0)
+                return r;
+
+        addr->family = AF_INET6;
+        memcpy(&addr->in_addr.in6, ip6_addr, sizeof(*ip6_addr));
+        addr->prefixlen = prefixlen;
+
+        addr->cinfo.ifa_prefered = lifetime_preferred;
+        addr->cinfo.ifa_valid = lifetime_valid;
+
+        log_link_struct(link, LOG_INFO, "MESSAGE=%-*s: DHCPv6 address "SD_ICMP6_ADDRESS_FORMAT_STR"/%d timeout preferred %d valid %d",
+                        IFNAMSIZ,
+                        link->ifname, SD_ICMP6_ADDRESS_FORMAT_VAL(addr->in_addr.in6),
+                        addr->prefixlen, lifetime_preferred, lifetime_valid,
+                        NULL);
+
+        r = address_update(addr, link, dhcp6_address_handler);
+        if (r < 0)
+                log_link_warning(link, "Could not assign DHCPv6 address: %s",
+                                strerror(-r));
+
+        return r;
+}
+
+static int dhcp6_prefix_expired(Link *link) {
+        int r;
+        sd_dhcp6_lease *lease;
+        struct in6_addr *expired_prefix, ip6_addr;
+        uint8_t expired_prefixlen;
+        uint32_t lifetime_preferred, lifetime_valid;
+
+        r = sd_icmp6_ra_get_expired_prefix(link->icmp6_router_discovery,
+                                        &expired_prefix, &expired_prefixlen);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_get_lease(link->dhcp6_client, &lease);
+        if (r < 0)
+                return r;
+
+        sd_dhcp6_lease_reset_address_iter(lease);
+
+        while (sd_dhcp6_lease_get_address(lease, &ip6_addr,
+                                                &lifetime_preferred,
+                                                &lifetime_valid) >= 0) {
+
+                r = sd_icmp6_prefix_match(expired_prefix, expired_prefixlen,
+                                        &ip6_addr);
+                if (r >= 0) {
+                        r = dhcp6_address_update(link, &ip6_addr, 128,
+                                                lifetime_preferred,
+                                                lifetime_valid);
+
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
+        int r;
+        sd_dhcp6_lease *lease;
+        struct in6_addr ip6_addr;
+        uint32_t lifetime_preferred, lifetime_valid;
+        uint8_t prefixlen;
+
+        r = sd_dhcp6_client_get_lease(client, &lease);
+        if (r < 0)
+                return r;
+
+        sd_dhcp6_lease_reset_address_iter(lease);
+
+        while (sd_dhcp6_lease_get_address(lease, &ip6_addr,
+                                                &lifetime_preferred,
+                                                &lifetime_valid) >= 0) {
+
+                r = sd_icmp6_ra_get_prefixlen(link->icmp6_router_discovery,
+                                        &ip6_addr, &prefixlen);
+                if (r < 0 && r != -EADDRNOTAVAIL) {
+                        log_link_warning(link, "Could not get prefix information: %s",
+                                        strerror(-r));
+                        return r;
+                }
+
+                if (r == -EADDRNOTAVAIL)
+                        prefixlen = 128;
+
+                r = dhcp6_address_update(link, &ip6_addr, prefixlen,
+                                        lifetime_preferred, lifetime_valid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
+        int r;
         Link *link = userdata;
 
         assert(link);
@@ -42,9 +172,23 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         case DHCP6_EVENT_STOP:
         case DHCP6_EVENT_RESEND_EXPIRE:
         case DHCP6_EVENT_RETRANS_MAX:
-        case DHCP6_EVENT_IP_ACQUIRE:
-        case DHCP6_EVENT_INFORMATION_REQUEST:
                 log_link_debug(link, "DHCPv6 event %d", event);
+                break;
+
+        case DHCP6_EVENT_IP_ACQUIRE:
+                r = dhcp6_lease_address_acquired(client, link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return;
+                }
+
+                /* fall through */
+        case DHCP6_EVENT_INFORMATION_REQUEST:
+                r = dhcp6_lease_information_acquired(client, link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return;
+                }
 
                 break;
 
@@ -72,7 +216,8 @@ static int dhcp6_configure(Link *link, int event) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client,
                                                         &information_request);
                 if (r < 0) {
-                        log_link_warning(link, "Could not get DHCPv6 Information request setting");
+                        log_link_warning(link, "Could not get DHCPv6 Information request setting: %s",
+                                        strerror(-r));
                         link->dhcp6_client =
                                 sd_dhcp6_client_unref(link->dhcp6_client);
                         return r;
@@ -84,7 +229,8 @@ static int dhcp6_configure(Link *link, int event) {
                 r = sd_dhcp6_client_set_information_request(link->dhcp6_client,
                                                         false);
                 if (r < 0) {
-                        log_link_warning(link, "Could not unset DHCPv6 Information request");
+                        log_link_warning(link, "Could not unset DHCPv6 Information request: %s",
+                                        strerror(-r));
                         link->dhcp6_client =
                                 sd_dhcp6_client_unref(link->dhcp6_client);
                         return r;
@@ -92,7 +238,8 @@ static int dhcp6_configure(Link *link, int event) {
 
                 r = sd_dhcp6_client_start(link->dhcp6_client);
                 if (r < 0) {
-                        log_link_warning(link, "Could not restart DHCPv6 after enabling Information request");
+                        log_link_warning(link, "Could not restart DHCPv6 after enabling Information request: %s",
+                                        strerror(-r));
                         link->dhcp6_client =
                                 sd_dhcp6_client_unref(link->dhcp6_client);
                         return r;
@@ -166,6 +313,13 @@ static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER:
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED:
+                dhcp6_configure(link, event);
+
+                break;
+
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
+                dhcp6_prefix_expired(link);
+
                 break;
 
         default:
@@ -176,10 +330,9 @@ static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
                         log_link_warning(link, "ICMPv6 unknown event: %d",
                                          event);
 
-                return;
+                break;
         }
 
-        dhcp6_configure(link, event);
 }
 
 int icmp6_configure(Link *link) {
