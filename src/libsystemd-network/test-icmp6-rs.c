@@ -93,6 +93,8 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
                 { ND_RA_FLAG_OTHER, ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER },
                 { ND_RA_FLAG_MANAGED, ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED }
         };
+        uint32_t mtu;
+
         assert_se(nd);
 
         assert_se(event == flag_event[idx].event);
@@ -101,10 +103,14 @@ static void test_rs_done(sd_icmp6_nd *nd, int event, void *userdata) {
         if (verbose)
                 printf("  got event %d\n", event);
 
-        if (idx < 3)
+        if (idx < 3) {
                 send_ra(flag_event[idx].flag);
-        else
-                sd_event_exit(e, 0);
+                return;
+        }
+
+        assert_se(sd_icmp6_ra_get_mtu(nd, &mtu) == -ENOMSG);
+
+        sd_event_exit(e, 0);
 }
 
 static void test_rs(sd_event *e) {
