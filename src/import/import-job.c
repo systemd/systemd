@@ -57,9 +57,10 @@ static void import_job_finish(ImportJob *j, int ret) {
             j->state == IMPORT_JOB_FAILED)
                 return;
 
-        if (ret == 0)
+        if (ret == 0) {
                 j->state = IMPORT_JOB_DONE;
-        else {
+                log_info("Download of %s complete.", j->url);
+        } else {
                 j->state = IMPORT_JOB_FAILED;
                 j->error = ret;
         }
@@ -481,7 +482,7 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
                                 goto fail;
                         }
 
-                        log_info("Downloading %s.", format_bytes(bytes, sizeof(bytes), j->content_length));
+                        log_info("Downloading %s for %s.", format_bytes(bytes, sizeof(bytes), j->content_length), j->url);
                 }
 
                 return sz;
@@ -518,7 +519,8 @@ static int import_job_progress_callback(void *userdata, curl_off_t dltotal, curl
         n = now(CLOCK_MONOTONIC);
 
         if (n > j->last_status_usec + USEC_PER_SEC &&
-            percent != j->progress_percent) {
+            percent != j->progress_percent &&
+            dlnow < dltotal) {
                 char buf[FORMAT_TIMESPAN_MAX];
 
                 if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
