@@ -44,6 +44,18 @@ enum icmp6_nd_state {
 #define ICMP6_ND_RECV_SIZE (IP6_MIN_MTU - sizeof(struct ip6_hdr))
 #define ICMP6_OPT_LEN_UNITS 8
 
+typedef struct ICMP6Prefix ICMP6Prefix;
+
+struct ICMP6Prefix {
+        RefCount n_ref;
+
+        LIST_FIELDS(ICMP6Prefix, prefixes);
+
+        uint8_t len;
+        sd_event_source *timeout_valid;
+        struct in6_addr addr;
+};
+
 struct sd_icmp6_nd {
         RefCount n_ref;
 
@@ -52,6 +64,8 @@ struct sd_icmp6_nd {
         int event_priority;
         int index;
         struct ether_addr mac_addr;
+        uint32_t mtu;
+        LIST_HEAD(ICMP6Prefix, prefixes);
         int fd;
         sd_event_source *recv;
         sd_event_source *timeout;
@@ -61,6 +75,35 @@ struct sd_icmp6_nd {
 };
 
 #define log_icmp6_nd(p, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "ICMPv6 CLIENT: " fmt, ##__VA_ARGS__)
+
+static ICMP6Prefix *icmp6_prefix_unref(ICMP6Prefix *prefix) {
+        if (prefix && REFCNT_DEC(prefix->n_ref) <= 0) {
+                prefix->timeout_valid =
+                        sd_event_source_unref(prefix->timeout_valid);
+
+                free(prefix);
+        }
+
+        return NULL;
+}
+
+static int icmp6_prefix_new(ICMP6Prefix **ret) {
+        _cleanup_free_ ICMP6Prefix *prefix = NULL;
+
+        assert(ret);
+
+        prefix = new0(ICMP6Prefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        prefix->n_ref = REFCNT_INIT;
+        LIST_INIT(prefixes, prefix);
+
+        *ret = prefix;
+        prefix = NULL;
+
+        return 0;
+}
 
 static void icmp6_nd_notify(sd_icmp6_nd *nd, int event)
 {
@@ -152,9 +195,16 @@ static int icmp6_nd_init(sd_icmp6_nd *nd) {
 
 sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd) {
         if (nd && REFCNT_DEC(nd->n_ref) == 0) {
+                ICMP6Prefix *prefix, *p;
 
                 icmp6_nd_init(nd);
                 sd_icmp6_nd_detach_event(nd);
+
+                LIST_FOREACH_SAFE(prefixes, prefix, p, nd->prefixes) {
+                        LIST_REMOVE(prefixes, nd->prefixes, prefix);
+
+                        prefix = icmp6_prefix_unref(prefix);
+                }
 
                 free(nd);
         }
@@ -178,6 +228,8 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
 
         nd->index = -1;
         nd->fd = -1;
+
+        LIST_HEAD_INIT(nd->prefixes);
 
         *ret = nd;
         nd = NULL;
