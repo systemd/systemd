@@ -5238,6 +5238,9 @@ lib_LTLIBRARIES += \
 	libnss_mymachines.la
 
 if HAVE_LIBCURL
+if HAVE_XZ
+if HAVE_ZLIB
+if HAVE_GCRYPT
 
 bin_PROGRAMS += \
 	systemd-import
@@ -5265,7 +5268,8 @@ systemd_import_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
 	$(XZ_CFLAGS) \
-	$(ZLIB_CFLAGS)
+	$(ZLIB_CFLAGS) \
+	$(GCRYPT_CFLAGS)
 
 systemd_import_LDADD = \
 	libsystemd-internal.la \
@@ -5273,11 +5277,9 @@ systemd_import_LDADD = \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS) \
 	$(XZ_LIBS) \
-	$(ZLIB_LIBS)
+	$(ZLIB_LIBS) \
+	$(GCRYPT_LIBS)
 
-endif
-
-if HAVE_ZLIB
 manual_tests += \
 	test-qcow2
 
@@ -5295,6 +5297,9 @@ test_qcow2_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(ZLIB_LIBS)
+endif
+endif
+endif
 endif
 
 endif

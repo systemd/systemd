@@ -33,3 +33,6 @@ int import_make_read_only_fd(int fd);
 int import_make_read_only(const char *path);
 
 int import_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);
+
+int import_url_last_component(const char *url, char **ret);
+int import_url_change_last_component(const char *url, const char *suffix, char **ret);

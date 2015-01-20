@@ -218,3 +218,55 @@ int import_make_path(const char *url, const char *etag, const char *image_root, 
         *ret = path;
         return 0;
 }
+
+int import_url_last_component(const char *url, char **ret) {
+        const char *e, *p;
+        char *s;
+
+        e = strchrnul(url, '?');
+
+        while (e > url && e[-1] == '/')
+                e--;
+
+        p = e;
+        while (p > url && p[-1] != '/')
+                p--;
+
+        if (e <= p)
+                return -EINVAL;
+
+        s = strndup(p, e - p);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
+
+int import_url_change_last_component(const char *url, const char *suffix, char **ret) {
+        const char *e;
+        char *s;
+
+        assert(url);
+        assert(ret);
+
+        e = strchrnul(url, '?');
+
+        while (e > url && e[-1] == '/')
+                e--;
+
+        while (e > url && e[-1] != '/')
+                e--;
+
+        if (e <= url)
+                return -EINVAL;
+
+        s = new(char, (e - url) + strlen(suffix) + 1);
+        if (!s)
+                return -ENOMEM;
+
+        strcpy(mempcpy(s, url, e - url), suffix);
+        *ret = s;
+        return 0;
+}

@@ -29,6 +29,7 @@
 #include "import-tar.h"
 #include "import-raw.h"
 #include "import-dkr.h"
+#include "import-util.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
@@ -45,30 +46,6 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
                 log_error_errno(error, "Operation failed: %m");
 
         sd_event_exit(event, error);
-}
-
-static int url_final_component(const char *url, char **ret) {
-        const char *e, *p;
-        char *s;
-
-        e = strchrnul(url, '?');
-
-        while (e > url && e[-1] == '/')
-                        e--;
-
-        p = e;
-        while (p > url && p[-1] != '/')
-                p--;
-
-        if (e <= p)
-                return -EINVAL;
-
-        s = strndup(p, e - p);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
-        return 0;
 }
 
 static int strip_tar_suffixes(const char *name, char **ret) {
@@ -112,7 +89,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 local = argv[2];
         else {
-                r = url_final_component(url, &l);
+                r = import_url_last_component(url, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed get final component of URL: %m");
 
@@ -238,7 +215,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 local = argv[2];
         else {
-                r = url_final_component(url, &l);
+                r = import_url_last_component(url, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed get final component of URL: %m");
 

@@ -23,6 +23,7 @@
 
 #include <lzma.h>
 #include <zlib.h>
+#include <gcrypt.h>
 
 #include "macro.h"
 #include "curl-util.h"
@@ -41,6 +42,8 @@ typedef enum ImportJobState {
         _IMPORT_JOB_STATE_MAX,
         _IMPORT_JOB_STATE_INVALID = -1,
 } ImportJobState;
+
+#define IMPORT_JOB_STATE_IS_COMPLETE(j) (IN_SET((j)->state, IMPORT_JOB_DONE, IMPORT_JOB_FAILED))
 
 typedef enum ImportJobCompression {
         IMPORT_JOB_UNCOMPRESSED,
@@ -66,6 +69,7 @@ struct ImportJob {
 
         char *etag;
         char **old_etags;
+        bool etag_exists;
 
         uint64_t content_length;
         uint64_t written_compressed;
@@ -91,6 +95,11 @@ struct ImportJob {
         usec_t last_status_usec;
 
         bool allow_sparse;
+
+        bool calc_hash;
+        gcry_md_hd_t hash_context;
+
+        char *sha256;
 };
 
 int import_job_new(ImportJob **job, const char *url, CurlGlue *glue, void *userdata);

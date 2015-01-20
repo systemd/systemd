@@ -22,6 +22,7 @@
 #include <sys/xattr.h>
 #include <linux/fs.h>
 #include <curl/curl.h>
+#include <gcrypt.h>
 
 #include "utf8.h"
 #include "strv.h"
@@ -45,6 +46,7 @@ struct RawImport {
         char *image_root;
 
         ImportJob *raw_job;
+        ImportJob *sha256sums_job;
 
         RawImportFinished on_finished;
         void *userdata;
@@ -176,10 +178,11 @@ static int raw_import_make_local_copy(RawImport *i) {
         if (!i->local)
                 return 0;
 
-        if (i->raw_job->disk_fd >= 0) {
-                if (lseek(i->raw_job->disk_fd, SEEK_SET, 0) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
-        } else {
+        if (i->raw_job->etag_exists) {
+                /* We have downloaded this one previously, reopen it */
+
+                assert(i->raw_job->disk_fd < 0);
+
                 if (!i->final_path) {
                         r = import_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
                         if (r < 0)
@@ -189,6 +192,13 @@ static int raw_import_make_local_copy(RawImport *i) {
                 i->raw_job->disk_fd = open(i->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (i->raw_job->disk_fd < 0)
                         return log_error_errno(errno, "Failed to open vendor image: %m");
+        } else {
+                /* We freshly downloaded the image, use it */
+
+                assert(i->raw_job->disk_fd >= 0);
+
+                if (lseek(i->raw_job->disk_fd, SEEK_SET, 0) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
         }
 
         p = strappenda(i->image_root, "/", i->local, ".raw");
@@ -235,7 +245,91 @@ static int raw_import_make_local_copy(RawImport *i) {
         return 0;
 }
 
-static void raw_import_job_on_finished(ImportJob *j) {
+static int raw_import_verify_sha256sum(RawImport *i) {
+        _cleanup_free_ char *fn = NULL;
+        const char *p, *line;
+        int r;
+
+        assert(i);
+
+        assert(i->raw_job);
+        assert(i->raw_job->sha256);
+
+        assert(i->sha256sums_job);
+        assert(i->sha256sums_job->payload);
+        assert(i->sha256sums_job->payload_size > 0);
+
+        r = import_url_last_component(i->raw_job->url, &fn);
+        if (r < 0)
+                return log_oom();
+
+        if (!filename_is_valid(fn)) {
+                log_error("Cannot verify checksum, could not determine valid server-side file name.");
+                return -EBADMSG;
+        }
+
+        line = strappenda(i->raw_job->sha256, " *", fn, "\n");
+
+        p = memmem(i->sha256sums_job->payload,
+                   i->sha256sums_job->payload_size,
+                   line,
+                   strlen(line));
+
+        if (!p || (p != (char*) i->sha256sums_job->payload && p[-1] != '\n')) {
+                log_error("Checksum did not check out, payload has been tempered with.");
+                return -EBADMSG;
+        }
+
+        log_info("SHA256 checksum of %s is valid.", i->raw_job->url);
+
+        return 0;
+}
+
+static int raw_import_finalize(RawImport *i) {
+        int r;
+
+        assert(i);
+
+        if (!IMPORT_JOB_STATE_IS_COMPLETE(i->raw_job) ||
+            !IMPORT_JOB_STATE_IS_COMPLETE(i->sha256sums_job))
+                return 0;
+
+        if (!i->raw_job->etag_exists) {
+                assert(i->temp_path);
+                assert(i->final_path);
+                assert(i->raw_job->disk_fd >= 0);
+
+                r = raw_import_verify_sha256sum(i);
+                if (r < 0)
+                        return r;
+
+                r = rename(i->temp_path, i->final_path);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to move RAW file into place: %m");
+
+                free(i->temp_path);
+                i->temp_path = NULL;
+        }
+
+        r = raw_import_make_local_copy(i);
+        if (r < 0)
+                return r;
+
+        i->raw_job->disk_fd = safe_close(i->raw_job->disk_fd);
+
+        return 1;
+}
+
+static void raw_import_invoke_finished(RawImport *i, int r) {
+        assert(i);
+
+        if (i->on_finished)
+                i->on_finished(i, r, i->userdata);
+        else
+                sd_event_exit(i->event, r);
+}
+
+static void raw_import_raw_job_on_finished(ImportJob *j) {
         RawImport *i;
         int r;
 
@@ -250,9 +344,12 @@ static void raw_import_job_on_finished(ImportJob *j) {
 
         /* This is invoked if either the download completed
          * successfully, or the download was skipped because we
-         * already have the etag. */
+         * already have the etag. In this case ->etag_exists is
+         * true. */
 
-        if (j->disk_fd >= 0) {
+        if (!j->etag_exists) {
+                assert(j->disk_fd >= 0);
+
                 r = raw_import_maybe_convert_qcow2(i);
                 if (r < 0)
                         goto finish;
@@ -260,33 +357,45 @@ static void raw_import_job_on_finished(ImportJob *j) {
                 r = import_make_read_only_fd(j->disk_fd);
                 if (r < 0)
                         goto finish;
-
-                r = rename(i->temp_path, i->final_path);
-                if (r < 0) {
-                        r = log_error_errno(errno, "Failed to move RAW file into place: %m");
-                        goto finish;
-                }
-
-                free(i->temp_path);
-                i->temp_path = NULL;
         }
 
-        r = raw_import_make_local_copy(i);
+        r = raw_import_finalize(i);
         if (r < 0)
                 goto finish;
-
-        j->disk_fd = safe_close(j->disk_fd);
+        if (r == 0)
+                return;
 
         r = 0;
 
 finish:
-        if (i->on_finished)
-                i->on_finished(i, r, i->userdata);
-        else
-                sd_event_exit(i->event, r);
+        raw_import_invoke_finished(i, r);
 }
 
-static int raw_import_job_on_open_disk(ImportJob *j) {
+static void raw_import_sha256sums_job_on_finished(ImportJob *j) {
+        RawImport *i;
+        int r;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+        if (j->error != 0) {
+                r = j->error;
+                goto finish;
+        }
+
+        r = raw_import_finalize(i);
+        if (r < 0)
+                goto finish;
+        if (r == 0)
+                return;
+
+        r = 0;
+finish:
+        raw_import_invoke_finished(i, r);
+}
+
+static int raw_import_raw_job_on_open_disk(ImportJob *j) {
         RawImport *i;
         int r;
 
@@ -317,6 +426,7 @@ static int raw_import_job_on_open_disk(ImportJob *j) {
 }
 
 int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local) {
+        _cleanup_free_ char *sha256sums_url = NULL;
         int r;
 
         assert(i);
@@ -333,19 +443,40 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
-
         i->force_local = force_local;
 
+        /* Queue job for the image itself */
         r = import_job_new(&i->raw_job, url, i->glue, i);
         if (r < 0)
                 return r;
 
-        i->raw_job->on_finished = raw_import_job_on_finished;
-        i->raw_job->on_open_disk = raw_import_job_on_open_disk;
+        i->raw_job->on_finished = raw_import_raw_job_on_finished;
+        i->raw_job->on_open_disk = raw_import_raw_job_on_open_disk;
+        i->raw_job->calc_hash = true;
 
         r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
         if (r < 0)
                 return r;
 
-        return import_job_begin(i->raw_job);
+        /* Queue job for the SHA256SUMS file for the image */
+        r = import_url_change_last_component(url, "SHA256SUMS", &sha256sums_url);
+        if (r < 0)
+                return r;
+
+        r = import_job_new(&i->sha256sums_job, sha256sums_url, i->glue, i);
+        if (r < 0)
+                return r;
+
+        i->sha256sums_job->on_finished = raw_import_sha256sums_job_on_finished;
+        i->sha256sums_job->uncompressed_max = i->sha256sums_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+
+        r = import_job_begin(i->raw_job);
+        if (r < 0)
+                return r;
+
+        r = import_job_begin(i->sha256sums_job);
+        if (r < 0)
+                return r;
+
+        return 0;
 }

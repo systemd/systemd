@@ -38,10 +38,14 @@ ImportJob* import_job_unref(ImportJob *j) {
         else if (j->compressed == IMPORT_JOB_GZIP)
                 inflateEnd(&j->gzip);
 
+        if (j->hash_context)
+                gcry_md_close(j->hash_context);
+
         free(j->url);
         free(j->etag);
         strv_free(j->old_etags);
         free(j->payload);
+        free(j->sha256);
 
         free(j);
 
@@ -94,6 +98,7 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         } else if (status == 304) {
                 log_info("Image already downloaded. Skipping download.");
+                j->etag_exists = true;
                 r = 0;
                 goto finish;
         } else if (status >= 300) {
@@ -117,6 +122,25 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 log_error("Download truncated.");
                 r = -EIO;
                 goto finish;
+        }
+
+        if (j->hash_context) {
+                uint8_t *k;
+
+                k = gcry_md_read(j->hash_context, GCRY_MD_SHA256);
+                if (!k) {
+                        log_error("Failed to get checksum.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                j->sha256 = hexmem(k, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+                if (!j->sha256) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                log_debug("SHA256 of %s is %s.", j->url, j->sha256);
         }
 
         if (j->disk_fd >= 0 && j->allow_sparse) {
@@ -151,14 +175,12 @@ finish:
         import_job_finish(j, r);
 }
 
-
 static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
         ssize_t n;
 
         assert(j);
         assert(p);
         assert(sz > 0);
-        assert(j->disk_fd >= 0);
 
         if (j->written_uncompressed + sz < j->written_uncompressed) {
                 log_error("File too large, overflow");
@@ -204,7 +226,6 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
         assert(j);
         assert(p);
         assert(sz > 0);
-        assert(j->disk_fd >= 0);
 
         if (j->written_compressed + sz < j->written_compressed) {
                 log_error("File too large, overflow");
@@ -221,6 +242,9 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
                 log_error("Content length incorrect.");
                 return -EFBIG;
         }
+
+        if (j->hash_context)
+                gcry_md_write(j->hash_context, p, sz);
 
         switch (j->compressed) {
 
@@ -308,6 +332,13 @@ static int import_job_open_disk(ImportJob *j) {
                                 return log_error_errno(errno, "Failed to seek on file descriptor: %m");
 
                         j->allow_sparse = false;
+                }
+        }
+
+        if (j->calc_hash) {
+                if (gcry_md_open(&j->hash_context, GCRY_MD_SHA256, 0) != 0) {
+                        log_error("Failed to initialize hash context.");
+                        return -EIO;
                 }
         }
 
@@ -459,6 +490,7 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
 
                 if (strv_contains(j->old_etags, j->etag)) {
                         log_info("Image already downloaded. Skipping download.");
+                        j->etag_exists = true;
                         import_job_finish(j, 0);
                         return sz;
                 }
