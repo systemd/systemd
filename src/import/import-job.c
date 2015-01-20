@@ -369,6 +369,7 @@ static int import_job_detect_compression(ImportJob *j) {
 
         j->payload = NULL;
         j->payload_size = 0;
+        j->payload_allocated = 0;
 
         j->state = IMPORT_JOB_RUNNING;
 
