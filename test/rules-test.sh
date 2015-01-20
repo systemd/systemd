@@ -17,12 +17,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-[ -n "$srcdir" ] || srcdir=`dirname $0`/..
-
 # skip if we don't have python
 type ${PYTHON:-python} >/dev/null 2>&1 || {
         echo "$0: No $PYTHON installed, skipping udev rule syntax check"
         exit 0
 }
 
-$PYTHON $srcdir/test/rule-syntax-check.py `find $srcdir/rules -name '*.rules'`
+$PYTHON $srcdir/test/rule-syntax-check.py
