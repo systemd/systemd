@@ -278,6 +278,42 @@ class SysvGeneratorTest(unittest.TestCase):
         err, results = self.run_generator()
         self.assertEqual(results, {})
 
+    def test_sh_suffix(self):
+        '''init.d script with .sh suffix'''
+
+        self.add_sysv('foo.sh', {}, enable=True)
+        err, results = self.run_generator()
+        s = results['foo.service']
+
+        self.assertEqual(s.sections(), ['Unit', 'Service'])
+        # should not have a .sh
+        self.assertEqual(s.get('Unit', 'Description'), 'LSB: test foo service')
+
+        # calls correct script with .sh
+        init_script = os.path.join(self.init_d_dir, 'foo.sh')
+        self.assertEqual(s.get('Service', 'ExecStart'),
+                         '%s start' % init_script)
+        self.assertEqual(s.get('Service', 'ExecStop'),
+                         '%s stop' % init_script)
+
+        self.assert_enabled('foo.service', [2, 3, 4, 5])
+
+    def test_sh_suffix_with_provides(self):
+        '''init.d script with .sh suffix and Provides:'''
+
+        self.add_sysv('foo.sh', {'Provides': 'foo bar'})
+        err, results = self.run_generator()
+        # ensure we don't try to create a symlink to itself
+        self.assertNotIn(err, 'itself')
+        self.assertEqual(list(results), ['foo.service'])
+        self.assertEqual(results['foo.service'].get('Unit', 'Description'),
+                         'LSB: test foo service')
+
+        # should create symlink for the alternative name
+        self.assertEqual(os.readlink(os.path.join(self.out_dir, 'bar.service')),
+                         'foo.service')
+
+
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout, verbosity=2))
