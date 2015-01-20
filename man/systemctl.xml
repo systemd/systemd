@@ -321,15 +321,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--no-legend</option></term>
-
-        <listitem>
-          <para>Do not print the legend, i.e. the column headers and
-          the footer with hints.</para>
-        </listitem>
-      </varlistentry>
-
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
 
@@ -547,9 +538,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
   </refsect1>
 

@@ -74,7 +74,7 @@
                         <varlistentry>
                                 <term><option>--no-legend</option></term>
 
-                                <listitem><para>Do not print the column headers.
+                                <listitem><para>Do not print column headers.
                                 </para></listitem>
                         </varlistentry>
 

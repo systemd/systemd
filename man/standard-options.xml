@@ -27,4 +27,13 @@
       <para>Do not pipe output into a pager.</para>
     </listitem>
   </varlistentry>
+
+  <varlistentry id='no-legend'>
+    <term><option>--no-legend</option></term>
+
+    <listitem>
+      <para>Do not print the legend, i.e. column headers and the
+      footer with hints.</para>
+    </listitem>
+  </varlistentry>
 </variablelist>
