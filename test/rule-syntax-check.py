@@ -21,7 +21,7 @@ import re
 import sys
 
 if len(sys.argv) < 2:
-    print >> sys.stderr, 'Usage: %s <rules file> [...]' % sys.argv[0]
+    sys.stderr.write('Usage: %s <rules file> [...]\n' % sys.argv[0])
     sys.exit(2)
 
 no_args_tests = re.compile('(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|RESULT|TEST)\s*(?:=|!)=\s*"([^"]*)"$')
@@ -55,8 +55,8 @@ for path in sys.argv[1:]:
                     no_args_assign.match(clause) or args_assign.match(clause)):
 
                 print('Invalid line %s:%i: %s' % (path, lineno, line))
-                print('  clause:', clause)
-                print()
+                print('  clause: %s' % clause)
+                print('')
                 result = 1
                 break
 
