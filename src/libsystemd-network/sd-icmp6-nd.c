@@ -18,9 +18,11 @@
 ***/
 
 #include <netinet/icmp6.h>
+#include <netinet/ip6.h>
 #include <string.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 
 #include "socket-util.h"
 #include "refcnt.h"
@@ -37,6 +39,10 @@ enum icmp6_nd_state {
         ICMP6_ROUTER_SOLICITATION_SENT          = 10,
         ICMP6_ROUTER_ADVERTISMENT_LISTEN        = 11,
 };
+
+#define IP6_MIN_MTU (unsigned)1280
+#define ICMP6_ND_RECV_SIZE (IP6_MIN_MTU - sizeof(struct ip6_hdr))
+#define ICMP6_OPT_LEN_UNITS 8
 
 struct sd_icmp6_nd {
         RefCount n_ref;
@@ -179,44 +185,100 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         return 0;
 }
 
+static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
+                          ssize_t len) {
+        void *opt;
+        struct nd_opt_hdr *opt_hdr;
+
+        assert_return(nd, -EINVAL);
+        assert_return(ra, -EINVAL);
+
+        len -= sizeof(*ra);
+        if (len < ICMP6_OPT_LEN_UNITS) {
+                log_icmp6_nd(nd, "Router Advertisement below minimum length");
+
+                return -ENOMSG;
+        }
+
+        opt = ra + 1;
+        opt_hdr = opt;
+
+        while (len != 0 && len >= opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS) {
+
+                if (opt_hdr->nd_opt_len == 0)
+                        return -ENOMSG;
+
+                switch (opt_hdr->nd_opt_type) {
+
+                }
+
+                len -= opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS;
+                opt = (void *)((char *)opt +
+                        opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS);
+                opt_hdr = opt;
+        }
+
+        if (len > 0)
+                log_icmp6_nd(nd, "Router Advertisement contains %zd bytes of trailing garbage", len);
+
+        return 0;
+}
+
 static int icmp6_router_advertisment_recv(sd_event_source *s, int fd,
                                           uint32_t revents, void *userdata)
 {
         sd_icmp6_nd *nd = userdata;
+        int r, buflen = 0;
         ssize_t len;
-        struct nd_router_advert ra;
+        _cleanup_free_ struct nd_router_advert *ra = NULL;
         int event = ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE;
 
         assert(s);
         assert(nd);
         assert(nd->event);
 
-        /* only interested in Managed/Other flag */
-        len = read(fd, &ra, sizeof(ra));
-        if ((size_t)len < sizeof(ra))
+        r = ioctl(fd, FIONREAD, &buflen);
+        if (r < 0 || buflen <= 0)
+                buflen = ICMP6_ND_RECV_SIZE;
+
+        ra = malloc(buflen);
+        if (!ra)
+                return -ENOMEM;
+
+        len = read(fd, ra, buflen);
+        if (len < 0) {
+                log_icmp6_nd(nd, "Could not receive message from UDP socket: %m");
+                return 0;
+        }
+
+        if (ra->nd_ra_type != ND_ROUTER_ADVERT)
                 return 0;
 
-        if (ra.nd_ra_type != ND_ROUTER_ADVERT)
-                return 0;
-
-        if (ra.nd_ra_code != 0)
+        if (ra->nd_ra_code != 0)
                 return 0;
 
         nd->timeout = sd_event_source_unref(nd->timeout);
 
         nd->state = ICMP6_ROUTER_ADVERTISMENT_LISTEN;
 
-        if (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
+        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER )
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER;
 
-        if (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
+        if (ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
         log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
-                     (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)? "MANAGED":
-                     "none",
-                     (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER)? "OTHER":
-                     "none");
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED? "MANAGED": "none",
+                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER? "OTHER": "none");
+
+        if (event != ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE) {
+                r = icmp6_ra_parse(nd, ra, len);
+                if (r < 0) {
+                        log_icmp6_nd(nd, "Could not parse Router Advertisement: %s",
+                                     strerror(-r));
+                        return 0;
+                }
+        }
 
         icmp6_nd_notify(nd, event);
 
