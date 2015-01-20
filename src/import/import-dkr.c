@@ -422,7 +422,7 @@ static void dkr_import_name_maybe_finish(DkrImportName *name) {
                         return;
                 }
 
-                log_info("Created new local image %s.", p);
+                log_info("Created new local image '%s'.", name->local);
         }
 
         dkr_import_finish(name->import, 0);

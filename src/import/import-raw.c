@@ -30,6 +30,7 @@
 #include "qcow2-util.h"
 #include "strv.h"
 #include "copy.h"
+#include "import-util.h"
 #include "import-raw.h"
 
 typedef struct RawImportFile RawImportFile;
@@ -691,17 +692,6 @@ static int raw_import_file_progress_callback(void *userdata, curl_off_t dltotal,
         return 0;
 }
 
-static bool etag_is_valid(const char *etag) {
-
-        if (!endswith(etag, "\""))
-                return false;
-
-        if (!startswith(etag, "\"") && !startswith(etag, "W/\""))
-                return false;
-
-        return true;
-}
-
 static int raw_import_file_find_old_etags(RawImportFile *f) {
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -751,7 +741,7 @@ static int raw_import_file_find_old_etags(RawImportFile *f) {
                 if (!u)
                         return -ENOMEM;
 
-                if (!etag_is_valid(u)) {
+                if (!http_etag_is_valid(u)) {
                         free(u);
                         continue;
                 }

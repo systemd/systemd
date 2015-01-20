@@ -25,6 +25,8 @@
 #include "event-util.h"
 #include "verbs.h"
 #include "build.h"
+#include "machine-image.h"
+#include "import-tar.h"
 #include "import-raw.h"
 #include "import-dkr.h"
 
@@ -33,6 +35,144 @@ static const char *arg_image_root = "/var/lib/machines";
 
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
+static void on_tar_finished(TarImport *import, int error, void *userdata) {
+        sd_event *event = userdata;
+        assert(import);
+
+        if (error == 0)
+                log_info("Operation completed successfully.");
+        else
+                log_error_errno(error, "Operation failed: %m");
+
+        sd_event_exit(event, error);
+}
+
+static int url_final_component(const char *url, char **ret) {
+        const char *e, *p;
+        char *s;
+
+        e = strchrnul(url, '?');
+
+        while (e > url && e[-1] == '/')
+                        e--;
+
+        p = e;
+        while (p > url && p[-1] != '/')
+                p--;
+
+        if (e <= p)
+                return -EINVAL;
+
+        s = strndup(p, e - p);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
+static int strip_tar_suffixes(const char *name, char **ret) {
+        const char *e;
+        char *s;
+
+        e = endswith(name, ".tar");
+        if (!e)
+                e = endswith(name, ".tar.gz");
+        if (!e)
+                e = endswith(name, ".tar.xz");
+        if (!e)
+                e = endswith(name, ".tgz");
+        if (!e)
+                e = strchr(name, 0);
+
+        if (e <= name)
+                return -EINVAL;
+
+        s = strndup(name, e - name);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
+static int pull_tar(int argc, char *argv[], void *userdata) {
+        _cleanup_(tar_import_unrefp) TarImport *import = NULL;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        const char *url, *local;
+        _cleanup_free_ char *l = NULL, *ll = NULL;
+        int r;
+
+        url = argv[1];
+        if (!http_url_is_valid(url)) {
+                log_error("URL '%s' is not valid.", url);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                local = argv[2];
+        else {
+                r = url_final_component(url, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed get final component of URL: %m");
+
+                local = l;
+        }
+
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (local) {
+                r = strip_tar_suffixes(local, &ll);
+                if (r < 0)
+                        return log_oom();
+
+                local = ll;
+
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local image name '%s' is not valid.", local);
+                        return -EINVAL;
+                }
+
+                if (!arg_force) {
+                        r = image_find(local, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        else if (r > 0) {
+                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                return -EEXIST;
+                        }
+                }
+
+                log_info("Pulling '%s', saving as '%s'.", url, local);
+        } else
+                log_info("Pulling '%s'.", url);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
+        sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
+        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+
+        r = tar_import_new(&import, event, arg_image_root, on_tar_finished, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate importer: %m");
+
+        r = tar_import_pull(import, url, local, arg_force);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pull image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+
+        return 0;
+}
+
 static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event *event = userdata;
         assert(import);
@@ -40,7 +180,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
         else
-                log_info_errno(error, "Operation failed: %m");
+                log_error_errno(error, "Operation failed: %m");
 
         sd_event_exit(event, error);
 }
@@ -173,7 +313,7 @@ static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
         else
-                log_info_errno(error, "Operation failed: %m");
+                log_error_errno(error, "Operation failed: %m");
 
         sd_event_exit(event, error);
 }
@@ -277,8 +417,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-root=            Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
-               "  pull-dkr REMOTE [NAME]      Download a DKR image\n"
-               "  pull-raw URL [NAME]         Download a RAW image\n",
+               "  pull-tar URL                Download a TAR image\n"
+               "  pull-raw URL [NAME]         Download a RAW image\n"
+               "  pull-dkr REMOTE [NAME]      Download a DKR image\n",
                program_invocation_short_name);
 
         return 0;
@@ -350,8 +491,9 @@ static int import_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",     VERB_ANY, VERB_ANY, 0, help     },
-                { "pull-dkr", 2,        3,        0, pull_dkr },
+                { "pull-tar", 2,        3,        0, pull_tar },
                 { "pull-raw", 2,        3,        0, pull_raw },
+                { "pull-dkr", 2,        3,        0, pull_dkr },
                 {}
         };
 
