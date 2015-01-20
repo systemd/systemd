@@ -237,6 +237,18 @@ int sd_icmp6_nd_new(sd_icmp6_nd **ret) {
         return 0;
 }
 
+int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu) {
+        assert_return(nd, -EINVAL);
+        assert_return(mtu, -EINVAL);
+
+        if (nd->mtu == 0)
+                return -ENOMSG;
+
+        *mtu = nd->mtu;
+
+        return 0;
+}
+
 static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
                           ssize_t len) {
         void *opt;
@@ -256,11 +268,26 @@ static int icmp6_ra_parse(sd_icmp6_nd *nd, struct nd_router_advert *ra,
         opt_hdr = opt;
 
         while (len != 0 && len >= opt_hdr->nd_opt_len * ICMP6_OPT_LEN_UNITS) {
+                struct nd_opt_mtu *opt_mtu;
+                uint32_t mtu;
 
                 if (opt_hdr->nd_opt_len == 0)
                         return -ENOMSG;
 
                 switch (opt_hdr->nd_opt_type) {
+                case ND_OPT_MTU:
+                        opt_mtu = opt;
+
+                        mtu = be32toh(opt_mtu->nd_opt_mtu_mtu);
+
+                        if (mtu != nd->mtu) {
+                                nd->mtu = MAX(mtu, IP6_MIN_MTU);
+
+                                log_icmp6_nd(nd, "Router Advertisement link MTU %d using %d",
+                                             mtu, nd->mtu);
+                        }
+
+                        break;
 
                 }
 

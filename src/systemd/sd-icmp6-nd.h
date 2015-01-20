@@ -51,6 +51,8 @@ sd_icmp6_nd *sd_icmp6_nd_ref(sd_icmp6_nd *nd);
 sd_icmp6_nd *sd_icmp6_nd_unref(sd_icmp6_nd *nd);
 int sd_icmp6_nd_new(sd_icmp6_nd **ret);
 
+int sd_icmp6_ra_get_mtu(sd_icmp6_nd *nd, uint32_t *mtu);
+
 int sd_icmp6_nd_stop(sd_icmp6_nd *nd);
 int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd);
 
