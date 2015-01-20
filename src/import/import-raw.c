@@ -56,6 +56,8 @@ struct RawImport {
 
         char *temp_path;
         char *final_path;
+
+        ImportVerify verify;
 };
 
 RawImport* raw_import_unref(RawImport *i) {
@@ -251,6 +253,7 @@ static int raw_import_verify_sha256sum(RawImport *i) {
         int r;
 
         assert(i);
+        assert(i->verify != IMPORT_VERIFY_NO);
 
         assert(i->raw_job);
         assert(i->raw_job->sha256);
@@ -291,10 +294,12 @@ static int raw_import_finalize(RawImport *i) {
         assert(i);
 
         if (!IMPORT_JOB_STATE_IS_COMPLETE(i->raw_job) ||
-            !IMPORT_JOB_STATE_IS_COMPLETE(i->sha256sums_job))
+            (i->verify != IMPORT_VERIFY_NO && !IMPORT_JOB_STATE_IS_COMPLETE(i->sha256sums_job)))
                 return 0;
 
-        if (!i->raw_job->etag_exists) {
+        if (i->verify != IMPORT_VERIFY_NO &&
+            i->raw_job->etag_exists) {
+
                 assert(i->temp_path);
                 assert(i->final_path);
                 assert(i->raw_job->disk_fd >= 0);
@@ -379,7 +384,10 @@ static void raw_import_sha256sums_job_on_finished(ImportJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
+        assert(i->verify != IMPORT_VERIFY_NO);
+
         if (j->error != 0) {
+                log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify.");
                 r = j->error;
                 goto finish;
         }
@@ -425,11 +433,13 @@ static int raw_import_raw_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
-int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local) {
+int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         _cleanup_free_ char *sha256sums_url = NULL;
         int r;
 
         assert(i);
+        assert(verify < _IMPORT_VERIFY_MAX);
+        assert(verify >= 0);
 
         if (i->raw_job)
                 return -EBUSY;
@@ -444,6 +454,7 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         if (r < 0)
                 return r;
         i->force_local = force_local;
+        i->verify = verify;
 
         /* Queue job for the image itself */
         r = import_job_new(&i->raw_job, url, i->glue, i);
@@ -458,23 +469,25 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         if (r < 0)
                 return r;
 
-        /* Queue job for the SHA256SUMS file for the image */
-        r = import_url_change_last_component(url, "SHA256SUMS", &sha256sums_url);
-        if (r < 0)
-                return r;
+        if (verify != IMPORT_VERIFY_NO) {
+                /* Queue job for the SHA256SUMS file for the image */
+                r = import_url_change_last_component(url, "SHA256SUMS", &sha256sums_url);
+                if (r < 0)
+                        return r;
 
-        r = import_job_new(&i->sha256sums_job, sha256sums_url, i->glue, i);
-        if (r < 0)
-                return r;
+                r = import_job_new(&i->sha256sums_job, sha256sums_url, i->glue, i);
+                if (r < 0)
+                        return r;
 
-        i->sha256sums_job->on_finished = raw_import_sha256sums_job_on_finished;
-        i->sha256sums_job->uncompressed_max = i->sha256sums_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+                i->sha256sums_job->on_finished = raw_import_sha256sums_job_on_finished;
+                i->sha256sums_job->uncompressed_max = i->sha256sums_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+
+                r = import_job_begin(i->sha256sums_job);
+                if (r < 0)
+                        return r;
+        }
 
         r = import_job_begin(i->raw_job);
-        if (r < 0)
-                return r;
-
-        r = import_job_begin(i->sha256sums_job);
         if (r < 0)
                 return r;
 

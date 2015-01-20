@@ -33,7 +33,7 @@
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
-
+static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
 static void on_tar_finished(TarImport *import, int error, void *userdata) {
@@ -263,7 +263,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = raw_import_pull(import, url, local, arg_force);
+        r = raw_import_pull(import, url, local, arg_force, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -296,6 +296,11 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
 
         if (!arg_dkr_index_url) {
                 log_error("Please specify an index URL with --dkr-index-url=");
+                return -EINVAL;
+        }
+
+        if (arg_verify != IMPORT_VERIFY_NO) {
+                log_error("Imports from dkr do not support image verification, please pass --verify=no.");
                 return -EINVAL;
         }
 
@@ -384,6 +389,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"
+               "     --verify=                Verify downloaded image, one of: 'no', 'sum'\n"
+               "                              'signature'.\n"
                "     --image-root=            Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
@@ -402,6 +409,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_DKR_INDEX_URL,
                 ARG_IMAGE_ROOT,
+                ARG_VERIFY,
         };
 
         static const struct option options[] = {
@@ -410,6 +418,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
+                { "verify",          required_argument, NULL, ARG_VERIFY          },
                 {}
         };
 
@@ -445,6 +454,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE_ROOT:
                         arg_image_root = optarg;
+                        break;
+
+                case ARG_VERIFY:
+                        arg_verify = import_verify_from_string(optarg);
+                        if (arg_verify < 0) {
+                                log_error("Invalid verification setting '%s'", optarg);
+                                return -EINVAL;
+                        }
+
                         break;
 
                 case '?':

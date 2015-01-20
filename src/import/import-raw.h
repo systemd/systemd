@@ -23,6 +23,7 @@
 
 #include "sd-event.h"
 #include "macro.h"
+#include "import-util.h"
 
 typedef struct RawImport RawImport;
 
@@ -33,4 +34,4 @@ RawImport* raw_import_unref(RawImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
-int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local);
+int raw_import_pull(RawImport *import, const char *url, const char *local, bool force_local, ImportVerify verify);
