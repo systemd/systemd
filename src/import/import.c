@@ -165,9 +165,11 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
 static int strip_raw_suffixes(const char *p, char **ret) {
         static const char suffixes[] =
                 ".xz\0"
+                ".gz\0"
                 ".raw\0"
                 ".qcow2\0"
-                ".img\0";
+                ".img\0"
+                ".bin\0";
 
         _cleanup_free_ char *q = NULL;
 
