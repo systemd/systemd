@@ -39,15 +39,7 @@ Release 219 preparations:
 
 Features:
 
-* import: when pulling raw images, detect NUL blocks, and create sparse files
-
 * import: support import from local files, and export to local files
-
-* import: add "pull-tar" support, for downloading/verifying tarballs
-
-* import: support compressed raw images
-
-* import: support verifiying raw images with gpg
 
 * core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
 
