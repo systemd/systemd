@@ -23,6 +23,7 @@
 
 #include "sd-event.h"
 #include "macro.h"
+#include "import-util.h"
 
 typedef struct TarImport TarImport;
 
@@ -33,4 +34,4 @@ TarImport* tar_import_unref(TarImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
 
-int tar_import_pull(TarImport *import, const char *rul, const char *local, bool force_local);
+int tar_import_pull(TarImport *import, const char *rul, const char *local, bool force_local, ImportVerify verify);

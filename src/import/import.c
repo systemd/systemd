@@ -135,7 +135,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate importer: %m");
 
-        r = tar_import_pull(import, url, local, arg_force);
+        r = tar_import_pull(import, url, local, arg_force, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 

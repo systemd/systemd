@@ -404,7 +404,7 @@ int import_verify(
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
-                return log_error_errno(errno, "Failed to create pipe: %m");
+                return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
         sig_file = mkostemp(sig_file_path, O_RDWR);
         if (sig_file < 0)

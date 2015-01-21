@@ -41,6 +41,8 @@ struct TarImport {
         char *image_root;
 
         ImportJob *tar_job;
+        ImportJob *checksum_job;
+        ImportJob *signature_job;
 
         TarImportFinished on_finished;
         void *userdata;
@@ -52,18 +54,22 @@ struct TarImport {
 
         char *temp_path;
         char *final_path;
+
+        ImportVerify verify;
 };
 
 TarImport* tar_import_unref(TarImport *i) {
         if (!i)
                 return NULL;
 
-        if (i->tar_pid > 0) {
-                kill(i->tar_pid, SIGKILL);
-                wait_for_terminate(i->tar_pid, NULL);
+        if (i->tar_pid > 1) {
+                (void) kill(i->tar_pid, SIGKILL);
+                (void) wait_for_terminate(i->tar_pid, NULL);
         }
 
         import_job_unref(i->tar_job);
+        import_job_unref(i->checksum_job);
+        import_job_unref(i->signature_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
@@ -77,7 +83,6 @@ TarImport* tar_import_unref(TarImport *i) {
         free(i->final_path);
         free(i->image_root);
         free(i->local);
-
         free(i);
 
         return NULL;
@@ -135,11 +140,11 @@ static int tar_import_make_local_copy(TarImport *i) {
                 r = import_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
                 if (r < 0)
                         return log_oom();
-
-                r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
-                if (r < 0)
-                        return r;
         }
+
+        r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -153,6 +158,13 @@ static void tar_import_job_on_finished(ImportJob *j) {
 
         i = j->userdata;
         if (j->error != 0) {
+                if (j == i->checksum_job)
+                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
+                else if (j == i->signature_job)
+                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                else
+                        log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
+
                 r = j->error;
                 goto finish;
         }
@@ -161,7 +173,14 @@ static void tar_import_job_on_finished(ImportJob *j) {
          * successfully, or the download was skipped because we
          * already have the etag. */
 
-        j->disk_fd = safe_close(j->disk_fd);
+        if (i->tar_job->state != IMPORT_JOB_DONE)
+                return;
+        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
+                return;
+        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+                return;
+
+        j->disk_fd = safe_close(i->tar_job->disk_fd);
 
         if (i->tar_pid > 0) {
                 r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
@@ -170,7 +189,13 @@ static void tar_import_job_on_finished(ImportJob *j) {
                         goto finish;
         }
 
-        if (i->temp_path) {
+        if (!i->tar_job->etag_exists) {
+                /* This is a new download, verify it, and move it into place */
+
+                r = import_verify(i->tar_job, i->checksum_job, i->signature_job);
+                if (r < 0)
+                        goto finish;
+
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)
                         goto finish;
@@ -233,6 +258,8 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         if (i->tar_pid == 0) {
                 int null_fd;
 
+                /* Child */
+
                 reset_all_signal_handlers();
                 reset_signal_mask();
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
@@ -274,7 +301,7 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
-int tar_import_pull(TarImport *i, const char *url, const char *local, bool force_local) {
+int tar_import_pull(TarImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         int r;
 
         assert(i);
@@ -291,8 +318,8 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
         r = free_and_strdup(&i->local, local);
         if (r < 0)
                 return r;
-
         i->force_local = force_local;
+        i->verify = verify;
 
         r = import_job_new(&i->tar_job, url, i->glue, i);
         if (r < 0)
@@ -300,10 +327,32 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
 
         i->tar_job->on_finished = tar_import_job_on_finished;
         i->tar_job->on_open_disk = tar_import_job_on_open_disk;
+        i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         r = import_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
         if (r < 0)
                 return r;
 
-        return import_job_begin(i->tar_job);
+        r = import_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_import_job_on_finished, i);
+        if (r < 0)
+                return r;
+
+        r = import_job_begin(i->tar_job);
+        if (r < 0)
+                return r;
+
+        if (i->checksum_job) {
+                r = import_job_begin(i->checksum_job);
+                if (r < 0)
+                        return r;
+        }
+
+        if (i->signature_job) {
+                r = import_job_begin(i->signature_job);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+
 }
