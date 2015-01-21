@@ -283,10 +283,8 @@ static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
 
         if (error == 0)
                 log_info("Operation completed successfully.");
-        else
-                log_error_errno(error, "Operation failed: %m");
 
-        sd_event_exit(event, error);
+        sd_event_exit(event, EXIT_FAILURE);
 }
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
@@ -338,21 +336,20 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 local = NULL;
 
         if (local) {
-                const char *p;
-
                 if (!machine_name_is_valid(local)) {
                         log_error("Local image name '%s' is not valid.", local);
                         return -EINVAL;
                 }
 
-                p = strappenda(arg_image_root, "/", local);
-                if (laccess(p, F_OK) >= 0) {
-                        if (!arg_force) {
-                                log_info("Image '%s' already exists.", local);
-                                return 0;
+                if (!arg_force) {
+                        r = image_find(local, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        else if (r > 0) {
+                                log_error_errno(EEXIST, "Image '%s' already exists.", local);
+                                return -EEXIST;
                         }
-                } else if (errno != ENOENT)
-                        return log_error_errno(errno, "Can't check if image '%s' already exists: %m", local);
+                }
 
                 log_info("Pulling '%s' with tag '%s', saving as '%s'.", name, tag, local);
         } else
@@ -445,7 +442,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DKR_INDEX_URL:
-                        if (!dkr_url_is_valid(optarg)) {
+                        if (!http_url_is_valid(optarg)) {
                                 log_error("Index URL is not valid: %s", optarg);
                                 return -EINVAL;
                         }

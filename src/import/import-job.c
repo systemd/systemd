@@ -573,6 +573,12 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
                 return sz;
         }
 
+        if (j->on_header) {
+                r = j->on_header(j, contents, sz);
+                if (r < 0)
+                        goto fail;
+        }
+
         return sz;
 
 fail:
@@ -672,10 +678,22 @@ int import_job_begin(ImportJob *j) {
                 if (!hdr)
                         return -ENOMEM;
 
-                j->request_header = curl_slist_new(hdr, NULL);
-                if (!j->request_header)
-                        return -ENOMEM;
+                if (!j->request_header) {
+                        j->request_header = curl_slist_new(hdr, NULL);
+                        if (!j->request_header)
+                                return -ENOMEM;
+                } else {
+                        struct curl_slist *l;
 
+                        l = curl_slist_append(j->request_header, hdr);
+                        if (!l)
+                                return -ENOMEM;
+
+                        j->request_header = l;
+                }
+        }
+
+        if (j->request_header) {
                 if (curl_easy_setopt(j->curl, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
                         return -EIO;
         }
