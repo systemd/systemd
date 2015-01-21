@@ -36,14 +36,10 @@
 #include "dhcp6-protocol.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dhcp-identifier.h"
 
 #define SYSTEMD_PEN 43793
 #define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
-
-/* RFC 3315 section 9.1:
- *      A DUID can be no more than 128 octets long (not including the type code).
- */
-#define MAX_DUID_LEN 128
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
@@ -73,32 +69,7 @@ struct sd_dhcp6_client {
         sd_event_source *timeout_resend_expire;
         sd_dhcp6_client_cb_t cb;
         void *userdata;
-        union {
-                struct {
-                        uint16_t type; /* DHCP6_DUID_LLT */
-                        uint16_t htype;
-                        uint32_t time;
-                        uint8_t haddr[0];
-                } _packed_ llt;
-                struct {
-                        uint16_t type; /* DHCP6_DUID_EN */
-                        uint32_t pen;
-                        uint8_t id[8];
-                } _packed_ en;
-                struct {
-                        uint16_t type; /* DHCP6_DUID_LL */
-                        uint16_t htype;
-                        uint8_t haddr[0];
-                } _packed_ ll;
-                struct {
-                        uint16_t type; /* DHCP6_DUID_UUID */
-                        sd_id128_t uuid;
-                } _packed_ uuid;
-                struct {
-                        uint16_t type;
-                        uint8_t data[MAX_DUID_LEN];
-                } _packed_ raw;
-        } duid;
+        struct duid duid;
         size_t duid_len;
 };
 
@@ -201,19 +172,19 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
 
         switch (type) {
         case DHCP6_DUID_LLT:
-                if (duid_len <= sizeof(client->duid.llt) - 2)
+                if (duid_len <= sizeof(client->duid.llt))
                         return -EINVAL;
                 break;
         case DHCP6_DUID_EN:
-                if (duid_len != sizeof(client->duid.en) - 2)
+                if (duid_len != sizeof(client->duid.en))
                         return -EINVAL;
                 break;
         case DHCP6_DUID_LL:
-                if (duid_len <= sizeof(client->duid.ll) - 2)
+                if (duid_len <= sizeof(client->duid.ll))
                         return -EINVAL;
                 break;
         case DHCP6_DUID_UUID:
-                if (duid_len != sizeof(client->duid.uuid) - 2)
+                if (duid_len != sizeof(client->duid.uuid))
                         return -EINVAL;
                 break;
         default:
@@ -221,9 +192,9 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
                 break;
         }
 
-        client->duid.raw.type = htobe16(type);
+        client->duid.type = htobe16(type);
         memcpy(&client->duid.raw.data, duid, duid_len);
-        client->duid_len = duid_len + 2;  /* +2 for sizeof(type) */
+        client->duid_len = duid_len + sizeof(client->duid.type);
 
         return 0;
 }
@@ -1289,7 +1260,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->fd = -1;
 
         /* initialize DUID */
-        client->duid.en.type = htobe16(DHCP6_DUID_EN);
+        client->duid.type = htobe16(DHCP6_DUID_EN);
         client->duid.en.pen = htobe32(SYSTEMD_PEN);
         client->duid_len = sizeof(client->duid.en);
 
