@@ -63,7 +63,7 @@ TarImport* tar_import_unref(TarImport *i) {
                 return NULL;
 
         if (i->tar_pid > 1) {
-                (void) kill(i->tar_pid, SIGKILL);
+                (void) kill_and_sigcont(i->tar_pid, SIGKILL);
                 (void) wait_for_terminate(i->tar_pid, NULL);
         }
 
@@ -88,7 +88,13 @@ TarImport* tar_import_unref(TarImport *i) {
         return NULL;
 }
 
-int tar_import_new(TarImport **ret, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata) {
+int tar_import_new(
+                TarImport **ret,
+                sd_event *event,
+                const char *image_root,
+                TarImportFinished on_finished,
+                void *userdata) {
+
         _cleanup_(tar_import_unrefp) TarImport *i = NULL;
         int r;
 
@@ -149,6 +155,20 @@ static int tar_import_make_local_copy(TarImport *i) {
         return 0;
 }
 
+static bool tar_import_is_done(TarImport *i) {
+        assert(i);
+        assert(i->tar_job);
+
+        if (i->tar_job->state != IMPORT_JOB_DONE)
+                return false;
+        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
+                return false;
+        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+                return false;
+
+        return true;
+}
+
 static void tar_import_job_on_finished(ImportJob *j) {
         TarImport *i;
         int r;
@@ -173,11 +193,7 @@ static void tar_import_job_on_finished(ImportJob *j) {
          * successfully, or the download was skipped because we
          * already have the etag. */
 
-        if (i->tar_job->state != IMPORT_JOB_DONE)
-                return;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
-                return;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+        if (!tar_import_is_done(i))
                 return;
 
         j->disk_fd = safe_close(i->tar_job->disk_fd);
@@ -231,6 +247,10 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
+        assert(i->tar_job == j);
+        assert(!i->final_path);
+        assert(!i->temp_path);
+        assert(i->tar_pid <= 0);
 
         r = import_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
         if (r < 0)
@@ -306,14 +326,14 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
 
         assert(i);
 
-        if (i->tar_job)
-                return -EBUSY;
-
         if (!http_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !machine_name_is_valid(local))
                 return -EINVAL;
+
+        if (i->tar_job)
+                return -EBUSY;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)

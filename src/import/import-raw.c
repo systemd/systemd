@@ -84,7 +84,13 @@ RawImport* raw_import_unref(RawImport *i) {
         return NULL;
 }
 
-int raw_import_new(RawImport **ret, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata) {
+int raw_import_new(
+                RawImport **ret,
+                sd_event *event,
+                const char *image_root,
+                RawImportFinished on_finished,
+                void *userdata) {
+
         _cleanup_(raw_import_unrefp) RawImport *i = NULL;
         int r;
 
@@ -249,6 +255,20 @@ static int raw_import_make_local_copy(RawImport *i) {
         return 0;
 }
 
+static bool raw_import_is_done(RawImport *i) {
+        assert(i);
+        assert(i->raw_job);
+
+        if (i->raw_job->state != IMPORT_JOB_DONE)
+                return false;
+        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
+                return false;
+        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+                return false;
+
+        return true;
+}
+
 static void raw_import_job_on_finished(ImportJob *j) {
         RawImport *i;
         int r;
@@ -276,11 +296,7 @@ static void raw_import_job_on_finished(ImportJob *j) {
          *
          * We only do something when we got all three files */
 
-        if (i->raw_job->state != IMPORT_JOB_DONE)
-                return;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
-                return;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+        if (!raw_import_is_done(i))
                 return;
 
         if (!i->raw_job->etag_exists) {
@@ -330,6 +346,9 @@ static int raw_import_job_on_open_disk(ImportJob *j) {
         assert(j->userdata);
 
         i = j->userdata;
+        assert(i->raw_job == j);
+        assert(!i->final_path);
+        assert(!i->temp_path);
 
         r = import_make_path(j->url, j->etag, i->image_root, ".raw-", ".raw", &i->final_path);
         if (r < 0)
@@ -359,14 +378,14 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         assert(verify < _IMPORT_VERIFY_MAX);
         assert(verify >= 0);
 
-        if (i->raw_job)
-                return -EBUSY;
-
         if (!http_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !machine_name_is_valid(local))
                 return -EINVAL;
+
+        if (i->raw_job)
+                return -EBUSY;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)
