@@ -5250,6 +5250,7 @@ lib_LTLIBRARIES += \
 if HAVE_LIBCURL
 if HAVE_XZ
 if HAVE_ZLIB
+if HAVE_BZIP2
 if HAVE_GCRYPT
 
 bin_PROGRAMS += \
@@ -5290,6 +5291,7 @@ systemd_import_LDADD = \
 	$(LIBCURL_LIBS) \
 	$(XZ_LIBS) \
 	$(ZLIB_LIBS) \
+	-lbz2 \
 	$(GCRYPT_LIBS)
 
 manual_tests += \
@@ -5312,6 +5314,7 @@ test_qcow2_LDADD = \
 
 dist_rootlibexec_DATA = \
 	src/import/import-pubring.gpg
+endif
 endif
 endif
 endif

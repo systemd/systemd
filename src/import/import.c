@@ -52,9 +52,11 @@ static int strip_tar_suffixes(const char *name, char **ret) {
 
         e = endswith(name, ".tar");
         if (!e)
+                e = endswith(name, ".tar.xz");
+        if (!e)
                 e = endswith(name, ".tar.gz");
         if (!e)
-                e = endswith(name, ".tar.xz");
+                e = endswith(name, ".tar.bz2");
         if (!e)
                 e = endswith(name, ".tgz");
         if (!e)
@@ -162,6 +164,7 @@ static int strip_raw_suffixes(const char *p, char **ret) {
         static const char suffixes[] =
                 ".xz\0"
                 ".gz\0"
+                ".bz2\0"
                 ".raw\0"
                 ".qcow2\0"
                 ".img\0"

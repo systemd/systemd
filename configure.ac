@@ -577,6 +577,16 @@ fi
 AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_bzip2=no
+AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Enable optional BZIP2 support]))
+AS_IF([test "x$enable_bzip2" != "xno"], [
+        AC_CHECK_HEADERS(bzlib.h,
+               [AC_DEFINE(HAVE_BZIP2, 1, [Define in BZIP2 is available]) have_bzip2=yes],
+               [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])
+])
+AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_lz4=no
 AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
 AS_IF([test "x$enable_lz4" = "xyes"], [
@@ -1426,6 +1436,7 @@ AC_MSG_RESULT([
         ZLIB:                    ${have_zlib}
         XZ:                      ${have_xz}
         LZ4:                     ${have_lz4}
+        BZIP2:                   ${have_bzip2}
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}

@@ -37,6 +37,8 @@ ImportJob* import_job_unref(ImportJob *j) {
                 lzma_end(&j->xz);
         else if (j->compressed == IMPORT_JOB_GZIP)
                 inflateEnd(&j->gzip);
+        else if (j->compressed == IMPORT_JOB_BZIP2)
+                BZ2_bzDecompressEnd(&j->bzip2);
 
         if (j->checksum_context)
                 gcry_md_close(j->checksum_context);
@@ -178,7 +180,9 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
 
         assert(j);
         assert(p);
-        assert(sz > 0);
+
+        if (sz <= 0)
+                return 0;
 
         if (j->written_uncompressed + sz < j->written_uncompressed) {
                 log_error("File too large, overflow");
@@ -209,7 +213,7 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
                 if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz))
                         return log_oom();
 
-                memcpy((uint8_t*) j->payload + j->payload_size, p, sz);
+                memcpy(j->payload + j->payload_size, p, sz);
                 j->payload_size += sz;
         }
 
@@ -223,7 +227,9 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
 
         assert(j);
         assert(p);
-        assert(sz > 0);
+
+        if (sz <= 0)
+                return 0;
 
         if (j->written_compressed + sz < j->written_compressed) {
                 log_error("File too large, overflow");
@@ -300,6 +306,29 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
 
                 break;
 
+        case IMPORT_JOB_BZIP2:
+                j->bzip2.next_in = p;
+                j->bzip2.avail_in = sz;
+
+                while (j->bzip2.avail_in > 0) {
+                        uint8_t buffer[16 * 1024];
+
+                        j->bzip2.next_out = (char*) buffer;
+                        j->bzip2.avail_out = sizeof(buffer);
+
+                        r = BZ2_bzDecompress(&j->bzip2);
+                        if (r != BZ_OK && r != BZ_STREAM_END) {
+                                log_error("Decompression error.");
+                                return -EIO;
+                        }
+
+                        r = import_job_write_uncompressed(j,  buffer, sizeof(buffer) - j->bzip2.avail_out);
+                        if (r < 0)
+                                return r;
+                }
+
+                break;
+
         default:
                 assert_not_reached("Unknown compression");
         }
@@ -350,6 +379,9 @@ static int import_job_detect_compression(ImportJob *j) {
         static const uint8_t gzip_signature[] = {
                 0x1f, 0x8b
         };
+        static const uint8_t bzip2_signature[] = {
+                'B', 'Z', 'h'
+        };
 
         _cleanup_free_ uint8_t *stub = NULL;
         size_t stub_size;
@@ -358,18 +390,23 @@ static int import_job_detect_compression(ImportJob *j) {
 
         assert(j);
 
-        if (j->payload_size < MAX(sizeof(xz_signature), sizeof(gzip_signature)))
+        if (j->payload_size < MAX3(sizeof(xz_signature),
+                                   sizeof(gzip_signature),
+                                   sizeof(bzip2_signature)))
                 return 0;
 
         if (memcmp(j->payload, xz_signature, sizeof(xz_signature)) == 0)
                 j->compressed = IMPORT_JOB_XZ;
         else if (memcmp(j->payload, gzip_signature, sizeof(gzip_signature)) == 0)
                 j->compressed = IMPORT_JOB_GZIP;
+        else if (memcmp(j->payload, bzip2_signature, sizeof(bzip2_signature)) == 0)
+                j->compressed = IMPORT_JOB_BZIP2;
         else
                 j->compressed = IMPORT_JOB_UNCOMPRESSED;
 
         log_debug("Stream is XZ compressed: %s", yes_no(j->compressed == IMPORT_JOB_XZ));
         log_debug("Stream is GZIP compressed: %s", yes_no(j->compressed == IMPORT_JOB_GZIP));
+        log_debug("Stream is BZIP2 compressed: %s", yes_no(j->compressed == IMPORT_JOB_BZIP2));
 
         if (j->compressed == IMPORT_JOB_XZ) {
                 lzma_ret xzr;
@@ -384,6 +421,13 @@ static int import_job_detect_compression(ImportJob *j) {
                 r = inflateInit2(&j->gzip, 15+16);
                 if (r != Z_OK) {
                         log_error("Failed to initialize gzip decoder.");
+                        return -EIO;
+                }
+        }
+        if (j->compressed == IMPORT_JOB_BZIP2) {
+                r = BZ2_bzDecompressInit(&j->bzip2, 0, 0);
+                if (r != BZ_OK) {
+                        log_error("Failed to initialize bzip2 decoder.");
                         return -EIO;
                 }
         }
@@ -427,7 +471,7 @@ static size_t import_job_write_callback(void *contents, size_t size, size_t nmem
                         goto fail;
                 }
 
-                memcpy((uint8_t*) j->payload + j->payload_size, contents, sz);
+                memcpy(j->payload + j->payload_size, contents, sz);
                 j->payload_size += sz;
 
                 r = import_job_detect_compression(j);

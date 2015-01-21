@@ -23,6 +23,7 @@
 
 #include <lzma.h>
 #include <zlib.h>
+#include <bzlib.h>
 #include <gcrypt.h>
 
 #include "macro.h"
@@ -49,6 +50,7 @@ typedef enum ImportJobCompression {
         IMPORT_JOB_UNCOMPRESSED,
         IMPORT_JOB_XZ,
         IMPORT_JOB_GZIP,
+        IMPORT_JOB_BZIP2,
         _IMPORT_JOB_COMPRESSION_MAX,
         _IMPORT_JOB_COMPRESSION_INVALID = -1,
 } ImportJobCompression;
@@ -89,6 +91,7 @@ struct ImportJob {
         ImportJobCompression compressed;
         lzma_stream xz;
         z_stream gzip;
+        bz_stream bzip2;
 
         unsigned progress_percent;
         usec_t start_usec;
