@@ -557,12 +557,17 @@ static int import_job_progress_callback(void *userdata, curl_off_t dltotal, curl
                 char buf[FORMAT_TIMESPAN_MAX];
 
                 if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
+                        char y[FORMAT_BYTES_MAX];
                         usec_t left, done;
 
                         done = n - j->start_usec;
                         left = (usec_t) (((double) done * (double) dltotal) / dlnow) - done;
 
-                        log_info("Got %u%% of %s. %s left.", percent, j->url, format_timespan(buf, sizeof(buf), left, USEC_PER_SEC));
+                        log_info("Got %u%% of %s. %s left at %s/s.",
+                                 percent,
+                                 j->url,
+                                 format_timespan(buf, sizeof(buf), left, USEC_PER_SEC),
+                                 format_bytes(y, sizeof(y), (uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, j->url);
 
