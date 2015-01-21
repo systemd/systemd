@@ -74,6 +74,8 @@ class SysvGeneratorTest(unittest.TestCase):
 
         results = {}
         for service in glob(self.out_dir + '/*.service'):
+            if os.path.islink(service):
+                continue
             cp = RawConfigParser()
             cp.optionxform = lambda o: o  # don't lower-case option names
             with open(service) as f:
@@ -260,8 +262,9 @@ class SysvGeneratorTest(unittest.TestCase):
         '''multiple Provides: names'''
 
         self.add_sysv('foo', {'Provides': 'foo bar baz'})
-        s = self.run_generator()[1]['foo.service']
-        self.assertEqual(set(s.options('Unit')),
+        err, results = self.run_generator()
+        self.assertEqual(list(results), ['foo.service'])
+        self.assertEqual(set(results['foo.service'].options('Unit')),
                          set(['Documentation', 'SourcePath', 'Description']))
         # should create symlinks for the alternative names
         for f in ['bar.service', 'baz.service']:
