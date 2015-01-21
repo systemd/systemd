@@ -313,6 +313,20 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(os.readlink(os.path.join(self.out_dir, 'bar.service')),
                          'foo.service')
 
+    def test_hidden_files(self):
+        '''init.d script with hidden file suffix'''
+
+        script = self.add_sysv('foo', {}, enable=True)
+        # backup files (not enabled in rcN.d/)
+        shutil.copy(script, script + '.dpkg-new')
+        shutil.copy(script, script + '.dpkg-dist')
+        shutil.copy(script, script + '.swp')
+        shutil.copy(script, script + '.rpmsave')
+
+        err, results = self.run_generator()
+        self.assertEqual(list(results), ['foo.service'])
+
+        self.assert_enabled('foo.service', [2, 3, 4, 5])
 
 
 if __name__ == '__main__':
