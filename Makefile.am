@@ -3187,6 +3187,8 @@ libsystemd_network_la_SOURCES = \
 	src/libsystemd-network/dhcp6-option.c \
 	src/libsystemd-network/dhcp6-lease-internal.h \
 	src/libsystemd-network/sd-dhcp6-lease.c \
+	src/libsystemd-network/dhcp-identifier.h \
+	src/libsystemd-network/dhcp-identifier.c \
 	src/libsystemd-network/lldp.h \
 	src/libsystemd-network/lldp-tlv.h \
 	src/libsystemd-network/lldp-tlv.c \
@@ -3259,7 +3261,9 @@ test_icmp6_rs_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/systemd/sd-icmp6-nd.h \
 	src/libsystemd-network/dhcp6-internal.h \
-	src/libsystemd-network/test-icmp6-rs.c
+	src/libsystemd-network/test-icmp6-rs.c \
+	src/libsystemd-network/dhcp-identifier.h \
+	src/libsystemd-network/dhcp-identifier.c
 
 test_icmp6_rs_LDADD = \
 	libsystemd-network.la \
@@ -3269,7 +3273,9 @@ test_icmp6_rs_LDADD = \
 test_dhcp6_client_SOURCES = \
 	src/systemd/sd-dhcp6-client.h \
 	src/libsystemd-network/dhcp6-internal.h \
-	src/libsystemd-network/test-dhcp6-client.c
+	src/libsystemd-network/test-dhcp6-client.c \
+	src/libsystemd-network/dhcp-identifier.h \
+	src/libsystemd-network/dhcp-identifier.c
 
 test_dhcp6_client_LDADD = \
 	libsystemd-network.la \

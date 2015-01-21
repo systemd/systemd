@@ -26,8 +26,6 @@
 
 #include "udev.h"
 #include "udev-util.h"
-#include "virt.h"
-#include "siphash24.h"
 #include "util.h"
 #include "refcnt.h"
 
@@ -37,9 +35,6 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp-identifier.h"
-
-#define SYSTEMD_PEN 43793
-#define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
@@ -628,47 +623,16 @@ error:
 }
 
 static int client_ensure_iaid(sd_dhcp6_client *client) {
-        /* name is a pointer to memory in the udev_device struct, so must
-           have the same scope */
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        const char *name = NULL;
-        uint64_t id;
+        int r;
 
         assert(client);
 
         if (client->ia_na.id)
                 return 0;
 
-        if (detect_container(NULL) <= 0) {
-                /* not in a container, udev will be around */
-                _cleanup_udev_unref_ struct udev *udev;
-                char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-
-                udev = udev_new();
-                if (!udev)
-                        return -ENOMEM;
-
-                sprintf(ifindex_str, "n%d", client->index);
-                device = udev_device_new_from_device_id(udev, ifindex_str);
-                if (!device)
-                        return -errno;
-
-                if (udev_device_get_is_initialized(device) <= 0)
-                        /* not yet ready */
-                        return -EBUSY;
-
-                name = net_get_name(device);
-        }
-
-        if (name)
-                siphash24((uint8_t*)&id, name, strlen(name), HASH_KEY.bytes);
-        else
-                /* fall back to mac address if no predictable name available */
-                siphash24((uint8_t*)&id, &client->mac_addr,
-                          client->mac_addr_len, HASH_KEY.bytes);
-
-        /* fold into 32 bits */
-        client->ia_na.id = (id & 0xffffffff) ^ (id >> 32);
+        r = dhcp_identifier_set_iaid(client->index, client->mac_addr, client->mac_addr_len, &client->ia_na.id);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1241,7 +1205,6 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 {
         _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
-        sd_id128_t machine_id;
         int r;
         size_t t;
 
@@ -1260,17 +1223,9 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->fd = -1;
 
         /* initialize DUID */
-        client->duid.type = htobe16(DHCP6_DUID_EN);
-        client->duid.en.pen = htobe32(SYSTEMD_PEN);
-        client->duid_len = sizeof(client->duid.en);
-
-        r = sd_id128_get_machine(&machine_id);
+        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
         if (r < 0)
                 return r;
-
-        /* a bit of snake-oil perhaps, but no need to expose the machine-id
-           directly */
-        siphash24(client->duid.en.id, &machine_id, sizeof(machine_id), HASH_KEY.bytes);
 
         client->req_opts_len = ELEMENTSOF(default_req_opts);
 
