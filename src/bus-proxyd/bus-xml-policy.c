@@ -1129,7 +1129,7 @@ static void dump_items(PolicyItem *items, const char *prefix) {
 
                         user = uid_to_name(i->uid);
 
-                        printf("%sUser: %s (%d)\n",
+                        printf("%sUser: %s ("UID_FMT")\n",
                                prefix, strna(user), i->uid);
                 }
 
@@ -1138,7 +1138,7 @@ static void dump_items(PolicyItem *items, const char *prefix) {
 
                         group = gid_to_name(i->gid);
 
-                        printf("%sGroup: %s (%d)\n",
+                        printf("%sGroup: %s ("GID_FMT")\n",
                                prefix, strna(group), i->gid);
                 }
                 printf("%s-\n", prefix);

@@ -48,7 +48,7 @@ static void test_strpcpyf(void) {
         size_t space_left;
 
         space_left = sizeof(target);
-        space_left = strpcpyf(&s, space_left, "space left: %zd. ", space_left);
+        space_left = strpcpyf(&s, space_left, "space left: %zu. ", space_left);
         space_left = strpcpyf(&s, space_left, "foo%s", "bar");
 
         assert_se(streq(target, "space left: 25. foobar"));

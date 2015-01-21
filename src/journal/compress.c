@@ -356,7 +356,7 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
         ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
         if (ret != LZMA_OK) {
-                log_error("Failed to initialize XZ encoder: code %d", ret);
+                log_error("Failed to initialize XZ encoder: code %u", ret);
                 return -EINVAL;
         }
 
@@ -391,7 +391,7 @@ int compress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
                 ret = lzma_code(&s, action);
                 if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
-                        log_error("Compression failed: code %d", ret);
+                        log_error("Compression failed: code %u", ret);
                         return -EBADMSG;
                 }
 
@@ -512,7 +512,7 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
         ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK) {
-                log_error("Failed to initialize XZ decoder: code %d", ret);
+                log_error("Failed to initialize XZ decoder: code %u", ret);
                 return -ENOMEM;
         }
 
@@ -538,7 +538,7 @@ int decompress_stream_xz(int fdf, int fdt, off_t max_bytes) {
 
                 ret = lzma_code(&s, action);
                 if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
-                        log_error("Decompression failed: code %d", ret);
+                        log_error("Decompression failed: code %u", ret);
                         return -EBADMSG;
                 }
 

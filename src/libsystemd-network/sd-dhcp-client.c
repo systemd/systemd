@@ -1613,7 +1613,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         r = client_start(client);
         if (r >= 0)
-                log_dhcp_client(client, "STARTED on ifindex %u", client->index);
+                log_dhcp_client(client, "STARTED on ifindex %i", client->index);
 
         return r;
 }

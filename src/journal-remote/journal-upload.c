@@ -296,7 +296,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 return 0;
 
         r = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zu", __func__, size*nmemb, r);
+        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, r);
 
         if (r > 0)
                 return r;
@@ -505,15 +505,15 @@ static int perform_upload(Uploader *u) {
         }
 
         if (status >= 300) {
-                log_error("Upload to %s failed with code %lu: %s",
+                log_error("Upload to %s failed with code %ld: %s",
                           u->url, status, strna(u->answer));
                 return -EIO;
         } else if (status < 200) {
-                log_error("Upload to %s finished with unexpected code %lu: %s",
+                log_error("Upload to %s finished with unexpected code %ld: %s",
                           u->url, status, strna(u->answer));
                 return -EIO;
         } else
-                log_debug("Upload finished successfully with code %lu: %s",
+                log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
 
         free(u->last_cursor);

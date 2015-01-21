@@ -273,7 +273,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (err < 0)
                 goto out;
 
-        log_debug("probe %s %sraid offset=%"PRIu64,
+        log_debug("probe %s %sraid offset=%"PRIi64,
                   udev_device_get_devnode(dev),
                   noraid ? "no" : "", offset);
 

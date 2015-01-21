@@ -103,7 +103,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
                 if (r < 0)
                         return r;
 
-                if (asprintf(&printed, "%d", uid) < 0)
+                if (asprintf(&printed, UID_FMT, uid) < 0)
                         return -ENOMEM;
                 break;
         }}

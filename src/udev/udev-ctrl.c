@@ -198,7 +198,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
                 goto err;
         }
         if (ucred.uid > 0) {
-                log_error("sender uid=%i, message ignored", ucred.uid);
+                log_error("sender uid="UID_FMT", message ignored", ucred.uid);
                 goto err;
         }
 
@@ -386,7 +386,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         }
 
         if (cred->uid != 0) {
-                log_error("sender uid=%i, message ignored", cred->uid);
+                log_error("sender uid="UID_FMT", message ignored", cred->uid);
                 goto err;
         }
 

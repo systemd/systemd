@@ -341,7 +341,7 @@ void udev_node_add(struct udev_device *dev, bool apply,
         char filename[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
 
-        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d",
+        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid="UID_FMT", gid="GID_FMT,
                   udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
 
         if (node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list) < 0)

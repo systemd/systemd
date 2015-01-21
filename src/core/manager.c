@@ -2215,7 +2215,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
         m->n_reloading ++;
 
-        fprintf(f, "current-job-id=%i\n", m->current_job_id);
+        fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
         fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);

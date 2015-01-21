@@ -407,7 +407,7 @@ static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *us
 
         u = manager_get_unit_by_pid(m, pid);
         if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID %u does not belong to any loaded unit.", pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
 
         r = mac_selinux_unit_access_check(u, message, "status", error);
         if (r < 0)

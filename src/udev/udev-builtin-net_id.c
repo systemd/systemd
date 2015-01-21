@@ -191,12 +191,12 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         s = names->pci_path;
         l = sizeof(names->pci_path);
         if (domain > 0)
-                l = strpcpyf(&s, l, "P%d", domain);
-        l = strpcpyf(&s, l, "p%ds%d", bus, slot);
+                l = strpcpyf(&s, l, "P%u", domain);
+        l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
-                l = strpcpyf(&s, l, "f%d", func);
+                l = strpcpyf(&s, l, "f%u", func);
         if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%d", dev_port);
+                l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
 

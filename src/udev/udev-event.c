@@ -218,14 +218,14 @@ subst:
                 case SUBST_MAJOR: {
                         char num[UTIL_PATH_SIZE];
 
-                        sprintf(num, "%d", major(udev_device_get_devnum(dev)));
+                        sprintf(num, "%u", major(udev_device_get_devnum(dev)));
                         l = strpcpy(&s, l, num);
                         break;
                 }
                 case SUBST_MINOR: {
                         char num[UTIL_PATH_SIZE];
 
-                        sprintf(num, "%d", minor(udev_device_get_devnum(dev)));
+                        sprintf(num, "%u", minor(udev_device_get_devnum(dev)));
                         l = strpcpy(&s, l, num);
                         break;
                 }
@@ -509,7 +509,7 @@ static void spawn_read(struct udev_event *event,
                                                 memcpy(&result[respos], buf, count);
                                                 respos += count;
                                         } else {
-                                                log_error("'%s' ressize %zd too short", cmd, ressize);
+                                                log_error("'%s' ressize %zu too short", cmd, ressize);
                                         }
                                 }
 
@@ -580,7 +580,7 @@ static int spawn_wait(struct udev_event *event,
                         goto out;
                 }
                 if (fdcount == 0) {
-                        log_warning("slow: '%s' [%u]", cmd, pid);
+                        log_warning("slow: '%s' ["PID_FMT"]", cmd, pid);
 
                         fdcount = poll(pfd, 1, timeout);
                         if (fdcount < 0) {
@@ -591,7 +591,7 @@ static int spawn_wait(struct udev_event *event,
                                 goto out;
                         }
                         if (fdcount == 0) {
-                                log_error("timeout: killing '%s' [%u]", cmd, pid);
+                                log_error("timeout: killing '%s' ["PID_FMT"]", cmd, pid);
                                 kill(pid, SIGKILL);
                         }
                 }
@@ -613,20 +613,20 @@ static int spawn_wait(struct udev_event *event,
                                 if (waitpid(pid, &status, WNOHANG) < 0)
                                         break;
                                 if (WIFEXITED(status)) {
-                                        log_debug("'%s' [%u] exit with return code %i", cmd, pid, WEXITSTATUS(status));
+                                        log_debug("'%s' ["PID_FMT"] exit with return code %i", cmd, pid, WEXITSTATUS(status));
                                         if (WEXITSTATUS(status) != 0)
                                                 err = -1;
                                 } else if (WIFSIGNALED(status)) {
-                                        log_error("'%s' [%u] terminated by signal %i (%s)", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                                        log_error("'%s' ["PID_FMT"] terminated by signal %i (%s)", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                         err = -1;
                                 } else if (WIFSTOPPED(status)) {
-                                        log_error("'%s' [%u] stopped", cmd, pid);
+                                        log_error("'%s' ["PID_FMT"] stopped", cmd, pid);
                                         err = -1;
                                 } else if (WIFCONTINUED(status)) {
-                                        log_error("'%s' [%u] continued", cmd, pid);
+                                        log_error("'%s' ["PID_FMT"] continued", cmd, pid);
                                         err = -1;
                                 } else {
-                                        log_error("'%s' [%u] exit with status 0x%04x", cmd, pid, status);
+                                        log_error("'%s' ["PID_FMT"] exit with status 0x%04x", cmd, pid, status);
                                         err = -1;
                                 }
                                 pid = 0;

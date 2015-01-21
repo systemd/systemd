@@ -69,7 +69,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
-                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%lli",
+                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
                         m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_highlight_off(),
@@ -77,7 +77,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         m->header->endian,
                         m->header->flags,
                         m->header->version,
-                        (long long) m->priority);
+                        m->priority);
 
                 /* Display synthetic message serial number in a more readable
                  * format than (uint32_t) -1 */

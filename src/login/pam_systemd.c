@@ -344,7 +344,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         if (seat && !streq(seat, "seat0") && vtnr != 0) {
-                pam_syslog(handle, LOG_DEBUG, "Ignoring vtnr %d for %s which is not seat0", vtnr, seat);
+                pam_syslog(handle, LOG_DEBUG, "Ignoring vtnr %"PRIu32" for %s which is not seat0", vtnr, seat);
                 vtnr = 0;
         }
 
@@ -367,7 +367,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
-                           "uid=%u pid=%u service=%s type=%s class=%s desktop=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
+                           "uid="UID_FMT" pid="PID_FMT" service=%s type=%s class=%s desktop=%s seat=%s vtnr=%"PRIu32" tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                            pw->pw_uid, getpid(),
                            strempty(service),
                            type, class, strempty(desktop),

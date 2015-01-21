@@ -158,7 +158,7 @@ static void worker_unref(struct worker *worker) {
         worker->refcount--;
         if (worker->refcount > 0)
                 return;
-        log_debug("worker [%u] cleaned up", worker->pid);
+        log_debug("worker ["PID_FMT"] cleaned up", worker->pid);
         worker_cleanup(worker);
 }
 
@@ -414,7 +414,7 @@ out:
                 event->state = EVENT_RUNNING;
                 udev_list_node_append(&worker->node, &worker_list);
                 children++;
-                log_debug("seq %llu forked new worker [%u]", udev_device_get_seqnum(event->dev), pid);
+                log_debug("seq %llu forked new worker ["PID_FMT"]", udev_device_get_seqnum(event->dev), pid);
                 break;
         }
 }
@@ -431,7 +431,8 @@ static void event_run(struct event *event) {
 
                 count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
                 if (count < 0) {
-                        log_error_errno(errno, "worker [%u] did not accept message %zi (%m), kill it", worker->pid, count);
+                        log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
+                                        worker->pid, count);
                         kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -869,26 +870,26 @@ static void handle_signal(struct udev *udev, int signo) {
 
                                 if (worker->pid != pid)
                                         continue;
-                                log_debug("worker [%u] exit", pid);
+                                log_debug("worker ["PID_FMT"] exit", pid);
 
                                 if (WIFEXITED(status)) {
                                         if (WEXITSTATUS(status) != 0)
-                                                log_error("worker [%u] exit with return code %i",
+                                                log_error("worker ["PID_FMT"] exit with return code %i",
                                                           pid, WEXITSTATUS(status));
                                 } else if (WIFSIGNALED(status)) {
-                                        log_error("worker [%u] terminated by signal %i (%s)",
+                                        log_error("worker ["PID_FMT"] terminated by signal %i (%s)",
                                                   pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
-                                        log_error("worker [%u] stopped", pid);
+                                        log_error("worker ["PID_FMT"] stopped", pid);
                                 } else if (WIFCONTINUED(status)) {
-                                        log_error("worker [%u] continued", pid);
+                                        log_error("worker ["PID_FMT"] continued", pid);
                                 } else {
-                                        log_error("worker [%u] exit with status 0x%04x", pid, status);
+                                        log_error("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
                                 }
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                                         if (worker->event) {
-                                                log_error("worker [%u] failed while handling '%s'",
+                                                log_error("worker ["PID_FMT"] failed while handling '%s'",
                                                           pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
                                                 event_queue_delete(worker->event);
@@ -1409,7 +1410,7 @@ int main(int argc, char *argv[]) {
 
                                 if ((ts - worker->event_start_usec) > arg_event_timeout_warn_usec) {
                                         if ((ts - worker->event_start_usec) > arg_event_timeout_usec) {
-                                                log_error("worker [%u] %s timeout; kill it", worker->pid, worker->event->devpath);
+                                                log_error("worker ["PID_FMT"] %s timeout; kill it", worker->pid, worker->event->devpath);
                                                 kill(worker->pid, SIGKILL);
                                                 worker->state = WORKER_KILLED;
 
@@ -1420,7 +1421,7 @@ int main(int argc, char *argv[]) {
                                                 event_queue_delete(worker->event);
                                                 worker->event = NULL;
                                         } else if (!worker->event_warned) {
-                                                log_warning("worker [%u] %s is taking a long time", worker->pid, worker->event->devpath);
+                                                log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, worker->event->devpath);
                                                 worker->event_warned = true;
                                         }
                                 }

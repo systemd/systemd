@@ -167,7 +167,7 @@ int can_sleep_disk(char **types) {
 
 static int hibernation_partition_size(size_t *size, size_t *used) {
         _cleanup_fclose_ FILE *f;
-        int i;
+        unsigned i;
 
         assert(size);
         assert(used);
@@ -190,8 +190,8 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                 k = fscanf(f,
                            "%ms "   /* device/file */
                            "%ms "   /* type of swap */
-                           "%zd "   /* swap size */
-                           "%zd "   /* used */
+                           "%zu "   /* swap size */
+                           "%zu "   /* used */
                            "%*i\n", /* priority */
                            &dev, &type, &size_field, &used_field);
                 if (k != 4) {

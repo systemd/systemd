@@ -330,7 +330,7 @@ static int write_to_console(
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
-                snprintf(location, sizeof(location), "(%s:%u) ", file, line);
+                snprintf(location, sizeof(location), "(%s:%i) ", file, line);
                 char_array_0(location);
                 IOVEC_SET_STRING(iovec[n++], location);
         }
@@ -1050,7 +1050,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                 get_process_comm(si->ssi_pid, &p);
 
                 log_full(level,
-                         "Received SIG%s from PID "PID_FMT" (%s).",
+                         "Received SIG%s from PID %"PRIu32" (%s).",
                          signal_to_string(si->ssi_signo),
                          si->ssi_pid, strna(p));
         } else

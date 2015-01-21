@@ -401,7 +401,7 @@ static int trie_store(struct trie *trie, const char *filename) {
         }
 
         log_debug("=== trie on-disk ===");
-        log_debug("size:             %8"PRIu64" bytes", size);
+        log_debug("size:             %8"PRIi64" bytes", size);
         log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
         log_debug("nodes:            %8"PRIu64" bytes (%8"PRIu64")",
                   t.nodes_count * sizeof(struct trie_node_f), t.nodes_count);

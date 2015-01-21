@@ -37,7 +37,7 @@ void source_free(RemoteSource *source) {
         free(source->buf);
         iovw_free_contents(&source->iovw);
 
-        log_debug("Writer ref count %u", source->writer->n_ref);
+        log_debug("Writer ref count %i", source->writer->n_ref);
         writer_unref(source->writer);
 
         sd_event_source_unref(source->event);
@@ -125,8 +125,8 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
-                                          source->size - source->filled);
+                                log_error_errno(errno, "read(%d, ..., %zu): %m", source->fd,
+                                                source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;
@@ -186,8 +186,8 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN && errno != EWOULDBLOCK)
-                                log_error_errno(errno, "read(%d, ..., %zd): %m", source->fd,
-                                          source->size - source->filled);
+                                log_error_errno(errno, "read(%d, ..., %zu): %m", source->fd,
+                                                source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;

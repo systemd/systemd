@@ -201,7 +201,7 @@ int seat_preallocate_vts(Seat *s) {
 
                 q = vt_allocate(i);
                 if (q < 0) {
-                        log_error_errno(q, "Failed to preallocate VT %i: %m", i);
+                        log_error_errno(q, "Failed to preallocate VT %u: %m", i);
                         r = q;
                 }
         }

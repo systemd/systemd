@@ -360,7 +360,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (!p)
                 return;
 
-        if (sscanf(p, "(%" PRIi64 ".%" PRIi64 ":%" PRIi64 "):%n",
+        if (sscanf(p, "(%" PRIu64 ".%" PRIu64 ":%" PRIu64 "):%n",
                    &seconds,
                    &msec,
                    &id,

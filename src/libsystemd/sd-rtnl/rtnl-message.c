@@ -1366,7 +1366,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                         if (ucred->pid == 0)
                                 auth = true;
                         else
-                                log_debug("rtnl: ignoring message from pid %u", ucred->pid);
+                                log_debug("rtnl: ignoring message from PID "PID_FMT, ucred->pid);
                 } else if (cmsg->cmsg_level == SOL_NETLINK &&
                            cmsg->cmsg_type == NETLINK_PKTINFO &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {

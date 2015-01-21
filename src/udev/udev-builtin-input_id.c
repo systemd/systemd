@@ -111,7 +111,7 @@ static void get_cap_mask(struct udev_device *dev,
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
-                snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
+                snprintf(text, sizeof(text), "  bit %%4u: %%0%zulX\n", 2 * sizeof(unsigned long));
                 log_debug("%s decoded bit map:", attr);
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip over leading zeros */

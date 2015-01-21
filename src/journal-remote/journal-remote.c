@@ -1021,7 +1021,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
                 if (remaining > 0)
                         log_warning("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
-                log_info("%zd active sources remaining", s->active);
+                log_info("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
                 log_error("Entry too big, skipped");

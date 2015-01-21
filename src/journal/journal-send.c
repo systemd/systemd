@@ -384,7 +384,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                                 memcpy(buffer + 8 + k - 2, ": ", 2);
                         }
 
-                        snprintf(error, sizeof(error), "ERRNO=%u", _saved_errno_);
+                        snprintf(error, sizeof(error), "ERRNO=%i", _saved_errno_);
                         char_array_0(error);
 
                         IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");

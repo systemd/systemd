@@ -162,12 +162,12 @@ static int stat_device(const char *name, bool export, const char *prefix) {
         if (export) {
                 if (prefix == NULL)
                         prefix = "INFO_";
-                printf("%sMAJOR=%d\n"
-                       "%sMINOR=%d\n",
+                printf("%sMAJOR=%u\n"
+                       "%sMINOR=%u\n",
                        prefix, major(statbuf.st_dev),
                        prefix, minor(statbuf.st_dev));
         } else
-                printf("%d:%d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
+                printf("%u:%u\n", major(statbuf.st_dev), minor(statbuf.st_dev));
         return 0;
 }
 

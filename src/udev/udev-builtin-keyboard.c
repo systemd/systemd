@@ -28,17 +28,17 @@
 
 #include "udev.h"
 
-static const struct key *keyboard_lookup_key(const char *str, unsigned int len);
+static const struct key *keyboard_lookup_key(const char *str, unsigned len);
 #include "keyboard-keys-from-name.h"
 #include "keyboard-keys-to-name.h"
 
-static int install_force_release(struct udev_device *dev, const unsigned int *release, unsigned int release_count) {
+static int install_force_release(struct udev_device *dev, const unsigned *release, unsigned release_count) {
         struct udev_device *atkbd;
         const char *cur;
         char codes[4096];
         char *s;
         size_t l;
-        unsigned int i;
+        unsigned i;
         int ret;
 
         atkbd = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
@@ -57,7 +57,7 @@ static int install_force_release(struct udev_device *dev, const unsigned int *re
 
         /* append new codes */
         for (i = 0; i < release_count; i++)
-                l = strpcpyf(&s, l, ",%d", release[i]);
+                l = strpcpyf(&s, l, ",%u", release[i]);
 
         log_debug("keyboard: updating force-release list with '%s'", codes);
         ret = udev_device_set_sysattr_value(atkbd, "force_release", codes);
@@ -69,16 +69,16 @@ static int install_force_release(struct udev_device *dev, const unsigned int *re
 static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev_list_entry *entry;
         struct {
-                unsigned int scan;
-                unsigned int key;
+                unsigned scan;
+                unsigned key;
         } map[1024];
-        unsigned int map_count = 0;
-        unsigned int release[1024];
-        unsigned int release_count = 0;
+        unsigned map_count = 0;
+        unsigned release[1024];
+        unsigned release_count = 0;
 
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
                 const char *key;
-                unsigned int scancode, keycode_num;
+                unsigned scancode, keycode_num;
                 char *endptr;
                 const char *keycode;
                 const struct key *k;
@@ -130,7 +130,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         if (map_count > 0 || release_count > 0) {
                 const char *node;
                 int fd;
-                unsigned int i;
+                unsigned i;
 
                 node = udev_device_get_devnode(dev);
                 if (!node) {

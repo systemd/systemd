@@ -620,8 +620,8 @@ retry:
                 }
         } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
                 if (snl.nl.nl_pid > 0) {
-                        log_debug("multicast kernel netlink message from pid %d ignored",
-                             snl.nl.nl_pid);
+                        log_debug("multicast kernel netlink message from PID %"PRIu32" ignored",
+                                  snl.nl.nl_pid);
                         return NULL;
                 }
         }
@@ -634,7 +634,7 @@ retry:
 
         cred = (struct ucred *)CMSG_DATA(cmsg);
         if (cred->uid != 0) {
-                log_debug("sender uid=%d, message ignored", cred->uid);
+                log_debug("sender uid="UID_FMT", message ignored", cred->uid);
                 return NULL;
         }
 

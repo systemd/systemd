@@ -603,7 +603,7 @@ static void test_get_process_comm(void) {
 
         r = get_process_environ(me, &env);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("self strlen(environ): '%zd'", strlen(env));
+        log_info("self strlen(environ): '%zu'", strlen(env));
 
         if (!detect_container(NULL))
                 assert_se(get_ctty_devnr(1, &h) == -ENOENT);

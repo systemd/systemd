@@ -3399,7 +3399,7 @@ static void print_status_info(
                         continue;
 
                 argv = strv_join(p->argv, " ");
-                printf("  Process: %u %s=%s ", p->pid, p->name, strna(argv));
+                printf("  Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit_lsb(p->code, p->status, NULL);
                 if (!good) {
@@ -4292,7 +4292,7 @@ static int get_unit_dbus_path_by_pid(
                         &reply,
                         "u", pid);
         if (r < 0) {
-                log_error("Failed to get unit for PID "PID_FMT": %s", pid, bus_error_message(&error, r));
+                log_error("Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
                 return r;
         }
 

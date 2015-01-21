@@ -758,7 +758,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                         get_process_comm(packet.v5_packet.pid, &p);
                         log_unit_info(UNIT(a)->id,
-                                       "Got automount request for %s, triggered by "PID_FMT" (%s)",
+                                       "Got automount request for %s, triggered by %"PRIu32" (%s)",
                                        a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_unit_debug(UNIT(a)->id, "Got direct mount request on %s", a->where);

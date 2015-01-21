@@ -1686,7 +1686,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
                                 udev_device->id_filename = NULL;
                 } else if (udev_device_get_ifindex(udev_device) > 0) {
                         /* use netdev ifindex -- n3 */
-                        if (asprintf(&udev_device->id_filename, "n%u", udev_device_get_ifindex(udev_device)) < 0)
+                        if (asprintf(&udev_device->id_filename, "n%i", udev_device_get_ifindex(udev_device)) < 0)
                                 udev_device->id_filename = NULL;
                 } else {
                         /*
