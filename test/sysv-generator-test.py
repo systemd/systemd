@@ -271,6 +271,25 @@ class SysvGeneratorTest(unittest.TestCase):
             self.assertEqual(os.readlink(os.path.join(self.out_dir, f)),
                              'foo.service')
 
+    def test_same_provides_in_multiple_scripts(self):
+        '''multiple init.d scripts provide the same name'''
+
+        self.add_sysv('foo', {'Provides': 'foo common'}, enable=True, prio=1)
+        self.add_sysv('bar', {'Provides': 'bar common'}, enable=True, prio=2)
+        err, results = self.run_generator()
+        self.assertEqual(sorted(results), ['bar.service', 'foo.service'])
+        # should create symlink for the alternative name for either unit
+        self.assertIn(os.readlink(os.path.join(self.out_dir, 'common.service')),
+                      ['foo.service', 'bar.service'])
+
+    def test_provide_other_script(self):
+        '''init.d scripts provides the name of another init.d script'''
+
+        self.add_sysv('foo', {'Provides': 'foo bar'}, enable=True)
+        self.add_sysv('bar', {'Provides': 'bar'}, enable=True)
+        err, results = self.run_generator()
+        self.assertEqual(sorted(results), ['bar.service', 'foo.service'])
+
     def test_nonexecutable_script(self):
         '''ignores non-executable init.d script'''
 
@@ -327,6 +346,26 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(list(results), ['foo.service'])
 
         self.assert_enabled('foo.service', [2, 3, 4, 5])
+
+    def test_backup_file(self):
+        '''init.d script with backup file'''
+
+        script = self.add_sysv('foo', {}, enable=True)
+        # backup files (not enabled in rcN.d/)
+        shutil.copy(script, script + '.bak')
+        shutil.copy(script, script + '.old')
+
+        err, results = self.run_generator()
+        print(err)
+        self.assertEqual(sorted(results),
+                         ['foo.bak.service', 'foo.old.service', 'foo.service'])
+
+        # ensure we don't try to create a symlink to itself
+        self.assertNotIn(err, 'itself')
+
+        self.assert_enabled('foo.service', [2, 3, 4, 5])
+        self.assert_enabled('foo.bak.service', [])
+        self.assert_enabled('foo.old.service', [])
 
 
 if __name__ == '__main__':

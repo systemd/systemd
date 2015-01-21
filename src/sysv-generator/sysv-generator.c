@@ -147,6 +147,7 @@ static int generate_unit_file(SysvStub *s) {
         _cleanup_free_ char *wants = NULL;
         _cleanup_free_ char *conflicts = NULL;
         int r;
+        struct stat st;
 
         before = strv_join(s->before, " ");
         if (!before)
@@ -167,6 +168,14 @@ static int generate_unit_file(SysvStub *s) {
         unit = strjoin(arg_dest, "/", s->name, NULL);
         if (!unit)
                 return log_oom();
+
+        /* We might already have a symlink with the same name from a Provides:,
+         * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
+         * so remove an existing link */
+        if (lstat(unit, &st) == 0 && S_ISLNK(st.st_mode)) {
+                log_warning("Overwriting existing symlink %s with real service", unit);
+                unlink(unit);
+        }
 
         f = fopen(unit, "wxe");
         if (!f)
@@ -343,6 +352,8 @@ static int load_sysv(SysvStub *s) {
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
 
+        log_debug("Loading SysV script %s", s->path);
+
         while (!feof(f)) {
                 char l[LINE_MAX], *t;
 
@@ -492,6 +503,7 @@ static int load_sysv(SysvStub *s) {
                                                 continue;
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE) {
+                                                log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                                                 r = add_alias(s->name, m);
                                         } else {
                                                 /* NB: SysV targets
