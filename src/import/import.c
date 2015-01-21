@@ -42,10 +42,8 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
 
         if (error == 0)
                 log_info("Operation completed successfully.");
-        else
-                log_error_errno(error, "Operation failed: %m");
 
-        sd_event_exit(event, error);
+        sd_event_exit(event, EXIT_FAILURE);
 }
 
 static int strip_tar_suffixes(const char *name, char **ret) {
@@ -147,7 +145,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
         log_info("Exiting.");
 
-        return 0;
+        return r;
 }
 
 static void on_raw_finished(RawImport *import, int error, void *userdata) {
@@ -156,10 +154,8 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
 
         if (error == 0)
                 log_info("Operation completed successfully.");
-        else
-                log_error_errno(error, "Operation failed: %m");
 
-        sd_event_exit(event, error);
+        sd_event_exit(event, EXIT_FAILURE);
 }
 
 static int strip_raw_suffixes(const char *p, char **ret) {
@@ -275,7 +271,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
         log_info("Exiting.");
 
-        return 0;
+        return r;
 }
 
 static void on_dkr_finished(DkrImport *import, int error, void *userdata) {

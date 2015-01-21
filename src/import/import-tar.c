@@ -262,6 +262,7 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
                         safe_close(null_fd);
 
                 execlp("tar", "tar", "--numeric-owner", "-C", i->temp_path, "-px", NULL);
+                log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
 
