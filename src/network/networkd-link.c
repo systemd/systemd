@@ -286,6 +286,8 @@ static void link_free(Link *link) {
         unlink(link->lease_file);
         free(link->lease_file);
 
+        sd_lldp_free(link->lldp);
+
         unlink(link->lldp_file);
         free(link->lldp_file);
 
