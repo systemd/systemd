@@ -40,30 +40,20 @@ static int compare(const void *a, const void *b) {
         return 0;
 }
 
-static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads, OutputFlags flags) {
-        unsigned i, m, pid_width;
-        pid_t biggest = 0;
+static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads, OutputFlags flags) {
+        unsigned i, j, pid_width;
+
+        assert(n_pids > 0);
+        qsort(pids, n_pids, sizeof(pid_t), compare);
 
         /* Filter duplicates */
-        m = 0;
-        for (i = 0; i < n_pids; i++) {
-                unsigned j;
-
-                if (pids[i] > biggest)
-                        biggest = pids[i];
-
-                for (j = i+1; j < n_pids; j++)
-                        if (pids[i] == pids[j])
-                                break;
-
-                if (j >= n_pids)
-                        pids[m++] = pids[i];
+        for (j = 0, i = 1; i < n_pids; i++) {
+                if (pids[i] == pids[j])
+                        continue;
+                pids[++j] = pids[i];
         }
-        n_pids = m;
-        pid_width = DECIMAL_STR_WIDTH(biggest);
-
-        /* And sort */
-        qsort_safe(pids, n_pids, sizeof(pid_t), compare);
+        n_pids = j + 1;
+        pid_width = DECIMAL_STR_WIDTH(pids[j]);
 
         if (flags & OUTPUT_FULL_WIDTH)
                 n_columns = 0;
@@ -83,10 +73,7 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                 else
                         printf("%s%s", prefix, draw_special_char(((more || i < n_pids-1) ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT)));
 
-                printf("%*lu %s\n",
-                       pid_width,
-                       (unsigned long) pids[i],
-                       strna(t));
+                printf("%*"PID_PRI" %s\n", pid_width, pids[i], strna(t));
         }
 }
 
@@ -114,17 +101,8 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
                 if (!kernel_threads && is_kernel_thread(pid) > 0)
                         continue;
 
-                if (n >= n_allocated) {
-                        pid_t *npids;
-
-                        n_allocated = MAX(16U, n*2U);
-
-                        npids = realloc(pids, sizeof(pid_t) * n_allocated);
-                        if (!npids)
-                                return -ENOMEM;
-
-                        pids = npids;
-                }
+                if (!GREEDY_REALLOC(pids, n_allocated, n + 1))
+                        return -ENOMEM;
 
                 assert(n < n_allocated);
                 pids[n++] = pid;
