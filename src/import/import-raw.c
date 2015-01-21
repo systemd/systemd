@@ -21,6 +21,7 @@
 
 #include <sys/xattr.h>
 #include <linux/fs.h>
+#include <sys/prctl.h>
 #include <curl/curl.h>
 #include <gcrypt.h>
 
@@ -47,6 +48,7 @@ struct RawImport {
 
         ImportJob *raw_job;
         ImportJob *sha256sums_job;
+        ImportJob *signature_job;
 
         RawImportFinished on_finished;
         void *userdata;
@@ -65,6 +67,8 @@ RawImport* raw_import_unref(RawImport *i) {
                 return NULL;
 
         import_job_unref(i->raw_job);
+        import_job_unref(i->sha256sums_job);
+        import_job_unref(i->signature_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
@@ -248,17 +252,25 @@ static int raw_import_make_local_copy(RawImport *i) {
 }
 
 static int raw_import_verify_sha256sum(RawImport *i) {
+        _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
         _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int sig_file = -1;
         const char *p, *line;
+        char sig_file_path[] = "/tmp/sigXXXXXX";
+        _cleanup_sigkill_wait_ pid_t pid = 0;
         int r;
 
         assert(i);
-        assert(i->verify != IMPORT_VERIFY_NO);
 
         assert(i->raw_job);
+
+        if (!i->sha256sums_job)
+                return 0;
+
+        assert(i->raw_job->state == IMPORT_JOB_DONE);
         assert(i->raw_job->sha256);
 
-        assert(i->sha256sums_job);
+        assert(i->sha256sums_job->state == IMPORT_JOB_DONE);
         assert(i->sha256sums_job->payload);
         assert(i->sha256sums_job->payload_size > 0);
 
@@ -285,56 +297,125 @@ static int raw_import_verify_sha256sum(RawImport *i) {
 
         log_info("SHA256 checksum of %s is valid.", i->raw_job->url);
 
-        return 0;
-}
-
-static int raw_import_finalize(RawImport *i) {
-        int r;
-
-        assert(i);
-
-        if (!IMPORT_JOB_STATE_IS_COMPLETE(i->raw_job) ||
-            (i->verify != IMPORT_VERIFY_NO && !IMPORT_JOB_STATE_IS_COMPLETE(i->sha256sums_job)))
+        if (!i->signature_job)
                 return 0;
 
-        if (i->verify != IMPORT_VERIFY_NO &&
-            i->raw_job->etag_exists) {
+        assert(i->signature_job->state == IMPORT_JOB_DONE);
+        assert(i->signature_job->payload);
+        assert(i->signature_job->payload_size > 0);
 
-                assert(i->temp_path);
-                assert(i->final_path);
-                assert(i->raw_job->disk_fd >= 0);
+        r = pipe2(gpg_pipe, O_CLOEXEC);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create pipe: %m");
 
-                r = raw_import_verify_sha256sum(i);
-                if (r < 0)
-                        return r;
+        sig_file = mkostemp(sig_file_path, O_RDWR);
+        if (sig_file < 0)
+                return log_error_errno(errno, "Failed to create temporary file: %m");
 
-                r = rename(i->temp_path, i->final_path);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to move RAW file into place: %m");
-
-                free(i->temp_path);
-                i->temp_path = NULL;
+        r = loop_write(sig_file, i->signature_job->payload, i->signature_job->payload_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write to temporary file: %m");
+                goto finish;
         }
 
-        r = raw_import_make_local_copy(i);
+        pid = fork();
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork off gpg: %m");
+        if (pid == 0) {
+                const char *cmd[] = {
+                        "gpg",
+                        "--no-options",
+                        "--no-default-keyring",
+                        "--no-auto-key-locate",
+                        "--no-auto-check-trustdb",
+                        "--batch",
+                        "--trust-model=always",
+                        "--keyring=" VENDOR_KEYRING_PATH,
+                        NULL, /* maybe user keyring */
+                        NULL, /* --verify */
+                        NULL, /* signature file */
+                        NULL, /* dash */
+                        NULL  /* trailing NULL */
+                };
+                unsigned k = ELEMENTSOF(cmd) - 5;
+                int null_fd;
+
+                /* Child */
+
+                reset_all_signal_handlers();
+                reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                gpg_pipe[1] = safe_close(gpg_pipe[1]);
+
+                if (dup2(gpg_pipe[0], STDIN_FILENO) != STDIN_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (gpg_pipe[0] != STDIN_FILENO)
+                        gpg_pipe[0] = safe_close(gpg_pipe[0]);
+
+                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
+                if (null_fd < 0) {
+                        log_error_errno(errno, "Failed to open /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (dup2(null_fd, STDOUT_FILENO) != STDOUT_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (null_fd != STDOUT_FILENO)
+                        null_fd = safe_close(null_fd);
+
+                /* We add the user keyring only to the command line
+                 * arguments, if it's around since gpg fails
+                 * otherwise. */
+                if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                        cmd[k++] = "--keyring=" USER_KEYRING_PATH;
+
+                cmd[k++] = "--verify";
+                cmd[k++] = sig_file_path;
+                cmd[k++] = "-";
+                cmd[k++] = NULL;
+
+                execvp("gpg", (char * const *) cmd);
+                log_error_errno(errno, "Failed to execute gpg: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        gpg_pipe[0] = safe_close(gpg_pipe[0]);
+
+        r = loop_write(gpg_pipe[1], i->sha256sums_job->payload, i->sha256sums_job->payload_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write to pipe: %m");
+                goto finish;
+        }
+
+        gpg_pipe[1] = safe_close(gpg_pipe[1]);
+
+        r = wait_for_terminate_and_warn("gpg", pid, true);
+        pid = 0;
         if (r < 0)
-                return r;
+                goto finish;
+        if (r > 0) {
+                log_error("Signature verification failed.");
+                r = -EBADMSG;
+        } else {
+                log_info("Signature verification succeeded.");
+                r = 0;
+        }
 
-        i->raw_job->disk_fd = safe_close(i->raw_job->disk_fd);
+finish:
+        if (sig_file >= 0)
+                unlink(sig_file_path);
 
-        return 1;
+        return r;
 }
 
-static void raw_import_invoke_finished(RawImport *i, int r) {
-        assert(i);
-
-        if (i->on_finished)
-                i->on_finished(i, r, i->userdata);
-        else
-                sd_event_exit(i->event, r);
-}
-
-static void raw_import_raw_job_on_finished(ImportJob *j) {
+static void raw_import_job_on_finished(ImportJob *j) {
         RawImport *i;
         int r;
 
@@ -343,6 +424,13 @@ static void raw_import_raw_job_on_finished(ImportJob *j) {
 
         i = j->userdata;
         if (j->error != 0) {
+                if (j == i->sha256sums_job)
+                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
+                else if (j == i->signature_job)
+                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                else
+                        log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
+
                 r = j->error;
                 goto finish;
         }
@@ -350,60 +438,56 @@ static void raw_import_raw_job_on_finished(ImportJob *j) {
         /* This is invoked if either the download completed
          * successfully, or the download was skipped because we
          * already have the etag. In this case ->etag_exists is
-         * true. */
+         * true.
+         *
+         * We only do something when we got all three files */
 
-        if (!j->etag_exists) {
-                assert(j->disk_fd >= 0);
+        if (!IMPORT_JOB_STATE_IS_COMPLETE(i->raw_job))
+                return;
+        if (i->sha256sums_job && !IMPORT_JOB_STATE_IS_COMPLETE(i->sha256sums_job))
+                return;
+        if (i->signature_job && !IMPORT_JOB_STATE_IS_COMPLETE(i->signature_job))
+                return;
+
+        if (!i->raw_job->etag_exists) {
+                assert(i->raw_job->disk_fd >= 0);
+
+                r = raw_import_verify_sha256sum(i);
+                if (r < 0)
+                        goto finish;
 
                 r = raw_import_maybe_convert_qcow2(i);
                 if (r < 0)
                         goto finish;
 
-                r = import_make_read_only_fd(j->disk_fd);
+                r = import_make_read_only_fd(i->raw_job->disk_fd);
                 if (r < 0)
                         goto finish;
+
+                r = rename(i->temp_path, i->final_path);
+                if (r < 0) {
+                        r = log_error_errno(errno, "Failed to move RAW file into place: %m");
+                        goto finish;
+                }
+
+                free(i->temp_path);
+                i->temp_path = NULL;
         }
 
-        r = raw_import_finalize(i);
+        r = raw_import_make_local_copy(i);
         if (r < 0)
                 goto finish;
-        if (r == 0)
-                return;
 
         r = 0;
 
 finish:
-        raw_import_invoke_finished(i, r);
+        if (i->on_finished)
+                i->on_finished(i, r, i->userdata);
+        else
+                sd_event_exit(i->event, r);
 }
 
-static void raw_import_sha256sums_job_on_finished(ImportJob *j) {
-        RawImport *i;
-        int r;
-
-        assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
-        assert(i->verify != IMPORT_VERIFY_NO);
-
-        if (j->error != 0) {
-                log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify.");
-                r = j->error;
-                goto finish;
-        }
-
-        r = raw_import_finalize(i);
-        if (r < 0)
-                goto finish;
-        if (r == 0)
-                return;
-
-        r = 0;
-finish:
-        raw_import_invoke_finished(i, r);
-}
-
-static int raw_import_raw_job_on_open_disk(ImportJob *j) {
+static int raw_import_job_on_open_disk(ImportJob *j) {
         RawImport *i;
         int r;
 
@@ -434,7 +518,6 @@ static int raw_import_raw_job_on_open_disk(ImportJob *j) {
 }
 
 int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
-        _cleanup_free_ char *sha256sums_url = NULL;
         int r;
 
         assert(i);
@@ -461,8 +544,8 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         if (r < 0)
                 return r;
 
-        i->raw_job->on_finished = raw_import_raw_job_on_finished;
-        i->raw_job->on_open_disk = raw_import_raw_job_on_open_disk;
+        i->raw_job->on_finished = raw_import_job_on_finished;
+        i->raw_job->on_open_disk = raw_import_job_on_open_disk;
         i->raw_job->calc_hash = true;
 
         r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
@@ -470,6 +553,8 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
                 return r;
 
         if (verify != IMPORT_VERIFY_NO) {
+                _cleanup_free_ char *sha256sums_url = NULL;
+
                 /* Queue job for the SHA256SUMS file for the image */
                 r = import_url_change_last_component(url, "SHA256SUMS", &sha256sums_url);
                 if (r < 0)
@@ -479,17 +564,41 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
                 if (r < 0)
                         return r;
 
-                i->sha256sums_job->on_finished = raw_import_sha256sums_job_on_finished;
+                i->sha256sums_job->on_finished = raw_import_job_on_finished;
                 i->sha256sums_job->uncompressed_max = i->sha256sums_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+        }
 
-                r = import_job_begin(i->sha256sums_job);
+        if (verify == IMPORT_VERIFY_SIGNATURE) {
+                _cleanup_free_ char *sha256sums_sig_url = NULL;
+
+                /* Queue job for the SHA256SUMS.gpg file for the image. */
+                r = import_url_change_last_component(url, "SHA256SUMS.gpg", &sha256sums_sig_url);
                 if (r < 0)
                         return r;
+
+                r = import_job_new(&i->signature_job, sha256sums_sig_url, i->glue, i);
+                if (r < 0)
+                        return r;
+
+                i->signature_job->on_finished = raw_import_job_on_finished;
+                i->signature_job->uncompressed_max = i->signature_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
         }
 
         r = import_job_begin(i->raw_job);
         if (r < 0)
                 return r;
+
+        if (i->sha256sums_job) {
+                r = import_job_begin(i->sha256sums_job);
+                if (r < 0)
+                        return r;
+        }
+
+        if (i->signature_job) {
+                r = import_job_begin(i->signature_job);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

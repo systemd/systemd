@@ -5275,7 +5275,9 @@ systemd_import_CFLAGS = \
 	$(LIBCURL_CFLAGS) \
 	$(XZ_CFLAGS) \
 	$(ZLIB_CFLAGS) \
-	$(GCRYPT_CFLAGS)
+	$(GCRYPT_CFLAGS) \
+	-D VENDOR_KEYRING_PATH=\"$(rootlibexecdir)/import-pubring.gpg\" \
+	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
 
 systemd_import_LDADD = \
 	libsystemd-internal.la \
@@ -5303,6 +5305,9 @@ test_qcow2_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(ZLIB_LIBS)
+
+dist_rootlibexec_DATA = \
+	src/import/import-pubring.gpg
 endif
 endif
 endif
@@ -6668,3 +6673,9 @@ git-contrib:
 
 EXTRA_DIST += \
         tools/gdb-sd_dump_hashmaps.py
+
+list-keys:
+	gpg --verbose --no-options --no-default-keyring --no-auto-key-locate --batch --trust-model=always --keyring=$(srcdir)/src/import/import-pubring.gpg --list-keys
+
+add-key:
+	gpg --verbose --no-options --no-default-keyring --no-auto-key-locate --batch --trust-model=always --keyring=$(srcdir)/src/import/import-pubring.gpg --import -

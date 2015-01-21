@@ -1065,3 +1065,6 @@ void release_lock_file(LockFile *f);
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
+
+void sigkill_wait(pid_t *pid);
+#define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
