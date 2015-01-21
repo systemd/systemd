@@ -96,10 +96,10 @@ struct ImportJob {
 
         bool allow_sparse;
 
-        bool calc_hash;
-        gcry_md_hd_t hash_context;
+        bool calc_checksum;
+        gcry_md_hd_t checksum_context;
 
-        char *sha256;
+        char *checksum;
 };
 
 int import_job_new(ImportJob **job, const char *url, CurlGlue *glue, void *userdata);
@@ -108,3 +108,5 @@ ImportJob* import_job_unref(ImportJob *job);
 int import_job_begin(ImportJob *j);
 
 void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ImportJob*, import_job_unref);

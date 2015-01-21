@@ -23,6 +23,8 @@
 
 #include <stdbool.h>
 
+#include "import-job.h"
+
 typedef enum ImportVerify {
         IMPORT_VERIFY_NO,
         IMPORT_VERIFY_SUM,
@@ -47,3 +49,6 @@ int import_url_change_last_component(const char *url, const char *suffix, char *
 
 const char* import_verify_to_string(ImportVerify v) _const_;
 ImportVerify import_verify_from_string(const char *s) _pure_;
+
+int import_make_verification_jobs(ImportJob **ret_checksum_job, ImportJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, ImportJobFinished on_finished, void *userdata);
+int import_verify(ImportJob *main_job, ImportJob *checksum_job, ImportJob *signature_job);

@@ -19,10 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/prctl.h>
+
 #include "util.h"
 #include "strv.h"
 #include "copy.h"
 #include "btrfs-util.h"
+#include "import-job.h"
 #include "import-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
@@ -278,3 +281,234 @@ static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
+
+int import_make_verification_jobs(
+                ImportJob **ret_checksum_job,
+                ImportJob **ret_signature_job,
+                ImportVerify verify,
+                const char *url,
+                CurlGlue *glue,
+                ImportJobFinished on_finished,
+                void *userdata) {
+
+        _cleanup_(import_job_unrefp) ImportJob *checksum_job = NULL, *signature_job = NULL;
+        int r;
+
+        assert(ret_checksum_job);
+        assert(ret_signature_job);
+        assert(verify >= 0);
+        assert(verify < _IMPORT_VERIFY_MAX);
+        assert(url);
+        assert(glue);
+
+        if (verify != IMPORT_VERIFY_NO) {
+                _cleanup_free_ char *checksum_url = NULL;
+
+                /* Queue job for the SHA256SUMS file for the image */
+                r = import_url_change_last_component(url, "SHA256SUMS", &checksum_url);
+                if (r < 0)
+                        return r;
+
+                r = import_job_new(&checksum_job, checksum_url, glue, userdata);
+                if (r < 0)
+                        return r;
+
+                checksum_job->on_finished = on_finished;
+                checksum_job->uncompressed_max = checksum_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+        }
+
+        if (verify == IMPORT_VERIFY_SIGNATURE) {
+                _cleanup_free_ char *signature_url = NULL;
+
+                /* Queue job for the SHA256SUMS.gpg file for the image. */
+                r = import_url_change_last_component(url, "SHA256SUMS.gpg", &signature_url);
+                if (r < 0)
+                        return r;
+
+                r = import_job_new(&signature_job, signature_url, glue, userdata);
+                if (r < 0)
+                        return r;
+
+                signature_job->on_finished = on_finished;
+                signature_job->uncompressed_max = signature_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+        }
+
+        *ret_checksum_job = checksum_job;
+        *ret_signature_job = signature_job;
+
+        checksum_job = signature_job = NULL;
+
+        return 0;
+}
+
+int import_verify(
+                ImportJob *main_job,
+                ImportJob *checksum_job,
+                ImportJob *signature_job) {
+
+        _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
+        _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int sig_file = -1;
+        const char *p, *line;
+        char sig_file_path[] = "/tmp/sigXXXXXX";
+        _cleanup_sigkill_wait_ pid_t pid = 0;
+        int r;
+
+        assert(main_job);
+        assert(main_job->state == IMPORT_JOB_DONE);
+
+        if (!checksum_job)
+                return 0;
+
+        assert(main_job->calc_checksum);
+        assert(main_job->checksum);
+        assert(checksum_job->state == IMPORT_JOB_DONE);
+
+        if (!checksum_job->payload || checksum_job->payload_size <= 0) {
+                log_error("Checksum is empty, cannot verify.");
+                return -EBADMSG;
+        }
+
+        r = import_url_last_component(main_job->url, &fn);
+        if (r < 0)
+                return log_oom();
+
+        if (!filename_is_valid(fn)) {
+                log_error("Cannot verify checksum, could not determine valid server-side file name.");
+                return -EBADMSG;
+        }
+
+        line = strappenda(main_job->checksum, " *", fn, "\n");
+
+        p = memmem(checksum_job->payload,
+                   checksum_job->payload_size,
+                   line,
+                   strlen(line));
+
+        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n')) {
+                log_error("Checksum did not check out, payload has been tempered with.");
+                return -EBADMSG;
+        }
+
+        log_info("SHA256 checksum of %s is valid.", main_job->url);
+
+        if (!signature_job)
+                return 0;
+
+        assert(signature_job->state == IMPORT_JOB_DONE);
+
+        if (!signature_job->payload || signature_job->payload_size <= 0) {
+                log_error("Signature is empty, cannot verify.");
+                return -EBADMSG;
+        }
+
+        r = pipe2(gpg_pipe, O_CLOEXEC);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create pipe: %m");
+
+        sig_file = mkostemp(sig_file_path, O_RDWR);
+        if (sig_file < 0)
+                return log_error_errno(errno, "Failed to create temporary file: %m");
+
+        r = loop_write(sig_file, signature_job->payload, signature_job->payload_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write to temporary file: %m");
+                goto finish;
+        }
+
+        pid = fork();
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork off gpg: %m");
+        if (pid == 0) {
+                const char *cmd[] = {
+                        "gpg",
+                        "--no-options",
+                        "--no-default-keyring",
+                        "--no-auto-key-locate",
+                        "--no-auto-check-trustdb",
+                        "--batch",
+                        "--trust-model=always",
+                        "--keyring=" VENDOR_KEYRING_PATH,
+                        NULL, /* maybe user keyring */
+                        NULL, /* --verify */
+                        NULL, /* signature file */
+                        NULL, /* dash */
+                        NULL  /* trailing NULL */
+                };
+                unsigned k = ELEMENTSOF(cmd) - 5;
+                int null_fd;
+
+                /* Child */
+
+                reset_all_signal_handlers();
+                reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                gpg_pipe[1] = safe_close(gpg_pipe[1]);
+
+                if (dup2(gpg_pipe[0], STDIN_FILENO) != STDIN_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (gpg_pipe[0] != STDIN_FILENO)
+                        gpg_pipe[0] = safe_close(gpg_pipe[0]);
+
+                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
+                if (null_fd < 0) {
+                        log_error_errno(errno, "Failed to open /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (dup2(null_fd, STDOUT_FILENO) != STDOUT_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (null_fd != STDOUT_FILENO)
+                        null_fd = safe_close(null_fd);
+
+                /* We add the user keyring only to the command line
+                 * arguments, if it's around since gpg fails
+                 * otherwise. */
+                if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                        cmd[k++] = "--keyring=" USER_KEYRING_PATH;
+
+                cmd[k++] = "--verify";
+                cmd[k++] = sig_file_path;
+                cmd[k++] = "-";
+                cmd[k++] = NULL;
+
+                execvp("gpg", (char * const *) cmd);
+                log_error_errno(errno, "Failed to execute gpg: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        gpg_pipe[0] = safe_close(gpg_pipe[0]);
+
+        r = loop_write(gpg_pipe[1], checksum_job->payload, checksum_job->payload_size, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write to pipe: %m");
+                goto finish;
+        }
+
+        gpg_pipe[1] = safe_close(gpg_pipe[1]);
+
+        r = wait_for_terminate_and_warn("gpg", pid, true);
+        pid = 0;
+        if (r < 0)
+                goto finish;
+        if (r > 0) {
+                log_error("Signature verification failed.");
+                r = -EBADMSG;
+        } else {
+                log_info("Signature verification succeeded.");
+                r = 0;
+        }
+
+finish:
+        if (sig_file >= 0)
+                unlink(sig_file_path);
+
+        return r;
+}

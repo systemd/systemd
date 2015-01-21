@@ -38,21 +38,19 @@ ImportJob* import_job_unref(ImportJob *j) {
         else if (j->compressed == IMPORT_JOB_GZIP)
                 inflateEnd(&j->gzip);
 
-        if (j->hash_context)
-                gcry_md_close(j->hash_context);
+        if (j->checksum_context)
+                gcry_md_close(j->checksum_context);
 
         free(j->url);
         free(j->etag);
         strv_free(j->old_etags);
         free(j->payload);
-        free(j->sha256);
+        free(j->checksum);
 
         free(j);
 
         return NULL;
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(ImportJob*, import_job_unref);
 
 static void import_job_finish(ImportJob *j, int ret) {
         assert(j);
@@ -124,23 +122,23 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->hash_context) {
+        if (j->checksum_context) {
                 uint8_t *k;
 
-                k = gcry_md_read(j->hash_context, GCRY_MD_SHA256);
+                k = gcry_md_read(j->checksum_context, GCRY_MD_SHA256);
                 if (!k) {
                         log_error("Failed to get checksum.");
                         r = -EIO;
                         goto finish;
                 }
 
-                j->sha256 = hexmem(k, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-                if (!j->sha256) {
+                j->checksum = hexmem(k, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+                if (!j->checksum) {
                         r = log_oom();
                         goto finish;
                 }
 
-                log_debug("SHA256 of %s is %s.", j->url, j->sha256);
+                log_debug("SHA256 of %s is %s.", j->url, j->checksum);
         }
 
         if (j->disk_fd >= 0 && j->allow_sparse) {
@@ -243,8 +241,8 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
                 return -EFBIG;
         }
 
-        if (j->hash_context)
-                gcry_md_write(j->hash_context, p, sz);
+        if (j->checksum_context)
+                gcry_md_write(j->checksum_context, p, sz);
 
         switch (j->compressed) {
 
@@ -335,8 +333,8 @@ static int import_job_open_disk(ImportJob *j) {
                 }
         }
 
-        if (j->calc_hash) {
-                if (gcry_md_open(&j->hash_context, GCRY_MD_SHA256, 0) != 0) {
+        if (j->calc_checksum) {
+                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0) {
                         log_error("Failed to initialize hash context.");
                         return -EIO;
                 }
