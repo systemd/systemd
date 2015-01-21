@@ -133,11 +133,11 @@ class SysvGeneratorTest(unittest.TestCase):
 
         # should be enabled
         for runlevel in all_runlevels:
-            link = os.path.join(self.out_dir, 'runlevel%i.target.wants' % runlevel, 'foo.service')
+            link = os.path.join(self.out_dir, 'runlevel%i.target.wants' % runlevel, unit)
             if runlevel in runlevels:
                 target = os.readlink(link)
                 self.assertTrue(os.path.exists(target))
-                self.assertEqual(os.path.basename(target), 'foo.service')
+                self.assertEqual(os.path.basename(target), unit)
             else:
                 self.assertFalse(os.path.exists(link),
                                  '%s unexpectedly exists' % link)
