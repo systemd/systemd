@@ -71,7 +71,7 @@ static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_force = false;
-static const char* arg_verify = NULL;
+static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = NULL;
 
 static void pager_open_if_enabled(void) {
@@ -1914,7 +1914,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         "sssb",
                         remote,
                         local,
-                        arg_verify,
+                        import_verify_to_string(arg_verify),
                         arg_force);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -1978,7 +1978,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         "sssb",
                         remote,
                         local,
-                        arg_verify,
+                        import_verify_to_string(arg_verify),
                         arg_force);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2051,7 +2051,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                         remote,
                         tag,
                         local,
-                        arg_verify,
+                        import_verify_to_string(arg_verify),
                         arg_force);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -2394,7 +2394,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
-                        arg_verify = optarg;
+                        arg_verify = import_verify_from_string(optarg);
+                        if (arg_verify < 0) {
+                                log_error("Failed to parse --verify= setting: %s", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case ARG_FORCE:
