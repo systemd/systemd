@@ -5280,7 +5280,7 @@ systemd_importd_SOURCES = \
 
 systemd_importd_CFLAGS = \
 	$(AM_CFLAGS) \
-	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-import\"
+	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-pull\"
 
 systemd_importd_LDADD = \
 	libsystemd-internal.la \
