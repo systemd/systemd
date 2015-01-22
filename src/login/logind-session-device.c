@@ -107,7 +107,7 @@ static int sd_eviocrevoke(int fd) {
 
         assert(fd >= 0);
 
-        r = ioctl(fd, EVIOCREVOKE, 1);
+        r = ioctl(fd, EVIOCREVOKE, NULL);
         if (r < 0) {
                 r = -errno;
                 if (r == -EINVAL && !warned) {
