@@ -238,46 +238,6 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-void syslog_parse_priority(const char **p, int *priority, bool with_facility) {
-        int a = 0, b = 0, c = 0;
-        int k;
-
-        assert(p);
-        assert(*p);
-        assert(priority);
-
-        if ((*p)[0] != '<')
-                return;
-
-        if (!strchr(*p, '>'))
-                return;
-
-        if ((*p)[2] == '>') {
-                c = undecchar((*p)[1]);
-                k = 3;
-        } else if ((*p)[3] == '>') {
-                b = undecchar((*p)[1]);
-                c = undecchar((*p)[2]);
-                k = 4;
-        } else if ((*p)[4] == '>') {
-                a = undecchar((*p)[1]);
-                b = undecchar((*p)[2]);
-                c = undecchar((*p)[3]);
-                k = 5;
-        } else
-                return;
-
-        if (a < 0 || b < 0 || c < 0 ||
-            (!with_facility && (a || b || c > 7)))
-                return;
-
-        if (with_facility)
-                *priority = a*100 + b*10 + c;
-        else
-                *priority = (*priority & LOG_FACMASK) | c;
-        *p += k;
-}
-
 static void syslog_skip_date(char **buf) {
         enum {
                 LETTER,

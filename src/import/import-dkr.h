@@ -32,7 +32,3 @@ DkrImport* dkr_import_unref(DkrImport *import);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImport*, dkr_import_unref);
 
 int dkr_import_pull(DkrImport *import, const char *name, const char *tag, const char *local, bool force_local);
-
-bool dkr_name_is_valid(const char *name);
-bool dkr_id_is_valid(const char *id);
-#define dkr_tag_is_valid(tag) filename_is_valid(tag)

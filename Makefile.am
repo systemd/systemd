@@ -902,7 +902,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/verbs.h \
 	src/shared/sigbus.c \
 	src/shared/sigbus.h \
-	src/shared/build.h
+	src/shared/build.h \
+	src/shared/import-util.c \
+	src/shared/import-util.h
 
 if HAVE_UTMP
 libsystemd_shared_la_SOURCES += \
@@ -5253,14 +5255,34 @@ libnss_mymachines_la_LIBADD = \
 lib_LTLIBRARIES += \
 	libnss_mymachines.la
 
+endif
+
+# ------------------------------------------------------------------------------
+if ENABLE_IMPORTD
+
 if HAVE_LIBCURL
 if HAVE_XZ
 if HAVE_ZLIB
 if HAVE_BZIP2
 if HAVE_GCRYPT
 
-bin_PROGRAMS += \
+rootlibexec_PROGRAMS += \
+	systemd-importd \
 	systemd-import
+
+systemd_importd_SOURCES = \
+	src/import/importd.c \
+	src/import/importd.h
+
+systemd_importd_CFLAGS = \
+	$(AM_CFLAGS) \
+	-D SYSTEMD_IMPORT_PATH=\"$(rootlibexecdir)/systemd-import\" \
+	-D VENDOR_KEYRING_PATH=\"$(rootlibexecdir)/import-pubring.gpg\" \
+	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
+
+systemd_importd_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-shared.la
 
 systemd_import_SOURCES = \
 	src/import/import.c \
@@ -5272,8 +5294,8 @@ systemd_import_SOURCES = \
 	src/import/import-dkr.h \
 	src/import/import-job.c \
 	src/import/import-job.h \
-	src/import/import-util.c \
-	src/import/import-util.h \
+	src/import/import-common.c \
+	src/import/import-common.h \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
 	src/import/aufs-util.c \
@@ -5300,6 +5322,36 @@ systemd_import_LDADD = \
 	-lbz2 \
 	$(GCRYPT_LIBS)
 
+dist_rootlibexec_DATA = \
+	src/import/import-pubring.gpg
+
+nodist_systemunit_DATA += \
+	units/systemd-importd.service
+
+EXTRA_DIST += \
+	units/systemd-importd.service.in
+
+dist_systemunit_DATA_busnames += \
+	units/org.freedesktop.import1.busname
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.import1.busname
+
+SYSTEM_UNIT_ALIASES += \
+	systemd-importd.service dbus-org.freedesktop.import1.service
+
+dist_dbussystemservice_DATA += \
+	src/import/org.freedesktop.import1.service
+
+dist_dbuspolicy_DATA += \
+	src/import/org.freedesktop.import1.conf
+
+polkitpolicy_files += \
+	src/import/org.freedesktop.import1.policy
+
+polkitpolicy_in_files += \
+	src/import/org.freedesktop.import1.policy.in
+
 manual_tests += \
 	test-qcow2
 
@@ -5318,8 +5370,6 @@ test_qcow2_LDADD = \
 	libsystemd-shared.la \
 	$(ZLIB_LIBS)
 
-dist_rootlibexec_DATA = \
-	src/import/import-pubring.gpg
 endif
 endif
 endif

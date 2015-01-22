@@ -72,4 +72,7 @@
 #define BUS_ERROR_ABORTED "org.freedesktop.resolve1.Aborted"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
+#define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"
+#define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
+
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

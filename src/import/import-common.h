@@ -24,16 +24,7 @@
 #include <stdbool.h>
 
 #include "import-job.h"
-
-typedef enum ImportVerify {
-        IMPORT_VERIFY_NO,
-        IMPORT_VERIFY_SUM,
-        IMPORT_VERIFY_SIGNATURE,
-        _IMPORT_VERIFY_MAX,
-        _IMPORT_VERIFY_INVALID = -1,
-} ImportVerify;
-
-bool http_etag_is_valid(const char *etag);
+#include "import-util.h"
 
 int import_make_local_copy(const char *final, const char *root, const char *local, bool force_local);
 
@@ -43,12 +34,6 @@ int import_make_read_only_fd(int fd);
 int import_make_read_only(const char *path);
 
 int import_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);
-
-int import_url_last_component(const char *url, char **ret);
-int import_url_change_last_component(const char *url, const char *suffix, char **ret);
-
-const char* import_verify_to_string(ImportVerify v) _const_;
-ImportVerify import_verify_from_string(const char *s) _pure_;
 
 int import_make_verification_jobs(ImportJob **ret_checksum_job, ImportJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, ImportJobFinished on_finished, void *userdata);
 int import_verify(ImportJob *main_job, ImportJob *checksum_job, ImportJob *signature_job);

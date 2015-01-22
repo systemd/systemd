@@ -654,6 +654,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value);
 bool http_url_is_valid(const char *url) _pure_;
 bool documentation_url_is_valid(const char *url) _pure_;
 
+bool http_etag_is_valid(const char *etag);
+
 bool in_initrd(void);
 
 void warn_melody(void);
@@ -1068,3 +1070,5 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
 
 void sigkill_wait(pid_t *pid);
 #define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
+
+int syslog_parse_priority(const char **p, int *priority, bool with_facility);

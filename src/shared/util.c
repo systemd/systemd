@@ -5462,6 +5462,19 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         return r;
 }
 
+bool http_etag_is_valid(const char *etag) {
+        if (isempty(etag))
+                return false;
+
+        if (!endswith(etag, "\""))
+                return false;
+
+        if (!startswith(etag, "\"") && !startswith(etag, "W/\""))
+                return false;
+
+        return true;
+}
+
 bool http_url_is_valid(const char *url) {
         const char *p;
 
@@ -8024,4 +8037,46 @@ void sigkill_wait(pid_t *pid) {
 
         if (kill(*pid, SIGKILL) > 0)
                 (void) wait_for_terminate(*pid, NULL);
+}
+
+int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
+        int a = 0, b = 0, c = 0;
+        int k;
+
+        assert(p);
+        assert(*p);
+        assert(priority);
+
+        if ((*p)[0] != '<')
+                return 0;
+
+        if (!strchr(*p, '>'))
+                return 0;
+
+        if ((*p)[2] == '>') {
+                c = undecchar((*p)[1]);
+                k = 3;
+        } else if ((*p)[3] == '>') {
+                b = undecchar((*p)[1]);
+                c = undecchar((*p)[2]);
+                k = 4;
+        } else if ((*p)[4] == '>') {
+                a = undecchar((*p)[1]);
+                b = undecchar((*p)[2]);
+                c = undecchar((*p)[3]);
+                k = 5;
+        } else
+                return 0;
+
+        if (a < 0 || b < 0 || c < 0 ||
+            (!with_facility && (a || b || c > 7)))
+                return 0;
+
+        if (with_facility)
+                *priority = a*100 + b*10 + c;
+        else
+                *priority = (*priority & LOG_FACMASK) | c;
+
+        *p += k;
+        return 1;
 }

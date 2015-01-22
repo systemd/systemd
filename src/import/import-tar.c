@@ -29,9 +29,10 @@
 #include "util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "import-util.h"
 #include "curl-util.h"
 #include "import-job.h"
-#include "import-util.h"
+#include "import-common.h"
 #include "import-tar.h"
 
 struct TarImport {

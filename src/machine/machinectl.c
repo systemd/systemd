@@ -53,6 +53,7 @@
 #include "mkdir.h"
 #include "copy.h"
 #include "verbs.h"
+#include "import-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -69,6 +70,9 @@ static bool arg_quiet = false;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
+static bool arg_force = false;
+static const char* arg_verify = NULL;
+static const char* arg_dkr_index_url = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -135,13 +139,13 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 "ListMachines",
                                 &error,
                                 &reply,
-                                "");
+                                NULL);
         if (r < 0) {
                 log_error("Could not get machines: %s", bus_error_message(&error, -r));
                 return r;
         }
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
+        r = sd_bus_message_enter_container(reply, 'a', "(ssso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -1732,6 +1736,464 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+typedef struct PullContext {
+        const char *path;
+        int result;
+} PullContext;
+
+static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        PullContext *c = userdata;
+        const char *line;
+        unsigned priority;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_message_read(m, "us", &priority, &line);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!streq_ptr(c->path, sd_bus_message_get_path(m)))
+                return 0;
+
+        if (arg_quiet && LOG_PRI(priority) >= LOG_INFO)
+                return 0;
+
+        log_full(priority, "%s", line);
+        return 0;
+}
+
+static int match_transfer_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        PullContext *c = userdata;
+        const char *path, *result;
+        uint32_t id;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(c);
+
+        r = sd_bus_message_read(m, "uos", &id, &path, &result);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!streq_ptr(c->path, path))
+                return 0;
+
+        c->result = streq_ptr(result, "done");
+        return 0;
+}
+
+static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_slot_unref_ sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        PullContext c = {
+                .result = -1,
+        };
+        uint32_t id;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        polkit_agent_open_if_enabled();
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_add_match(
+                        bus,
+                        &slot_job_removed,
+                        "type='signal',"
+                        "sender='org.freedesktop.import1',"
+                        "interface='org.freedesktop.import1.Manager',"
+                        "member='TransferRemoved',"
+                        "path='/org/freedesktop/import1'",
+                        match_transfer_removed, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install match: %m");
+
+        r = sd_bus_add_match(
+                        bus,
+                        &slot_log_message,
+                        "type='signal',"
+                        "sender='org.freedesktop.import1',"
+                        "interface='org.freedesktop.import1.Transfer',"
+                        "member='LogMessage'",
+                        match_log_message, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install match: %m");
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("Failed pull image: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "uo", &id, &c.path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                r = sd_bus_process(bus, NULL);
+                if (r < 0)
+                        return r;
+
+                /* The match sets this to NULL when we are done */
+                if (c.result >= 0)
+                        break;
+
+                r = sd_bus_wait(bus, (uint64_t) -1);
+                if (r < 0)
+                        return r;
+        }
+
+        return c.result ? 0 : -EINVAL;
+}
+
+static int pull_tar(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *l = NULL, *ll = NULL;
+        const char *local, *remote;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        remote = argv[1];
+        if (!http_url_is_valid(remote)) {
+                log_error("URL '%s' is not valid.", remote);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                local = argv[2];
+        else {
+                r = import_url_last_component(remote, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get final component of URL: %m");
+
+                local = l;
+        }
+
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (local) {
+                r = tar_strip_suffixes(local, &ll);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip tar suffixes: %m");
+
+                local = ll;
+
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local name %s is not a suitable machine name.", local);
+                        return -EINVAL;
+                }
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "PullTar");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "sssb",
+                        remote,
+                        local,
+                        arg_verify,
+                        arg_force);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return pull_image_common(bus, m);
+}
+
+static int pull_raw(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *l = NULL, *ll = NULL;
+        const char *local, *remote;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        remote = argv[1];
+        if (!http_url_is_valid(remote)) {
+                log_error("URL '%s' is not valid.", remote);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                local = argv[2];
+        else {
+                r = import_url_last_component(remote, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get final component of URL: %m");
+
+                local = l;
+        }
+
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (local) {
+                r = raw_strip_suffixes(local, &ll);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip tar suffixes: %m");
+
+                local = ll;
+
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local name %s is not a suitable machine name.", local);
+                        return -EINVAL;
+                }
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "PullRaw");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "sssb",
+                        remote,
+                        local,
+                        arg_verify,
+                        arg_force);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return pull_image_common(bus, m);
+}
+
+static int pull_dkr(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *l = NULL, *ll = NULL;
+        const char *local, *remote, *tag;
+        sd_bus *bus = userdata;
+        int r;
+
+        if (!streq_ptr(arg_dkr_index_url, "no")) {
+                log_error("Imports from DKR do not support image verification, please pass --verify=no.");
+                return -EINVAL;
+        }
+
+        remote = argv[1];
+        tag = strchr(remote, ':');
+        if (tag) {
+                remote = strndupa(remote, tag - remote);
+                tag++;
+        }
+
+        if (!dkr_name_is_valid(remote)) {
+                log_error("DKR name '%s' is invalid.", remote);
+                return -EINVAL;
+        }
+        if (tag && !dkr_tag_is_valid(tag)) {
+                log_error("DKR tag '%s' is invalid.", remote);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                local = argv[2];
+        else {
+                local = strchr(remote, '/');
+                if (local)
+                        local++;
+                else
+                        local = remote;
+        }
+
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (local) {
+                if (!machine_name_is_valid(local)) {
+                        log_error("Local name %s is not a suitable machine name.", local);
+                        return -EINVAL;
+                }
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "PullDkr");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "sssssb",
+                        arg_dkr_index_url,
+                        remote,
+                        tag,
+                        local,
+                        arg_verify,
+                        arg_force);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return pull_image_common(bus, m);
+}
+
+typedef struct TransferInfo {
+        uint32_t id;
+        const char *type;
+        const char *remote;
+        const char *local;
+} TransferInfo;
+
+static int compare_transfer_info(const void *a, const void *b) {
+        const TransferInfo *x = a, *y = b;
+
+        return strcmp(x->local, y->local);
+}
+
+static int list_transfers(int argc, char *argv[], void *userdata) {
+        size_t max_type = strlen("TYPE"), max_local = strlen("LOCAL"), max_remote = strlen("REMOTE");
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ TransferInfo *transfers = NULL;
+        size_t n_transfers = 0, n_allocated = 0, j;
+        const char *type, *remote, *local, *object;
+        sd_bus *bus = userdata;
+        uint32_t id, max_id = 0;
+        int r;
+
+        pager_open_if_enabled();
+
+        r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.import1",
+                                "/org/freedesktop/import1",
+                                "org.freedesktop.import1.Manager",
+                                "ListTransfers",
+                                &error,
+                                &reply,
+                                NULL);
+        if (r < 0) {
+                log_error("Could not get transfers: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'a', "(ussso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(ussso)", &id, &type, &remote, &local, &object)) > 0) {
+                size_t l;
+
+                if (!GREEDY_REALLOC(transfers, n_allocated, n_transfers + 1))
+                        return log_oom();
+
+                transfers[n_transfers].id = id;
+                transfers[n_transfers].type = type;
+                transfers[n_transfers].remote = remote;
+                transfers[n_transfers].local = local;
+
+                l = strlen(type);
+                if (l > max_type)
+                        max_type = l;
+
+                l = strlen(remote);
+                if (l > max_remote)
+                        max_remote = l;
+
+                l = strlen(local);
+                if (l > max_local)
+                        max_local = l;
+
+                if (id > max_id)
+                        max_id = id;
+
+                n_transfers ++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        qsort_safe(transfers, n_transfers, sizeof(TransferInfo), compare_transfer_info);
+
+        if (arg_legend)
+                printf("%-*s %-*s %-*s %-*s\n",
+                       (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), "ID",
+                       (int) max_type, "TYPE",
+                       (int) max_local, "LOCAL",
+                       (int) max_remote, "REMOTE");
+
+        for (j = 0; j < n_transfers; j++)
+                printf("%*" PRIu32 " %-*s %-*s %-*s\n",
+                       (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
+                       (int) max_type, transfers[j].type,
+                       (int) max_local, transfers[j].local,
+                       (int) max_remote, transfers[j].remote);
+
+        if (arg_legend)
+                printf("\n%zu transfers listed.\n", n_transfers);
+
+        return 0;
+}
+
+static int cancel_transfer(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int r, i;
+
+        assert(bus);
+
+        polkit_agent_open_if_enabled();
+
+        for (i = 1; i < argc; i++) {
+                uint32_t id;
+
+                r = safe_atou32(argv[i], &id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse transfer id: %s", argv[i]);
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.import1",
+                                "/org/freedesktop/import1",
+                                "org.freedesktop.import1.Manager",
+                                "CancelTransfer",
+                                &error,
+                                NULL,
+                                "u", id);
+                if (r < 0) {
+                        log_error("Could not cancel transfer: %s", bus_error_message(&error, -r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -1755,7 +2217,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -n --lines=INTEGER          Number of journal entries to show\n"
                "  -o --output=STRING          Change journal output mode (short,\n"
                "                              short-monotonic, verbose, export, json,\n"
-               "                              json-pretty, json-sse, cat)\n\n"
+               "                              json-pretty, json-sse, cat)\n"
+               "      --verify=MODE           Verification mode for downloaded images (no, sum,\n"
+               "                              signature)\n"
+               "      --force                 Download image even if already exists\n"
+               "      --dkr-index-url=URL     Specify the index URL to use for DKR image\n"
+               "                              downloads\n\n"
                "Machine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
@@ -1778,7 +2245,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "  clone NAME NAME             Clone an image\n"
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
-               "  remove NAME...              Remove an image\n"
+               "  remove NAME...              Remove an image\n\n"
+               "Transfer Commands:\n"
+               "  pull-tar URL [NAME]         Download a TAR image\n"
+               "  pull-raw URL [NAME]         Download a RAW image\n"
+               "  pull-dkr REMOTE [NAME]      Download a DKR image\n"
+               "  list-transfers              Show list of current downloads\n"
+               "  cancel-transfer             Cancel a download\n"
                , program_invocation_short_name);
 
         return 0;
@@ -1794,6 +2267,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_NO_ASK_PASSWORD,
+                ARG_VERIFY,
+                ARG_FORCE,
+                ARG_DKR_INDEX_URL,
         };
 
         static const struct option options[] = {
@@ -1814,6 +2290,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "lines",           required_argument, NULL, 'n'                 },
                 { "output",          required_argument, NULL, 'o'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "verify",          required_argument, NULL, ARG_VERIFY          },
+                { "force",           no_argument,       NULL, ARG_FORCE           },
+                { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
                 {}
         };
 
@@ -1914,6 +2393,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
+                case ARG_VERIFY:
+                        arg_verify = optarg;
+                        break;
+
+                case ARG_FORCE:
+                        arg_force = true;
+                        break;
+
+                case ARG_DKR_INDEX_URL:
+                        if (!http_url_is_valid(optarg)) {
+                                log_error("Index URL is invalid: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_dkr_index_url = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1927,28 +2423,33 @@ static int parse_argv(int argc, char *argv[]) {
 static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
-                { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
-                { "list-images", VERB_ANY, 1,        0,            list_images       },
-                { "status",      2,        VERB_ANY, 0,            show_machine      },
-                { "image-status",2,        VERB_ANY, 0,            show_image        },
-                { "show",        VERB_ANY, VERB_ANY, 0,            show_machine      },
-                { "show-image",  VERB_ANY, VERB_ANY, 0,            show_image        },
-                { "terminate",   2,        VERB_ANY, 0,            terminate_machine },
-                { "reboot",      2,        VERB_ANY, 0,            reboot_machine    },
-                { "poweroff",    2,        VERB_ANY, 0,            poweroff_machine  },
-                { "kill",        2,        VERB_ANY, 0,            kill_machine      },
-                { "login",       2,        2,        0,            login_machine     },
-                { "bind",        3,        4,        0,            bind_mount        },
-                { "copy-to",     3,        4,        0,            copy_files        },
-                { "copy-from",   3,        4,        0,            copy_files        },
-                { "remove",      2,        VERB_ANY, 0,            remove_image      },
-                { "rename",      3,        3,        0,            rename_image      },
-                { "clone",       3,        3,        0,            clone_image       },
-                { "read-only",   2,        3,        0,            read_only_image   },
-                { "start",       2,        VERB_ANY, 0,            start_machine     },
-                { "enable",      2,        VERB_ANY, 0,            enable_machine    },
-                { "disable",     2,        VERB_ANY, 0,            enable_machine    },
+                { "help",            VERB_ANY, VERB_ANY, 0,            help              },
+                { "list",            VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
+                { "list-images",     VERB_ANY, 1,        0,            list_images       },
+                { "status",          2,        VERB_ANY, 0,            show_machine      },
+                { "image-status",    2,        VERB_ANY, 0,            show_image        },
+                { "show",            VERB_ANY, VERB_ANY, 0,            show_machine      },
+                { "show-image",      VERB_ANY, VERB_ANY, 0,            show_image        },
+                { "terminate",       2,        VERB_ANY, 0,            terminate_machine },
+                { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
+                { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
+                { "kill",            2,        VERB_ANY, 0,            kill_machine      },
+                { "login",           2,        2,        0,            login_machine     },
+                { "bind",            3,        4,        0,            bind_mount        },
+                { "copy-to",         3,        4,        0,            copy_files        },
+                { "copy-from",       3,        4,        0,            copy_files        },
+                { "remove",          2,        VERB_ANY, 0,            remove_image      },
+                { "rename",          3,        3,        0,            rename_image      },
+                { "clone",           3,        3,        0,            clone_image       },
+                { "read-only",       2,        3,        0,            read_only_image   },
+                { "start",           2,        VERB_ANY, 0,            start_machine     },
+                { "enable",          2,        VERB_ANY, 0,            enable_machine    },
+                { "disable",         2,        VERB_ANY, 0,            enable_machine    },
+                { "pull-tar",        2,        3,        0,            pull_tar          },
+                { "pull-raw",        2,        3,        0,            pull_raw          },
+                { "pull-dkr",        2,        3,        0,            pull_dkr          },
+                { "list-transfers",  VERB_ANY, 1,        0,            list_transfers    },
+                { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
                 {}
         };
 

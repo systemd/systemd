@@ -83,6 +83,7 @@
 /systemd-hostnamed
 /systemd-hwdb
 /systemd-import
+/systemd-importd
 /systemd-inhibit
 /systemd-initctl
 /systemd-journal-gatewayd

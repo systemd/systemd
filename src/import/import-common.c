@@ -26,19 +26,9 @@
 #include "copy.h"
 #include "btrfs-util.h"
 #include "import-job.h"
-#include "import-util.h"
+#include "import-common.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
-
-bool http_etag_is_valid(const char *etag) {
-        if (!endswith(etag, "\""))
-                return false;
-
-        if (!startswith(etag, "\"") && !startswith(etag, "W/\""))
-                return false;
-
-        return true;
-}
 
 int import_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
         _cleanup_free_ char *escaped_url = NULL;
@@ -221,66 +211,6 @@ int import_make_path(const char *url, const char *etag, const char *image_root, 
         *ret = path;
         return 0;
 }
-
-int import_url_last_component(const char *url, char **ret) {
-        const char *e, *p;
-        char *s;
-
-        e = strchrnul(url, '?');
-
-        while (e > url && e[-1] == '/')
-                e--;
-
-        p = e;
-        while (p > url && p[-1] != '/')
-                p--;
-
-        if (e <= p)
-                return -EINVAL;
-
-        s = strndup(p, e - p);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
-        return 0;
-}
-
-
-int import_url_change_last_component(const char *url, const char *suffix, char **ret) {
-        const char *e;
-        char *s;
-
-        assert(url);
-        assert(ret);
-
-        e = strchrnul(url, '?');
-
-        while (e > url && e[-1] == '/')
-                e--;
-
-        while (e > url && e[-1] != '/')
-                e--;
-
-        if (e <= url)
-                return -EINVAL;
-
-        s = new(char, (e - url) + strlen(suffix) + 1);
-        if (!s)
-                return -ENOMEM;
-
-        strcpy(mempcpy(s, url, e - url), suffix);
-        *ret = s;
-        return 0;
-}
-
-static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
-        [IMPORT_VERIFY_NO] = "no",
-        [IMPORT_VERIFY_SUM] = "sum",
-        [IMPORT_VERIFY_SIGNATURE] = "signature",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
 
 int import_make_verification_jobs(
                 ImportJob **ret_checksum_job,
@@ -478,6 +408,10 @@ int import_verify(
                 cmd[k++] = sig_file_path;
                 cmd[k++] = "-";
                 cmd[k++] = NULL;
+
+                fd_cloexec(STDIN_FILENO, false);
+                fd_cloexec(STDOUT_FILENO, false);
+                fd_cloexec(STDERR_FILENO, false);
 
                 execvp("gpg", (char * const *) cmd);
                 log_error_errno(errno, "Failed to execute gpg: %m");

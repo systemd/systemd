@@ -33,6 +33,7 @@
 /systemd-hibernate.service
 /systemd-hostnamed.service
 /systemd-hybrid-sleep.service
+/systemd-importd.service
 /systemd-initctl.service
 /systemd-journal-catalog-update.service
 /systemd-journal-flush.service

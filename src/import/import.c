@@ -36,6 +36,12 @@ static const char *arg_image_root = "/var/lib/machines";
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = DEFAULT_DKR_INDEX_URL;
 
+static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        log_notice("Transfer aborted.");
+        sd_event_exit(sd_event_source_get_event(s), EINTR);
+        return 0;
+}
+
 static void on_tar_finished(TarImport *import, int error, void *userdata) {
         sd_event *event = userdata;
         assert(import);
@@ -43,34 +49,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, EXIT_FAILURE);
-}
-
-static int strip_tar_suffixes(const char *name, char **ret) {
-        const char *e;
-        char *s;
-
-        e = endswith(name, ".tar");
-        if (!e)
-                e = endswith(name, ".tar.xz");
-        if (!e)
-                e = endswith(name, ".tar.gz");
-        if (!e)
-                e = endswith(name, ".tar.bz2");
-        if (!e)
-                e = endswith(name, ".tgz");
-        if (!e)
-                e = strchr(name, 0);
-
-        if (e <= name)
-                return -EINVAL;
-
-        s = strndup(name, e - name);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = s;
-        return 0;
+        sd_event_exit(event, abs(error));
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
@@ -100,7 +79,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = NULL;
 
         if (local) {
-                r = strip_tar_suffixes(local, &ll);
+                r = tar_strip_suffixes(local, &ll);
                 if (r < 0)
                         return log_oom();
 
@@ -130,8 +109,8 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_import_new(&import, event, arg_image_root, on_tar_finished, event);
         if (r < 0)
@@ -146,8 +125,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         log_info("Exiting.");
-
-        return r;
+        return -r;
 }
 
 static void on_raw_finished(RawImport *import, int error, void *userdata) {
@@ -157,47 +135,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, EXIT_FAILURE);
-}
-
-static int strip_raw_suffixes(const char *p, char **ret) {
-        static const char suffixes[] =
-                ".xz\0"
-                ".gz\0"
-                ".bz2\0"
-                ".raw\0"
-                ".qcow2\0"
-                ".img\0"
-                ".bin\0";
-
-        _cleanup_free_ char *q = NULL;
-
-        q = strdup(p);
-        if (!q)
-                return -ENOMEM;
-
-        for (;;) {
-                const char *sfx;
-                bool changed = false;
-
-                NULSTR_FOREACH(sfx, suffixes) {
-                        char *e;
-
-                        e = endswith(q, sfx);
-                        if (e) {
-                                *e = 0;
-                                changed = true;
-                        }
-                }
-
-                if (!changed)
-                        break;
-        }
-
-        *ret = q;
-        q = NULL;
-
-        return 0;
+        sd_event_exit(event, abs(error));
 }
 
 static int pull_raw(int argc, char *argv[], void *userdata) {
@@ -227,7 +165,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = NULL;
 
         if (local) {
-                r = strip_raw_suffixes(local, &ll);
+                r = raw_strip_suffixes(local, &ll);
                 if (r < 0)
                         return log_oom();
 
@@ -257,8 +195,8 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_import_new(&import, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
@@ -273,8 +211,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         log_info("Exiting.");
-
-        return r;
+        return -r;
 }
 
 static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
@@ -284,7 +221,7 @@ static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, EXIT_FAILURE);
+        sd_event_exit(event, abs(error));
 }
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
@@ -360,8 +297,8 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
-        sd_event_add_signal(event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = dkr_import_new(&import, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
         if (r < 0)
@@ -376,8 +313,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         log_info("Exiting.");
-
-        return 0;
+        return -r;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
