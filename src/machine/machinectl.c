@@ -1355,7 +1355,6 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         int master = -1, r, ret = 0;
         sd_bus *bus = userdata;
         const char *pty, *match;
-        sigset_t mask;
         char last_char = 0;
         bool machine_died;
 
@@ -1417,9 +1416,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
-        assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+        sigprocmask_many(SIG_BLOCK, SIGWINCH, SIGTERM, SIGINT, -1);
 
         log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", argv[1]);
 
