@@ -328,9 +328,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-root=            Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
-               "  pull-tar URL [NAME]         Download a TAR image\n"
-               "  pull-raw URL [NAME]         Download a RAW image\n"
-               "  pull-dkr REMOTE [NAME]      Download a DKR image\n",
+               "  tar URL [NAME]              Download a TAR image\n"
+               "  raw URL [NAME]              Download a RAW image\n"
+               "  dkr REMOTE [NAME]           Download a DKR image\n",
                program_invocation_short_name);
 
         return 0;
@@ -412,10 +412,10 @@ static int parse_argv(int argc, char *argv[]) {
 static int import_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",     VERB_ANY, VERB_ANY, 0, help     },
-                { "pull-tar", 2,        3,        0, pull_tar },
-                { "pull-raw", 2,        3,        0, pull_raw },
-                { "pull-dkr", 2,        3,        0, pull_dkr },
+                { "help", VERB_ANY, VERB_ANY, 0, help     },
+                { "tar",  2,        3,        0, pull_tar },
+                { "raw",  2,        3,        0, pull_raw },
+                { "dkr",  2,        3,        0, pull_dkr },
                 {}
         };
 

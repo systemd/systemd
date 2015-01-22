@@ -343,9 +343,7 @@ static int transfer_start(Transfer *t) {
         if (t->pid == 0) {
                 const char *cmd[] = {
                         "systemd-pull",
-                        t->type == TRANSFER_TAR ? "pull-tar" :
-                        t->type == TRANSFER_RAW ? "pull-raw" :
-                                                      "pull-dkr",
+                        transfer_type_to_string(t->type),
                         "--verify",
                         NULL, /* verify argument */
                         NULL, /* maybe --force */
