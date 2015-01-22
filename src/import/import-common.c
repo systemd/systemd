@@ -507,11 +507,12 @@ int import_fork_tar(const char *path, pid_t *ret) {
                 fd_cloexec(STDOUT_FILENO, false);
                 fd_cloexec(STDERR_FILENO, false);
 
+                if (unshare(CLONE_NEWNET) < 0)
+                        log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+
                 r = capability_bounding_set_drop(~retain, true);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to drop capabilities, ignoring: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                if (r < 0)
+                        log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
                 execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
