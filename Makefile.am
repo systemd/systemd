@@ -5273,24 +5273,21 @@ if HAVE_GCRYPT
 
 rootlibexec_PROGRAMS += \
 	systemd-importd \
-	systemd-import
+	systemd-pull
 
 systemd_importd_SOURCES = \
-	src/import/importd.c \
-	src/import/importd.h
+	src/import/importd.c
 
 systemd_importd_CFLAGS = \
 	$(AM_CFLAGS) \
-	-D SYSTEMD_IMPORT_PATH=\"$(rootlibexecdir)/systemd-import\" \
-	-D VENDOR_KEYRING_PATH=\"$(rootlibexecdir)/import-pubring.gpg\" \
-	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
+	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-import\"
 
 systemd_importd_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-systemd_import_SOURCES = \
-	src/import/import.c \
+systemd_pull_SOURCES = \
+	src/import/pull.c \
 	src/import/import-raw.c \
 	src/import/import-raw.h \
 	src/import/import-tar.c \
@@ -5308,7 +5305,7 @@ systemd_import_SOURCES = \
 	src/import/qcow2-util.c \
 	src/import/qcow2-util.h
 
-systemd_import_CFLAGS = \
+systemd_pull_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
 	$(XZ_CFLAGS) \
@@ -5317,7 +5314,7 @@ systemd_import_CFLAGS = \
 	-D VENDOR_KEYRING_PATH=\"$(rootlibexecdir)/import-pubring.gpg\" \
 	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
 
-systemd_import_LDADD = \
+systemd_pull_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \

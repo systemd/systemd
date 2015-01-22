@@ -342,7 +342,7 @@ static int transfer_start(Transfer *t) {
                 return -errno;
         if (t->pid == 0) {
                 const char *cmd[] = {
-                        "systemd-import",
+                        "systemd-pull",
                         t->type == TRANSFER_TAR ? "pull-tar" :
                         t->type == TRANSFER_RAW ? "pull-raw" :
                                                       "pull-dkr",
@@ -413,7 +413,7 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = t->local;
                 cmd[k] = NULL;
 
-                execv(SYSTEMD_IMPORT_PATH, (char * const *) cmd);
+                execv(SYSTEMD_PULL_PATH, (char * const *) cmd);
                 log_error_errno(errno, "Failed to execute import tool: %m");
                 _exit(EXIT_FAILURE);
         }
