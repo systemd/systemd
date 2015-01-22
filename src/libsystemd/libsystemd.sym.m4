@@ -382,6 +382,9 @@ global:
         sd_event_add_child;
         sd_event_add_defer;
         sd_event_add_exit;
+        sd_event_wait;
+        sd_event_prepare;
+        sd_event_dispatch;
         sd_event_run;
         sd_event_loop;
         sd_event_exit;
