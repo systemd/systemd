@@ -1,13 +1,13 @@
 # French translations for systemd package
 # Traductions françaises du paquet systemd.
 # This file is distributed under the same license as the systemd package.
-# Sylvain Plantefève <sylvain.plantefeve@gmail.com>, 2013.
+# Sylvain Plantefève <sylvain.plantefeve@gmail.com>, 2013-2015
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-28 13:02+0100\n"
+"POT-Creation-Date: 2015-01-22 16:03+0100\n"
 "PO-Revision-Date: 2014-12-28 13:04+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -16,6 +16,42 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Renvoyer la phrase secrète au système"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "Authentification requise pour renvoyer la phrase secrète au système."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Manage system services or units"
+msgstr "Gérer les services système ou les unités"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to manage system services or units."
+msgstr ""
+"Authentification requise pour gérer les services système ou les unités."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Gérer le service système ou ses fichiers unités"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Authentification requise pour gérer le service système ou ses fichiers "
+"unités."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Reload the systemd state"
+msgstr "Recharger l'état de systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to reload the systemd state."
+msgstr "Authentification requise pour recharger l'état de systemd"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -34,8 +70,8 @@ msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
 msgstr ""
-"Authentification requise pour définir le nom d'hôte local de manière statique, "
-"tout comme le nom d'hôte familier."
+"Authentification requise pour définir le nom d'hôte local de manière "
+"statique, tout comme le nom d'hôte familier."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
 msgid "Set machine information"
@@ -45,6 +81,16 @@ msgstr "Définir les informations sur la machine"
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Authentification requise pour définir les informations sur la machine locale."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Download a VM or container image"
+msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to download a VM or container image"
+msgstr ""
+"Authentification requise pour télécharger une image de "
+"machine virtuelle (VM) ou de conteneur."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -60,7 +106,8 @@ msgstr "Définir les paramètres de clavier du système"
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:4
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Authentification requise pour définir les paramètres de clavier du système."
+msgstr ""
+"Authentification requise pour définir les paramètres de clavier du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:1
 msgid "Allow applications to inhibit system shutdown"
@@ -68,8 +115,7 @@ msgstr "Permet aux applications d'empêcher l'arrêt du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required for an application to inhibit system "
-"shutdown."
+"Authentication is required for an application to inhibit system shutdown."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher l'arrêt "
 "du système."
@@ -79,19 +125,17 @@ msgid "Allow applications to delay system shutdown"
 msgstr "Permet aux applications de retarder l'arrêt du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
-msgid ""
-"Authentication is required for an application to delay system shutdown."
+msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
-"Authentification requise pour permettre à une application de retarder l'arrêt "
-"du système."
+"Authentification requise pour permettre à une application de retarder "
+"l'arrêt du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:5
 msgid "Allow applications to inhibit system sleep"
 msgstr "Permet aux applications d'empêcher la mise en veille du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
-msgid ""
-"Authentication is required for an application to inhibit system sleep."
+msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la mise "
 "en veille du système."
@@ -101,33 +145,34 @@ msgid "Allow applications to delay system sleep"
 msgstr "Permet aux applications de retarder la mise en veille du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
-msgid ""
-"Authentication is required for an application to delay system sleep."
+msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
-"Authentification requise pour permettre à une application de retarder la mise "
-"en veille du système."
+"Authentification requise pour permettre à une application de retarder la "
+"mise en veille du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:9
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr "Permet aux applications d'empêcher l'hibernation automatique du système"
+msgstr ""
+"Permet aux applications d'empêcher l'hibernation automatique du système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required for an application to inhibit automatic "
-"system suspend."
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher "
 "l'hibernation automatique du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr "Permet aux applications d'empêcher la gestion du bouton d'alimentation "
-" du système"
+msgstr ""
+"Permet aux applications d'empêcher la gestion du bouton d'alimentation  du "
+"système"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the power key."
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la "
 "gestion du bouton d'alimentation du système."
@@ -140,11 +185,11 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the suspend key."
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
 msgstr ""
-"Authentification requise pour permettre à une application d'empêcher la gestion "
-"du bouton de mise en veille du système."
+"Authentification requise pour permettre à une application d'empêcher la "
+"gestion du bouton de mise en veille du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:15
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -154,11 +199,11 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the hibernate key."
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
 msgstr ""
-"Authentification requise pour permettre à une application d'empêcher la gestion "
-"du bouton d'hibernation du système."
+"Authentification requise pour permettre à une application d'empêcher la "
+"gestion du bouton d'hibernation du système."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:17
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -168,8 +213,8 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the lid switch."
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
 msgstr ""
 "Authentification requise pour permettre à une application d'empêcher la "
 "gestion par le système du rabat de l'écran."
@@ -179,8 +224,7 @@ msgid "Allow non-logged-in users to run programs"
 msgstr "Permet aux utilisateurs non connectés d'exécuter des programmes"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid ""
-"Authentication is required to run programs as a non-logged-in user."
+msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Authentification requise pour permettre aux utilisateurs non connectés "
 "d'exécuter des programmes."
@@ -191,7 +235,8 @@ msgstr "Permet d'associer des périphériques à des postes (seats)"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
 msgid "Authentication is required for attaching a device to a seat."
-msgstr "Authentification requise pour associer un périphérique à un poste (seat)."
+msgstr ""
+"Authentification requise pour associer un périphérique à un poste (seat)."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Flush device to seat attachments"
@@ -201,8 +246,8 @@ msgstr "Révoquer les associations de périphériques aux postes (seats)"
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
-"Authentification requise pour révoquer les associations de périphériques "
-"aux postes (seats)."
+"Authentification requise pour révoquer les associations de périphériques aux "
+"postes (seats)."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Power off the system"
@@ -233,8 +278,8 @@ msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Authentification requise pour éteindre le système alors qu'une application "
-"a demandé de l'empêcher."
+"Authentification requise pour éteindre le système alors qu'une application a "
+"demandé de l'empêcher."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Reboot the system"
@@ -265,8 +310,8 @@ msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
 msgstr ""
-"Authentification requise pour redémarrer le système alors qu'une application "
-" a demandé de l'empêcher."
+"Authentification requise pour redémarrer le système alors qu'une "
+"application  a demandé de l'empêcher."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
 msgid "Suspend the system"
@@ -278,19 +323,21 @@ msgstr "Authentification requise pour mettre le système en veille."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
 msgid "Suspend the system while other users are logged in"
-msgstr "Mettre le système en veille alors que d'autres utilisateurs sont connectés"
+msgstr ""
+"Mettre le système en veille alors que d'autres utilisateurs sont connectés"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
 msgstr ""
-"Authentification requise pour mettre le système en veille alors que "
-"d'autres utilisateurs sont connectés."
+"Authentification requise pour mettre le système en veille alors que d'autres "
+"utilisateurs sont connectés."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while an application asked to inhibit it"
-msgstr "Mettre le système en veille alors qu'une application a demandé de l'empêcher"
+msgstr ""
+"Mettre le système en veille alors qu'une application a demandé de l'empêcher"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
@@ -310,7 +357,9 @@ msgstr "Authentification requise pour mettre le système en hibernation."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
 msgid "Hibernate the system while other users are logged in"
-msgstr "Mettre le système en hibernation alors que d'autres utilisateurs sont connectés"
+msgstr ""
+"Mettre le système en hibernation alors que d'autres utilisateurs sont "
+"connectés"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
@@ -339,7 +388,7 @@ msgid "Log into a local container"
 msgstr "Connexion dans un conteneur local"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-msgid "Authentication is required to log into a local container."
+msgid "Authentication is required to log into a local container"
 msgstr ""
 "Authentification requise pour permettre la connexion dans un conteneur local."
 
@@ -370,8 +419,8 @@ msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
-"Authentification requise pour positionner l'horloge matérielle à l'heure locale "
-"ou sur le temps universel coordonné (UTC)."
+"Authentification requise pour positionner l'horloge matérielle à l'heure "
+"locale ou sur le temps universel coordonné (UTC)."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
 msgid "Turn network time synchronization on or off"
@@ -382,41 +431,5 @@ msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
-"Authentification requise pour activer ou désactiver la synchronisation "
-"de l'heure avec le réseau."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
-msgid "Send passphrase back to system"
-msgstr "Renvoyer la phrase secrète au système"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Authentification requise pour renvoyer la phrase secrète au système."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
-msgstr "Gérer les services système ou les unités"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
-msgstr ""
-"Authentification requise pour gérer les services système ou les unités."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
-msgid "Manage system service or unit files"
-msgstr "Gérer le service système ou ses fichiers unités"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Authentification requise pour gérer le service système ou ses fichiers unités."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-msgid "Reload the systemd state"
-msgstr "Recharger l'état de systemd"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-msgid "Authentication is required to reload the systemd state."
-msgstr "Authentification requise pour recharger l'état de systemd"
+"Authentification requise pour activer ou désactiver la synchronisation de "
+"l'heure avec le réseau."
