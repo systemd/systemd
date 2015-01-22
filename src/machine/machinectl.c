@@ -1733,19 +1733,14 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-typedef struct PullContext {
-        const char *path;
-        int result;
-} PullContext;
-
 static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        PullContext *c = userdata;
-        const char *line;
+        const char **our_path = userdata, *line;
         unsigned priority;
         int r;
 
         assert(bus);
         assert(m);
+        assert(our_path);
 
         r = sd_bus_message_read(m, "us", &priority, &line);
         if (r < 0) {
@@ -1753,7 +1748,7 @@ static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                 return 0;
         }
 
-        if (!streq_ptr(c->path, sd_bus_message_get_path(m)))
+        if (!streq_ptr(*our_path, sd_bus_message_get_path(m)))
                 return 0;
 
         if (arg_quiet && LOG_PRI(priority) >= LOG_INFO)
@@ -1764,14 +1759,13 @@ static int match_log_message(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 }
 
 static int match_transfer_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        PullContext *c = userdata;
-        const char *path, *result;
+        const char **our_path = userdata, *path, *result;
         uint32_t id;
         int r;
 
         assert(bus);
         assert(m);
-        assert(c);
+        assert(our_path);
 
         r = sd_bus_message_read(m, "uos", &id, &path, &result);
         if (r < 0) {
@@ -1779,10 +1773,21 @@ static int match_transfer_removed(sd_bus *bus, sd_bus_message *m, void *userdata
                 return 0;
         }
 
-        if (!streq_ptr(c->path, path))
+        if (!streq_ptr(*our_path, path))
                 return 0;
 
-        c->result = streq_ptr(result, "done");
+        sd_event_exit(sd_bus_get_event(bus), !streq_ptr(result, "done"));
+        return 0;
+}
+
+static int transfer_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        assert(s);
+        assert(si);
+
+        if (!arg_quiet)
+                log_info("Continuing download in the background. Use \"machinectl cancel-transfer %" PRIu32 "\" to arbort transfer.", PTR_TO_UINT32(userdata));
+
+        sd_event_exit(sd_event_source_get_event(s), EINTR);
         return 0;
 }
 
@@ -1790,9 +1795,8 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_slot_unref_ sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        PullContext c = {
-                .result = -1,
-        };
+        _cleanup_event_unref_ sd_event* event = NULL;
+        const char *path = NULL;
         uint32_t id;
         int r;
 
@@ -1800,6 +1804,14 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
         assert(m);
 
         polkit_agent_open_if_enabled();
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_bus_attach_event(bus, event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
@@ -1813,7 +1825,7 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
                         "interface='org.freedesktop.import1.Manager',"
                         "member='TransferRemoved',"
                         "path='/org/freedesktop/import1'",
-                        match_transfer_removed, &c);
+                        match_transfer_removed, &path);
         if (r < 0)
                 return log_error_errno(r, "Failed to install match: %m");
 
@@ -1824,7 +1836,7 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
                         "sender='org.freedesktop.import1',"
                         "interface='org.freedesktop.import1.Transfer',"
                         "member='LogMessage'",
-                        match_log_message, &c);
+                        match_log_message, &path);
         if (r < 0)
                 return log_error_errno(r, "Failed to install match: %m");
 
@@ -1834,25 +1846,23 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "uo", &id, &c.path);
+        r = sd_bus_message_read(reply, "uo", &id, &path);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        for (;;) {
-                r = sd_bus_process(bus, NULL);
-                if (r < 0)
-                        return r;
+        sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1);
 
-                /* The match sets this to NULL when we are done */
-                if (c.result >= 0)
-                        break;
+        if (!arg_quiet)
+                log_info("Enqueued transfer job %u. Press C-c to continue download in background.", id);
 
-                r = sd_bus_wait(bus, (uint64_t) -1);
-                if (r < 0)
-                        return r;
-        }
+        sd_event_add_signal(event, NULL, SIGINT, transfer_signal_handler, UINT32_TO_PTR(id));
+        sd_event_add_signal(event, NULL, SIGTERM, transfer_signal_handler, UINT32_TO_PTR(id));
 
-        return c.result ? 0 : -EINVAL;
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        return -r;
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
