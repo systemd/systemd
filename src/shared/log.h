@@ -34,6 +34,7 @@
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
+        LOG_TARGET_CONSOLE_PREFIXED,
         LOG_TARGET_KMSG,
         LOG_TARGET_JOURNAL,
         LOG_TARGET_JOURNAL_OR_KMSG,
