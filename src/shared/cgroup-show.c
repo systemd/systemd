@@ -43,7 +43,9 @@ static int compare(const void *a, const void *b) {
 static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads, OutputFlags flags) {
         unsigned i, j, pid_width;
 
-        assert(n_pids > 0);
+        if (n_pids <= 0)
+                return;
+
         qsort(pids, n_pids, sizeof(pid_t), compare);
 
         /* Filter duplicates */
