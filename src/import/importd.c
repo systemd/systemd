@@ -86,7 +86,7 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_DKR] = "dkr",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(transfer_type, TransferType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
 
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)

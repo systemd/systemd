@@ -348,12 +348,14 @@ static inline uint32_t random_u32(void) {
 }
 
 /* For basic lookup tables with strictly enumerated entries */
-#define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
+#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         scope const char *name##_to_string(type i) {                    \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
                         return NULL;                                    \
                 return name##_table[i];                                 \
-        }                                                               \
+        }
+
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
         scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
                 if (!s)                                                 \
@@ -363,11 +365,17 @@ static inline uint32_t random_u32(void) {
                             streq(name##_table[i], s))                  \
                                 return i;                               \
                 return (type) -1;                                       \
-        }                                                               \
+        }
+
+#define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
         struct __useless_struct_to_allow_trailing_semicolon__
 
-#define DEFINE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,static)
+#define DEFINE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,static)
 
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
