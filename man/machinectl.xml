@@ -197,6 +197,56 @@
                                 <literal>short</literal>.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--verify=</option></term>
+
+                                <listitem><para>When downloading a
+                                container or VM image, specify whether
+                                the image shall be verified before it
+                                is made available. Takes one of
+                                <literal>no</literal>,
+                                <literal>checksum</literal> and
+                                <literal>signature</literal>. If
+                                <literal>no</literal> no verification
+                                is done. If
+                                <literal>checksum</literal> is
+                                specified the download is checked for
+                                integrity after transfer is complete,
+                                but no signatures are verified. If
+                                <literal>signature</literal> is
+                                specified, the checksum is verified
+                                and the images's signature is checked
+                                against a local keyring of trustable
+                                vendors. It is strongly recommended to
+                                set this option to
+                                <literal>signature</literal> if the
+                                server and protocol support this.
+                                Defaults to
+                                <literal>signature</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--force</option></term>
+
+                                <listitem><para>When downloading a
+                                container or VM image, and a local
+                                copy by the specified local machine
+                                name already exists, delete it first
+                                and replace it by the newly downloaded
+                                image.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--dkr-index-url</option></term>
+
+                                <listitem><para>Specifies the index
+                                server to use for downloading
+                                <literal>dkr</literal> images with the
+                                <command>pull-dkr</command>. Takes a
+                                <literal>http://</literal>,
+                                <literal>https://</literal> URL.</para></listitem>
+                        </varlistentry>
+
                         <xi:include href="user-system-options.xml" xpointer="host" />
                         <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -583,6 +633,215 @@
                                 removed.</para></listitem>
                         </varlistentry>
 
+                </variablelist></refsect2>
+
+                <refsect2><title>Image Transfer Commands</title><variablelist>
+
+                        <varlistentry>
+                                <term><command>pull-tar</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+                                <listitem><para>Downloads a
+                                <filename>.tar</filename> container
+                                image from the specified URL, and
+                                makes it available under the specified
+                                local machine name. The URL must be of
+                                type <literal>http://</literal> or
+                                <literal>https://</literal>, and must
+                                refer to a <filename>.tar</filename>,
+                                <filename>.tar.gz</filename>,
+                                <filename>.tar.xz</filename> or
+                                <filename>.tar.bz2</filename> archive
+                                file. If the local machine name is
+                                omitted the name it is automatically
+                                derived from the last component of the
+                                URL, with its suffix removed.</para>
+
+                                <para>The image is verified before it
+                                is made available, unless
+                                <option>--verify=no</option> is
+                                specified. Verification is done via
+                                SHA256SUMS and SHA256SUMS.gpg files,
+                                that need to be made available on the
+                                same web server, under the same URL as
+                                the <filename>.tar</filename> file,
+                                but with the last component (the
+                                filename) of the URL replaced. With
+                                <option>--verify=checksum</option>
+                                only the SHA256 checksum for the file
+                                is verified, based on the
+                                <filename>SHA256SUMS</filename>
+                                file. With
+                                <option>--verify=signature</option>
+                                the SHA256SUMS file is first verified
+                                with detached GPG signature file
+                                <filename>SHA256SUMS.gpg</filename>. The
+                                public key for this verification step
+                                needs to be available in
+                                <filename>/usr/lib/systemd/import-pubring.gpg</filename>
+                                or
+                                <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+
+                                <para>The container image will be
+                                downloaded and stored in a read-only
+                                subvolume in
+                                <filename>/var/lib/machines/</filename>,
+                                that is named after the specified URL
+                                and its HTTP etag. A writable snapshot
+                                is then taken from this subvolume, and
+                                named after the specified local
+                                name. This behaviour ensures that
+                                creating multiple container instances
+                                of the same URL is efficient, as
+                                multiple downloads are not
+                                necessary. In order to create only the
+                                read-only image, and avoid creating
+                                its writable snapshot, specify
+                                <literal>-</literal> as local machine
+                                name.</para>
+
+                                <para>Note that the read-only
+                                subvolume is prefixed with
+                                <filename>.tar-</filename>, and
+                                is thus now shown by
+                                <command>list-images</command>, unless
+                                <option>--all</option> is passed.</para>
+
+                                <para>Note that pressing C-c during
+                                execution of this command will not
+                                abort the download. Use
+                                <command>cancel-transfer</command>,
+                                described below.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>pull-raw</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+                                <listitem><para>Downloads a
+                                <filename>.raw</filename> container or
+                                VM disk image from the specified URL,
+                                and makes it available under the
+                                specified local machine name. The URL
+                                must be of type
+                                <literal>http://</literal> or
+                                <literal>https://</literal>. The
+                                container image must either be a
+                                <filename>.qcow2</filename> or raw
+                                disk image, optionally compressed as
+                                <filename>.gz</filename>,
+                                <filename>.xz</filename>, or
+                                <filename>.bz2</filename>. If the
+                                local machine name is omitted the name
+                                it is automatically derived from the
+                                last component of the URL, with its
+                                suffix removed.</para>
+
+                                <para>Image verification is identical
+                                for raw and tar images (see above).</para>
+
+                                <para>If the the downloaded image is
+                                in <filename>.qcow2</filename> format
+                                it es converted into a raw image file
+                                before it is made available.</para>
+
+                                <para>Downloaded images of this type
+                                will be placed as read-only
+                                <filename>.raw</filename> file in
+                                <filename>/var/lib/machines/</filename>. A
+                                local, writable (reflinked) copy is
+                                then made under the specified local
+                                machine name. To omit creation of the
+                                local, writable copy pass
+                                <literal>-</literal> as local machine
+                                name.</para>
+
+                                <para>Similar to the behaviour of
+                                <command>pull-tar</command>, the
+                                read-only image is prefixed with
+                                <filename>.raw-</filename>, and thus
+                                now shown by
+                                <command>list-images</command>, unless
+                                <option>--all</option> is
+                                passed.</para>
+
+                                <para>Note that pressing C-c during
+                                execution of this command will not
+                                abort the download. Use
+                                <command>cancel-transfer</command>,
+                                described below.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>pull-dkr</command> <replaceable>REMOTE</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+                                <listitem><para>Downloads a
+                                <literal>dkr</literal> container image
+                                and makes it available locally. The
+                                remote name refers to a
+                                <literal>dkr</literal> container
+                                name. If omitted, the local machine
+                                name is derived from the
+                                <literal>dkr</literal> container
+                                name.</para>
+
+                                <para>Image verification is not
+                                available for <literal>dkr</literal>
+                                containers, and thus
+                                <option>--verify=no</option> must
+                                always be specified with this
+                                command.</para>
+
+                                <para>This command downloads all
+                                (missing) layers for the specified
+                                container and places them in read-only
+                                subvolumes in
+                                <filename>/var/lib/machines/</filename>. A
+                                writable snapshot of the newest layer
+                                is then created under the specified
+                                local machine name. To omit creation
+                                of this writable snapshot, pass
+                                <literal>-</literal> as local machine
+                                name.</para>
+
+                                <para>The read-only layer subvolumes
+                                are prefixed with
+                                <filename>.dkr-</filename>, and thus
+                                now shown by
+                                <command>list-images</command>, unless
+                                <option>--all</option> is
+                                passed.</para>
+
+                                <para>To specify the
+                                <literal>dkr</literal> index server to
+                                use for looking up the specified
+                                container, use
+                                <option>--dkr-index-url=</option>.</para>
+
+                                <para>Note that pressing C-c during
+                                execution of this command will not
+                                abort the download. Use
+                                <command>cancel-transfer</command>,
+                                described below.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>list-transfers</command></term>
+
+                                <listitem><para>Shows a list of
+                                container or VM image downloads that
+                                are currently in
+                                progress.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>cancel-transfers</command> <replaceable>ID</replaceable>...</term>
+
+                                <listitem><para>Aborts download of the
+                                container or VM image with the
+                                specified ID. To list ongoing
+                                transfers and their IDs, use
+                                <command>list-transfers</command>.
+                                </para></listitem>
+                        </varlistentry>
 
                 </variablelist></refsect2>
 
@@ -606,7 +865,10 @@
                 available for control with
                 <command>machinectl</command>.</para>
 
-                <para>Disk images are understood in three formats:</para>
+                <para>Disk images are understood by
+                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                and <command>machinectl</command> in three
+                formats:</para>
 
                 <itemizedlist>
                         <listitem><para>A simple directory tree,
@@ -631,6 +893,54 @@
                 for more information on image formats, in particular
                 it's <option>--directory=</option> and
                 <option>--image=</option> options.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Examples</title>
+                <example>
+                        <title>Download an Ubuntu image and open a shell in it</title>
+
+                        <programlisting># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
+# systemd-nspawn -M trusty-server-cloudimg-amd64-root</programlisting>
+
+                        <para>This downloads and verifies the
+                        specified <filename>.tar</filename> image, and
+                        then uses
+                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        to open a shell in it.</para>
+                </example>
+
+                <example>
+                        <title>Download a Fedora image, set a root password in it, start it as service</title>
+
+                        <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-20141203-21
+# passwd
+# exit
+# machinectl start Fedora-Cloud-Base-20141203-21
+# machinectl login Fedora-Cloud-Base-20141203-21</programlisting>
+
+                        <para>This downloads the specified
+                        <filename>.raw</filename> image with
+                        verification disabled. Then a shell is opened
+                        in it and a root password is set. Afterwards
+                        the shell is left, and the machine started as
+                        system service. With the last command a login
+                        prompt into the container is requested.</para>
+                </example>
+
+                <example>
+                        <title>Download a Fedora <literal>dkr</literal> image</title>
+
+                        <programlisting># machinectl pull-dkr --verify=no mattdm/fedora
+# systemd-nspawn -M fedora</programlisting>
+
+                        <para>Downloads a <literal>dkr</literal> image
+                        and opens a shell in it. Note that the
+                        specified download command might require an
+                        index server to be specified with the
+                        <literal>--dkr-index-url=</literal>.</para>
+                </example>
         </refsect1>
 
         <refsect1>

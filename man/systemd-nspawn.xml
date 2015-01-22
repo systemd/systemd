@@ -247,26 +247,43 @@
                                 the root directory for the container
                                 from. Takes a path to a regular file
                                 or to a block device node. The file or
-                                block device must contain either an
-                                MBR partition table with a single
-                                partition of type 0x83 that is marked
-                                bootable, or a GUID partition table
-                                with a root partition which is mounted
-                                as the root directory of the
-                                container. Optionally, GPT images may
-                                contain a home and/or a server data
-                                partition which are mounted to the
-                                appropriate places in the
-                                container. All these partitions must
-                                be identified by the partition types
-                                defined by the <ulink
-                                url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
-                                Partitions Specification</ulink>. Any
-                                other partitions, such as foreign
-                                partitions, swap partitions or EFI
-                                system partitions are not mounted. May
-                                not be specified together with
-                                <option>--directory=</option>,
+                                block device must contain either:</para>
+
+                                <itemizedlist>
+                                        <listitem><para>An MBR
+                                        partition table with a single
+                                        partition of type 0x83 that is
+                                        marked
+                                        bootable.</para></listitem>
+
+                                        <listitem><para>A GUID
+                                        partition table (GPT) with a single
+                                        partition of type
+                                        0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
+
+                                        <listitem><para>A GUID
+                                        partition table (GPT) with a
+                                        marked root partition which is
+                                        mounted as the root directory
+                                        of the container. Optionally,
+                                        GPT images may contain a home
+                                        and/or a server data partition
+                                        which are mounted to the
+                                        appropriate places in the
+                                        container. All these
+                                        partitions must be identified
+                                        by the partition types defined
+                                        by the <ulink
+                                        url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+                                        Partitions
+                                        Specification</ulink>.</para></listitem>
+                                </itemizedlist>
+
+                                <para>Any other partitions, such as
+                                foreign partitions, swap partitions or
+                                EFI system partitions are not
+                                mounted. May not be specified together
+                                with <option>--directory=</option>,
                                 <option>--template=</option> or
                                 <option>--ephemeral</option>.</para></listitem>
                         </varlistentry>
@@ -412,7 +429,7 @@
                         <varlistentry>
                                 <term><option>--network-ipvlan=</option></term>
 
-                                <listitem><para>Create a
+                                <listitem><para>Create an
                                 <literal>ipvlan</literal> interface
                                 of the specified Ethernet network
                                 interface and add it to the
@@ -831,8 +848,18 @@
 
         <refsect1>
                 <title>Examples</title>
+
                 <example>
-                        <title>Boot a minimal Fedora distribution in a container</title>
+                        <title>Download a Fedora image and start a shell in it</title>
+
+                        <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-20141203-21</programlisting>
+
+<para>This downloads an image using <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and opens a shell in it.</para>
+                </example>
+
+                <example>
+                        <title>Build and boot a minimal Fedora distribution in a container</title>
 
                         <programlisting># yum -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
@@ -864,18 +891,6 @@
                         <para>This installs a mimimal Arch Linux distribution into
                         the directory <filename>~/arch-tree/</filename> and then
                         boots an OS in a namespace container in it.</para>
-                </example>
-
-                <example>
-                        <title>Enable Arch Linux container on boot</title>
-
-                        <programlisting># mv ~/arch-tree /var/lib/machines/arch
-# systemctl enable systemd-nspawn@arch.service
-# systemctl start systemd-nspawn@arch.service</programlisting>
-
-                        <para>This makes the Arch Linux container part of the
-                        <filename>multi-user.target</filename> on the host.
-                        </para>
                 </example>
 
                 <example>
