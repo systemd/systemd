@@ -166,7 +166,7 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
 
         syslog_parse_priority(&line, &priority, true);
 
-        log_full(priority, "(transfer%" PRIu32 "): %s", t->id, line);
+        log_full(priority, "(transfer%" PRIu32 ") %s", t->id, line);
 
         r = sd_bus_emit_signal(
                         t->manager->bus,
@@ -782,7 +782,7 @@ static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userda
 
         t = hashmap_get(m->transfers, UINT32_TO_PTR(id));
         if (!t)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_TRANSFER, "Not transfer by id %" PRIu32, id);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_TRANSFER, "No transfer by id %" PRIu32, id);
 
         r = transfer_cancel(t);
         if (r < 0)
