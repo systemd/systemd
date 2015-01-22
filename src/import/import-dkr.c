@@ -454,7 +454,7 @@ static int dkr_import_job_on_open_disk(ImportJob *j) {
                 }
 
                 if (pipefd[0] != STDIN_FILENO)
-                        safe_close(pipefd[0]);
+                        pipefd[0] = safe_close(pipefd[0]);
 
                 null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
                 if (null_fd < 0) {
@@ -468,7 +468,11 @@ static int dkr_import_job_on_open_disk(ImportJob *j) {
                 }
 
                 if (null_fd != STDOUT_FILENO)
-                        safe_close(null_fd);
+                        null_fd = safe_close(null_fd);
+
+                fd_cloexec(STDIN_FILENO, false);
+                fd_cloexec(STDOUT_FILENO, false);
+                fd_cloexec(STDERR_FILENO, false);
 
                 execlp("tar", "tar", "--numeric-owner", "-C", i->temp_path, "-px", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");

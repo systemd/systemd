@@ -34,4 +34,4 @@ TarImport* tar_import_unref(TarImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
 
-int tar_import_pull(TarImport *import, const char *rul, const char *local, bool force_local, ImportVerify verify);
+int tar_import_pull(TarImport *import, const char *url, const char *local, bool force_local, ImportVerify verify);
