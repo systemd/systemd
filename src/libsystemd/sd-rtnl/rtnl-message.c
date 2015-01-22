@@ -1476,7 +1476,7 @@ int socket_read_message(sd_rtnl *rtnl) {
                 r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -ENOTSUP)
-                                log_debug("sd-rtnl: ignored message with unknown type: %u",
+                                log_debug("sd-rtnl: ignored message with unknown type: %i",
                                           new_msg->nlmsg_type);
 
                         continue;

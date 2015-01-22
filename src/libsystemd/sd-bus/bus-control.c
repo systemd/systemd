@@ -1268,7 +1268,7 @@ int bus_add_match_internal_kernel(
                         if (c->type - BUS_MATCH_ARG < 3)
                                 name_change_arg[c->type - BUS_MATCH_ARG] = c->value_str;
 
-                        snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
+                        snprintf(buf, sizeof(buf), "arg%i", c->type - BUS_MATCH_ARG);
                         bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;
@@ -1277,7 +1277,7 @@ int bus_add_match_internal_kernel(
                 case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
                         char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
 
-                        snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
+                        snprintf(buf, sizeof(buf), "arg%i-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
                         bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;
@@ -1286,7 +1286,7 @@ int bus_add_match_internal_kernel(
                 case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
                         char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
 
-                        snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
+                        snprintf(buf, sizeof(buf), "arg%i-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
                         bloom_add_pair(bloom, bus->bloom_size, bus->bloom_n_hash, buf, c->value_str);
                         using_bloom = true;
                         break;

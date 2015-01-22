@@ -323,7 +323,7 @@ static int journal_file_verify_header(JournalFile *f) {
                 } else if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN;
                 else if (state != STATE_OFFLINE) {
-                        log_debug("Journal file %s has unknown state %u.", f->path, state);
+                        log_debug("Journal file %s has unknown state %i.", f->path, state);
                         return -EBUSY;
                 }
         }
@@ -2417,7 +2417,7 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 default:
-                        printf("Type: unknown (%u)\n", o->object.type);
+                        printf("Type: unknown (%i)\n", o->object.type);
                         break;
                 }
 
