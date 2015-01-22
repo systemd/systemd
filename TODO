@@ -33,13 +33,17 @@ Release 219 preparations:
 
 * rework journald sigbus stuff to use mutex
 
-* machinectl: document new importd commands
-
-* machinectl: when pressing C-c during transfers, send Cancel to server.
-
 * machinectl: show progress percentage in list
 
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
+
+* importd: sandbox things
+
+* "systemctl kill" is broken
+
+* the dbus1 connection user id is actually the euid, not the uid, and creds should return that
+
+* sd-bus make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
 
 Features:
 
@@ -52,8 +56,6 @@ Features:
 * core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
 
 * bus-proxy: reload policy when PID 1 reports a reload
-
-* the dbus1 connection user id is actually the euid, not the uid, and creds should return that
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
 
@@ -345,7 +347,6 @@ Features:
 * sd-bus:
   - GetAllProperties() on a non-existing object does not result in a failure currently
   - kdbus: process fd=-1 for incoming msgs
-  - make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
   - port to sd-resolve for connecting to TCP dbus servers
   - kdbus: maybe add controlling tty metadata fields
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
