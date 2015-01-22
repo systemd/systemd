@@ -45,9 +45,9 @@
 #include <sys/inotify.h>
 
 #if SIZEOF_PID_T == 4
-#  define PID_FMT "%" PRIu32
+#  define PID_FMT "%" PRIi32
 #elif SIZEOF_PID_T == 2
-#  define PID_FMT "%" PRIu16
+#  define PID_FMT "%" PRIi16
 #else
 #  error Unknown pid_t size
 #endif
