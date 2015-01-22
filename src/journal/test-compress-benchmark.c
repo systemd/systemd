@@ -32,7 +32,7 @@ static char* make_buf(size_t count) {
         size_t i;
 
         buf = malloc(count);
-        assert(buf);
+        assert_se(buf);
 
         for (i = 0; i < count; i++)
                 buf[i] = 'a' + i % ('z' - 'a' + 1);
@@ -52,7 +52,7 @@ static void test_compress_decompress(const char* label,
 
         text = make_buf(MAX_SIZE);
         buf = calloc(MAX_SIZE + 1, 1);
-        assert(text && buf);
+        assert_se(text && buf);
 
         n = now(CLOCK_MONOTONIC);
 
@@ -62,24 +62,24 @@ static void test_compress_decompress(const char* label,
 
                 r = compress(text, i, buf, &j);
                 /* assume compression must be successful except for small inputs */
-                assert(r == 0 || (i < 2048 && r == -ENOBUFS));
+                assert_se(r == 0 || (i < 2048 && r == -ENOBUFS));
                 /* check for overwrites */
-                assert(buf[i] == 0);
+                assert_se(buf[i] == 0);
                 if (r != 0) {
                         skipped += i;
                         continue;
                 }
 
-                assert(j > 0);
+                assert_se(j > 0);
                 if (j >= i)
                         log_error("%s \"compressed\" %zu -> %zu", label, i, j);
 
                 r = decompress(buf, j, &buf2, &buf2_allocated, &k, 0);
-                assert(r == 0);
-                assert(buf2_allocated >= k);
-                assert(k == i);
+                assert_se(r == 0);
+                assert_se(buf2_allocated >= k);
+                assert_se(k == i);
 
-                assert(memcmp(text, buf2, i) == 0);
+                assert_se(memcmp(text, buf2, i) == 0);
 
                 total += i;
                 compressed += j;

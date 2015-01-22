@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-
 #include "log.h"
 #include "util.h"
 #include "macro.h"
@@ -34,7 +32,7 @@ static bool mask[32];
 
 static int filter(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Ran %u", PTR_TO_UINT(userdata));
-        assert(PTR_TO_UINT(userdata) < ELEMENTSOF(mask));
+        assert_se(PTR_TO_UINT(userdata) < ELEMENTSOF(mask));
         mask[PTR_TO_UINT(userdata)] = true;
         return 0;
 }

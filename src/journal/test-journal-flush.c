@@ -22,6 +22,7 @@
 #include <fcntl.h>
 
 #include "sd-journal.h"
+#include "macro.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 
@@ -49,13 +50,13 @@ int main(int argc, char *argv[]) {
                 JournalFile *f;
 
                 f = j->current_file;
-                assert(f && f->current_offset > 0);
+                assert_se(f && f->current_offset > 0);
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                assert(r >= 0);
+                assert_se(r >= 0);
 
                 r = journal_file_copy_entry(f, new_journal, o, f->current_offset, NULL, NULL, NULL);
-                assert(r >= 0);
+                assert_se(r >= 0);
 
                 n++;
                 if (n > 10000)

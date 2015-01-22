@@ -28,7 +28,6 @@
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include <assert.h>
 #include <signal.h>
 #include <errno.h>
 
@@ -40,7 +39,7 @@
 static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
         const struct addrinfo *i;
 
-        assert(q);
+        assert_se(q);
 
         if (ret != 0) {
                 log_error("getaddrinfo error: %s %i", gai_strerror(ret), ret);
@@ -60,7 +59,7 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
 }
 
 static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata) {
-        assert(q);
+        assert_se(q);
 
         if (ret != 0) {
                 log_error("getnameinfo error: %s %i", gai_strerror(ret), ret);
@@ -77,7 +76,7 @@ static int res_handler(sd_resolve_query *q, int ret, unsigned char *answer, void
         unsigned char *end = answer + ret;
         HEADER *head = (HEADER *) answer;
         char name[256];
-        assert(q);
+        assert_se(q);
 
         if (ret < 0) {
                 log_error("res_query() error: %s %i", strerror(errno), errno);
@@ -96,7 +95,7 @@ static int res_handler(sd_resolve_query *q, int ret, unsigned char *answer, void
 
         /* Ignore the questions */
         while (qdcount-- > 0 && (len = dn_expand(answer, end, pos, name, 255)) >= 0) {
-                assert(len >= 0);
+                assert_se(len >= 0);
                 pos += len + QFIXEDSZ;
         }
 
@@ -104,7 +103,7 @@ static int res_handler(sd_resolve_query *q, int ret, unsigned char *answer, void
         while (ancount-- > 0 && (len = dn_expand(answer, end, pos, name, 255)) >= 0) {
                 /* Ignore the initial string */
                 uint16_t pref, weight, port;
-                assert(len >= 0);
+                assert_se(len >= 0);
                 pos += len;
                 /* Ignore type, ttl, class and dlen */
                 pos += 10;

@@ -175,7 +175,7 @@ static void test_compress_stream(int compression,
 
         assert_se(lseek(dst, 0, SEEK_SET) == 0);
         r = decompress(dst, dst2, st.st_size);
-        assert(r == 0);
+        assert_se(r == 0);
 
         assert_se(asprintf(&cmd2, "diff %s %s", srcfile, pattern2) > 0);
         assert_se(system(cmd2) == 0);
@@ -189,7 +189,7 @@ static void test_compress_stream(int compression,
         assert_se(lseek(dst, 0, SEEK_SET) == 0);
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);
         r = decompress(dst, dst2, st.st_size - 1);
-        assert(r == -EFBIG);
+        assert_se(r == -EFBIG);
 
         assert_se(unlink(pattern) == 0);
         assert_se(unlink(pattern2) == 0);

@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-        assert(sigbus_pop(&addr) == 0);
+        assert_se(sigbus_pop(&addr) == 0);
 
         assert_se((fd = mkostemp(template, O_RDWR|O_CREAT|O_EXCL)) >= 0);
         assert_se(unlink(template) >= 0);

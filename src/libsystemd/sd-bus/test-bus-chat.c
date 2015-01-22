@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -44,7 +43,7 @@ static int match_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
 static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int r;
 
-        assert(bus);
+        assert_se(bus);
 
         if (sd_bus_message_is_method_error(m, NULL))
                 return 0;
@@ -68,7 +67,7 @@ static int server_init(sd_bus **_bus) {
         int r;
         const char *unique;
 
-        assert(_bus);
+        assert_se(_bus);
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
@@ -299,7 +298,7 @@ static void* client1(void*p) {
                 goto finish;
         }
 
-        assert(streq(hello, "hello"));
+        assert_se(streq(hello, "hello"));
 
         if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
                 log_error_errno(errno, "Failed to allocate pipe: %m");

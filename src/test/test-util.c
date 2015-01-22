@@ -1254,11 +1254,11 @@ static void test_execute_directory(void) {
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL);
 
-        assert(chdir(template_lo) == 0);
+        assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        assert(chdir(template_hi) == 0);
+        assert_se(chdir(template_hi) == 0);
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 

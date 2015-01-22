@@ -20,6 +20,7 @@
  ***/
 
 #include "log.h"
+#include "macro.h"
 #include "resolved-dns-domain.h"
 
 static void test_dns_label_unescape_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
@@ -55,7 +56,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         int r;
 
         r = dns_label_escape(what, l, &t);
-        assert(r == ret);
+        assert_se(r == ret);
 
         if (r < 0)
                 return;
