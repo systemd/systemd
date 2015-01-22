@@ -33,7 +33,13 @@ Release 219 preparations:
 
 * rework journald sigbus stuff to use mutex
 
-* create importd daemon, move "systemd-import" tool into machinectl
+* machinectl: document new importd commands
+
+* machinectl: when pressing C-c during transfers, send Cancel to server.
+
+* machinectl: show progress percentage in list
+
+* nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
 Features:
 
@@ -54,8 +60,6 @@ Features:
 * logind,machined: add generic catch-all polkit verbs for most priviliged operations, similar to systemd itself
 
 * "machinectl status" should also show internal logs of the container in question
-
-* nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
 * "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
 
