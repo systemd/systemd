@@ -76,7 +76,7 @@ int import_url_change_last_component(const char *url, const char *suffix, char *
 
 static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
         [IMPORT_VERIFY_NO] = "no",
-        [IMPORT_VERIFY_SUM] = "sum",
+        [IMPORT_VERIFY_CHECKSUM] = "checksum",
         [IMPORT_VERIFY_SIGNATURE] = "signature",
 };
 
