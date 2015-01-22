@@ -78,14 +78,13 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, uint32_t
 
                 sprintf(ifindex_str, "n%d", ifindex);
                 device = udev_device_new_from_device_id(udev, ifindex_str);
-                if (!device)
-                        return -errno;
+                if (device) {
+                        if (udev_device_get_is_initialized(device) <= 0)
+                                /* not yet ready */
+                                return -EBUSY;
 
-                if (udev_device_get_is_initialized(device) <= 0)
-                        /* not yet ready */
-                        return -EBUSY;
-
-                name = net_get_name(device);
+                        name = net_get_name(device);
+                }
         }
 
         if (name)
