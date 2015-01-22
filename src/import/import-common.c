@@ -358,8 +358,7 @@ int import_verify(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
-                        "--keyring=" VENDOR_KEYRING_PATH,
-                        NULL, /* maybe user keyring */
+                        NULL, /* keyring to use */
                         NULL, /* --verify */
                         NULL, /* signature file */
                         NULL, /* dash */
@@ -403,6 +402,8 @@ int import_verify(
                  * otherwise. */
                 if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
+                else
+                        cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
 
                 cmd[k++] = "--verify";
                 cmd[k++] = sig_file_path;
