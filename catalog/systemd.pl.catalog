@@ -1,7 +1,7 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#  Copyright 2014 Piotr Drąg
+#  Copyright 2014, 2015 Piotr Drąg
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -25,7 +25,7 @@
 # For an explanation why we do all this, see https://xkcd.com/1024/
 
 -- f77379a8490b408bbe5f6940505a777b
-Subject: Uruchomiono Journal
+Subject: Uruchomiono dziennik
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
@@ -33,7 +33,7 @@ Systemowy proces dziennika został uruchomiony, otworzył pliki dziennika do
 zapisu i jest gotowy do przetwarzania żądań.
 
 -- d93fb3c9c24d451a97cea615ce59c00b
-Subject: Zatrzymano Journal
+Subject: Zatrzymano dziennik
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
@@ -52,12 +52,12 @@ zostały pominięte.
 Proszę zauważyć, że tylko komunikaty z danej usługi zostały pominięte. Nie ma
 to wpływu na komunikaty innych usług.
 
-Ograniczenia komunikatów mogą być konfigurowane za pomocą opcji
-RateLimitInterval= i RateLimitBurst= w pliku
+Ograniczenia kontrolujące pomijanie komunikatów mogą być konfigurowane
+za pomocą opcji RateLimitInterval= i RateLimitBurst= w pliku
 /etc/systemd/journald.conf. Strona journald.conf(5) zawiera więcej informacji.
 
 -- e9bf28e6e834481bb6f48f548ad13606
-Subject: Utracono komunikaty Journal
+Subject: Utracono komunikaty dziennika
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
@@ -223,7 +223,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Proces @EXECUTABLE@ nie mógł zostać wykonany i się nie powiódł.
 
-Numer błędu zwrócony podczas wykonywania tego procesu: @ERRNO@.
+Numer błędu zwrócony przez ten proces: @ERRNO@.
 
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: Nie można przekazać jednego lub więcej komunikatów do syslog

@@ -1,19 +1,58 @@
 # translation of pl.po to Polish
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013, 2014.
+# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013, 2014, 2015.
 # Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-12-26 01:01+0100\n"
-"PO-Revision-Date: 2014-12-26 01:04+0100\n"
+"POT-Creation-Date: 2015-01-22 15:18+0100\n"
+"PO-Revision-Date: 2015-01-22 15:12+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Wysłanie hasła z powrotem do systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Manage system services or units"
+msgstr "Zarządzanie usługami lub jednostkami systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to manage system services or units."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zarządzać usługami lub jednostkami "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Zarządzanie plikami usług lub jednostek systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zarządzać plikami usług lub jednostek "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Reload the systemd state"
+msgstr "Ponowne wczytanie stanu systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid "Authentication is required to reload the systemd state."
+msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -44,6 +83,16 @@ msgid "Authentication is required to set local machine information."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
 
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Download a VM or container image"
+msgstr "Pobranie obrazu maszyny wirtualnej lub kontenera"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to download a VM or container image"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby pobrać obraz maszyny wirtualnej lub "
+"kontenera"
+
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
 msgstr "Ustawienie lokalizacji systemu"
@@ -66,44 +115,32 @@ msgstr "Zezwolenie programom na wstrzymywanie wyłączenia systemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:2
 msgid ""
-"Authentication is required for an application to inhibit system "
-"shutdown."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"wyłączenia systemu."
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "Program wymaga uwierzytelnienia, aby wstrzymać wyłączenie systemu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:3
 msgid "Allow applications to delay system shutdown"
 msgstr "Zezwolenie programom na opóźnienie wyłączenia systemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:4
-msgid ""
-"Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na opóźnienie "
-"wyłączenia systemu."
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "Program wymaga uwierzytelnienia, aby opóźnić wyłączenie systemu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:5
 msgid "Allow applications to inhibit system sleep"
 msgstr "Zezwolenie programom na wstrzymanie uśpienia systemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:6
-msgid ""
-"Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"uśpienia systemu."
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "Program wymaga uwierzytelnienia, aby wstrzymać uśpienie systemu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:7
 msgid "Allow applications to delay system sleep"
 msgstr "Zezwolenie programom na opóźnienie uśpienia systemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:8
-msgid ""
-"Authentication is required for an application to delay system sleep."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na opóźnienie "
-"uśpienia systemu."
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "Program wymaga uwierzytelnienia, aby opóźnić uśpienie systemu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:9
 msgid "Allow applications to inhibit automatic system suspend"
@@ -111,11 +148,10 @@ msgstr "Zezwolenie programom na wstrzymanie automatycznego uśpienia systemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:10
 msgid ""
-"Authentication is required for an application to inhibit automatic "
-"system suspend."
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"automatycznego uśpienia systemu."
+"Program wymaga uwierzytelnienia, aby wstrzymać automatyczne uśpienie systemu."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:11
 msgid "Allow applications to inhibit system handling of the power key"
@@ -124,11 +160,11 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:12
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the power key."
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"obsługi klawisza zasilania przez system."
+"Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza zasilania "
+"przez system."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:13
 msgid "Allow applications to inhibit system handling of the suspend key"
@@ -137,11 +173,11 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:14
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the suspend key."
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"obsługi klawisza uśpienia przez system."
+"Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza uśpienia "
+"przez system."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:15
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -150,11 +186,11 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:16
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the hibernate key."
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"obsługi klawisza hibernacji przez system."
+"Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza hibernacji "
+"przez system."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:17
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -163,22 +199,21 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:18
 msgid ""
-"Authentication is required for an application to inhibit system "
-"handling of the lid switch."
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
-"obsługi przełącznika pokrywy przez system."
+"Program wymaga uwierzytelnienia, aby wstrzymać obsługę przełącznika pokrywy "
+"przez system."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:19
 msgid "Allow non-logged-in users to run programs"
 msgstr "Zezwolenie niezalogowanym użytkownikom na uruchamianie programów"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:20
-msgid ""
-"Authentication is required to run programs as a non-logged-in user."
+msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić niezalogowanemu użytkownikowi "
-"na uruchamianie programów."
+"Wymagane jest uwierzytelnienie, aby uruchamiać programy jako niezalogowany "
+"użytkownik."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:21
 msgid "Allow attaching devices to seats"
@@ -254,8 +289,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while an application asked to inhibit it"
-msgstr ""
-"Ponowne uruchomienie systemu, kiedy program poprosił o jego wstrzymanie"
+msgstr "Ponowne uruchomienie systemu, kiedy program zażądał jego wstrzymania"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
@@ -287,7 +321,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
 msgid "Suspend the system while an application asked to inhibit it"
-msgstr "Uśpienie systemu, kiedy program poprosił o jego wstrzymanie"
+msgstr "Uśpienie systemu, kiedy program zażądał jego wstrzymania"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
@@ -336,8 +370,7 @@ msgstr "Logowanie do lokalnego kontenera"
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
 msgid "Authentication is required to log into a local container"
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na logowanie do lokalnego "
-"kontenera."
+"Wymagane jest uwierzytelnienie, aby zalogować się do lokalnego kontenera"
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -378,42 +411,3 @@ msgid ""
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
-msgid "Send passphrase back to system"
-msgstr "Wysłanie hasła z powrotem do systemu"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
-"systemu."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
-msgstr "Zarządzanie usługami lub jednostkami systemu"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zarządzać usługami lub jednostkami "
-"systemu."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
-msgid "Manage system service or unit files"
-msgstr "Zarządzanie plikami usług lub jednostek systemu"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zarządzać plikami usług lub jednostek "
-"systemu."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-msgid "Reload the systemd state"
-msgstr "Ponowne wczytanie stanu systemd"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-msgid "Authentication is required to reload the systemd state."
-msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
