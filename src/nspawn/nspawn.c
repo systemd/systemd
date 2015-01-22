@@ -913,8 +913,12 @@ static int mount_binds(const char *dest, char **l, bool ro) {
 
                 r = stat(where, &dest_st);
                 if (r == 0) {
-                        if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
-                                log_error("The file types of %s and %s do not match. Refusing bind mount", *x, where);
+                        if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
+                                log_error("Cannot bind mount directory %s on file %s.", *x, where);
+                                return -EINVAL;
+                        }
+                        if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode)) {
+                                log_error("Cannot bind mount file %s on directory %s.", *x, where);
                                 return -EINVAL;
                         }
                 } else if (errno == ENOENT) {
@@ -926,27 +930,18 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                         return -errno;
                 }
 
-                /* Create the mount point, but be conservative -- refuse to create block
-                 * and char devices. */
+                /* Create the mount point. Any non-directory file can be
+                 * mounted on any non-directory file (regular, fifo, socket,
+                 * char, block).
+                 */
                 if (S_ISDIR(source_st.st_mode)) {
                         r = mkdir_label(where, 0755);
                         if (r < 0 && errno != EEXIST)
                                 return log_error_errno(r, "Failed to create mount point %s: %m", where);
-                } else if (S_ISFIFO(source_st.st_mode)) {
-                        r = mkfifo(where, 0644);
-                        if (r < 0 && errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create mount point %s: %m", where);
-                } else if (S_ISSOCK(source_st.st_mode)) {
-                        r = mknod(where, 0644 | S_IFSOCK, 0);
-                        if (r < 0 && errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create mount point %s: %m", where);
-                } else if (S_ISREG(source_st.st_mode)) {
+                } else {
                         r = touch(where);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create mount point %s: %m", where);
-                } else {
-                        log_error("Refusing to create mountpoint for file: %s", *x);
-                        return -ENOTSUP;
                 }
 
                 if (mount(*x, where, "bind", MS_BIND, NULL) < 0)
