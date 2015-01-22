@@ -37,8 +37,6 @@ Release 219 preparations:
 
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
-* importd: sandbox things
-
 * "systemctl kill" is broken
 
 * the dbus1 connection user id is actually the euid, not the uid, and creds should return that
