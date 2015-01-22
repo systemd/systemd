@@ -37,3 +37,5 @@ int import_make_path(const char *url, const char *etag, const char *image_root, 
 
 int import_make_verification_jobs(ImportJob **ret_checksum_job, ImportJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, ImportJobFinished on_finished, void *userdata);
 int import_verify(ImportJob *main_job, ImportJob *checksum_job, ImportJob *signature_job);
+
+int import_fork_tar(const char *path, pid_t *ret);

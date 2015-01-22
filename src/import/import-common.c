@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "copy.h"
 #include "btrfs-util.h"
+#include "capability.h"
 #include "import-job.h"
 #include "import-common.h"
 
@@ -444,6 +445,84 @@ int import_verify(
 finish:
         if (sig_file >= 0)
                 unlink(sig_file_path);
+
+        return r;
+}
+
+int import_fork_tar(const char *path, pid_t *ret) {
+        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        pid_t pid;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        if (pipe2(pipefd, O_CLOEXEC) < 0)
+                return log_error_errno(errno, "Failed to create pipe for tar: %m");
+
+        pid = fork();
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork off tar: %m");
+
+        if (pid == 0) {
+                int null_fd;
+                uint64_t retain =
+                        (1ULL << CAP_CHOWN) |
+                        (1ULL << CAP_FOWNER) |
+                        (1ULL << CAP_FSETID) |
+                        (1ULL << CAP_MKNOD) |
+                        (1ULL << CAP_SETFCAP);
+
+                /* Child */
+
+                reset_all_signal_handlers();
+                reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                pipefd[1] = safe_close(pipefd[1]);
+
+                if (dup2(pipefd[0], STDIN_FILENO) != STDIN_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (pipefd[0] != STDIN_FILENO)
+                        pipefd[0] = safe_close(pipefd[0]);
+
+                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
+                if (null_fd < 0) {
+                        log_error_errno(errno, "Failed to open /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (dup2(null_fd, STDOUT_FILENO) != STDOUT_FILENO) {
+                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (null_fd != STDOUT_FILENO)
+                        null_fd = safe_close(null_fd);
+
+                fd_cloexec(STDIN_FILENO, false);
+                fd_cloexec(STDOUT_FILENO, false);
+                fd_cloexec(STDERR_FILENO, false);
+
+                r = capability_bounding_set_drop(~retain, true);
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to drop capabilities, ignoring: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", NULL);
+                log_error_errno(errno, "Failed to execute tar: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        pipefd[0] = safe_close(pipefd[0]);
+        r = pipefd[1];
+        pipefd[1] = -1;
+
+        *ret = pid;
 
         return r;
 }

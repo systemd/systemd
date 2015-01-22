@@ -270,58 +270,9 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        if (pipe2(pipefd, O_CLOEXEC) < 0)
-                return log_error_errno(errno, "Failed to create pipe for tar: %m");
-
-        i->tar_pid = fork();
-        if (i->tar_pid < 0)
-                return log_error_errno(errno, "Failed to fork off tar: %m");
-        if (i->tar_pid == 0) {
-                int null_fd;
-
-                /* Child */
-
-                reset_all_signal_handlers();
-                reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-                pipefd[1] = safe_close(pipefd[1]);
-
-                if (dup2(pipefd[0], STDIN_FILENO) != STDIN_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (pipefd[0] != STDIN_FILENO)
-                        pipefd[0] = safe_close(pipefd[0]);
-
-                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (dup2(null_fd, STDOUT_FILENO) != STDOUT_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (null_fd != STDOUT_FILENO)
-                        null_fd = safe_close(null_fd);
-
-                fd_cloexec(STDIN_FILENO, false);
-                fd_cloexec(STDOUT_FILENO, false);
-                fd_cloexec(STDERR_FILENO, false);
-
-                execlp("tar", "tar", "--numeric-owner", "-C", i->temp_path, "-px", NULL);
-                log_error_errno(errno, "Failed to execute tar: %m");
-                _exit(EXIT_FAILURE);
-        }
-
-        pipefd[0] = safe_close(pipefd[0]);
-
-        j->disk_fd = pipefd[1];
-        pipefd[1] = -1;
+        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
+        if (j->disk_fd < 0)
+                return j->disk_fd;
 
         return 0;
 }
