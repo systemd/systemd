@@ -52,6 +52,7 @@ ro-cedilla		ro	pc105		cedilla		terminate:ctrl_alt_bksp
 ie			ie	pc105		-		terminate:ctrl_alt_bksp
 et			ee	pc105		-		terminate:ctrl_alt_bksp
 sk-qwerty		sk	pc105		-		terminate:ctrl_alt_bksp,qwerty
+sk-qwertz		sk	pc105		-		terminate:ctrl_alt_bksp
 fr-latin9		fr	pc105		latin9		terminate:ctrl_alt_bksp
 fr_CH-latin1		ch	pc105		fr		terminate:ctrl_alt_bksp
 cf			ca	pc105		-		terminate:ctrl_alt_bksp
@@ -61,4 +62,7 @@ gr			gr,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 by			by,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 il			il	pc105		-		terminate:ctrl_alt_bksp
 kazakh			kz,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
+lt.baltic		lt	pc105		-		terminate:ctrl_alt_bksp
+lt.l4                  lt	pc105		-		terminate:ctrl_alt_bksp
 lt			lt	pc105		-		terminate:ctrl_alt_bksp
+khmer			kh,us	pc105		-		terminate:ctrl_alt_bksp
