@@ -31,15 +31,13 @@ External:
 
 Release 219 preparations:
 
-* rework journald sigbus stuff to use mutex
-
-* "systemctl kill" is broken
-
-* the dbus1 connection user id is actually the euid, not the uid, and creds should return that
-
 * sd-bus make dsrt happy, and change userspace header for kdbus to yyyyuta{tv}v
 
 Features:
+
+* Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
+
+* rework journald sigbus stuff to use mutex
 
 * import-dkr: support tarsum checksum verification, if it becomes reality one day...
 
@@ -48,8 +46,6 @@ Features:
 * import: support import from local files, and export to local files
 
 * core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
-
-* bus-proxy: reload policy when PID 1 reports a reload
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
 
