@@ -2000,7 +2000,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        if (!streq_ptr(arg_dkr_index_url, "no")) {
+        if (arg_verify != IMPORT_VERIFY_NO) {
                 log_error("Imports from DKR do not support image verification, please pass --verify=no.");
                 return -EINVAL;
         }
