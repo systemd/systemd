@@ -33,7 +33,8 @@ typedef struct ImportJob ImportJob;
 
 typedef void (*ImportJobFinished)(ImportJob *job);
 typedef int (*ImportJobOpenDisk)(ImportJob *job);
-typedef int (*ImportJobHeader)(ImportJob*job, const char *header, size_t sz);
+typedef int (*ImportJobHeader)(ImportJob *job, const char *header, size_t sz);
+typedef void (*ImportJobProgress)(ImportJob *job);
 
 typedef enum ImportJobState {
         IMPORT_JOB_INIT,
@@ -66,6 +67,7 @@ struct ImportJob {
         ImportJobFinished on_finished;
         ImportJobOpenDisk on_open_disk;
         ImportJobHeader on_header;
+        ImportJobProgress on_progress;
 
         CurlGlue *glue;
         CURL *curl;

@@ -23,6 +23,7 @@
 #include <linux/fs.h>
 #include <curl/curl.h>
 
+#include "sd-daemon.h"
 #include "utf8.h"
 #include "strv.h"
 #include "copy.h"
@@ -37,7 +38,13 @@
 #include "import-common.h"
 #include "import-raw.h"
 
-typedef struct RawImportFile RawImportFile;
+typedef enum RawProgress {
+        RAW_DOWNLOADING,
+        RAW_VERIFYING,
+        RAW_UNPACKING,
+        RAW_FINALIZING,
+        RAW_COPYING,
+} RawProgress;
 
 struct RawImport {
         sd_event *event;
@@ -127,6 +134,57 @@ int raw_import_new(
         i = NULL;
 
         return 0;
+}
+
+static void raw_import_report_progress(RawImport *i, RawProgress p) {
+        unsigned percent;
+
+        assert(i);
+
+        switch (p) {
+
+        case RAW_DOWNLOADING: {
+                unsigned remain = 80;
+
+                percent = 0;
+
+                if (i->checksum_job) {
+                        percent += i->checksum_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->signature_job) {
+                        percent += i->signature_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->raw_job)
+                        percent += i->raw_job->progress_percent * remain / 100;
+                break;
+        }
+
+        case RAW_VERIFYING:
+                percent = 80;
+                break;
+
+        case RAW_UNPACKING:
+                percent = 85;
+                break;
+
+        case RAW_FINALIZING:
+                percent = 90;
+                break;
+
+        case RAW_COPYING:
+                percent = 95;
+                break;
+
+        default:
+                assert_not_reached("Unknown progress state");
+        }
+
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        log_debug("Combined progress %u%%", percent);
 }
 
 static int raw_import_maybe_convert_qcow2(RawImport *i) {
@@ -304,13 +362,19 @@ static void raw_import_job_on_finished(ImportJob *j) {
                 /* This is a new download, verify it, and move it into place */
                 assert(i->raw_job->disk_fd >= 0);
 
+                raw_import_report_progress(i, RAW_VERIFYING);
+
                 r = import_verify(i->raw_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
+                raw_import_report_progress(i, RAW_UNPACKING);
+
                 r = raw_import_maybe_convert_qcow2(i);
                 if (r < 0)
                         goto finish;
+
+                raw_import_report_progress(i, RAW_FINALIZING);
 
                 r = import_make_read_only_fd(i->raw_job->disk_fd);
                 if (r < 0)
@@ -325,6 +389,8 @@ static void raw_import_job_on_finished(ImportJob *j) {
                 free(i->temp_path);
                 i->temp_path = NULL;
         }
+
+        raw_import_report_progress(i, RAW_COPYING);
 
         r = raw_import_make_local_copy(i);
         if (r < 0)
@@ -372,6 +438,17 @@ static int raw_import_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
+static void raw_import_job_on_progress(ImportJob *j) {
+        RawImport *i;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+
+        raw_import_report_progress(i, RAW_DOWNLOADING);
+}
+
 int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         int r;
 
@@ -401,6 +478,7 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
 
         i->raw_job->on_finished = raw_import_job_on_finished;
         i->raw_job->on_open_disk = raw_import_job_on_open_disk;
+        i->raw_job->on_progress = raw_import_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
@@ -416,12 +494,16 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
                 return r;
 
         if (i->checksum_job) {
+                i->checksum_job->on_progress = raw_import_job_on_progress;
+
                 r = import_job_begin(i->checksum_job);
                 if (r < 0)
                         return r;
         }
 
         if (i->signature_job) {
+                i->signature_job->on_progress = raw_import_job_on_progress;
+
                 r = import_job_begin(i->signature_job);
                 if (r < 0)
                         return r;

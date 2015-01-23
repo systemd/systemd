@@ -2071,6 +2071,7 @@ typedef struct TransferInfo {
         const char *type;
         const char *remote;
         const char *local;
+        double progress;
 } TransferInfo;
 
 static int compare_transfer_info(const void *a, const void *b) {
@@ -2088,6 +2089,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         const char *type, *remote, *local, *object;
         sd_bus *bus = userdata;
         uint32_t id, max_id = 0;
+        double progress;
         int r;
 
         pager_open_if_enabled();
@@ -2106,11 +2108,11 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        r = sd_bus_message_enter_container(reply, 'a', "(ussso)");
+        r = sd_bus_message_enter_container(reply, 'a', "(usssdo)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ussso)", &id, &type, &remote, &local, &object)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, &object)) > 0) {
                 size_t l;
 
                 if (!GREEDY_REALLOC(transfers, n_allocated, n_transfers + 1))
@@ -2120,6 +2122,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                 transfers[n_transfers].type = type;
                 transfers[n_transfers].remote = remote;
                 transfers[n_transfers].local = local;
+                transfers[n_transfers].progress = progress;
 
                 l = strlen(type);
                 if (l > max_type)
@@ -2148,15 +2151,17 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         qsort_safe(transfers, n_transfers, sizeof(TransferInfo), compare_transfer_info);
 
         if (arg_legend)
-                printf("%-*s %-*s %-*s %-*s\n",
+                printf("%-*s %-*s %-*s %-*s %-*s\n",
                        (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), "ID",
+                       (int) 7, "PERCENT",
                        (int) max_type, "TYPE",
                        (int) max_local, "LOCAL",
                        (int) max_remote, "REMOTE");
 
         for (j = 0; j < n_transfers; j++)
-                printf("%*" PRIu32 " %-*s %-*s %-*s\n",
+                printf("%*" PRIu32 " %*u%% %-*s %-*s %-*s\n",
                        (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
+                       (int) 6, (unsigned) (transfers[j].progress * 100),
                        (int) max_type, transfers[j].type,
                        (int) max_local, transfers[j].local,
                        (int) max_remote, transfers[j].remote);

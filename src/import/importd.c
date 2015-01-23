@@ -27,6 +27,8 @@
 #include "bus-util.h"
 #include "bus-common-errors.h"
 #include "def.h"
+#include "socket-util.h"
+#include "mkdir.h"
 #include "import-util.h"
 
 typedef struct Transfer Transfer;
@@ -66,6 +68,7 @@ struct Transfer {
         sd_event_source *log_event_source;
 
         unsigned n_canceled;
+        unsigned progress_percent;
 };
 
 struct Manager {
@@ -76,6 +79,10 @@ struct Manager {
         Hashmap *transfers;
 
         Hashmap *polkit_registry;
+
+        int notify_fd;
+
+        sd_event_source *notify_event_source;
 };
 
 #define TRANSFERS_MAX 64
@@ -395,7 +402,8 @@ static int transfer_start(Transfer *t) {
                 fd_cloexec(STDOUT_FILENO, false);
                 fd_cloexec(STDERR_FILENO, false);
 
-                putenv((char*) "SYSTEMD_LOG_TARGET=console-prefixed");
+                setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1);
+                setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1);
 
                 cmd[k++] = import_verify_to_string(t->verify);
                 if (t->force_local)
@@ -453,6 +461,9 @@ static Manager *manager_unref(Manager *m) {
         if (!m)
                 return NULL;
 
+        sd_event_source_unref(m->notify_event_source);
+        safe_close(m->notify_fd);
+
         while ((t = hashmap_first(m->transfers)))
                 transfer_unref(t);
 
@@ -470,8 +481,107 @@ static Manager *manager_unref(Manager *m) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
+static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+
+        char buf[NOTIFY_BUFFER_MAX+1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
+        } control = {};
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct ucred *ucred = NULL;
+        Manager *m = userdata;
+        struct cmsghdr *cmsg;
+        unsigned percent;
+        char *p, *e;
+        Transfer *t;
+        Iterator i;
+        ssize_t n;
+        int r;
+
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+
+                return -errno;
+        }
+
+        for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                        log_warning("Somebody sent us unexpected fds, ignoring.");
+                        return 0;
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                }
+        }
+
+        if (msghdr.msg_flags & MSG_TRUNC) {
+                log_warning("Got overly long notification datagram, ignoring.");
+                return 0;
+        }
+
+        if (!ucred || ucred->pid <= 0) {
+                log_warning("Got notification datagram lacking credential information, ignoring.");
+                return 0;
+        }
+
+        HASHMAP_FOREACH(t, m->transfers, i)
+                if (ucred->pid == t->pid)
+                        break;
+
+        if (!t) {
+                log_warning("Got notification datagram from unexpected peer, ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+
+        p = startswith(buf, "X_IMPORT_PROGRESS=");
+        if (!p) {
+                p = strstr(buf, "\nX_IMPORT_PROGRESS=");
+                if (!p)
+                        return 0;
+
+                p += 19;
+        }
+
+        e = strchrnul(p, '\n');
+        *e = 0;
+
+        r = safe_atou(p, &percent);
+        if (r < 0 || percent > 100) {
+                log_warning("Got invalid percent value, ignoring.");
+                return 0;
+        }
+
+        t->progress_percent = percent;
+
+        log_debug("Got percentage from client: %u%%", percent);
+        return 0;
+}
+
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/import/notify",
+        };
+        static const int one = 1;
         int r;
 
         assert(ret);
@@ -487,6 +597,23 @@ static int manager_new(Manager **ret) {
         sd_event_set_watchdog(m->event, true);
 
         r = sd_bus_default_system(&m->bus);
+        if (r < 0)
+                return r;
+
+        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->notify_fd < 0)
+                return -errno;
+
+        (void) mkdir_parents_label(sa.un.sun_path, 0755);
+        (void) unlink(sa.un.sun_path);
+
+        if (bind(m->notify_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path)) < 0)
+                return -errno;
+
+        if (setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+                return -errno;
+
+        r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_on_notify, m);
         if (r < 0)
                 return r;
 
@@ -698,7 +825,7 @@ static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdat
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(reply, 'a', "(ussso)");
+        r = sd_bus_message_open_container(reply, 'a', "(usssdo)");
         if (r < 0)
                 return r;
 
@@ -706,11 +833,12 @@ static int method_list_transfers(sd_bus *bus, sd_bus_message *msg, void *userdat
 
                 r = sd_bus_message_append(
                                 reply,
-                                "(ussso)",
+                                "(usssdo)",
                                 t->id,
                                 transfer_type_to_string(t->type),
                                 t->remote,
                                 t->local,
+                                (double) t->progress_percent / 100.0,
                                 t->object_path);
                 if (r < 0)
                         return r;
@@ -789,6 +917,24 @@ static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userda
         return sd_bus_reply_method_return(msg, NULL);
 }
 
+static int property_get_progress(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Transfer *t = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(t);
+
+        return sd_bus_message_append(reply, "d", (double) t->progress_percent / 100.0);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, transfer_type, TransferType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_verify, import_verify, ImportVerify);
 
@@ -799,6 +945,7 @@ static const sd_bus_vtable transfer_vtable[] = {
         SD_BUS_PROPERTY("Remote", "s", NULL, offsetof(Transfer, remote), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Transfer, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Verify", "s", property_get_verify, offsetof(Transfer, verify), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_METHOD("Cancel", NULL, NULL, method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("LogMessage", "us", 0),
         SD_BUS_VTABLE_END,
@@ -809,7 +956,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullRaw", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullDkr", "sssssb", "uo", method_pull_dkr, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListTransfers", NULL, "a(ussso)", method_list_transfers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListTransfers", NULL, "a(usssdo)", method_list_transfers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelTransfer", "u", NULL, method_cancel_transfer, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("TransferNew", "uo", 0),
         SD_BUS_SIGNAL("TransferRemoved", "uos", 0),

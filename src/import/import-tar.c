@@ -22,6 +22,7 @@
 #include <sys/prctl.h>
 #include <curl/curl.h>
 
+#include "sd-daemon.h"
 #include "utf8.h"
 #include "strv.h"
 #include "copy.h"
@@ -34,6 +35,13 @@
 #include "import-job.h"
 #include "import-common.h"
 #include "import-tar.h"
+
+typedef enum TarProgress {
+        TAR_DOWNLOADING,
+        TAR_VERIFYING,
+        TAR_FINALIZING,
+        TAR_COPYING,
+} TarProgress;
 
 struct TarImport {
         sd_event *event;
@@ -134,6 +142,53 @@ int tar_import_new(
         return 0;
 }
 
+static void tar_import_report_progress(TarImport *i, TarProgress p) {
+        unsigned percent;
+
+        assert(i);
+
+        switch (p) {
+
+        case TAR_DOWNLOADING: {
+                unsigned remain = 85;
+
+                percent = 0;
+
+                if (i->checksum_job) {
+                        percent += i->checksum_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->signature_job) {
+                        percent += i->signature_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->tar_job)
+                        percent += i->tar_job->progress_percent * remain / 100;
+                break;
+        }
+
+        case TAR_VERIFYING:
+                percent = 85;
+                break;
+
+        case TAR_FINALIZING:
+                percent = 90;
+                break;
+
+        case TAR_COPYING:
+                percent = 95;
+                break;
+
+        default:
+                assert_not_reached("Unknown progress state");
+        }
+
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        log_debug("Combined progress %u%%", percent);
+}
+
 static int tar_import_make_local_copy(TarImport *i) {
         int r;
 
@@ -209,9 +264,13 @@ static void tar_import_job_on_finished(ImportJob *j) {
         if (!i->tar_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
 
+                tar_import_report_progress(i, TAR_VERIFYING);
+
                 r = import_verify(i->tar_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
+
+                tar_import_report_progress(i, TAR_FINALIZING);
 
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)
@@ -225,6 +284,8 @@ static void tar_import_job_on_finished(ImportJob *j) {
                 free(i->temp_path);
                 i->temp_path = NULL;
         }
+
+        tar_import_report_progress(i, TAR_COPYING);
 
         r = tar_import_make_local_copy(i);
         if (r < 0)
@@ -277,6 +338,17 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
+static void tar_import_job_on_progress(ImportJob *j) {
+        TarImport *i;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+
+        tar_import_report_progress(i, TAR_DOWNLOADING);
+}
+
 int tar_import_pull(TarImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         int r;
 
@@ -303,6 +375,7 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
 
         i->tar_job->on_finished = tar_import_job_on_finished;
         i->tar_job->on_open_disk = tar_import_job_on_open_disk;
+        i->tar_job->on_progress = tar_import_job_on_progress;
         i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         r = import_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
@@ -318,12 +391,16 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
                 return r;
 
         if (i->checksum_job) {
+                i->checksum_job->on_progress = tar_import_job_on_progress;
+
                 r = import_job_begin(i->checksum_job);
                 if (r < 0)
                         return r;
         }
 
         if (i->signature_job) {
+                i->signature_job->on_progress = tar_import_job_on_progress;
+
                 r = import_job_begin(i->signature_job);
                 if (r < 0)
                         return r;

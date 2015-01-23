@@ -63,6 +63,7 @@ static void import_job_finish(ImportJob *j, int ret) {
 
         if (ret == 0) {
                 j->state = IMPORT_JOB_DONE;
+                j->progress_percent = 100;
                 log_info("Download of %s complete.", j->url);
         } else {
                 j->state = IMPORT_JOB_FAILED;
@@ -621,6 +622,9 @@ static int import_job_progress_callback(void *userdata, curl_off_t dltotal, curl
 
                 j->progress_percent = percent;
                 j->last_status_usec = n;
+
+                if (j->on_progress)
+                        j->on_progress(j);
         }
 
         return 0;

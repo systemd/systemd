@@ -5284,6 +5284,7 @@ systemd_importd_CFLAGS = \
 
 systemd_importd_LDADD = \
 	libsystemd-internal.la \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 systemd_pull_SOURCES = \

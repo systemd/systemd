@@ -22,7 +22,7 @@
 #include <curl/curl.h>
 #include <sys/prctl.h>
 
-#include "set.h"
+#include "sd-daemon.h"
 #include "json.h"
 #include "strv.h"
 #include "btrfs-util.h"
@@ -34,6 +34,14 @@
 #include "import-job.h"
 #include "import-common.h"
 #include "import-dkr.h"
+
+typedef enum DkrProgress {
+        DKR_SEARCHING,
+        DKR_RESOLVING,
+        DKR_METADATA,
+        DKR_DOWNLOADING,
+        DKR_COPYING,
+} DkrProgress;
 
 struct DkrImport {
         sd_event *event;
@@ -56,6 +64,7 @@ struct DkrImport {
         char **response_registries;
 
         char **ancestry;
+        unsigned n_ancestry;
         unsigned current_ancestry;
 
         DkrImportFinished on_finished;
@@ -174,6 +183,53 @@ int dkr_import_new(
         i = NULL;
 
         return 0;
+}
+
+static void dkr_import_report_progress(DkrImport *i, DkrProgress p) {
+        unsigned percent;
+
+        assert(i);
+
+        switch (p) {
+
+        case DKR_SEARCHING:
+                percent = 0;
+                if (i->images_job)
+                        percent += i->images_job->progress_percent * 5 / 100;
+                break;
+
+        case DKR_RESOLVING:
+                percent = 5;
+                if (i->tags_job)
+                        percent += i->tags_job->progress_percent * 5 / 100;
+                break;
+
+        case DKR_METADATA:
+                percent = 10;
+                if (i->ancestry_job)
+                        percent += i->ancestry_job->progress_percent * 5 / 100;
+                if (i->json_job)
+                        percent += i->json_job->progress_percent * 5 / 100;
+                break;
+
+        case DKR_DOWNLOADING:
+                percent = 20;
+                percent += 75 * i->current_ancestry / MAX(1U, i->n_ancestry);
+                if (i->layer_job)
+                        percent += i->layer_job->progress_percent * 75 / MAX(1U, i->n_ancestry) / 100;
+
+                break;
+
+        case DKR_COPYING:
+                percent = 95;
+                break;
+
+        default:
+                assert_not_reached("Unknown progress state");
+        }
+
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        log_debug("Combined progress %u%%", percent);
 }
 
 static int parse_id(const void *payload, size_t size, char **ret) {
@@ -438,6 +494,22 @@ static int dkr_import_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
+static void dkr_import_job_on_progress(ImportJob *j) {
+        DkrImport *i;
+
+        assert(j);
+        assert(j->userdata);
+
+        i = j->userdata;
+
+        dkr_import_report_progress(
+                        i,
+                        j == i->images_job                       ? DKR_SEARCHING :
+                        j == i->tags_job                         ? DKR_RESOLVING :
+                        j == i->ancestry_job || j == i->json_job ? DKR_METADATA :
+                                                                   DKR_DOWNLOADING);
+}
+
 static int dkr_import_pull_layer(DkrImport *i) {
         _cleanup_free_ char *path = NULL;
         const char *url, *layer = NULL;
@@ -488,6 +560,7 @@ static int dkr_import_pull_layer(DkrImport *i) {
 
         i->layer_job->on_finished = dkr_import_job_on_finished;
         i->layer_job->on_open_disk = dkr_import_job_on_open_disk;
+        i->layer_job->on_progress = dkr_import_job_on_progress;
 
         r = import_job_begin(i->layer_job);
         if (r < 0)
@@ -535,6 +608,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 }
 
                 log_info("Index lookup succeeded, directed to registry %s.", i->response_registries[0]);
+                dkr_import_report_progress(i, DKR_RESOLVING);
 
                 url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/repositories/", i->name, "/tags/", i->tag);
                 r = import_job_new(&i->tags_job, url, i->glue, i);
@@ -550,6 +624,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 }
 
                 i->tags_job->on_finished = dkr_import_job_on_finished;
+                i->tags_job->on_progress = dkr_import_job_on_progress;
 
                 r = import_job_begin(i->tags_job);
                 if (r < 0) {
@@ -575,6 +650,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 i->id = id;
 
                 log_info("Tag lookup succeeded, resolved to layer %s.", i->id);
+                dkr_import_report_progress(i, DKR_METADATA);
 
                 url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/ancestry");
                 r = import_job_new(&i->ancestry_job, url, i->glue, i);
@@ -590,6 +666,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 }
 
                 i->ancestry_job->on_finished = dkr_import_job_on_finished;
+                i->ancestry_job->on_progress = dkr_import_job_on_progress;
 
                 url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/json");
                 r = import_job_new(&i->json_job, url, i->glue, i);
@@ -605,6 +682,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 }
 
                 i->json_job->on_finished = dkr_import_job_on_finished;
+                i->json_job->on_progress = dkr_import_job_on_progress;
 
                 r = import_job_begin(i->ancestry_job);
                 if (r < 0) {
@@ -644,8 +722,11 @@ static void dkr_import_job_on_finished(ImportJob *j) {
 
                 strv_free(i->ancestry);
                 i->ancestry = ancestry;
-
+                i->n_ancestry = n;
                 i->current_ancestry = 0;
+
+                dkr_import_report_progress(i, DKR_DOWNLOADING);
+
                 r = dkr_import_pull_layer(i);
                 if (r < 0)
                         goto finish;
@@ -698,6 +779,8 @@ static void dkr_import_job_on_finished(ImportJob *j) {
 
         if (!dkr_import_is_done(i))
                 return;
+
+        dkr_import_report_progress(i, DKR_COPYING);
 
         r = dkr_import_make_local_copy(i);
         if (r < 0)
@@ -802,6 +885,7 @@ int dkr_import_pull(DkrImport *i, const char *name, const char *tag, const char 
 
         i->images_job->on_finished = dkr_import_job_on_finished;
         i->images_job->on_header = dkr_import_job_on_header;
+        i->images_job->on_progress = dkr_import_job_on_progress;
 
         return import_job_begin(i->images_job);
 }
