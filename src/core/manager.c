@@ -1521,8 +1521,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                         return -errno;
                 }
-                if (n == 0)
-                        return -ECONNRESET;
 
                 for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
                         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
