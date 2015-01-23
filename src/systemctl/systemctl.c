@@ -2955,6 +2955,12 @@ static int start_special(sd_bus *bus, char **args) {
                 return -EPERM;
         }
 
+        if (a == ACTION_REBOOT) {
+                r = update_reboot_param_file(args[1]);
+                if (r < 0)
+                        return r;
+        }
+
         if (arg_force >= 2 &&
             (a == ACTION_HALT ||
              a == ACTION_POWEROFF ||
@@ -7093,7 +7099,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "import-environment",    MORE,  1, import_environment},
                 { "halt",                  EQUAL, 1, start_special,    FORCE },
                 { "poweroff",              EQUAL, 1, start_special,    FORCE },
-                { "reboot",                EQUAL, 1, start_special,    FORCE },
+                { "reboot",                MORE,  1, start_special,    FORCE },
                 { "kexec",                 EQUAL, 1, start_special     },
                 { "suspend",               EQUAL, 1, start_special     },
                 { "hibernate",             EQUAL, 1, start_special     },
