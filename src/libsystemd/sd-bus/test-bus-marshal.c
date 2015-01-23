@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <byteswap.h>
+#include <math.h>
 
 #ifdef HAVE_GLIB
 #include <gio/gio.h>
@@ -94,6 +95,8 @@ int main(int argc, char *argv[]) {
         _cleanup_fclose_ FILE *ms = NULL;
         size_t first_size = 0, second_size = 0, third_size = 0;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        double dbl;
+        uint64_t u64;
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
@@ -143,6 +146,9 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_message_append_array(m, 'u', NULL, 0);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_append(m, "a(stdo)", 1, "foo", 815ULL, 47.0, "/");
         assert_se(r >= 0);
 
         r = bus_message_seal(m, 4711, 0);
@@ -267,6 +273,13 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_read_array(m, 'u', (const void**) &return_array, &sz);
         assert_se(r > 0);
         assert_se(sz == 0);
+
+        r = sd_bus_message_read(m, "a(stdo)", 1, &x, &u64, &dbl, &y);
+        assert_se(r > 0);
+        assert_se(streq(x, "foo"));
+        assert_se(u64 == 815ULL);
+        assert_se(fabs(dbl - 47.0) < 0.1);
+        assert_se(streq(y, "/"));
 
         r = sd_bus_message_peek_type(m, NULL, NULL);
         assert_se(r == 0);

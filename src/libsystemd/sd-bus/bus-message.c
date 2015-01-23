@@ -2350,11 +2350,18 @@ int bus_message_append_ap(
                 }
 
                 case SD_BUS_TYPE_INT64:
-                case SD_BUS_TYPE_UINT64:
-                case SD_BUS_TYPE_DOUBLE: {
+                case SD_BUS_TYPE_UINT64: {
                         uint64_t x;
 
                         x = va_arg(ap, uint64_t);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_DOUBLE: {
+                        double x;
+
+                        x = va_arg(ap, double);
                         r = sd_bus_message_append_basic(m, *t, &x);
                         break;
                 }
