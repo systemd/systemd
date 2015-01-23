@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: 0comffdiz@inbox.ru\n"
 "POT-Creation-Date: 2013-03-24 19:22+0300\n"
-"PO-Revision-Date: 2015-01-01 21:29+0300\n"
+"PO-Revision-Date: 2015-01-23 20:55+0300\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -37,6 +37,14 @@ msgstr "Настроить информацию о компьютере"
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
 msgstr "Чтобы настроить информацию о компьютере, необходимо пройти аутентификацию."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Download a VM or container image"
+msgstr "Загрузить образ виртуальной машины или контейнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to download a VM or container image"
+msgstr "Чтобы загрузить образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
