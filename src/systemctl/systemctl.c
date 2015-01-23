@@ -3224,6 +3224,10 @@ typedef struct UnitStatusInfo {
         /* Swap */
         const char *what;
 
+        /* CGroup */
+        uint64_t memory_current;
+        uint64_t memory_limit;
+
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
@@ -3482,6 +3486,17 @@ static void print_status_info(
         if (i->status_errno > 0)
                 printf("    Error: %i (%s)\n", i->status_errno, strerror(i->status_errno));
 
+        if (i->memory_current != (uint64_t) -1) {
+                char buf[FORMAT_BYTES_MAX];
+
+                printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
+
+                if (i->memory_limit != (uint64_t) -1)
+                        printf(" (limit: %s)\n", format_bytes(buf, sizeof(buf), i->memory_limit));
+                else
+                        printf("\n");
+        }
+
         if (i->control_group &&
             (i->main_pid > 0 || i->control_pid > 0 ||
              ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0))) {
@@ -3696,6 +3711,10 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->condition_timestamp = (usec_t) u;
                 else if (streq(name, "AssertTimestamp"))
                         i->assert_timestamp = (usec_t) u;
+                else if (streq(name, "MemoryCurrent"))
+                        i->memory_current = u;
+                else if (streq(name, "MemoryLimit"))
+                        i->memory_limit = u;
 
                 break;
         }
@@ -4166,7 +4185,10 @@ static int show_one(
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        UnitStatusInfo info = {};
+        UnitStatusInfo info = {
+                .memory_current = (uint64_t) -1,
+                .memory_limit = (uint64_t) -1,
+        };
         ExecStatusInfo *p;
         int r;
 

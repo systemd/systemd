@@ -638,10 +638,46 @@ static int property_get_slice(
         return sd_bus_message_append(reply, "s", unit_slice_name(u));
 }
 
+static int property_get_current_memory(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        uint64_t sz = (uint64_t) -1;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        if (u->cgroup_path &&
+            (u->cgroup_realized_mask & CGROUP_MEMORY)) {
+                _cleanup_free_ char *v = NULL;
+
+                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
+                if (r < 0 && r != -ENOENT)
+                        log_unit_warning_errno(u->id, r, "Couldn't read memory.usage_in_bytes attribute: %m");
+
+                if (v) {
+                        r = safe_atou64(v, &sz);
+                        if (r < 0)
+                                log_unit_warning_errno(u->id, r, "Failed to parse memory.usage_in_bytes attribute: %m");
+                }
+        }
+
+        return sd_bus_message_append(reply, "t", sz);
+}
+
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Unit, cgroup_path), 0),
+        SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_VTABLE_END
 };
 
