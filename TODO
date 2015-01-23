@@ -33,8 +33,6 @@ Release 219 preparations:
 
 * rework journald sigbus stuff to use mutex
 
-* machinectl: show progress percentage in list
-
 * nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
 
 * "systemctl kill" is broken
