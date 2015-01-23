@@ -104,10 +104,16 @@ static int mount_points_list_get(MountPoint **head) {
 
                 /* Ignore mount points we can't unmount because they
                  * are API or because we are keeping them open (like
-                 * /dev/console) */
+                 * /dev/console). Also, ignore all mounts below API
+                 * file systems, since they are likely virtual too,
+                 * and hence not worth spending time on. Also, in
+                 * unprivileged containers we might lack the rights to
+                 * unmount these things, hence don't bother. */
                 if (mount_point_is_api(p) ||
                     mount_point_ignore(p) ||
-                    path_equal(p, "/dev/console")) {
+                    path_startswith(p, "/dev") ||
+                    path_startswith(p, "/sys") ||
+                    path_startswith(p, "/proc")) {
                         free(p);
                         continue;
                 }
