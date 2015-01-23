@@ -101,6 +101,7 @@
                                 <varname>w</varname>,
                                 <varname>d</varname>,
                                 <varname>D</varname>,
+                                <varname>v</varname>,
                                 <varname>p</varname>,
                                 <varname>L</varname>,
                                 <varname>c</varname>,
@@ -110,7 +111,10 @@
                                 written to. Files and directories
                                 marked with <varname>z</varname>,
                                 <varname>Z</varname>,
-                                <varname>m</varname> have their
+                                <varname>t</varname>,
+                                <varname>T</varname>,
+                                <varname>a</varname>, and
+                                <varname>A</varname> have their
                                 ownership, access mode and security
                                 labels set. </para></listitem>
                         </varlistentry>
@@ -126,10 +130,13 @@
                         <varlistentry>
                                 <term><option>--remove</option></term>
                                 <listitem><para>If this option is
-                                passed, all files and directories
-                                marked with <varname>r</varname>,
-                                <varname>R</varname> in the
-                                configuration files are
+                                passed, the contents of
+                                directories marked with
+                                <varname>D</varname> or
+                                <varname>R</varname>, and files or
+                                directories themselves marked with
+                                <varname>r</varname> or
+                                <varname>R</varname> are
                                 removed.</para></listitem>
                         </varlistentry>
                         <varlistentry>
