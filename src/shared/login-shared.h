@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#pragma once
+
 #include <stdbool.h>
 
 bool session_id_valid(const char *id);

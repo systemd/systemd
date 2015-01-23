@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#pragma once
+
 void sigbus_install(void);
 void sigbus_reset(void);
 

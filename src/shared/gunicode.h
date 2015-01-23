@@ -4,6 +4,8 @@
  *  Copyright 2000, 2005 Red Hat, Inc.
  */
 
+#pragma once
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>

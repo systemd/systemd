@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#pragma once
+
 int parse_sleep_config(const char *verb, char ***modes, char ***states);
 
 int can_sleep(const char *verb);
