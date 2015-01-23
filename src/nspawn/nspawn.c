@@ -816,6 +816,7 @@ static int mount_all(const char *dest) {
                 { "devpts",    "/dev/pts",  "devpts","newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, true },
                 { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,      true  },
+                { "tmpfs",     "/tmp",      "tmpfs", "mode=1777", MS_STRICTATIME,                         true  },
 #ifdef HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND,                              false },  /* Bind mount first */
                 { NULL,              "/sys/fs/selinux", NULL, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT,         false },  /* Then, make it r/o */
