@@ -471,7 +471,8 @@ int import_fork_tar(const char *path, pid_t *ret) {
                         (1ULL << CAP_FOWNER) |
                         (1ULL << CAP_FSETID) |
                         (1ULL << CAP_MKNOD) |
-                        (1ULL << CAP_SETFCAP);
+                        (1ULL << CAP_SETFCAP) |
+                        (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
