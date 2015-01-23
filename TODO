@@ -33,8 +33,6 @@ Release 219 preparations:
 
 * rework journald sigbus stuff to use mutex
 
-* nspawn: don't change superblock mount options from nspawn for cgroup hierarchies
-
 * "systemctl kill" is broken
 
 * the dbus1 connection user id is actually the euid, not the uid, and creds should return that
