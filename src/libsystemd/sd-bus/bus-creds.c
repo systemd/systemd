@@ -220,7 +220,7 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         assert_return(c, -EINVAL);
         assert_return(gid, -EINVAL);
 
-        if (!(c->mask & SD_BUS_CREDS_UID))
+        if (!(c->mask & SD_BUS_CREDS_GID))
                 return -ENODATA;
 
         *gid = c->gid;
