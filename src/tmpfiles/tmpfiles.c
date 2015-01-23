@@ -329,8 +329,7 @@ static int dir_cleanup(
                 usec_t age;
                 _cleanup_free_ char *sub_path = NULL;
 
-                if (streq(dent->d_name, ".") ||
-                    streq(dent->d_name, ".."))
+                if (STR_IN_SET(dent->d_name, ".", ".."))
                         continue;
 
                 if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
@@ -765,7 +764,7 @@ static int item_do_children(Item *i, const char *path, action_t action) {
                         break;
                 }
 
-                if (streq(de->d_name, ".") || streq(de->d_name, ".."))
+                if (STR_IN_SET(de->d_name, ".", ".."))
                         continue;
 
                 p = strjoin(path, "/", de->d_name, NULL);
@@ -1084,27 +1083,6 @@ static int remove_item_instance(Item *i, const char *instance) {
 
         switch (i->type) {
 
-        case CREATE_FILE:
-        case TRUNCATE_FILE:
-        case CREATE_DIRECTORY:
-        case CREATE_SUBVOLUME:
-        case CREATE_FIFO:
-        case CREATE_SYMLINK:
-        case CREATE_BLOCK_DEVICE:
-        case CREATE_CHAR_DEVICE:
-        case IGNORE_PATH:
-        case IGNORE_DIRECTORY_PATH:
-        case ADJUST_MODE:
-        case RELABEL_PATH:
-        case RECURSIVE_RELABEL_PATH:
-        case WRITE_FILE:
-        case COPY_FILES:
-        case SET_XATTR:
-        case RECURSIVE_SET_XATTR:
-        case SET_ACL:
-        case RECURSIVE_SET_ACL:
-                break;
-
         case REMOVE_PATH:
                 if (remove(instance) < 0 && errno != ENOENT)
                         return log_error_errno(errno, "rm(%s): %m", instance);
@@ -1120,6 +1098,9 @@ static int remove_item_instance(Item *i, const char *instance) {
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 
                 break;
+
+        default:
+                assert_not_reached("wut?");
         }
 
         return 0;
