@@ -972,9 +972,17 @@ static int mount_cgroup_hierarchy(const char *dest, const char *controller, cons
 
         mkdir_p(to, 0755);
 
-        if (mount("cgroup", to, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV|(read_only ? MS_RDONLY : 0), controller) < 0)
+        /* The superblock mount options of the mount point need to be
+         * identical to the hosts', and hence writable... */
+        if (mount("cgroup", to, "cgroup", MS_NOSUID|MS_NOEXEC|MS_NODEV, controller) < 0)
                 return log_error_errno(errno, "Failed to mount to %s: %m", to);
 
+        /* ... hence let's only make the bind mount read-only, not the
+         * superblock. */
+        if (read_only) {
+                if (mount(NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
+                        return log_error_errno(errno, "Failed to remount %s read-only: %m", to);
+        }
         return 1;
 }
 
@@ -1044,7 +1052,7 @@ static int mount_cgroup(const char *dest) {
                 }
         }
 
-        r = mount_cgroup_hierarchy(dest, "name=systemd", "systemd", false);
+        r = mount_cgroup_hierarchy(dest, "name=systemd,xattr", "systemd", false);
         if (r < 0)
                 return r;
 
