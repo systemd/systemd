@@ -120,8 +120,6 @@ static const MountPoint mount_table[] = {
 static const char ignore_paths[] =
         /* SELinux file systems */
         "/sys/fs/selinux\0"
-        /* Legacy kernel file system */
-        "/proc/bus/usb\0"
         /* Container bind mounts */
         "/proc/sys\0"
         "/dev/console\0"
