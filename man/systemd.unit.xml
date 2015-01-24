@@ -1574,6 +1574,171 @@
         </refsect1>
 
         <refsect1>
+                <title>Examples</title>
+
+                <example>
+                        <title>Allowing units to be enabled</title>
+
+                        <para>The following snippet (highlighted)
+                        allows a unit (e.g.
+                        <filename>foo.service</filename>) to be
+                        enabled via
+                        <command>systemctl enable</command>:</para>
+
+                        <programlisting>[Unit]
+Description=Foo
+
+[Service]
+ExecStart=/usr/sbin/foo-daemon
+
+<emphasis>[Install]</emphasis>
+<emphasis>WantedBy=multi-user.target</emphasis></programlisting>
+
+                        <para>After running
+                        <command>systemctl enable</command>, a symlink
+                        <filename>/etc/systemd/system/multi-user.target.wants/foo.service</filename>
+                        linking to the actual unit will be created. It
+                        tells systemd to pull in the unit when starting
+                        <filename>multi-user.target</filename>. The
+                        inverse <command>systemctl disable</command>
+                        will remove that symlink again.</para>
+                </example>
+
+                <example>
+                        <title>Overriding vendor settings</title>
+
+                        <para>There are two methods of overriding
+                        vendor settings in unit files: copying the unit
+                        file from
+                        <filename>/usr/lib/systemd/system</filename>
+                        to <filename>/etc/systemd/system</filename> and
+                        modifying the chosen settings. Alternatively,
+                        one can create a directory named
+                        <filename><replaceable>unit</replaceable>.d/</filename>
+                        within
+                        <filename>/etc/systemd/system</filename> and
+                        place a drop-in file
+                        <filename><replaceable>name</replaceable>.conf</filename>
+                        there that only changes the specific settings
+                        one is interested in. Note that multiple such
+                        drop-in files are read if present.</para>
+
+                        <para>The advantage of the first method is
+                        that one easily overrides the complete unit,
+                        the vendor unit is not parsed at all anymore.
+                        It has the disadvantage that improvements to
+                        the unit file by the vendor are not
+                        automatically incorporated on updates.</para>
+
+                        <para>The advantage of the second method is
+                        that one only overrides the settings one
+                        specifically wants, where updates to the unit
+                        by the vendor automatically apply. This has the
+                        disadvantage that some future updates by the
+                        vendor might be incompatible with the local
+                        changes.</para>
+
+                        <para>Note that for drop-in files, if one wants
+                        to remove entries from a setting that is parsed
+                        as a list (and is not a dependency), such as
+                        <varname>ConditionPathExists=</varname> (or
+                        e.g. <varname>ExecStart=</varname> in service
+                        units), one needs to first clear the list
+                        before re-adding all entries except the one
+                        that is to be removed. See below for an
+                        example.</para>
+
+                        <para>This also applies for user instances of
+                        systemd, but with different locations for the
+                        unit files. See the section on unit load paths
+                        for further details.</para>
+
+                        <para>Suppose there is a vendor-supplied unit
+                        <filename>/usr/lib/systemd/system/httpd.service</filename>
+                        with the following contents:</para>
+
+                        <programlisting>[Unit]
+Description=Some HTTP server
+After=remote-fs.target sqldb.service
+Requires=sqldb.service
+AssertPathExists=/srv/webserver
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/some-fancy-httpd-server
+Nice=5
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Now one wants to change some settings as
+                        an administrator: firstly, in the local setup,
+                        <filename>/srv/webserver</filename> might not
+                        exit, because the HTTP server is configured to
+                        use <filename>/srv/www</filename> instead.
+                        Secondly, the local configuration makes the
+                        HTTP server also depend on a memory cache
+                        service,
+                        <filename>memcached.service</filename>, that
+                        should be pulled in
+                        (<varname>Requires=</varname>) and also be
+                        ordered appropriately
+                        (<varname>After=</varname>). Thirdly, in order
+                        to harden the service a bit more, the
+                        administrator would like to set the
+                        <varname>PrivateTmp=</varname>
+                        setting (see
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        for details). And lastly, the administrator
+                        would like to reset the niceness of the service
+                        to its default value of 0.</para>
+
+                        <para>The first possibility is to copy the unit
+                        file to
+                        <filename>/etc/systemd/system/httpd.service</filename>
+                        and change the chosen settings:</para>
+
+                        <programlisting>[Unit]
+Description=Some HTTP server
+After=remote-fs.target sqldb.service <emphasis>memcached.service</emphasis>
+Requires=sqldb.service <emphasis>memcached.service</emphasis>
+AssertPathExists=<emphasis>/srv/www</emphasis>
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/some-fancy-httpd-server
+<emphasis>Nice=0</emphasis>
+<emphasis>PrivateTmp=yes</emphasis>
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Alternatively, the administrator could
+                        create a drop-in file
+                        <filename>/etc/systemd/system/httpd.service.d/local.conf</filename>
+                        with the following contents:</para>
+
+                        <programlisting>[Unit]
+After=memcached.service
+Requires=memcached.service
+# Reset all assertions and then re-add the condition we want
+AssertPathExists=
+AssertPathExists=/srv/www
+
+[Service]
+Nice=0
+PrivateTmp=yes</programlisting>
+
+                        <para>Note that dependencies
+                        (<varname>After=</varname>, etc.) cannot be
+                        reset to an empty list, so dependencies can
+                        only be added in drop-ins. If you want to
+                        remove dependencies, you have to override the
+                        entire unit.</para>
+                </example>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
