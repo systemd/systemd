@@ -346,18 +346,25 @@ static int dir_cleanup(
                 }
 
                 /* Stay on the same filesystem */
-                if (s.st_dev != rootdev)
+                if (s.st_dev != rootdev) {
+                        log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
                         continue;
+                }
 
                 /* Try to detect bind mounts of the same filesystem instance; they
                  * do not differ in device major/minors. This type of query is not
                  * supported on all kernels or filesystem types though. */
-                if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0)
+                if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
+                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
+                                  p, dent->d_name);
                         continue;
+                }
 
                 /* Do not delete read-only files owned by root */
-                if (s.st_uid == 0 && !(s.st_mode & S_IWUSR))
+                if (s.st_uid == 0 && !(s.st_mode & S_IWUSR)) {
+                        log_debug("Ignoring \"%s/%s\": read-only and owner by root.", p, dent->d_name);
                         continue;
+                }
 
                 sub_path = strjoin(p, "/", dent->d_name, NULL);
                 if (!sub_path) {
@@ -366,31 +373,35 @@ static int dir_cleanup(
                 }
 
                 /* Is there an item configured for this path? */
-                if (hashmap_get(items, sub_path))
+                if (hashmap_get(items, sub_path)) {
+                        log_debug("Ignoring \"%s\": a separate entry exists.", sub_path);
                         continue;
+                }
 
-                if (find_glob(globs, sub_path))
+                if (find_glob(globs, sub_path)) {
+                        log_debug("Ignoring \"%s\": a separate glob exists.", sub_path);
                         continue;
+                }
 
                 if (S_ISDIR(s.st_mode)) {
 
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
-                            s.st_uid == 0)
+                            s.st_uid == 0) {
+                                log_debug("Ignoring \"%s\".", sub_path);
                                 continue;
+                        }
 
                         if (maxdepth <= 0)
-                                log_warning("Reached max depth on %s.", sub_path);
+                                log_warning("Reached max depth on \"%s\".", sub_path);
                         else {
                                 _cleanup_closedir_ DIR *sub_dir;
                                 int q;
 
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
                                 if (!sub_dir) {
-                                        if (errno != ENOENT) {
-                                                log_error_errno(errno, "opendir(%s/%s) failed: %m", p, dent->d_name);
-                                                r = -errno;
-                                        }
+                                        if (errno != ENOENT)
+                                                r = log_error_errno(errno, "opendir(%s) failed: %m", sub_path);
 
                                         continue;
                                 }
@@ -407,17 +418,35 @@ static int dir_cleanup(
                          * bit already has a meaning for directories,
                          * so we don't want to overload that. */
 
-                        if (keep_this_level)
+                        if (keep_this_level) {
+                                log_debug("Keeping \"%s\".", sub_path);
                                 continue;
+                        }
 
                         /* Ignore ctime, we change it when deleting */
-                        age = MAX(timespec_load(&s.st_mtim),
-                                  timespec_load(&s.st_atim));
-                        if (age >= cutoff)
+                        age = timespec_load(&s.st_mtim);
+                        if (age >= cutoff) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                /* Follows spelling in stat(1). */
+                                log_debug("Directory \"%s\": modify time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
+                        }
 
-                        if (i->type != IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
-                                log_debug("rmdir '%s'", sub_path);
+                        age = timespec_load(&s.st_atim);
+                        if (age >= cutoff) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                log_debug("Directory \"%s\": access time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
+                                continue;
+                        }
+
+                        if (i->type == IGNORE_DIRECTORY_PATH && streq(dent->d_name, p))
+                                log_debug("Ignoring directory \"%s\"", sub_path);
+                        else {
+                                log_debug("Removing directory \"%s\".", sub_path);
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
                                         if (errno != ENOENT && errno != ENOTEMPTY) {
@@ -432,47 +461,71 @@ static int dir_cleanup(
                          * set. These are semantics we define, and are
                          * unknown elsewhere. See XDG_RUNTIME_DIR
                          * specification for details. */
-                        if (s.st_mode & S_ISVTX)
+                        if (s.st_mode & S_ISVTX) {
+                                log_debug("Skipping \"%s\": sticky bit set.", sub_path);
                                 continue;
-
-                        if (mountpoint && S_ISREG(s.st_mode)) {
-                                if (streq(dent->d_name, ".journal") &&
-                                    s.st_uid == 0)
-                                        continue;
-
-                                if (streq(dent->d_name, "aquota.user") ||
-                                    streq(dent->d_name, "aquota.group"))
-                                        continue;
                         }
 
+                        if (mountpoint && S_ISREG(s.st_mode))
+                                if ((streq(dent->d_name, ".journal") && s.st_uid == 0) ||
+                                    streq(dent->d_name, "aquota.user") ||
+                                    streq(dent->d_name, "aquota.group")) {
+                                        log_debug("Skipping \"%s\".", sub_path);
+                                        continue;
+                                }
+
                         /* Ignore sockets that are listed in /proc/net/unix */
-                        if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path))
+                        if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path)) {
+                                log_debug("Skipping \"%s\": live socket.", sub_path);
                                 continue;
+                        }
 
                         /* Ignore device nodes */
-                        if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode))
+                        if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode)) {
+                                log_debug("Skipping \"%s\": a device.", sub_path);
                                 continue;
+                        }
 
                         /* Keep files on this level around if this is
                          * requested */
-                        if (keep_this_level)
+                        if (keep_this_level) {
+                                log_debug("Keeping \"%s\".", sub_path);
                                 continue;
-
-                        age = MAX3(timespec_load(&s.st_mtim),
-                                   timespec_load(&s.st_atim),
-                                   timespec_load(&s.st_ctim));
-
-                        if (age >= cutoff)
-                                continue;
-
-                        log_debug("unlink '%s'", sub_path);
-
-                        if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
-                                if (errno != ENOENT) {
-                                        log_error_errno(errno, "unlink(%s): %m", sub_path);
-                                        r = -errno;
-                                }
                         }
+
+                        age = timespec_load(&s.st_mtim);
+                        if (age >= cutoff) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                /* Follows spelling in stat(1). */
+                                log_debug("File \"%s\": modify time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
+                                continue;
+                        }
+
+                        age = timespec_load(&s.st_atim);
+                        if (age >= cutoff) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                log_debug("File \"%s\": access time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
+                                continue;
+                        }
+
+                        age = timespec_load(&s.st_ctim);
+                        if (age >= cutoff) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                log_debug("File \"%s\": change time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
+                                continue;
+                        }
+
+                        log_debug("unlink \"%s\"", sub_path);
+
+                        if (unlinkat(dirfd(d), dent->d_name, 0) < 0)
+                                if (errno != ENOENT)
+                                        r = log_error_errno(errno, "unlink(%s): %m", sub_path);
 
                         deleted = true;
                 }
@@ -480,10 +533,19 @@ static int dir_cleanup(
 
 finish:
         if (deleted) {
+                usec_t age1, age2;
+                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
+
                 /* Restore original directory timestamps */
                 times[0] = ds->st_atim;
                 times[1] = ds->st_mtim;
 
+                age1 = timespec_load(&ds->st_atim);
+                age2 = timespec_load(&ds->st_mtim);
+                log_debug("Restoring access and modification time on \"%s\": %s, %s",
+                          p,
+                          format_timestamp_us(a, sizeof(a), age1),
+                          format_timestamp_us(b, sizeof(b), age2));
                 if (futimens(dirfd(d), times) < 0)
                         log_error_errno(errno, "utimensat(%s): %m", p);
         }
@@ -515,19 +577,27 @@ static int path_set_perms(Item *i, const char *path) {
                                 m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
                 }
 
-                if (!st_valid || m != (st.st_mode & 07777)) {
+                if (st_valid && m == (st.st_mode & 07777))
+                        log_debug("\"%s\" has right mode %o", path, st.st_mode);
+                else {
+                        log_debug("chmod \"%s\" to mode %o", path, m);
                         if (chmod(path, m) < 0)
                                 return log_error_errno(errno, "chmod(%s) failed: %m", path);
                 }
         }
 
-        if ((!st_valid || (i->uid != st.st_uid || i->gid != st.st_gid)) &&
-            (i->uid_set || i->gid_set))
+        if ((!st_valid || i->uid != st.st_uid || i->gid != st.st_gid) &&
+            (i->uid_set || i->gid_set)) {
+                log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
+                          path,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID);
                 if (chown(path,
                           i->uid_set ? i->uid : UID_INVALID,
                           i->gid_set ? i->gid : GID_INVALID) < 0)
 
                         return log_error_errno(errno, "chown(%s) failed: %m", path);
+        }
 
         return label_fix(path, false, false);
 }
@@ -583,6 +653,7 @@ static int path_set_xattrs(Item *i, const char *path) {
                 int n;
 
                 n = strlen(*value);
+                log_debug("\"%s\": setting xattr \"%s=%s\"", path, *name, *value);
                 if (lsetxattr(path, *name, *value, n, 0) < 0) {
                         log_error("Setting extended attribute %s=%s on %s failed: %m",
                                   *name, *value, path);
@@ -615,6 +686,7 @@ static int get_acls_from_arg(Item *item) {
 static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
+        _cleanup_(acl_free_charpp) char *t = NULL;
 
         if (modify) {
                 r = acls_for_file(path, type, acl, &dup);
@@ -636,19 +708,18 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
         if (r < 0)
                 return r;
 
+        t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
+        log_debug("\"%s\": setting %s ACL \"%s\"", path,
+                  type == ACL_TYPE_ACCESS ? "access" : "default",
+                  strna(t));
+
         r = acl_set_file(path, type, dup);
-        if (r < 0) {
-                _cleanup_(acl_free_charpp) char *t;
-
-                r = -errno;
-                t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
-                log_error_errno(r,
-                                "Setting %s ACL \"%s\" on %s failed: %m",
-                                type == ACL_TYPE_ACCESS ? "access" : "default",
-                                strna(t), path);
-        }
-
-        return r;
+        if (r < 0)
+                return log_error_errno(-errno,
+                                       "Setting %s ACL \"%s\" on %s failed: %m",
+                                       type == ACL_TYPE_ACCESS ? "access" : "default",
+                                       strna(t), path);
+        return 0;
 }
 
 static int path_set_acls(Item *item, const char *path) {
@@ -692,8 +763,10 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (fd < 0) {
-                if (i->type == WRITE_FILE && errno == ENOENT)
+                if (i->type == WRITE_FILE && errno == ENOENT) {
+                        log_debug_errno(errno, "Not writing \"%s\": %m", path);
                         return 0;
+                }
 
                 log_error_errno(errno, "Failed to create file %s: %m", path);
                 return -errno;
@@ -701,21 +774,19 @@ static int write_one_file(Item *i, const char *path) {
 
         if (i->argument) {
                 _cleanup_free_ char *unescaped;
-                ssize_t n;
-                size_t l;
+
+                log_debug("%s to \"%s\".",
+                          i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
                 unescaped = cunescape(i->argument);
                 if (!unescaped)
                         return log_oom();
 
-                l = strlen(unescaped);
-                n = write(fd, unescaped, l);
-
-                if (n < 0 || (size_t) n < l) {
-                        log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
-                        return n < 0 ? n : -EIO;
-                }
-        }
+                r = loop_write(fd, unescaped, strlen(unescaped), false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+        } else
+                log_debug("\"%s\" has been created.", path);
 
         fd = safe_close(fd);
 
@@ -747,8 +818,10 @@ static int item_do_children(Item *i, const char *path, action_t action) {
          * tries to go on */
 
         d = opendir(path);
-        if (!d)
+        if (!d) {
+                log_debug_errno(errno, "Cannot open directory \"%s\": %m", path);
                 return errno == ENOENT || errno == ENOTDIR ? 0 : -errno;
+        }
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
@@ -816,6 +889,8 @@ static int create_item(Item *i) {
 
         assert(i);
 
+        log_debug("Running create action for entry %c %s", (char) i->type, i->path);
+
         switch (i->type) {
 
         case IGNORE_PATH:
@@ -832,6 +907,7 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES:
+                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
                 r = copy_tree(i->argument, i->path, false);
                 if (r < 0) {
                         struct stat a, b;
@@ -871,29 +947,31 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         mkdir_parents_label(i->path, 0755);
 
-                if (i->type == CREATE_SUBVOLUME) {
-                        RUN_WITH_UMASK((~i->mode) & 0777)
+                if (i->type == CREATE_SUBVOLUME)
+                        RUN_WITH_UMASK((~i->mode) & 0777) {
                                 r = btrfs_subvol_make(i->path);
-                } else
+                                log_debug_errno(r, "Creating subvolume \"%s\": %m", i->path);
+                        }
+                else
                         r = 0;
 
-                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY) {
+                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
                         RUN_WITH_UMASK(0000)
                                 r = mkdir_label(i->path, i->mode);
-                }
 
                 if (r < 0) {
                         if (r != -EEXIST)
-                                return log_error_errno(r, "Failed to create directory or subvolume %s: %m", i->path);
+                                return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
 
                         if (stat(i->path, &st) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                         if (!S_ISDIR(st.st_mode)) {
-                                log_debug("%s already exists and is not a directory.", i->path);
+                                log_debug("\"%s\" already exists and is not a directory.", i->path);
                                 return 0;
                         }
                 }
+                log_debug("Created directory \"%s\".", i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -934,6 +1012,7 @@ static int create_item(Item *i) {
                                 }
                         }
                 }
+                log_debug("Created fifo \"%s\".", i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -964,11 +1043,12 @@ static int create_item(Item *i) {
                                         if (r < 0)
                                                 return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
                                 } else {
-                                        log_debug("%s is not a symlink or does not point to the correct path.", i->path);
+                                        log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
                                         return 0;
                                 }
                         }
                 }
+                log_debug("Created symlink \"%s\".", i->path);
 
                 break;
 
@@ -1025,6 +1105,9 @@ static int create_item(Item *i) {
                                 }
                         }
                 }
+                log_debug("Created %s device node \"%s\" %u:%u.",
+                          i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
+                          i->path, major(i->mode), minor(i->mode));
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1093,6 +1176,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RECURSIVE_REMOVE_PATH:
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
+                log_debug("rm -rf \"%s\"", instance);
                 r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
@@ -1110,6 +1194,8 @@ static int remove_item(Item *i) {
         int r = 0;
 
         assert(i);
+
+        log_debug("Running remove action for entry %c %s", (char) i->type, i->path);
 
         switch (i->type) {
 
@@ -1148,8 +1234,8 @@ static int clean_item_instance(Item *i, const char* instance) {
         _cleanup_closedir_ DIR *d = NULL;
         struct stat s, ps;
         bool mountpoint;
-        int r;
         usec_t cutoff, n;
+        char timestamp[FORMAT_TIMESTAMP_MAX];
 
         assert(i);
 
@@ -1164,10 +1250,12 @@ static int clean_item_instance(Item *i, const char* instance) {
 
         d = opendir(instance);
         if (!d) {
-                if (errno == ENOENT || errno == ENOTDIR)
+                if (errno == ENOENT || errno == ENOTDIR) {
+                        log_debug_errno(errno, "Directory \"%s\": %m", instance);
                         return 0;
+                }
 
-                log_error_errno(errno, "Failed to open directory %s: %m", i->path);
+                log_error_errno(errno, "Failed to open directory %s: %m", instance);
                 return -errno;
         }
 
@@ -1185,15 +1273,21 @@ static int clean_item_instance(Item *i, const char* instance) {
         mountpoint = s.st_dev != ps.st_dev ||
                      (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
 
-        r = dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint,
-                        MAX_DEPTH, i->keep_first_level);
-        return r;
+        log_debug("Cleanup threshold for %s \"%s\" is %s",
+                  mountpoint ? "mount point" : "directory",
+                  instance,
+                  format_timestamp_us(timestamp, sizeof(timestamp), cutoff));
+
+        return dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint,
+                           MAX_DEPTH, i->keep_first_level);
 }
 
 static int clean_item(Item *i) {
         int r = 0;
 
         assert(i);
+
+        log_debug("Running clean action for entry %c %s", (char) i->type, i->path);
 
         switch (i->type) {
         case CREATE_DIRECTORY:
@@ -1326,16 +1420,25 @@ static bool should_include_path(const char *path) {
         char **prefix;
 
         STRV_FOREACH(prefix, arg_exclude_prefixes)
-                if (path_startswith(path, *prefix))
+                if (path_startswith(path, *prefix)) {
+                        log_debug("Entry \"%s\" matches exclude prefix \"%s\", skipping.",
+                                  path, *prefix);
                         return false;
+                }
 
         STRV_FOREACH(prefix, arg_include_prefixes)
-                if (path_startswith(path, *prefix))
+                if (path_startswith(path, *prefix)) {
+                        log_debug("Entry \"%s\" matches include prefix \"%s\".", path, *prefix);
                         return true;
+                }
 
         /* no matches, so we should include this path only if we
          * have no whitelist at all */
-        return strv_length(arg_include_prefixes) == 0;
+        if (strv_length(arg_include_prefixes) == 0)
+                return true;
+
+        log_debug("Entry \"%s\" does not match any include prefix, skipping.", path);
+        return false;
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
@@ -1390,8 +1493,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         }
 
-        if (boot && !arg_boot)
+        if (boot && !arg_boot) {
+                log_debug("Ignoring entry %s \"%s\" because --boot is not specified.",
+                          action, path);
                 return 0;
+        }
 
         i.type = action[0];
         i.force = force;
@@ -1497,7 +1603,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         default:
-                log_error("[%s:%u] Unknown command type '%c'.", fname, line, i.type);
+                log_error("[%s:%u] Unknown command type '%c'.", fname, line, (char) i.type);
                 return -EBADMSG;
         }
 
@@ -1729,11 +1835,14 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
         r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &f);
         if (r < 0) {
-                if (ignore_enoent && r == -ENOENT)
+                if (ignore_enoent && r == -ENOENT) {
+                        log_debug_errno(r, "Failed to open \"%s\": %m", fn);
                         return 0;
+                }
 
                 return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
         }
+        log_debug("Reading config file \"%s\".", fn);
 
         FOREACH_LINE(line, f, break) {
                 char *l;
