@@ -2251,7 +2251,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n\n"
                "Image Commands:\n"
-               "  list-images                 Show available container annd VM images\n"
+               "  list-images                 Show available container and VM images\n"
                "  image-status NAME...        Show image details\n"
                "  show-image NAME...          Show properties of image\n"
                "  clone NAME NAME             Clone an image\n"
