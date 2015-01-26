@@ -830,7 +830,7 @@ void udev_event_execute_rules(struct udev_event *event,
                                 key = udev_list_entry_get_name(entry);
                                 value = udev_list_entry_get_value(entry);
 
-                                property = udev_device_add_property(event->dev, key, value);
+                                property = udev_device_add_property(dev, key, value);
                                 udev_list_entry_set_num(property, true);
                         }
                 }
