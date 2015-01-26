@@ -585,6 +585,7 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         } buf;
         ssize_t buflen;
         ssize_t bufpos;
+        bool is_initialized = false;
 
 retry:
         if (udev_monitor == NULL)
@@ -638,63 +639,42 @@ retry:
                 return NULL;
         }
 
-        udev_device = udev_device_new(udev_monitor->udev);
-        if (udev_device == NULL)
-                return NULL;
-
         if (memcmp(buf.raw, "libudev", 8) == 0) {
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htonl(UDEV_MONITOR_MAGIC)) {
                         log_debug("unrecognized message signature (%x != %x)",
                                  buf.nlh.magic, htonl(UDEV_MONITOR_MAGIC));
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
                 if (buf.nlh.properties_off+32 > (size_t)buflen) {
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
 
                 bufpos = buf.nlh.properties_off;
 
                 /* devices received from udev are always initialized */
-                udev_device_set_is_initialized(udev_device);
+                is_initialized = true;
         } else {
                 /* kernel message with header */
                 bufpos = strlen(buf.raw) + 1;
                 if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
                         log_debug("invalid message length");
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
 
                 /* check message header */
                 if (strstr(buf.raw, "@/") == NULL) {
                         log_debug("unrecognized message header");
-                        udev_device_unref(udev_device);
                         return NULL;
                 }
         }
 
-        udev_device_set_info_loaded(udev_device);
-
-        while (bufpos < buflen) {
-                char *key;
-                size_t keylen;
-
-                key = &buf.raw[bufpos];
-                keylen = strlen(key);
-                if (keylen == 0)
-                        break;
-                bufpos += keylen + 1;
-                udev_device_add_property_from_string_parse(udev_device, key);
-        }
-
-        if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
-                log_debug("missing values, invalid device");
-                udev_device_unref(udev_device);
+        udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
+        if (!udev_device)
                 return NULL;
-        }
+
+        if (is_initialized)
+                udev_device_set_is_initialized(udev_device);
 
         /* skip device, if it does not pass the current filter */
         if (!passes_filter(udev_monitor, udev_device)) {

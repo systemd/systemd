@@ -1965,3 +1965,48 @@ struct udev_device *udev_device_shallow_clone(struct udev_device *old_device)
 
         return device;
 }
+
+struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
+        struct udev_device *device;
+        ssize_t bufpos = 0;
+
+        if (nulstr == NULL || buflen <= 0) {
+                errno = EINVAL;
+
+                return NULL;
+        }
+
+        device = udev_device_new(udev);
+        if (!device) {
+                errno = ENOMEM;
+
+                return NULL;
+        }
+
+        udev_device_set_info_loaded(device);
+
+        while (bufpos < buflen) {
+                char *key;
+                size_t keylen;
+
+                key = nulstr + bufpos;
+                keylen = strlen(key);
+                if (keylen == 0)
+                        break;
+
+                bufpos += keylen + 1;
+                udev_device_add_property_from_string_parse(device, key);
+        }
+
+        if (udev_device_add_property_from_string_parse_finish(device) < 0) {
+                log_debug("missing values, invalid device");
+
+                udev_device_unref(device);
+
+                errno = EINVAL;
+
+                return NULL;
+        }
+
+        return device;
+}
