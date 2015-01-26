@@ -81,10 +81,10 @@
     last check, number of mounts, unclean unmount, etc.</para>
 
     <para><filename>systemd-fsck</filename> will forward file system
-    checking progress to the console. If a file system check fails for
-    a service without <option>nofail</option>, emergency mode is
-    activated, by isolating to
-    <filename>emergency.target</filename>.</para>
+    checking progress to <filename>systemd-fsckd.service</filename>
+    socket. If a file system check fails for a service without
+    <option>nofail</option>, emergency mode is activated, by isolating
+    to <filename>emergency.target</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -125,16 +125,16 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

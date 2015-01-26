@@ -7,6 +7,7 @@
 
 [Unit]
 Description=File System Check Daemon to report status
+Documentation=man:systemd-fsckd.service(8)
 DefaultDependencies=no
 Requires=systemd-fsckd.socket
 Before=shutdown.target

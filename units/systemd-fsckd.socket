@@ -7,7 +7,7 @@
 
 [Unit]
 Description=fsck to fsckd communication Socket
-Documentation=man:systemd-fsck@.service(8) man:systemd-fsck-root.service(8)
+Documentation=man:systemd-fsckd.service(8) man:systemd-fsck@.service(8) man:systemd-fsck-root.service(8)
 DefaultDependencies=no
 
 [Socket]
