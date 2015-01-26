@@ -67,8 +67,6 @@ Features:
 
 * Port various tools to make use of verbs.[ch], where applicable
 
-* Check all invocations of access() and consider turning them into laccess()
-
 * "machinectl history"
 
 * "machinectl diff"
