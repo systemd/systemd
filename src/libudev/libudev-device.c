@@ -161,7 +161,7 @@ _public_ dev_t udev_device_get_devnum(struct udev_device *udev_device)
         return udev_device->devnum;
 }
 
-int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
+static int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 {
         char num[32];
 
@@ -258,7 +258,7 @@ static int udev_device_set_devtype(struct udev_device *udev_device, const char *
         return 0;
 }
 
-int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
+static int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
 {
         free(udev_device->subsystem);
         udev_device->subsystem = strdup(subsystem);
@@ -390,6 +390,44 @@ static struct udev_list_entry *udev_device_add_property_from_string(struct udev_
         if (val[0] == '\0')
                 val = NULL;
         return udev_device_add_property(udev_device, name, val);
+}
+
+static int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath)
+{
+        const char *pos;
+        size_t len;
+
+        free(udev_device->syspath);
+        udev_device->syspath = strdup(syspath);
+        if (udev_device->syspath ==  NULL)
+                return -ENOMEM;
+        udev_device->devpath = udev_device->syspath + strlen("/sys");
+        udev_device_add_property(udev_device, "DEVPATH", udev_device->devpath);
+
+        pos = strrchr(udev_device->syspath, '/');
+        if (pos == NULL)
+                return -EINVAL;
+        udev_device->sysname = strdup(&pos[1]);
+        if (udev_device->sysname == NULL)
+                return -ENOMEM;
+
+        /* some devices have '!' in their name, change that to '/' */
+        len = 0;
+        while (udev_device->sysname[len] != '\0') {
+                if (udev_device->sysname[len] == '!')
+                        udev_device->sysname[len] = '/';
+                len++;
+        }
+
+        /* trailing number */
+        while (len > 0 && isdigit(udev_device->sysname[--len]))
+                udev_device->sysnum = &udev_device->sysname[len];
+
+        /* sysname is completely numeric */
+        if (len == 0)
+                udev_device->sysnum = NULL;
+
+        return 0;
 }
 
 /*
@@ -637,7 +675,7 @@ void udev_device_set_info_loaded(struct udev_device *device)
         device->info_loaded = true;
 }
 
-struct udev_device *udev_device_new(struct udev *udev)
+static struct udev_device *udev_device_new(struct udev *udev)
 {
         struct udev_device *udev_device;
 
@@ -1605,44 +1643,6 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
         }
 
         return udev_list_get_entry(&udev_device->sysattr_list);
-}
-
-int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath)
-{
-        const char *pos;
-        size_t len;
-
-        free(udev_device->syspath);
-        udev_device->syspath = strdup(syspath);
-        if (udev_device->syspath ==  NULL)
-                return -ENOMEM;
-        udev_device->devpath = udev_device->syspath + strlen("/sys");
-        udev_device_add_property(udev_device, "DEVPATH", udev_device->devpath);
-
-        pos = strrchr(udev_device->syspath, '/');
-        if (pos == NULL)
-                return -EINVAL;
-        udev_device->sysname = strdup(&pos[1]);
-        if (udev_device->sysname == NULL)
-                return -ENOMEM;
-
-        /* some devices have '!' in their name, change that to '/' */
-        len = 0;
-        while (udev_device->sysname[len] != '\0') {
-                if (udev_device->sysname[len] == '!')
-                        udev_device->sysname[len] = '/';
-                len++;
-        }
-
-        /* trailing number */
-        while (len > 0 && isdigit(udev_device->sysname[--len]))
-                udev_device->sysnum = &udev_device->sysname[len];
-
-        /* sysname is completely numeric */
-        if (len == 0)
-                udev_device->sysnum = NULL;
-
-        return 0;
 }
 
 static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
