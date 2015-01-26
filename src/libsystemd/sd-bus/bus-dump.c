@@ -129,8 +129,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %m");
 
-        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
-                fprintf(f, "%sMESSAGE \"%s\" {\n", indent(0, flags), strempty(m->root_container.signature));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = indent(0, flags);
+                if (!prefix)
+                        return log_oom();
+
+                fprintf(f, "%sMESSAGE \"%s\" {\n", prefix, strempty(m->root_container.signature));
+        }
 
         for (;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -259,8 +266,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 }
         }
 
-        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY))
-                fprintf(f, "%s};\n\n", indent(0, flags));
+        if (!(flags & BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                _cleanup_free_ char *prefix = NULL;
+
+                prefix = indent(0, flags);
+                if (!prefix)
+                        return log_oom();
+
+                fprintf(f, "%s};\n\n", prefix);
+        }
 
         return 0;
 }
