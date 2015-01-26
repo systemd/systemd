@@ -136,6 +136,8 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #    define __NR_memfd_create 319
 #  elif defined __arm__
 #    define __NR_memfd_create 385
+#  elif defined __aarch64__
+#    define __NR_memfd_create 279
 #  elif defined _MIPS_SIM
 #    if _MIPS_SIM == _MIPS_SIM_ABI32
 #      define __NR_memfd_create 4354
@@ -165,8 +167,10 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #    define __NR_getrandom 318
 #  elif defined(__i386__)
 #    define __NR_getrandom 355
-#  elif defined(__arm__) || defined(__aarch64__)
+#  elif defined(__arm__)
 #    define __NR_getrandom 384
+# elif defined(__aarch64__)
+#    define __NR_getrandom 278
 #  elif defined(__ia64__)
 #    define __NR_getrandom 1339
 #  elif defined(__m68k__)
