@@ -1,0 +1,27 @@
+#!/bin/bash
+fd=0
+
+OPTIND=1
+while getopts "C:aTlM" opt; do
+    case "$opt" in
+        C)
+            fd=$OPTARG
+            ;;
+        \?);;
+    esac
+done
+
+shift "$((OPTIND-1))"
+device=$1
+
+echo "Running fake fsck on $device"
+
+declare -a maxpass=(30 5 2 30 60)
+
+for pass in {1..5}; do
+    maxprogress=${maxpass[$((pass-1))]}
+    for (( current=0; current<=${maxprogress}; current++)); do
+        echo "$pass $current $maxprogress $device">&$fd
+        sleep 0.1
+    done
+done
