@@ -37,7 +37,7 @@ static const char *arg_dest = "/tmp";
 static int generate_symlink(void) {
         const char *p = NULL;
 
-        if (access("/system-update", F_OK) < 0) {
+        if (laccess("/system-update", F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
 
