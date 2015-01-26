@@ -6,16 +6,9 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=File System Check on Root Device
-Documentation=man:systemd-fsck-root.service(8)
+Description=fsck to fsckd communication Socket
+Documentation=man:systemd-fsck@.service(8) man:systemd-fsck-root.service(8)
 DefaultDependencies=no
-Wants=systemd-fsckd.socket
-Before=local-fs.target shutdown.target
-After=systemd-fsckd.socket
-ConditionPathIsReadWrite=!/
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-fsck
-TimeoutSec=0
+[Socket]
+ListenStream=/run/systemd/fsckd

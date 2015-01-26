@@ -28,6 +28,7 @@
 /systemd-firstboot.service
 /systemd-fsck-root.service
 /systemd-fsck@.service
+/systemd-fsckd.service
 /systemd-machine-id-commit.service
 /systemd-halt.service
 /systemd-hibernate.service

@@ -6,16 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=File System Check on %f
-Documentation=man:systemd-fsck@.service(8)
+Description=File System Check Daemon to report status
 DefaultDependencies=no
-BindsTo=%i.device
-Wants=systemd-fsckd.socket
-After=%i.device systemd-fsck-root.service local-fs-pre.target systemd-fsckd.socket
+Requires=systemd-fsckd.socket
 Before=shutdown.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-fsck %f
-TimeoutSec=0
+ExecStart=@rootlibexecdir@/systemd-fsckd
+StandardOutput=journal+console
