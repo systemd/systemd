@@ -256,7 +256,7 @@
                                 zero). See
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. Multiple arrays of file
-                                descriptors may be sent in seperate
+                                descriptors may be sent in separate
                                 messages, in which case the arrays are
                                 combined. Note that the service
                                 manager removes duplicate file

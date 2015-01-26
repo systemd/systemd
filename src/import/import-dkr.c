@@ -752,7 +752,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
 
                 r = btrfs_subvol_set_read_only(i->temp_path, true);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to mark snapshort read-only: %m");
+                        log_error_errno(r, "Failed to mark snapshot read-only: %m");
                         goto finish;
                 }
 

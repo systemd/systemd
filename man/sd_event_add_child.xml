@@ -146,7 +146,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><constant>-EINVAL</constant></term>
 
         <listitem><para>An invalid argument has been passed. This includes
-        specyfing an empty mask in <parameter>options</parameter> or a mask
+        specifying an empty mask in <parameter>options</parameter> or a mask
         which contains values different than a combination of
         <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
         <constant>WCONTINUED</constant>.

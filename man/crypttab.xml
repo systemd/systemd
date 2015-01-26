@@ -337,7 +337,7 @@
                                 systemd should wait for a device to
                                 show up before giving up on the
                                 entry. The argument is a time in
-                                seconds or explicitly specifified
+                                seconds or explicitly specified
                                 units of <literal>s</literal>,
                                 <literal>min</literal>,
                                 <literal>h</literal>,

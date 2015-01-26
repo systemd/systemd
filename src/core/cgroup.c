@@ -954,7 +954,7 @@ int manager_setup_cgroup(Manager *m) {
                 if (m->pin_cgroupfs_fd < 0)
                         return log_error_errno(errno, "Failed to open pin file: %m");
 
-                /* 6.  Always enable hierarchial support if it exists... */
+                /* 6.  Always enable hierarchical support if it exists... */
                 cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
         }
 

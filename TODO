@@ -49,7 +49,7 @@ Features:
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
 
-* logind,machined: add generic catch-all polkit verbs for most priviliged operations, similar to systemd itself
+* logind,machined: add generic catch-all polkit verbs for most privileged operations, similar to systemd itself
 
 * "machinectl status" should also show internal logs of the container in question
 

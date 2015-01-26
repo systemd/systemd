@@ -985,7 +985,7 @@ CHANGES WITH 214:
           fact that many distributions only ship a very small number
           of LSB/SysV init scripts nowadays.
 
-        * Priviliged Xen (dom0) domains are not considered
+        * Privileged Xen (dom0) domains are not considered
           virtualization anymore by the virtualization detection
           logic. After all, they generally have unrestricted access to
           the hardware and usually are used to manage the unprivileged
@@ -2048,8 +2048,8 @@ CHANGES WITH 208:
         * The memory.use_hierarchy cgroup attribute is now enabled for
           all cgroups systemd creates in the memory cgroup
           hierarchy. This option is likely to be come the built-in
-          default in the kernel anyway, and the non-hierarchial mode
-          never made much sense in the intrinsically hierarchial
+          default in the kernel anyway, and the non-hierarchical mode
+          never made much sense in the intrinsically hierarchical
           cgroup system.
 
         * A new field _SYSTEMD_SLICE= is logged along with all journal
@@ -2309,7 +2309,7 @@ CHANGES WITH 205:
           together, or apply resource limits on them.
 
           Slice units may be used to partition system resources in an
-          hierarchial fashion and then assign other units to them. By
+          hierarchical fashion and then assign other units to them. By
           default there are now three slices: system.slice (for all
           system services), user.slice (for all user sessions),
           machine.slice (for VMs and containers).

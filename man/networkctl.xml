@@ -45,7 +45,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>networkctl</refname>
-    <refpurpose>Query the statuc of network links</refpurpose>
+    <refpurpose>Query the status of network links</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

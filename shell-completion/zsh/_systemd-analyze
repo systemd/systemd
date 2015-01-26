@@ -47,7 +47,7 @@ _arguments \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
     '--no-pager[Do not pipe output into a pager]' \
-    '--man=[Do (not) check for exietnce of man pages]:boolean:(1 0)' \
+    '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
     '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \

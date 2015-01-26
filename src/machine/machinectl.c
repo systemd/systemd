@@ -1785,7 +1785,7 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
         assert(si);
 
         if (!arg_quiet)
-                log_info("Continuing download in the background. Use \"machinectl cancel-transfer %" PRIu32 "\" to arbort transfer.", PTR_TO_UINT32(userdata));
+                log_info("Continuing download in the background. Use \"machinectl cancel-transfer %" PRIu32 "\" to abort transfer.", PTR_TO_UINT32(userdata));
 
         sd_event_exit(sd_event_source_get_event(s), EINTR);
         return 0;
