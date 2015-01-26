@@ -879,17 +879,13 @@ static int item_do_children(Item *i, const char *path, action_t action) {
 }
 
 static int glob_item(Item *i, action_t action, bool recursive) {
-DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES
-DISABLE_WARNING_DECLARATION_AFTER_STATEMENT
         _cleanup_globfree_ glob_t g = {
-                .gl_closedir = closedir,
-                .gl_readdir = readdir,
-                .gl_opendir = opendir_nomod,
+                .gl_closedir = (void (*)(void *)) closedir,
+                .gl_readdir = (struct dirent *(*)(void *)) readdir,
+                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
                 .gl_lstat = lstat,
                 .gl_stat = stat,
         };
-REENABLE_WARNING
-REENABLE_WARNING
         int r = 0, k;
         char **fn;
 
