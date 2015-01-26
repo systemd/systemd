@@ -424,3 +424,14 @@ msgstr "Autenticazione richiesta per riavviare lo stato di sistemd."
 
 #~ msgid "Privileged system and service manager access"
 #~ msgstr "Accesso privilegiato per la gestione del sistema e dei servizi"
+
+#: ../src/fsckd/fsckd.c:186
+msgid "Press Ctrl+C to cancel all filesystem checks in progress"
+msgstr ""
+
+#: ../src/fsckd/fsckd.c:227
+#, c-format
+msgid "Checking in progress on %d disk (%3.1f%% complete)"
+msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
+msgstr[0] ""
+msgstr[1] ""

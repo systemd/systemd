@@ -433,3 +433,14 @@ msgid ""
 msgstr ""
 "Authentification requise pour activer ou désactiver la synchronisation de "
 "l'heure avec le réseau."
+
+#: ../src/fsckd/fsckd.c:186
+msgid "Press Ctrl+C to cancel all filesystem checks in progress"
+msgstr "Appuyez sur Ctrl+C pour annuler toutes vérifications du système de fichier en cours"
+
+#: ../src/fsckd/fsckd.c:227
+#, c-format
+msgid "Checking in progress on %d disk (%3.1f%% complete)"
+msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
+msgstr[0] "Vérification en cours sur %d disque (%3.1f%% complété)"
+msgstr[1] "Vérification en cours sur %d disques (%3.1f%% complété)"

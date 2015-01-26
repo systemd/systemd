@@ -411,3 +411,14 @@ msgid ""
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
+
+#: ../src/fsckd/fsckd.c:186
+msgid "Press Ctrl+C to cancel all filesystem checks in progress"
+msgstr ""
+
+#: ../src/fsckd/fsckd.c:227
+#, c-format
+msgid "Checking in progress on %d disk (%3.1f%% complete)"
+msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
+msgstr[0] ""
+msgstr[1] ""
