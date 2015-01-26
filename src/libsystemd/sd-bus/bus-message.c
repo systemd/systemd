@@ -129,14 +129,8 @@ static void message_free(sd_bus_message *m) {
 
         message_reset_parts(m);
 
-        if (m->release_kdbus) {
-                struct kdbus_cmd_free cmd_free = { };
-
-                cmd_free.size = sizeof(cmd_free);
-                cmd_free.flags = 0;
-                cmd_free.offset = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
-                (void) ioctl(m->bus->input_fd, KDBUS_CMD_FREE, &cmd_free);
-        }
+        if (m->release_kdbus)
+                bus_kernel_cmd_free(m->bus, (uint8_t *) m->kdbus - (uint8_t *) m->bus->kdbus_buffer);
 
         if (m->free_kdbus)
                 free(m->kdbus);
