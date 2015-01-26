@@ -24,6 +24,7 @@
 
 #include <getopt.h>
 #include <errno.h>
+#include <libintl.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -182,7 +183,7 @@ static int send_message_plymouth(Manager *m, const char *message) {
                 if (r < 0)
                         return log_warning_errno(errno, "Can't send to plymouth cancel key: %m");
                 m->plymouth_cancel_sent = true;
-                plymouth_cancel_message = strjoina("fsckd-cancel-msg:", "Press Ctrl+C to cancel all filesystem checks in progress");
+                plymouth_cancel_message = strjoina("fsckd-cancel-msg:", _("Press Ctrl+C to cancel all filesystem checks in progress"));
                 r = send_message_plymouth_socket(m->plymouth_fd, plymouth_cancel_message, false);
                 if (r < 0)
                         log_warning_errno(r, "Can't send filesystem cancel message to plymouth: %m");
@@ -222,8 +223,10 @@ static int update_global_progress(Manager *m) {
                 m->numdevices = current_numdevices;
                 m->percent = current_percent;
 
-                if (asprintf(&console_message, "Checking in progress on %d disks (%3.1f%% complete)",
-                                                m->numdevices, m->percent) < 0)
+                if (asprintf(&console_message,
+                             ngettext("Checking in progress on %d disk (%3.1f%% complete)",
+                                      "Checking in progress on %d disks (%3.1f%% complete)", m->numdevices),
+                                      m->numdevices, m->percent) < 0)
                         return -ENOMEM;
                 if (asprintf(&fsck_message, "fsckd:%d:%3.1f:%s", m->numdevices, m->percent, console_message) < 0)
                         return -ENOMEM;
@@ -507,6 +510,7 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+        init_gettext();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
