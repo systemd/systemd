@@ -259,9 +259,11 @@ static int manager_new(Manager **ret, int fd) {
                 return r;
 
         m->connection_fd = fd;
-        m->console = fopen("/dev/console", "we");
-        if (!m->console)
-                return log_warning_errno(errno, "Can't connect to /dev/console: %m");
+        if (access("/run/systemd/show-status", F_OK) >= 0) {
+                m->console = fopen("/dev/console", "we");
+                if (!m->console)
+                        return log_warning_errno(errno, "Can't connect to /dev/console: %m");
+        }
         m->percent = 100;
 
         *ret = m;

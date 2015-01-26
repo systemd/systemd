@@ -45,7 +45,6 @@
 
 static bool arg_skip = false;
 static bool arg_force = false;
-static bool arg_show_progress = false;
 static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
@@ -131,8 +130,6 @@ static void test_files(void) {
         }
 #endif
 
-        if (access("/run/systemd/show-status", F_OK) >= 0 || plymouth_running())
-                arg_show_progress = true;
 }
 
 static int process_progress(int fd, dev_t device_num) {
@@ -286,11 +283,10 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "fsck.%s cannot be used for %s: %m", type, device);
         }
 
-        if (arg_show_progress)
-                if (pipe(progress_pipe) < 0) {
-                        log_error_errno(errno, "pipe(): %m");
-                        return EXIT_FAILURE;
-                }
+        if (pipe(progress_pipe) < 0) {
+                log_error_errno(errno, "pipe(): %m");
+                return EXIT_FAILURE;
+        }
 
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] =  arg_repair;
