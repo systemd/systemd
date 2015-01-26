@@ -288,7 +288,7 @@
 
                 <para>When systemd is running in user mode
                 (<option>--user</option>) and the variable
-                <varname>$SYSTEMD_UNIT_PATH</varname> is set, this
+                <varname>$SYSTEMD_UNIT_PATH</varname> is set, the
                 contents of this variable overrides the unit load
                 path. If <varname>$SYSTEMD_UNIT_PATH</varname> ends
                 with an empty component (<literal>:</literal>), the
