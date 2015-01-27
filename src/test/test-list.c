@@ -38,6 +38,13 @@ int main(int argc, const char *argv[]) {
                 LIST_PREPEND(item, head, &items[i]);
         }
 
+        i = 0;
+        LIST_FOREACH_OTHERS(item, cursor, &items[2]) {
+                i++;
+                assert_se(cursor != &items[2]);
+        }
+        assert_se(i == ELEMENTSOF(items)-1);
+
         assert_se(!LIST_JUST_US(item, head));
 
         assert_se(items[0].item_next == NULL);
@@ -125,7 +132,7 @@ int main(int argc, const char *argv[]) {
         assert_se(items[3].item_prev == &items[2]);
 
         for (i = 0; i < ELEMENTSOF(items); i++)
-          LIST_REMOVE(item, head, &items[i]);
+                LIST_REMOVE(item, head, &items[i]);
 
         assert_se(head == NULL);
 

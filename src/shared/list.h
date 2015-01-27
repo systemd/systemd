@@ -138,6 +138,16 @@
 #define LIST_FOREACH_AFTER(name,i,p)                                    \
         for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
 
+/* Iterate through all the members of the list p is included in, but skip over p */
+#define LIST_FOREACH_OTHERS(name,i,p)                                   \
+        for (({                                                         \
+                (i) = (p);                                              \
+                while ((i) && (i)->name##_prev)                         \
+                        (i) = (i)->name##_prev;                         \
+             });                                                        \
+             (i);                                                       \
+             (i) = (i)->name##_next == (p) ? (p)->name##_next : (i)->name##_next)
+
 /* Loop starting from p->next until p->prev.
    p can be adjusted meanwhile. */
 #define LIST_LOOP_BUT_ONE(name,i,head,p)                                \
