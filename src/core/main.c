@@ -224,12 +224,17 @@ noreturn static void crash(int sig) {
 }
 
 static void install_crash_handler(void) {
-        struct sigaction sa = {
+        static const struct sigaction sa = {
                 .sa_handler = crash,
-                .sa_flags = SA_NODEFER,
+                .sa_flags = SA_NODEFER, /* So that we can raise the signal again from the signal handler */
         };
+        int r;
 
-        sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        /* We ignore the return value here, since, we don't mind if we
+         * cannot set up a crash handler */
+        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        if (r < 0)
+                log_debug_errno(r, "I had trouble setting up the crash handler, ignoring: %m");
 }
 
 static int console_setup(void) {
