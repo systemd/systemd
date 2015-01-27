@@ -335,8 +335,20 @@ static int user_mkdir_runtime_path(User *u) {
 
                 r = mount("tmpfs", p, "tmpfs", MS_NODEV|MS_NOSUID, t);
                 if (r < 0) {
-                        r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", p);
-                        goto fail;
+                        if (errno != EPERM) {
+                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", p);
+                                goto fail;
+                        }
+
+                        /* Lacking permissions, maybe
+                         * CAP_SYS_ADMIN-less container? In this case,
+                         * just use a normal directory. */
+
+                        r = chmod_and_chown(p, 0700, u->uid, u->gid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to change runtime directory ownership and mode: %m");
+                                goto fail;
+                        }
                 }
         }
 
@@ -514,7 +526,11 @@ static int user_remove_runtime_path(User *u) {
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
 
-        if (umount2(u->runtime_path, MNT_DETACH) < 0)
+        /* Ignore cases where the directory isn't mounted, as that's
+         * quite possible, if we lacked the permissions to mount
+         * something */
+        r = umount2(u->runtime_path, MNT_DETACH);
+        if (r < 0 && errno != EINVAL && errno != ENOENT)
                 log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", u->runtime_path);
 
         r = rm_rf(u->runtime_path, false, true, false);
