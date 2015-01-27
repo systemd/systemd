@@ -1358,6 +1358,302 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
         </refsect1>
 
         <refsect1>
+                <title>Examples</title>
+
+                <example>
+                        <title>Simple service</title>
+
+                        <para>The following unit file creates a service
+                        that will execute
+                        <filename>/usr/sbin/foo-daemon</filename>.
+                        Since no <varname>Type=</varname> is specified,
+                        the default
+                        <varname>Type=</varname><option>simple</option>
+                        will be assumed. systemd will assume the unit
+                        to be started immediately after the program has
+                        begun executing.</para>
+
+                        <programlisting>[Unit]
+Description=Foo
+
+[Service]
+ExecStart=/usr/sbin/foo-daemon
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Note that systemd assumes here that the
+                        process started by systemd will continue
+                        running until the service terminates. If the
+                        program daemonizes itself (i.e. forks), please
+                        use
+                        <varname>Type=</varname><option>forking</option>
+                        instead.</para>
+
+                        <para>Since no <varname>ExecStop=</varname> was
+                        specified, systemd will send SIGTERM to all
+                        processes started from this service, and after
+                        a timeout also SIGKILL. This behavior can be
+                        modified, see
+                        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        for details.</para>
+
+                        <para>Note that this unit type does not include
+                        any type of notification when a service has
+                        completed initialization. For this, you should
+                        use other unit types, such as
+                        <varname>Type=</varname><option>notify</option>
+                        if the service understands systemd's
+                        notification protocol,
+                        <varname>Type=</varname><option>forking</option>
+                        if the service can background itself or
+                        <varname>Type=</varname><option>dbus</option>
+                        if the unit acquires a DBus name once
+                        initialization is complete. See below.</para>
+                </example>
+
+                <example>
+                        <title>Oneshot service</title>
+
+                        <para>Sometimes units should just execute an
+                        action without keeping active processes, such
+                        as a filesystem check or a cleanup action on
+                        boot. For this,
+                        <varname>Type=</varname><option>oneshot</option>
+                        exists. Units of this type will wait until the
+                        process specified terminates and then fall back
+                        to being inactive. The following unit will
+                        perform a clenaup action:</para>
+
+                        <programlisting>[Unit]
+Description=Cleanup old Foo data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/foo-cleanup
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Note that systemd will consider the unit
+                        to be in the state 'starting' until the program
+                        has terminated, so ordered dependencies will
+                        wait for the program to finish before starting
+                        themselves. The unit will revert to the
+                        'inactive' state after the execution is
+                        done, never reaching the 'active' state. That
+                        means another request to start the unit will
+                        perform the action again.</para>
+
+                        <para><varname>Type=</varname><option>oneshot</option>
+                        are the only service units that may have more
+                        than one <varname>ExecStart=</varname>
+                        specified. They will be executed in order until
+                        either they are all successful or one of them
+                        fails.</para>
+                </example>
+
+                <example>
+                        <title>Stoppable oneshot service</title>
+
+                        <para>Similarly to the oneshot services, there
+                        are sometimes units that need to execute a
+                        program to set up something and then execute
+                        another to shut it down, but no process remains
+                        active while they are considered
+                        'started'. Network configuration can sometimes
+                        fall into this category. Another use case is if
+                        a oneshot service shall not be executed a
+                        each time when they are pulled in as a
+                        dependency, but only the first time.</para>
+
+                        <para>For this, systemd knows the setting
+                        <varname>RemainAfterExit=</varname><option>yes</option>,
+                        which causes systemd to consider the unit to be
+                        active if the start action exited successfully.
+                        This directive can be used with all types, but
+                        is most useful with
+                        <varname>Type=</varname><option>oneshot</option>
+                        and
+                        <varname>Type=</varname><option>simple</option>.
+                        With
+                        <varname>Type=</varname><option>oneshot</option>
+                        systemd waits until the start action has
+                        completed before it considers the unit to be
+                        active, so dependencies start only after the
+                        start action has succeeded. With
+                        <varname>Type=</varname><option>simple</option>
+                        dependencies will start immediately after the
+                        start action has been dispatched. The following
+                        unit provides an example for a simple static
+                        firewall.</para>
+
+                        <programlisting>[Unit]
+Description=Simple firewall
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/simple-firewall-start
+ExecStop=/usr/local/sbin/simple-firewall-stop
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Since the unit is considered to be
+                        running after the start action has exited,
+                        invoking <command>systemctl start</command> on
+                        that unit again will cause no action to be
+                        taken.</para>
+                </example>
+
+                <example>
+                        <title>Traditional forking services</title>
+
+                        <para>Many traditional daemons/services
+                        background (i.e. fork, daemonize) themselves
+                        when starting. Set
+                        <varname>Type=</varname><option>forking</option>
+                        in the service's unit file to support this mode
+                        of operation. systemd will consider the service
+                        to be in the process of initialization while
+                        the original program is still running. Once
+                        it exits successfully and at least a process
+                        remains (and
+                        <varname>RemainAfterExit=</varname><option>no</option>),
+                        the service is considered started.</para>
+
+                        <para>Often a traditional daemon only consists
+                        of one process. Therefore, if only one process
+                        is left after the original process terminates,
+                        systemd will consider that process the main
+                        process of the service. In that case, the
+                        <varname>$MAINPID</varname> variable will be
+                        available in <varname>ExecReload=</varname>,
+                        <varname>ExecStop=</varname>, etc.</para>
+
+                        <para>In case more than one process remains,
+                        systemd will be unable to determine the main
+                        process, so it will not assume there is one.
+                        In that case, <varname>$MAINPID</varname> will
+                        not expand to anything. However, if the process
+                        decides to write a traditional PID file,
+                        systemd will be able to read the main PID from
+                        there. Please set <varname>PIDFile=</varname>
+                        accordingly. Note that the daemon should write
+                        that file before finishing with its
+                        initialization, otherwise systemd might try to
+                        read the file before it exists.</para>
+
+                        <para>The following example shows a simple
+                        daemon that forks and just starts one process
+                        in the background:</para>
+
+                        <programlisting>[Unit]
+Description=Some simple daemon
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/my-simple-daemon -d
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Please see
+                        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        for details on how you can influence the way
+                        systemd terminates the service.</para>
+                </example>
+
+                <example>
+                        <title>DBus services</title>
+
+                        <para>For services that acquire a name on the
+                        DBus system bus, use
+                        <varname>Type=</varname><option>dbus</option>
+                        and set <varname>BusName=</varname>
+                        accordingly. The service should not fork
+                        (daemonize). systemd will consider the service
+                        to be initialized once the name has been
+                        acquired on the system bus. The following
+                        example shows a typical DBus service:</para>
+
+                        <programlisting>[Unit]
+Description=Simple DBus service
+
+[Service]
+Type=dbus
+BusName=org.example.simple-dbus-service
+ExecStart=/usr/sbin/simple-dbus-service
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>For <emphasis>bus-activatable</emphasis>
+                        services, don't include a
+                        <literal>[Install]</literal> section in the
+                        systemd service file, but use the
+                        <varname>SystemdService=</varname> option in
+                        the corresponding DBus service file, for
+                        example
+                        (<filename>/usr/share/dbus-1/system-services/org.example.simple-dbus-service.service</filename>):</para>
+
+                        <programlisting>[D-BUS Service]
+Name=org.example.simple-dbus-service
+Exec=/usr/sbin/simple-dbus-service
+User=root
+SystemdService=simple-dbus-service.service</programlisting>
+
+                        <para>Please see
+                        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        for details on how you can influence the way
+                        systemd terminates the service.</para>
+                </example>
+
+                <example>
+                        <title>Services that notify systemd about their initialization</title>
+
+                        <para><varname>Type=</varname><option>simple</option>
+                        services are really easy to write, but have the
+                        major disadvantage of systemd not being able to
+                        tell when initialization of the given service
+                        is complete. For this reason, systemd supports
+                        a simple notification protocol that allows
+                        daemons to make systemd aware that they are
+                        done initializing. Use
+                        <varname>Type=</varname><option>notify</option>
+                        for this. A typical service file for such a
+                        daemon would look like this:</para>
+
+                        <programlisting>[Unit]
+Description=Simple notifying service
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/simple-notifying-service
+
+[Install]
+WantedBy=multi-user.target</programlisting>
+
+                        <para>Note that the daemon has to support
+                        systemd's notification protocol, else systemd
+                        will think the service hasn't started yet and
+                        kill it after a timeout. For an example of how
+                        to update daemons to support this protocol
+                        transparently, take a look at
+                        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                        systemd will consider the unit to be in the
+                        'starting' state until a readiness notification
+                        has arrived.</para>
+
+                        <para>Please see
+                        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        for details on how you can influence the way
+                        systemd terminates the service.</para>
+                </example>
+        </refsect1>
+
+        <refsect1>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
