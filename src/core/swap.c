@@ -1178,11 +1178,7 @@ static Unit *swap_following(Unit *u) {
         if (s->from_fragment)
                 return NULL;
 
-        LIST_FOREACH_AFTER(same_devnode, other, s)
-                if (other->from_fragment)
-                        return UNIT(other);
-
-        LIST_FOREACH_BEFORE(same_devnode, other, s)
+        LIST_FOREACH_OTHERS(same_devnode, other, s)
                 if (other->from_fragment)
                         return UNIT(other);
 
@@ -1224,13 +1220,7 @@ static int swap_following_set(Unit *u, Set **_set) {
         if (!set)
                 return -ENOMEM;
 
-        LIST_FOREACH_AFTER(same_devnode, other, s) {
-                r = set_put(set, other);
-                if (r < 0)
-                        goto fail;
-        }
-
-        LIST_FOREACH_BEFORE(same_devnode, other, s) {
+        LIST_FOREACH_OTHERS(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
                         goto fail;
