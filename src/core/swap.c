@@ -473,6 +473,7 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
 
 static void swap_set_state(Swap *s, SwapState state) {
         SwapState old_state;
+        Swap *other;
 
         assert(s);
 
@@ -500,6 +501,15 @@ static void swap_set_state(Swap *s, SwapState state) {
                                swap_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
+
+        /* If there other units for the same device node have a job
+           queued it might be worth checking again if it is runnable
+           now. This is necessary, since swap_start() refuses
+           operation with EAGAIN if there's already another job for
+           the same device node queued. */
+        LIST_FOREACH_OTHERS(same_devnode, other, s)
+                if (UNIT(other)->job)
+                        job_add_to_run_queue(UNIT(other)->job);
 }
 
 static int swap_coldplug(Unit *u) {
@@ -796,7 +806,7 @@ fail:
 }
 
 static int swap_start(Unit *u) {
-        Swap *s = SWAP(u);
+        Swap *s = SWAP(u), *other;
 
         assert(s);
 
@@ -817,6 +827,13 @@ static int swap_start(Unit *u) {
 
         if (detect_container(NULL) > 0)
                 return -EPERM;
+
+        /* If there's a job for another swap unit for the same node
+         * running, then let's not dispatch this one for now, and wait
+         * until that other job has finished. */
+        LIST_FOREACH_OTHERS(same_devnode, other, s)
+                if (UNIT(other)->job && UNIT(other)->job->state == JOB_RUNNING)
+                        return -EAGAIN;
 
         s->result = SWAP_SUCCESS;
         swap_enter_activating(s);
