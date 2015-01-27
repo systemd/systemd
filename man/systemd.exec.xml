@@ -1064,13 +1064,14 @@
                                 argument or
                                 <literal>full</literal>. If true,
                                 mounts the <filename>/usr</filename>
-                                directory read-only for processes
+                                and <filename>/boot</filename>
+                                directories read-only for processes
                                 invoked by this unit. If set to
                                 <literal>full</literal>, the
-                                <filename>/etc</filename> directory is mounted
-                                read-only, too. This setting ensures
-                                that any modification of the vendor
-                                supplied operating system (and
+                                <filename>/etc</filename> directory is
+                                mounted read-only, too. This setting
+                                ensures that any modification of the
+                                vendor supplied operating system (and
                                 optionally its configuration) is
                                 prohibited for the service. It is
                                 recommended to enable this setting for
