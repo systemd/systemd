@@ -31,6 +31,8 @@ External:
 
 Features:
 
+* logind: maybe allow configuration of the StopTimeout for session scopes
+
 * Set NoNewPriviliges= on all of our own services, where that makes sense
 
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
