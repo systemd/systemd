@@ -580,11 +580,13 @@ AM_CONDITIONAL(HAVE_ZLIB, [test "$have_zlib" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_bzip2=no
-AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Enable optional BZIP2 support]))
+AC_ARG_ENABLE(bzip2, AS_HELP_STRING([--enable-bzip2], [Disable optional BZIP2 support]))
 AS_IF([test "x$enable_bzip2" != "xno"], [
         AC_CHECK_HEADERS(bzlib.h,
-               [AC_DEFINE(HAVE_BZIP2, 1, [Define in BZIP2 is available]) have_bzip2=yes],
-               [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])
+                [AC_DEFINE(HAVE_BZIP2, 1, [Define in BZIP2 is available])
+                 have_bzip2=yes],
+                [AS_IF([test "x$have_bzip2" = xyes], [AC_MSG_ERROR([*** BZIP2 support requested but headers not found])])
+        ])
 ])
 AM_CONDITIONAL(HAVE_BZIP2, [test "$have_bzip2" = "yes"])
 
