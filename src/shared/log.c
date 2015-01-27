@@ -331,7 +331,6 @@ static int write_to_console(
 
         if (show_location) {
                 snprintf(location, sizeof(location), "(%s:%i) ", file, line);
-                char_array_0(location);
                 IOVEC_SET_STRING(iovec[n++], location);
         }
 
@@ -375,7 +374,9 @@ static int write_to_syslog(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_time[64], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
+        char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
+             header_time[64],
+             header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
         struct iovec iovec[5] = {};
         struct msghdr msghdr = {
                 .msg_iov = iovec,
@@ -387,8 +388,7 @@ static int write_to_syslog(
         if (syslog_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
-        char_array_0(header_priority);
+        xsprintf(header_priority, "<%i>", level);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
         tm = localtime(&t);
@@ -398,8 +398,7 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
-        char_array_0(header_pid);
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
@@ -438,17 +437,15 @@ static int write_to_kmsg(
                 const char *object,
                 const char *buffer) {
 
-        char header_priority[1 + DECIMAL_STR_MAX(int) + 2], header_pid[1 + DECIMAL_STR_MAX(pid_t) + 4];
+        char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
+             header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
         struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
                 return 0;
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", level);
-        char_array_0(header_priority);
-
-        snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", getpid());
-        char_array_0(header_pid);
+        xsprintf(header_priority, "<%i>", level);
+        xsprintf(header_pid, "["PID_FMT"]: ", getpid());
 
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
@@ -497,7 +494,6 @@ static int log_do_header(
                  isempty(object) ? "" : object,
                  isempty(object) ? "" : "\n",
                  program_invocation_short_name);
-        header[size - 1] = '\0';
 
         return 0;
 }
@@ -659,7 +655,6 @@ int log_internalv(
                 errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
 
         return log_dispatch(level, error, file, line, func, NULL, NULL, buffer);
 }
@@ -707,7 +702,6 @@ int log_object_internalv(
                 errno = error;
 
         vsnprintf(buffer, sizeof(buffer), format, ap);
-        char_array_0(buffer);
 
         return log_dispatch(level, error, file, line, func, object_field, object, buffer);
 }
@@ -749,7 +743,6 @@ static void log_assert(
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
         REENABLE_WARNING;
 
-        char_array_0(buffer);
         log_abort_msg = buffer;
 
         log_dispatch(level, 0, file, line, func, NULL, NULL, buffer);
@@ -875,7 +868,6 @@ int log_struct_internal(
                 va_copy(aq, ap);
                 vsnprintf(buf, sizeof(buf), format, aq);
                 va_end(aq);
-                char_array_0(buf);
 
                 if (startswith(buf, "MESSAGE=")) {
                         found = true;

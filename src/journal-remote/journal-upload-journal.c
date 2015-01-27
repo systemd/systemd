@@ -104,7 +104,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         r = snprintf(buf + pos, size - pos,
                                      "_BOOT_ID=%s\n", sd_id128_to_string(boot_id, sid));
-                        if (r + pos> size)
+                        if (r + pos > size)
                                 /* not enough space */
                                 return pos;
 

@@ -40,7 +40,8 @@ void server_forward_kmsg(
         const struct ucred *ucred) {
 
         struct iovec iovec[5];
-        char header_priority[6], header_pid[16];
+        char header_priority[4],
+             header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         char *ident_buf = NULL;
 
@@ -60,8 +61,7 @@ void server_forward_kmsg(
         priority = syslog_fixup_facility(priority);
 
         /* First: priority field */
-        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
-        char_array_0(header_priority);
+        xsprintf(header_priority, "<%i>", priority);
         IOVEC_SET_STRING(iovec[n++], header_priority);
 
         /* Second: identifier and PID */
@@ -71,8 +71,7 @@ void server_forward_kmsg(
                         identifier = ident_buf;
                 }
 
-                snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", ucred->pid);
-                char_array_0(header_pid);
+                xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
 
                 if (identifier)
                         IOVEC_SET_STRING(iovec[n++], identifier);

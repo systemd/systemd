@@ -124,7 +124,8 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, cons
 
 void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
-        char header_priority[6], header_time[64], header_pid[16];
+        char header_priority[4], header_time[64],
+             header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
         struct tm *tm;
@@ -139,8 +140,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                 return;
 
         /* First: priority field */
-        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
-        char_array_0(header_priority);
+        xsprintf(header_priority, "<%i>", priority);
         IOVEC_SET_STRING(iovec[n++], header_priority);
 
         /* Second: timestamp */
@@ -159,8 +159,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                         identifier = ident_buf;
                 }
 
-                snprintf(header_pid, sizeof(header_pid), "["PID_FMT"]: ", ucred->pid);
-                char_array_0(header_pid);
+                xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
 
                 if (identifier)
                         IOVEC_SET_STRING(iovec[n++], identifier);

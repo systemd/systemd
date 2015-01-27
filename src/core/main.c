@@ -1883,7 +1883,7 @@ finish:
                 args = newa(const char*, args_size);
 
                 if (!switch_root_init) {
-                        char sfd[16];
+                        char sfd[DECIMAL_STR_MAX(int) + 1];
 
                         /* First try to spawn ourselves with the right
                          * path, and with full serialization. We do
@@ -1893,8 +1893,7 @@ finish:
                         assert(arg_serialization);
                         assert(fds);
 
-                        snprintf(sfd, sizeof(sfd), "%i", fileno(arg_serialization));
-                        char_array_0(sfd);
+                        xsprintf(sfd, "%i", fileno(arg_serialization));
 
                         i = 0;
                         args[i++] = SYSTEMD_BINARY_PATH;
@@ -1995,7 +1994,7 @@ finish:
                 assert(command_line[pos] == NULL);
                 env_block = strv_copy(environ);
 
-                snprintf(log_level, sizeof(log_level), "%d", log_get_max_level());
+                xsprintf(log_level, "%d", log_get_max_level());
 
                 switch (log_get_target()) {
                 case LOG_TARGET_KMSG:

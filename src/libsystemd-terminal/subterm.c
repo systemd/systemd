@@ -161,16 +161,14 @@ static int output_write(Output *o, const void *buf, size_t size) {
 
 _printf_(3,0)
 static int output_vnprintf(Output *o, size_t max, const char *format, va_list args) {
-        char buf[4096];
+        char buf[max];
         int r;
 
         assert_return(o, -EINVAL);
         assert_return(format, -EINVAL);
-        assert_return(max <= sizeof(buf), -EINVAL);
+        assert_return(max <= 4096, -EINVAL);
 
-        r = vsnprintf(buf, max, format, args);
-        if (r > (ssize_t)max)
-                r = max;
+        r = MIN(vsnprintf(buf, max, format, args), (int) max);
 
         return output_write(o, buf, r);
 }

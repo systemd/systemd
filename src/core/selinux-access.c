@@ -64,24 +64,22 @@ static int audit_callback(
         const struct audit_info *audit = auditdata;
         uid_t uid = 0, login_uid = 0;
         gid_t gid = 0;
-        char login_uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
-        char uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
-        char gid_buf[DECIMAL_STR_MAX(gid_t)] = "n/a";
+        char login_uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
+        char uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
+        char gid_buf[DECIMAL_STR_MAX(gid_t) + 1] = "n/a";
 
         if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
-                snprintf(login_uid_buf, sizeof(login_uid_buf), UID_FMT, login_uid);
+                xsprintf(login_uid_buf, UID_FMT, login_uid);
         if (sd_bus_creds_get_euid(audit->creds, &uid) >= 0)
-                snprintf(uid_buf, sizeof(uid_buf), UID_FMT, uid);
+                xsprintf(uid_buf, UID_FMT, uid);
         if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
-                snprintf(gid_buf, sizeof(gid_buf), GID_FMT, gid);
+                xsprintf(gid_buf, GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
                  "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
                  login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
                  audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
-
-        msgbuf[msgbufsize-1] = 0;
 
         return 0;
 }

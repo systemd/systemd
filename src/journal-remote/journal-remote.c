@@ -406,7 +406,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 static int add_raw_socket(RemoteServer *s, int fd) {
         int r;
         _cleanup_close_ int fd_ = fd;
-        char name[strlen("raw-socket-") + DECIMAL_STR_MAX(int)];
+        char name[sizeof("raw-socket-")-1 + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);
 
@@ -416,7 +416,7 @@ static int add_raw_socket(RemoteServer *s, int fd) {
         if (r < 0)
                 return r;
 
-        snprintf(name, sizeof(name), "raw-socket-%d", fd);
+        xsprintf(name, "raw-socket-%d", fd);
 
         r = sd_event_source_set_description(s->listen_event, name);
         if (r < 0)

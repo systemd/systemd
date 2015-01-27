@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
         const char *device, *type;
         bool root_directory;
         int progress_pipe[2] = { -1, -1 };
-        char dash_c[2+10+1];
+        char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
         struct stat st;
 
         if (argc > 2) {
@@ -336,8 +336,7 @@ int main(int argc, char *argv[]) {
                 cmdline[i++] = "-f";
 
         if (progress_pipe[1] >= 0) {
-                snprintf(dash_c, sizeof(dash_c), "-C%i", progress_pipe[1]);
-                char_array_0(dash_c);
+                xsprintf(dash_c, "-C%i", progress_pipe[1]);
                 cmdline[i++] = dash_c;
         }
 

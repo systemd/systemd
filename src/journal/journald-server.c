@@ -837,12 +837,10 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         va_start(ap, format);
         vsnprintf(buffer + 8, sizeof(buffer) - 8, format, ap);
         va_end(ap);
-        char_array_0(buffer);
         IOVEC_SET_STRING(iovec[n++], buffer);
 
         if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
                 snprintf(mid, sizeof(mid), LOG_MESSAGE_ID(message_id));
-                char_array_0(mid);
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
 

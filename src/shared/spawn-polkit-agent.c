@@ -39,7 +39,7 @@ static pid_t agent_pid = 0;
 int polkit_agent_open(void) {
         int r;
         int pipe_fd[2];
-        char notify_fd[10 + 1];
+        char notify_fd[DECIMAL_STR_MAX(int) + 1];
 
         if (agent_pid > 0)
                 return 0;
@@ -52,8 +52,7 @@ int polkit_agent_open(void) {
         if (pipe2(pipe_fd, 0) < 0)
                 return -errno;
 
-        snprintf(notify_fd, sizeof(notify_fd), "%i", pipe_fd[1]);
-        char_array_0(notify_fd);
+        xsprintf(notify_fd, "%i", pipe_fd[1]);
 
         r = fork_agent(&agent_pid,
                        &pipe_fd[1], 1,

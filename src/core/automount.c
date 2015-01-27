@@ -449,7 +449,9 @@ int automount_send_ready(Automount *a, int status) {
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
-        char name[32], options[128];
+        char name[sizeof("systemd-")-1 + DECIMAL_STR_MAX(pid_t) + 1];
+        char options[sizeof("fd=,pgrp=,minproto=5,maxproto=5,direct")-1
+                     + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -477,12 +479,8 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        snprintf(options, sizeof(options), "fd=%i,pgrp=%u,minproto=5,maxproto=5,direct", p[1], (unsigned) getpgrp());
-        char_array_0(options);
-
-        snprintf(name, sizeof(name), "systemd-%u", (unsigned) getpid());
-        char_array_0(name);
-
+        xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
+        xsprintf(name, "systemd-"PID_FMT, getpid());
         if (mount(name, a->where, "autofs", 0, options) < 0) {
                 r = -errno;
                 goto fail;

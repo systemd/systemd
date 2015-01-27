@@ -1399,7 +1399,6 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
-        char_array_0(buf);
         REENABLE_WARNING;
 
         mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :

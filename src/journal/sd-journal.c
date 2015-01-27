@@ -1178,8 +1178,7 @@ static bool file_type_wanted(int flags, const char *filename) {
         if (flags & SD_JOURNAL_CURRENT_USER) {
                 char prefix[5 + DECIMAL_STR_MAX(uid_t) + 1];
 
-                assert_se(snprintf(prefix, sizeof(prefix), "user-"UID_FMT, getuid())
-                          < (int) sizeof(prefix));
+                xsprintf(prefix, "user-"UID_FMT, getuid());
 
                 if (file_has_type_prefix(prefix, filename))
                         return true;

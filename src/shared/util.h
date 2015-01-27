@@ -481,6 +481,8 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) _printf_(4,0);
 int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) _printf_(4,5);
 
+#define xsprintf(buf, fmt, ...) assert_se((size_t) snprintf(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__) < ELEMENTSOF(buf))
+
 int fd_columns(int fd);
 unsigned columns(void);
 int fd_lines(int fd);

@@ -223,7 +223,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
-        char syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(priority)];
+        char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
         char *label = NULL;
@@ -258,7 +258,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
         if (priority & LOG_FACMASK) {
-                snprintf(syslog_facility, sizeof(syslog_facility), "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
                 IOVEC_SET_STRING(iovec[n++], syslog_facility);
         }
 

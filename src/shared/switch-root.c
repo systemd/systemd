@@ -72,7 +72,6 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 struct stat sb;
 
                 snprintf(new_mount, sizeof(new_mount), "%s%s", new_root, i);
-                char_array_0(new_mount);
 
                 mkdir_p_label(new_mount, 0755);
 

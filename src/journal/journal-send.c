@@ -90,18 +90,17 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         /* FIXME: Instead of limiting things to LINE_MAX we could do a
            C99 variable-length array on the stack here in a loop. */
 
-        char buffer[8 + LINE_MAX], p[11]; struct iovec iov[2];
+        char buffer[8 + LINE_MAX], p[sizeof("PRIORITY=")-1 + DECIMAL_STR_MAX(int) + 1];
+        struct iovec iov[2];
 
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
         assert_return(format, -EINVAL);
 
-        snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
-        char_array_0(p);
+        xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
 
         memcpy(buffer, "MESSAGE=", 8);
         vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
-        char_array_0(buffer);
 
         zero(iov);
         IOVEC_SET_STRING(iov[0], buffer);
@@ -372,7 +371,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                 errno = 0;
                 j = strerror_r(_saved_errno_, buffer + 8 + k, n - 8 - k);
                 if (errno == 0) {
-                        char error[6 + 10 + 1]; /* for a 32bit value */
+                        char error[sizeof("ERRNO=")-1 + DECIMAL_STR_MAX(int) + 1];
 
                         if (j != buffer + 8 + k)
                                 memmove(buffer + 8 + k, j, strlen(j)+1);
@@ -384,8 +383,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                                 memcpy(buffer + 8 + k - 2, ": ", 2);
                         }
 
-                        snprintf(error, sizeof(error), "ERRNO=%i", _saved_errno_);
-                        char_array_0(error);
+                        xsprintf(error, "ERRNO=%i", _saved_errno_);
 
                         IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");
                         IOVEC_SET_STRING(iov[skip+1], buffer);
@@ -474,7 +472,7 @@ _public_ int sd_journal_print_with_location(int priority, const char *file, cons
 }
 
 _public_ int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) {
-        char buffer[8 + LINE_MAX], p[11];
+        char buffer[8 + LINE_MAX], p[sizeof("PRIORITY=")-1 + DECIMAL_STR_MAX(int) + 1];
         struct iovec iov[5];
         char *f;
 
@@ -482,12 +480,10 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         assert_return(priority <= 7, -EINVAL);
         assert_return(format, -EINVAL);
 
-        snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
-        char_array_0(p);
+        xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
 
         memcpy(buffer, "MESSAGE=", 8);
         vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
-        char_array_0(buffer);
 
         /* func is initialized from __func__ which is not a macro, but
          * a static const char[], hence cannot easily be prefixed with

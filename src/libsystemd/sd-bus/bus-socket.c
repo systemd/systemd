@@ -359,8 +359,7 @@ static int bus_socket_auth_write_ok(sd_bus *b) {
 
         assert(b);
 
-        snprintf(t, sizeof(t), "OK " SD_ID128_FORMAT_STR "\r\n", SD_ID128_FORMAT_VAL(b->server_id));
-        char_array_0(t);
+        xsprintf(t, "OK " SD_ID128_FORMAT_STR "\r\n", SD_ID128_FORMAT_VAL(b->server_id));
 
         return bus_socket_auth_write(b, t);
 }
@@ -644,12 +643,11 @@ static int bus_socket_start_auth_client(sd_bus *b) {
                 l = 9;
                 b->auth_buffer = hexmem("anonymous", l);
         } else {
-                char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
+                char text[DECIMAL_STR_MAX(uid_t) + 1];
 
                 auth_prefix = "\0AUTH EXTERNAL ";
 
-                snprintf(text, sizeof(text), UID_FMT, geteuid());
-                char_array_0(text);
+                xsprintf(text, UID_FMT, geteuid());
 
                 l = strlen(text);
                 b->auth_buffer = hexmem(text, l);

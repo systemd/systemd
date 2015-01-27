@@ -764,7 +764,6 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
-        char_array_0(buf);
         REENABLE_WARNING;
 
         if (t == JOB_START) {
