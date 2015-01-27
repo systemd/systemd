@@ -71,11 +71,17 @@
                 <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the link file entirely.</para>
 
-                <para>The link file contains a <literal>[Match]</literal> section, which
-                determines if a given link file may be applied to a given device; and a
-                <literal>[Link]</literal> section specifying how the device should be
-                configured. The first (in lexical order) of the link files that matches
-                a given device is applied.</para>
+                <para>The link file contains a
+                <literal>[Match]</literal> section, which determines
+                if a given link file may be applied to a given device,
+                as well as a <literal>[Link]</literal> section specifying how
+                the device should be configured. The first (in lexical
+                order) of the link files that matches a given device
+                is applied. Note that a default file
+                <filename>99-default.link</filename> is shipped by the
+                system, any user-supplied <filename>.link</filename>
+                should hence have a lexically earlier name to be
+                considered at all.</para>
         </refsect1>
 
         <refsect1>
