@@ -3326,7 +3326,7 @@ noinst_PROGRAMS += \
 	systemd-subterm
 
 dist_pkgdata_DATA += \
-	src/libsystemd-terminal/unifont-glyph-array.bin
+       src/libsystemd-terminal/unifont-glyph-array.bin
 
 nodist_userunit_DATA += \
 	units/user/systemd-consoled.service
@@ -3454,12 +3454,8 @@ test_unifont_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-shared.la
 
-.PHONY: update-unifont
-update-unifont: tools/compile-unifont.py
-	$(AM_V_GEN)$(PYTHON) $< \
-		<$(top_srcdir)/src/libsystemd-terminal/unifont.hex \
-		>$(top_srcdir)/src/libsystemd-terminal/unifont-glyph-array.bin
-	@echo "unifont-glyph-array.bin has been regenerated"
+src/libsystemd-terminal/unifont-glyph-array.bin: tools/compile-unifont.py $(UNIFONT)
+	$(AM_V_GEN)$(PYTHON) $< <$(UNIFONT) >$@
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC

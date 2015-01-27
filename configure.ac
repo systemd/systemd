@@ -1142,16 +1142,25 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_WITH(unifont,
+        AS_HELP_STRING([--with-unifont=PATH],
+                [Path to unifont.hex]),
+        [UNIFONT="$withval"],
+        [UNIFONT="/usr/share/unifont/unifont.hex"])
+AC_SUBST(UNIFONT)
+
 have_terminal=no
+have_unifont=no
 AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
 if test "x$enable_terminal" = "xyes"; then
         PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.5 libdrm >= 2.4], [have_terminal=yes])
-        AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
+        AC_CHECK_FILE($UNIFONT, [have_unifont=yes])
+        AS_IF([test "x$have_terminal" != xyes -o "x$have_unifont" != "xyes" -a "x$enable_terminal" = xyes],
               [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
-              [test "x$have_terminal" = xyes],
+              [test "x$have_terminal" = xyes -a "x$have_unifont" = "xyes"],
               [AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])])
 fi
-AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes"])
+AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes" -a "x$have_unifont" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_kdbus=no
