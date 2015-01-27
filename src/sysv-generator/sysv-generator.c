@@ -274,10 +274,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
-        unsigned i;
-        char *r;
+        char *filename_no_sh, *e, *r;
         const char *n;
-        _cleanup_free_ char *filename_no_sh = NULL;
+        unsigned i;
 
         assert(name);
         assert(_r);
@@ -300,11 +299,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         }
 
         /* strip ".sh" suffix from file name for comparison */
-        filename_no_sh = strdup(filename);
-        if (!filename_no_sh)
-                return -ENOMEM;
-        if (endswith(filename, ".sh"))
-                filename_no_sh[strlen(filename)-3] = '\0';
+        filename_no_sh = strdupa(filename);
+        e = endswith(filename, ".sh");
+        if (e) {
+                *e = '\0';
+                filename = filename_no_sh;
+        }
 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
@@ -315,7 +315,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        } else if (filename && streq(name, filename_no_sh))
+        } else if (filename && streq(name, filename))
                 /* Names equaling the file name of the services are redundant */
                 return 0;
         else
@@ -495,10 +495,8 @@ static int load_sysv(SysvStub *s) {
                                                 return -ENOMEM;
 
                                         r = sysv_translate_facility(n, basename(s->path), &m);
-
                                         if (r < 0)
                                                 return r;
-
                                         if (r == 0)
                                                 continue;
 
