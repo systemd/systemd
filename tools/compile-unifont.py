@@ -31,6 +31,9 @@ import struct
 # Write "bits" array as binary output.
 #
 
+
+write = getattr(sys.stdout, 'buffer', sys.stdout).write
+
 def write_bin_entry(entry):
     l = len(entry)
     if l != 32 and l != 64:
@@ -39,10 +42,10 @@ def write_bin_entry(entry):
     elif l < 64:
         entry += "0" * (64 - l)
 
-    sys.stdout.buffer.write(struct.pack('B', int(l / 32)))  # width
-    sys.stdout.buffer.write(struct.pack('B', 0))            # padding
-    sys.stdout.buffer.write(struct.pack('H', 0))            # padding
-    sys.stdout.buffer.write(struct.pack('I', 0))            # padding
+    write(struct.pack('B', int(l / 32)))  # width
+    write(struct.pack('B', 0))            # padding
+    write(struct.pack('H', 0))            # padding
+    write(struct.pack('I', 0))            # padding
 
     i = 0
     for j in range(0, 16):
@@ -53,23 +56,23 @@ def write_bin_entry(entry):
                 c = int(entry[i:i+2], 16)
                 i += 2
 
-            sys.stdout.buffer.write(struct.pack('B', c))
+            write(struct.pack('B', c))
 
 def write_bin(bits):
-    sys.stdout.buffer.write(struct.pack('B', 0x44))         # ASCII: 'D'
-    sys.stdout.buffer.write(struct.pack('B', 0x56))         # ASCII: 'V'
-    sys.stdout.buffer.write(struct.pack('B', 0x44))         # ASCII: 'D'
-    sys.stdout.buffer.write(struct.pack('B', 0x48))         # ASCII: 'H'
-    sys.stdout.buffer.write(struct.pack('B', 0x52))         # ASCII: 'R'
-    sys.stdout.buffer.write(struct.pack('B', 0x4d))         # ASCII: 'M'
-    sys.stdout.buffer.write(struct.pack('B', 0x55))         # ASCII: 'U'
-    sys.stdout.buffer.write(struct.pack('B', 0x46))         # ASCII: 'F'
-    sys.stdout.buffer.write(struct.pack('<I', 0))           # compatible-flags
-    sys.stdout.buffer.write(struct.pack('<I', 0))           # incompatible-flags
-    sys.stdout.buffer.write(struct.pack('<I', 32))          # header-size
-    sys.stdout.buffer.write(struct.pack('<H', 8))           # glyph-header-size
-    sys.stdout.buffer.write(struct.pack('<H', 2))           # glyph-stride
-    sys.stdout.buffer.write(struct.pack('<Q', 32))          # glyph-body-size
+    write(struct.pack('B', 0x44))         # ASCII: 'D'
+    write(struct.pack('B', 0x56))         # ASCII: 'V'
+    write(struct.pack('B', 0x44))         # ASCII: 'D'
+    write(struct.pack('B', 0x48))         # ASCII: 'H'
+    write(struct.pack('B', 0x52))         # ASCII: 'R'
+    write(struct.pack('B', 0x4d))         # ASCII: 'M'
+    write(struct.pack('B', 0x55))         # ASCII: 'U'
+    write(struct.pack('B', 0x46))         # ASCII: 'F'
+    write(struct.pack('<I', 0))           # compatible-flags
+    write(struct.pack('<I', 0))           # incompatible-flags
+    write(struct.pack('<I', 32))          # header-size
+    write(struct.pack('<H', 8))           # glyph-header-size
+    write(struct.pack('<H', 2))           # glyph-stride
+    write(struct.pack('<Q', 32))          # glyph-body-size
 
     # write glyphs
     for idx in range(len(bits)):
