@@ -637,7 +637,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
 fail:
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-
         return r;
 }
 
@@ -699,9 +698,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id,
-                         "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
-
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -764,9 +761,7 @@ static void swap_enter_activating(Swap *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id,
-                         "%s failed to run 'swapon' task: %s",
-                         UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'swapon' task: %m", UNIT(s)->id);
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -796,9 +791,7 @@ static void swap_enter_deactivating(Swap *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s)->id,
-                         "%s failed to run 'swapoff' task: %s",
-                         UNIT(s)->id, strerror(-r));
+        log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'swapoff' task: %m", UNIT(s)->id);
         swap_enter_active(s, SWAP_FAILURE_RESOURCES);
 }
 
