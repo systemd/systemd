@@ -497,10 +497,19 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
         case DHCP_OPTION_DOMAIN_NAME:
         {
                 _cleanup_free_ char *domainname = NULL;
+                char *e;
 
                 r = lease_parse_string(option, len, &domainname);
                 if (r < 0)
                         return r;
+
+                /* Chop off trailing dot of domain name that some DHCP
+                 * servers send us back. Internally we want to store
+                 * host names without trailing dots and
+                 * host_name_is_valid() doesn't accept them. */
+                e = endswith(domainname, ".");
+                if (e)
+                        *e = 0;
 
                 if (!hostname_is_valid(domainname) || is_localhost(domainname))
                         break;
@@ -514,10 +523,15 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
         case DHCP_OPTION_HOST_NAME:
         {
                 _cleanup_free_ char *hostname = NULL;
+                char *e;
 
                 r = lease_parse_string(option, len, &hostname);
                 if (r < 0)
                         return r;
+
+                e = endswith(hostname, ".");
+                if (e)
+                        *e = 0;
 
                 if (!hostname_is_valid(hostname) || is_localhost(hostname))
                         break;
