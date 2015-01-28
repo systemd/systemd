@@ -111,7 +111,7 @@ static int snapshot_start(Unit *u) {
         if (s->cleanup)
                 unit_add_to_cleanup_queue(u);
 
-        return 0;
+        return 1;
 }
 
 static int snapshot_stop(Unit *u) {
@@ -121,7 +121,7 @@ static int snapshot_stop(Unit *u) {
         assert(s->state == SNAPSHOT_ACTIVE);
 
         snapshot_set_state(s, SNAPSHOT_DEAD);
-        return 0;
+        return 1;
 }
 
 static int snapshot_serialize(Unit *u, FILE *f, FDSet *fds) {

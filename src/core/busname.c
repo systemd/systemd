@@ -615,7 +615,7 @@ static int busname_start(Unit *u) {
         n->result = BUSNAME_SUCCESS;
         busname_enter_making(n);
 
-        return 0;
+        return 1;
 }
 
 static int busname_stop(Unit *u) {
@@ -638,7 +638,7 @@ static int busname_stop(Unit *u) {
         assert(IN_SET(n->state, BUSNAME_REGISTERED, BUSNAME_LISTENING, BUSNAME_RUNNING));
 
         busname_enter_dead(n, BUSNAME_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int busname_serialize(Unit *u, FILE *f, FDSet *fds) {

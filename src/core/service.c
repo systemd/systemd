@@ -1837,7 +1837,7 @@ static int service_start(Unit *u) {
         s->notify_state = NOTIFY_UNKNOWN;
 
         service_enter_start_pre(s);
-        return 0;
+        return 1;
 }
 
 static int service_stop(Unit *u) {
@@ -1878,7 +1878,7 @@ static int service_stop(Unit *u) {
                s->state == SERVICE_EXITED);
 
         service_enter_stop(s, SERVICE_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int service_reload(Unit *u) {

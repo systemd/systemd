@@ -603,7 +603,7 @@ static int automount_start(Unit *u) {
 
         a->result = AUTOMOUNT_SUCCESS;
         automount_enter_waiting(a);
-        return 0;
+        return 1;
 }
 
 static int automount_stop(Unit *u) {
@@ -613,7 +613,7 @@ static int automount_stop(Unit *u) {
         assert(a->state == AUTOMOUNT_WAITING || a->state == AUTOMOUNT_RUNNING);
 
         automount_enter_dead(a, AUTOMOUNT_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {

@@ -187,7 +187,7 @@ static int slice_start(Unit *u) {
         unit_realize_cgroup(u);
 
         slice_set_state(t, SLICE_ACTIVE);
-        return 0;
+        return 1;
 }
 
 static int slice_stop(Unit *u) {
@@ -200,7 +200,7 @@ static int slice_stop(Unit *u) {
          * unit_notify() will do that for us anyway. */
 
         slice_set_state(t, SLICE_DEAD);
-        return 0;
+        return 1;
 }
 
 static int slice_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {

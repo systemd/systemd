@@ -295,7 +295,7 @@ static int scope_start(Unit *u) {
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
-        return 0;
+        return 1;
 }
 
 static int scope_stop(Unit *u) {
@@ -311,7 +311,7 @@ static int scope_stop(Unit *u) {
                s->state == SCOPE_ABANDONED);
 
         scope_enter_signal(s, SCOPE_STOP_SIGTERM, SCOPE_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static void scope_reset_failed(Unit *u) {

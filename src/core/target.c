@@ -137,7 +137,7 @@ static int target_start(Unit *u) {
         assert(t->state == TARGET_DEAD);
 
         target_set_state(t, TARGET_ACTIVE);
-        return 0;
+        return 1;
 }
 
 static int target_stop(Unit *u) {
@@ -147,7 +147,7 @@ static int target_stop(Unit *u) {
         assert(t->state == TARGET_ACTIVE);
 
         target_set_state(t, TARGET_DEAD);
-        return 0;
+        return 1;
 }
 
 static int target_serialize(Unit *u, FILE *f, FDSet *fds) {

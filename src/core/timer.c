@@ -548,7 +548,7 @@ static int timer_start(Unit *u) {
 
         t->result = TIMER_SUCCESS;
         timer_enter_waiting(t, true);
-        return 0;
+        return 1;
 }
 
 static int timer_stop(Unit *u) {
@@ -558,7 +558,7 @@ static int timer_stop(Unit *u) {
         assert(t->state == TIMER_WAITING || t->state == TIMER_RUNNING || t->state == TIMER_ELAPSED);
 
         timer_enter_dead(t, TIMER_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {

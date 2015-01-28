@@ -1423,6 +1423,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
 int unit_start(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1461,9 +1462,6 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        unit_status_log_starting_stopping_reloading(u, JOB_START);
-        unit_status_print_starting_stopping(u, JOB_START);
-
         if (UNIT_VTABLE(u)->supported && !UNIT_VTABLE(u)->supported(u->manager))
                 return -ENOTSUP;
 
@@ -1479,7 +1477,14 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        return UNIT_VTABLE(u)->start(u);
+        r = UNIT_VTABLE(u)->start(u);
+        if (r <= 0)
+                return r;
+
+        /* Log if the start function actually did something */
+        unit_status_log_starting_stopping_reloading(u, JOB_START);
+        unit_status_print_starting_stopping(u, JOB_START);
+        return r;
 }
 
 bool unit_can_start(Unit *u) {
@@ -1503,6 +1508,7 @@ bool unit_can_isolate(Unit *u) {
 int unit_stop(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1516,15 +1522,18 @@ int unit_stop(Unit *u) {
                 return unit_stop(following);
         }
 
-        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
-        unit_status_print_starting_stopping(u, JOB_STOP);
-
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
 
-        return UNIT_VTABLE(u)->stop(u);
+        r = UNIT_VTABLE(u)->stop(u);
+        if (r <= 0)
+                return r;
+
+        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
+        unit_status_print_starting_stopping(u, JOB_STOP);
+        return r;
 }
 
 /* Errors:
@@ -1535,6 +1544,7 @@ int unit_stop(Unit *u) {
 int unit_reload(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -1559,10 +1569,14 @@ int unit_reload(Unit *u) {
                 return unit_reload(following);
         }
 
-        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
-
         unit_add_to_dbus_queue(u);
-        return UNIT_VTABLE(u)->reload(u);
+
+        r = UNIT_VTABLE(u)->reload(u);
+        if (r <= 0)
+                return r;
+
+        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
+        return r;
 }
 
 bool unit_can_reload(Unit *u) {

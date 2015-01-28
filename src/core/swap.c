@@ -837,7 +837,7 @@ static int swap_start(Unit *u) {
 
         s->result = SWAP_SUCCESS;
         swap_enter_activating(s);
-        return 0;
+        return 1;
 }
 
 static int swap_stop(Unit *u) {
@@ -860,7 +860,7 @@ static int swap_stop(Unit *u) {
                 return -EPERM;
 
         swap_enter_deactivating(s);
-        return 0;
+        return 1;
 }
 
 static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {

@@ -1954,7 +1954,7 @@ static int socket_start(Unit *u) {
         s->result = SOCKET_SUCCESS;
         socket_enter_start_pre(s);
 
-        return 0;
+        return 1;
 }
 
 static int socket_stop(Unit *u) {
@@ -1985,7 +1985,7 @@ static int socket_stop(Unit *u) {
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {

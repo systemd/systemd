@@ -572,7 +572,7 @@ static int path_start(Unit *u) {
         p->result = PATH_SUCCESS;
         path_enter_waiting(p, true, true);
 
-        return 0;
+        return 1;
 }
 
 static int path_stop(Unit *u) {
@@ -582,7 +582,7 @@ static int path_stop(Unit *u) {
         assert(p->state == PATH_WAITING || p->state == PATH_RUNNING);
 
         path_enter_dead(p, PATH_SUCCESS);
-        return 0;
+        return 1;
 }
 
 static int path_serialize(Unit *u, FILE *f, FDSet *fds) {

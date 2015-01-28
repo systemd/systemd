@@ -1037,7 +1037,7 @@ static int mount_start(Unit *u) {
         m->reload_result = MOUNT_SUCCESS;
 
         mount_enter_mounting(m);
-        return 0;
+        return 1;
 }
 
 static int mount_stop(Unit *u) {
@@ -1061,7 +1061,7 @@ static int mount_stop(Unit *u) {
                m->state == MOUNT_REMOUNTING_SIGKILL);
 
         mount_enter_unmounting(m);
-        return 0;
+        return 1;
 }
 
 static int mount_reload(Unit *u) {
