@@ -6556,7 +6556,7 @@ endif
 #
 # Require python when making dist
 #
-.PHONY: dist-check-python
+.PHONY: dist-check-python dist-check-compat-libs dist-check-help
 dist-check-python:
 if !HAVE_PYTHON
 	@echo "*** python and python-lxml module must be installed and enabled in order to make dist"
@@ -6568,6 +6568,14 @@ if !ENABLE_COMPAT_LIBS
 	@echo "*** compat-libs must be enabled in order to make dist"
 	@false
 endif
+
+dist-check-help: $(rootbin_PROGRAMS) $(bin_PROGRAMS)
+	for i in $(abspath $^); do                                             \
+            if $$i  --help | grep -v 'default:' | grep -E -q '.{80}.' ; then   \
+		echo "$(basename $$i) --help output is too wide:";             \
+	        $$i  --help | awk 'length > 80' | grep -E --color=yes '.{80}'; \
+	        exit 1;                                                        \
+            fi; done
 
 dist: dist-check-python dist-check-compat-libs
 

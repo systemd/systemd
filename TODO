@@ -31,10 +31,6 @@ External:
 
 Features:
 
-* add test targets to Makefile that runs all our tools with "--help"
-  and checks if the output is identical to the output when passed
-  through "fold -w 79".
-
 * nspawn: emulate /dev/kmsg using CUSE and turn off the syslog syscall
   with seccomp. That should provide us with a useful log buffer that
   systemd can log to during early boot, and disconnect container logs
