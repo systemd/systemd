@@ -144,6 +144,8 @@
                 (i) = (p);                                              \
                 while ((i) && (i)->name##_prev)                         \
                         (i) = (i)->name##_prev;                         \
+                if ((i) == (p))                                         \
+                        (i) = (p)->name##_next;                         \
              });                                                        \
              (i);                                                       \
              (i) = (i)->name##_next == (p) ? (p)->name##_next : (i)->name##_next)
