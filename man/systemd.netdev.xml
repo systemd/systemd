@@ -377,9 +377,9 @@
                                 <varlistentry>
                                   <term><varname>Mode=</varname></term>
                                   <listitem>
-                                    <para>IPv6 tunnels can have three modes:
-                                    <literal>ip6ip6</literal>,
-                                    <literal>ip4ipv6</literal>,
+                                    <para>IPv6 tunnels can have three mode
+                                    <literal>ip6ip6</literal>
+                                    <literal>ipip6</literal>,
                                     <literal>any</literal>
                                     </para>
                                   </listitem>
