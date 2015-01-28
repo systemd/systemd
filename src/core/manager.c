@@ -549,6 +549,9 @@ int manager_new(SystemdRunningAs running_as, bool test_run, Manager **_m) {
 
         m->test_run = test_run;
 
+        /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
+        RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
+
         r = manager_default_environment(m);
         if (r < 0)
                 goto fail;
@@ -1721,7 +1724,18 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+
+                                /* If the user presses C-A-D too more
+                                 * than 7 times within 2s, we reboot
+                                 * immediately. */
+
+                                if (ratelimit_test(&m->ctrl_alt_del_ratelimit))
+                                        manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                                else {
+                                        log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
+                                        m->exit_code = MANAGER_REBOOT;
+                                }
+
                                 break;
                         }
 

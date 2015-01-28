@@ -29,6 +29,10 @@
 #include "sd-event.h"
 #include "fdset.h"
 #include "cgroup-util.h"
+#include "hashmap.h"
+#include "list.h"
+#include "set.h"
+#include "ratelimit.h"
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -68,9 +72,6 @@ typedef enum StatusType {
 
 #include "unit.h"
 #include "job.h"
-#include "hashmap.h"
-#include "list.h"
-#include "set.h"
 #include "path-lookup.h"
 #include "execute.h"
 #include "unit-name.h"
@@ -295,6 +296,9 @@ struct Manager {
 
         /* Used for processing polkit authorization responses */
         Hashmap *polkit_registry;
+
+        /* When the user hits C-A-D more than 7 times per 2s, reboot immediately... */
+        RateLimit ctrl_alt_del_ratelimit;
 };
 
 int manager_new(SystemdRunningAs running_as, bool test_run, Manager **m);

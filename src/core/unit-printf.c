@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "systemd/sd-id128.h"
+#include "sd-id128.h"
 #include "unit.h"
 #include "specifier.h"
 #include "path-util.h"
