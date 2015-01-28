@@ -301,6 +301,7 @@ int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
                 *seat = NULL,
                 *vtnr = NULL,
+                *state = NULL,
                 *pos = NULL,
                 *leader = NULL,
                 *type = NULL,
@@ -327,6 +328,7 @@ int session_load(Session *s) {
                            "SERVICE",        &s->service,
                            "DESKTOP",        &s->desktop,
                            "VTNR",           &vtnr,
+                           "STATE",          &state,
                            "POS",            &pos,
                            "LEADER",         &leader,
                            "TYPE",           &type,
@@ -415,13 +417,18 @@ int session_load(Session *s) {
                         s->class = c;
         }
 
+        if (state && streq(state, "closing"))
+                s->stopping = true;
+
         if (s->fifo_path) {
                 int fd;
 
                 /* If we open an unopened pipe for reading we will not
                    get an EOF. to trigger an EOF we hence open it for
-                   reading, but close it right-away which then will
-                   trigger the EOF. */
+                   writing, but close it right away which then will
+                   trigger the EOF. This will happen immediately if no
+                   other process has the FIFO open for writing, i. e.
+                   when the session died before logind (re)started. */
 
                 fd = session_create_fifo(s);
                 safe_close(fd);
