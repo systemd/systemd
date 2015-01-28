@@ -4248,6 +4248,11 @@ bool hostname_is_valid(const char *s) {
         if (isempty(s))
                 return false;
 
+        /* Doesn't accept empty hostnames, hostnames with trailing or
+         * leading dots, and hostnames with multiple dots in a
+         * sequence. Also ensures that the length stays below
+         * HOST_NAME_MAX. */
+
         for (p = s, dot = true; *p; p++) {
                 if (*p == '.') {
                         if (dot)
