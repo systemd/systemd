@@ -299,11 +299,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
         /* strip ".sh" suffix from file name for comparison */
         filename_no_sh = strdupa(filename);
-        e = endswith(filename, ".sh");
-        if (e) {
+        e = endswith(filename_no_sh, ".sh");
+        if (e)
                 *e = '\0';
-                filename = filename_no_sh;
-        }
 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
@@ -314,7 +312,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        } else if (filename && streq(name, filename))
+        } else if (filename && streq(name, filename_no_sh))
                 /* Names equaling the file name of the services are redundant */
                 return 0;
         else
