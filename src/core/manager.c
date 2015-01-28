@@ -1733,6 +1733,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                         manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
                                 else {
                                         log_notice("Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
+                                        status_printf(NULL, true, false, "Ctrl-Alt-Del was pressed more than 7 times within 2s, rebooting immediately.");
                                         m->exit_code = MANAGER_REBOOT;
                                 }
 
