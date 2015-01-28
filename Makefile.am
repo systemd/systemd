@@ -3560,6 +3560,7 @@ dist_udevrules_DATA += \
 	rules/60-persistent-storage.rules \
 	rules/64-btrfs.rules \
 	rules/70-mouse.rules \
+	rules/70-touchpad.rules \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
@@ -3751,7 +3752,8 @@ dist_udevhwdb_DATA = \
 	hwdb/20-OUI.hwdb \
 	hwdb/20-net-ifname.hwdb \
 	hwdb/60-keyboard.hwdb \
-	hwdb/70-mouse.hwdb
+	hwdb/70-mouse.hwdb \
+	hwdb/70-touchpad.hwdb
 
 EXTRA_DIST += \
 	units/systemd-hwdb-update.service.in
