@@ -749,12 +749,10 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                         struct stat st;
                         int r;
 
-                        dirent_ensure_type(d, de);
+                        if (hidden_file(de->d_name))
+                                continue;
 
-                        if (!dirent_is_file(de))
-                            continue;
-
-                        if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
+                        if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 log_warning_errno(errno, "stat() failed on %s/%s: %m", *path, de->d_name);
                                 continue;
                         }
@@ -769,12 +767,12 @@ static int enumerate_sysv(LookupPaths lp, Hashmap *all_services) {
                         if (!name)
                                 return log_oom();
 
+                        if (hashmap_contains(all_services, name))
+                                continue;
+
                         fpath = strjoin(*path, "/", de->d_name, NULL);
                         if (!fpath)
                                 return log_oom();
-
-                        if (hashmap_contains(all_services, name))
-                                continue;
 
                         service = new0(SysvStub, 1);
                         if (!service)
