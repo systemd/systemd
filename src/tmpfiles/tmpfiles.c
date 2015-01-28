@@ -1749,8 +1749,8 @@ static void help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
-               "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
-               "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n"
+               "     --prefix=PATH          Only apply rules with the specified prefix\n"
+               "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n",
                program_invocation_short_name);
 }

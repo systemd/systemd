@@ -147,15 +147,15 @@
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--prefix=<replaceable>path</replaceable></option></term>
-                                <listitem><para>Only apply rules that
-                                apply to paths with the specified
+                                <listitem><para>Only apply rules with
+                                paths that start with the specified
                                 prefix. This option can be specified
                                 multiple times.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--exclude-prefix=<replaceable>path</replaceable></option></term>
-                                <listitem><para>Ignore rules that
-                                apply to paths with the specified
+                                <listitem><para>Ignore rules with
+                                paths that start with the specified
                                 prefix. This option can be specified
                                 multiple times.</para></listitem>
                         </varlistentry>
