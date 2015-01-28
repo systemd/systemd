@@ -1725,8 +1725,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
 
-                                /* If the user presses C-A-D too more
-                                 * than 7 times within 2s, we reboot
+                                /* If the user presses C-A-D more than
+                                 * 7 times within 2s, we reboot
                                  * immediately. */
 
                                 if (ratelimit_test(&m->ctrl_alt_del_ratelimit))
