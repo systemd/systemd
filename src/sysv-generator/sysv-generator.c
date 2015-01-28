@@ -119,11 +119,6 @@ static int add_alias(const char *service, const char *alias) {
         assert(service);
         assert(alias);
 
-        if (streq(service, alias)) {
-                log_error("Ignoring creation of an alias %s for itself", service);
-                return 0;
-        }
-
         link = strjoin(arg_dest, "/", alias, NULL);
         if (!link)
                 return log_oom();
@@ -300,8 +295,10 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         /* strip ".sh" suffix from file name for comparison */
         filename_no_sh = strdupa(filename);
         e = endswith(filename_no_sh, ".sh");
-        if (e)
+        if (e) {
                 *e = '\0';
+                filename = filename_no_sh;
+        }
 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
@@ -312,13 +309,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        } else if (filename && streq(name, filename_no_sh))
+        } else if (streq_ptr(n, filename))
                 /* Names equaling the file name of the services are redundant */
                 return 0;
         else
                 /* Everything else we assume to be normal service names */
                 r = sysv_translate_name(n);
-
         if (!r)
                 return -ENOMEM;
 
