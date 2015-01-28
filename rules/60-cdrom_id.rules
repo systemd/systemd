@@ -15,6 +15,11 @@ ENV{DISK_EJECT_REQUEST}=="?*", RUN+="cdrom_id --eject-media $devnode", GOTO="cdr
 # enable the receiving of media eject button events
 IMPORT{program}="cdrom_id --lock-media $devnode"
 
+# ejecting a CD does not remove the device node, so mark the systemd device
+# unit as inactive while there is no medium; this automatically cleans up of
+# stale mounts after ejecting
+ENV{DISK_MEDIA_CHANGE}=="?*", ENV{ID_CDROM_MEDIA}!="?*", ENV{SYSTEMD_READY}="0"
+
 KERNEL=="sr0", SYMLINK+="cdrom", OPTIONS+="link_priority=-100"
 
 LABEL="cdrom_end"
