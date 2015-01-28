@@ -45,6 +45,20 @@ int main(int argc, const char *argv[]) {
         }
         assert_se(i == ELEMENTSOF(items)-1);
 
+        i = 0;
+        LIST_FOREACH_OTHERS(item, cursor, &items[0]) {
+                i++;
+                assert_se(cursor != &items[0]);
+        }
+        assert_se(i == ELEMENTSOF(items)-1);
+
+        i = 0;
+        LIST_FOREACH_OTHERS(item, cursor, &items[3]) {
+                i++;
+                assert_se(cursor != &items[3]);
+        }
+        assert_se(i == ELEMENTSOF(items)-1);
+
         assert_se(!LIST_JUST_US(item, head));
 
         assert_se(items[0].item_next == NULL);
