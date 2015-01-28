@@ -31,6 +31,14 @@ External:
 
 Features:
 
+* The udev blkid built-in should expose a property that reflects
+  whether media was sensed in USB CF/SD card readers. This should then
+  be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
+  picked up by systemd unless they contain a medium. This would mirror
+  the behaviour we already have for CD drives.
+
+* We should remove really old cruft from cdrom_id
+
 * nspawn: emulate /dev/kmsg using CUSE and turn off the syslog syscall
   with seccomp. That should provide us with a useful log buffer that
   systemd can log to during early boot, and disconnect container logs
