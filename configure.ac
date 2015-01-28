@@ -559,7 +559,7 @@ have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
-                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes])
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
                 AC_MSG_ERROR([*** XZ support requested but libraries not found])
         fi
@@ -571,7 +571,7 @@ have_zlib=no
 AC_ARG_ENABLE(zlib, AS_HELP_STRING([--disable-zlib], [Disable optional ZLIB support]))
 if test "x$enable_zlib" != "xno"; then
         PKG_CHECK_MODULES(ZLIB, [ zlib ],
-                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available]) have_zlib=yes])
+                [AC_DEFINE(HAVE_ZLIB, 1, [Define if ZLIB is available]) have_zlib=yes], have_zlib=no)
         if test "x$have_zlib" = xno -a "x$enable_zlib" = xyes; then
                 AC_MSG_ERROR([*** ZLIB support requested but libraries not found])
         fi
