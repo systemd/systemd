@@ -86,11 +86,11 @@ static void help(void) {
                "  -t --pty                        Run service on pseudo tty\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
                "Timer options:\n\n"
-               "     --on-active=SEC              Run after seconds\n"
-               "     --on-boot=SEC                Run after seconds from machine was booted up\n"
-               "     --on-startup=SEC             Run after seconds from systemd was first started\n"
-               "     --on-unit-active=SEC         Run after seconds from the last activation\n"
-               "     --on-unit-inactive=SEC       Run after seconds from the last deactivation\n"
+               "     --on-active=SECONDS          Run after SECONDS delay\n"
+               "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
+               "     --on-startup=SECONDS         Run SECONDS after systemd activation\n"
+               "     --on-unit-active=SECONDS     Run SECONDS after the last activation\n"
+               "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
                "     --on-calendar=SPEC           Realtime timer\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n",
                program_invocation_short_name);

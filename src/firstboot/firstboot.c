@@ -631,7 +631,7 @@ static void help(void) {
                "     --prompt-timezone         Prompt the user for timezone\n"
                "     --prompt-hostname         Prompt the user for hostname\n"
                "     --prompt-root-password    Prompt the user for root password\n"
-               "     --prompt                  Prompt for locale, timezone, hostname, root password\n"
+               "     --prompt                  Prompt for all of the above\n"
                "     --copy-locale             Copy locale from host\n"
                "     --copy-timezone           Copy timezone from host\n"
                "     --copy-root-password      Copy root password from host\n"
