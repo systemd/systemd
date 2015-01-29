@@ -4563,6 +4563,11 @@ static int cat(sd_bus *bus, char **args) {
 
         assert(args);
 
+        if (arg_host) {
+                log_error("Option --host cannot be used with 'cat'");
+                return -EINVAL;
+        }
+
         r = init_home_and_lookup_paths(&user_home, &user_runtime, &lp);
         if (r < 0)
                 return r;
