@@ -31,9 +31,8 @@
 #  include <elfutils/libdwfl.h>
 #endif
 
-#include "systemd/sd-journal.h"
-#include "systemd/sd-login.h"
-
+#include "sd-journal.h"
+#include "sd-login.h"
 #include "log.h"
 #include "util.h"
 #include "fileio.h"
@@ -42,14 +41,15 @@
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
-#include "journald-native.h"
 #include "conf-parser.h"
 #include "copy.h"
 #include "stacktrace.h"
 #include "path-util.h"
 #include "compress.h"
-#include "coredump-vacuum.h"
 #include "acl-util.h"
+#include "capability.h"
+#include "journald-native.h"
+#include "coredump-vacuum.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
@@ -810,11 +810,12 @@ int main(int argc, char* argv[]) {
          * segfaulted process and allocate the coredump memory under
          * the user's uid. This also ensures that the credentials
          * journald will see are the ones of the coredumping user,
-         * thus making sure the user gets access to the core dump. */
-        if (setresgid(gid, gid, gid) < 0 ||
-            setresuid(uid, uid, uid) < 0) {
-                log_error_errno(errno, "Failed to drop privileges: %m");
-                r = -errno;
+         * thus making sure the user gets access to the core
+         * dump. Let's also get rid of all capabilities, if we run as
+         * root, we won't need them anymore. */
+        r = drop_privileges(uid, gid, 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to drop privileges: %m");
                 goto finish;
         }
 
