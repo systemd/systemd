@@ -31,6 +31,10 @@ External:
 
 Features:
 
+* network-wait-online should have the ability to ignore interfaces for checking whether we are online, with --ignore-interfaces= or so. Even better: if globbing would be supported.
+
+* network-wait-online should have a configurable timeout, maybe as --timeout-usec=
+
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
