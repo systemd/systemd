@@ -1829,6 +1829,8 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
+        if (m)
+                arg_shutdown_watchdog = m->shutdown_watchdog;
         m = manager_free(m);
 
         for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++) {
