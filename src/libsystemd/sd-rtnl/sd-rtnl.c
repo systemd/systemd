@@ -379,9 +379,12 @@ static int process_timeout(sd_rtnl *rtnl) {
         hashmap_remove(rtnl->reply_callbacks, &c->serial);
 
         r = c->callback(rtnl, m, c->userdata);
+        if (r < 0)
+                log_debug_errno(r, "sd-rtnl: timedout callback failed: %m");
+
         free(c);
 
-        return r < 0 ? r : 1;
+        return 1;
 }
 
 static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
@@ -404,9 +407,12 @@ static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
                 prioq_remove(rtnl->reply_callbacks_prioq, c, &c->prioq_idx);
 
         r = c->callback(rtnl, m, c->userdata);
+        if (r < 0)
+                log_debug_errno(r, "sd-rtnl: callback failed: %m");
+
         free(c);
 
-        return r;
+        return 1;
 }
 
 static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
@@ -424,12 +430,16 @@ static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
                 if (type == c->type) {
                         r = c->callback(rtnl, m, c->userdata);
-                        if (r != 0)
-                                return r;
+                        if (r != 0) {
+                                if (r < 0)
+                                        log_debug_errno(r, "sd-rtnl: match callback failed: %m");
+
+                                break;
+                        }
                 }
         }
 
-        return 0;
+        return 1;
 }
 
 static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
