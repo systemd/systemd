@@ -737,6 +737,8 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
                  void *arg);
 
+#define _(String) gettext (String)
+void init_gettext(void);
 bool is_locale_utf8(void);
 
 typedef enum DrawSpecialChar {
