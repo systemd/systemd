@@ -43,6 +43,8 @@
 #include "replace-var.h"
 #include "fileio.h"
 
+#define JOURNAL_FILES_MAX 7168
+
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 
 #define REPLACE_VAR_MAX 256
@@ -1195,6 +1197,11 @@ static int add_any_file(sd_journal *j, const char *path) {
 
         if (ordered_hashmap_get(j->files, path))
                 return 0;
+
+        if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
+                log_warning("Too many open journal files, not adding %s.", path);
+                return set_put_error(j, -ETOOMANYREFS);
+        }
 
         r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
         if (r < 0)
