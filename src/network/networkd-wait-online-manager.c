@@ -31,6 +31,19 @@
 
 #include "util.h"
 
+bool manager_ignore_link(Manager *m, Link *link) {
+        assert(m);
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return true;
+
+        if (strv_contains(m->ignore, link->ifname))
+                return true;
+
+        return false;
+}
+
 bool manager_all_configured(Manager *m) {
         Iterator i;
         Link *l;
@@ -49,8 +62,8 @@ bool manager_all_configured(Manager *m) {
         /* wait for all links networkd manages to be in admin state 'configured'
            and at least one link to gain a carrier */
         HASHMAP_FOREACH(l, m->links, i) {
-                if (!link_relevant(l)) {
-                        log_info("ignore irrelevant link: %s", l->ifname);
+                if (manager_ignore_link(m, l)) {
+                        log_info("ignoring: %s", l->ifname);
                         continue;
                 }
 
@@ -245,7 +258,7 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, char **interfaces) {
+int manager_new(Manager **ret, char **interfaces, char **ignore) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -256,6 +269,7 @@ int manager_new(Manager **ret, char **interfaces) {
                 return -ENOMEM;
 
         m->interfaces = interfaces;
+        m->ignore = ignore;
 
         r = sd_event_default(&m->event);
         if (r < 0)

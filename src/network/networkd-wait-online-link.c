@@ -134,12 +134,3 @@ int link_update_monitor(Link *l) {
 
         return 0;
 }
-
-bool link_relevant(Link *l) {
-        assert(l);
-
-        if (l->flags & IFF_LOOPBACK)
-                return false;
-
-        return true;
-}
