@@ -88,176 +88,73 @@
 
                 <para>The following kinds of virtual network devices may be configured in <filename>.netdev</filename> files:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>bond</varname></term>
-                                <listitem>
-                                        <para>A bond device is an aggregation of all its slave devices. See
-                                        <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">
-                                        Linux Ethernet Bonding Driver HOWTO</ulink> for details.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                <table>
+                        <title>Supported kinds of virtual network devices</title>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>bridge</varname></term>
-                                <listitem>
-                                        <para>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                        <tgroup cols='2'>
+                                <colspec colname='kind' />
+                                <colspec colname='explanation' />
+                                <thead><row>
+                                        <entry>Kind</entry>
+                                        <entry>Description</entry>
+                                </row></thead>
+                                <tbody>
+                                        <row><entry><varname>bond</varname></entry>
+                                        <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>dummy</varname></term>
-                                <listitem>
-                                        <para>A dummy device drops all packets sent to it.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>bridge</varname></entry>
+                                        <entry>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>gre</varname></term>
-                                <listitem>
-                                        <para>A Level 3 GRE tunnel over IPv4. See
-                                        <ulink url="https://tools.ietf.org/html/rfc2784">
-                                        RFC 2784</ulink> for details.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>dummy</varname></entry>
+                                        <entry>A dummy device drops all packets sent to it.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>gretap</varname></term>
-                                <listitem>
-                                        <para>A Level 2 GRE tunnel over IPv4.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>gre</varname></entry>
+                                        <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>ip6gre</varname></term>
-                                <listitem>
-                                        <para>A Level 3 GRE tunnel over IPv6.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>gretap</varname></entry>
+                                        <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>ip6tnl</varname></term>
-                                <listitem>
-                                        <para>An IPv4 or IPv6 tunnel over IPv6</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>ip6gre</varname></entry>
+                                        <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>ip6gretap</varname></term>
-                                <listitem>
-                                        <para>An Level 2 GRE tunnel over IPv6.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>ip6tnl</varname></entry>
+                                        <entry>An IPv4 or IPv6 tunnel over IPv6</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>ipip</varname></term>
-                                <listitem>
-                                        <para>An IPv4 over IPv4 tunnel.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>ip6gretap</varname></entry>
+                                        <entry>An Level 2 GRE tunnel over IPv6.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>ipvlan</varname></term>
-                                <listitem>
-                                        <para>An ipvlan device is a stacked device which receives packets from its
-                                        underlying device based on IP address filtering.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>ipip</varname></entry>
+                                        <entry>An IPv4 over IPv4 tunnel.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>macvlan</varname></term>
-                                <listitem>
-                                        <para>A macvlan device is a stacked device which receives packets from its
-                                        underlying device based on MAC address filtering.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>ipvlan</varname></entry>
+                                        <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>sit</varname></term>
-                                <listitem>
-                                        <para>An IPv6 over IPv4 tunnel.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>macvlan</varname></entry>
+                                        <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>tap</varname></term>
-                                <listitem>
-                                        <para>A persistent Level 2 tunnel between a network device and a device node.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>sit</varname></entry>
+                                        <entry>An IPv6 over IPv4 tunnel.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>tun</varname></term>
-                                <listitem>
-                                        <para>A persistent Level 3 tunnel between a network device and a device node.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>tap</varname></entry>
+                                        <entry>A persistent Level 2 tunnel between a network device and a device node.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>veth</varname></term>
-                                <listitem>
-                                        <para>An ethernet tunnel between a pair of network devices.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>tun</varname></entry>
+                                        <entry>A persistent Level 3 tunnel between a network device and a device node.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>vlan</varname></term>
-                                <listitem>
-                                        <para>A vlan is a stacked device which receives packets from its underlying
-                                        device based on VLAN tagging. See
-                                        <ulink url="http://www.ieee802.org/1/pages/802.1Q.html">
-                                        IEEE 802.1Q</ulink> for details.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>veth</varname></entry>
+                                        <entry>An ethernet tunnel between a pair of network devices.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>vti</varname></term>
-                                <listitem>
-                                        <para>An IPv4 over IPSec tunnel.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>vlan</varname></entry>
+                                        <entry>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <ulink url="http://www.ieee802.org/1/pages/802.1Q.html">IEEE 802.1Q</ulink> for details.</entry></row>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><varname>vxlan</varname></term>
-                                <listitem>
-                                        <para></para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                                        <row><entry><varname>vti</varname></entry>
+                                        <entry>An IPv4 over IPSec tunnel.</entry></row>
+
+                                        <row><entry><varname>vxlan</varname></entry>
+                                        <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
+                                </tbody>
+                        </tgroup>
+                </table>
 
         </refsect1>
 
