@@ -443,7 +443,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
         assert(link);
         assert(link->network);
 
-        /* The the first statically configured address if there is any */
+        /* The first statically configured address if there is any */
         LIST_FOREACH(addresses, address, link->network->static_addresses) {
 
                 if (address->family != AF_INET)
@@ -467,62 +467,9 @@ static Address* link_find_dhcp_server_address(Link *link) {
 }
 
 static int link_enter_configured(Link *link) {
-        int r;
-
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ROUTES);
-
-        if (link_dhcp4_server_enabled(link) &&
-            !sd_dhcp_server_is_running(link->dhcp_server)) {
-                struct in_addr pool_start;
-                Address *address;
-
-                address = link_find_dhcp_server_address(link);
-                if (!address) {
-                        log_link_warning(link,
-                                         "Failed to find suitable address for DHCPv4 server instance.");
-                        link_enter_failed(link);
-                        return 0;
-                }
-
-                log_link_debug(link, "offering DHCPv4 leases");
-
-                r = sd_dhcp_server_set_address(link->dhcp_server,
-                                               &address->in_addr.in,
-                                               address->prefixlen);
-                if (r < 0)
-                        return r;
-
-                /* offer 32 addresses starting from the address following the server address */
-                pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
-                r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
-                                                  &pool_start, 32);
-                if (r < 0)
-                        return r;
-
-                /* TODO:
-                r = sd_dhcp_server_set_router(link->dhcp_server,
-                                              &main_address->in_addr.in);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
-                                                 main_address->prefixlen);
-                if (r < 0)
-                        return r;
-                */
-
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0) {
-                        log_link_warning(link, "could not start DHCPv4 server "
-                                         "instance: %s", strerror(-r));
-
-                        link_enter_failed(link);
-
-                        return 0;
-                }
-        }
 
         log_link_info(link, "link configured");
 
@@ -681,6 +628,58 @@ static int link_enter_set_addresses(Link *link) {
                 }
 
                 link->link_messages ++;
+        }
+
+        /* now that we can figure out a default address for the dhcp server,
+           start it */
+        if (link_dhcp4_server_enabled(link)) {
+                struct in_addr pool_start;
+                Address *address;
+
+                address = link_find_dhcp_server_address(link);
+                if (!address) {
+                        log_link_warning(link,
+                                         "Failed to find suitable address for DHCPv4 server instance.");
+                        link_enter_failed(link);
+                        return 0;
+                }
+
+                r = sd_dhcp_server_set_address(link->dhcp_server,
+                                               &address->in_addr.in,
+                                               address->prefixlen);
+                if (r < 0)
+                        return r;
+
+                /* offer 32 addresses starting from the address following the server address */
+                pool_start.s_addr = htobe32(be32toh(address->in_addr.in.s_addr) + 1);
+                r = sd_dhcp_server_set_lease_pool(link->dhcp_server,
+                                                  &pool_start, 32);
+                if (r < 0)
+                        return r;
+
+                /* TODO:
+                r = sd_dhcp_server_set_router(link->dhcp_server,
+                                              &main_address->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_set_prefixlen(link->dhcp_server,
+                                                 main_address->prefixlen);
+                if (r < 0)
+                        return r;
+                */
+
+                r = sd_dhcp_server_start(link->dhcp_server);
+                if (r < 0) {
+                        log_link_warning(link, "could not start DHCPv4 server "
+                                         "instance: %s", strerror(-r));
+
+                        link_enter_failed(link);
+
+                        return 0;
+                }
+
+                log_link_debug(link, "offering DHCPv4 leases");
         }
 
         if (link->link_messages == 0) {
