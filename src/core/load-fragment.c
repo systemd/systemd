@@ -3150,6 +3150,7 @@ int config_parse_set_status(
         FOREACH_WORD(word, l, rvalue, state) {
                 _cleanup_free_ char *temp;
                 int val;
+                Set **set;
 
                 temp = strndup(word, l);
                 if (!temp)
@@ -3162,21 +3163,23 @@ int config_parse_set_status(
                         if (val <= 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, -val,
                                            "Failed to parse value, ignoring: %s", word);
-                                return 0;
+                                continue;
                         }
+                        set = &status_set->signal;
                 } else {
                         if (val < 0 || val > 255) {
                                 log_syntax(unit, LOG_ERR, filename, line, ERANGE,
                                            "Value %d is outside range 0-255, ignoring", val);
                                 continue;
                         }
+                        set = &status_set->status;
                 }
 
-                r = set_ensure_allocated(&status_set->status, NULL);
+                r = set_ensure_allocated(set, NULL);
                 if (r < 0)
                         return log_oom();
 
-                r = set_put(status_set->status, INT_TO_PTR(val));
+                r = set_put(*set, INT_TO_PTR(val));
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, -r,
                                    "Unable to store: %s", word);
