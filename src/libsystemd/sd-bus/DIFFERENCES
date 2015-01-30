@@ -18,8 +18,11 @@ Known differences between dbus1 and kdbus:
 
 - Serial numbers of synthesized messages are always (uint32_t) -1.
 
+- The org.freedesktop.DBus "driver" service is not special on
+  kdbus. It is a bus activated service like any other with its own
+  unique name.
+
 - NameOwnerChanged is a synthetic message, generated locally and not
-  by the driver. On dbus1 only the Disconnected message was
-  synthesized like this.
+  by the driver.
 
 - There's no standard per-session bus anymore. Only a per-user bus.

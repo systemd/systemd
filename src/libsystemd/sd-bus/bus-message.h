@@ -99,18 +99,7 @@ struct sd_bus_message {
         bool release_kdbus:1;
         bool poisoned:1;
 
-        /* The first and last bytes of the message */
         struct bus_header *header;
-        void *footer;
-
-        /* How many bytes are accessible in the above pointers */
-        size_t header_accessible;
-        size_t footer_accessible;
-
-        size_t fields_size;
-        size_t body_size;
-        size_t user_body_size;
-
         struct bus_body_part body;
         struct bus_body_part *body_end;
         unsigned n_body_parts;
@@ -123,7 +112,7 @@ struct sd_bus_message {
         int *fds;
 
         struct bus_container root_container, *containers;
-        size_t n_containers;
+        unsigned n_containers;
         size_t containers_allocated;
 
         struct iovec *iovec;
@@ -149,9 +138,7 @@ struct sd_bus_message {
         unsigned n_header_offsets;
 };
 
-static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {
-        return m->header->endian != BUS_NATIVE_ENDIAN;
-}
+#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != BUS_NATIVE_ENDIAN)
 
 static inline uint16_t BUS_MESSAGE_BSWAP16(sd_bus_message *m, uint16_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_16(u) : u;
@@ -166,23 +153,29 @@ static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
 }
 
 static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
-        if (m->header->version == 2)
-                return BUS_MESSAGE_BSWAP64(m, m->header->dbus2.cookie);
-
-        return BUS_MESSAGE_BSWAP32(m, m->header->dbus1.serial);
+        /* Note that we return the serial converted to a 64bit value here */
+        return BUS_MESSAGE_BSWAP32(m, m->header->serial);
 }
 
-static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
-        return
-                sizeof(struct bus_header) +
-                ALIGN8(m->fields_size) +
-                m->body_size;
+static inline uint32_t BUS_MESSAGE_BODY_SIZE(sd_bus_message *m) {
+        return BUS_MESSAGE_BSWAP32(m, m->header->body_size);
 }
 
-static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
+static inline uint32_t BUS_MESSAGE_FIELDS_SIZE(sd_bus_message *m) {
+        return BUS_MESSAGE_BSWAP32(m, m->header->fields_size);
+}
+
+static inline uint32_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
         return
                 sizeof(struct bus_header) +
-                ALIGN8(m->fields_size);
+                ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) +
+                BUS_MESSAGE_BODY_SIZE(m);
+}
+
+static inline uint32_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
+        return
+                sizeof(struct bus_header) +
+                ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
 }
 
 static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
@@ -200,10 +193,7 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int bus_message_from_header(
                 sd_bus *bus,
                 void *header,
-                size_t header_accessible,
-                void *footer,
-                size_t footer_accessible,
-                size_t message_size,
+                size_t length,
                 int *fds,
                 unsigned n_fds,
                 const struct ucred *ucred,
@@ -226,6 +216,9 @@ int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str, char **
 int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
 
 int bus_message_parse_fields(sd_bus_message *m);
+
+bool bus_header_is_complete(struct bus_header *h, size_t size);
+int bus_header_message_size(struct bus_header *h, size_t *sum);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);
 

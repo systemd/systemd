@@ -309,7 +309,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 m->kdbus->dst_id = destination ? unique : KDBUS_DST_ID_BROADCAST;
 
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
-        m->kdbus->cookie = m->header->dbus2.cookie;
+        m->kdbus->cookie = (uint64_t) m->header->serial;
         m->kdbus->priority = m->priority;
 
         if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
@@ -411,12 +411,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         struct kdbus_item *d;
         unsigned n_fds = 0;
         _cleanup_free_ int *fds = NULL;
-        struct bus_header *header = NULL;
-        void *footer = NULL;
-        size_t header_size = 0, footer_size = 0;
-        size_t n_bytes = 0, idx = 0;
+        struct bus_header *h = NULL;
+        size_t total, n_bytes = 0, idx = 0;
         const char *destination = NULL, *seclabel = NULL;
-        bool last_was_memfd = false;
         int r;
 
         assert(bus);
@@ -431,24 +428,21 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 switch (d->type) {
 
                 case KDBUS_ITEM_PAYLOAD_OFF:
-                        if (!header) {
-                                header = (struct bus_header *)((uint8_t *) bus->kdbus_buffer + d->vec.offset);
-                                header_size = d->vec.size;
+                        if (!h) {
+                                h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
+
+                                if (!bus_header_is_complete(h, d->vec.size))
+                                        return -EBADMSG;
                         }
 
-                        footer = (uint8_t*) bus->kdbus_buffer + d->vec.offset;
-                        footer_size = d->vec.size;
-
                         n_bytes += d->vec.size;
-                        last_was_memfd = false;
                         break;
 
                 case KDBUS_ITEM_PAYLOAD_MEMFD:
-                        if (!header) /* memfd cannot be first part */
+                        if (!h)
                                 return -EBADMSG;
 
                         n_bytes += d->memfd.size;
-                        last_was_memfd = true;
                         break;
 
                 case KDBUS_ITEM_FDS: {
@@ -472,29 +466,23 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 }
         }
 
-        if (last_was_memfd) /* memfd cannot be last part */
+        if (!h)
                 return -EBADMSG;
 
-        if (!header)
-                return -EBADMSG;
+        r = bus_header_message_size(h, &total);
+        if (r < 0)
+                return r;
 
-        if (header_size < sizeof(struct bus_header))
+        if (n_bytes != total)
                 return -EBADMSG;
 
         /* on kdbus we only speak native endian gvariant, never dbus1
          * marshalling or reverse endian */
-        if (header->version != 2 ||
-            header->endian != BUS_NATIVE_ENDIAN)
+        if (h->version != 2 ||
+            h->endian != BUS_NATIVE_ENDIAN)
                 return -EPROTOTYPE;
 
-        r = bus_message_from_header(
-                        bus,
-                        header, header_size,
-                        footer, footer_size,
-                        n_bytes,
-                        fds, n_fds,
-                        NULL,
-                        seclabel, 0, &m);
+        r = bus_message_from_header(bus, h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
                 return r;
 
@@ -574,11 +562,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 case KDBUS_ITEM_PIDS:
 
                         /* The PID/TID might be missing, when the data
-                         * is faked by a bus proxy and it lacks that
-                         * information about the real client (since
-                         * SO_PEERCRED is used for that). Also kernel
-                         * namespacing might make some of this data
-                         * unavailable when untranslatable. */
+                         * is faked by some data bus proxy and it
+                         * lacks that information about the real
+                         * client since SO_PEERCRED is used for
+                         * that. */
 
                         if (d->pids.pid > 0) {
                                 m->creds.pid = (pid_t) d->pids.pid;
@@ -594,8 +581,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_CREDS:
 
-                        /* EUID/SUID/FSUID/EGID/SGID/FSGID might be
-                         * missing too (see above). */
+                        /* EUID/SUID/FSUID/EGID/SGID/FSGID might be missing too (see above). */
 
                         if ((uid_t) d->creds.uid != UID_INVALID) {
                                 m->creds.uid = (uid_t) d->creds.uid;
@@ -673,6 +659,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 goto fail;
 
                         m->creds.cgroup_root = bus->cgroup_root;
+
                         break;
 
                 case KDBUS_ITEM_AUDIT:
@@ -775,7 +762,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 goto fail;
 
         /* Refuse messages if kdbus and dbus1 cookie doesn't match up */
-        if ((uint64_t) m->header->dbus2.cookie != k->cookie) {
+        if ((uint64_t) m->header->serial != k->cookie) {
                 r = -EBADMSG;
                 goto fail;
         }
