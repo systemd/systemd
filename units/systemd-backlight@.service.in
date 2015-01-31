@@ -19,3 +19,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-backlight load %i
 ExecStop=@rootlibexecdir@/systemd-backlight save %i
+TimeoutSec=2min

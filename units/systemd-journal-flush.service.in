@@ -19,3 +19,4 @@ RequiresMountsFor=/var/log/journal
 ExecStart=@rootbindir@/journalctl --flush
 Type=oneshot
 RemainAfterExit=yes
+TimeoutSec=2min

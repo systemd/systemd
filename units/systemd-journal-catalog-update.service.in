@@ -18,3 +18,4 @@ ConditionNeedsUpdate=/etc
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/journalctl --update-catalog
+TimeoutSec=2min
