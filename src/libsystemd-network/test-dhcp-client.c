@@ -474,8 +474,7 @@ static void test_addr_acq(sd_event *e) {
         assert_se(sd_dhcp_client_set_index(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
-        assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e)
-                >= 0);
+        assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);
 
         callback_recv = test_addr_acq_recv_discover;
 
