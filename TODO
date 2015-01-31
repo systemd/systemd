@@ -34,7 +34,7 @@ External:
 
 Features:
 
-* network-wait-online should have the ability to ignore interfaces for checking whether we are online, with --ignore-interfaces= or so. Even better: if globbing would be supported.
+* network-wait-online should support globbing for interfaces.
 
 * network-wait-online should have a configurable timeout, maybe as --timeout-usec=
 
