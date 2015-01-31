@@ -190,6 +190,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEM_SLEEP_PATH=\"$(systemsleepdir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
+	-DSYSTEMD_LANGUAGE_FALLBACK_MAP=\"$(pkgdatadir)/language-fallback-map\" \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\"$(udevlibexecdir)\" \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
@@ -4990,7 +4991,8 @@ BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.locale1.busname
 
 dist_pkgdata_DATA += \
-	src/locale/kbd-model-map
+	src/locale/kbd-model-map \
+	src/locale/language-fallback-map
 
 localectl_SOURCES = \
 	src/locale/localectl.c

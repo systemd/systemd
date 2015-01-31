@@ -512,7 +512,9 @@ static const char* strnulldash(const char *s) {
         return isempty(s) || streq(s, "-") ? NULL : s;
 }
 
-static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
+static int read_next_mapping(const char* filename,
+                             unsigned min_fields, unsigned max_fields,
+                             FILE *f, unsigned *n, char ***a) {
         assert(f);
         assert(n);
         assert(a);
@@ -521,6 +523,7 @@ static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
                 char line[LINE_MAX];
                 char *l, **b;
                 int r;
+                size_t length;
 
                 errno = 0;
                 if (!fgets(line, sizeof(line), f)) {
@@ -541,8 +544,9 @@ static int read_next_mapping(FILE *f, unsigned *n, char ***a) {
                 if (r < 0)
                         return r;
 
-                if (strv_length(b) < 5) {
-                        log_error("Invalid line "SYSTEMD_KBD_MODEL_MAP":%u, ignoring.", *n);
+                length = strv_length(b);
+                if (length < min_fields || length > max_fields) {
+                        log_error("Invalid line %s:%u, ignoring.", filename, *n);
                         strv_free(b);
                         continue;
 
@@ -579,7 +583,7 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                         _cleanup_strv_free_ char **a = NULL;
                         int r;
 
-                        r = read_next_mapping(f, &n, &a);
+                        r = read_next_mapping(SYSTEMD_KBD_MODEL_MAP, 5, UINT_MAX, f, &n, &a);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -677,7 +681,7 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
                 _cleanup_strv_free_ char **a = NULL;
                 unsigned matching = 0;
 
-                r = read_next_mapping(f, &n, &a);
+                r = read_next_mapping(SYSTEMD_KBD_MODEL_MAP, 5, UINT_MAX, f, &n, &a);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -750,6 +754,35 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
         }
 
         return 0;
+}
+
+static int find_language_fallback(const char *lang, char **language) {
+        _cleanup_fclose_ FILE *f = NULL;
+        unsigned n = 0;
+
+        assert(language);
+
+        f = fopen(SYSTEMD_LANGUAGE_FALLBACK_MAP, "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_strv_free_ char **a = NULL;
+                int r;
+
+                r = read_next_mapping(SYSTEMD_LANGUAGE_FALLBACK_MAP, 2, 2, f, &n, &a);
+                if (r <= 0)
+                        return r;
+
+                if (streq(lang, a[0])) {
+                        assert(strv_length(a) == 2);
+                        *language = a[1];
+                        a[1] = NULL;
+                        return 1;
+                }
+        }
+
+        assert_not_reached("should not be here");
 }
 
 static int x11_convert_to_vconsole(Context *c, sd_bus *bus) {
@@ -841,9 +874,10 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         Context *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
         char **i;
+        const char *lang = NULL;
         int interactive;
         bool modified = false;
-        bool passed[_LOCALE_MAX] = {};
+        bool have[_LOCALE_MAX] = {};
         int p;
         int r;
 
@@ -867,7 +901,10 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                             (*i)[k] == '=' &&
                             locale_is_valid((*i) + k + 1)) {
                                 valid = true;
-                                passed[p] = true;
+                                have[p] = true;
+
+                                if (p == LOCALE_LANG)
+                                        lang = (*i) + k + 1;
 
                                 if (!streq_ptr(*i + k + 1, c->locale[p]))
                                         modified = true;
@@ -880,10 +917,31 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
         }
 
+        /* If LANG was specified, but not LANGUAGE, check if we should
+         * set it based on the language fallback table. */
+        if (have[LOCALE_LANG] && !have[LOCALE_LANGUAGE]) {
+                _cleanup_free_ char *language = NULL;
+
+                assert(lang);
+
+                (void) find_language_fallback(lang, &language);
+                if (language) {
+                        log_debug("Converted LANG=%s to LANGUAGE=%s", lang, language);
+                        if (!streq_ptr(language, c->locale[LOCALE_LANGUAGE])) {
+                                r = strv_extendf(&l, "LANGUAGE=%s", language);
+                                if (r < 0)
+                                        return r;
+
+                                have[LOCALE_LANGUAGE] = true;
+                                modified = true;
+                        }
+                }
+        }
+
         /* Check whether a variable is unset */
         if (!modified)
                 for (p = 0; p < _LOCALE_MAX; p++)
-                        if (!isempty(c->locale[p]) && !passed[p]) {
+                        if (!isempty(c->locale[p]) && !have[p]) {
                                 modified = true;
                                 break;
                         }
@@ -911,7 +969,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
                         }
 
                 for (p = 0; p < _LOCALE_MAX; p++) {
-                        if (passed[p])
+                        if (have[p])
                                 continue;
 
                         free_and_replace(&c->locale[p], NULL);
