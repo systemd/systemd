@@ -465,18 +465,12 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        if (i->type == IGNORE_DIRECTORY_PATH && streq(dent->d_name, p))
-                                log_debug("Ignoring directory \"%s\"", sub_path);
-                        else {
-                                log_debug("Removing directory \"%s\".", sub_path);
-
-                                if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
-                                        if (errno != ENOENT && errno != ENOTEMPTY) {
-                                                log_error_errno(errno, "rmdir(%s): %m", sub_path);
-                                                r = -errno;
-                                        }
+                        log_debug("Removing directory \"%s\".", sub_path);
+                        if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
+                                if (errno != ENOENT && errno != ENOTEMPTY) {
+                                        log_error_errno(errno, "rmdir(%s): %m", sub_path);
+                                        r = -errno;
                                 }
-                        }
 
                 } else {
                         /* Skip files for which the sticky bit is
