@@ -5668,9 +5668,11 @@ tests += \
 
 nodist_systemunit_DATA += \
 	units/systemd-networkd.service \
+	units/systemd-networkd.socket \
 	units/systemd-networkd-wait-online.service
 
 GENERAL_ALIASES += \
+	$(systemunitdir)/systemd-networkd.socket $(pkgsysconfdir)/system/sockets.target.wants/systemd-networkd.socket \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
 	$(systemunitdir)/systemd-networkd-wait-online.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 

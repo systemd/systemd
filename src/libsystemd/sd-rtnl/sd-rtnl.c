@@ -74,7 +74,7 @@ int sd_rtnl_new_from_netlink(sd_rtnl **ret, int fd) {
 
         assert_return(ret, -EINVAL);
 
-        r = sd_rtnl_new(ret);
+        r = sd_rtnl_new(&rtnl);
         if (r < 0)
                 return r;
 

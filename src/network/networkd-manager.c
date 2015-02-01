@@ -35,6 +35,7 @@
 #include "virt.h"
 
 #include "sd-rtnl.h"
+#include "sd-daemon.h"
 
 /* use 8 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (8*1024*1024)
@@ -75,9 +76,33 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
+static int systemd_netlink_fd(int *ret) {
+        int n, fd, rtnl_fd = -1;
+
+        n = sd_listen_fds(true);
+        if (n <= 0)
+                return -EINVAL;
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (rtnl_fd >= 0)
+                                return -EINVAL;
+
+                        rtnl_fd = fd;
+                }
+        }
+
+        if (rtnl_fd < 0)
+                return -EINVAL;
+
+        *ret = rtnl_fd;
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_manager_free_ Manager *m = NULL;
-        int r;
+        int r, fd;
 
         m = new0(Manager, 1);
         if (!m)
@@ -96,14 +121,20 @@ int manager_new(Manager **ret) {
         sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
-        r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
-                         RTNLGRP_IPV6_IFADDR);
-        if (r < 0)
-                return r;
+        if (systemd_netlink_fd(&fd) < 0) {
+                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
+                                 RTNLGRP_IPV6_IFADDR);
+                if (r < 0)
+                        return r;
 
-        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
-        if (r < 0)
-                return r;
+                r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_rtnl_new_from_netlink(&m->rtnl, fd);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */

@@ -29,3 +29,4 @@ WatchdogSec=1min
 
 [Install]
 WantedBy=multi-user.target
+Also=systemd-networkd.socket
