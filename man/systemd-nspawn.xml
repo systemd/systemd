@@ -103,6 +103,7 @@
                 in a container.</para>
 
                 <para>Use a tool like
+                <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 or
@@ -861,7 +862,7 @@
                 <example>
                         <title>Build and boot a minimal Fedora distribution in a container</title>
 
-                        <programlisting># yum -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                        <programlisting># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
                         <para>This installs a minimal Fedora distribution into
@@ -926,6 +927,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

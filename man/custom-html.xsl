@@ -60,6 +60,18 @@
   </a>
 </xsl:template>
 
+<xsl:template match="citerefentry[@project='mankier']">
+  <a>
+    <xsl:attribute name="href">
+      <xsl:text>https://www.mankier.com/</xsl:text>
+      <xsl:value-of select="manvolnum"/>
+      <xsl:text>/</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+    </xsl:attribute>
+    <xsl:call-template name="inline.charseq"/>
+  </a>
+</xsl:template>
+
 <xsl:template match="citerefentry[@project='archlinux']">
   <a>
     <xsl:attribute name="href">
