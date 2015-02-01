@@ -28,6 +28,7 @@
 #include "build.h"
 
 static bool arg_quiet = false;
+static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static char **arg_interfaces = NULL;
 static char **arg_ignore = NULL;
 
@@ -39,6 +40,7 @@ static void help(void) {
                "  -q --quiet                Do not show status information\n"
                "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n"
                "     --ignore=INTERFACE     Don't take these interfaces into account\n"
+               "     --timeout=SECS         Maximum time to wait for network connectivity\n"
                , program_invocation_short_name);
 }
 
@@ -47,6 +49,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_IGNORE,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -55,10 +58,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",           no_argument,       NULL, 'q'         },
                 { "interface",       required_argument, NULL, 'i'         },
                 { "ignore",          required_argument, NULL, ARG_IGNORE  },
+                { "timeout",         required_argument, NULL, ARG_TIMEOUT  },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -92,6 +96,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TIMEOUT:
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -121,7 +132,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
 
-        r = manager_new(&m, arg_interfaces, arg_ignore);
+        r = manager_new(&m, arg_interfaces, arg_ignore, arg_timeout);
         if (r < 0) {
                 log_error_errno(r, "Could not create manager: %m");
                 goto finish;
@@ -143,10 +154,16 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        sd_notify(false, "STATUS=All interfaces configured...");
-
         strv_free(arg_interfaces);
         strv_free(arg_ignore);
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (r >= 0) {
+                sd_notify(false, "STATUS=All interfaces configured...");
+
+                return EXIT_SUCCESS;
+        } else {
+                sd_notify(false, "STATUS=Failed waiting for network connectivity...");
+
+                return EXIT_FAILURE;
+        }
 }

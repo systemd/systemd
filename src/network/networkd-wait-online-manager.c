@@ -31,6 +31,7 @@
 #include "networkd-wait-online.h"
 
 #include "util.h"
+#include "time-util.h"
 
 bool manager_ignore_link(Manager *m, Link *link) {
         char **ignore;
@@ -262,7 +263,7 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, char **interfaces, char **ignore) {
+int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -281,6 +282,16 @@ int manager_new(Manager **ret, char **interfaces, char **ignore) {
 
         sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
+        if (timeout > 0) {
+                usec_t usec;
+
+                usec = now(clock_boottime_or_monotonic()) + timeout;
+
+                r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0)
+                        return r;
+        }
 
         sd_event_set_watchdog(m->event, true);
 

@@ -49,7 +49,7 @@ struct Manager {
 };
 
 void manager_free(Manager *m);
-int manager_new(Manager **ret, char **interfaces, char **ignore);
+int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

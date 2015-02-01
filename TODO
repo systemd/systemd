@@ -34,8 +34,6 @@ External:
 
 Features:
 
-* network-wait-online should have a configurable timeout, maybe as --timeout-usec=
-
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
@@ -155,8 +153,6 @@ Features:
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
 
 * timesyncd + resolved: add ugly bus calls to set NTP and DNS servers per-interface, for usage by NM
-
-* networkd-wait-online really should have a timeout by default
 
 * add infrastructure to allocate dynamic/transient users and UID ranges, for use in user-namespaced containers, per-seat gdm login screens and gdm guest sessions
 

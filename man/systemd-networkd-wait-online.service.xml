@@ -90,6 +90,13 @@
                                 more than once to ignore multiple network interfaces.
                                 </para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><option>--timeout=</option></term>
+                                <listitem><para>Fail the service if the network is not
+                                online by the time the timeout elapses. A timeout of 0
+                                disables the timeout. Defaults to 120 seconds.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
