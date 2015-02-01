@@ -7,6 +7,11 @@ export PATH
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
+if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
+    echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
+    ROOTLIBDIR=/usr/lib/systemd
+fi
+
 BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort"
 
@@ -47,7 +52,7 @@ run_qemu() {
 systemd.log_level=debug \
 raid=noautodetect \
 loglevel=2 \
-init=/usr/lib/systemd/systemd \
+init=$ROOTLIBDIR/systemd \
 ro \
 console=ttyS0 \
 selinux=0 \
@@ -72,7 +77,7 @@ $KERNEL_APPEND \
 
 run_nspawn() {
     set -x
-    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root /usr/lib/systemd/systemd $KERNEL_APPEND
+    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
 }
 
 setup_basic_environment() {
@@ -240,8 +245,8 @@ install_libnss() {
 }
 
 install_dbus() {
-    inst /usr/lib/systemd/system/dbus.socket
-    inst /usr/lib/systemd/system/dbus.service
+    inst $ROOTLIBDIR/system/dbus.socket
+    inst $ROOTLIBDIR/system/dbus.service
 
     find \
         /etc/dbus-1 -xtype f \
