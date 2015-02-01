@@ -233,6 +233,8 @@ EOF
 install_basic_tools() {
     [[ $BASICTOOLS ]] && dracut_install $BASICTOOLS
     dracut_install -o sushell
+    # in Debian ldconfig is just a shell script wrapper around ldconfig.real
+    dracut_install -o ldconfig.real
 }
 
 install_debug_tools() {
