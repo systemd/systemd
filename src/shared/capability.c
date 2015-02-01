@@ -230,7 +230,6 @@ int capability_bounding_set_drop_usermode(uint64_t drop) {
 }
 
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
-        cap_value_t bits[sizeof(keep_capabilities)*8];
         _cleanup_cap_free_ cap_t d = NULL;
         unsigned i, j = 0;
         int r;
@@ -248,8 +247,8 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (setgroups(0, NULL) < 0)
                 return log_error_errno(errno, "Failed to drop auxiliary groups list: %m");
 
-        /* Ensure we keep the permitted caps across the setresuid(), if we need them */
-        if (prctl(PR_SET_KEEPCAPS, keep_capabilities != 0) < 0)
+        /* Ensure we keep the permitted caps across the setresuid() */
+        if (prctl(PR_SET_KEEPCAPS, 1) < 0)
                 return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
         r = setresuid(uid, uid, uid);
@@ -264,26 +263,27 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 
-        if (keep_capabilities == 0) /* All is gone, we can exit early */
-                return 0;
-
         /* Now upgrade the permitted caps we still kept to effective caps */
         d = cap_init();
         if (!d)
                 return log_oom();
 
-        for (i = 0; i < sizeof(keep_capabilities)*8; i++)
-                if (keep_capabilities & (1ULL << i))
-                        bits[j++] = i;
+        if (keep_capabilities) {
+                cap_value_t bits[sizeof(keep_capabilities)*8];
 
-        if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-            cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
-                log_error_errno(errno, "Failed to enable capabilities bits: %m");
-                return -errno;
+                for (i = 0; i < sizeof(keep_capabilities)*8; i++)
+                        if (keep_capabilities & (1ULL << i))
+                                bits[j++] = i;
+
+                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
+                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
+                        log_error_errno(errno, "Failed to enable capabilities bits: %m");
+                        return -errno;
+                }
+
+                if (cap_set_proc(d) < 0)
+                        return log_error_errno(errno, "Failed to increase capabilities: %m");
         }
-
-        if (cap_set_proc(d) < 0)
-                return log_error_errno(errno, "Failed to increase capabilities: %m");
 
         return 0;
 }
