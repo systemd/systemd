@@ -891,6 +891,12 @@ static int event_setup_timer_fd(
         return 0;
 }
 
+static int time_exit_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 _public_ int sd_event_add_time(
                 sd_event *e,
                 sd_event_source **ret,
@@ -908,9 +914,11 @@ _public_ int sd_event_add_time(
         assert_return(e, -EINVAL);
         assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(accuracy != (uint64_t) -1, -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = time_exit_callback;
 
         type = clock_to_event_source_type(clock);
         assert_return(type >= 0, -ENOTSUP);
