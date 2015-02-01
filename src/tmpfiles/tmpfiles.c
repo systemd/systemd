@@ -903,9 +903,28 @@ static int glob_item(Item *i, action_t action, bool recursive) {
         return r;
 }
 
+typedef enum {
+        CREATION_NORMAL,
+        CREATION_EXISTING,
+        CREATION_FORCE,
+} CreationMode;
+
+static const char* creation_verb(CreationMode mode) {
+        switch(mode) {
+        case CREATION_NORMAL:
+                return "Created";
+        case CREATION_EXISTING:
+                return "Found existing";
+        case CREATION_FORCE:
+                return "Created replacement";
+        }
+        assert_not_reached("Bad creation");
+}
+
 static int create_item(Item *i) {
         struct stat st;
         int r = 0;
+        CreationMode creation;
 
         assert(i);
 
@@ -990,8 +1009,11 @@ static int create_item(Item *i) {
                                 log_debug("\"%s\" already exists and is not a directory.", i->path);
                                 return 0;
                         }
-                }
-                log_debug("Created directory \"%s\".", i->path);
+
+                        creation = CREATION_EXISTING;
+                } else
+                        creation = CREATION_NORMAL;
+                log_debug("%s directory \"%s\".", creation_verb(creation), i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1026,13 +1048,16 @@ static int create_item(Item *i) {
 
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
+                                        creation = CREATION_FORCE;
                                 } else {
                                         log_debug("%s is not a fifo.", i->path);
                                         return 0;
                                 }
-                        }
-                }
-                log_debug("Created fifo \"%s\".", i->path);
+                        } else
+                                creation = CREATION_EXISTING;
+                } else
+                        creation = CREATION_NORMAL;
+                log_debug("%s fifo \"%s\".", creation_verb(creation), i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1062,13 +1087,16 @@ static int create_item(Item *i) {
 
                                         if (r < 0)
                                                 return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                        creation = CREATION_FORCE;
                                 } else {
                                         log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
                                         return 0;
                                 }
-                        }
-                }
-                log_debug("Created symlink \"%s\".", i->path);
+                        } else
+                                creation = CREATION_EXISTING;
+                } else
+                        creation = CREATION_NORMAL;
+                log_debug("%s symlink \"%s\".", creation_verb(creation), i->path);
 
                 break;
 
@@ -1118,14 +1146,18 @@ static int create_item(Item *i) {
                                         }
 
                                         if (r < 0)
-                                                return log_error_errno(r, "Failed to create device node %s: %m", i->path);
+                                                return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
+                                        creation = CREATION_FORCE;
                                 } else {
                                         log_debug("%s is not a device node.", i->path);
                                         return 0;
                                 }
-                        }
-                }
-                log_debug("Created %s device node \"%s\" %u:%u.",
+                        } else
+                                creation = CREATION_EXISTING;
+                } else
+                        creation = CREATION_NORMAL;
+                log_debug("%s %s device node \"%s\" %u:%u.",
+                          creation_verb(creation),
                           i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
                           i->path, major(i->mode), minor(i->mode));
 
