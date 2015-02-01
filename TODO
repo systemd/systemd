@@ -34,8 +34,6 @@ External:
 
 Features:
 
-* network-wait-online should support globbing for interfaces.
-
 * network-wait-online should have a configurable timeout, maybe as --timeout-usec=
 
 * The udev blkid built-in should expose a property that reflects

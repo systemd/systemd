@@ -21,6 +21,7 @@
 
 #include <netinet/ether.h>
 #include <linux/if.h>
+#include <fnmatch.h>
 
 #include "rtnl-util.h"
 
@@ -32,14 +33,17 @@
 #include "util.h"
 
 bool manager_ignore_link(Manager *m, Link *link) {
+        char **ignore;
+
         assert(m);
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
                 return true;
 
-        if (strv_contains(m->ignore, link->ifname))
-                return true;
+        STRV_FOREACH(ignore, m->ignore)
+                if (fnmatch(*ignore, link->ifname, 0) == 0)
+                        return true;
 
         return false;
 }
