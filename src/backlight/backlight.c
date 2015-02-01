@@ -373,6 +373,7 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
+                const char *clamp;
 
                 if (!shall_restore_state())
                         return EXIT_SUCCESS;
@@ -390,7 +391,9 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                clamp_brightness(device, &value, max_brightness);
+                clamp = udev_device_get_property_value(device, "ID_BACKLIGHT_CLAMP");
+                if (!clamp || parse_boolean(clamp) != 0) /* default to clamping */
+                        clamp_brightness(device, &value, max_brightness);
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
