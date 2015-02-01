@@ -67,6 +67,31 @@ static int sd_rtnl_new(sd_rtnl **ret) {
         return 0;
 }
 
+int sd_rtnl_new_from_netlink(sd_rtnl **ret, int fd) {
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        socklen_t addrlen;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_rtnl_new(ret);
+        if (r < 0)
+                return r;
+
+        addrlen = sizeof(rtnl->sockaddr);
+
+        r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
+        if (r < 0)
+                return -errno;
+
+        rtnl->fd = fd;
+
+        *ret = rtnl;
+        rtnl = NULL;
+
+        return 0;
+}
+
 static bool rtnl_pid_changed(sd_rtnl *rtnl) {
         assert(rtnl);
 
@@ -126,7 +151,7 @@ static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap)
 
         r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
         if (r < 0)
-                return r;
+                return -errno;
 
         rtnl->fd = fd;
 

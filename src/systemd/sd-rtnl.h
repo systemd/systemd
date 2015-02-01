@@ -41,6 +41,7 @@ typedef struct sd_rtnl_message sd_rtnl_message;
 typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 
 /* bus */
+int sd_rtnl_new_from_netlink(sd_rtnl **nl, int fd);
 int sd_rtnl_open(sd_rtnl **nl, unsigned n_groups, ...);
 int sd_rtnl_open_fd(sd_rtnl **nl, int fd, unsigned n_groups, ...);
 int sd_rtnl_inc_rcvbuf(const sd_rtnl *const rtnl, const int size);
