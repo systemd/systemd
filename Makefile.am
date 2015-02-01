@@ -1433,7 +1433,7 @@ EXTRA_DIST += \
 	test/c.service \
 	test/daughter.service \
 	test/d.service \
-	test/end.service \
+	test/end.service.in \
 	test/e.service \
 	test/f.service \
 	test/grandchild.service \
