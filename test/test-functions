@@ -7,7 +7,7 @@ export PATH
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
-BASICTOOLS="sh bash setsid loadkeys setfont login sushell sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe"
+BASICTOOLS="sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort"
 
 function find_qemu_bin() {
@@ -227,6 +227,7 @@ EOF
 
 install_basic_tools() {
     [[ $BASICTOOLS ]] && dracut_install $BASICTOOLS
+    dracut_install -o sushell
 }
 
 install_debug_tools() {
