@@ -139,6 +139,7 @@ int dns_type_to_af(uint16_t t);
 bool dns_class_is_pseudo(uint16_t class);
 bool dns_class_is_valid_rr(uint16_t class);
 
+/* TYPE?? follows http://tools.ietf.org/html/rfc3597#section-5 */
 const char *dns_type_to_string(int type);
 int dns_type_from_string(const char *s);
 
