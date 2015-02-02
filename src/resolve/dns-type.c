@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 
 #include "dns-type.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 typedef const struct {
@@ -41,10 +42,19 @@ int dns_type_from_string(const char *s) {
         assert(s);
 
         sc = lookup_dns_type(s, strlen(s));
-        if (!sc)
-                return _DNS_TYPE_INVALID;
+        if (sc)
+                return sc->id;
 
-        return sc->id;
+        s = startswith_no_case(s, "TYPE");
+        if (s) {
+                unsigned x;
+
+                if (safe_atou(s, &x) >= 0 &&
+                    x <= UINT16_MAX)
+                        return (int) x;
+        }
+
+        return _DNS_TYPE_INVALID;
 }
 
 bool dns_type_is_pseudo(uint16_t type) {
