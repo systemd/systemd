@@ -218,7 +218,13 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
 
 int dhcp_network_bind_udp_socket(be32_t address, uint16_t port)
 {
-        return 0;
+        int fd;
+
+        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
 }
 
 int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
