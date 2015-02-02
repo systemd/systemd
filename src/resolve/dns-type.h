@@ -87,6 +87,7 @@ enum {
         DNS_TYPE_TALINK,
         DNS_TYPE_CDS,
         DNS_TYPE_CDNSKEY,
+        DNS_TYPE_OPENPGPKEY,
 
         DNS_TYPE_SPF        = 0x63,
         DNS_TYPE_NID,
