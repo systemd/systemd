@@ -38,8 +38,6 @@
 #include "pager.h"
 #include "time-dst.h"
 
-#define xstrftime(buf, fmt, tm) assert_se(strftime(buf, sizeof(buf), fmt, tm) > 0)
-
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
