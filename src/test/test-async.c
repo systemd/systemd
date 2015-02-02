@@ -38,7 +38,9 @@ int main(int argc, char *argv[]) {
         fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
         asynchronous_close(fd);
+
         assert_se(asynchronous_job(async_func, NULL) >= 0);
+
         assert_se(asynchronous_sync() >= 0);
 
         sleep(1);

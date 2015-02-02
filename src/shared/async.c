@@ -41,24 +41,18 @@ int asynchronous_job(void* (*func)(void *p), void *arg) {
          * only in long running processes. */
 
         r = pthread_attr_init(&a);
-        if (r != 0)
+        if (r > 0)
                 return -r;
 
         r = pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
-        if (r != 0) {
-                r = -r;
+        if (r > 0)
                 goto finish;
-        }
 
         r = pthread_create(&t, &a, func, arg);
-        if (r != 0) {
-                r = -r;
-                goto finish;
-        }
 
 finish:
         pthread_attr_destroy(&a);
-        return r;
+        return -r;
 }
 
 static void *sync_thread(void *p) {
