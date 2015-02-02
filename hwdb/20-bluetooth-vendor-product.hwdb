@@ -1325,3 +1325,51 @@ bluetooth:v01B6*
 
 bluetooth:v01B7*
  ID_VENDOR_FROM_DATABASE=General Electric Company
+
+bluetooth:v01B8*
+ ID_VENDOR_FROM_DATABASE=i+D3 S.L.
+
+bluetooth:v01B9*
+ ID_VENDOR_FROM_DATABASE=HANA Micron
+
+bluetooth:v01BA*
+ ID_VENDOR_FROM_DATABASE=Stages Cycling LLC
+
+bluetooth:v01BB*
+ ID_VENDOR_FROM_DATABASE=Cochlear Bone Anchored Solutions AB
+
+bluetooth:v01BC*
+ ID_VENDOR_FROM_DATABASE=SenionLab AB
+
+bluetooth:v01BD*
+ ID_VENDOR_FROM_DATABASE=Syszone Co., Ltd
+
+bluetooth:v01BE*
+ ID_VENDOR_FROM_DATABASE=Pulsate Mobile Ltd.
+
+bluetooth:v01BF*
+ ID_VENDOR_FROM_DATABASE=Hong Kong HunterSun Electronic Limited
+
+bluetooth:v01C0*
+ ID_VENDOR_FROM_DATABASE=pironex GmbH
+
+bluetooth:v01C1*
+ ID_VENDOR_FROM_DATABASE=BRADATECH Corp.
+
+bluetooth:v01C2*
+ ID_VENDOR_FROM_DATABASE=Transenergooil AG
+
+bluetooth:v01C3*
+ ID_VENDOR_FROM_DATABASE=Bunch
+
+bluetooth:v01C4*
+ ID_VENDOR_FROM_DATABASE=DME Microelectronics
+
+bluetooth:v01C5*
+ ID_VENDOR_FROM_DATABASE=Bitcraze AB
+
+bluetooth:v01C6*
+ ID_VENDOR_FROM_DATABASE=HASWARE Inc.
+
+bluetooth:v01C7*
+ ID_VENDOR_FROM_DATABASE=Abiogenix Inc.
