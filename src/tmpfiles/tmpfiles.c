@@ -907,19 +907,17 @@ typedef enum {
         CREATION_NORMAL,
         CREATION_EXISTING,
         CREATION_FORCE,
+        _CREATION_MODE_MAX,
+        _CREATION_MODE_INVALID = -1
 } CreationMode;
 
-static const char* creation_verb(CreationMode mode) {
-        switch(mode) {
-        case CREATION_NORMAL:
-                return "Created";
-        case CREATION_EXISTING:
-                return "Found existing";
-        case CREATION_FORCE:
-                return "Created replacement";
-        }
-        assert_not_reached("Bad creation");
-}
+static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
+        [CREATION_NORMAL] = "Created",
+        [CREATION_EXISTING] = "Found existing",
+        [CREATION_FORCE] = "Created replacement",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_item(Item *i) {
         struct stat st;
@@ -1013,7 +1011,7 @@ static int create_item(Item *i) {
                         creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
-                log_debug("%s directory \"%s\".", creation_verb(creation), i->path);
+                log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1057,7 +1055,7 @@ static int create_item(Item *i) {
                                 creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
-                log_debug("%s fifo \"%s\".", creation_verb(creation), i->path);
+                log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 r = path_set_perms(i, i->path);
                 if (r < 0)
@@ -1096,7 +1094,7 @@ static int create_item(Item *i) {
                                 creation = CREATION_EXISTING;
                 } else
                         creation = CREATION_NORMAL;
-                log_debug("%s symlink \"%s\".", creation_verb(creation), i->path);
+                log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 break;
 
@@ -1157,7 +1155,7 @@ static int create_item(Item *i) {
                 } else
                         creation = CREATION_NORMAL;
                 log_debug("%s %s device node \"%s\" %u:%u.",
-                          creation_verb(creation),
+                          creation_mode_verb_to_string(creation),
                           i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
                           i->path, major(i->mode), minor(i->mode));
 
