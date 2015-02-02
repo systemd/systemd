@@ -1058,6 +1058,22 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
 
                 break;
 
+        case DNS_TYPE_TLSA:
+                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
+                break;
+
         case DNS_TYPE_OPT:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
@@ -1975,6 +1991,31 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
 
                 break;
         }
+
+        case DNS_TYPE_TLSA:
+                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.selector, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_read_memdup(p, rdlength - 3,
+                                           &rr->tlsa.data, &rr->tlsa.data_size,
+                                           NULL);
+                if (rr->tlsa.data_size <= 0) {
+                        /* the accepted size depends on the algorithm, but for now
+                           just ensure that the value is greater than zero */
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                break;
 
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
         default:

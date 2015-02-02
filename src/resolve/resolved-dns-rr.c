@@ -487,6 +487,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_AAAA:
                         break;
 
+                case DNS_TYPE_TLSA:
+                        free(rr->tlsa.data);
+                        break;
+
                 default:
                         free(rr->generic.data);
                 }
@@ -689,6 +693,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                     memcmp(a->nsec3.salt, b->nsec3.salt, a->nsec3.salt_size) == 0 &&
                     memcmp(a->nsec3.next_hashed_name, b->nsec3.next_hashed_name, a->nsec3.next_hashed_name_size) == 0 &&
                     bitmap_equal(a->nsec3.types, b->nsec3.types);
+
+        case DNS_TYPE_TLSA:
+                return a->tlsa.cert_usage == b->tlsa.cert_usage &&
+                       a->tlsa.selector == b->tlsa.selector &&
+                       a->tlsa.matching_type == b->tlsa.matching_type &&
+                       a->tlsa.data_size == b->tlsa.data_size &&
+                       memcmp(a->tlsa.data, b->tlsa.data, a->tlsa.data_size);
 
         default:
                 return a->generic.size == b->generic.size &&
@@ -1071,6 +1082,26 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
+                break;
+        }
+
+        case DNS_TYPE_TLSA: {
+                int n;
+
+                r = asprintf(&s, "%s %u %u %u %n",
+                             k,
+                             rr->tlsa.cert_usage,
+                             rr->tlsa.selector,
+                             rr->tlsa.matching_type,
+                             &n);
+                if (r < 0)
+                        return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->tlsa.data, rr->tlsa.data_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
                 break;
         }
 
