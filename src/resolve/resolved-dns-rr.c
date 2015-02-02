@@ -487,6 +487,10 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                 case DNS_TYPE_AAAA:
                         break;
 
+                case DNS_TYPE_TLSA:
+                        free(rr->tlsa.data);
+                        break;
+
                 default:
                         free(rr->generic.data);
                 }
@@ -689,6 +693,13 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                     memcmp(a->nsec3.salt, b->nsec3.salt, a->nsec3.salt_size) == 0 &&
                     memcmp(a->nsec3.next_hashed_name, b->nsec3.next_hashed_name, a->nsec3.next_hashed_name_size) == 0 &&
                     bitmap_equal(a->nsec3.types, b->nsec3.types);
+
+        case DNS_TYPE_TLSA:
+                return a->tlsa.cert_usage == b->tlsa.cert_usage &&
+                       a->tlsa.selector == b->tlsa.selector &&
+                       a->tlsa.matching_type == b->tlsa.matching_type &&
+                       a->tlsa.data_size == b->tlsa.data_size &&
+                       memcmp(a->tlsa.data, b->tlsa.data, a->tlsa.data_size) == 0;
 
         default:
                 return a->generic.size == b->generic.size &&
@@ -1074,6 +1085,26 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
+        case DNS_TYPE_TLSA: {
+                int n;
+
+                r = asprintf(&s, "%s %u %u %u %n",
+                             k,
+                             rr->tlsa.cert_usage,
+                             rr->tlsa.selector,
+                             rr->tlsa.matching_type,
+                             &n);
+                if (r < 0)
+                        return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->tlsa.data, rr->tlsa.data_size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+                break;
+        }
+
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
                 if (!t)
@@ -1338,6 +1369,13 @@ static void dns_resource_record_hash_func(const void *i, struct siphash *state) 
                 siphash24_compress(rr->nsec3.salt, rr->nsec3.salt_size, state);
                 siphash24_compress(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, state);
                 /* FIXME: We leave the bitmaps out */
+                break;
+
+        case DNS_TYPE_TLSA:
+                siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
+                siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
+                siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
+                siphash24_compress(&rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
         default:
