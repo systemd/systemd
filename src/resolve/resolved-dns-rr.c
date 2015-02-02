@@ -1087,7 +1087,13 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         case DNS_TYPE_TLSA: {
+                const char *cert_usage, *selector, *matching_type;
+                char *ss;
                 int n;
+
+                cert_usage = tlsa_cert_usage_to_string(rr->tlsa.cert_usage);
+                selector = tlsa_selector_to_string(rr->tlsa.selector);
+                matching_type = tlsa_matching_type_to_string(rr->tlsa.matching_type);
 
                 r = asprintf(&s, "%s %u %u %u %n",
                              k,
@@ -1103,6 +1109,20 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                                   8, columns());
                 if (r < 0)
                         return NULL;
+
+                r = asprintf(&ss, "%s\n"
+                             "%*s-- Cert. usage: %s\n"
+                             "%*s-- Selector: %s\n"
+                             "%*s-- Matching type: %s",
+                             s,
+                             n - 6, "", cert_usage,
+                             n - 6, "", selector,
+                             n - 6, "", matching_type);
+                if (r < 0)
+                        return NULL;
+                free(s);
+                s = ss;
+
                 break;
         }
 

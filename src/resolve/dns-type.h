@@ -144,3 +144,12 @@ int dns_type_from_string(const char *s);
 
 const char *dns_class_to_string(uint16_t type);
 int dns_class_from_string(const char *name);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.2 */
+const char *tlsa_cert_usage_to_string(uint8_t cert_usage);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.3 */
+const char *tlsa_selector_to_string(uint8_t selector);
+
+/* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.4 */
+const char *tlsa_matching_type_to_string(uint8_t selector);
