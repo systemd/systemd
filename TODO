@@ -34,6 +34,9 @@ External:
 
 Features:
 
+* rework kexec logic to use new kexec_file_load() syscall, so that we
+  don't have to call kexec tool anymore.
+
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
