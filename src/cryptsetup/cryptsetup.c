@@ -624,8 +624,10 @@ int main(int argc, char *argv[]) {
 
                         /* Ideally we'd do this on the open fd, but since this is just a
                          * warning it's OK to do this in two steps. */
-                        if (stat(key_file, &st) >= 0 && (st.st_mode & 0005))
-                                log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
+                        if (stat(key_file, &st) >= 0 && (st.st_mode & 0005)) {
+                                if(!STR_IN_SET(key_file, "/dev/urandom", "/dev/random", "/dev/hw_random"))
+                                    log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
+                        }
                 }
 
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
