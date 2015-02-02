@@ -124,7 +124,7 @@
                         <varlistentry>
                                 <term><varname>Init=[path]</varname></term>
                                 <listitem><para>Configures bootchart to run a non-standard
-                                binary instead of <filename>/sbin/init</filename>. This
+                                binary instead of <filename>/usr/lib/systemd/systemd</filename>. This
                                 option is only relevant if bootchart was invoked from the
                                 kernel command line with
                                 init=/usr/lib/systemd/systemd-bootchart.</para></listitem>

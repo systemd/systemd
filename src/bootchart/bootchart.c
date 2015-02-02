@@ -76,7 +76,7 @@ int sysfd=-1;
 #define DEFAULT_HZ 25.0
 #define DEFAULT_SCALE_X 100.0 /* 100px = 1sec */
 #define DEFAULT_SCALE_Y 20.0  /* 16px = 1 process bar */
-#define DEFAULT_INIT "/sbin/init"
+#define DEFAULT_INIT ROOTLIBDIR "/systemd/systemd"
 #define DEFAULT_OUTPUT "/run/log"
 
 /* graph defaults */
@@ -326,7 +326,7 @@ int main(int argc, char *argv[]) {
         /*
          * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then
          * fork:
-         * - parent execs executable specified via init_path[] (/sbin/init by default) as pid=1
+         * - parent execs executable specified via init_path[] (/usr/lib/systemd/systemd by default) as pid=1
          * - child logs data
          */
         if (getpid() == 1) {

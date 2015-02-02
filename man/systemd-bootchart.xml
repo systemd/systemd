@@ -116,7 +116,7 @@
                                 <command>systemd-bootchart</command>
                                 instead of the init process. In turn,
                                 <command>systemd-bootchart</command>
-                                will invoke <command>/sbin/init</command>.
+                                will invoke <command>/usr/lib/systemd/systemd</command>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -218,7 +218,7 @@
                                 <term><option>-i</option></term>
                                 <term><option>--init <replaceable>path</replaceable></option></term>
                                 <listitem><para>Use this init binary. Defaults to
-                                <command>/sbin/init</command>.
+                                <command>/usr/lib/systemd/systemd</command>.
                                 </para></listitem>
                         </varlistentry>
 
