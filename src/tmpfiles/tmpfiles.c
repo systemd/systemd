@@ -630,7 +630,7 @@ static int get_xattrs_from_arg(Item *i) {
 
         while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
                 _cleanup_free_ char *tmp = NULL, *name = NULL,
-                        *value = NULL, *value2 = NULL, *_xattr = xattr;
+                        *value = NULL, *value2 = NULL;
 
                 r = split_pair(xattr, "=", &name, &value);
                 if (r < 0) {
@@ -682,7 +682,6 @@ static int path_set_xattrs(Item *i, const char *path) {
 static int get_acls_from_arg(Item *item) {
 #ifdef HAVE_ACL
         int r;
-        _cleanup_(acl_freep) acl_t a = NULL, d = NULL;
 
         assert(item);
 

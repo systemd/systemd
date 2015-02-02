@@ -216,7 +216,6 @@ static int property_get_preparing(
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 
 static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         const char *name;
@@ -939,7 +938,6 @@ static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *user
 }
 
 static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *name, *swho;
         Manager *m = userdata;
         Session *session;
@@ -1007,7 +1005,6 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
 }
 
 static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Manager *m = userdata;
         const char *name;
         Session *session;

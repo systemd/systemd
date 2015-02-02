@@ -3610,7 +3610,6 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_ephemeral) {
-                        _cleanup_release_lock_file_ LockFile original_lock = LOCK_FILE_INIT;
                         char *np;
 
                         /* If the specified path is a mount point we

@@ -1995,7 +1995,6 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote, *tag;
         sd_bus *bus = userdata;
         int r;
