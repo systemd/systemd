@@ -76,8 +76,8 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
-static int systemd_netlink_fd(int *ret) {
-        int n, fd, rtnl_fd = -1;
+static int systemd_netlink_fd(void) {
+        int n, fd, rtnl_fd = -EINVAL;
 
         n = sd_listen_fds(true);
         if (n <= 0)
@@ -92,12 +92,7 @@ static int systemd_netlink_fd(int *ret) {
                 }
         }
 
-        if (rtnl_fd < 0)
-                return -EINVAL;
-
-        *ret = rtnl_fd;
-
-        return 0;
+        return rtnl_fd;
 }
 
 int manager_new(Manager **ret) {
@@ -121,20 +116,17 @@ int manager_new(Manager **ret) {
         sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
-        if (systemd_netlink_fd(&fd) < 0) {
-                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
-                                 RTNLGRP_IPV6_IFADDR);
-                if (r < 0)
-                        return r;
-
-                r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
-                if (r < 0)
-                        return r;
-        } else {
+        fd = systemd_netlink_fd();
+        if (fd < 0)
+                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
+        else
                 r = sd_rtnl_new_from_netlink(&m->rtnl, fd);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+        if (r < 0)
+                return r;
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */
