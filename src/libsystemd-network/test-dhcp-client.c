@@ -521,5 +521,12 @@ int main(int argc, char *argv[]) {
         test_discover_message(e);
         test_addr_acq(e);
 
+#ifdef VALGRIND
+        /* Make sure the async_close thread has finished.
+         * valgrind would report some of the phread_* structures
+         * as not cleaned up properly. */
+        sleep(1);
+#endif
+
         return 0;
 }
