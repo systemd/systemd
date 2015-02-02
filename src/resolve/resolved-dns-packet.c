@@ -1075,6 +1075,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, size_t *star
                 break;
 
         case DNS_TYPE_OPT:
+        case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparseable */
         default:
 
@@ -2018,6 +2019,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 break;
 
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
+        case DNS_TYPE_OPENPGPKEY:
         default:
         unparseable:
                 r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.size, NULL);

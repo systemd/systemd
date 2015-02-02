@@ -491,6 +491,7 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_OPENPGPKEY:
                 default:
                         free(rr->generic.data);
                 }
@@ -1105,6 +1106,23 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
+        case DNS_TYPE_OPENPGPKEY: {
+                int n;
+
+                r = asprintf(&s, "%s %n",
+                             k,
+                             &n);
+                if (r < 0)
+                        return NULL;
+
+                r = base64_append(&s, n,
+                                  rr->generic.data, rr->generic.size,
+                                  8, columns());
+                if (r < 0)
+                        return NULL;
+                break;
+        }
+
         default:
                 t = hexmem(rr->generic.data, rr->generic.size);
                 if (!t)
@@ -1378,6 +1396,7 @@ static void dns_resource_record_hash_func(const void *i, struct siphash *state) 
                 siphash24_compress(&rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
+        case DNS_TYPE_OPENPGPKEY:
         default:
                 siphash24_compress(rr->generic.data, rr->generic.size, state);
                 break;
