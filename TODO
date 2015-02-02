@@ -34,6 +34,9 @@ External:
 
 Features:
 
+* maybe introduce WantsMountsFor=? Usecase:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
+
 * rework kexec logic to use new kexec_file_load() syscall, so that we
   don't have to call kexec tool anymore.
 
