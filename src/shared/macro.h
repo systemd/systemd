@@ -383,7 +383,8 @@ do {                                                                    \
 
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
- * negative '-' prefix. */
+ * negative '-' prefix (hence works correctly on signed
+ * types). Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
         (2+(sizeof(type) <= 1 ? 3 :                                     \
             sizeof(type) <= 2 ? 5 :                                     \
