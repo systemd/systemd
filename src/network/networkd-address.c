@@ -209,9 +209,17 @@ int address_update(Address *address, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
-        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        address->flags |= IFA_F_PERMANENT;
+
+        r = sd_rtnl_message_addr_set_flags(req, address->flags & 0xff);
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
+
+        if (address->flags & ~0xff) {
+                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set extended flags: %m");
+        }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0)
@@ -335,9 +343,17 @@ int address_configure(Address *address, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
-        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        address->flags |= IFA_F_PERMANENT;
+
+        r = sd_rtnl_message_addr_set_flags(req, (address->flags & 0xff));
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
+
+        if (address->flags & ~0xff) {
+                r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Could not set extended flags: %m");
+        }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0)

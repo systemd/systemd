@@ -1831,6 +1831,7 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         Link *link = NULL;
         uint16_t type;
         _cleanup_address_free_ Address *address = NULL;
+        unsigned char flags;
         Address *existing;
         char buf[INET6_ADDRSTRLEN], valid_buf[FORMAT_TIMESPAN_MAX];
         const char *valid_str = NULL;
@@ -1894,11 +1895,12 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
                 return 0;
         }
 
-        r = sd_rtnl_message_addr_get_flags(message, &address->flags);
+        r = sd_rtnl_message_addr_get_flags(message, &flags);
         if (r < 0) {
                 log_link_warning(link, "rtnl: received address with invalid flags, ignoring");
                 return 0;
         }
+        address->flags = flags;
 
         switch (address->family) {
         case AF_INET:

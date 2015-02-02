@@ -65,7 +65,9 @@ static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
 
         addr->family = AF_INET6;
         memcpy(&addr->in_addr.in6, ip6_addr, sizeof(*ip6_addr));
-        addr->prefixlen = prefixlen;
+
+        addr->flags = IFA_F_NOPREFIXROUTE;
+        addr->prefixlen = 64;
 
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
