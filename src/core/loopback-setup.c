@@ -27,15 +27,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-rtnl.h"
 #include "util.h"
 #include "macro.h"
-#include "loopback-setup.h"
 #include "socket-util.h"
-#include "sd-rtnl.h"
 #include "rtnl-util.h"
-
-/* this is hardcoded in the kernel, so don't look it up */
-#define LOOPBACK_IFINDEX 1
+#include "missing.h"
+#include "loopback-setup.h"
 
 static int start_loopback(sd_rtnl *rtnl) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
