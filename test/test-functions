@@ -244,9 +244,7 @@ install_debug_tools() {
 install_libnss() {
     # install libnss_files for login
     NSS_LIBS=$(LD_DEBUG=files getent passwd 2>&1 >/dev/null |sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    for l in $NSS_LIBS; do
-        dracut_install $l
-    done
+    dracut_install $NSS_LIBS
 }
 
 install_dbus() {
