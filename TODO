@@ -34,6 +34,10 @@ External:
 
 Features:
 
+* networkd: implement BindCarrier= logic to .network units that binds
+  application of the file to the carrier sense on another interface,
+  in order to implement uplink/downlink logic.
+
 * make networkd subscribe to PrepareForSleep(false) and refresh all
   DHCP leases then.
 
