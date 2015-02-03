@@ -1656,6 +1656,57 @@ int link_add(Manager *m, sd_rtnl_message *message, Link **ret) {
         return 0;
 }
 
+static int link_carrier_gained(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (link->network) {
+                r = link_acquire_conf(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int link_carrier_lost(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = link_stop_clients(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
+
+        return 0;
+}
+
+int link_carrier_reset(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (link_has_carrier(link)) {
+                r = link_carrier_lost(link);
+                if (r < 0)
+                        return r;
+
+                r = link_carrier_gained(link);
+                if (r < 0)
+                        return r;
+
+                log_link_info(link, "reset carrier");
+        }
+
+        return 0;
+}
+
+
 int link_update(Link *link, sd_rtnl_message *m) {
         struct ether_addr mac;
         const char *ifname;
@@ -1773,21 +1824,16 @@ int link_update(Link *link, sd_rtnl_message *m) {
         if (carrier_gained) {
                 log_link_info(link, "gained carrier");
 
-                if (link->network) {
-                        r = link_acquire_conf(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
+                r = link_carrier_gained(link);
+                if (r < 0)
+                        return r;
         } else if (carrier_lost) {
                 log_link_info(link, "lost carrier");
 
-                r = link_stop_clients(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                r = link_carrier_lost(link);
+                if (r < 0)
                         return r;
-                }
+
         }
 
         return 0;

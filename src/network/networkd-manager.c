@@ -76,6 +76,99 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
+int manager_connect_bus(Manager *m);
+
+static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(s);
+        assert(m);
+
+        m->bus_retry_event_source = sd_event_source_unref(m->bus_retry_event_source);
+
+        manager_connect_bus(m);
+
+        return 0;
+}
+
+static int manager_reset_all(Manager *m) {
+        Link *link;
+        Iterator i;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                r = link_carrier_reset(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "could not reset carrier: %m");
+        }
+
+        return 0;
+}
+
+static int match_prepare_for_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Manager *m = userdata;
+        int b, r;
+
+        assert(bus);
+        assert(bus);
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse PrepareForSleep signal: %m");
+                return 0;
+        }
+
+        if (b)
+                return 0;
+
+        log_debug("Coming back from suspend, resetting all connections...");
+
+        manager_reset_all(m);
+
+        return 0;
+}
+
+int manager_connect_bus(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_bus_default_system(&m->bus);
+        if (r == -ENOENT) {
+                /* We failed to connect? Yuck, we must be in early
+                 * boot. Let's try in 5s again. As soon as we have
+                 * kdbus we can stop doing this... */
+
+                log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
+
+                r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
+
+                return 0;
+        } if (r < 0)
+                return r;
+
+        r = sd_bus_attach_event(m->bus, m->event, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
+                             "type='signal',"
+                             "sender='org.freedesktop.login1',"
+                             "interface='org.freedesktop.login1.Manager',"
+                             "member='PrepareForSleep',"
+                             "path='/org/freedesktop/login1'",
+                             match_prepare_for_sleep,
+                             m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+
+        return 0;
+}
+
 static int systemd_netlink_fd(void) {
         int n, fd, rtnl_fd = -EINVAL;
 
@@ -124,12 +217,8 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+        r = manager_connect_bus(m);
         if (r < 0)
-                return r;
-
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */
                 return r;
 
         /* udev does not initialize devices inside containers,
@@ -175,7 +264,9 @@ void manager_free(Manager *m) {
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
         sd_bus_unref(m->bus);
+        sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->udev_event_source);
+        sd_event_source_unref(m->bus_retry_event_source);
         sd_event_unref(m->event);
 
         while ((link = hashmap_first(m->links)))

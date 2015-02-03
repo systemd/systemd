@@ -199,7 +199,9 @@ struct AddressPool {
 struct Manager {
         sd_rtnl *rtnl;
         sd_event *event;
+        sd_event_source *bus_retry_event_source;
         sd_bus *bus;
+        sd_bus_slot *prepare_for_sleep_slot;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
