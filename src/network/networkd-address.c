@@ -592,6 +592,10 @@ bool address_equal(Address *a1, Address *a2) {
         case AF_INET:
                 if (a1->prefixlen != a2->prefixlen)
                         return false;
+                else if (a1->prefixlen == 0)
+                        /* make sure we don't try to shift by 32.
+                         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
+                        return true;
                 else {
                         uint32_t b1, b2;
 

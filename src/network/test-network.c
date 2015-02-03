@@ -158,10 +158,9 @@ static void test_address_equality(void) {
         assert_se(address_equal(a1, a2));
 
         assert_se(inet_pton(AF_INET, "192.168.3.9", &a1->in_addr.in));
-        assert_se(!address_equal(a1, a2));
+        assert_se(address_equal(a1, a2));
         assert_se(inet_pton(AF_INET, "192.168.3.9", &a2->in_addr.in));
         assert_se(address_equal(a1, a2));
-
         a1->prefixlen = 10;
         assert_se(!address_equal(a1, a2));
         a2->prefixlen = 10;
