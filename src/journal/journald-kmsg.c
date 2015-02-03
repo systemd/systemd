@@ -40,7 +40,7 @@ void server_forward_kmsg(
         const struct ucred *ucred) {
 
         struct iovec iovec[5];
-        char header_priority[4],
+        char header_priority[DECIMAL_STR_MAX(priority) + 3],
              header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         char *ident_buf = NULL;

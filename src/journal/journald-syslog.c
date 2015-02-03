@@ -124,7 +124,7 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, cons
 
 void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
-        char header_priority[4], header_time[64],
+        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64],
              header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
