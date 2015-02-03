@@ -86,24 +86,6 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        r = manager_udev_listen(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to udev: %m");
-                goto out;
-        }
-
-        r = manager_rtnl_listen(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to rtnl: %m");
-                goto out;
-        }
-
-        r = manager_bus_listen(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to system bus: %m");
-                goto out;
-        }
-
         r = manager_load_config(m);
         if (r < 0) {
                 log_error_errno(r, "Could not load configuration files: %m");

@@ -209,8 +209,6 @@ int main(void) {
 
         test_network_get(manager, loopback);
 
-        assert_se(manager_udev_listen(manager) >= 0);
-        assert_se(manager_rtnl_listen(manager) >= 0);
         assert_se(manager_rtnl_enumerate_links(manager) >= 0);
 
         udev_device_unref(loopback);

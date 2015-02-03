@@ -229,10 +229,6 @@ bool manager_should_reload(Manager *m);
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
 
-int manager_rtnl_listen(Manager *m);
-int manager_udev_listen(Manager *m);
-int manager_bus_listen(Manager *m);
-
 int manager_save(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);

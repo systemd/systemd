@@ -169,146 +169,6 @@ int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static int systemd_netlink_fd(void) {
-        int n, fd, rtnl_fd = -EINVAL;
-
-        n = sd_listen_fds(true);
-        if (n <= 0)
-                return -EINVAL;
-
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        if (rtnl_fd >= 0)
-                                return -EINVAL;
-
-                        rtnl_fd = fd;
-                }
-        }
-
-        return rtnl_fd;
-}
-
-int manager_new(Manager **ret) {
-        _cleanup_manager_free_ Manager *m = NULL;
-        int r, fd;
-
-        m = new0(Manager, 1);
-        if (!m)
-                return -ENOMEM;
-
-        m->state_file = strdup("/run/systemd/netif/state");
-        if (!m->state_file)
-                return -ENOMEM;
-
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                return r;
-
-        sd_event_set_watchdog(m->event, true);
-
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-
-        fd = systemd_netlink_fd();
-        if (fd < 0)
-                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
-        else
-                r = sd_rtnl_new_from_netlink(&m->rtnl, fd);
-        if (r < 0)
-                return r;
-
-        r = manager_connect_bus(m);
-        if (r < 0)
-                return r;
-
-        /* udev does not initialize devices inside containers,
-         * so we rely on them being already initialized before
-         * entering the container */
-        if (detect_container(NULL) <= 0) {
-                m->udev = udev_new();
-                if (!m->udev)
-                        return -ENOMEM;
-
-                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
-                if (!m->udev_monitor)
-                        return -ENOMEM;
-        }
-
-        m->netdevs = hashmap_new(&string_hash_ops);
-        if (!m->netdevs)
-                return -ENOMEM;
-
-        LIST_HEAD_INIT(m->networks);
-
-        r = setup_default_address_pool(m);
-        if (r < 0)
-                return r;
-
-        *ret = m;
-        m = NULL;
-
-        return 0;
-}
-
-void manager_free(Manager *m) {
-        Network *network;
-        NetDev *netdev;
-        Link *link;
-        AddressPool *pool;
-
-        if (!m)
-                return;
-
-        free(m->state_file);
-
-        udev_monitor_unref(m->udev_monitor);
-        udev_unref(m->udev);
-        sd_bus_unref(m->bus);
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->udev_event_source);
-        sd_event_source_unref(m->bus_retry_event_source);
-        sd_event_unref(m->event);
-
-        while ((link = hashmap_first(m->links)))
-                link_unref(link);
-        hashmap_free(m->links);
-
-        while ((network = m->networks))
-                network_free(network);
-
-        while ((netdev = hashmap_first(m->netdevs)))
-                netdev_unref(netdev);
-        hashmap_free(m->netdevs);
-
-        while ((pool = m->address_pools))
-                address_pool_free(pool);
-
-        sd_rtnl_unref(m->rtnl);
-
-        free(m);
-}
-
-int manager_load_config(Manager *m) {
-        int r;
-
-        /* update timestamp */
-        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
-
-        r = netdev_load(m);
-        if (r < 0)
-                return r;
-
-        r = network_load(m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
-}
-
 static int manager_udev_process_link(Manager *m, struct udev_device *device) {
         Link *link = NULL;
         int r, ifindex;
@@ -332,6 +192,61 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
                 return r;
 
         r = link_initialized(link, device);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = userdata;
+        struct udev_monitor *monitor = m->udev_monitor;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+
+        device = udev_monitor_receive_device(monitor);
+        if (!device)
+                return -ENOMEM;
+
+        manager_udev_process_link(m, device);
+        return 0;
+}
+
+static int manager_connect_udev(Manager *m) {
+        int r;
+
+        /* udev does not initialize devices inside containers,
+         * so we rely on them being already initialized before
+         * entering the container */
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        m->udev = udev_new();
+        if (!m->udev)
+                return -ENOMEM;
+
+        m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_monitor)
+                return -ENOMEM;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not add udev monitor filter: %m");
+
+        r = udev_monitor_enable_receiving(m->udev_monitor);
+        if (r < 0) {
+                log_error("Could not enable udev monitor");
+                return r;
+        }
+
+        r = sd_event_add_io(m->event,
+                        &m->udev_event_source,
+                        udev_monitor_get_fd(m->udev_monitor),
+                        EPOLLIN, manager_dispatch_link_udev,
+                        m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_description(m->udev_event_source, "networkd-udev");
         if (r < 0)
                 return r;
 
@@ -420,6 +335,173 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         return 1;
 }
 
+static int systemd_netlink_fd(void) {
+        int n, fd, rtnl_fd = -EINVAL;
+
+        n = sd_listen_fds(true);
+        if (n <= 0)
+                return -EINVAL;
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (rtnl_fd >= 0)
+                                return -EINVAL;
+
+                        rtnl_fd = fd;
+                }
+        }
+
+        return rtnl_fd;
+}
+
+static int manager_connect_rtnl(Manager *m) {
+        int fd, r;
+
+        assert(m);
+
+        fd = systemd_netlink_fd();
+        if (fd < 0)
+                r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR);
+        else
+                r = sd_rtnl_open_fd(&m->rtnl, fd, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_NEWADDR, &link_rtnl_process_address, m);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_DELADDR, &link_rtnl_process_address, m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int manager_new(Manager **ret) {
+        _cleanup_manager_free_ Manager *m = NULL;
+        int r;
+
+        m = new0(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        m->state_file = strdup("/run/systemd/netif/state");
+        if (!m->state_file)
+                return -ENOMEM;
+
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        sd_event_set_watchdog(m->event, true);
+
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
+        r = manager_connect_rtnl(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_udev(m);
+        if (r < 0)
+                return r;
+
+        m->netdevs = hashmap_new(&string_hash_ops);
+        if (!m->netdevs)
+                return -ENOMEM;
+
+        LIST_HEAD_INIT(m->networks);
+
+        r = setup_default_address_pool(m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return 0;
+}
+
+void manager_free(Manager *m) {
+        Network *network;
+        NetDev *netdev;
+        Link *link;
+        AddressPool *pool;
+
+        if (!m)
+                return;
+
+        free(m->state_file);
+
+        udev_monitor_unref(m->udev_monitor);
+        udev_unref(m->udev);
+        sd_bus_unref(m->bus);
+        sd_bus_slot_unref(m->prepare_for_sleep_slot);
+        sd_event_source_unref(m->udev_event_source);
+        sd_event_source_unref(m->bus_retry_event_source);
+        sd_event_unref(m->event);
+
+        while ((link = hashmap_first(m->links)))
+                link_unref(link);
+        hashmap_free(m->links);
+
+        while ((network = m->networks))
+                network_free(network);
+
+        while ((netdev = hashmap_first(m->netdevs)))
+                netdev_unref(netdev);
+        hashmap_free(m->netdevs);
+
+        while ((pool = m->address_pools))
+                address_pool_free(pool);
+
+        sd_rtnl_unref(m->rtnl);
+
+        free(m);
+}
+
+int manager_load_config(Manager *m) {
+        int r;
+
+        /* update timestamp */
+        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
+
+        r = netdev_load(m);
+        if (r < 0)
+                return r;
+
+        r = network_load(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+bool manager_should_reload(Manager *m) {
+        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
+}
+
 int manager_rtnl_enumerate_links(Manager *m) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
         sd_rtnl_message *link;
@@ -480,95 +562,6 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
         }
 
         return r;
-}
-
-static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-        struct udev_monitor *monitor = m->udev_monitor;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-
-        device = udev_monitor_receive_device(monitor);
-        if (!device)
-                return -ENOMEM;
-
-        manager_udev_process_link(m, device);
-        return 0;
-}
-
-int manager_udev_listen(Manager *m) {
-        int r;
-
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        assert(m->udev_monitor);
-
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
-        if (r < 0)
-                return log_error_errno(r, "Could not add udev monitor filter: %m");
-
-        r = udev_monitor_enable_receiving(m->udev_monitor);
-        if (r < 0) {
-                log_error("Could not enable udev monitor");
-                return r;
-        }
-
-        r = sd_event_add_io(m->event,
-                        &m->udev_event_source,
-                        udev_monitor_get_fd(m->udev_monitor),
-                        EPOLLIN, manager_dispatch_link_udev,
-                        m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_description(m->udev_event_source, "networkd-udev");
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-int manager_rtnl_listen(Manager *m) {
-        int r;
-
-        assert(m);
-
-        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_add_match(m->rtnl, RTM_NEWADDR, &link_rtnl_process_address, m);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_add_match(m->rtnl, RTM_DELADDR, &link_rtnl_process_address, m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-int manager_bus_listen(Manager *m) {
-        int r;
-
-        assert(m->event);
-
-        if (!m->bus) /* TODO: drop when we can rely on kdbus */
-                return 0;
-
-        r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0)
-                return r;
-
-        return 0;
 }
 
 static int set_put_in_addr(Set *s, const struct in_addr *address) {
