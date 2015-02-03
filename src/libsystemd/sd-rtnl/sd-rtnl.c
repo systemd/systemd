@@ -146,7 +146,8 @@ static int rtnl_open_fd_ap(sd_rtnl **ret, int fd, unsigned n_groups, va_list ap)
         addrlen = sizeof(rtnl->sockaddr);
 
         r = bind(fd, &rtnl->sockaddr.sa, addrlen);
-        if (r < 0)
+        /* ignore EINVAL to allow opening an already bound socket */
+        if (r < 0 && errno != EINVAL)
                 return -errno;
 
         r = getsockname(fd, &rtnl->sockaddr.sa, &addrlen);
