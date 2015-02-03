@@ -698,6 +698,7 @@ static int get_acls_from_arg(Item *item) {
         return 0;
 }
 
+#ifdef HAVE_ACL
 static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
@@ -736,6 +737,7 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
                                        strna(t), path);
         return 0;
 }
+#endif
 
 static int path_set_acls(Item *item, const char *path) {
 #ifdef HAVE_ACL
