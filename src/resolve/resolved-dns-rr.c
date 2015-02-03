@@ -971,14 +971,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
-                int n;
+                char *ss;
+                int n, n1;
 
                 r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s %n",
+                r = asprintf(&s, "%s %n%u %u %s %n",
                              k,
+                             &n1,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
                              alg,
@@ -991,6 +993,18 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                                   8, columns());
                 if (r < 0)
                         return NULL;
+
+                r = asprintf(&ss, "%s\n"
+                             "%*s-- Flags:%s%s%s",
+                             s,
+                             n1, "",
+                             rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
+                             rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
+                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "");
+                if (r < 0)
+                        return NULL;
+                free(s);
+                s = ss;
 
                 break;
         }
