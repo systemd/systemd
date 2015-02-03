@@ -34,6 +34,9 @@ External:
 
 Features:
 
+* Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
+  colon separated list of identifiers for the fds passed.
+
 * networkd: implement BindCarrier= logic to .network units that binds
   application of the file to the carrier sense on another interface,
   in order to implement uplink/downlink logic.
