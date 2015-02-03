@@ -975,7 +975,7 @@ static int busname_get_timeout(Unit *u, uint64_t *timeout) {
 }
 
 static bool busname_supported(Manager *m) {
-        int supported = -1;
+        static int supported = -1;
         assert(m);
 
         if (supported < 0)
