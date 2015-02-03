@@ -494,7 +494,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                 if (e) {
                         char *n;
 
-                        n = strappenda("TERM=", e);
+                        n = strjoina("TERM=", e);
                         r = sd_bus_message_append(m,
                                                   "(sv)",
                                                   "Environment", "as", 1, n);

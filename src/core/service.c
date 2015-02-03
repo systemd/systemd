@@ -562,7 +562,7 @@ static int service_add_extras(Service *s) {
                 if (r < 0)
                         return r;
 
-                n = strappenda(s->bus_name, ".busname");
+                n = strjoina(s->bus_name, ".busname");
                 r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, n, NULL, true);
                 if (r < 0)
                         return r;
@@ -619,7 +619,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         assert(s);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
                 "%sService State: %s\n"
@@ -1123,7 +1123,7 @@ static int service_spawn(
         }
 
         if (is_control && UNIT(s)->cgroup_path) {
-                path = strappenda(UNIT(s)->cgroup_path, "/control");
+                path = strjoina(UNIT(s)->cgroup_path, "/control");
                 cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
         } else
                 path = UNIT(s)->cgroup_path;
@@ -1489,7 +1489,7 @@ static void service_kill_control_processes(Service *s) {
         if (!UNIT(s)->cgroup_path)
                 return;
 
-        p = strappenda(UNIT(s)->cgroup_path, "/control");
+        p = strjoina(UNIT(s)->cgroup_path, "/control");
         cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, true, true, true, NULL);
 }
 

@@ -303,7 +303,7 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
                 goto fail;
         }
 
-        useragent = strappenda(program_invocation_short_name, "/" PACKAGE_VERSION);
+        useragent = strjoina(program_invocation_short_name, "/" PACKAGE_VERSION);
         if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK) {
                 r = -EIO;
                 goto fail;

@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
                                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                                m = strappenda("/run/systemd/machines/", arg_machine);
+                                m = strjoina("/run/systemd/machines/", arg_machine);
                                 r = parse_env_file(m, NEWLINE, "SCOPE", &scope, NULL);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to get machine path: %m");

@@ -976,7 +976,7 @@ static void mount_enter_remounting(Mount *m) {
                 const char *o;
 
                 if (m->parameters_fragment.options)
-                        o = strappenda("remount,", m->parameters_fragment.options);
+                        o = strjoina("remount,", m->parameters_fragment.options);
                 else
                         o = "remount";
 

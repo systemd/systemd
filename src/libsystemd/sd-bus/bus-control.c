@@ -1359,7 +1359,7 @@ int bus_add_match_internal_kernel(
 
 #define internal_match(bus, m)                                          \
         ((bus)->hello_flags & KDBUS_HELLO_MONITOR                       \
-         ? (isempty(m) ? "eavesdrop='true'" : strappenda((m), ",eavesdrop='true'")) \
+         ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) \
          : (m))
 
 static int bus_add_match_internal_dbus1(

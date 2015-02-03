@@ -25,7 +25,7 @@ struct udev_device *find_device(struct udev *udev,
         assert(id);
 
         if (prefix && !startswith(id, prefix))
-                id = strappenda(prefix, id);
+                id = strjoina(prefix, id);
 
         if (startswith(id, "/dev/")) {
                 struct stat statbuf;

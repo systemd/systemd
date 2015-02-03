@@ -41,8 +41,8 @@ static int add_symlink(const char *fservice, const char *tservice) {
         assert(fservice);
         assert(tservice);
 
-        from = strappenda(SYSTEM_DATA_UNIT_PATH "/", fservice);
-        to = strappenda(arg_dest, "/getty.target.wants/", tservice);
+        from = strjoina(SYSTEM_DATA_UNIT_PATH "/", fservice);
+        to = strjoina(arg_dest, "/getty.target.wants/", tservice);
 
         mkdir_parents_label(to, 0755);
 
@@ -97,7 +97,7 @@ static int verify_tty(const char *name) {
          * friends. Let's check that and open the device and run
          * isatty() on it. */
 
-        p = strappenda("/dev/", name);
+        p = strjoina("/dev/", name);
 
         /* O_NONBLOCK is essential here, to make sure we don't wait
          * for DCD */
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
         NULSTR_FOREACH(j, virtualization_consoles) {
                 char *p;
 
-                p = strappenda("/sys/class/tty/", j);
+                p = strjoina("/sys/class/tty/", j);
                 if (access(p, F_OK) < 0)
                         continue;
 

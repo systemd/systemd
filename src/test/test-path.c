@@ -47,7 +47,7 @@ static int setup_test(Manager **m) {
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {
-               rm_rf_dangerous(strappenda("/tmp/test-path_", *test_path), false, true, false);
+               rm_rf_dangerous(strjoina("/tmp/test-path_", *test_path), false, true, false);
         }
 
         *m = tmp;
@@ -201,7 +201,7 @@ static void test_path_directorynotempty(Manager *m) {
         assert_se(access(test_path, F_OK) < 0);
 
         assert_se(mkdir_p(test_path, 0755) >= 0);
-        assert_se(touch(strappenda(test_path, "test_file")) >= 0);
+        assert_se(touch(strjoina(test_path, "test_file")) >= 0);
 
         check_stop_unlink(m, unit, test_path, NULL);
 }

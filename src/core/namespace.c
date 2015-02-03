@@ -157,24 +157,24 @@ static int mount_dev(BindMount *m) {
         if (!mkdtemp(temporary_mount))
                 return -errno;
 
-        dev = strappenda(temporary_mount, "/dev");
+        dev = strjoina(temporary_mount, "/dev");
         (void)mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755") < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        devpts = strappenda(temporary_mount, "/dev/pts");
+        devpts = strjoina(temporary_mount, "/dev/pts");
         (void)mkdir(devpts, 0755);
         if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        devptmx = strappenda(temporary_mount, "/dev/ptmx");
+        devptmx = strjoina(temporary_mount, "/dev/ptmx");
         symlink("pts/ptmx", devptmx);
 
-        devshm = strappenda(temporary_mount, "/dev/shm");
+        devshm = strjoina(temporary_mount, "/dev/shm");
         (void)mkdir(devshm, 01777);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
@@ -182,15 +182,15 @@ static int mount_dev(BindMount *m) {
                 goto fail;
         }
 
-        devmqueue = strappenda(temporary_mount, "/dev/mqueue");
+        devmqueue = strjoina(temporary_mount, "/dev/mqueue");
         (void)mkdir(devmqueue, 0755);
         mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
-        devhugepages = strappenda(temporary_mount, "/dev/hugepages");
+        devhugepages = strjoina(temporary_mount, "/dev/hugepages");
         (void)mkdir(devhugepages, 0755);
         mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
-        devlog = strappenda(temporary_mount, "/dev/log");
+        devlog = strjoina(temporary_mount, "/dev/log");
         symlink("/run/systemd/journal/dev-log", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
@@ -280,7 +280,7 @@ static int mount_kdbus(BindMount *m) {
         if (!mkdtemp(temporary_mount))
                 return log_error_errno(errno, "Failed create temp dir: %m");
 
-        root = strappenda(temporary_mount, "/kdbus");
+        root = strjoina(temporary_mount, "/kdbus");
         (void)mkdir(root, 0755);
         if (mount("tmpfs", root, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=777") < 0) {
                 r = -errno;
@@ -295,7 +295,7 @@ static int mount_kdbus(BindMount *m) {
                 goto fail;
         }
 
-        busnode = strappenda(root, "/bus");
+        busnode = strjoina(root, "/bus");
         if (mknod(busnode, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
                 log_error_errno(errno, "mknod() for %s failed: %m", busnode);
                 r = -errno;
@@ -566,7 +566,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         RUN_WITH_UMASK(0000) {
                 char *y;
 
-                y = strappenda(x, "/tmp");
+                y = strjoina(x, "/tmp");
 
                 if (mkdir(y, 0777 | S_ISVTX) < 0)
                         return -errno;
@@ -594,7 +594,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         if (r < 0) {
                 char *t;
 
-                t = strappenda(a, "/tmp");
+                t = strjoina(a, "/tmp");
                 rmdir(t);
                 rmdir(a);
 

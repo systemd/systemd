@@ -295,7 +295,7 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         if (!escaped_name)
                 return log_oom();
 
-        id = strappenda("cryptsetup:", escaped_name);
+        id = strjoina("cryptsetup:", escaped_name);
 
         r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
         if (r < 0)
@@ -309,7 +309,7 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
 
-                id = strappenda("cryptsetup-verification:", escaped_name);
+                id = strjoina("cryptsetup-verification:", escaped_name);
 
                 r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
                 if (r < 0)

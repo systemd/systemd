@@ -62,7 +62,7 @@ int generator_write_fsck_deps(
         if (streq(where, "/")) {
                 char *lnk;
 
-                lnk = strappenda(dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
+                lnk = strjoina(dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
 
                 mkdir_parents(lnk, 0755);
                 if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0)

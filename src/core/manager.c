@@ -2106,8 +2106,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 return;
         }
 
-        msg = strappenda("unit=", p);
-
+        msg = strjoina("unit=", p);
         if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
                 if (errno == EPERM)
                         /* We aren't allowed to send audit messages?

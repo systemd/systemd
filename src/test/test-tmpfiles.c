@@ -30,7 +30,7 @@
 
 int main(int argc, char** argv) {
         const char *p = argv[1] ?: "/tmp";
-        char *pattern = strappenda(p, "/systemd-test-XXXXXX");
+        char *pattern = strjoina(p, "/systemd-test-XXXXXX");
         _cleanup_close_ int fd, fd2;
         _cleanup_free_ char *cmd, *cmd2;
 

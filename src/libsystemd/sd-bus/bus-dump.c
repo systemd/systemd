@@ -354,7 +354,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 color = ansi_highlight();
 
                 off = ansi_highlight_off();
-                suffix = strappenda(off, "\n");
+                suffix = strjoina(off, "\n");
         }
 
         if (c->mask & SD_BUS_CREDS_PID)

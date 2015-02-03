@@ -791,7 +791,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         assert_return(machine_name_is_valid(machine), -EINVAL);
         assert_return(class, -EINVAL);
 
-        p = strappenda("/run/systemd/machines/", machine);
+        p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "CLASS", &c, NULL);
         if (r < 0)
                 return r;
@@ -814,7 +814,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         assert_return(machine_name_is_valid(machine), -EINVAL);
         assert_return(ifindices, -EINVAL);
 
-        p = strappenda("/run/systemd/machines/", machine);
+        p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "NETIF", &netif, NULL);
         if (r < 0)
                 return r;

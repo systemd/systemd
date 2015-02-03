@@ -631,7 +631,7 @@ idev_device *idev_find_keyboard(idev_session *s, const char *name) {
         assert_return(s, NULL);
         assert_return(name, NULL);
 
-        kname = strappenda("keyboard/", name);
+        kname = strjoina("keyboard/", name);
         return hashmap_get(s->device_map, kname);
 }
 
@@ -793,7 +793,7 @@ int idev_keyboard_new(idev_device **out, idev_session *s, const char *name) {
         if (r < 0)
                 return r;
 
-        kname = strappenda("keyboard/", name);
+        kname = strjoina("keyboard/", name);
         r = idev_device_add(d, kname);
         if (r < 0)
                 return r;

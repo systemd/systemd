@@ -93,7 +93,7 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
         if (r < 0)
                 return r;
 
-        fn = strappenda(p, "/cgroup.procs");
+        fn = strjoina(p, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;

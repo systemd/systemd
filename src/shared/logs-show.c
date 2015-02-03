@@ -1033,10 +1033,10 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         assert(j);
         assert(unit);
 
-        m1 = strappenda("_SYSTEMD_UNIT=", unit);
-        m2 = strappenda("COREDUMP_UNIT=", unit);
-        m3 = strappenda("UNIT=", unit);
-        m4 = strappenda("OBJECT_SYSTEMD_UNIT=", unit);
+        m1 = strjoina("_SYSTEMD_UNIT=", unit);
+        m2 = strjoina("COREDUMP_UNIT=", unit);
+        m3 = strjoina("UNIT=", unit);
+        m4 = strjoina("OBJECT_SYSTEMD_UNIT=", unit);
 
         (void)(
             /* Look for messages from the service itself */
@@ -1080,10 +1080,10 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         assert(j);
         assert(unit);
 
-        m1 = strappenda("_SYSTEMD_USER_UNIT=", unit);
-        m2 = strappenda("USER_UNIT=", unit);
-        m3 = strappenda("COREDUMP_USER_UNIT=", unit);
-        m4 = strappenda("OBJECT_SYSTEMD_USER_UNIT=", unit);
+        m1 = strjoina("_SYSTEMD_USER_UNIT=", unit);
+        m2 = strjoina("USER_UNIT=", unit);
+        m3 = strjoina("COREDUMP_USER_UNIT=", unit);
+        m4 = strjoina("OBJECT_SYSTEMD_USER_UNIT=", unit);
         sprintf(muid, "_UID="UID_FMT, uid);
 
         (void) (

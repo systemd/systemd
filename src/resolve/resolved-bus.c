@@ -76,7 +76,7 @@ static int reply_query_state(DnsQuery *q) {
                                 rc = p;
                         }
 
-                        n = strappenda(_BUS_ERROR_DNS, rc);
+                        n = strjoina(_BUS_ERROR_DNS, rc);
                         sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", name, rc);
                 }
 

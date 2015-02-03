@@ -211,7 +211,7 @@ int machine_save(Machine *m) {
                 /* Create a symlink from the unit name to the machine
                  * name, so that we can quickly find the machine for
                  * each given unit */
-                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 symlink(m->name, sl);
         }
 
@@ -232,7 +232,7 @@ static void machine_unlink(Machine *m) {
 
                 char *sl;
 
-                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 unlink(sl);
         }
 
@@ -340,7 +340,7 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                 if (!scope)
                         return log_oom();
 
-                description = strappenda(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+                description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
                 r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0) {

@@ -1286,7 +1286,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         if (!e)
                                 return -ENOMEM;
 
-                        c = strappenda(",argv4=--machine=", m);
+                        c = strjoina(",argv4=--machine=", m);
                 }
         }
 

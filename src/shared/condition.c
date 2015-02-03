@@ -288,7 +288,7 @@ static int condition_test_needs_update(Condition *c) {
         if (!path_is_absolute(c->parameter))
                 return true;
 
-        p = strappenda(c->parameter, "/.updated");
+        p = strjoina(c->parameter, "/.updated");
         if (lstat(p, &other) < 0)
                 return true;
 

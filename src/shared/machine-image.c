@@ -425,7 +425,7 @@ int image_rename(Image *i, const char *new_name) {
         case IMAGE_RAW: {
                 const char *fn;
 
-                fn = strappenda(new_name, ".raw");
+                fn = strjoina(new_name, ".raw");
                 new_path = file_in_same_dir(i->path, fn);
                 break;
         }
@@ -486,13 +486,13 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
-                new_path = strappenda("/var/lib/machines/", new_name);
+                new_path = strjoina("/var/lib/machines/", new_name);
 
                 r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
                 break;
 
         case IMAGE_RAW:
-                new_path = strappenda("/var/lib/machines/", new_name, ".raw");
+                new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, false, FS_NOCOW_FL);
                 break;
@@ -629,7 +629,7 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
                 return -EBUSY;
 
         mkdir_p("/run/systemd/nspawn/locks", 0600);
-        p = strappenda("/run/systemd/nspawn/locks/name-", name);
+        p = strjoina("/run/systemd/nspawn/locks/name-", name);
 
         return make_lock_file(p, operation, ret);
 }

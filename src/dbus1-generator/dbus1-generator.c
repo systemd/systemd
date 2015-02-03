@@ -164,7 +164,7 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
         assert(path);
         assert(fname);
 
-        p = strappenda(path, "/", fname);
+        p = strjoina(path, "/", fname);
         r = config_parse(NULL, p, NULL,
                          "D-BUS Service\0",
                          config_item_table_lookup, table,
@@ -250,8 +250,8 @@ fail:
 static int link_busnames_target(const char *units) {
         const char *f, *t;
 
-        f = strappenda(units, "/" SPECIAL_BUSNAMES_TARGET);
-        t = strappenda(arg_dest, "/" SPECIAL_BASIC_TARGET ".wants/" SPECIAL_BUSNAMES_TARGET);
+        f = strjoina(units, "/" SPECIAL_BUSNAMES_TARGET);
+        t = strjoina(arg_dest, "/" SPECIAL_BASIC_TARGET ".wants/" SPECIAL_BUSNAMES_TARGET);
 
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0)
@@ -263,19 +263,19 @@ static int link_busnames_target(const char *units) {
 static int link_compatibility(const char *units) {
         const char *f, *t;
 
-        f = strappenda(units, "/systemd-bus-proxyd.socket");
-        t = strappenda(arg_dest, "/" SPECIAL_DBUS_SOCKET);
+        f = strjoina(units, "/systemd-bus-proxyd.socket");
+        t = strjoina(arg_dest, "/" SPECIAL_DBUS_SOCKET);
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", t);
 
-        f = strappenda(units, "/systemd-bus-proxyd.socket");
-        t = strappenda(arg_dest, "/" SPECIAL_SOCKETS_TARGET ".wants/systemd-bus-proxyd.socket");
+        f = strjoina(units, "/systemd-bus-proxyd.socket");
+        t = strjoina(arg_dest, "/" SPECIAL_SOCKETS_TARGET ".wants/systemd-bus-proxyd.socket");
         mkdir_parents_label(t, 0755);
         if (symlink(f, t) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", t);
 
-        t = strappenda(arg_dest, "/" SPECIAL_DBUS_SERVICE);
+        t = strjoina(arg_dest, "/" SPECIAL_DBUS_SERVICE);
         if (symlink("/dev/null", t) < 0)
                 return log_error_errno(errno, "Failed to mask %s: %m", t);
 

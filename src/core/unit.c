@@ -868,7 +868,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         assert(u->type >= 0);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
                 "%s-> Unit %s:\n"

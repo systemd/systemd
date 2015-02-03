@@ -38,7 +38,7 @@
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;
 
-        f = strappenda("microhttpd: ", fmt);
+        f = strjoina("microhttpd: ", fmt);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_INFO, 0, NULL, 0, NULL, f, ap);

@@ -1160,7 +1160,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
-        p = strappenda("/run/systemd/nspawn/propagate/", argv[1], "/");
+        p = strjoina("/run/systemd/nspawn/propagate/", argv[1], "/");
         if (access(p, F_OK) < 0) {
                 log_error("Container does not allow propagation of mount points.");
                 return -ENOTSUP;
@@ -1198,7 +1198,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
 
         /* Second, we mount the source directory to a directory inside
            of our MS_SLAVE playground. */
-        mount_tmp = strappenda(mount_slave, "/mount");
+        mount_tmp = strjoina(mount_slave, "/mount");
         if (mkdir(mount_tmp, 0700) < 0) {
                 r = log_error_errno(errno, "Failed to create temporary mount: %m");
                 goto finish;
@@ -1224,7 +1224,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
          * directory. This way it will appear there read-only
          * right-away. */
 
-        mount_outside = strappenda("/run/systemd/nspawn/propagate/", argv[1], "/XXXXXX");
+        mount_outside = strjoina("/run/systemd/nspawn/propagate/", argv[1], "/XXXXXX");
         if (!mkdtemp(mount_outside)) {
                 r = log_error_errno(errno, "Cannot create propagation directory: %m");
                 goto finish;
@@ -1276,7 +1276,7 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
                         mkdir_p(dest, 0755);
 
                 /* Fifth, move the mount to the right place inside */
-                mount_inside = strappenda("/run/systemd/nspawn/incoming/", basename(mount_outside));
+                mount_inside = strjoina("/run/systemd/nspawn/incoming/", basename(mount_outside));
                 if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
                         log_error_errno(errno, "Failed to mount: %m");
                         _exit(EXIT_FAILURE);
@@ -1376,7 +1376,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        match = strappenda("type='signal',"
+        match = strjoina("type='signal',"
                            "sender='org.freedesktop.machine1',"
                            "path='/org/freedesktop/machine1',",
                            "interface='org.freedesktop.machine1.Manager',"

@@ -560,14 +560,14 @@ int path_is_os_tree(const char *path) {
         int r;
 
         /* We use /usr/lib/os-release as flag file if something is an OS */
-        p = strappenda(path, "/usr/lib/os-release");
+        p = strjoina(path, "/usr/lib/os-release");
         r = access(p, F_OK);
 
         if (r >= 0)
                 return 1;
 
         /* Also check for the old location in /etc, just in case. */
-        p = strappenda(path, "/etc/os-release");
+        p = strjoina(path, "/etc/os-release");
         r = access(p, F_OK);
 
         return r >= 0;
@@ -665,7 +665,7 @@ int fsck_exists(const char *fstype) {
         const char *checker;
         int r;
 
-        checker = strappenda("fsck.", fstype);
+        checker = strjoina("fsck.", fstype);
 
         r = find_binary(checker, true, &p);
         if (r < 0)

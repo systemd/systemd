@@ -574,7 +574,7 @@ int bus_cgroup_set_property(
                         c->device_policy = p;
                         u->cgroup_realized_mask &= ~CGROUP_DEVICE;
 
-                        buf = strappenda("DevicePolicy=", policy);
+                        buf = strjoina("DevicePolicy=", policy);
                         unit_write_drop_in_private(u, mode, name, buf);
                 }
 

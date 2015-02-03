@@ -965,7 +965,7 @@ bool timezone_is_valid(const char *name) {
         if (slash)
                 return false;
 
-        t = strappenda("/usr/share/zoneinfo/", name);
+        t = strjoina("/usr/share/zoneinfo/", name);
         if (stat(t, &st) < 0)
                 return false;
 

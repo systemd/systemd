@@ -356,18 +356,18 @@ void server_process_syslog_message(
         }
 
         if (identifier) {
-                syslog_identifier = strappenda("SYSLOG_IDENTIFIER=", identifier);
+                syslog_identifier = strjoina("SYSLOG_IDENTIFIER=", identifier);
                 if (syslog_identifier)
                         IOVEC_SET_STRING(iovec[n++], syslog_identifier);
         }
 
         if (pid) {
-                syslog_pid = strappenda("SYSLOG_PID=", pid);
+                syslog_pid = strjoina("SYSLOG_PID=", pid);
                 if (syslog_pid)
                         IOVEC_SET_STRING(iovec[n++], syslog_pid);
         }
 
-        message = strappenda("MESSAGE=", buf);
+        message = strjoina("MESSAGE=", buf);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 

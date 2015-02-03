@@ -121,7 +121,7 @@ int import_make_local_copy(const char *final, const char *image_root, const char
         if (!image_root)
                 image_root = "/var/lib/machines";
 
-        p = strappenda(image_root, "/", local);
+        p = strjoina(image_root, "/", local);
 
         if (force_local) {
                 (void) btrfs_subvol_remove(p);
@@ -309,7 +309,7 @@ int import_verify(
                 return -EBADMSG;
         }
 
-        line = strappenda(main_job->checksum, " *", fn, "\n");
+        line = strjoina(main_job->checksum, " *", fn, "\n");
 
         p = memmem(checksum_job->payload,
                    checksum_job->payload_size,

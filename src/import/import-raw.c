@@ -270,7 +270,7 @@ static int raw_import_make_local_copy(RawImport *i) {
                         return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
         }
 
-        p = strappenda(i->image_root, "/", i->local, ".raw");
+        p = strjoina(i->image_root, "/", i->local, ".raw");
 
         if (i->force_local) {
                 (void) btrfs_subvol_remove(p);

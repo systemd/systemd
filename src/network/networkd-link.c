@@ -1243,7 +1243,7 @@ static int link_set_ipv4_forward(Link *link) {
 
         b = link_ipv4_forward_enabled(link);
 
-        p = strappenda("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
+        p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/forwarding");
         r = write_string_file_no_create(p, one_zero(b));
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv4 forwarding for interface %s: %m", link->ifname);
@@ -1278,7 +1278,7 @@ static int link_set_ipv6_forward(Link *link) {
         const char *p = NULL;
         int r;
 
-        p = strappenda("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/forwarding");
         r = write_string_file_no_create(p, one_zero(link_ipv6_forward_enabled(link)));
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 forwarding for interface: %m");

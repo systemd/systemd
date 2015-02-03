@@ -42,8 +42,8 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
         assert_se((x.st_mode & 01777) == 0700);
         assert_se((y.st_mode & 01777) == 0700);
 
-        c = strappenda(a, "/tmp");
-        d = strappenda(b, "/tmp");
+        c = strjoina(a, "/tmp");
+        d = strjoina(b, "/tmp");
 
         assert_se(stat(c, &x) >= 0);
         assert_se(stat(d, &y) >= 0);

@@ -91,7 +91,7 @@ int pager_open(bool jump_to_end) {
                 if (!less_opts)
                         less_opts = "FRSXMK";
                 if (jump_to_end)
-                        less_opts = strappenda(less_opts, " +G");
+                        less_opts = strjoina(less_opts, " +G");
                 setenv("LESS", less_opts, 1);
 
                 /* Make sure the pager goes away when the parent dies */

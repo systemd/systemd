@@ -962,7 +962,7 @@ static int mount_cgroup_hierarchy(const char *dest, const char *controller, cons
         char *to;
         int r;
 
-        to = strappenda(dest, "/sys/fs/cgroup/", hierarchy);
+        to = strjoina(dest, "/sys/fs/cgroup/", hierarchy);
 
         r = path_is_mount_point(to, false);
         if (r < 0)
@@ -1004,7 +1004,7 @@ static int mount_cgroup(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
-        cgroup_root = strappenda(dest, "/sys/fs/cgroup");
+        cgroup_root = strjoina(dest, "/sys/fs/cgroup");
         if (mount("tmpfs", cgroup_root, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
                 return log_error_errno(errno, "Failed to mount tmpfs to /sys/fs/cgroup: %m");
 
@@ -1057,12 +1057,12 @@ static int mount_cgroup(const char *dest) {
                 return r;
 
         /* Make our own cgroup a (writable) bind mount */
-        systemd_own = strappenda(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
+        systemd_own = strjoina(dest, "/sys/fs/cgroup/systemd", own_cgroup_path);
         if (mount(systemd_own, systemd_own,  NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to turn %s into a bind mount: %m", own_cgroup_path);
 
         /* And then remount the systemd cgroup root read-only */
-        systemd_root = strappenda(dest, "/sys/fs/cgroup/systemd");
+        systemd_root = strjoina(dest, "/sys/fs/cgroup/systemd");
         if (mount(NULL, systemd_root, NULL, MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount cgroup root read-only: %m");
 
@@ -1215,7 +1215,7 @@ static int setup_volatile_state(const char *directory) {
         if (r < 0)
                 return log_error_errno(r, "Failed to remount %s read-only: %m", directory);
 
-        p = strappenda(directory, "/var");
+        p = strjoina(directory, "/var");
         r = mkdir(p, 0755);
         if (r < 0 && errno != EEXIST)
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
@@ -1251,8 +1251,8 @@ static int setup_volatile(const char *directory) {
 
         tmpfs_mounted = true;
 
-        f = strappenda(directory, "/usr");
-        t = strappenda(template, "/usr");
+        f = strjoina(directory, "/usr");
+        t = strjoina(template, "/usr");
 
         r = mkdir(t, 0755);
         if (r < 0 && errno != EEXIST) {
@@ -1434,7 +1434,7 @@ static int setup_dev_console(const char *dest, const char *console) {
          * /dev/console. (Note that the major minor doesn't actually
          * matter here, since we mount it over anyway). */
 
-        to = strappenda(dest, "/dev/console");
+        to = strjoina(dest, "/dev/console");
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0)
                 return log_error_errno(errno, "mknod() for /dev/console failed: %m");
 
@@ -2564,10 +2564,10 @@ static int setup_propagate(const char *root) {
 
         (void) mkdir_p("/run/systemd/nspawn/", 0755);
         (void) mkdir_p("/run/systemd/nspawn/propagate", 0600);
-        p = strappenda("/run/systemd/nspawn/propagate/", arg_machine);
+        p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        q = strappenda(root, "/run/systemd/nspawn/incoming");
+        q = strjoina(root, "/run/systemd/nspawn/incoming");
         mkdir_parents(q, 0755);
         mkdir_p(q, 0600);
 
@@ -3050,7 +3050,7 @@ static int mount_device(const char *what, const char *where, const char *directo
                 rw = false;
 
         if (directory)
-                p = strappenda(where, directory);
+                p = strjoina(where, directory);
         else
                 p = where;
 
@@ -3685,7 +3685,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         const char *p;
 
-                        p = strappenda(arg_directory,
+                        p = strjoina(arg_directory,
                                        argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
                         if (access(p, F_OK) < 0) {
                                 log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
@@ -4294,7 +4294,7 @@ finish:
         if (arg_machine) {
                 const char *p;
 
-                p = strappenda("/run/systemd/nspawn/propagate/", arg_machine);
+                p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
                 (void) rm_rf(p, false, true, false);
         }
 

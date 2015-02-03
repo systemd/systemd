@@ -73,7 +73,7 @@ static int generate(char id[34], const char *root) {
         if (isempty(root))
                 dbus_machine_id = "/var/lib/dbus/machine-id";
         else
-                dbus_machine_id = strappenda(root, "/var/lib/dbus/machine-id");
+                dbus_machine_id = strjoina(root, "/var/lib/dbus/machine-id");
 
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
@@ -199,7 +199,7 @@ int machine_id_commit(const char *root) {
         else {
                 char *x;
 
-                x = strappenda(root, "/etc/machine-id");
+                x = strjoina(root, "/etc/machine-id");
                 etc_machine_id = path_kill_slashes(x);
         }
 
@@ -281,10 +281,10 @@ int machine_id_setup(const char *root) {
         } else {
                 char *x;
 
-                x = strappenda(root, "/etc/machine-id");
+                x = strjoina(root, "/etc/machine-id");
                 etc_machine_id = path_kill_slashes(x);
 
-                x = strappenda(root, "/run/machine-id");
+                x = strjoina(root, "/run/machine-id");
                 run_machine_id = path_kill_slashes(x);
         }
 

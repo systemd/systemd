@@ -749,7 +749,7 @@ static void swap_enter_activating(Swap *s) {
                 if (streq(discard, "all"))
                         discard_arg = "--discard";
                 else
-                        discard_arg = strappenda("--discard=", discard);
+                        discard_arg = strjoina("--discard=", discard);
 
                 r = exec_command_append(s->control_command, discard_arg, NULL);
                 if (r < 0)

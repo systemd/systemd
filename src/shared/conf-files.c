@@ -44,7 +44,7 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
         assert(path);
         assert(suffix);
 
-        dirpath = strappenda(root ? root : "", path);
+        dirpath = strjoina(root ? root : "", path);
 
         dir = opendir(dirpath);
         if (!dir) {

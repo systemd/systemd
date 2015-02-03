@@ -1136,7 +1136,7 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
         if (!cc)
                 return -ENOMEM;
 
-        path = strappenda("/var/lib/systemd/linger/", cc);
+        path = strjoina("/var/lib/systemd/linger/", cc);
         if (b) {
                 User *u;
 

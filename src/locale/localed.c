@@ -1011,7 +1011,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
         const char *fmt;
 
-        fmt = strappenda("libxkbcommon: ", format);
+        fmt = strjoina("libxkbcommon: ", format);
         log_internalv(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, fmt, args);
 }
 

@@ -153,7 +153,7 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         const char *filename;
         uint8_t config[64];
 
-        filename = strappenda(udev_device_get_syspath(dev), "/config");
+        filename = strjoina(udev_device_get_syspath(dev), "/config");
         f = fopen(filename, "re");
         if (!f)
                 return false;

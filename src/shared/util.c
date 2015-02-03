@@ -6452,7 +6452,7 @@ int container_get_leader(const char *machine, pid_t *pid) {
         assert(machine);
         assert(pid);
 
-        p = strappenda("/run/systemd/machines/", machine);
+        p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
@@ -6691,7 +6691,7 @@ int open_tmpfile(const char *path, int flags) {
 #endif
 
         /* Fall back to unguessable name + unlinking */
-        p = strappenda(path, "/systemd-tmp-XXXXXX");
+        p = strjoina(path, "/systemd-tmp-XXXXXX");
 
         fd = mkostemp_safe(p, flags);
         if (fd < 0)
@@ -7220,7 +7220,7 @@ int take_password_lock(const char *root) {
          * awfully racy, and thus we just won't do them. */
 
         if (root)
-                path = strappenda(root, "/etc/.pwd.lock");
+                path = strjoina(root, "/etc/.pwd.lock");
         else
                 path = "/etc/.pwd.lock";
 

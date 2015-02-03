@@ -205,7 +205,7 @@ static int busname_verify(BusName *n) {
                 return -EINVAL;
         }
 
-        e = strappenda(n->name, ".busname");
+        e = strjoina(n->name, ".busname");
         if (!unit_has_name(UNIT(n), e)) {
                 log_unit_error(UNIT(n)->id, "%s's Name= setting doesn't match unit name. Refusing.", UNIT(n)->id);
                 return -EINVAL;

@@ -90,15 +90,15 @@ static void test_copy_tree(void) {
         rm_rf_dangerous(original_dir, false, true, false);
 
         STRV_FOREACH(p, files) {
-                char *f = strappenda(original_dir, *p);
+                char *f = strjoina(original_dir, *p);
 
                 assert_se(mkdir_parents(f, 0755) >= 0);
                 assert_se(write_string_file(f, "file") == 0);
         }
 
         STRV_FOREACH_PAIR(link, p, links) {
-                char *f = strappenda(original_dir, *p);
-                char *l = strappenda(original_dir, *link);
+                char *f = strjoina(original_dir, *p);
+                char *l = strjoina(original_dir, *link);
 
                 assert_se(mkdir_parents(l, 0755) >= 0);
                 assert_se(symlink(f, l) == 0);
@@ -109,7 +109,7 @@ static void test_copy_tree(void) {
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf = NULL;
                 size_t sz = 0;
-                char *f = strappenda(copy_dir, *p);
+                char *f = strjoina(copy_dir, *p);
 
                 assert_se(access(f, F_OK) == 0);
                 assert_se(read_full_file(f, &buf, &sz) == 0);
@@ -118,8 +118,8 @@ static void test_copy_tree(void) {
 
         STRV_FOREACH_PAIR(link, p, links) {
                 _cleanup_free_ char *target = NULL;
-                char *f = strappenda(original_dir, *p);
-                char *l = strappenda(copy_dir, *link);
+                char *f = strjoina(original_dir, *p);
+                char *l = strjoina(copy_dir, *link);
 
                 assert_se(readlink_and_canonicalize(l, &target) == 0);
                 assert_se(path_equal(f, target));

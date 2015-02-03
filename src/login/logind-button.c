@@ -247,7 +247,7 @@ int button_open(Button *b) {
                 b->fd = -1;
         }
 
-        p = strappenda("/dev/input/", b->name);
+        p = strjoina("/dev/input/", b->name);
 
         b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (b->fd < 0)

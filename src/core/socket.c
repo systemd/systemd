@@ -266,7 +266,7 @@ static int socket_add_device_link(Socket *s) {
         if (!s->bind_to_device || streq(s->bind_to_device, "lo"))
                 return 0;
 
-        t = strappenda("/sys/subsystem/net/devices/", s->bind_to_device);
+        t = strjoina("/sys/subsystem/net/devices/", s->bind_to_device);
         return unit_add_node_link(UNIT(s), t, false);
 }
 
@@ -473,7 +473,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         assert(f);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
                 "%sSocket State: %s\n"

@@ -510,7 +510,7 @@ static int check_hierarchy(const char *p) {
                 return 0;
 
         /* Check if this controller actually really exists */
-        cc = strappenda("/sys/fs/cgroup/", p);
+        cc = strjoina("/sys/fs/cgroup/", p);
         if (laccess(cc, F_OK) < 0)
                 return -errno;
 

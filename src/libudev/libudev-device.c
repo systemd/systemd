@@ -1936,7 +1936,7 @@ int udev_device_rename(struct udev_device *udev_device, const char *name)
         if (!dirname)
                 return -ENOMEM;
 
-        new_syspath = strappenda(dirname, "/", name);
+        new_syspath = strjoina(dirname, "/", name);
 
         r = udev_device_set_syspath(udev_device, new_syspath);
         if (r < 0)

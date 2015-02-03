@@ -885,7 +885,7 @@ static int remoteserver_init(RemoteServer *s,
         if (arg_url) {
                 const char *url, *hostname;
 
-                url = strappenda(arg_url, "/entries");
+                url = strjoina(arg_url, "/entries");
 
                 if (arg_getter) {
                         log_info("Spawning getter %s...", url);

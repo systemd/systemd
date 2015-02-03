@@ -81,7 +81,7 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
-#define fix_root(x) (arg_root ? strappenda(arg_root, x) : x)
+#define fix_root(x) (arg_root ? strjoina(arg_root, x) : x)
 
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -217,7 +217,7 @@ static int make_backup(const char *target, const char *x) {
         /* Don't fail on chmod() or chown(). If it stays owned by us
          * and/or unreadable by others, then it isn't too bad... */
 
-        backup = strappenda(x, "-");
+        backup = strjoina(x, "-");
 
         /* Copy over the access mask */
         if (fchmod(fileno(dst), st.st_mode & 07777) < 0)

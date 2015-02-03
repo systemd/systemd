@@ -256,8 +256,8 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                 l++;
         }
 
-        vertical = strappenda(prefix, draw_special_char(DRAW_TREE_VERTICAL));
-        space = strappenda(prefix, draw_special_char(DRAW_TREE_SPACE));
+        vertical = strjoina(prefix, draw_special_char(DRAW_TREE_VERTICAL));
+        space = strjoina(prefix, draw_special_char(DRAW_TREE_SPACE));
 
         for (;;) {
                 bool has_more = false;

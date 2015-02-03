@@ -147,7 +147,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
         if (ferror(f))
                 return log_error_errno(errno, "Failed to write file %s: %m", p);
 
-        from = strappenda("../", n);
+        from = strjoina("../", n);
 
         to = strjoin(arg_dest, "/", d, ".wants/", n, NULL);
         if (!to)

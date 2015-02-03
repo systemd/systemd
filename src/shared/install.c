@@ -1048,7 +1048,7 @@ static int unit_file_load(
         assert(path);
 
         if (!isempty(root_dir))
-                path = strappenda(root_dir, "/", path);
+                path = strjoina(root_dir, "/", path);
 
         if (!load) {
                 r = access(path, F_OK) ? -errno : 0;
@@ -1730,7 +1730,7 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        path = strappenda(config_path, "/" SPECIAL_DEFAULT_TARGET);
+        path = strjoina(config_path, "/" SPECIAL_DEFAULT_TARGET);
 
         r = create_symlink(i->path, path, force, changes, n_changes);
         if (r < 0)

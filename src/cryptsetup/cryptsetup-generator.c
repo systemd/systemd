@@ -183,7 +183,7 @@ static int create_disk(
         if (ferror(f))
                 return log_error_errno(errno, "Failed to write file %s: %m", p);
 
-        from = strappenda("../", n);
+        from = strjoina("../", n);
 
         if (!noauto) {
 

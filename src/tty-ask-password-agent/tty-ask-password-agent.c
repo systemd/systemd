@@ -385,7 +385,7 @@ static bool wall_tty_match(const char *path) {
         _cleanup_free_ char *p = NULL;
 
         if (!path_is_absolute(path))
-                path = strappenda("/dev/", path);
+                path = strjoina("/dev/", path);
 
         r = lstat(path, &st);
         if (r < 0)

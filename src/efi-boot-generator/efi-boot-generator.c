@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        name = strappenda(arg_dest, "/boot.mount");
+        name = strjoina(arg_dest, "/boot.mount");
         f = fopen(name, "wxe");
         if (!f) {
                 log_error_errno(errno, "Failed to create mount unit file %s: %m", name);
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        name = strappenda(arg_dest, "/boot.automount");
+        name = strjoina(arg_dest, "/boot.automount");
         fclose(f);
         f = fopen(name, "wxe");
         if (!f) {
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        name = strappenda(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/boot.automount");
+        name = strjoina(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/boot.automount");
         mkdir_parents(name, 0755);
 
         if (symlink("../boot.automount", name) < 0) {

@@ -1072,17 +1072,29 @@ static void test_strshorten(void) {
         assert_se(strlen(strshorten(s, 0)) == 0);
 }
 
-static void test_strappenda(void) {
+static void test_strjoina(void) {
         char *actual;
 
-        actual = strappenda("", "foo", "bar");
+        actual = strjoina("", "foo", "bar");
         assert_se(streq(actual, "foobar"));
 
-        actual = strappenda("foo", "bar", "baz");
+        actual = strjoina("foo", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
 
-        actual = strappenda("foo", "", "bar", "baz");
+        actual = strjoina("foo", "", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
+
+        actual = strjoina("foo");
+        assert_se(streq(actual, "foo"));
+
+        actual = strjoina(NULL);
+        assert_se(streq(actual, ""));
+
+        actual = strjoina(NULL, "foo");
+        assert_se(streq(actual, ""));
+
+        actual = strjoina("foo", NULL, "bar");
+        assert_se(streq(actual, "foo"));
 }
 
 static void test_is_symlink(void) {
@@ -1231,13 +1243,13 @@ static void test_execute_directory(void) {
         assert_se(mkdtemp(template_lo));
         assert_se(mkdtemp(template_hi));
 
-        name = strappenda(template_lo, "/script");
-        name2 = strappenda(template_hi, "/script2");
-        name3 = strappenda(template_lo, "/useless");
-        overridden = strappenda(template_lo, "/overridden");
-        override = strappenda(template_hi, "/overridden");
-        masked = strappenda(template_lo, "/masked");
-        mask = strappenda(template_hi, "/masked");
+        name = strjoina(template_lo, "/script");
+        name2 = strjoina(template_hi, "/script2");
+        name3 = strjoina(template_lo, "/useless");
+        overridden = strjoina(template_lo, "/overridden");
+        override = strjoina(template_hi, "/overridden");
+        masked = strjoina(template_lo, "/masked");
+        mask = strjoina(template_hi, "/masked");
 
         assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works") == 0);
         assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2") == 0);
@@ -1562,7 +1574,7 @@ int main(int argc, char *argv[]) {
         test_read_one_char();
         test_ignore_signals();
         test_strshorten();
-        test_strappenda();
+        test_strjoina();
         test_is_symlink();
         test_pid_is_unwaited();
         test_pid_is_alive();

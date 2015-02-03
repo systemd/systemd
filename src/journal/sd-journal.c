@@ -1155,9 +1155,9 @@ static void check_network(sd_journal *j, int fd) {
 static bool file_has_type_prefix(const char *prefix, const char *filename) {
         const char *full, *tilded, *atted;
 
-        full = strappenda(prefix, ".journal");
-        tilded = strappenda(full, "~");
-        atted = strappenda(prefix, "@");
+        full = strjoina(prefix, ".journal");
+        tilded = strjoina(full, "~");
+        atted = strjoina(prefix, "@");
 
         return streq(filename, full) ||
                streq(filename, tilded) ||
@@ -1399,7 +1399,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 return -EINVAL;
 
         if (j->prefix)
-                p = strappenda(j->prefix, p);
+                p = strjoina(j->prefix, p);
 
         d = opendir(p);
         if (!d)
@@ -1643,7 +1643,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return((flags & ~(SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM)) == 0, -EINVAL);
         assert_return(machine_name_is_valid(machine), -EINVAL);
 
-        p = strappenda("/run/systemd/machines/", machine);
+        p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
         if (r == -ENOENT)
                 return -EHOSTDOWN;

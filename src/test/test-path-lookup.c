@@ -33,9 +33,9 @@ static void test_paths(SystemdRunningAs running_as, bool personal) {
         char *exists, *not;
 
         assert_se(mkdtemp(template));
-        exists = strappenda(template, "/exists");
+        exists = strjoina(template, "/exists");
         assert_se(mkdir(exists, 0755) == 0);
-        not = strappenda(template, "/not");
+        not = strjoina(template, "/not");
 
         assert_se(lookup_paths_init(&lp, running_as, personal, NULL, exists, not, not) == 0);
 

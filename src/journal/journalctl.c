@@ -1269,7 +1269,7 @@ static int add_syslog_identifier(sd_journal *j) {
         STRV_FOREACH(i, arg_syslog_identifier) {
                 char *u;
 
-                u = strappenda("SYSLOG_IDENTIFIER=", *i);
+                u = strjoina("SYSLOG_IDENTIFIER=", *i);
                 r = sd_journal_add_match(j, u, 0);
                 if (r < 0)
                         return r;

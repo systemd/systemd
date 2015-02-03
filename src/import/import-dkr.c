@@ -399,7 +399,7 @@ static int dkr_import_add_token(DkrImport *i, ImportJob *j) {
         assert(j);
 
         if (i->response_token)
-                t = strappenda("Authorization: Token ", i->response_token);
+                t = strjoina("Authorization: Token ", i->response_token);
         else
                 t = HEADER_TOKEN " true";
 
@@ -480,7 +480,7 @@ static int dkr_import_job_on_open_disk(ImportJob *j) {
         if (base) {
                 const char *base_path;
 
-                base_path = strappenda(i->image_root, "/.dkr-", base);
+                base_path = strjoina(i->image_root, "/.dkr-", base);
                 r = btrfs_subvol_snapshot(base_path, i->temp_path, false, true);
         } else
                 r = btrfs_subvol_make(i->temp_path);
@@ -549,7 +549,7 @@ static int dkr_import_pull_layer(DkrImport *i) {
         i->final_path = path;
         path = NULL;
 
-        url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", layer, "/layer");
+        url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", layer, "/layer");
         r = import_job_new(&i->layer_job, url, i->glue, i);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate layer job: %m");
@@ -610,7 +610,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 log_info("Index lookup succeeded, directed to registry %s.", i->response_registries[0]);
                 dkr_import_report_progress(i, DKR_RESOLVING);
 
-                url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/repositories/", i->name, "/tags/", i->tag);
+                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/repositories/", i->name, "/tags/", i->tag);
                 r = import_job_new(&i->tags_job, url, i->glue, i);
                 if (r < 0) {
                         log_error_errno(r, "Failed to allocate tags job: %m");
@@ -652,7 +652,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 log_info("Tag lookup succeeded, resolved to layer %s.", i->id);
                 dkr_import_report_progress(i, DKR_METADATA);
 
-                url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/ancestry");
+                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/ancestry");
                 r = import_job_new(&i->ancestry_job, url, i->glue, i);
                 if (r < 0) {
                         log_error_errno(r, "Failed to allocate ancestry job: %m");
@@ -668,7 +668,7 @@ static void dkr_import_job_on_finished(ImportJob *j) {
                 i->ancestry_job->on_finished = dkr_import_job_on_finished;
                 i->ancestry_job->on_progress = dkr_import_job_on_progress;
 
-                url = strappenda(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/json");
+                url = strjoina(PROTOCOL_PREFIX, i->response_registries[0], "/v1/images/", i->id, "/json");
                 r = import_job_new(&i->json_job, url, i->glue, i);
                 if (r < 0) {
                         log_error_errno(r, "Failed to allocate json job: %m");
@@ -873,7 +873,7 @@ int dkr_import_pull(DkrImport *i, const char *name, const char *tag, const char 
         if (r < 0)
                 return r;
 
-        url = strappenda(i->index_url, "/v1/repositories/", name, "/images");
+        url = strjoina(i->index_url, "/v1/repositories/", name, "/images");
 
         r = import_job_new(&i->images_job, url, i->glue, i);
         if (r < 0)

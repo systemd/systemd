@@ -4978,8 +4978,8 @@ static int switch_root(sd_bus *bus, char **args) {
         if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
-                root_systemd_path = strappenda(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = strappenda(root, "/", init);
+                root_systemd_path = strjoina(root, "/" SYSTEMD_BINARY_PATH);
+                root_init_path = strjoina(root, "/", init);
 
                 /* If the passed init is actually the same as the
                  * systemd binary, then let's suppress it. */
@@ -5783,7 +5783,7 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        ending = strappenda(unit_name, ".d/override.conf");
+        ending = strjoina(unit_name, ".d/override.conf");
         r = get_file_to_edit(ending, user_home, user_runtime, &tmp_new_path);
         if (r < 0)
                 return r;

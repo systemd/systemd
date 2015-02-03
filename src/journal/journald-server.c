@@ -378,7 +378,7 @@ static void do_vacuum(
         if (!f)
                 return;
 
-        p = strappenda(path, id);
+        p = strjoina(path, id);
         r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec, false);
         if (r < 0 && r != -ENOENT)
                 log_error_errno(r, "Failed to vacuum %s: %m", p);
@@ -589,28 +589,28 @@ static void dispatch_message_real(
 
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_COMM=", t);
+                        x = strjoina("_COMM=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_exe(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_EXE=", t);
+                        x = strjoina("_EXE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_cmdline(ucred->pid, 0, false, &t);
                 if (r >= 0) {
-                        x = strappenda("_CMDLINE=", t);
+                        x = strjoina("_CMDLINE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_capeff(ucred->pid, &t);
                 if (r >= 0) {
-                        x = strappenda("_CAP_EFFECTIVE=", t);
+                        x = strjoina("_CAP_EFFECTIVE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
@@ -633,12 +633,12 @@ static void dispatch_message_real(
                 if (r >= 0) {
                         char *session = NULL;
 
-                        x = strappenda("_SYSTEMD_CGROUP=", c);
+                        x = strjoina("_SYSTEMD_CGROUP=", c);
                         IOVEC_SET_STRING(iovec[n++], x);
 
                         r = cg_path_get_session(c, &t);
                         if (r >= 0) {
-                                session = strappenda("_SYSTEMD_SESSION=", t);
+                                session = strjoina("_SYSTEMD_SESSION=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], session);
                         }
@@ -651,32 +651,32 @@ static void dispatch_message_real(
                         }
 
                         if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_UNIT=", t);
+                                x = strjoina("_SYSTEMD_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else if (unit_id && !session) {
-                                x = strappenda("_SYSTEMD_UNIT=", unit_id);
+                                x = strjoina("_SYSTEMD_UNIT=", unit_id);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_USER_UNIT=", t);
+                                x = strjoina("_SYSTEMD_USER_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         } else if (unit_id && session) {
-                                x = strappenda("_SYSTEMD_USER_UNIT=", unit_id);
+                                x = strjoina("_SYSTEMD_USER_UNIT=", unit_id);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_slice(c, &t) >= 0) {
-                                x = strappenda("_SYSTEMD_SLICE=", t);
+                                x = strjoina("_SYSTEMD_SLICE=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         free(c);
                 } else if (unit_id) {
-                        x = strappenda("_SYSTEMD_UNIT=", unit_id);
+                        x = strjoina("_SYSTEMD_UNIT=", unit_id);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
@@ -691,7 +691,7 @@ static void dispatch_message_real(
                                 security_context_t con;
 
                                 if (getpidcon(ucred->pid, &con) >= 0) {
-                                        x = strappenda("_SELINUX_CONTEXT=", con);
+                                        x = strjoina("_SELINUX_CONTEXT=", con);
 
                                         freecon(con);
                                         IOVEC_SET_STRING(iovec[n++], x);
@@ -717,21 +717,21 @@ static void dispatch_message_real(
 
                 r = get_process_comm(object_pid, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_COMM=", t);
+                        x = strjoina("OBJECT_COMM=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_exe(object_pid, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_EXE=", t);
+                        x = strjoina("OBJECT_EXE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
                 r = get_process_cmdline(object_pid, 0, false, &t);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_CMDLINE=", t);
+                        x = strjoina("OBJECT_CMDLINE=", t);
                         free(t);
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
@@ -752,12 +752,12 @@ static void dispatch_message_real(
 
                 r = cg_pid_get_path_shifted(object_pid, s->cgroup_root, &c);
                 if (r >= 0) {
-                        x = strappenda("OBJECT_SYSTEMD_CGROUP=", c);
+                        x = strjoina("OBJECT_SYSTEMD_CGROUP=", c);
                         IOVEC_SET_STRING(iovec[n++], x);
 
                         r = cg_path_get_session(c, &t);
                         if (r >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_SESSION=", t);
+                                x = strjoina("OBJECT_SYSTEMD_SESSION=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
@@ -768,13 +768,13 @@ static void dispatch_message_real(
                         }
 
                         if (cg_path_get_unit(c, &t) >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_UNIT=", t);
+                                x = strjoina("OBJECT_SYSTEMD_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
 
                         if (cg_path_get_user_unit(c, &t) >= 0) {
-                                x = strappenda("OBJECT_SYSTEMD_USER_UNIT=", t);
+                                x = strjoina("OBJECT_SYSTEMD_USER_UNIT=", t);
                                 free(t);
                                 IOVEC_SET_STRING(iovec[n++], x);
                         }
@@ -944,10 +944,10 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 if (s->storage == STORAGE_PERSISTENT)
                         (void) mkdir("/var/log/journal/", 0755);
 
-                fn = strappenda("/var/log/journal/", ids);
+                fn = strjoina("/var/log/journal/", ids);
                 (void) mkdir(fn, 0755);
 
-                fn = strappenda(fn, "/system.journal");
+                fn = strjoina(fn, "/system.journal");
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
 
                 if (r >= 0)

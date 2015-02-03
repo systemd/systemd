@@ -404,7 +404,7 @@ static int add_root_mount(void) {
                 opts = arg_root_rw > 0 ? "rw" : "ro";
         else if (arg_root_rw >= 0 ||
                  !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
-                opts = strappenda(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+                opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
 
@@ -461,7 +461,7 @@ static int add_usr_mount(void) {
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
         else if (!fstab_test_option(arg_usr_options, "ro\0" "rw\0"))
-                opts = strappenda(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+                opts = strjoina(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_usr_options;
 

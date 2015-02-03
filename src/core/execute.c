@@ -1582,9 +1582,9 @@ static int exec_child(
 
                 if (context->private_tmp && runtime) {
                         if (runtime->tmp_dir)
-                                tmp = strappenda(runtime->tmp_dir, "/tmp");
+                                tmp = strjoina(runtime->tmp_dir, "/tmp");
                         if (runtime->var_tmp_dir)
-                                var = strappenda(runtime->var_tmp_dir, "/tmp");
+                                var = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
                 r = setup_namespace(
@@ -2588,7 +2588,7 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         assert(f);
 
         prefix = strempty(prefix);
-        prefix2 = strappenda(prefix, "\t");
+        prefix2 = strjoina(prefix, "\t");
 
         cmd = exec_command_line(c->argv);
         fprintf(f,

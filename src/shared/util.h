@@ -931,19 +931,19 @@ int unlink_noerrno(const char *path);
                 (void*)memset(_new_, 0, _size_);                        \
         })
 
-#define strappenda(a, ...)                                       \
-        ({                                                       \
-                int _len = strlen(a);                            \
-                unsigned _i;                                     \
-                char *_d_, *_p_;                                 \
-                const char *_appendees_[] = { __VA_ARGS__ };     \
-                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
-                        _len += strlen(_appendees_[_i]);         \
-                _d_ = alloca(_len + 1);                          \
-                _p_ = stpcpy(_d_, a);                            \
-                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
-                        _p_ = stpcpy(_p_, _appendees_[_i]);      \
-                _d_;                                             \
+#define strjoina(a, ...)                                                \
+        ({                                                              \
+                const char *_appendees_[] = { a, __VA_ARGS__ };         \
+                char *_d_, *_p_;                                        \
+                int _len_ = 0;                                          \
+                unsigned _i_;                                           \
+                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
+                        _len_ += strlen(_appendees_[_i_]);              \
+                _p_ = _d_ = alloca(_len_ + 1);                          \
+                for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
+                        _p_ = stpcpy(_p_, _appendees_[_i_]);            \
+                *_p_ = 0;                                               \
+                _d_;                                                    \
         })
 
 #define procfs_file_alloca(pid, field)                                  \

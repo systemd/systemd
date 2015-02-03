@@ -51,7 +51,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
         if (path_equal(new_root, "/"))
                 return 0;
 
-        temporary_old_root = strappenda(new_root, oldroot);
+        temporary_old_root = strjoina(new_root, oldroot);
         mkdir_p_label(temporary_old_root, 0755);
 
         old_root_remove = in_initrd();
