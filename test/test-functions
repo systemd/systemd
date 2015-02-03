@@ -137,8 +137,8 @@ create_empty_image() {
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
-    sfdisk -C 9600 -H 2 -S 32 -L "$LOOPDEV" <<EOF
-,4800
+    sfdisk "$LOOPDEV" <<EOF
+,290M
 ,
 EOF
 
