@@ -83,12 +83,17 @@ int loopback_setup(void) {
                 return r;
 
         r = start_loopback(rtnl);
-        if (r == -EPERM) {
-                if (!check_loopback(rtnl))
-                        return log_warning_errno(EPERM, "Failed to configure loopback device: %m");
-        } else if (r < 0)
-                return log_warning_errno(r, "Failed to configure loopback device: %m");
+        if (r < 0) {
 
+                /* If we lack the permissions to configure the
+                 * loopback device, but we find it to be already
+                 * configured, let's exit cleanly, in order to
+                 * supported unprivileged containers. */
+                if (r == -EPERM && check_loopback(rtnl))
+                        return 0;
+
+                return log_warning_errno(r, "Failed to configure loopback device: %m");
+        }
 
         return 0;
 }
