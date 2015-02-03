@@ -5666,9 +5666,11 @@ tests += \
 	test-network \
 	test-network-tables
 
+dist_systemunit_DATA += \
+	units/systemd-networkd.socket
+
 nodist_systemunit_DATA += \
 	units/systemd-networkd.service \
-	units/systemd-networkd.socket \
 	units/systemd-networkd-wait-online.service
 
 GENERAL_ALIASES += \
