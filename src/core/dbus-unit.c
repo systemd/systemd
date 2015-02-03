@@ -898,6 +898,20 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "DefaultDependencies")) {
+                int b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (mode != UNIT_CHECK) {
+                        u->default_dependencies = b;
+                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDefaultDependencies=%s\n", yes_no(b));
+                }
+
+                return 1;
+
         } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
                 const char *s;
 
