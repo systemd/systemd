@@ -630,7 +630,7 @@ static int get_xattrs_from_arg(Item *i) {
 
         while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
                 _cleanup_free_ char *tmp = NULL, *name = NULL,
-                        *value = NULL, *value2 = NULL;
+                        *value = NULL, *value2 = NULL, *_xattr = xattr;
 
                 r = split_pair(xattr, "=", &name, &value);
                 if (r < 0) {
