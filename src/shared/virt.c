@@ -101,6 +101,22 @@ static int detect_vm_cpuid(const char **_id) {
         return 0;
 }
 
+static int detect_vm_devicetree(const char **_id) {
+#if defined(__powerpc__) || defined(__powerpc64__)
+        _cleanup_free_ char *hvtype = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/firmware/devicetree/base/hypervisor/compatible", &hvtype);
+        if (r >= 0) {
+                if (streq(hvtype, "linux,kvm")) {
+                        *_id = "kvm";
+                        return 1;
+                }
+        }
+#endif
+        return 0;
+}
+
 static int detect_vm_dmi(const char **_id) {
 
         /* Both CPUID and DMI are x86 specific interfaces... */
@@ -201,6 +217,10 @@ int detect_vm(const char **id) {
                 goto finish;
 
         r = detect_vm_dmi(&_id);
+        if (r != 0)
+                goto finish;
+
+        r = detect_vm_devicetree(&_id);
         if (r != 0)
                 goto finish;
 
