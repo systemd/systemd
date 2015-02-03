@@ -42,6 +42,14 @@ function find_qemu_bin() {
 }
 
 run_qemu() {
+    if [ -f /etc/machine-id ]; then
+        read MACHINE_ID < /etc/machine-id
+        [ -z "$INITRD" ] && [ -e "/boot/$MACHINE_ID/$KERNEL_VER/initrd" ] \
+            && INITRD="/boot/$MACHINE_ID/$KERNEL_VER/initrd"
+        [ -z "$KERNEL_BIN" ] && [ -e "/boot/$MACHINE_ID/$KERNEL_VER/linux" ] \
+            && KERNEL_BIN="/boot/$MACHINE_ID/$KERNEL_VER/linux"
+    fi
+
     [ "$KERNEL_BIN" ] || KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
     [ "$INITRD" ]     || INITRD=/boot/initramfs-${KERNEL_VER}.img
     [ "$QEMU_SMP" ]   || QEMU_SMP=1
