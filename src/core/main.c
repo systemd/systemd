@@ -1217,11 +1217,11 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
-        dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
-        dual_timestamp userspace_timestamp = { 0ULL, 0ULL };
-        dual_timestamp kernel_timestamp = { 0ULL, 0ULL };
-        dual_timestamp security_start_timestamp = { 0ULL, 0ULL };
-        dual_timestamp security_finish_timestamp = { 0ULL, 0ULL };
+        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp userspace_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp kernel_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp security_start_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         static char systemd[] = "systemd";
         bool skip_setup = false;
         unsigned j;
@@ -1230,7 +1230,7 @@ int main(int argc, char *argv[]) {
         bool queue_default_job = false;
         bool empty_etc = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
-        static struct rlimit saved_rlimit_nofile = { 0, 0 };
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0);
         const char *error_message = NULL;
 
 #ifdef HAVE_SYSV_COMPAT

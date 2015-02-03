@@ -67,7 +67,7 @@ typedef struct dual_timestamp {
 
 #define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
 
-#define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) { 0, 0 })
+#define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) { 0ULL, 0ULL })
 
 usec_t now(clockid_t clock);
 
