@@ -4594,8 +4594,8 @@ static int cat(sd_bus *bus, char **args) {
 
         assert(args);
 
-        if (arg_host) {
-                log_error("Option --host cannot be used with 'cat'");
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Cannot remotely cat units");
                 return -EINVAL;
         }
 
@@ -4605,7 +4605,7 @@ static int cat(sd_bus *bus, char **args) {
 
         r = expand_names(bus, args + 1, NULL, &names);
         if (r < 0)
-                log_error_errno(r, "Failed to expand names: %m");
+                return log_error_errno(r, "Failed to expand names: %m");
 
         avoid_bus_cache = !bus || avoid_bus();
 
