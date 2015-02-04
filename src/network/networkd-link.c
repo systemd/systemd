@@ -283,12 +283,10 @@ static void link_free(Link *link) {
         sd_dhcp_client_unref(link->dhcp_client);
         sd_dhcp_lease_unref(link->dhcp_lease);
 
-        unlink(link->lease_file);
         free(link->lease_file);
 
         sd_lldp_free(link->lldp);
 
-        unlink(link->lldp_file);
         free(link->lldp_file);
 
         sd_ipv4ll_unref(link->ipv4ll);
@@ -300,7 +298,6 @@ static void link_free(Link *link) {
 
         free(link->ifname);
 
-        unlink(link->state_file);
         free(link->state_file);
 
         udev_device_unref(link->udev_device);
