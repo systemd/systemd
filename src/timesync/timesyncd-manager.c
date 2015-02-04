@@ -676,9 +676,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error_errno(errno, "Failed to call clock_adjtime(): %m");
         }
 
-        log_info("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                 m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
-                 spike ? " (ignored)" : "");
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
+                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+                  spike ? " (ignored)" : "");
 
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
