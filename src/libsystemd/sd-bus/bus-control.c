@@ -52,7 +52,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
 }
 
 static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags) {
-        struct kdbus_cmd_name *n;
+        struct kdbus_cmd *n;
         size_t size, l;
         int r;
 
@@ -60,7 +60,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         assert(name);
 
         l = strlen(name) + 1;
-        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l);
+        size = offsetof(struct kdbus_cmd, items) + KDBUS_ITEM_SIZE(l);
         n = alloca0_align(size, 8);
         n->size = size;
         n->flags = request_name_flags_to_kdbus(flags);
@@ -151,7 +151,7 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
 }
 
 static int bus_release_name_kernel(sd_bus *bus, const char *name) {
-        struct kdbus_cmd_name *n;
+        struct kdbus_cmd *n;
         size_t size, l;
         int r;
 
@@ -159,7 +159,7 @@ static int bus_release_name_kernel(sd_bus *bus, const char *name) {
         assert(name);
 
         l = strlen(name) + 1;
-        size = offsetof(struct kdbus_cmd_name, items) + KDBUS_ITEM_SIZE(l);
+        size = offsetof(struct kdbus_cmd, items) + KDBUS_ITEM_SIZE(l);
         n = alloca0_align(size, 8);
         n->size = size;
 
@@ -233,9 +233,8 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
 }
 
 static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
-        struct kdbus_cmd_name_list cmd = {};
-        struct kdbus_name_list *name_list;
-        struct kdbus_name_info *name;
+        struct kdbus_cmd_list cmd = {};
+        struct kdbus_info *name_list, *name;
         uint64_t previous_id = 0;
         int r;
 
@@ -244,21 +243,21 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         cmd.size = sizeof(cmd);
         cmd.flags = flags;
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
+        r = ioctl(bus->input_fd, KDBUS_CMD_LIST, &cmd);
         if (r < 0)
                 return -errno;
 
-        name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
+        name_list = (struct kdbus_info *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
 
-        KDBUS_ITEM_FOREACH(name, name_list, names) {
+        KDBUS_FOREACH(name, name_list, cmd.list_size) {
 
                 struct kdbus_item *item;
                 const char *entry_name = NULL;
 
-                if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->owner_id != previous_id) {
+                if ((flags & KDBUS_LIST_UNIQUE) && name->id != previous_id) {
                         char *n;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -267,7 +266,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                         if (r < 0)
                                 goto fail;
 
-                        previous_id = name->owner_id;
+                        previous_id = name->id;
                 }
 
                 KDBUS_ITEM_FOREACH(item, name, items)
@@ -295,13 +294,13 @@ static int bus_list_names_kernel(sd_bus *bus, char ***acquired, char ***activata
         int r;
 
         if (acquired) {
-                r = kernel_get_list(bus, KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES, &x);
+                r = kernel_get_list(bus, KDBUS_LIST_UNIQUE | KDBUS_LIST_NAMES, &x);
                 if (r < 0)
                         return r;
         }
 
         if (activatable) {
-                r = kernel_get_list(bus, KDBUS_NAME_LIST_ACTIVATORS, &y);
+                r = kernel_get_list(bus, KDBUS_LIST_ACTIVATORS, &y);
                 if (r < 0)
                         return r;
 

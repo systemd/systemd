@@ -1521,7 +1521,7 @@ uint64_t attach_flags_to_kdbus(uint64_t mask) {
 }
 
 int bus_kernel_create_bus(const char *name, bool world, char **s) {
-        struct kdbus_cmd_make *make;
+        struct kdbus_cmd *make;
         struct kdbus_item *n;
         size_t l;
         int fd;
@@ -1534,14 +1534,14 @@ int bus_kernel_create_bus(const char *name, bool world, char **s) {
                 return -errno;
 
         l = strlen(name);
-        make = alloca0_align(offsetof(struct kdbus_cmd_make, items) +
+        make = alloca0_align(offsetof(struct kdbus_cmd, items) +
                              ALIGN8(offsetof(struct kdbus_item, bloom_parameter) + sizeof(struct kdbus_bloom_parameter)) +
                              ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
                              ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)) +
                              ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1),
                              8);
 
-        make->size = offsetof(struct kdbus_cmd_make, items);
+        make->size = offsetof(struct kdbus_cmd, items);
 
         /* Set the bloom parameters */
         n = make->items;
@@ -1634,7 +1634,7 @@ int bus_kernel_open_bus_fd(const char *bus, char **path) {
 
 int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char **ep_path) {
         _cleanup_free_ char *path = NULL;
-        struct kdbus_cmd_make *make;
+        struct kdbus_cmd *make;
         struct kdbus_item *n;
         const char *name;
         int fd;
@@ -1643,10 +1643,10 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
         if (fd < 0)
                 return fd;
 
-        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd_make, items)) +
+        make = alloca0_align(ALIGN8(offsetof(struct kdbus_cmd, items)) +
                              ALIGN8(offsetof(struct kdbus_item, str) + DECIMAL_STR_MAX(uid_t) + 1 + strlen(ep_name) + 1),
                              8);
-        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items));
+        make->size = ALIGN8(offsetof(struct kdbus_cmd, items));
         make->flags = KDBUS_MAKE_ACCESS_WORLD;
 
         n = make->items;
@@ -1677,10 +1677,12 @@ int bus_kernel_create_endpoint(const char *bus_name, const char *ep_name, char *
 }
 
 int bus_kernel_try_close(sd_bus *bus) {
+        struct kdbus_cmd byebye = { .size = sizeof(byebye) };
+
         assert(bus);
         assert(bus->is_kernel);
 
-        if (ioctl(bus->input_fd, KDBUS_CMD_BYEBYE) < 0)
+        if (ioctl(bus->input_fd, KDBUS_CMD_BYEBYE, &byebye) < 0)
                 return -errno;
 
         return 0;
@@ -1701,13 +1703,13 @@ int bus_kernel_drop_one(int fd) {
 }
 
 int bus_kernel_realize_attach_flags(sd_bus *bus) {
-        struct kdbus_cmd_update *update;
+        struct kdbus_cmd *update;
         struct kdbus_item *n;
 
         assert(bus);
         assert(bus->is_kernel);
 
-        update = alloca0_align(offsetof(struct kdbus_cmd_update, items) +
+        update = alloca0_align(offsetof(struct kdbus_cmd, items) +
                                ALIGN8(offsetof(struct kdbus_item, data64) + sizeof(uint64_t)),
                                8);
 
@@ -1717,10 +1719,10 @@ int bus_kernel_realize_attach_flags(sd_bus *bus) {
         n->data64[0] = bus->attach_flags;
 
         update->size =
-                offsetof(struct kdbus_cmd_update, items) +
+                offsetof(struct kdbus_cmd, items) +
                 ALIGN8(n->size);
 
-        if (ioctl(bus->input_fd, KDBUS_CMD_CONN_UPDATE, update) < 0)
+        if (ioctl(bus->input_fd, KDBUS_CMD_UPDATE, update) < 0)
                 return -errno;
 
         return 0;

@@ -26,14 +26,14 @@
 
 int bus_kernel_set_endpoint_policy(int fd, uid_t uid, BusEndpoint *ep) {
 
-        struct kdbus_cmd_update *update;
+        struct kdbus_cmd *update;
         struct kdbus_item *n;
         BusEndpointPolicy *po;
         Iterator i;
         size_t size;
         int r;
 
-        size = ALIGN8(offsetof(struct kdbus_cmd_update, items));
+        size = ALIGN8(offsetof(struct kdbus_cmd, items));
 
         HASHMAP_FOREACH(po, ep->policy_hash, i) {
                 size += ALIGN8(offsetof(struct kdbus_item, str) + strlen(po->name) + 1);

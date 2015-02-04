@@ -33,6 +33,11 @@
              ((uint8_t *)(part) < (uint8_t *)(head) + (head)->size) &&  \
                 ((uint8_t *) part >= (uint8_t *) head);                 \
              part = KDBUS_ITEM_NEXT(part))
+#define KDBUS_FOREACH(iter, first, _size)                               \
+        for (iter = (first);                                            \
+             ((uint8_t *)(iter) < (uint8_t *)(first) + (_size)) &&      \
+               ((uint8_t *)(iter) >= (uint8_t *)(first));               \
+             iter = (void*)(((uint8_t *)iter) + ALIGN8((iter)->size)))
 
 #define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
 #define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)

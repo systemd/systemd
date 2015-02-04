@@ -327,9 +327,8 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 return synthetic_reply_return_strv(m, names);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
-                struct kdbus_cmd_name_list cmd = {};
-                struct kdbus_name_list *name_list;
-                struct kdbus_name_info *name;
+                struct kdbus_cmd_list cmd = {};
+                struct kdbus_info *name_list, *name;
                 _cleanup_strv_free_ char **owners = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
@@ -350,14 +349,14 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                cmd.flags = KDBUS_NAME_LIST_QUEUED;
-                r = ioctl(a->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
+                cmd.flags = KDBUS_LIST_QUEUED;
+                r = ioctl(a->input_fd, KDBUS_CMD_LIST, &cmd);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, -errno, NULL);
 
-                name_list = (struct kdbus_name_list *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
+                name_list = (struct kdbus_info *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
 
-                KDBUS_ITEM_FOREACH(name, name_list, names) {
+                KDBUS_FOREACH(name, name_list, cmd.list_size) {
                         const char *entry_name = NULL;
                         struct kdbus_item *item;
                         char *n;
@@ -369,7 +368,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         if (!streq_ptr(entry_name, arg0))
                                 continue;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0) {
                                 err  = -ENOMEM;
                                 break;
                         }
