@@ -269,12 +269,16 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 return log_oom();
 
         if (keep_capabilities) {
-                cap_value_t bits[log2u64(keep_capabilities)];
+                cap_value_t bits[u64log2(keep_capabilities) + 1];
 
                 for (i = 0; i < ELEMENTSOF(bits); i++)
                         if (keep_capabilities & (1ULL << i))
                                 bits[j++] = i;
+
+                /* don't keep too many bits */
                 assert((keep_capabilities & (~1ULL << i)) == 0);
+                /* don't throw away too many bits */
+                assert(((keep_capabilities >> i) & (~1ULL >> i)) == 0);
 
                 if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
                     cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
