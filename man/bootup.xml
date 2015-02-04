@@ -111,56 +111,56 @@
     the bottom of the chart.</para>
 
 <programlisting>local-fs-pre.target
-   |
-   v
+         |
+         v
 (various mounts and   (various swap   (various cryptsetup
- fsck services...)     devices...)  devices...)       (various low-level   (various low-level
-   |      |      |       services: udevd,     API VFS mounts:
-   v      v      v       tmpfiles, random     mqueue, configfs,
+ fsck services...)     devices...)        devices...)       (various low-level   (various low-level
+         |                  |                  |             services: udevd,     API VFS mounts:
+         v                  v                  v             tmpfiles, random     mqueue, configfs,
   local-fs.target      swap.target     cryptsetup.target    seed, sysctl, ...)      debugfs, ...)
-   |      |      |        |        |
-   \__________________|_________________ | ___________________|____________________/
-                \|/
-                 v
-          sysinit.target
-                 |
-    ____________________________________/|\________________________________________
-   /      |      |        |        \
-   |      |      |        |        |
-   v      v      |        v        v
-     (various     (various         |    (various    rescue.service
-    timers...)    paths...)        |         sockets...)         |
-   |      |      |        |        v
-   v      v      |        v        <emphasis>rescue.target</emphasis>
-   timers.target      paths.target       |       sockets.target
-   |      |      |        |
-   v      |_________________ | ___________________/
-                \|/
-                 v
-           basic.target
-                 |
-    ____________________________________/|         emergency.service
-   /      |      |           |
-   |      |      |           v
-   v      v      v         <emphasis>emergency.target</emphasis>
-     display-  (various system    (various system
- manager.service   services     services)
-   |       required for      |
-   |      graphical UIs)     v
-   |      |     <emphasis>multi-user.target</emphasis>
-   |      |      |
-   \_________________ | _________________/
-         \|/
-          v
-      <emphasis>graphical.target</emphasis></programlisting>
+         |                  |                  |                    |                    |
+         \__________________|_________________ | ___________________|____________________/
+                                              \|/
+                                               v
+                                        sysinit.target
+                                               |
+          ____________________________________/|\________________________________________
+         /                  |                  |                    |                    \
+         |                  |                  |                    |                    |
+         v                  v                  |                    v                    v
+     (various           (various               |                (various          rescue.service
+    timers...)          paths...)              |               sockets...)               |
+         |                  |                  |                    |                    v
+         v                  v                  |                    v              <emphasis>rescue.target</emphasis>
+   timers.target      paths.target             |             sockets.target
+         |                  |                  |                    |
+         v                  |_________________ | ___________________/
+                                              \|/
+                                               v
+                                         basic.target
+                                               |
+          ____________________________________/|                                 emergency.service
+         /                  |                  |                                         |
+         |                  |                  |                                         v
+         v                  v                  v                                 <emphasis>emergency.target</emphasis>
+     display-        (various system    (various system
+ manager.service         services           services)
+         |             required for            |
+         |            graphical UIs)           v
+         |                  |           <emphasis>multi-user.target</emphasis>
+         |                  |                  |
+         \_________________ | _________________/
+                           \|/
+                            v
+                  <emphasis>graphical.target</emphasis></programlisting>
 
     <para>Target units that are commonly used as boot targets are
     <emphasis>emphasized</emphasis>. These units are good choices as
     goal targets, for example by passing them to the
     <varname>systemd.unit=</varname> kernel command line option (see
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
-    or by symlinking <filename>default.target</filename> to
-    them.</para>
+    or by symlinking <filename>default.target</filename> to them.
+    </para>
 
     <para><filename>timers.target</filename> is pulled-in by
     <filename>basic.target</filename> asynchronously. This allows
@@ -197,58 +197,57 @@
     <filename>/sysroot</filename>.
     </para>
 
-<programlisting>                 : (beginning identical to above)
-                 :
-                 v
-           basic.target
-                 |         emergency.service
-      ______________________/|           |
-           /           |           v
-           |      sysroot.mount        <emphasis>emergency.target</emphasis>
-           |           |
-           |           v
-           |       initrd-root-fs.target
-           |           |
-           |           v
-           v      initrd-parse-etc.service
-    (custom initrd     |
-     services...)      v
-           |      (sysroot-usr.mount and
-           |       various mounts marked
-           |         with fstab option
-           |        x-initrd.mount...)
-           |           |
-           |           v
-           |    initrd-fs.target
-           \______________________ |
-                \|
-                 v
-            initrd.target
-                 |
-                 v
-             initrd-cleanup.service
-            isolates to
-            initrd-switch-root.target
-                 |
-                 v
-      ______________________/|
-           /           v
-           |  initrd-udevadm-cleanup-db.service
-           v           |
-    (custom initrd     |
-     services...)      |
-           \______________________ |
-                \|
-                 v
-           initrd-switch-root.target
-                 |
-                 v
-           initrd-switch-root.service
-                 |
-                 v
-             Transition to Host OS</programlisting>
+<programlisting>                                               : (beginning identical to above)
+                                               :
+                                               v
+                                         basic.target
+                                               |                                 emergency.service
+                        ______________________/|                                         |
+                       /                       |                                         v
+                       |                  sysroot.mount                          <emphasis>emergency.target</emphasis>
+                       |                       |
+                       |                       v
+                       |             initrd-root-fs.target
+                       |                       |
+                       |                       v
+                       v            initrd-parse-etc.service
+                (custom initrd                 |
+                 services...)                  v
+                       |            (sysroot-usr.mount and
+                       |             various mounts marked
+                       |               with fstab option
+                       |              x-initrd.mount...)
+                       |                       |
+                       |                       v
+                       |                initrd-fs.target
+                       \______________________ |
+                                              \|
+                                               v
+                                          initrd.target
+                                               |
+                                               v
+                                     initrd-cleanup.service
+                                          isolates to
+                                    initrd-switch-root.target
+                                               |
+                                               v
+                        ______________________/|
+                       /                       v
+                       |        initrd-udevadm-cleanup-db.service
+                       v                       |
+                (custom initrd                 |
+                 services...)                  |
+                       \______________________ |
+                                              \|
+                                               v
+                                   initrd-switch-root.target
+                                               |
+                                               v
+                                   initrd-switch-root.service
+                                               |
+                                               v
+                                     Transition to Host OS</programlisting>
   </refsect1>
-
 
   <refsect1>
     <title>System Manager Shutdown</title>
@@ -256,32 +255,32 @@
     <para>System shutdown with systemd also consists of various target
     units with some minimal ordering structure applied:</para>
 
-<programlisting>          (conflicts with  (conflicts with
-            all system     all file system
-             services)     mounts, swaps,
-           |     cryptsetup
-           |    devices, ...)
-           |    |
-           v    v
-          shutdown.target    umount.target
-           |    |
-           \_______   ______/
-             \ /
-              v
-           (various low-level
-                services)
-              |
-              v
-              final.target
-              |
-      _____________________________________/ \_________________________________
-     /       |      |          \
-     |       |      |          |
-     v       v      v          v
+<programlisting>                                  (conflicts with  (conflicts with
+                                    all system     all file system
+                                     services)     mounts, swaps,
+                                         |           cryptsetup
+                                         |          devices, ...)
+                                         |                |
+                                         v                v
+                                  shutdown.target    umount.target
+                                         |                |
+                                         \_______   ______/
+                                                 \ /
+                                                  v
+                                         (various low-level
+                                              services)
+                                                  |
+                                                  v
+                                            final.target
+                                                  |
+            _____________________________________/ \_________________________________
+           /                         |                        |                      \
+           |                         |                        |                      |
+           v                         v                        v                      v
 systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   systemd-kexec.service
-     |       |      |          |
-     v       v      v          v
-    <emphasis>reboot.target</emphasis>       <emphasis>poweroff.target</emphasis>      <emphasis>halt.target</emphasis>     <emphasis>kexec.target</emphasis></programlisting>
+           |                         |                        |                      |
+           v                         v                        v                      v
+    <emphasis>reboot.target</emphasis>             <emphasis>poweroff.target</emphasis>            <emphasis>halt.target</emphasis>           <emphasis>kexec.target</emphasis></programlisting>
 
     <para>Commonly used system shutdown targets are
     <emphasis>emphasized</emphasis>.</para>
