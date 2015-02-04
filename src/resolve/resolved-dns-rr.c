@@ -25,6 +25,7 @@
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "hexdecoct.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "string-table.h"
@@ -973,6 +974,9 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 _cleanup_free_ char *alg = NULL;
                 char *ss;
                 int n, n1;
+                uint16_t key_tag;
+
+                key_tag = dnssec_keytag(rr, true);
 
                 r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
                 if (r < 0)
@@ -995,12 +999,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Flags:%s%s%s",
+                             "%*s-- Flags:%s%s%s\n"
+                             "%*s-- Key tag: %u",
                              s,
                              n1, "",
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
-                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "");
+                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
+                             n1, "",
+                             key_tag);
                 if (r < 0)
                         return NULL;
                 free(s);

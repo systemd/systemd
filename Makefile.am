@@ -5286,6 +5286,8 @@ lib_LTLIBRARIES += \
 
 systemd_resolve_SOURCES = \
 	src/resolve/resolve-tool.c \
+	src/resolve/resolved-dns-dnssec.c \
+	src/resolve/resolved-dns-dnssec.h \
 	src/resolve/resolved-dns-packet.c \
 	src/resolve/resolved-dns-packet.h \
 	src/resolve/resolved-dns-rr.c \
