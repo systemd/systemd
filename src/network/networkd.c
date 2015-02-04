@@ -104,6 +104,8 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        log_info("Enumeration completed");
+
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
