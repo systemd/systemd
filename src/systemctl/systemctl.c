@@ -4578,7 +4578,7 @@ static int init_home_and_lookup_paths(char **user_home, char **user_runtime, Loo
 
         r = lookup_paths_init_from_scope(lp, arg_scope, arg_root);
         if (r < 0)
-                return log_error_errno(r, "Failed to lookup unit lookup paths: %m");
+                return log_error_errno(r, "Failed to query unit lookup paths: %m");
 
         return 0;
 }
@@ -5725,11 +5725,11 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
 
         r = tempfn_random(new_path, &t);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary filename for %s: %m", new_path);
+                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
 
         r = mkdir_parents(new_path, 0755);
         if (r < 0) {
-                log_error_errno(r, "Failed to create directories for %s: %m", new_path);
+                log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
                 free(t);
                 return r;
         }
@@ -5738,12 +5738,12 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r == -ENOENT) {
                 r = touch(t);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to create temporary file %s: %m", t);
+                        log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
                         free(t);
                         return r;
                 }
         } else if (r < 0) {
-                log_error_errno(r, "Failed to copy %s to %s: %m", original_path, t);
+                log_error_errno(r, "Failed to copy \"%s\" to \"%s\": %m", original_path, t);
                 free(t);
                 return r;
         }
@@ -5851,7 +5851,7 @@ static int unit_file_create_copy(const char *unit_name,
         if (!path_equal(fragment_path, tmp_new_path) && access(tmp_new_path, F_OK) == 0) {
                 char response;
 
-                r = ask_char(&response, "yn", "%s already exists, are you sure to overwrite it with %s? [(y)es, (n)o] ", tmp_new_path, fragment_path);
+                r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", tmp_new_path, fragment_path);
                 if (r < 0) {
                         free(tmp_new_path);
                         return r;
@@ -5865,7 +5865,7 @@ static int unit_file_create_copy(const char *unit_name,
 
         r = create_edit_temp_file(tmp_new_path, fragment_path, &tmp_tmp_path);
         if (r < 0) {
-                log_error_errno(r, "Failed to create temporary file for %s: %m", tmp_new_path);
+                log_error_errno(r, "Failed to create temporary file for \"%s\": %m", tmp_new_path);
                 free(tmp_new_path);
                 return r;
         }
@@ -6001,7 +6001,7 @@ static int edit(sd_bus *bus, char **args) {
         assert(args);
 
         if (!on_tty()) {
-                log_error("Cannot edit units if we are not on a tty");
+                log_error("Cannot edit units if not on a tty");
                 return -EINVAL;
         }
 
@@ -6030,12 +6030,12 @@ static int edit(sd_bus *bus, char **args) {
                  * It's useful if the user wants to cancel its modification
                  */
                 if (null_or_empty_path(*tmp)) {
-                        log_warning("Edition of %s canceled: temporary file empty", *original);
+                        log_warning("Editing \"%s\" canceled: temporary file is empty", *original);
                         continue;
                 }
                 r = rename(*tmp, *original);
                 if (r < 0) {
-                        r = log_error_errno(errno, "Failed to rename %s to %s: %m", *tmp, *original);
+                        r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
                         goto end;
                 }
         }
