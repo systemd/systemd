@@ -134,7 +134,7 @@
          v                  v                  |                    v              <emphasis>rescue.target</emphasis>
    timers.target      paths.target             |             sockets.target
          |                  |                  |                    |
-         v                  |_________________ | ___________________/
+         v                  \_________________ | ___________________/
                                               \|/
                                                v
                                          basic.target
