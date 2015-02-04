@@ -2485,13 +2485,16 @@ static int setup_seccomp(void) {
         static const int blacklist[] = {
                 SCMP_SYS(kexec_load),
                 SCMP_SYS(open_by_handle_at),
-                SCMP_SYS(init_module),
-                SCMP_SYS(finit_module),
-                SCMP_SYS(delete_module),
                 SCMP_SYS(iopl),
                 SCMP_SYS(ioperm),
                 SCMP_SYS(swapon),
                 SCMP_SYS(swapoff),
+        };
+
+        static const int kmod_blacklist[] = {
+                SCMP_SYS(init_module),
+                SCMP_SYS(finit_module),
+                SCMP_SYS(delete_module),
         };
 
         scmp_filter_ctx seccomp;
@@ -2515,6 +2518,20 @@ static int setup_seccomp(void) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to block syscall: %m");
                         goto finish;
+                }
+        }
+
+        /* If the CAP_SYS_MODULE capability is not requested then
+         * we'll block the kmod syscalls too */
+        if (!(arg_retain & (1ULL << CAP_SYS_MODULE))) {
+                for (i = 0; i < ELEMENTSOF(kmod_blacklist); i++) {
+                        r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM), kmod_blacklist[i], 0);
+                        if (r == -EFAULT)
+                                continue; /* unknown syscall */
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to block syscall: %m");
+                                goto finish;
+                        }
                 }
         }
 
