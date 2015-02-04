@@ -995,12 +995,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 r = asprintf(&ss, "%s\n"
-                             "%*s-- Flags:%s%s%s",
+                             "%*s-- Flags:%s%s%s\n"
+                             "%*s-- Key tag: %u",
                              s,
                              n1, "",
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
-                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "");
+                             rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
+                             n1, "",
+                             rr->dnskey.key_tag);
                 if (r < 0)
                         return NULL;
                 free(s);

@@ -201,6 +201,7 @@ struct DnsResourceRecord {
                         uint8_t algorithm;
                         void* key;
                         size_t key_size;
+                        uint16_t key_tag;
                 } dnskey;
 
                 /* http://tools.ietf.org/html/rfc4034#section-3.1 */

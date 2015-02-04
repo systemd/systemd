@@ -272,3 +272,5 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, 
 
         return 0;
 }
+
+uint16_t dns_keytag(uint8_t algorithm, const uint8_t* key, uint16_t keysize);
