@@ -35,7 +35,7 @@
 #include "conf-parser.h"
 #include "dhcp-lease-internal.h"
 
-static bool link_dhcp6_enabled(Link *link) {
+bool link_dhcp6_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -45,7 +45,7 @@ static bool link_dhcp6_enabled(Link *link) {
         return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
 }
 
-static bool link_dhcp4_enabled(Link *link) {
+bool link_dhcp4_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -55,7 +55,7 @@ static bool link_dhcp4_enabled(Link *link) {
         return IN_SET(link->network->dhcp, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
 }
 
-static bool link_dhcp4_server_enabled(Link *link) {
+bool link_dhcp4_server_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -65,7 +65,7 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-static bool link_ipv4ll_enabled(Link *link) {
+bool link_ipv4ll_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
@@ -75,7 +75,7 @@ static bool link_ipv4ll_enabled(Link *link) {
         return link->network->ipv4ll;
 }
 
-static bool link_lldp_enabled(Link *link) {
+bool link_lldp_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 

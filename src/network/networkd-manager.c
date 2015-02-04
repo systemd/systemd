@@ -31,6 +31,8 @@
 #include "libudev-private.h"
 #include "udev-util.h"
 #include "rtnl-util.h"
+#include "bus-util.h"
+#include "def.h"
 #include "mkdir.h"
 #include "virt.h"
 
@@ -495,6 +497,46 @@ void manager_free(Manager *m) {
         sd_rtnl_unref(m->rtnl);
 
         free(m);
+}
+
+static bool manager_check_idle(void *userdata) {
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                /* we are not woken on udev activity, so let's just wait for the
+                 * pending udev event */
+                if (link->state == LINK_STATE_PENDING)
+                        return false;
+
+                if (!link->network)
+                        continue;
+
+                /* we are not woken on netork activity, so let's stay around */
+                if (link_lldp_enabled(link) ||
+                    link_ipv4ll_enabled(link) ||
+                    link_dhcp4_server_enabled(link) ||
+                    link_dhcp4_enabled(link) ||
+                    link_dhcp6_enabled(link))
+                        return false;
+        }
+
+        return true;
+}
+
+int manager_run(Manager *m) {
+        assert(m);
+
+        return bus_event_loop_with_idle(
+                        m->event,
+                        m->bus,
+                        "org.freedesktop.network1",
+                        DEFAULT_EXIT_USEC,
+                        manager_check_idle,
+                        m);
 }
 
 int manager_load_config(Manager *m) {

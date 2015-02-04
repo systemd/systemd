@@ -30,6 +30,7 @@
 #include "socket-util.h"
 #include "mkdir.h"
 #include "import-util.h"
+#include "def.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;

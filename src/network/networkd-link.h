@@ -114,6 +114,12 @@ int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
 int icmp6_configure(Link *link);
 
+bool link_lldp_enabled(Link *link);
+bool link_ipv4ll_enabled(Link *link);
+bool link_dhcp4_server_enabled(Link *link);
+bool link_dhcp4_enabled(Link *link);
+bool link_dhcp6_enabled(Link *link);
+
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 

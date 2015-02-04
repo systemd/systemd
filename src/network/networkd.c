@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        r = sd_event_loop(m->event);
+        r = manager_run(m);
         if (r < 0) {
                 log_error_errno(r, "Event loop failed: %m");
                 goto out;
