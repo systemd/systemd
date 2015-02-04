@@ -2293,6 +2293,9 @@ static int unit_find_paths(sd_bus *bus,
                            LookupPaths *lp,
                            char **fragment_path,
                            char ***dropin_paths) {
+
+        _cleanup_free_ char *path = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
         int r;
 
         /**
@@ -2311,8 +2314,6 @@ static int unit_find_paths(sd_bus *bus,
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
-                _cleanup_free_ char *path = NULL;
-                _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_strv_free_ char **load_error = NULL;
                 char *unit_load_error_name, *unit_load_error_message;
 
@@ -2359,28 +2360,17 @@ static int unit_find_paths(sd_bus *bus,
                 if (r < 0)
                         return log_error_errno(r, "Failed to get FragmentPath: %s", bus_error_message(&error, r));
 
-                r = sd_bus_get_property_strv(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                unit,
-                                "org.freedesktop.systemd1.Unit",
-                                "DropInPaths",
-                                &error,
-                                &dropins);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
-
-                r = 0;
-                if (!isempty(path)) {
-                        *fragment_path = path;
-                        path = NULL;
-                        r = 1;
-                }
-
-                if (dropin_paths && !strv_isempty(dropins)) {
-                        *dropin_paths = dropins;
-                        dropins = NULL;
-                        r = 1;
+                if (dropin_paths) {
+                        r = sd_bus_get_property_strv(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        unit,
+                                        "org.freedesktop.systemd1.Unit",
+                                        "DropInPaths",
+                                        &error,
+                                        &dropins);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
                 _cleanup_set_free_ Set *names;
@@ -2393,7 +2383,7 @@ static int unit_find_paths(sd_bus *bus,
                 if (r < 0)
                         return r;
 
-                r = unit_file_find_path(lp, unit_name, fragment_path);
+                r = unit_file_find_path(lp, unit_name, &path);
                 if (r < 0)
                         return r;
 
@@ -2405,14 +2395,31 @@ static int unit_find_paths(sd_bus *bus,
                                 return log_oom();
 
                         if (!streq(template, unit_name)) {
-                                r = unit_file_find_path(lp, template, fragment_path);
+                                r = unit_file_find_path(lp, template, &path);
                                 if (r < 0)
                                         return r;
                         }
                 }
 
-                if (dropin_paths)
-                        r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, dropin_paths);
+                if (dropin_paths) {
+                        r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, &dropins);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = 0;
+
+        if (!isempty(path)) {
+                *fragment_path = path;
+                path = NULL;
+                r = 1;
+        }
+
+        if (dropin_paths && !strv_isempty(dropins)) {
+                *dropin_paths = dropins;
+                dropins = NULL;
+                r = 1;
         }
 
         if (r == 0)
