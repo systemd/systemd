@@ -872,16 +872,6 @@ static inline unsigned log2u(unsigned x) {
         return sizeof(unsigned) * 8 - __builtin_clz(x) - 1;
 }
 
-static inline unsigned log2u64(uint64_t x) {
-        assert(x > 0);
-
-#if __SIZEOF_LONG_LONG__ == 8
-        return 64 - __builtin_clzll(x) - 1;
-#else
-#error "Wut?"
-#endif
-}
-
 static inline unsigned log2u_round_up(unsigned x) {
         assert(x > 0);
 
