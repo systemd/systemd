@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "sd-bus.h"
 #include "libudev.h"
@@ -39,6 +40,8 @@
 #include "fileio.h"
 #include "udev-util.h"
 #include "path-util.h"
+#include "socket-util.h"
+#include "fsckd/fsckd.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -132,57 +135,35 @@ static void test_files(void) {
                 arg_show_progress = true;
 }
 
-static double percent(int pass, unsigned long cur, unsigned long max) {
-        /* Values stolen from e2fsck */
-
-        static const int pass_table[] = {
-                0, 70, 90, 92, 95, 100
+static int process_progress(int fd, dev_t device_num) {
+        _cleanup_fclose_ FILE *f = NULL;
+        usec_t last = 0;
+        _cleanup_close_ int fsckd_fd = -1;
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = FSCKD_SOCKET_PATH,
         };
 
-        if (pass <= 0)
-                return 0.0;
-
-        if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
-                return 100.0;
-
-        return (double) pass_table[pass-1] +
-                ((double) pass_table[pass] - (double) pass_table[pass-1]) *
-                (double) cur / (double) max;
-}
-
-static int process_progress(int fd) {
-        _cleanup_fclose_ FILE *console = NULL, *f = NULL;
-        usec_t last = 0;
-        bool locked = false;
-        int clear = 0;
+        fsckd_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        if (fsckd_fd < 0)
+                return log_warning_errno(errno, "Cannot open fsckd socket, we won't report fsck progress: %m");
+        if (connect(fsckd_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
+                return log_warning_errno(errno, "Cannot connect to fsckd socket, we won't report fsck progress: %m");
 
         f = fdopen(fd, "r");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        console = fopen("/dev/console", "we");
-        if (!console)
-                return -ENOMEM;
+        if (!f)
+                return log_warning_errno(errno, "Cannot connect to fsck, we won't report fsck progress: %m");
 
         while (!feof(f)) {
-                int pass, m;
-                unsigned long cur, max;
-                _cleanup_free_ char *device = NULL;
-                double p;
+                int pass;
+                size_t cur, max;
+                ssize_t n;
                 usec_t t;
+                _cleanup_free_ char *device = NULL;
+                FsckProgress progress;
 
                 if (fscanf(f, "%i %lu %lu %ms", &pass, &cur, &max, &device) != 4)
                         break;
-
-                /* Only show one progress counter at max */
-                if (!locked) {
-                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
-                                continue;
-
-                        locked = true;
-                }
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
@@ -191,22 +172,15 @@ static int process_progress(int fd) {
 
                 last = t;
 
-                p = percent(pass, cur, max);
-                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
-                fflush(console);
+                /* send progress to fsckd */
+                progress.devnum = device_num;
+                progress.cur = cur;
+                progress.max = max;
+                progress.pass = pass;
 
-                if (m > clear)
-                        clear = m;
-        }
-
-        if (clear > 0) {
-                unsigned j;
-
-                fputc('\r', console);
-                for (j = 0; j < (unsigned) clear; j++)
-                        fputc(' ', console);
-                fputc('\r', console);
-                fflush(console);
+                n = send(fsckd_fd, &progress, sizeof(FsckProgress), 0);
+                if (n < 0 || (size_t) n < sizeof(FsckProgress))
+                        log_warning_errno(errno, "Cannot communicate fsck progress to fsckd: %m");
         }
 
         return 0;
@@ -358,7 +332,7 @@ int main(int argc, char *argv[]) {
         progress_pipe[1] = safe_close(progress_pipe[1]);
 
         if (progress_pipe[0] >= 0) {
-                process_progress(progress_pipe[0]);
+                process_progress(progress_pipe[0], st.st_rdev);
                 progress_pipe[0] = -1;
         }
 

@@ -391,6 +391,7 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
+	systemd-fsckd \
 	systemd-machine-id-commit \
 	systemd-ac-power \
 	systemd-sysctl \
@@ -2355,6 +2356,18 @@ systemd_fsck_LDADD = \
 	libsystemd-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_fsckd_SOURCES = \
+	src/fsckd/fsckd.c \
+	$(NULL)
+
+systemd_fsckd_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libudev-internal.la \
+	$(NULL)
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_commit_SOURCES = \
