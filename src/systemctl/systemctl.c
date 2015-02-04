@@ -2309,9 +2309,12 @@ static int unit_find_paths(sd_bus *bus,
 
         if (!avoid_bus_cache && !unit_name_is_template(unit_name)) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
                 _cleanup_free_ char *path = NULL;
                 _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_strv_free_ char **load_error = NULL;
+                char *unit_load_error_name, *unit_load_error_message;
 
                 unit = unit_dbus_path_from_name(unit_name);
                 if (!unit)
@@ -2319,6 +2322,31 @@ static int unit_find_paths(sd_bus *bus,
 
                 if (need_daemon_reload(bus, unit_name) > 0)
                         warn_unit_file_changed(unit_name);
+
+                r = sd_bus_get_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "LoadError",
+                                &error,
+                                &unit_load_error,
+                                "(ss)");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get LoadError: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(
+                                unit_load_error,
+                                "(ss)",
+                                &unit_load_error_name,
+                                &unit_load_error_message);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (!isempty(unit_load_error_name)) {
+                        log_error("Unit %s is not loaded: %s", unit_name, unit_load_error_message);
+                        return 0;
+                }
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -2386,6 +2414,9 @@ static int unit_find_paths(sd_bus *bus,
                 if (dropin_paths)
                         r = unit_file_find_dropin_paths(lp->unit_path, NULL, names, dropin_paths);
         }
+
+        if (r == 0)
+                log_error("No files found for %s.", unit_name);
 
         return r;
 }
@@ -4588,10 +4619,8 @@ static int cat(sd_bus *bus, char **args) {
                 r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &fragment_path, &dropin_paths);
                 if (r < 0)
                         return r;
-                else if (r == 0) {
-                        log_warning("Unit %s does not have any files on disk", *name);
-                        continue;
-                }
+                else if (r == 0)
+                        return -ENOENT;
 
                 if (first)
                         first = false;
@@ -5940,9 +5969,13 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 r = unit_find_paths(bus, *name, avoid_bus_cache, &lp, &path, NULL);
                 if (r < 0)
                         return r;
-                else if (r == 0 || !path)
+                else if (r == 0)
+                        return -ENOENT;
+                else if (!path) {
                         // FIXME: support units with path==NULL (no FragmentPath)
-                        return log_error_errno(ENOENT, "Unit %s not found, cannot edit.", *name);
+                        log_error("No fragment exists for %s.", *name);
+                        return -ENOENT;
+                }
 
                 if (arg_full)
                         r = unit_file_create_copy(*name, path, user_home, user_runtime, &new_path, &tmp_path);
@@ -5981,19 +6014,12 @@ static int edit(sd_bus *bus, char **args) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        if (!names) {
-                log_error("No unit name found by expanding names");
-                return -ENOENT;
-        }
-
         r = find_paths_to_edit(bus, names, &paths);
         if (r < 0)
                 return r;
 
-        if (strv_isempty(paths)) {
-                log_error("Cannot find any units to edit");
+        if (strv_isempty(paths))
                 return -ENOENT;
-        }
 
         r = run_editor(paths);
         if (r < 0)
