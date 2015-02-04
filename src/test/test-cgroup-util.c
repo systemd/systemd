@@ -93,6 +93,7 @@ static void test_path_get_user_unit(void) {
         check_p_g_u_u("/meh.service", -ENOENT, NULL);
         check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "foobar@pie.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENOENT, NULL);
 }
 

@@ -1251,17 +1251,15 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the session scope... */
+        /* Skip the session scope or user manager... */
         t = skip_session(e);
-        if (t)
-                /* ... and skip more slices if there's one */
-                e = skip_slices(t);
-        else {
-                /* ... or require a user manager unit to be there */
-                e = skip_user_manager(e);
-                if (!e)
-                        return -ENOENT;
-        }
+        if (!t)
+                t = skip_user_manager(e);
+        if (!t)
+                return -ENOENT;
+
+        /* ... and skip more slices if there are any */
+        e = skip_slices(t);
 
         return cg_path_decode_unit(e, unit);
 }
