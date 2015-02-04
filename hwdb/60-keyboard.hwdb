@@ -590,7 +590,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*
 # ThinkPad X6 Tablet
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
  KEYBOARD_KEY_6c=direction                              # rotate
- KEYBOARD_KEY_68=f13                                    # toolbox
+ KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
  KEYBOARD_KEY_6d=right                                  # right on d-pad
  KEYBOARD_KEY_6e=left                                   # left on d-pad
@@ -601,7 +601,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
 # ThinkPad X41 Tablet
 keyboard:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:pvr*
  KEYBOARD_KEY_6c=direction                              # rotate
- KEYBOARD_KEY_68=f13                                    # toolbox
+ KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
  KEYBOARD_KEY_69=enter                                  # enter on d-pad
 
