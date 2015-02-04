@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,76 +22,74 @@
 -->
 
 <refentry id="sd_booted"
-        xmlns:xi="http://www.w3.org/2001/XInclude">
+  xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>sd_booted</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>sd_booted</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>sd_booted</refentrytitle>
-                <manvolnum>3</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>sd_booted</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>sd_booted</refname>
-                <refpurpose>Test whether the system is running the systemd init system</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>sd_booted</refname>
+    <refpurpose>Test whether the system is running the systemd init system</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <funcsynopsis>
-                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_booted</function></funcdef>
-                                <paramdef>void</paramdef>
-                        </funcprototype>
-                </funcsynopsis>
-        </refsynopsisdiv>
+      <funcprototype>
+        <funcdef>int <function>sd_booted</function></funcdef>
+        <paramdef>void</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
-                <para><function>sd_booted()</function> checks whether
-                the system was booted up using the systemd init system.</para>
-        </refsect1>
+  <refsect1>
+    <title>Description</title>
+    <para><function>sd_booted()</function> checks whether the system
+    was booted up using the systemd init system.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Return Value</title>
+  <refsect1>
+    <title>Return Value</title>
 
-                <para>On failure, this call returns a negative
-                errno-style error code. If the system was booted up
-                with systemd as init system, this call returns a
-                positive return value, zero otherwise.</para>
-        </refsect1>
+    <para>On failure, this call returns a negative errno-style error
+    code. If the system was booted up with systemd as init system,
+    this call returns a positive return value, zero otherwise.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
+  <refsect1>
+    <title>Notes</title>
 
-                <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-                <para>Internally, this function checks whether the
-                directory <filename>/run/systemd/system/</filename>
-                exists. A simple check like this can also be
-                implemented trivially in shell or any other
-                language.</para>
-        </refsect1>
+    <para>Internally, this function checks whether the directory
+    <filename>/run/systemd/system/</filename> exists. A simple check
+    like this can also be implemented trivially in shell or any other
+    language.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

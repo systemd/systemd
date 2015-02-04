@@ -21,57 +21,56 @@
 -->
 <refentry id="systemd-sysctl.service">
 
-        <refentryinfo>
-                <title>systemd-sysctl.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-sysctl.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-sysctl.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-sysctl.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-sysctl.service</refname>
-                <refname>systemd-sysctl</refname>
-                <refpurpose>Configure kernel parameters at boot</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-sysctl.service</refname>
+    <refname>systemd-sysctl</refname>
+    <refpurpose>Configure kernel parameters at boot</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-sysctl.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-sysctl</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-sysctl.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-sysctl</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-sysctl.service</filename> is
-                an early-boot service that configures
-                <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                kernel parameters.</para>
+    <para><filename>systemd-sysctl.service</filename> is an early-boot
+    service that configures
+    <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    kernel parameters.</para>
 
-                <para>See
-                <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for information about the configuration of this
-                service.</para>
-        </refsect1>
+    <para>See
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the configuration of this service.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
 
 </refentry>

@@ -21,98 +21,94 @@
 -->
 <refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'>
 
-        <refentryinfo>
-                <title>systemd-vconsole-setup.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-vconsole-setup.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-vconsole-setup.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-vconsole-setup.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-vconsole-setup.service</refname>
-                <refname>systemd-vconsole-setup</refname>
-                <refpurpose>Configure the virtual console at boot</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-vconsole-setup.service</refname>
+    <refname>systemd-vconsole-setup</refname>
+    <refpurpose>Configure the virtual console at boot</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-vconsole-setup.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-vconsole-setup</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-vconsole-setup.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-vconsole-setup</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-vconsole-setup.service</filename>
-                is an early-boot service that configures the virtual
-                console font and console keymap. Internally it calls
-                <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                and
-                <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para><filename>systemd-vconsole-setup.service</filename> is an
+    early-boot service that configures the virtual console font and
+    console keymap. Internally it calls
+    <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-                <para>See
-                <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for information about the configuration files understood by this
-                service.</para>
-
-
-        </refsect1>
-
-        <refsect1>
-                <title>Kernel Command Line</title>
-
-                <para>A few configuration parameters from
-                <filename>vconsole.conf</filename> may be overridden on
-                the kernel command line:</para>
-
-                <variablelist class='kernel-commandline-options'>
-                        <varlistentry>
-                                <term><varname>vconsole.keymap=</varname></term>
-                                <term><varname>vconsole.keymap.toggle=</varname></term>
-
-                                <listitem><para>Overrides the key
-                                mapping table for the keyboard and the
-                                second toggle keymap.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-
-                                <term><varname>vconsole.font=</varname></term>
-                                <term><varname>vconsole.font.map=</varname></term>
-                                <term><varname>vconsole.font.unimap=</varname></term>
-
-                                <listitem><para>Configures the console
-                                font, the console map, and the unicode
-                                font map.</para></listitem>
+    <para>See
+    <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the configuration files understood by this
+    service.</para>
 
 
-                        </varlistentry>
-                </variablelist>
+  </refsect1>
 
-                <para>See
-                <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for information about these settings.</para>
-        </refsect1>
+  <refsect1>
+    <title>Kernel Command Line</title>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+    <para>A few configuration parameters from
+    <filename>vconsole.conf</filename> may be overridden on the kernel
+    command line:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>vconsole.keymap=</varname></term>
+        <term><varname>vconsole.keymap.toggle=</varname></term>
+
+        <listitem><para>Overrides the key mapping table for the
+        keyboard and the second toggle keymap.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+
+        <term><varname>vconsole.font=</varname></term>
+        <term><varname>vconsole.font.map=</varname></term>
+        <term><varname>vconsole.font.unimap=</varname></term>
+
+        <listitem><para>Configures the console font, the console map,
+        and the unicode font map.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>See
+    <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about these settings.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

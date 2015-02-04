@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,609 +23,647 @@
 
 <refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
 
-        <refentryinfo>
-                <title>systemd.network</title>
-                <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Tom</firstname>
-                                <surname>Gundersen</surname>
-                                <email>teg@jklm.no</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
-
-        <refmeta>
-                <refentrytitle>systemd.netdev</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
-
-        <refnamediv>
-                <refname>systemd.netdev</refname>
-                <refpurpose>Virtual Network Device configuration</refpurpose>
-        </refnamediv>
-
-        <refsynopsisdiv>
-                <para><filename><replaceable>netdev</replaceable>.netdev</filename></para>
-        </refsynopsisdiv>
-
-        <refsect1>
-                <title>Description</title>
-
-                <para>Network setup is performed by
-                <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-                </para>
-
-                <para>Virtual Network Device files must have the extension
-                <filename>.netdev</filename>; other extensions are ignored. Virtual
-                network devices are created as soon as networkd is started. If a netdev
-                with the specified name already exists, networkd will use that as-is
-                rather than create its own. Note that the settings of the pre-existing
-                netdev will not be changed by networkd.</para>
-
-                <para>The <filename>.netdev</filename> files are read from the files located in the
-                system network directory <filename>/usr/lib/systemd/network</filename>,
-                the volatile runtime network directory
-                <filename>/run/systemd/network</filename> and the local administration
-                network directory <filename>/etc/systemd/network</filename>.
-                All configuration files are collectively sorted and processed in lexical order,
-                regardless of the directories in which they live. However, files with
-                identical filenames replace each other. Files in
-                <filename>/etc</filename> have the highest priority, files in
-                <filename>/run</filename> take precedence over files with the same
-                name in <filename>/usr/lib</filename>. This can be used to override a
-                system-supplied configuration file with a local file if needed; a symlink in
-                <filename>/etc</filename> with the same name as a configuration file in
-                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-                disables the configuration file entirely.</para>
-
-        </refsect1>
-
-        <refsect1>
-                <title>Supported netdev kinds</title>
-
-                <para>The following kinds of virtual network devices may be configured in <filename>.netdev</filename> files:</para>
-
-                <table>
-                        <title>Supported kinds of virtual network devices</title>
-
-                        <tgroup cols='2'>
-                                <colspec colname='kind' />
-                                <colspec colname='explanation' />
-                                <thead><row>
-                                        <entry>Kind</entry>
-                                        <entry>Description</entry>
-                                </row></thead>
-                                <tbody>
-                                        <row><entry><varname>bond</varname></entry>
-                                        <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
-
-                                        <row><entry><varname>bridge</varname></entry>
-                                        <entry>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
-
-                                        <row><entry><varname>dummy</varname></entry>
-                                        <entry>A dummy device drops all packets sent to it.</entry></row>
-
-                                        <row><entry><varname>gre</varname></entry>
-                                        <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
-
-                                        <row><entry><varname>gretap</varname></entry>
-                                        <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
-
-                                        <row><entry><varname>ip6gre</varname></entry>
-                                        <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
-
-                                        <row><entry><varname>ip6tnl</varname></entry>
-                                        <entry>An IPv4 or IPv6 tunnel over IPv6</entry></row>
-
-                                        <row><entry><varname>ip6gretap</varname></entry>
-                                        <entry>An Level 2 GRE tunnel over IPv6.</entry></row>
-
-                                        <row><entry><varname>ipip</varname></entry>
-                                        <entry>An IPv4 over IPv4 tunnel.</entry></row>
-
-                                        <row><entry><varname>ipvlan</varname></entry>
-                                        <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
-
-                                        <row><entry><varname>macvlan</varname></entry>
-                                        <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
-
-                                        <row><entry><varname>sit</varname></entry>
-                                        <entry>An IPv6 over IPv4 tunnel.</entry></row>
-
-                                        <row><entry><varname>tap</varname></entry>
-                                        <entry>A persistent Level 2 tunnel between a network device and a device node.</entry></row>
-
-                                        <row><entry><varname>tun</varname></entry>
-                                        <entry>A persistent Level 3 tunnel between a network device and a device node.</entry></row>
-
-                                        <row><entry><varname>veth</varname></entry>
-                                        <entry>An ethernet tunnel between a pair of network devices.</entry></row>
-
-                                        <row><entry><varname>vlan</varname></entry>
-                                        <entry>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <ulink url="http://www.ieee802.org/1/pages/802.1Q.html">IEEE 802.1Q</ulink> for details.</entry></row>
-
-                                        <row><entry><varname>vti</varname></entry>
-                                        <entry>An IPv4 over IPSec tunnel.</entry></row>
-
-                                        <row><entry><varname>vxlan</varname></entry>
-                                        <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
-                                </tbody>
-                        </tgroup>
-                </table>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[Match] Section Options</title>
-
-                <para>A virtual network device is only created if the
-                <literal>[Match]</literal> section matches the current
-                environment, or if the section is empty. The following keys are accepted:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Host=</varname></term>
-                                        <listitem>
-                                                <para>Matches against the hostname or machine ID of the
-                                                host. See <literal>ConditionHost=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Virtualization=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether the system is executed in a virtualized
-                                                environment and optionally test whether it is a specific
-                                                implementation. See <literal>ConditionVirtualization=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>KernelCommandLine=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether a specific kernel command line option is
-                                                set (or if prefixed with the exclamation mark unset). See
-                                                <literal>ConditionKernelCommandLine=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Architecture=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether the system is running on a specific
-                                                architecture. See <literal>ConditionArchitecture=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[NetDev] Section Options</title>
-
-                        <para>The <literal>[NetDev]</literal> section accepts the following
-                        keys:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Description=</varname></term>
-                                        <listitem>
-                                                <para>A free-form description of the netdev.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Name=</varname></term>
-                                        <listitem>
-                                                <para>The interface name used when creating the
-                                                netdev. This option is compulsory.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Kind=</varname></term>
-                                        <listitem>
-                                                <para>The netdev kind. This option is compulsory. See the <literal>Supported netdev kinds</literal> section
-                                                for the valid keys.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MTUBytes=</varname></term>
-                                        <listitem>
-                                                <para>The maximum transmission unit in bytes to
-                                                set for the device. The usual suffixes K, M, G,
-                                                are supported and are understood to the base of
-                                                1024. This key is not currently suported for
-                                                <literal>tun</literal> or <literal>tap</literal> devices.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MACAddress=</varname></term>
-                                        <listitem>
-                                                <para>The MAC address to use for the device.
-                                                If none is given, one is generated based on
-                                                the interface name and the
-                                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-                                                This key is not currently suported for <literal>tun</literal> or <literal>tap</literal> devices.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
-
-        <refsect1>
-                <title>[VLAN] Section Options</title>
-
-                        <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
-                        and accepts the following key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Id=</varname></term>
-                                        <listitem>
-                                                <para>The VLAN ID to use. An integer in the range 0–4094.
-                                                This option is compulsory.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[MACVLAN] Section Options</title>
-
-                        <para>The <literal>[MACVLAN]</literal> section only applies for netdevs of kind
-                        <literal>macvlan</literal>, and accepts the following key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Mode=</varname></term>
-                                        <listitem>
-                                                <para>The MACVLAN mode to use. The supported options are
-                                                <literal>private</literal>, <literal>vepa</literal>,
-                                                <literal>bridge</literal> and <literal>passthru</literal>.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[IPVLAN] Section Options</title>
-
-                        <para>The <literal>[IPVLAN]</literal> section only applies for netdevs of kind
-                        <literal>ipvlan</literal>, and accepts the following key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Mode=</varname></term>
-                                        <listitem>
-                                                <para>The IPVLAN mode to use. The supported options are
-                                                <literal>L2</literal> and <literal>L3</literal>.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[VXLAN] Section Options</title>
-                        <para>The <literal>[VXLAN]</literal> section only applies for netdevs of kind
-                        <literal>vxlan</literal>, and accepts the following key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Id=</varname></term>
-                                        <listitem>
-                                                <para>The VXLAN ID to use.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Group=</varname></term>
-                                        <listitem>
-                                                <para>An assigned multicast group IP address.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>TOS=</varname></term>
-                                        <listitem>
-                                                <para>The Type Of Service byte value for a vxlan interface.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>TTL=</varname></term>
-                                        <listitem>
-                                                <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
-                                                N is a number in the range 1-255. 0 is a special value meaning that packets
-                                                inherit the TTL value.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MacLearning=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables dynamic MAC learning
-                                                to discover remote MAC addresses.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>FDBAgeingSec=</varname></term>
-                                        <listitem>
-                                                <para>The lifetime of Forwarding Database entry learnt by the kernel in seconds.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>ARPProxy=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables ARP proxy.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>L2MissNotification=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables netlink LLADDR miss notifications.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>L3MissNotification=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables netlink IP ADDR miss notifications.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>RouteShortCircuit=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true route short circuit is turned on.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
-        <refsect1>
-                <title>[Tunnel] Section Options</title>
-
-                        <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
-                        <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal>, <literal>gretap</literal>,
-                        <literal>ip6gre</literal>, <literal>ip6gretap</literal>, <literal>vti</literal> and <literal>ip6tnl</literal>
-                        and accepts the following keys:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Local=</varname></term>
-                                        <listitem>
-                                                <para>A static local address for tunneled packets.
-                                                It must be an address on another interface of this host.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Remote=</varname></term>
-                                        <listitem>
-                                                <para>The remote endpoint of the tunnel.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>TOS=</varname></term>
-                                        <listitem>
-                                                <para>The Type Of Service byte value for a tunnel interface.
-                                                For details about the TOS see the
-                                                <ulink url="http://tools.ietf.org/html/rfc1349">
-                                                Type of Service in the Internet Protocol Suite
-                                                </ulink> document.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>TTL=</varname></term>
-                                        <listitem>
-                                                <para>A fixed Time To Live N on tunneled packets.
-                                                N is a number in the range 1-255. 0 is a special value meaning that packets
-                                                inherit the TTL value. The default value for IPv4 tunnels is: inherit.
-                                                The default value for IPv6 tunnels is: 64.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>DiscoverPathMTU=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables Path MTU Discovery on the tunnel.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                  <term><varname>Mode=</varname></term>
-                                  <listitem>
-                                    <para>An <literal>ip6tnl</literal> tunnels can have three modes
-                                    <literal>ip6ip6</literal> for IPv6 over IPv6,
-                                    <literal>ipip6</literal> for IPv4 over IPv6 or
-                                    <literal>any</literal> for either.
-                                    </para>
-                                  </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
-        <refsect1>
-                <title>[Peer] Section Options</title>
-
-                        <para>The <literal>[Peer]</literal> section only applies for netdevs of kind <literal>veth</literal>
-                        and accepts the following key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Name=</varname></term>
-                                        <listitem>
-                                                <para>The interface name used when creating the netdev.
-                                                This option is compulsory.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MACAddress=</varname></term>
-                                        <listitem>
-                                                <para>The peer MACAddress, if not set it is generated in the same
-                                                way as the MAC address of the main interface.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
-        <refsect1>
-                <title>[Tun] Section Options</title>
-
-                        <para>The <literal>[Tun]</literal> section only applies for netdevs of kind
-                        <literal>tun</literal>, and accepts the following keys:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>OneQueue=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether
-                                        all packets are queued at the device (enabled), or a fixed number
-                                        of packets are queued at the device and the rest at the
-                                        <literal>qdisc</literal>. Defaults to <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MultiQueue=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether to
-                                        use multiple file descriptors (queues) to parallelize packets
-                                        sending and receiving. Defaults to <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>PacketInfo=</varname></term>
-                                        <listitem><para>Takes a boolean argument. Configures whether packets
-                                        should be prepened with four extra bytes (two flag bytes and two
-                                        protocol bytes). If disabled it indicates that the packets will be
-                                        pure IP packets. Defaults to <literal>no</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>User=</varname></term>
-                                        <listitem><para>User to grant access to the <filename>/dev/net/tun</filename>
-                                        device.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Group=</varname></term>
-                                        <listitem><para>Group to grant access to the <filename>/dev/net/tun</filename>
-                                        device.</para>
-                                        </listitem>
-                                </varlistentry>
-
-                        </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>[Tap] Section Options</title>
-
-                        <para>The <literal>[Tap]</literal> section only applies for netdevs of kind
-                        <literal>tap</literal>, and accepts the same keys as the
-                        <literal>[Tun]</literal> section.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>[Bond] Section Options</title>
-
-                        <para>The <literal>[Bond]</literal> section accepts the following
-                        key:</para>
-
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Mode=</varname></term>
-                                        <listitem>
-                                          <para>Specifies one of the bonding policies. The default is
-                                          <literal>balance-rr</literal> (round robin). Possible values are
-                                                <literal>balance-rr</literal>,
-                                                <literal>active-backup</literal>,
-                                                <literal>balance-xor</literal>,
-                                                <literal>broadcast</literal>,
-                                                <literal>802.3ad</literal>,
-                                                <literal>balance-tlb</literal>, and
-                                                <literal>balance-alb</literal>.
-                                          </para>
-                                        </listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                  <term><varname>TransmitHashPolicy=</varname></term>
-                                  <listitem>
-                                    <para>Selects the transmit hash policy to use for slave selection in
-                                    balance-xor, 802.3ad, and tlb modes. Possible values are
-                                    <literal>layer2</literal>,
-                                    <literal>layer3+4</literal>,
-                                    <literal>layer2+3</literal>,
-                                    <literal>encap2+3</literal>,
-                                    <literal>802.3ad</literal>, and
-                                    <literal>encap3+4</literal>.
-                                    </para>
-                                  </listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                  <term><varname>LACPTransmitRate=</varname></term>
-                                  <listitem>
-                                    <para>Specifies the rate with which link partner
-                                    transmits Link Aggregation Control Protocol Data Unit packets
-                                    in 802.3ad mode. Possible values are
-                                    <literal>slow</literal>, which requests partner to transmit LACPDUs every 30 seconds, and
-                                    <literal>fast</literal>, which requests partner to transmit LACPDUs every second.
-                                    The default value is <literal>slow</literal>.</para>
-                                  </listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                  <term><varname>MIIMonitorSec=</varname></term>
-                                  <listitem>
-                                    <para>Specifies the frequency that Media Independent Interface link
-                                    monitoring will occur. A value of zero disables MII link monitoring.
-                                    This values is rounded down to the nearest millisecond. The default
-                                    value is 0.</para>
-                                  </listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                  <term><varname>UpDelaySec=</varname></term>
-                                  <listitem>
-                                    <para>Specifies the delay before a link is enabled after a link up
-                                    status has been detected. This value is rounded down to a multiple of
-                                    MIIMonitorSec. The default value is 0.</para>
-                                  </listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                  <term><varname>DownDelaySec=</varname></term>
-                                  <listitem>
-                                    <para>Specifies the delay before a link is disabled after a link down
-                                    status has been detected. This value is rounded down to a multiple of
-                                    MIIMonitorSec. The default value is 0.</para>
-                                  </listitem>
-                                </varlistentry>
-
-                        </variablelist>
-        </refsect1>
-
-        <refsect1>
-                <title>Example</title>
-                <example>
-                        <title>/etc/systemd/network/bridge.netdev</title>
-
-                        <programlisting>[NetDev]
+  <refentryinfo>
+    <title>systemd.network</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Tom</firstname>
+        <surname>Gundersen</surname>
+        <email>teg@jklm.no</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.netdev</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.netdev</refname>
+    <refpurpose>Virtual Network Device configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>netdev</replaceable>.netdev</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Network setup is performed by
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>Virtual Network Device files must have the extension
+    <filename>.netdev</filename>; other extensions are ignored.
+    Virtual network devices are created as soon as networkd is
+    started. If a netdev with the specified name already exists,
+    networkd will use that as-is rather than create its own. Note that
+    the settings of the pre-existing netdev will not be changed by
+    networkd.</para>
+
+    <para>The <filename>.netdev</filename> files are read from the
+    files located in the system network directory
+    <filename>/usr/lib/systemd/network</filename>, the volatile
+    runtime network directory
+    <filename>/run/systemd/network</filename> and the local
+    administration network directory
+    <filename>/etc/systemd/network</filename>. All configuration files
+    are collectively sorted and processed in lexical order, regardless
+    of the directories in which they live. However, files with
+    identical filenames replace each other. Files in
+    <filename>/etc</filename> have the highest priority, files in
+    <filename>/run</filename> take precedence over files with the same
+    name in <filename>/usr/lib</filename>. This can be used to
+    override a system-supplied configuration file with a local file if
+    needed; a symlink in <filename>/etc</filename> with the same name
+    as a configuration file in <filename>/usr/lib</filename>, pointing
+    to <filename>/dev/null</filename>, disables the configuration file
+    entirely.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Supported netdev kinds</title>
+
+    <para>The following kinds of virtual network devices may be
+    configured in <filename>.netdev</filename> files:</para>
+
+    <table>
+      <title>Supported kinds of virtual network devices</title>
+
+      <tgroup cols='2'>
+        <colspec colname='kind' />
+        <colspec colname='explanation' />
+        <thead><row>
+          <entry>Kind</entry>
+          <entry>Description</entry>
+        </row></thead>
+        <tbody>
+          <row><entry><varname>bond</varname></entry>
+          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
+
+          <row><entry><varname>bridge</varname></entry>
+          <entry>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
+
+          <row><entry><varname>dummy</varname></entry>
+          <entry>A dummy device drops all packets sent to it.</entry></row>
+
+          <row><entry><varname>gre</varname></entry>
+          <entry>A Level 3 GRE tunnel over IPv4. See <ulink url="https://tools.ietf.org/html/rfc2784">RFC 2784</ulink> for details.</entry></row>
+
+          <row><entry><varname>gretap</varname></entry>
+          <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
+
+          <row><entry><varname>ip6gre</varname></entry>
+          <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
+
+          <row><entry><varname>ip6tnl</varname></entry>
+          <entry>An IPv4 or IPv6 tunnel over IPv6</entry></row>
+
+          <row><entry><varname>ip6gretap</varname></entry>
+          <entry>An Level 2 GRE tunnel over IPv6.</entry></row>
+
+          <row><entry><varname>ipip</varname></entry>
+          <entry>An IPv4 over IPv4 tunnel.</entry></row>
+
+          <row><entry><varname>ipvlan</varname></entry>
+          <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
+
+          <row><entry><varname>macvlan</varname></entry>
+          <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
+
+          <row><entry><varname>sit</varname></entry>
+          <entry>An IPv6 over IPv4 tunnel.</entry></row>
+
+          <row><entry><varname>tap</varname></entry>
+          <entry>A persistent Level 2 tunnel between a network device and a device node.</entry></row>
+
+          <row><entry><varname>tun</varname></entry>
+          <entry>A persistent Level 3 tunnel between a network device and a device node.</entry></row>
+
+          <row><entry><varname>veth</varname></entry>
+          <entry>An ethernet tunnel between a pair of network devices.</entry></row>
+
+          <row><entry><varname>vlan</varname></entry>
+          <entry>A VLAN is a stacked device which receives packets from its underlying device based on VLAN tagging. See <ulink url="http://www.ieee802.org/1/pages/802.1Q.html">IEEE 802.1Q</ulink> for details.</entry></row>
+
+          <row><entry><varname>vti</varname></entry>
+          <entry>An IPv4 over IPSec tunnel.</entry></row>
+
+          <row><entry><varname>vxlan</varname></entry>
+          <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[Match] Section Options</title>
+
+    <para>A virtual network device is only created if the
+    <literal>[Match]</literal> section matches the current
+    environment, or if the section is empty. The following keys are
+    accepted:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Host=</varname></term>
+        <listitem>
+          <para>Matches against the hostname or machine ID of the
+          host. See <literal>ConditionHost=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Virtualization=</varname></term>
+        <listitem>
+          <para>Checks whether the system is executed in a virtualized
+          environment and optionally test whether it is a specific
+          implementation. See
+          <literal>ConditionVirtualization=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KernelCommandLine=</varname></term>
+        <listitem>
+          <para>Checks whether a specific kernel command line option
+          is set (or if prefixed with the exclamation mark unset). See
+          <literal>ConditionKernelCommandLine=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Architecture=</varname></term>
+        <listitem>
+          <para>Checks whether the system is running on a specific
+          architecture. See <literal>ConditionArchitecture=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[NetDev] Section Options</title>
+
+      <para>The <literal>[NetDev]</literal> section accepts the
+      following keys:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Description=</varname></term>
+          <listitem>
+            <para>A free-form description of the netdev.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Name=</varname></term>
+          <listitem>
+            <para>The interface name used when creating the netdev.
+            This option is compulsory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Kind=</varname></term>
+          <listitem>
+            <para>The netdev kind. This option is compulsory. See the
+            <literal>Supported netdev kinds</literal> section for the
+            valid keys.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MTUBytes=</varname></term>
+          <listitem>
+            <para>The maximum transmission unit in bytes to set for
+            the device. The usual suffixes K, M, G, are supported and
+            are understood to the base of 1024. This key is not
+            currently suported for <literal>tun</literal> or
+            <literal>tap</literal> devices.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>The MAC address to use for the device. If none is
+            given, one is generated based on the interface name and
+            the
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This key is not currently suported for
+            <literal>tun</literal> or <literal>tap</literal> devices.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[VLAN] Section Options</title>
+
+      <para>The <literal>[VLAN]</literal> section only applies for
+      netdevs of kind <literal>vlan</literal>, and accepts the
+      following key:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Id=</varname></term>
+          <listitem>
+            <para>The VLAN ID to use. An integer in the range 0–4094.
+            This option is compulsory.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[MACVLAN] Section Options</title>
+
+    <para>The <literal>[MACVLAN]</literal> section only applies for
+    netdevs of kind <literal>macvlan</literal>, and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>The MACVLAN mode to use. The supported options are
+          <literal>private</literal>,
+          <literal>vepa</literal>,
+          <literal>bridge</literal>, and
+          <literal>passthru</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[IPVLAN] Section Options</title>
+
+    <para>The <literal>[IPVLAN]</literal> section only applies for
+    netdevs of kind <literal>ipvlan</literal>, and accepts the
+    following key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Mode=</varname></term>
+          <listitem>
+            <para>The IPVLAN mode to use. The supported options are
+            <literal>L2</literal> and <literal>L3</literal>.
+            </para>
+          </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[VXLAN] Section Options</title>
+    <para>The <literal>[VXLAN]</literal> section only applies for
+    netdevs of kind <literal>vxlan</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Id=</varname></term>
+        <listitem>
+          <para>The VXLAN ID to use.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Group=</varname></term>
+        <listitem>
+          <para>An assigned multicast group IP address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TOS=</varname></term>
+        <listitem>
+          <para>The Type Of Service byte value for a vxlan interface.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TTL=</varname></term>
+        <listitem>
+          <para>A fixed Time To Live N on Virtual eXtensible Local
+          Area Network packets. N is a number in the range 1-255. 0
+          is a special value meaning that packets inherit the TTL
+          value.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MacLearning=</varname></term>
+        <listitem>
+          <para>A boolean. When true, enables dynamic MAC learning
+          to discover remote MAC addresses.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FDBAgeingSec=</varname></term>
+        <listitem>
+          <para>The lifetime of Forwarding Database entry learnt by
+          the kernel in seconds.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ARPProxy=</varname></term>
+        <listitem>
+          <para>A boolean. When true, enables ARP proxy.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>L2MissNotification=</varname></term>
+        <listitem>
+          <para>A boolean. When true, enables netlink LLADDR miss
+          notifications.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>L3MissNotification=</varname></term>
+        <listitem>
+          <para>A boolean. When true, enables netlink IP ADDR miss
+          notifications.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RouteShortCircuit=</varname></term>
+        <listitem>
+          <para>A boolean. When true route short circuit is turned
+          on.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[Tunnel] Section Options</title>
+
+    <para>The <literal>[Tunnel]</literal> section only applies for
+    netdevs of kind
+    <literal>ipip</literal>,
+    <literal>sit</literal>,
+    <literal>gre</literal>,
+    <literal>gretap</literal>,
+    <literal>ip6gre</literal>,
+    <literal>ip6gretap</literal>,
+    <literal>vti</literal>, and
+    <literal>ip6tnl</literal> and accepts
+    the following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>A static local address for tunneled packets. It must
+          be an address on another interface of this host.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Remote=</varname></term>
+        <listitem>
+          <para>The remote endpoint of the tunnel.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TOS=</varname></term>
+        <listitem>
+          <para>The Type Of Service byte value for a tunnel interface.
+          For details about the TOS see the
+          <ulink url="http://tools.ietf.org/html/rfc1349"> Type of
+          Service in the Internet Protocol Suite </ulink> document.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TTL=</varname></term>
+        <listitem>
+          <para>A fixed Time To Live N on tunneled packets. N is a
+          number in the range 1-255. 0 is a special value meaning that
+          packets inherit the TTL value. The default value for IPv4
+          tunnels is: inherit. The default value for IPv6 tunnels is:
+          64.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DiscoverPathMTU=</varname></term>
+        <listitem>
+          <para>A boolean. When true, enables Path MTU Discovery on
+          the tunnel.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>An <literal>ip6tnl</literal> tunnels can have three
+          modes
+          <literal>ip6ip6</literal> for IPv6 over IPv6,
+          <literal>ipip6</literal> for IPv4 over IPv6 or
+          <literal>any</literal> for either.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[Peer] Section Options</title>
+
+      <para>The <literal>[Peer]</literal> section only applies for
+      netdevs of kind <literal>veth</literal> and accepts the
+      following key:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Name=</varname></term>
+          <listitem>
+            <para>The interface name used when creating the netdev.
+            This option is compulsory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>The peer MACAddress, if not set it is generated in
+            the same way as the MAC address of the main
+            interface.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[Tun] Section Options</title>
+
+    <para>The <literal>[Tun]</literal> section only applies for
+    netdevs of kind <literal>tun</literal>, and accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>OneQueue=</varname></term>
+        <listitem><para>Takes a boolean argument. Configures whether
+        all packets are queued at the device (enabled), or a fixed
+        number of packets are queued at the device and the rest at the
+        <literal>qdisc</literal>. Defaults to
+        <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MultiQueue=</varname></term>
+        <listitem><para>Takes a boolean argument. Configures whether
+        to use multiple file descriptors (queues) to parallelize
+        packets sending and receiving. Defaults to
+        <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PacketInfo=</varname></term>
+        <listitem><para>Takes a boolean argument. Configures whether
+        packets should be prepened with four extra bytes (two flag
+        bytes and two protocol bytes). If disabled it indicates that
+        the packets will be pure IP packets. Defaults to
+        <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>User=</varname></term>
+        <listitem><para>User to grant access to the
+        <filename>/dev/net/tun</filename> device.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Group=</varname></term>
+        <listitem><para>Group to grant access to the
+        <filename>/dev/net/tun</filename> device.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>[Tap] Section Options</title>
+
+    <para>The <literal>[Tap]</literal> section only applies for
+    netdevs of kind <literal>tap</literal>, and accepts the same keys
+    as the <literal>[Tun]</literal> section.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Bond] Section Options</title>
+
+    <para>The <literal>[Bond]</literal> section accepts the following
+    key:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Mode=</varname></term>
+        <listitem>
+          <para>Specifies one of the bonding policies. The default is
+          <literal>balance-rr</literal> (round robin). Possible values are
+          <literal>balance-rr</literal>,
+          <literal>active-backup</literal>,
+          <literal>balance-xor</literal>,
+          <literal>broadcast</literal>,
+          <literal>802.3ad</literal>,
+          <literal>balance-tlb</literal>, and
+          <literal>balance-alb</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TransmitHashPolicy=</varname></term>
+        <listitem>
+          <para>Selects the transmit hash policy to use for slave
+          selection in balance-xor, 802.3ad, and tlb modes. Possible
+          values are
+          <literal>layer2</literal>,
+          <literal>layer3+4</literal>,
+          <literal>layer2+3</literal>,
+          <literal>encap2+3</literal>,
+          <literal>802.3ad</literal>, and
+          <literal>encap3+4</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LACPTransmitRate=</varname></term>
+        <listitem>
+          <para>Specifies the rate with which link partner transmits
+          Link Aggregation Control Protocol Data Unit packets in
+          802.3ad mode. Possible values are <literal>slow</literal>,
+          which requests partner to transmit LACPDUs every 30 seconds,
+          and <literal>fast</literal>, which requests partner to
+          transmit LACPDUs every second. The default value is
+          <literal>slow</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MIIMonitorSec=</varname></term>
+        <listitem>
+          <para>Specifies the frequency that Media Independent
+          Interface link monitoring will occur. A value of zero
+          disables MII link monitoring. This values is rounded down to
+          the nearest millisecond. The default value is 0.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UpDelaySec=</varname></term>
+        <listitem>
+          <para>Specifies the delay before a link is enabled after a
+          link up status has been detected. This value is rounded down
+          to a multiple of MIIMonitorSec. The default value is
+          0.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DownDelaySec=</varname></term>
+        <listitem>
+          <para>Specifies the delay before a link is disabled after a
+          link down status has been detected. This value is rounded
+          down to a multiple of MIIMonitorSec. The default value is
+          0.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>/etc/systemd/network/bridge.netdev</title>
+
+      <programlisting>[NetDev]
 Name=bridge0
 Kind=bridge</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/vlan1.netdev</title>
+    <example>
+      <title>/etc/systemd/network/vlan1.netdev</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Virtualization=no
 
 [NetDev]
@@ -634,10 +672,10 @@ Kind=vlan
 
 [VLAN]
 Id=1</programlisting>
-                </example>
-                <example>
-                        <title>/etc/systemd/network/ipip.netdev</title>
-                        <programlisting>[NetDev]
+    </example>
+    <example>
+      <title>/etc/systemd/network/ipip.netdev</title>
+      <programlisting>[NetDev]
 Name=ipip-tun
 Kind=ipip
 MTUBytes=1480
@@ -646,10 +684,10 @@ MTUBytes=1480
 Local=192.168.223.238
 Remote=192.169.224.239
 TTL=64</programlisting>
-                </example>
-                <example>
-                  <title>/etc/systemd/network/tap.netdev</title>
-                  <programlisting>[NetDev]
+    </example>
+    <example>
+      <title>/etc/systemd/network/tap.netdev</title>
+      <programlisting>[NetDev]
 Name=tap-test
 Kind=tap
 
@@ -657,9 +695,9 @@ Kind=tap
 MultiQueue=true
 PacketInfo=true</programlisting> </example>
 
-                <example>
-                        <title>/etc/systemd/network/sit.netdev</title>
-                        <programlisting>[NetDev]
+    <example>
+      <title>/etc/systemd/network/sit.netdev</title>
+      <programlisting>[NetDev]
 Name=sit-tun
 Kind=sit
 MTUBytes=1480
@@ -667,11 +705,11 @@ MTUBytes=1480
 [Tunnel]
 Local=10.65.223.238
 Remote=10.65.223.239</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/gre.netdev</title>
-                        <programlisting>[NetDev]
+    <example>
+      <title>/etc/systemd/network/gre.netdev</title>
+      <programlisting>[NetDev]
 Name=gre-tun
 Kind=gre
 MTUBytes=1480
@@ -679,12 +717,12 @@ MTUBytes=1480
 [Tunnel]
 Local=10.65.223.238
 Remote=10.65.223.239</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/vti.netdev</title>
+    <example>
+      <title>/etc/systemd/network/vti.netdev</title>
 
-                        <programlisting>[NetDev]
+      <programlisting>[NetDev]
 Name=vti-tun
 Kind=vti
 MTUBytes=1480
@@ -692,35 +730,35 @@ MTUBytes=1480
 [Tunnel]
 Local=10.65.223.238
 Remote=10.65.223.239</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/veth.netdev</title>
-                        <programlisting>[NetDev]
+    <example>
+      <title>/etc/systemd/network/veth.netdev</title>
+      <programlisting>[NetDev]
 Name=veth-test
 Kind=veth
 
 [Peer]
 Name=veth-peer</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/dummy.netdev</title>
-                        <programlisting>[NetDev]
+    <example>
+      <title>/etc/systemd/network/dummy.netdev</title>
+      <programlisting>[NetDev]
 Name=dummy-test
 Kind=dummy
 MACAddress=12:34:56:78:9a:bc</programlisting>
-                </example>
+    </example>
 
-        </refsect1>
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

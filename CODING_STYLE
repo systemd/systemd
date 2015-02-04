@@ -1,4 +1,5 @@
-- 8ch indent, no tabs
+- 8ch indent, no tabs, except for files in man/ which are 2ch indent,
+  and still no tabs
 
 - Don't break code lines too eagerly. We do *not* force line breaks at
   80ch, all of today's screens should be much larger than that. But

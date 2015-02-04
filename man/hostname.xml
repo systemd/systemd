@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,84 +23,80 @@
 -->
 
 <refentry id="hostname">
-        <refentryinfo>
-                <title>hostname</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>hostname</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>hostname</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>hostname</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>hostname</refname>
-                <refpurpose>Local hostname configuration file</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>hostname</refname>
+    <refpurpose>Local hostname configuration file</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/etc/hostname</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/etc/hostname</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para>The <filename>/etc/hostname</filename> file
-                configures the name of the local system that is set
-                during boot using the
-                <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                system call. It should contain a single
-                newline-terminated hostname string. The
-                hostname may be a free-form string up to 64 characters
-                in length; however, it is recommended that it consists
-                only of 7-bit ASCII lower-case characters and no spaces or dots,
-                and limits itself to the format allowed for DNS domain
-                name labels, even though this is not a
-                strict requirement.</para>
+    <para>The <filename>/etc/hostname</filename> file configures the
+    name of the local system that is set during boot using the
+    <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    system call. It should contain a single newline-terminated
+    hostname string. The hostname may be a free-form string up to 64
+    characters in length; however, it is recommended that it consists
+    only of 7-bit ASCII lower-case characters and no spaces or dots,
+    and limits itself to the format allowed for DNS domain name
+    labels, even though this is not a strict requirement.</para>
 
-                <para>Depending on the operating system, other
-                configuration files might be checked for configuration
-                of the hostname as well, however only as fallback.</para>
+    <para>Depending on the operating system, other configuration files
+    might be checked for configuration of the hostname as well,
+    however only as fallback.</para>
 
-                <para>You may use
-                <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                to change the value of this file during runtime from
-                the command line. Use
-                <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                to initialize it on mounted (but not booted) system
-                images.</para>
-        </refsect1>
+    <para>You may use
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to change the value of this file during runtime from the command
+    line. Use
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to initialize it on mounted (but not booted) system images.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>History</title>
+  <refsect1>
+    <title>History</title>
 
-                <para>The simple configuration file format of
-                <filename>/etc/hostname</filename> originates from
-                Debian GNU/Linux.</para>
-        </refsect1>
+    <para>The simple configuration file format of
+    <filename>/etc/hostname</filename> originates from Debian
+    GNU/Linux.</para>
+  </refsect1>
 
-        <refsect1>
-                  <title>See Also</title>
-                  <para>
-                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                  </para>
-        </refsect1>
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      </para>
+  </refsect1>
 
 </refentry>

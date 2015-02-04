@@ -21,72 +21,68 @@
 -->
 <refentry id="systemd-rfkill@.service" conditional='ENABLE_RFKILL'>
 
-        <refentryinfo>
-                <title>systemd-rfkill@.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-rfkill@.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-rfkill@.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-rfkill@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-rfkill@.service</refname>
-                <refname>systemd-rfkill</refname>
-                <refpurpose>Load and save the RF kill switch state at boot and shutdown</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-rfkill@.service</refname>
+    <refname>systemd-rfkill</refname>
+    <refpurpose>Load and save the RF kill switch state at boot and shutdown</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-rfkill@.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-rfkill</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-rfkill@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-rfkill</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-rfkill@.service</filename> is
-                a service that restores the RF kill switch state at
-                early boot and saves it at shutdown. On disk, the RF
-                kill switch state is stored in
-                <filename>/var/lib/systemd/rfkill/</filename>.</para>
-        </refsect1>
+    <para><filename>systemd-rfkill@.service</filename> is a service
+    that restores the RF kill switch state at early boot and saves it
+    at shutdown. On disk, the RF kill switch state is stored in
+    <filename>/var/lib/systemd/rfkill/</filename>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Kernel Command Line</title>
+  <refsect1>
+    <title>Kernel Command Line</title>
 
-                <para><filename>systemd-rfkill</filename> understands
-                the following kernel command line parameter:</para>
+    <para><filename>systemd-rfkill</filename> understands the
+    following kernel command line parameter:</para>
 
-                <variablelist class='kernel-commandline-options'>
-                        <varlistentry>
-                                <term><varname>systemd.restore_state=</varname></term>
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.restore_state=</varname></term>
 
-                                <listitem><para>Takes a boolean
-                                argument. Defaults to
-                                <literal>1</literal>. If
-                                <literal>0</literal>, does not restore
-                                the rfkill settings on boot. However,
-                                settings will still be stored on shutdown.
-                                </para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+        <listitem><para>Takes a boolean argument. Defaults to
+        <literal>1</literal>. If <literal>0</literal>, does not
+        restore the rfkill settings on boot. However, settings will
+        still be stored on shutdown. </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -20,95 +20,93 @@
 -->
 
 <refentry id="bootctl" conditional='ENABLE_EFI'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>bootctl</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>bootctl</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Kay</firstname>
-                                <surname>Sievers</surname>
-                                <email>kay@vrfy.org</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Kay</firstname>
+        <surname>Sievers</surname>
+        <email>kay@vrfy.org</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>bootctl</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>bootctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>bootctl</refname>
-                <refpurpose>Control the firmware and boot manager settings</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>bootctl</refname>
+    <refpurpose>Control the firmware and boot manager settings</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>bootctl</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="req">COMMAND</arg>
-                </cmdsynopsis>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>bootctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>bootctl</command> may be used to
-                query or (in the future) change the firmware and boot
-                manager settings.</para>
+    <para><command>bootctl</command> may be used to query or (in the
+    future) change the firmware and boot manager settings.</para>
 
-                <para>Firmware information is available only on EFI
-                systems.</para>
+    <para>Firmware information is available only on EFI systems.
+    </para>
 
-                <para>Currently, only the <citerefentry project='gummiboot'><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry> boot
-                manager implements the required boot loader interface
-                to provide complete boot manager information.</para>
-        </refsect1>
+    <para>Currently, only the
+    <citerefentry project='gummiboot'><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    boot manager implements the required boot loader interface to
+    provide complete boot manager information.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <para>The following options are understood:</para>
+    <para>The following options are understood:</para>
 
-                <variablelist>
-                        <xi:include href="standard-options.xml" xpointer="help" />
-                        <xi:include href="standard-options.xml" xpointer="version" />
-                </variablelist>
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
 
-                <para>The following commands are understood:</para>
+    <para>The following commands are understood:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><command>status</command></term>
+    <variablelist>
+      <varlistentry>
+        <term><command>status</command></term>
 
-                                <listitem><para>Show firmware and boot
-                                manager information about the system,
-                                including secure boot mode status and
-                                selected firmware entry (where
-                                available).</para></listitem>
-                        </varlistentry>
-                </variablelist>
+        <listitem><para>Show firmware and boot manager information
+        about the system, including secure boot mode status and
+        selected firmware entry (where available).</para></listitem>
+      </varlistentry>
+    </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise.</para>
-        </refsect1>
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <ulink url="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot loader interface</ulink>,
-                        <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>,
-                        <ulink url="http://www.freedesktop.org/wiki/Software/gummiboot/">gummiboot</ulink>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot loader interface</ulink>,
+      <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>,
+      <ulink url="http://www.freedesktop.org/wiki/Software/gummiboot/">gummiboot</ulink>
+    </para>
+  </refsect1>
 
 </refentry>

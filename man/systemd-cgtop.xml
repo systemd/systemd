@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,249 +22,232 @@
 -->
 
 <refentry id="systemd-cgtop"
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>systemd-cgtop</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-cgtop</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-cgtop</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-cgtop</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-cgtop</refname>
-                <refpurpose>Show top control groups by their resource usage</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-cgtop</refname>
+    <refpurpose>Show top control groups by their resource usage</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>systemd-cgtop</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                </cmdsynopsis>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-cgtop</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>systemd-cgtop</command> shows the top
-                control groups of the local Linux control group
-                hierarchy, ordered by their CPU, memory, or disk I/O load. The
-                display is refreshed in regular intervals (by default
-                every 1s), similar in style to
-                <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-                If <command>systemd-cgtop</command> is not connected
-                to a tty, only one iteration is performed and no
-                columns headers are printed. This mode is suitable for
-                scripting.</para>
+    <para><command>systemd-cgtop</command> shows the top control
+    groups of the local Linux control group hierarchy, ordered by
+    their CPU, memory, or disk I/O load. The display is refreshed in
+    regular intervals (by default every 1s), similar in style to
+    <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    If <command>systemd-cgtop</command> is not connected to a tty,
+    only one iteration is performed and no columns headers are
+    printed. This mode is suitable for scripting.</para>
 
-                <para>Resource usage is only accounted for control
-                groups in the relevant hierarchy, i.e. CPU usage is
-                only accounted for control groups in the
-                <literal>cpuacct</literal> hierarchy, memory usage
-                only for those in <literal>memory</literal> and disk
-                I/O usage for those in <literal>blkio</literal>. If
-                resource monitoring for these resources is required,
-                it is recommended to add the
-                <varname>CPUAccounting=1</varname>,
-                <varname>MemoryAccounting=1</varname> and
-                <varname>BlockIOAccounting=1</varname> settings in the
-                unit files in question. See
-                <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details.</para>
+    <para>Resource usage is only accounted for control groups in the
+    relevant hierarchy, i.e. CPU usage is only accounted for control
+    groups in the <literal>cpuacct</literal> hierarchy, memory usage
+    only for those in <literal>memory</literal> and disk I/O usage for
+    those in <literal>blkio</literal>. If resource monitoring for
+    these resources is required, it is recommended to add the
+    <varname>CPUAccounting=1</varname>,
+    <varname>MemoryAccounting=1</varname> and
+    <varname>BlockIOAccounting=1</varname> settings in the unit files
+    in question. See
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
 
-                <para>To emphasize this: unless
-                <literal>CPUAccounting=1</literal>,
-                <literal>MemoryAccounting=1</literal> and
-                <literal>BlockIOAccounting=1</literal> are enabled for
-                the services in question, no resource accounting will
-                be available for system services and the data shown by
-                <command>systemd-cgtop</command> will be
-                incomplete.</para>
-        </refsect1>
+    <para>To emphasize this: unless
+    <literal>CPUAccounting=1</literal>,
+    <literal>MemoryAccounting=1</literal> and
+    <literal>BlockIOAccounting=1</literal> are enabled for the
+    services in question, no resource accounting will be available for
+    system services and the data shown by
+    <command>systemd-cgtop</command> will be incomplete.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <para>The following options are understood:</para>
+    <para>The following options are understood:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><option>-p</option></term>
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
 
-                                <listitem><para>Order by control group
-                                path name.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Order by control group
+        path name.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-t</option></term>
+      <varlistentry>
+        <term><option>-t</option></term>
 
-                                <listitem><para>Order by number of
-                                tasks in control
-                                group (i.e. threads and processes).</para></listitem>
-                        </varlistentry>
+        <listitem><para>Order by number of tasks in control group
+        (i.e. threads and processes).</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-c</option></term>
+      <varlistentry>
+        <term><option>-c</option></term>
 
-                                <listitem><para>Order by CPU load.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Order by CPU load.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-m</option></term>
+      <varlistentry>
+        <term><option>-m</option></term>
 
-                                <listitem><para>Order by memory usage.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Order by memory usage.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-i</option></term>
+      <varlistentry>
+        <term><option>-i</option></term>
 
-                                <listitem><para>Order by disk I/O load.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Order by disk I/O load.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-b</option></term>
-                                <term><option>--batch</option></term>
+      <varlistentry>
+        <term><option>-b</option></term>
+        <term><option>--batch</option></term>
 
-                                <listitem><para>Run in "batch" mode:
-                                do not accept input and run until the
-                                iteration limit set with
-                                <option>--iterations</option> is
-                                exhausted or until killed. This mode
-                                could be useful for sending output
-                                from <command>systemd-cgtop</command>
-                                to other programs or to a
-                                file.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Run in "batch" mode: do not accept input and
+        run until the iteration limit set with
+        <option>--iterations</option> is exhausted or until killed.
+        This mode could be useful for sending output from
+        <command>systemd-cgtop</command> to other programs or to a
+        file.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-n</option></term>
-                                <term><option>--iterations=</option></term>
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--iterations=</option></term>
 
-                                <listitem><para>Perform only this many
-                                iterations.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Perform only this many iterations.
+        </para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-d</option></term>
-                                <term><option>--delay=</option></term>
+      <varlistentry>
+        <term><option>-d</option></term>
+        <term><option>--delay=</option></term>
 
-                                <listitem><para>Specify refresh delay
-                                in seconds (or if one of
-                                <literal>ms</literal>,
-                                <literal>us</literal>,
-                                <literal>min</literal> is specified as
-                                unit in this time
-                                unit).</para></listitem>
-                        </varlistentry>
+        <listitem><para>Specify refresh delay in seconds (or if one of
+        <literal>ms</literal>,
+        <literal>us</literal>,
+        <literal>min</literal> is specified as unit in this time
+        unit).</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><option>--depth=</option></term>
+      <varlistentry>
+        <term><option>--depth=</option></term>
 
-                                <listitem><para>Maximum control group
-                                tree traversal depth. Specifies how
-                                deep <command>systemd-cgtop</command>
-                                shall traverse the control group
-                                hierarchies. If 0 is specified, only
-                                the root group is monitored. For 1,
-                                only the first level of control groups
-                                is monitored, and so on. Defaults to
-                                3.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Maximum control group tree traversal depth.
+        Specifies how deep <command>systemd-cgtop</command> shall
+        traverse the control group hierarchies. If 0 is specified,
+        only the root group is monitored. For 1, only the first level
+        of control groups is monitored, and so on. Defaults to
+        3.</para></listitem>
+      </varlistentry>
 
-                        <xi:include href="standard-options.xml" xpointer="help" />
-                        <xi:include href="standard-options.xml" xpointer="version" />
-                </variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
 
-        </refsect1>
+  </refsect1>
 
 
-        <refsect1>
-                <title>Keys</title>
+  <refsect1>
+    <title>Keys</title>
 
-                <para><command>systemd-cgtop</command> is an
-                interactive tool and may be controlled via user input
-                using the following keys:</para>
+    <para><command>systemd-cgtop</command> is an interactive tool and
+    may be controlled via user input using the following keys:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term>h</term>
+    <variablelist>
+      <varlistentry>
+        <term>h</term>
 
-                                <listitem><para>Shows a short help text.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Shows a short help text.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term>SPACE</term>
+      <varlistentry>
+        <term>SPACE</term>
 
-                                <listitem><para>Immediately refresh output.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Immediately refresh output.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term>q</term>
+      <varlistentry>
+        <term>q</term>
 
-                                <listitem><para>Terminate the program.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Terminate the program.</para></listitem>
+      </varlistentry>
 
 
-                        <varlistentry>
-                                <term>p</term>
-                                <term>t</term>
-                                <term>c</term>
-                                <term>m</term>
-                                <term>i</term>
+      <varlistentry>
+        <term>p</term>
+        <term>t</term>
+        <term>c</term>
+        <term>m</term>
+        <term>i</term>
 
-                                <listitem><para>Sort the control groups
-                                by path, number of tasks, CPU load,
-                                memory usage, or IO
-                                load, respectively.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Sort the control groups by path, number of
+        tasks, CPU load, memory usage, or IO load, respectively.
+        </para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term>%</term>
+      <varlistentry>
+        <term>%</term>
 
-                                <listitem><para>Toggle between showing CPU time as
-                                time or percentage.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Toggle between showing CPU time as time or
+        percentage.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term>+</term>
-                                <term>-</term>
+      <varlistentry>
+        <term>+</term>
+        <term>-</term>
 
-                                <listitem><para>Increase
-                                or decrease refresh
-                                delay, respectively.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Increase or decrease refresh delay,
+        respectively.</para></listitem>
+      </varlistentry>
 
-                </variablelist>
-        </refsect1>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise.</para>
-        </refsect1>
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

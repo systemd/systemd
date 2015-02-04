@@ -21,55 +21,55 @@
 -->
 <refentry id="systemd-random-seed.service" conditional='ENABLE_RANDOMSEED'>
 
-        <refentryinfo>
-                <title>systemd-random-seed.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-random-seed.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-random-seed.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-random-seed.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-random-seed.service</refname>
-                <refname>systemd-random-seed</refname>
-                <refpurpose>Load and save the system random seed at boot and shutdown</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-random-seed.service</refname>
+    <refname>systemd-random-seed</refname>
+    <refpurpose>Load and save the system random seed at boot and shutdown</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-random-seed.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-random-seed.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-random-seed.service</filename>
-                is a service that restores the random seed of the
-                system at early-boot and saves it at shutdown. See
-                <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
-                for details. Saving/restoring the random seed across
-                boots increases the amount of available entropy early
-                at boot. On disk the random seed is stored in
-                <filename>/var/lib/systemd/random-seed</filename>.</para>
-        </refsect1>
+    <para><filename>systemd-random-seed.service</filename> is a
+    service that restores the random seed of the system at early-boot
+    and saves it at shutdown. See
+    <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+    for details. Saving/restoring the random seed across boots
+    increases the amount of available entropy early at boot. On disk
+    the random seed is stored in
+    <filename>/var/lib/systemd/random-seed</filename>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

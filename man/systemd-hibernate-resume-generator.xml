@@ -21,73 +21,73 @@
 -->
 <refentry id="systemd-hibernate-resume-generator">
 
-        <refentryinfo>
-                <title>systemd-hibernate-resume-generator</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-hibernate-resume-generator</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Ivan</firstname>
-                                <surname>Shapovalov</surname>
-                                <email>intelfx100@gmail.com</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Ivan</firstname>
+        <surname>Shapovalov</surname>
+        <email>intelfx100@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-hibernate-resume-generator</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-hibernate-resume-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-hibernate-resume-generator</refname>
-                <refpurpose>Unit generator for resume= kernel parameter</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-hibernate-resume-generator</refname>
+    <refpurpose>Unit generator for resume= kernel parameter</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-hibernate-resume-generator</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-hibernate-resume-generator</filename> is
-                a generator that instantiates
-                <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                unit according to the value of <option>resume=</option>
-                parameter specified on the kernel command line.</para>
-        </refsect1>
+    <para><filename>systemd-hibernate-resume-generator</filename> is a
+    generator that instantiates
+    <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    unit according to the value of <option>resume=</option> parameter
+    specified on the kernel command line.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Kernel Command Line</title>
+  <refsect1>
+    <title>Kernel Command Line</title>
 
-                <para><filename>systemd-hibernate-resume-generator</filename> understands
-                the following kernel command line parameters:</para>
+    <para><filename>systemd-hibernate-resume-generator</filename>
+    understands the following kernel command line parameters:</para>
 
-                <variablelist class='kernel-commandline-options'>
+    <variablelist class='kernel-commandline-options'>
 
-                        <varlistentry>
-                                <term><varname>resume=</varname></term>
+      <varlistentry>
+        <term><varname>resume=</varname></term>
 
-                                <listitem><para>Takes a path to the resume
-                                device. Both persistent block device paths like
-                                <filename>/dev/disk/by-foo/bar</filename> and
-                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
-                                specifiers like <literal>FOO=bar</literal>
-                                are supported.</para></listitem>
-                        </varlistentry>
+        <listitem><para>Takes a path to the resume device. Both
+        persistent block device paths like
+        <filename>/dev/disk/by-foo/bar</filename> and
+        <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
+        specifiers like <literal>FOO=bar</literal> are
+        supported.</para></listitem>
+      </varlistentry>
 
-                </variablelist>
-        </refsect1>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

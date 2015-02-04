@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,134 +22,127 @@
 -->
 
 <refentry id="runlevel"
-          xmlns:xi="http://www.w3.org/2001/XInclude"
-          conditional="HAVE_UTMP">
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    conditional="HAVE_UTMP">
 
-        <refentryinfo>
-                <title>runlevel</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>runlevel</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>runlevel</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>runlevel</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>runlevel</refname>
-                <refpurpose>Print previous and current SysV runlevel</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>runlevel</refname>
+    <refpurpose>Print previous and current SysV runlevel</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>runlevel <arg choice="opt" rep="repeat">options</arg></command>
-                </cmdsynopsis>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>runlevel <arg choice="opt" rep="repeat">options</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>runlevel</command> prints the previous
-                and current SysV runlevel if they are known.</para>
+    <para><command>runlevel</command> prints the previous and current
+    SysV runlevel if they are known.</para>
 
-                <para>The two runlevel characters are separated by a
-                single space character. If a runlevel cannot be
-                determined, N is printed instead. If neither can be
-                determined, the word "unknown" is printed.</para>
+    <para>The two runlevel characters are separated by a single space
+    character. If a runlevel cannot be determined, N is printed
+    instead. If neither can be determined, the word "unknown" is
+    printed.</para>
 
-                <para>Unless overridden in the environment, this will
-                check the utmp database for recent runlevel
-                changes.</para>
-        </refsect1>
+    <para>Unless overridden in the environment, this will check the
+    utmp database for recent runlevel changes.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <para>The following option is understood:</para>
+    <para>The following option is understood:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><option>--help</option></term>
+    <variablelist>
+      <varlistentry>
+        <term><option>--help</option></term>
 
-                                <xi:include href="standard-options.xml" xpointer="help-text" />
-                        </varlistentry>
-                </variablelist>
+        <xi:include href="standard-options.xml" xpointer="help-text" />
+      </varlistentry>
+    </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>If one or both runlevels could be determined, 0
-                is returned, a non-zero failure code otherwise.</para>
+    <para>If one or both runlevels could be determined, 0 is returned,
+    a non-zero failure code otherwise.</para>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>Environment</title>
+  <refsect1>
+    <title>Environment</title>
 
-                <variablelist class='environment-variables'>
-                        <varlistentry>
-                                <term><varname>$RUNLEVEL</varname></term>
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$RUNLEVEL</varname></term>
 
-                                <listitem><para>If
-                                <varname>$RUNLEVEL</varname> is set,
-                                <command>runlevel</command> will print
-                                this value as current runlevel and
-                                ignore utmp.</para></listitem>
-                        </varlistentry>
+        <listitem><para>If <varname>$RUNLEVEL</varname> is set,
+        <command>runlevel</command> will print this value as current
+        runlevel and ignore utmp.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><varname>$PREVLEVEL</varname></term>
+      <varlistentry>
+        <term><varname>$PREVLEVEL</varname></term>
 
-                                <listitem><para>If
-                                <varname>$PREVLEVEL</varname> is set,
-                                <command>runlevel</command> will print
-                                this value as previous runlevel and
-                                ignore utmp.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+        <listitem><para>If <varname>$PREVLEVEL</varname> is set,
+        <command>runlevel</command> will print this value as previous
+        runlevel and ignore utmp.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>Files</title>
+  <refsect1>
+    <title>Files</title>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><filename>/var/run/utmp</filename></term>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/run/utmp</filename></term>
 
-                                <listitem><para>The utmp database
-                                <command>runlevel</command> reads the
-                                previous and current runlevel
-                                from.</para></listitem>
+        <listitem><para>The utmp database <command>runlevel</command>
+        reads the previous and current runlevel
+        from.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
 
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+  <refsect1>
+    <title>Notes</title>
 
-        <refsect1>
-                <title>Notes</title>
+    <para>This is a legacy command available for compatibility only.
+    It should not be used anymore, as the concept of runlevels is
+    obsolete.</para>
+  </refsect1>
 
-                <para>This is a legacy command available for compatibility
-                only. It should not be used anymore, as the concept of
-                runlevels is obsolete.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

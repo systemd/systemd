@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,55 +23,55 @@
 
 <refentry id="systemd-shutdownd.service">
 
-        <refentryinfo>
-                <title>systemd-shutdownd.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-shutdownd.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-shutdownd.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-shutdownd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-shutdownd.service</refname>
-                <refname>systemd-shutdownd.socket</refname>
-                <refname>systemd-shutdownd</refname>
-                <refpurpose>Scheduled shutdown service</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-shutdownd.service</refname>
+    <refname>systemd-shutdownd.socket</refname>
+    <refname>systemd-shutdownd</refname>
+    <refpurpose>Scheduled shutdown service</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-shutdownd.service</filename></para>
-                <para><filename>systemd-shutdownd.socket</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-shutdownd.service</filename></para>
+    <para><filename>systemd-shutdownd.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-shutdownd.service</filename> is a
-                system service that implements scheduled shutdowns, as
-                exposed by
-                <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-                <filename>systemd-shutdownd.service</filename> is automatically activated on request and terminates
-                itself when it is unused.</para>
-        </refsect1>
+    <para><filename>systemd-shutdownd.service</filename> is a system
+    service that implements scheduled shutdowns, as exposed by
+    <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <filename>systemd-shutdownd.service</filename> is automatically
+    activated on request and terminates itself when it is
+    unused.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,90 +22,86 @@
 -->
 
 <refentry id="systemd-path"
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>systemd-path</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-path</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-path</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-path</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-path</refname>
-                <refpurpose>List and query system and user paths</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-path</refname>
+    <refpurpose>List and query system and user paths</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>systemd-path <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
-                </cmdsynopsis>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-path <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>systemd-path</command> may be used to
-                query system and user paths. The tool makes many of
-                the paths described in
-                <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                queriable.</para>
+    <para><command>systemd-path</command> may be used to query system
+    and user paths. The tool makes many of the paths described in
+    <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    queriable.</para>
 
-                <para>When invoked without arguments a list of known
-                paths and their current values is shown. When at least
-                one argument is passed the path with this is name is
-                queried and its value shown. The variables whose name
-                begins with <literal>search-</literal> don't refer to
-                individual paths, but instead a to a list of
-                colon-separated search paths, in their order of
-                precedence.</para>
-        </refsect1>
+    <para>When invoked without arguments a list of known paths and
+    their current values is shown. When at least one argument is
+    passed the path with this is name is queried and its value shown.
+    The variables whose name begins with <literal>search-</literal>
+    don't refer to individual paths, but instead a to a list of
+    colon-separated search paths, in their order of precedence.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <para>The following options are understood:</para>
+    <para>The following options are understood:</para>
 
-                <variablelist>
-                        <varlistentry>
-                                <term><option>--suffix=</option></term>
+    <variablelist>
+      <varlistentry>
+        <term><option>--suffix=</option></term>
 
-                                <listitem><para>The printed paths are
-                                suffixed by the specified
-                                string.</para></listitem>
-                        </varlistentry>
+        <listitem><para>The printed paths are suffixed by the
+        specified string.</para></listitem>
+      </varlistentry>
 
-                        <xi:include href="standard-options.xml" xpointer="help" />
-                        <xi:include href="standard-options.xml" xpointer="version" />
-                </variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise.</para>
-        </refsect1>
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>file-hierarchy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

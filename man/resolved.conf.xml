@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,126 +23,109 @@
 -->
 
 <refentry id="resolved.conf" conditional='ENABLE_RESOLVED'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-        <refentryinfo>
-                <title>resolved.conf</title>
-                <productname>systemd</productname>
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>resolved.conf</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Tom</firstname>
-                                <surname>Gundersen</surname>
-                                <email>teg@jklm.no</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Tom</firstname>
+        <surname>Gundersen</surname>
+        <email>teg@jklm.no</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>resolved.conf</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>resolved.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>resolved.conf</refname>
-                <refname>resolved.conf.d</refname>
-                <refpurpose>Network Name Resolution configuration files</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>resolved.conf</refname>
+    <refname>resolved.conf.d</refname>
+    <refpurpose>Network Name Resolution configuration files</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/etc/systemd/resolved.conf</filename></para>
-                <para><filename>/etc/systemd/resolved.conf.d/*.conf</filename></para>
-                <para><filename>/run/systemd/resolved.conf.d/*.conf</filename></para>
-                <para><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/resolved.conf</filename></para>
+    <para><filename>/etc/systemd/resolved.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/resolved.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para>These configuration files control local DNS and LLMNR
-                name resolving.</para>
+    <para>These configuration files control local DNS and LLMNR
+    name resolving.</para>
 
-        </refsect1>
+  </refsect1>
 
-        <xi:include href="standard-conf.xml" xpointer="confd" />
-        <xi:include href="standard-conf.xml" xpointer="conf" />
+  <xi:include href="standard-conf.xml" xpointer="confd" />
+  <xi:include href="standard-conf.xml" xpointer="conf" />
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <variablelist class='network-directives'>
+    <variablelist class='network-directives'>
 
-                        <varlistentry>
-                                <term><varname>DNS=</varname></term>
-                                <listitem><para>A space separated list
-                                of IPv4 and IPv6 addresses to be used
-                                as system DNS servers. DNS requests
-                                are sent to one of the listed DNS
-                                servers in parallel to any
-                                per-interface DNS servers acquired
-                                from
-                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. For
-                                compatibility reasons, if set to the
-                                empty list the DNS servers listed in
-                                <filename>/etc/resolv.conf</filename>
-                                are used, if any are
-                                configured there. This setting
-                                defaults to the empty
-                                list.</para></listitem>
-                        </varlistentry>
+      <varlistentry>
+        <term><varname>DNS=</varname></term>
+        <listitem><para>A space separated list of IPv4 and IPv6
+        addresses to be used as system DNS servers. DNS requests are
+        sent to one of the listed DNS servers in parallel to any
+        per-interface DNS servers acquired from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        For compatibility reasons, if set to the empty list the DNS
+        servers listed in <filename>/etc/resolv.conf</filename> are
+        used, if any are configured there. This setting defaults to
+        the empty list.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><varname>FallbackDNS=</varname></term>
-                                <listitem><para>A space separated list
-                                of IPv4 and IPv6 addresses to be used
-                                as the fallback DNS servers. Any
-                                per-interface DNS servers obtained
-                                from
-                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                take precedence over this setting, as
-                                do any servers set via
-                                <varname>DNS=</varname> above or
-                                <filename>/etc/resolv.conf</filename>. This
-                                setting is hence only used if no other
-                                DNS server information is known. If
-                                this option is not given, a
-                                compiled-in list of DNS servers is
-                                used instead.</para></listitem>
-                        </varlistentry>
+      <varlistentry>
+        <term><varname>FallbackDNS=</varname></term>
+        <listitem><para>A space separated list of IPv4 and IPv6
+        addresses to be used as the fallback DNS servers. Any
+        per-interface DNS servers obtained from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        take precedence over this setting, as do any servers set via
+        <varname>DNS=</varname> above or
+        <filename>/etc/resolv.conf</filename>. This setting is hence
+        only used if no other DNS server information is known. If this
+        option is not given, a compiled-in list of DNS servers is used
+        instead.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><varname>LLMNR=</varname></term>
-                                <listitem><para>Takes a boolean
-                                argument or
-                                <literal>resolve</literal>. Controls
-                                Link-Local Multicast Name Resolution support (<ulink
-                                url="https://tools.ietf.org/html/rfc4795">RFC
-                                4794</ulink>) on the local host. If
-                                true enables full LLMNR responder and
-                                resolver support. If false disable
-                                both. If set to
-                                <literal>resolve</literal> only
-                                resolving support is enabled, but
-                                responding is disabled. Note that
-                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                also maintains per-interface LLMNR
-                                settings. LLMNR will be enabled on an
-                                interface only if the per-interface
-                                and the global setting is
-                                on.</para></listitem>
-                        </varlistentry>
+      <varlistentry>
+        <term><varname>LLMNR=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Link-Local Multicast Name
+        Resolution support (<ulink
+        url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
+        the local host. If true enables full LLMNR responder and
+        resolver support. If false disable both. If set to
+        <literal>resolve</literal> only resolving support is enabled,
+        but responding is disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-interface LLMNR settings. LLMNR will be
+        enabled on an interface only if the per-interface and the
+        global setting is on.</para></listitem>
+      </varlistentry>
 
-                </variablelist>
-        </refsect1>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                  <title>See Also</title>
-                  <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
-                  </para>
-        </refsect1>
+  <refsect1>
+      <title>See Also</title>
+      <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+      </para>
+  </refsect1>
 
 </refentry>

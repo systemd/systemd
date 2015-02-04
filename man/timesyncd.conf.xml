@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,98 +23,90 @@
 -->
 
 <refentry id="timesyncd.conf" conditional='ENABLE_TIMESYNCD'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-        <refentryinfo>
-                <title>timesyncd.conf</title>
-                <productname>systemd</productname>
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>timesyncd.conf</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>timesyncd.conf</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>timesyncd.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>timesyncd.conf</refname>
-                <refname>timesyncd.conf.d</refname>
-                <refpurpose>Network Time Synchronization configuration files</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>timesyncd.conf</refname>
+    <refname>timesyncd.conf.d</refname>
+    <refpurpose>Network Time Synchronization configuration files</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/etc/systemd/timesyncd.conf</filename></para>
-                <para><filename>/etc/systemd/timesyncd.conf.d/*.conf</filename></para>
-                <para><filename>/run/systemd/timesyncd.conf.d/*.conf</filename></para>
-                <para><filename>/usr/lib/systemd/timesyncd.conf.d/*.conf</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/timesyncd.conf</filename></para>
+    <para><filename>/etc/systemd/timesyncd.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/timesyncd.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/timesyncd.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para>These configuration files control NTP network time
-                synchronization.</para>
+    <para>These configuration files control NTP network time
+    synchronization.</para>
 
-        </refsect1>
+  </refsect1>
 
-        <xi:include href="standard-conf.xml" xpointer="confd" />
-        <xi:include href="standard-conf.xml" xpointer="conf" />
+  <xi:include href="standard-conf.xml" xpointer="confd" />
+  <xi:include href="standard-conf.xml" xpointer="conf" />
 
-        <refsect1>
-                <title>Options</title>
+  <refsect1>
+    <title>Options</title>
 
-                <variablelist class='network-directives'>
+    <variablelist class='network-directives'>
 
-                        <varlistentry>
-                                <term><varname>NTP=</varname></term>
-                                <listitem><para>A space separated list
-                                of NTP servers host names or IP
-                                addresses. During runtime this list is
-                                combined with any per-interface NTP
-                                servers acquired from
-                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. systemd-timesyncd
-                                will contact all configured system or
-                                per-interface servers in turn until
-                                one is found that responds. This
-                                setting defaults to the empty
-                                list.</para></listitem>
-                        </varlistentry>
+      <varlistentry>
+        <term><varname>NTP=</varname></term>
+        <listitem><para>A space separated list of NTP servers host
+        names or IP addresses. During runtime this list is combined
+        with any per-interface NTP servers acquired from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        systemd-timesyncd will contact all configured system or
+        per-interface servers in turn until one is found that
+        responds. This setting defaults to the empty
+        list.</para></listitem>
+      </varlistentry>
 
-                        <varlistentry>
-                                <term><varname>FallbackNTP=</varname></term>
-                                <listitem><para>A space separated list
-                                of NTP server host names or IP
-                                addresses to be used as the fallback
-                                NTP servers. Any per-interface NTP
-                                servers obtained from
-                                <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                take precedence over this setting, as
-                                do any servers set via
-                                <varname>NTP=</varname> above. This
-                                setting is hence only used if no other
-                                NTP server information is known. If
-                                this option is not given, a
-                                compiled-in list of NTP servers is
-                                used instead.</para></listitem>
-                        </varlistentry>
+      <varlistentry>
+        <term><varname>FallbackNTP=</varname></term>
+        <listitem><para>A space separated list of NTP server host
+        names or IP addresses to be used as the fallback NTP servers.
+        Any per-interface NTP servers obtained from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        take precedence over this setting, as do any servers set via
+        <varname>NTP=</varname> above. This setting is hence only used
+        if no other NTP server information is known. If this option is
+        not given, a compiled-in list of NTP servers is used
+        instead.</para></listitem>
+      </varlistentry>
 
-                </variablelist>
-        </refsect1>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                  <title>See Also</title>
-                  <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                  </para>
-        </refsect1>
+  <refsect1>
+      <title>See Also</title>
+      <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      </para>
+  </refsect1>
 
 </refentry>

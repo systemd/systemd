@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,109 +23,99 @@
 
 <refentry id="systemd-logind.service" conditional='ENABLE_LOGIND'>
 
-        <refentryinfo>
-                <title>systemd-logind.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-logind.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-logind.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-logind.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-logind.service</refname>
-                <refname>systemd-logind</refname>
-                <refpurpose>Login manager</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-logind.service</refname>
+    <refname>systemd-logind</refname>
+    <refpurpose>Login manager</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-logind.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-logind.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><command>systemd-logind</command> is a system
-                service that manages user logins. It is responsible
-                for:</para>
+    <para><command>systemd-logind</command> is a system service that
+    manages user logins. It is responsible for:</para>
 
-                <itemizedlist>
-                        <listitem><para>Keeping track of users and
-                        sessions, their processes and their idle
-                        state</para></listitem>
+    <itemizedlist>
+      <listitem><para>Keeping track of users and sessions, their
+      processes and their idle state</para></listitem>
 
-                        <listitem><para>Providing PolicyKit-based access
-                        for users to operations such as system
-                        shutdown or sleep</para></listitem>
+      <listitem><para>Providing PolicyKit-based access for users to
+      operations such as system shutdown or sleep</para></listitem>
 
-                        <listitem><para>Implementing a shutdown/sleep
-                        inhibition logic for
-                        applications</para></listitem>
+      <listitem><para>Implementing a shutdown/sleep inhibition logic
+      for applications</para></listitem>
 
-                        <listitem><para>Handling of power/sleep
-                        hardware keys</para></listitem>
+      <listitem><para>Handling of power/sleep hardware
+      keys</para></listitem>
 
-                        <listitem><para>Multi-seat
-                        management</para></listitem>
+      <listitem><para>Multi-seat management</para></listitem>
 
-                        <listitem><para>Session
-                        switch management</para></listitem>
+      <listitem><para>Session switch management</para></listitem>
 
-                        <listitem><para>Device access management for
-                        users</para></listitem>
+      <listitem><para>Device access management for
+      users</para></listitem>
 
-                        <listitem><para>Automatic spawning of text
-                        logins (gettys) on virtual console activation
-                        and user runtime directory
-                        management</para></listitem>
-                </itemizedlist>
+      <listitem><para>Automatic spawning of text logins (gettys) on
+      virtual console activation and user runtime directory
+      management</para></listitem>
+    </itemizedlist>
 
-                <para>User sessions are registered in logind via the
-                <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                PAM module.</para>
+    <para>User sessions are registered in logind via the
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    PAM module.</para>
 
-                <para>See
-                <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for information about the configuration of this
-                service.</para>
+    <para>See
+    <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the configuration of this service.</para>
 
-                <para>See <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
-                on Linux</ulink> for an introduction into basic
-                concepts of logind such as users, sessions and seats.</para>
+    <para>See <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
+    on Linux</ulink> for an introduction into basic concepts of logind
+    such as users, sessions and seats.</para>
 
-                <para>See the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/logind">
-                logind D-Bus API Documentation</ulink> for information about
-                the APIs <filename>systemd-logind</filename>
-                provides.</para>
+    <para>See the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/logind">
+    logind D-Bus API Documentation</ulink> for information about the
+    APIs <filename>systemd-logind</filename> provides.</para>
 
-                <para>For more information on the inhibition logic see
-                the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
-                Lock Developer Documentation</ulink>.</para>
-        </refsect1>
+    <para>For more information on the inhibition logic see the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+    Lock Developer Documentation</ulink>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

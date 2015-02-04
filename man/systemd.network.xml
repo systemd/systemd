@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,682 +23,679 @@
 
 <refentry id="systemd.network" conditional='ENABLE_NETWORKD'>
 
-        <refentryinfo>
-                <title>systemd.network</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd.network</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Tom</firstname>
-                                <surname>Gundersen</surname>
-                                <email>teg@jklm.no</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Tom</firstname>
+        <surname>Gundersen</surname>
+        <email>teg@jklm.no</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd.network</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd.network</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd.network</refname>
-                <refpurpose>Network configuration</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd.network</refname>
+    <refpurpose>Network configuration</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename><replaceable>network</replaceable>.network</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename><replaceable>network</replaceable>.network</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-		<para>Network setup is performed by
-		<citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-		</para>
+    <para>Network setup is performed by
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
 
-                <para>Network files must have the extension <filename>.network</filename>;
-                other extensions are ignored. Networks are applied to links whenever the links
-                appear.</para>
+    <para>Network files must have the extension
+    <filename>.network</filename>; other extensions are ignored.
+    Networks are applied to links whenever the links appear.</para>
 
-                <para>The <filename>.network</filename> files are read from the files located in the
-                system network directory <filename>/usr/lib/systemd/network</filename>,
-                the volatile runtime network directory
-                <filename>/run/systemd/network</filename> and the local administration
-                network directory <filename>/etc/systemd/network</filename>.
-                All configuration files are collectively sorted and processed in lexical order,
-                regardless of the directories in which they live. However, files with
-                identical filenames replace each other. Files in
-                <filename>/etc</filename> have the highest priority, files in
-                <filename>/run</filename> take precedence over files with the same
-                name in <filename>/usr/lib</filename>. This can be used to override a
-                system-supplied configuration file with a local file if needed; a symlink in
-                <filename>/etc</filename> with the same name as a configuration file in
-                <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-                disables the configuration file entirely.</para>
+    <para>The <filename>.network</filename> files are read from the
+    files located in the system network directory
+    <filename>/usr/lib/systemd/network</filename>, the volatile
+    runtime network directory
+    <filename>/run/systemd/network</filename> and the local
+    administration network directory
+    <filename>/etc/systemd/network</filename>. All configuration files
+    are collectively sorted and processed in lexical order, regardless
+    of the directories in which they live. However, files with
+    identical filenames replace each other. Files in
+    <filename>/etc</filename> have the highest priority, files in
+    <filename>/run</filename> take precedence over files with the same
+    name in <filename>/usr/lib</filename>. This can be used to
+    override a system-supplied configuration file with a local file if
+    needed; a symlink in <filename>/etc</filename> with the same name
+    as a configuration file in <filename>/usr/lib</filename>, pointing
+    to <filename>/dev/null</filename>, disables the configuration file
+    entirely.</para>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>[Match] Section Options</title>
+  <refsect1>
+    <title>[Match] Section Options</title>
 
-                        <para>The network file contains a <literal>[Match]</literal> section,
-                        which determines if a given network file may be applied to a given device;
-                        and a <literal>[Network]</literal> section specifying how the device should
-                        be configured. The first (in lexical order) of the network files that
-                        matches a given device is applied.</para>
+      <para>The network file contains a <literal>[Match]</literal>
+      section, which determines if a given network file may be applied
+      to a given device; and a <literal>[Network]</literal> section
+      specifying how the device should be configured. The first (in
+      lexical order) of the network files that matches a given device
+      is applied.</para>
 
-                        <para>A network file is said to match a device if each of the entries in the
-                        <literal>[Match]</literal> section matches, or if the section is empty.
-                        The following keys are accepted:</para>
+      <para>A network file is said to match a device if each of the
+      entries in the <literal>[Match]</literal> section matches, or if
+      the section is empty. The following keys are accepted:</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>MACAddress=</varname></term>
-                                        <listitem>
-                                                <para>The hardware address.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Path=</varname></term>
-                                        <listitem>
-                                                <para>The persistent path, as exposed by the udev
-                                                property <literal>ID_PATH</literal>. May contain shell
-                                                style globs.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Driver=</varname></term>
-                                        <listitem>
-                                                <para>The driver currently bound to the device, as
-                                                exposed by the udev property <literal>DRIVER</literal>
-                                                of its parent device, or if that is not set the driver
-                                                as exposed by <literal>ethtool -i</literal> of the
-                                                device itself.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Type=</varname></term>
-                                        <listitem>
-                                                <para>The device type, as exposed by the udev property
-                                                <literal>DEVTYPE</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Name=</varname></term>
-                                        <listitem>
-                                                <para>The device name, as exposed by the udev property
-                                                <literal>INTERFACE</literal>. May contain shell style
-                                                globs.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Host=</varname></term>
-                                        <listitem>
-                                                <para>Matches against the hostname or machine ID of the
-                                                host. See <literal>ConditionHost=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Virtualization=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether the system is executed in a virtualized
-                                                environment and optionally test whether it is a specific
-                                                implementation. See <literal>ConditionVirtualization=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>KernelCommandLine=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether a specific kernel command line option is
-                                                set (or if prefixed with the exclamation mark unset). See
-                                                <literal>ConditionKernelCommandLine=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Architecture=</varname></term>
-                                        <listitem>
-                                                <para>Checks whether the system is running on a specific
-                                                architecture. See <literal>ConditionArchitecture=</literal> in
-                                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                                for details.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>The hardware address.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Path=</varname></term>
+          <listitem>
+            <para>The persistent path, as exposed by the udev
+            property <literal>ID_PATH</literal>. May contain shell
+            style globs.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Driver=</varname></term>
+          <listitem>
+            <para>The driver currently bound to the device, as
+            exposed by the udev property <literal>DRIVER</literal>
+            of its parent device, or if that is not set the driver
+            as exposed by <literal>ethtool -i</literal> of the
+            device itself.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Type=</varname></term>
+          <listitem>
+            <para>The device type, as exposed by the udev property
+            <literal>DEVTYPE</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Name=</varname></term>
+          <listitem>
+            <para>The device name, as exposed by the udev property
+            <literal>INTERFACE</literal>. May contain shell style
+            globs.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Host=</varname></term>
+          <listitem>
+            <para>Matches against the hostname or machine ID of the
+            host. See <literal>ConditionHost=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Virtualization=</varname></term>
+          <listitem>
+            <para>Checks whether the system is executed in a virtualized
+            environment and optionally test whether it is a specific
+            implementation. See <literal>ConditionVirtualization=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>KernelCommandLine=</varname></term>
+          <listitem>
+            <para>Checks whether a specific kernel command line option is
+            set (or if prefixed with the exclamation mark unset). See
+            <literal>ConditionKernelCommandLine=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Architecture=</varname></term>
+          <listitem>
+            <para>Checks whether the system is running on a specific
+            architecture. See <literal>ConditionArchitecture=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>[Link] Section Options</title>
+  <refsect1>
+    <title>[Link] Section Options</title>
 
-                <para> The <literal>[Link]</literal> section accepts the following keys:</para>
+    <para> The <literal>[Link]</literal> section accepts the following keys:</para>
 
-                <variablelist class='network-directives'>
-                        <varlistentry>
-                                <term><varname>MACAddress=</varname></term>
-                                <listitem>
-                                        <para>The hardware address.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>MTUBytes=</varname></term>
-                                <listitem>
-                                        <para>The maximum transmission unit in bytes to
-                                        set for the device. The usual suffixes K, M, G,
-                                        are supported and are understood to the base of
-                                        1024.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>The hardware address.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>The maximum transmission unit in bytes to set for the
+          device. The usual suffixes K, M, G, are supported and are
+          understood to the base of 1024.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>[Network] Section Options</title>
+  <refsect1>
+    <title>[Network] Section Options</title>
 
-                        <para>The <literal>[Network]</literal> section accepts the following keys:</para>
+      <para>The <literal>[Network]</literal> section accepts the following keys:</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Description=</varname></term>
-                                        <listitem>
-                                                <para>A description of the device. This is only used for
-                                                presentation purposes.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>DHCP=</varname></term>
-                                        <listitem>
-                                                <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
-                                                <literal>yes</literal>, <literal>no</literal>,
-                                                <literal>ipv4</literal> or <literal>ipv6</literal>.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>DHCPServer=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. Enables a basic DHCPv4 server on the
-                                                device. Mostly useful for handing out leases to container
-                                                instances.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>IPv4LL=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables IPv4 link-local support.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>IPv4LLRoute=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, sets up the route needed for
-                                                non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
-                                                to false.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>LLMNR=</varname></term>
-                                        <listitem>
-                                                <para>A boolean or <literal>resolve</literal>. When true, enables
-                                                Link-Local Multicast Name Resolution on the link, when set to
-                                                <literal>resolve</literal> only resolution is enabled, but not
-                                                announcement. Defaults to true.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>LLDP=</varname></term>
-                                        <listitem>
-                                                <para>A boolean. When true, enables LLDP link receive support.
-                                                </para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Address=</varname></term>
-                                        <listitem>
-                                                <para>A static IPv4 or IPv6 address and its prefix length,
-                                                separated by a <literal>/</literal> character. Specify this
-                                                key more than once to configure several addresses.
-                                                The format of the address must be as described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                                This is a short-hand for an [Address] section only containing
-                                                an Address key (see below). This option may be specified
-                                                more than once.
-                                                </para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Description=</varname></term>
+          <listitem>
+            <para>A description of the device. This is only used for
+            presentation purposes.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DHCP=</varname></term>
+          <listitem>
+            <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
+            <literal>yes</literal>, <literal>no</literal>,
+            <literal>ipv4</literal>, or <literal>ipv6</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DHCPServer=</varname></term>
+          <listitem>
+            <para>A boolean. Enables a basic DHCPv4 server on the
+            device. Mostly useful for handing out leases to container
+            instances.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv4LL=</varname></term>
+          <listitem>
+            <para>A boolean. When true, enables IPv4 link-local support.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv4LLRoute=</varname></term>
+          <listitem>
+            <para>A boolean. When true, sets up the route needed for
+            non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
+            to false.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>LLMNR=</varname></term>
+          <listitem>
+            <para>A boolean or <literal>resolve</literal>. When true, enables
+            Link-Local Multicast Name Resolution on the link, when set to
+            <literal>resolve</literal> only resolution is enabled, but not
+            announcement. Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>LLDP=</varname></term>
+          <listitem>
+            <para>A boolean. When true, enables LLDP link receive support.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Address=</varname></term>
+          <listitem>
+            <para>A static IPv4 or IPv6 address and its prefix length,
+            separated by a <literal>/</literal> character. Specify
+            this key more than once to configure several addresses.
+            The format of the address must be as described in
+            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            This is a short-hand for an [Address] section only
+            containing an Address key (see below). This option may be
+            specified more than once.
+            </para>
 
-                                                <para>If the specified
-                                                address is 0.0.0.0
-                                                (for IPv4) or [::]
-                                                (for IPv6), a new
-                                                address range of the
-                                                requested size is
-                                                automatically
-                                                allocated from a
-                                                system-wide pool of
-                                                unused ranges. The
-                                                allocated range is
-                                                checked against all
-                                                current network
-                                                interfaces and all
-                                                known network
-                                                configuration files to
-                                                avoid address range
-                                                conflicts. The default
-                                                system-wide pool
-                                                consists of
-                                                192.168.0.0/16,
-                                                172.16.0.0/12 and
-                                                10.0.0.0/8 for IPv4,
-                                                and fc00::/7 for
-                                                IPv6. This
-                                                functionality is
-                                                useful to manage a
-                                                large number of
-                                                dynamically created
-                                                network interfaces
-                                                with the same network
-                                                configuration and
-                                                automatic address
-                                                range
-                                                assignment.</para>
+            <para>If the specified address is 0.0.0.0 (for IPv4) or
+            [::] (for IPv6), a new address range of the requested size
+            is automatically allocated from a system-wide pool of
+            unused ranges. The allocated range is checked against all
+            current network interfaces and all known network
+            configuration files to avoid address range conflicts. The
+            default system-wide pool consists of 192.168.0.0/16,
+            172.16.0.0/12 and 10.0.0.0/8 for IPv4, and fc00::/7 for
+            IPv6. This functionality is useful to manage a large
+            number of dynamically created network interfaces with the
+            same network configuration and automatic address range
+            assignment.</para>
 
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Gateway=</varname></term>
-                                        <listitem>
-                                                <para>The gateway address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                                This is a short-hand for a [Route] section only containing a Gateway
-                                                key. This option may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>DNS=</varname></term>
-                                        <listitem>
-                                                <para>A DNS server address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                                This option may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Domains=</varname></term>
-                                        <listitem>
-                                                <para>The domains used for DNS resolution over this link.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>NTP=</varname></term>
-                                        <listitem>
-                                                <para>An NTP server address. This option may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>IPForward=</varname></term>
-                                        <listitem><para>Configures IP
-                                        forwarding for the network
-                                        interface. If enabled incoming
-                                        packets on the network
-                                        interface will be forwarded to
-                                        other interfaces according to
-                                        the routing table. Takes
-                                        either a boolean argument, or
-                                        the values
-                                        <literal>ipv4</literal> or
-                                        <literal>ipv6</literal>, which
-                                        only enables IP forwarding for
-                                        the specified address
-                                        family.</para></listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>IPMasquerade=</varname></term>
-                                        <listitem><para>Configures IP
-                                        masquerading for the network
-                                        interface. If enabled packets
-                                        forwarded from the network
-                                        interface will be appear as
-                                        coming from the local
-                                        host. Takes a boolean
-                                        argument. Implies
-                                        <varname>IPForward=yes</varname>.</para></listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Bridge=</varname></term>
-                                        <listitem>
-                                                <para>The name of the bridge to add the link to.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Bond=</varname></term>
-                                        <listitem>
-                                                <para>The name of the bond to add the link to.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>VLAN=</varname></term>
-                                        <listitem>
-                                                <para>The name of a VLAN to create on the link. This option
-                                                may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>MACVLAN=</varname></term>
-                                        <listitem>
-                                                <para>The name of a MACVLAN to create on the link. This option
-                                                may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>VXLAN=</varname></term>
-                                        <listitem>
-                                                <para>The name of a VXLAN to create on the link. This option
-                                                may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Tunnel=</varname></term>
-                                        <listitem>
-                                                <para>The name of a Tunnel to create on the link. This option
-                                                may be specified more than once.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Gateway=</varname></term>
+          <listitem>
+            <para>The gateway address, which must be in the format
+            described in
+            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            This is a short-hand for a [Route] section only containing
+            a Gateway key. This option may be specified more than
+            once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DNS=</varname></term>
+          <listitem>
+            <para>A DNS server address, which must be in the format
+            described in
+            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Domains=</varname></term>
+          <listitem>
+            <para>The domains used for DNS resolution over this link.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>NTP=</varname></term>
+          <listitem>
+            <para>An NTP server address. This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPForward=</varname></term>
+          <listitem><para>Configures IP forwarding for the network
+          interface. If enabled incoming packets on the network
+          interface will be forwarded to other interfaces according to
+          the routing table. Takes either a boolean argument, or the
+          values <literal>ipv4</literal> or <literal>ipv6</literal>,
+          which only enables IP forwarding for the specified address
+          family.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPMasquerade=</varname></term>
+          <listitem><para>Configures IP masquerading for the network
+          interface. If enabled packets forwarded from the network
+          interface will be appear as coming from the local host.
+          Takes a boolean argument. Implies
+          <varname>IPForward=yes</varname>.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Bridge=</varname></term>
+          <listitem>
+            <para>The name of the bridge to add the link to.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Bond=</varname></term>
+          <listitem>
+            <para>The name of the bond to add the link to.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VLAN=</varname></term>
+          <listitem>
+            <para>The name of a VLAN to create on the link. This
+            option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACVLAN=</varname></term>
+          <listitem>
+            <para>The name of a MACVLAN to create on the link. This
+            option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VXLAN=</varname></term>
+          <listitem>
+            <para>The name of a VXLAN to create on the link. This
+            option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Tunnel=</varname></term>
+          <listitem>
+            <para>The name of a Tunnel to create on the link. This
+            option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>[Address] Section Options</title>
+  <refsect1>
+    <title>[Address] Section Options</title>
 
-                        <para>An <literal>[Address]</literal> section accepts the following keys.
-                        Specify several <literal>[Address]</literal> sections to configure several
-                        addresses.</para>
+      <para>An <literal>[Address]</literal> section accepts the
+      following keys. Specify several <literal>[Address]</literal>
+      sections to configure several addresses.</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Address=</varname></term>
-                                        <listitem>
-                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Peer=</varname></term>
-                                        <listitem>
-                                                <para>The peer address in a point-to-point connection. Accepts the same format as
-                                                the <literal>Address</literal> key.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Broadcast=</varname></term>
-                                        <listitem>
-                                                <para>The broadcast address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-                                                This key only applies to IPv4 addresses. If it is not given, it is
-                                                derived from the <literal>Address</literal> key.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Label=</varname></term>
-                                        <listitem>
-                                                <para>An address label.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Address=</varname></term>
+          <listitem>
+            <para>As in the <literal>[Network]</literal> section. This
+            key is mandatory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Peer=</varname></term>
+          <listitem>
+            <para>The peer address in a point-to-point connection.
+            Accepts the same format as the <literal>Address</literal>
+            key.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Broadcast=</varname></term>
+          <listitem>
+            <para>The broadcast address, which must be in the format
+            described in
+            <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            This key only applies to IPv4 addresses. If it is not
+            given, it is derived from the <literal>Address</literal>
+            key.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Label=</varname></term>
+          <listitem>
+            <para>An address label.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>[Route] Section Options</title>
-                        <para>The <literal>[Route]</literal> section accepts the following keys. Specify
-                        several <literal>[Route]</literal> sections to configure several routes.</para>
+  <refsect1>
+    <title>[Route] Section Options</title>
+      <para>The <literal>[Route]</literal> section accepts the
+      following keys. Specify several <literal>[Route]</literal>
+      sections to configure several routes.</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Gateway=</varname></term>
-                                        <listitem>
-                                                <para>As in the <literal>[Network]</literal> section.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Destination=</varname></term>
-                                        <listitem>
-                                                <para>The destination prefix of the route. Possibly followed by a slash and the
-                                                prefixlength. If omitted, a full-length host route is assumed.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Source=</varname></term>
-                                        <listitem>
-                                                <para>The source prefix of the route. Possibly followed by a slash and the
-                                                prefixlength. If omitted, a full-length host route is assumed.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>Metric=</varname></term>
-                                        <listitem>
-                                                <para>The metric of the route. An unsigned integer</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Gateway=</varname></term>
+          <listitem>
+            <para>As in the <literal>[Network]</literal> section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Destination=</varname></term>
+          <listitem>
+            <para>The destination prefix of the route. Possibly
+            followed by a slash and the prefixlength. If omitted, a
+            full-length host route is assumed.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Source=</varname></term>
+          <listitem>
+            <para>The source prefix of the route. Possibly followed by
+            a slash and the prefixlength. If omitted, a full-length
+            host route is assumed.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Metric=</varname></term>
+          <listitem>
+            <para>The metric of the route. An unsigned integer</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>[DHCP] Section Options</title>
-                        <para>The <literal>[DHCP]</literal> section accepts the following keys:</para>
+  <refsect1>
+    <title>[DHCP] Section Options</title>
+      <para>The <literal>[DHCP]</literal> section accepts the following keys:</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>UseDNS=</varname></term>
-                                        <listitem>
-                                                <para>When true (the default), the DNS servers received from the DHCP server will
-                                                be used and take precedence over any statically configured ones.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>UseMTU=</varname></term>
-                                        <listitem>
-                                                <para>When true, the interface maximum transmission unit from the DHCP server will
-                                                be used on the current link. Defaults to false.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>SendHostname=</varname></term>
-                                        <listitem>
-                                                <para>When true (the default), the machine's hostname will be sent to the DHCP
-                                                server</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>UseHostname=</varname></term>
-                                        <listitem>
-                                                <para>When true (the default), the hostname received from the DHCP server
-                                                will be used as the transient hostname.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>UseDomains=</varname></term>
-                                        <listitem>
-                                                <para>When true (not the default), the domain name received from the DHCP server
-                                                will be used for DNS resolution over this link.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>UseRoutes=</varname></term>
-                                        <listitem>
-                                                <para>When true (the default), the static routes will be requested from the DHCP server
-                                                and added to the routing table with metric of 1024.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>CriticalConnection=</varname></term>
-                                        <listitem>
-                                                <para>When true, the connection will never be torn down even if the DHCP lease
-                                                expires. This is contrary to the DHCP specification, but may be the best choice
-                                                if, say, the root filesystem relies on this connection. Defaults to false.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>VendorClassIdentifier=</varname></term>
-                                        <listitem>
-                                                <para>The vendor class identifier used to identify vendor type and configuration.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>RequestBroadcast=</varname></term>
-                                        <listitem>
-                                                <para>Request the server to use broadcast messages before the IP address has been
-                                                configured. This is necessary for devices that cannot receive RAW packets, or that
-                                                cannot receive packets at all before an IP address has been configured. On the other
-                                                hand, this must not be enabled on networks where broadcasts are filtered out.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>RouteMetric=</varname></term>
-                                        <listitem>
-                                                <para>Set the routing metric for routes specified by the DHCP server.</para>
-                                        </listitem>
-                                </varlistentry>
-                       </variablelist>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>UseDNS=</varname></term>
+          <listitem>
+            <para>When true (the default), the DNS servers received
+            from the DHCP server will be used and take precedence over
+            any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>UseMTU=</varname></term>
+          <listitem>
+            <para>When true, the interface maximum transmission unit
+            from the DHCP server will be used on the current link.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SendHostname=</varname></term>
+          <listitem>
+            <para>When true (the default), the machine's hostname will be sent to the DHCP
+            server</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>UseHostname=</varname></term>
+          <listitem>
+            <para>When true (the default), the hostname received from
+            the DHCP server will be used as the transient
+            hostname.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>UseDomains=</varname></term>
+          <listitem>
+            <para>When true (not the default), the domain name
+            received from the DHCP server will be used for DNS
+            resolution over this link.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>UseRoutes=</varname></term>
+          <listitem>
+            <para>When true (the default), the static routes will be
+            requested from the DHCP server and added to the routing
+            table with metric of 1024.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>CriticalConnection=</varname></term>
+          <listitem>
+            <para>When true, the connection will never be torn down
+            even if the DHCP lease expires. This is contrary to the
+            DHCP specification, but may be the best choice if, say,
+            the root filesystem relies on this connection. Defaults to
+            false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VendorClassIdentifier=</varname></term>
+          <listitem>
+            <para>The vendor class identifier used to identify vendor
+            type and configuration.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RequestBroadcast=</varname></term>
+          <listitem>
+            <para>Request the server to use broadcast messages before
+            the IP address has been configured. This is necessary for
+            devices that cannot receive RAW packets, or that cannot
+            receive packets at all before an IP address has been
+            configured. On the other hand, this must not be enabled on
+            networks where broadcasts are filtered out.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for routes specified by the
+            DHCP server.</para>
+          </listitem>
+        </varlistentry>
+           </variablelist>
 
-        </refsect1>
+  </refsect1>
 
-        <refsect1>
-                <title>[Bridge] Section Options</title>
-                        <para>The <literal>[Bridge]</literal> section accepts the following keys.</para>
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>Cost=</varname></term>
-                                        <listitem>
-                                          <para>Each port in a bridge may have different speed. Cost is used to decide which link to use. Faster interfaces should have lower costs</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
+  <refsect1>
+    <title>[Bridge] Section Options</title>
+      <para>The <literal>[Bridge]</literal> section accepts the
+      following keys.</para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Cost=</varname></term>
+          <listitem>
+            <para>Each port in a bridge may have different speed. Cost
+            is used to decide which link to use. Faster interfaces
+            should have lower costs</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>[BridgeFDB] Section Options</title>
-                        <para>The <literal>[BridgeFDB]</literal> section manages the forwarding database table of a port and accepts the following keys. Specify
-                        several <literal>[BridgeFDB]</literal> sections to configure several static MAC table entries.</para>
+  <refsect1>
+    <title>[BridgeFDB] Section Options</title>
+      <para>The <literal>[BridgeFDB]</literal> section manages the
+      forwarding database table of a port and accepts the following
+      keys. Specify several <literal>[BridgeFDB]</literal> sections to
+      configure several static MAC table entries.</para>
 
-                        <variablelist class='network-directives'>
-                                <varlistentry>
-                                        <term><varname>MACAddress=</varname></term>
-                                        <listitem>
-                                                <para>As in the <literal>[Network]</literal> section. This key is mandatory.</para>
-                                        </listitem>
-                                </varlistentry>
-                                <varlistentry>
-                                        <term><varname>VLANId=</varname></term>
-                                        <listitem>
-                                                <para>The VLAN Id for the new static MAC table entry.
-                                                If omitted, no VLAN Id info is appended to the new static MAC table entry.</para>
-                                        </listitem>
-                                </varlistentry>
-                        </variablelist>
-        </refsect1>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>As in the <literal>[Network]</literal> section. This
+            key is mandatory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VLANId=</varname></term>
+          <listitem>
+            <para>The VLAN Id for the new static MAC table entry. If
+            omitted, no VLAN Id info is appended to the new static MAC
+            table entry.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
-        <refsect1>
-                <title>Example</title>
-                <example>
-                        <title>/etc/systemd/network/50-static.network</title>
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>/etc/systemd/network/50-static.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=enp2s0
 
 [Network]
 Address=192.168.0.15/24
 Gateway=192.168.0.1</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/80-dhcp.network</title>
+    <example>
+      <title>/etc/systemd/network/80-dhcp.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=en*
 
 [Network]
 DHCP=both</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/bridge-static.network</title>
+    <example>
+      <title>/etc/systemd/network/bridge-static.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=bridge0
 
 [Network]
 Address=192.168.0.15/24
 Gateway=192.168.0.1
 DNS=192.168.0.1</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/bridge-slave-interface.network</title>
+    <example>
+      <title>/etc/systemd/network/bridge-slave-interface.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=enp2s0
 
 [Network]
 Bridge=bridge0</programlisting>
-                </example>
-                <example>
-                        <title>/etc/systemd/network/ipip.network</title>
+    </example>
+    <example>
+      <title>/etc/systemd/network/ipip.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=em1
 
 [Network]
 Tunnel=ipip-tun</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/sit.network</title>
+    <example>
+      <title>/etc/systemd/network/sit.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=em1
 
 [Network]
 Tunnel=sit-tun</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/gre.network</title>
+    <example>
+      <title>/etc/systemd/network/gre.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=em1
 
 [Network]
 Tunnel=gre-tun</programlisting>
-                </example>
+    </example>
 
-                <example>
-                        <title>/etc/systemd/network/vti.network</title>
+    <example>
+      <title>/etc/systemd/network/vti.network</title>
 
-                        <programlisting>[Match]
+      <programlisting>[Match]
 Name=em1
 
 [Network]
 Tunnel=vti-tun</programlisting>
-                </example>
-        </refsect1>
+    </example>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

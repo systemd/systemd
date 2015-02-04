@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,87 +23,81 @@
 -->
 
 <refentry id="systemd.target">
-        <refentryinfo>
-                <title>systemd.target</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd.target</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd.target</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd.target</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd.target</refname>
-                <refpurpose>Target unit configuration</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd.target</refname>
+    <refpurpose>Target unit configuration</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename><replaceable>target</replaceable>.target</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename><replaceable>target</replaceable>.target</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para>A unit configuration file whose name ends in
-                <literal>.target</literal> encodes information about
-                a target unit of systemd, which is used for grouping
-                units and as well-known synchronization points during
-                start-up.</para>
+    <para>A unit configuration file whose name ends in
+    <literal>.target</literal> encodes information about a target unit
+    of systemd, which is used for grouping units and as well-known
+    synchronization points during start-up.</para>
 
-                <para>This unit type has no specific options. See
-                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for the common options of all unit configuration
-                files. The common configuration items are configured
-                in the generic [Unit] and [Install] sections. A
-                separate [Target] section does not exist, since no
-                target-specific options may be configured.</para>
+    <para>This unit type has no specific options. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for the common options of all unit configuration files. The common
+    configuration items are configured in the generic [Unit] and
+    [Install] sections. A separate [Target] section does not exist,
+    since no target-specific options may be configured.</para>
 
-                <para>Target units do not offer any additional
-                functionality on top of the generic functionality
-                provided by units. They exist merely to group units via dependencies
-                (useful as boot targets), and to establish
-                standardized names for synchronization points used in
-                dependencies between units. Among other things, target
-                units are a more flexible replacement for SysV
-                runlevels in the classic SysV init system. (And for
-                compatibility reasons special
-                target units such as
-                <filename>runlevel3.target</filename> exist which are used by
-                the SysV runlevel compatibility code in systemd. See
-                <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                for details).</para>
+    <para>Target units do not offer any additional functionality on
+    top of the generic functionality provided by units. They exist
+    merely to group units via dependencies (useful as boot targets),
+    and to establish standardized names for synchronization points
+    used in dependencies between units. Among other things, target
+    units are a more flexible replacement for SysV runlevels in the
+    classic SysV init system. (And for compatibility reasons special
+    target units such as <filename>runlevel3.target</filename> exist
+    which are used by the SysV runlevel compatibility code in systemd.
+    See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for details).</para>
 
-                <para>Unless <varname>DefaultDependencies=</varname>
-                is set to <option>false</option>, target units will
-                implicitly complement all configured dependencies of
-                type <varname>Wants=</varname>,
-                <varname>Requires=</varname>,
-                <varname>RequiresOverridable=</varname> with
-                dependencies of type <varname>After=</varname> if the
-                units in question also have
-                <varname>DefaultDependencies=true</varname>.
-                </para>
-        </refsect1>
+    <para>Unless <varname>DefaultDependencies=</varname> is set to
+    <option>false</option>, target units will implicitly complement
+    all configured dependencies of type <varname>Wants=</varname>,
+    <varname>Requires=</varname>,
+    <varname>RequiresOverridable=</varname> with dependencies of type
+    <varname>After=</varname> if the units in question also have
+    <varname>DefaultDependencies=true</varname>.
+    </para>
+  </refsect1>
 
-        <refsect1>
-                  <title>See Also</title>
-                  <para>
-                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                  </para>
-        </refsect1>
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      </para>
+  </refsect1>
 
 </refentry>

@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,187 +22,179 @@
 -->
 
 <refentry id="sd_is_fifo"
-        xmlns:xi="http://www.w3.org/2001/XInclude">
+  xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>sd_is_fifo</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>sd_is_fifo</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>sd_is_fifo</refentrytitle>
-                <manvolnum>3</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>sd_is_fifo</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>sd_is_fifo</refname>
-                <refname>sd_is_socket</refname>
-                <refname>sd_is_socket_inet</refname>
-                <refname>sd_is_socket_unix</refname>
-                <refname>sd_is_mq</refname>
-                <refname>sd_is_special</refname>
-                <refpurpose>Check the type of a file descriptor</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>sd_is_fifo</refname>
+    <refname>sd_is_socket</refname>
+    <refname>sd_is_socket_inet</refname>
+    <refname>sd_is_socket_unix</refname>
+    <refname>sd_is_mq</refname>
+    <refname>sd_is_special</refname>
+    <refpurpose>Check the type of a file descriptor</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <funcsynopsis>
-                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_fifo</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>const char *<parameter>path</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_fifo</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_socket</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>int <parameter>family</parameter></paramdef>
-                                <paramdef>int <parameter>type</parameter></paramdef>
-                                <paramdef>int <parameter>listening</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_socket</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>int <parameter>family</parameter></paramdef>
+        <paramdef>int <parameter>type</parameter></paramdef>
+        <paramdef>int <parameter>listening</parameter></paramdef>
+      </funcprototype>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_socket_inet</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>int <parameter>family</parameter></paramdef>
-                                <paramdef>int <parameter>type</parameter></paramdef>
-                                <paramdef>int <parameter>listening</parameter></paramdef>
-                                <paramdef>uint16_t <parameter>port</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_socket_inet</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>int <parameter>family</parameter></paramdef>
+        <paramdef>int <parameter>type</parameter></paramdef>
+        <paramdef>int <parameter>listening</parameter></paramdef>
+        <paramdef>uint16_t <parameter>port</parameter></paramdef>
+      </funcprototype>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_socket_unix</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>int <parameter>type</parameter></paramdef>
-                                <paramdef>int <parameter>listening</parameter></paramdef>
-                                <paramdef>const char *<parameter>path</parameter></paramdef>
-                                <paramdef>size_t <parameter>length</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_socket_unix</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>int <parameter>type</parameter></paramdef>
+        <paramdef>int <parameter>listening</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>size_t <parameter>length</parameter></paramdef>
+      </funcprototype>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_mq</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>const char *<parameter>path</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_mq</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
 
-                        <funcprototype>
-                                <funcdef>int <function>sd_is_special</function></funcdef>
-                                <paramdef>int <parameter>fd</parameter></paramdef>
-                                <paramdef>const char *<parameter>path</parameter></paramdef>
-                        </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_is_special</function></funcdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
 
-                </funcsynopsis>
-        </refsynopsisdiv>
+    </funcsynopsis>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><function>sd_is_fifo()</function> may be called
-                to check whether the specified file descriptor refers
-                to a FIFO or pipe. If the <parameter>path</parameter>
-                parameter is not <constant>NULL</constant>, it is
-                checked whether the FIFO is bound to the specified
-                file system path.</para>
+    <para><function>sd_is_fifo()</function> may be called to check
+    whether the specified file descriptor refers to a FIFO or pipe. If
+    the <parameter>path</parameter> parameter is not
+    <constant>NULL</constant>, it is checked whether the FIFO is bound
+    to the specified file system path.</para>
 
-                <para><function>sd_is_socket()</function> may be
-                called to check whether the specified file descriptor
-                refers to a socket. If the
-                <parameter>family</parameter> parameter is not
-                <constant>AF_UNSPEC</constant>, it is checked whether
-                the socket is of the specified family (AF_UNIX,
-                <constant>AF_INET</constant>, ...). If the
-                <parameter>type</parameter> parameter is not 0, it is
-                checked whether the socket is of the specified type
-                (<constant>SOCK_STREAM</constant>,
-                <constant>SOCK_DGRAM</constant>, ...). If the
-                <parameter>listening</parameter> parameter is positive,
-                it is checked whether the socket is in accepting mode,
-                i.e. <function>listen()</function> has been called for
-                it. If <parameter>listening</parameter> is 0, it is
-                checked whether the socket is not in this mode. If the
-                parameter is negative, no such check is made. The
-                <parameter>listening</parameter> parameter should only
-                be used for stream sockets and should be set to a
-                negative value otherwise.</para>
+    <para><function>sd_is_socket()</function> may be called to check
+    whether the specified file descriptor refers to a socket. If the
+    <parameter>family</parameter> parameter is not
+    <constant>AF_UNSPEC</constant>, it is checked whether the socket
+    is of the specified family (AF_UNIX, <constant>AF_INET</constant>,
+    ...). If the <parameter>type</parameter> parameter is not 0, it is
+    checked whether the socket is of the specified type
+    (<constant>SOCK_STREAM</constant>,
+    <constant>SOCK_DGRAM</constant>, ...). If the
+    <parameter>listening</parameter> parameter is positive, it is
+    checked whether the socket is in accepting mode, i.e.
+    <function>listen()</function> has been called for it. If
+    <parameter>listening</parameter> is 0, it is checked whether the
+    socket is not in this mode. If the parameter is negative, no such
+    check is made. The <parameter>listening</parameter> parameter
+    should only be used for stream sockets and should be set to a
+    negative value otherwise.</para>
 
-                <para><function>sd_is_socket_inet()</function> is
-                similar to <function>sd_is_socket()</function>, but
-                optionally checks the IPv4 or IPv6 port number the
-                socket is bound to, unless <parameter>port</parameter>
-                is zero. For this call <parameter>family</parameter>
-                must be passed as either <constant>AF_UNSPEC</constant>, <constant>AF_INET</constant>, or
-                <constant>AF_INET6</constant>.</para>
+    <para><function>sd_is_socket_inet()</function> is similar to
+    <function>sd_is_socket()</function>, but optionally checks the
+    IPv4 or IPv6 port number the socket is bound to, unless
+    <parameter>port</parameter> is zero. For this call
+    <parameter>family</parameter> must be passed as either
+    <constant>AF_UNSPEC</constant>, <constant>AF_INET</constant>, or
+    <constant>AF_INET6</constant>.</para>
 
-                <para><function>sd_is_socket_unix()</function> is
-                similar to <function>sd_is_socket()</function> but
-                optionally checks the <constant>AF_UNIX</constant> path the socket is bound
-                to, unless the <parameter>path</parameter> parameter
-                is <constant>NULL</constant>. For normal file system <constant>AF_UNIX</constant> sockets,
-                set the <parameter>length</parameter> parameter to 0. For
-                Linux abstract namespace sockets, set the
-                <parameter>length</parameter> to the size of the
-                address, including the initial 0 byte, and set the
-                <parameter>path</parameter> to the initial 0 byte of
-                the socket address.</para>
+    <para><function>sd_is_socket_unix()</function> is similar to
+    <function>sd_is_socket()</function> but optionally checks the
+    <constant>AF_UNIX</constant> path the socket is bound to, unless
+    the <parameter>path</parameter> parameter is
+    <constant>NULL</constant>. For normal file system
+    <constant>AF_UNIX</constant> sockets, set the
+    <parameter>length</parameter> parameter to 0. For Linux abstract
+    namespace sockets, set the <parameter>length</parameter> to the
+    size of the address, including the initial 0 byte, and set the
+    <parameter>path</parameter> to the initial 0 byte of the socket
+    address.</para>
 
-                <para><function>sd_is_mq()</function> may be called to
-                check whether the specified file descriptor refers to
-                a POSIX message queue. If the
-                <parameter>path</parameter> parameter is not
-                <constant>NULL</constant>, it is checked whether the
-                message queue is bound to the specified name.</para>
+    <para><function>sd_is_mq()</function> may be called to check
+    whether the specified file descriptor refers to a POSIX message
+    queue. If the <parameter>path</parameter> parameter is not
+    <constant>NULL</constant>, it is checked whether the message queue
+    is bound to the specified name.</para>
 
-                <para><function>sd_is_special()</function> may be
-                called to check whether the specified file descriptor
-                refers to a special file. If the
-                <parameter>path</parameter> parameter is not
-                <constant>NULL</constant>, it is checked whether the file
-                descriptor is bound to the specified file
-                name. Special files in this context are character
-                device nodes and files in <filename>/proc</filename>
-                or <filename>/sys</filename>.</para>
-        </refsect1>
+    <para><function>sd_is_special()</function> may be called to check
+    whether the specified file descriptor refers to a special file. If
+    the <parameter>path</parameter> parameter is not
+    <constant>NULL</constant>, it is checked whether the file
+    descriptor is bound to the specified file name. Special files in
+    this context are character device nodes and files in
+    <filename>/proc</filename> or <filename>/sys</filename>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Return Value</title>
+  <refsect1>
+    <title>Return Value</title>
 
-                <para>On failure, these calls return a negative
-                errno-style error code. If the file descriptor is of
-                the specified type and bound to the specified address,
-                a positive return value is returned, otherwise
-                zero.</para>
-        </refsect1>
+    <para>On failure, these calls return a negative errno-style error
+    code. If the file descriptor is of the specified type and bound to
+    the specified address, a positive return value is returned,
+    otherwise zero.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
+  <refsect1>
+    <title>Notes</title>
 
-                <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-                <para>Internally, these function use a combination of
-                <filename>fstat()</filename> and
-                <filename>getsockname()</filename> to check the file
-                descriptor type and where it is bound to.</para>
-        </refsect1>
+    <para>Internally, these function use a combination of
+    <filename>fstat()</filename> and
+    <filename>getsockname()</filename> to check the file descriptor
+    type and where it is bound to.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

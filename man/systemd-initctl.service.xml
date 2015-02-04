@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -23,54 +23,54 @@
 
 <refentry id="systemd-initctl.service">
 
-        <refentryinfo>
-                <title>systemd-initctl.service</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-initctl.service</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-initctl.service</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-initctl.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-initctl.service</refname>
-                <refname>systemd-initctl.socket</refname>
-                <refname>systemd-initctl</refname>
-                <refpurpose>/dev/initctl compatibility</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-initctl.service</refname>
+    <refname>systemd-initctl.socket</refname>
+    <refname>systemd-initctl</refname>
+    <refpurpose>/dev/initctl compatibility</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>systemd-initctl.service</filename></para>
-                <para><filename>systemd-initctl.socket</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>systemd-initctl.service</filename></para>
+    <para><filename>systemd-initctl.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-initctl</filename> is a system
-                service that implements compatibility with the
-                <filename>/dev/initctl</filename> FIFO file system
-                object, as implemented by the SysV init system. <filename>systemd-initctl</filename> is
-                automatically activated on request and terminates
-                itself when it is unused.</para>
-        </refsect1>
+    <para><filename>systemd-initctl</filename> is a system service
+    that implements compatibility with the
+    <filename>/dev/initctl</filename> FIFO file system object, as
+    implemented by the SysV init system.
+    <filename>systemd-initctl</filename> is automatically activated on
+    request and terminates itself when it is unused.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

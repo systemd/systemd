@@ -20,83 +20,82 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="modules-load.d" conditional='HAVE_KMOD'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
-        <refentryinfo>
-                <title>modules-load.d</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>modules-load.d</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>modules-load.d</refentrytitle>
-                <manvolnum>5</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>modules-load.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>modules-load.d</refname>
-                <refpurpose>Configure kernel modules to load at boot</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>modules-load.d</refname>
+    <refpurpose>Configure kernel modules to load at boot</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/etc/modules-load.d/*.conf</filename></para>
-                <para><filename>/run/modules-load.d/*.conf</filename></para>
-                <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/etc/modules-load.d/*.conf</filename></para>
+    <para><filename>/run/modules-load.d/*.conf</filename></para>
+    <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                reads files from the above directories which contain
-                kernel modules to load during boot in a static list.
-                Each configuration file is named in the style of
-                <filename>/etc/modules-load.d/<replaceable>program</replaceable>.conf</filename>. Note
-                that it is usually a better idea to rely on the
-                automatic module loading by PCI IDs, USB IDs, DMI IDs
-                or similar triggers encoded in the kernel modules
-                themselves instead of static configuration like
-                this. In fact, most modern kernel modules are prepared
-                for automatic loading already.</para>
-        </refsect1>
+    <para><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    reads files from the above directories which contain kernel
+    modules to load during boot in a static list. Each configuration
+    file is named in the style of
+    <filename>/etc/modules-load.d/<replaceable>program</replaceable>.conf</filename>.
+    Note that it is usually a better idea to rely on the automatic
+    module loading by PCI IDs, USB IDs, DMI IDs or similar triggers
+    encoded in the kernel modules themselves instead of static
+    configuration like this. In fact, most modern kernel modules are
+    prepared for automatic loading already.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>Configuration Format</title>
+  <refsect1>
+    <title>Configuration Format</title>
 
-                <para>The configuration files should simply contain a
-                list of kernel module names to load, separated by
-                newlines. Empty lines and lines whose first
-                non-whitespace character is # or ; are ignored.</para>
-        </refsect1>
+    <para>The configuration files should simply contain a list of
+    kernel module names to load, separated by newlines. Empty lines
+    and lines whose first non-whitespace character is # or ; are
+    ignored.</para>
+  </refsect1>
 
-        <xi:include href="standard-conf.xml" xpointer="confd" />
+  <xi:include href="standard-conf.xml" xpointer="confd" />
 
-        <refsect1>
-                <title>Example</title>
-                <example>
-                        <title>/etc/modules-load.d/virtio-net.conf example:</title>
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>/etc/modules-load.d/virtio-net.conf example:</title>
 
-                        <programlisting># Load virtio-net.ko at boot
+      <programlisting># Load virtio-net.ko at boot
 virtio-net</programlisting>
-                </example>
-        </refsect1>
+    </example>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

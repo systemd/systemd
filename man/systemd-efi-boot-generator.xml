@@ -21,68 +21,68 @@
 -->
 <refentry id="systemd-efi-boot-generator">
 
-        <refentryinfo>
-                <title>systemd-efi-boot-generator</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-efi-boot-generator</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-efi-boot-generator</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-efi-boot-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-efi-boot-generator</refname>
-                <refpurpose>Generator for automatically mounting the
-                EFI System Partition used by the current boot to
-                <filename>/boot</filename></refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-efi-boot-generator</refname>
+    <refpurpose>Generator for automatically mounting the
+    EFI System Partition used by the current boot to
+    <filename>/boot</filename></refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/usr/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-efi-boot-generator</filename>
-                is a generator that automatically creates mount and
-                automount units for the EFI System Partition (ESP),
-                mounting it to <filename>/boot</filename>. Note that
-                this generator will execute no operation on non-EFI
-                systems, on systems where the boot loader does not
-                communicate the used ESP to the OS, on systems where
-                <filename>/boot</filename> is an explicitly configured
-                mount (for example, listed in <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where the <filename>/boot</filename> mount
-                point is non-empty. Since this generator creates an
-                automount unit, the mount will only be activated
-                on-demand, when accessed.</para>
+    <para><filename>systemd-efi-boot-generator</filename> is a
+    generator that automatically creates mount and automount units for
+    the EFI System Partition (ESP), mounting it to
+    <filename>/boot</filename>. Note that this generator will execute
+    no operation on non-EFI systems, on systems where the boot loader
+    does not communicate the used ESP to the OS, on systems where
+    <filename>/boot</filename> is an explicitly configured mount (for
+    example, listed in
+    <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    or where the <filename>/boot</filename> mount point is non-empty.
+    Since this generator creates an automount unit, the mount will
+    only be activated on-demand, when accessed.</para>
 
-                <para><filename>systemd-efi-boot-generator</filename>
-                implements the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
-                specification</ulink>.</para>
-        </refsect1>
+    <para><filename>systemd-efi-boot-generator</filename> implements
+    the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
+    specification</ulink>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

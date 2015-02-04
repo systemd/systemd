@@ -21,59 +21,58 @@
 -->
 <refentry id="systemd-system-update-generator">
 
-        <refentryinfo>
-                <title>systemd-system-update-generator</title>
-                <productname>systemd</productname>
+  <refentryinfo>
+    <title>systemd-system-update-generator</title>
+    <productname>systemd</productname>
 
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
 
-        <refmeta>
-                <refentrytitle>systemd-system-update-generator</refentrytitle>
-                <manvolnum>8</manvolnum>
-        </refmeta>
+  <refmeta>
+    <refentrytitle>systemd-system-update-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
 
-        <refnamediv>
-                <refname>systemd-system-update-generator</refname>
-                <refpurpose>Generator for redirecting boot to offline update mode</refpurpose>
-        </refnamediv>
+  <refnamediv>
+    <refname>systemd-system-update-generator</refname>
+    <refpurpose>Generator for redirecting boot to offline update mode</refpurpose>
+  </refnamediv>
 
-        <refsynopsisdiv>
-                <para><filename>/usr/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
-        </refsynopsisdiv>
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-system-update-generator</filename></para>
+  </refsynopsisdiv>
 
-        <refsect1>
-                <title>Description</title>
+  <refsect1>
+    <title>Description</title>
 
-                <para><filename>systemd-system-update-generator</filename>
-                is a generator that automatically redirects the boot
-                process to <filename>system-update.target</filename>
-                if <filename>/system-update</filename> exists. This is
-                required to implement the logic explained in the
-                <ulink
-                url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
-                Updates Specification</ulink>.
-                </para>
+    <para><filename>systemd-system-update-generator</filename> is a
+    generator that automatically redirects the boot process to
+    <filename>system-update.target</filename> if
+    <filename>/system-update</filename> exists. This is required to
+    implement the logic explained in the <ulink
+    url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
+    Updates Specification</ulink>.
+    </para>
 
-                <para><filename>systemd-system-update-generator</filename>
-                implements the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
-                specification</ulink>.</para>
-        </refsect1>
+    <para><filename>systemd-system-update-generator</filename>
+    implements the
+    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
+    specification</ulink>.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

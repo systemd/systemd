@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,919 +22,721 @@
 -->
 
 <refentry id="systemd-nspawn"
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-
-        <refentryinfo>
-                <title>systemd-nspawn</title>
-                <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
-
-        <refmeta>
-                <refentrytitle>systemd-nspawn</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
-
-        <refnamediv>
-                <refname>systemd-nspawn</refname>
-                <refpurpose>Spawn a namespace container for debugging, testing and building</refpurpose>
-        </refnamediv>
-
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>systemd-nspawn</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="opt"><replaceable>COMMAND</replaceable>
-                        <arg choice="opt" rep="repeat">ARGS</arg>
-                        </arg>
-                </cmdsynopsis>
-                <cmdsynopsis>
-                        <command>systemd-nspawn</command>
-                        <arg choice="plain">-b</arg>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="opt" rep="repeat">ARGS</arg>
-                </cmdsynopsis>
-        </refsynopsisdiv>
-
-        <refsect1>
-                <title>Description</title>
-
-                <para><command>systemd-nspawn</command> may be used to
-                run a command or OS in a light-weight namespace
-                container. In many ways it is similar to
-                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                but more powerful since it fully virtualizes the file
-                system hierarchy, as well as the process tree, the
-                various IPC subsystems and the host and domain
-                name.</para>
-
-                <para><command>systemd-nspawn</command> limits access
-                to various kernel interfaces in the container to
-                read-only, such as <filename>/sys</filename>,
-                <filename>/proc/sys</filename> or
-                <filename>/sys/fs/selinux</filename>. Network
-                interfaces and the system clock may not be changed
-                from within the container. Device nodes may not be
-                created. The host system cannot be rebooted and kernel
-                modules may not be loaded from within the
-                container.</para>
-
-                <para>Note that even though these security precautions
-                are taken <command>systemd-nspawn</command> is not
-                suitable for secure container setups. Many of the
-                security features may be circumvented and are hence
-                primarily useful to avoid accidental changes to the
-                host system from the container. The intended use of
-                this program is debugging and testing as well as
-                building of packages, distributions and software
-                involved with boot and systems management.</para>
-
-                <para>In contrast to
-                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
-                may be used to boot full Linux-based operating systems
-                in a container.</para>
-
-                <para>Use a tool like
-                <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                or
-                <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                to set up an OS directory tree suitable as file system
-                hierarchy for <command>systemd-nspawn</command>
-                containers.</para>
-
-                <para>Note that <command>systemd-nspawn</command> will
-                mount file systems private to the container to
-                <filename>/dev</filename>,
-                <filename>/run</filename> and similar. These will
-                not be visible outside of the container, and their
-                contents will be lost when the container exits.</para>
-
-                <para>Note that running two
-                <command>systemd-nspawn</command> containers from the
-                same directory tree will not make processes in them
-                see each other. The PID namespace separation of the
-                two containers is complete and the containers will
-                share very few runtime objects except for the
-                underlying file system. Use
-                <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-                <command>login</command> command to request an
-                additional login prompt in a running container.</para>
-
-                <para><command>systemd-nspawn</command> implements the
-                <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
-                Interface</ulink> specification.</para>
-
-                <para>As a safety check
-                <command>systemd-nspawn</command> will verify the
-                existence of <filename>/usr/lib/os-release</filename>
-                or <filename>/etc/os-release</filename> in the
-                container tree before starting the container (see
-                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). It
-                might be necessary to add this file to the container
-                tree manually if the OS of the container is too old to
-                contain this file out-of-the-box.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Options</title>
-
-                <para>If option <option>-b</option> is specified, the
-                arguments are used as arguments for the init
-                binary. Otherwise, <replaceable>COMMAND</replaceable>
-                specifies the program to launch in the container, and
-                the remaining arguments are used as arguments for this
-                program. If <option>-b</option> is not used and no
-                arguments are specifed, a shell is launched in the
-                container.</para>
-
-                <para>The following options are understood:</para>
-
-                <variablelist>
-                        <varlistentry>
-                                <term><option>-D</option></term>
-                                <term><option>--directory=</option></term>
-
-                                <listitem><para>Directory to use as
-                                file system root for the container.</para>
-
-                                <para>If neither
-                                <option>--directory=</option>, nor
-                                <option>--image=</option> is specified
-                                the directory is determined as
-                                <filename>/var/lib/machines/</filename>
-                                suffixed by the machine name as
-                                specified with
-                                <option>--machine=</option>. If
-                                neither <option>--directory=</option>,
-                                <option>--image=</option>, nor
-                                <option>--machine=</option> are
-                                specified, the current directory will
-                                be used. May not be specified together
-                                with
-                                <option>--image=</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--template=</option></term>
-
-                                <listitem><para>Directory or
-                                <literal>btrfs</literal> subvolume to
-                                use as template for the container's
-                                root directory. If this is specified
-                                and the container's root directory (as
-                                configured by
-                                <option>--directory=</option>) does
-                                not yet exist it is created as
-                                <literal>btrfs</literal> subvolume and
-                                populated from this template
-                                tree. Ideally, the specified template
-                                path refers to the root of a
-                                <literal>btrfs</literal> subvolume, in
-                                which case a simple copy-on-write
-                                snapshot is taken, and populating the
-                                root directory is instant. If the
-                                specified template path does not refer
-                                to the root of a
-                                <literal>btrfs</literal> subvolume (or
-                                not even to a <literal>btrfs</literal>
-                                file system at all), the tree is
-                                copied, which can be substantially
-                                more time-consuming. Note that if this
-                                option is used the container's root
-                                directory (in contrast to the template
-                                directory!) must be located on a
-                                <literal>btrfs</literal> file system,
-                                so that the <literal>btrfs</literal>
-                                subvolume may be created. May not be
-                                specified together with
-                                <option>--image=</option> or
-                                <option>--ephemeral</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-x</option></term>
-                                <term><option>--ephemeral</option></term>
-
-                                <listitem><para>If specified, the
-                                container is run with a temporary
-                                <literal>btrfs</literal> snapshot of
-                                its root directory (as configured with
-                                <option>--directory=</option>), that
-                                is removed immediately when the
-                                container terminates. This option is
-                                only supported if the root file system
-                                is <literal>btrfs</literal>. May not
-                                be specified together with
-                                <option>--image=</option> or
-                                <option>--template=</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-i</option></term>
-                                <term><option>--image=</option></term>
-
-                                <listitem><para>Disk image to mount
-                                the root directory for the container
-                                from. Takes a path to a regular file
-                                or to a block device node. The file or
-                                block device must contain either:</para>
-
-                                <itemizedlist>
-                                        <listitem><para>An MBR
-                                        partition table with a single
-                                        partition of type 0x83 that is
-                                        marked
-                                        bootable.</para></listitem>
-
-                                        <listitem><para>A GUID
-                                        partition table (GPT) with a single
-                                        partition of type
-                                        0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
-
-                                        <listitem><para>A GUID
-                                        partition table (GPT) with a
-                                        marked root partition which is
-                                        mounted as the root directory
-                                        of the container. Optionally,
-                                        GPT images may contain a home
-                                        and/or a server data partition
-                                        which are mounted to the
-                                        appropriate places in the
-                                        container. All these
-                                        partitions must be identified
-                                        by the partition types defined
-                                        by the <ulink
-                                        url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
-                                        Partitions
-                                        Specification</ulink>.</para></listitem>
-                                </itemizedlist>
-
-                                <para>Any other partitions, such as
-                                foreign partitions, swap partitions or
-                                EFI system partitions are not
-                                mounted. May not be specified together
-                                with <option>--directory=</option>,
-                                <option>--template=</option> or
-                                <option>--ephemeral</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-b</option></term>
-                                <term><option>--boot</option></term>
-
-                                <listitem><para>Automatically search
-                                for an init binary and invoke it
-                                instead of a shell or a user supplied
-                                program. If this option is used,
-                                arguments specified on the command
-                                line are used as arguments for the
-                                init binary. This option may not be
-                                combined with
-                                <option>--share-system</option>.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-u</option></term>
-                                <term><option>--user=</option></term>
-
-                                <listitem><para>After transitioning
-                                into the container, change to the
-                                specified user-defined in the
-                                container's user database. Like all
-                                other systemd-nspawn features, this is
-                                not a security feature and provides
-                                protection against accidental
-                                destructive operations
-                                only.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-M</option></term>
-                                <term><option>--machine=</option></term>
-
-                                <listitem><para>Sets the machine name
-                                for this container. This name may be
-                                used to identify this container during
-                                its runtime (for example in tools like
-                                <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                and similar), and is used to
-                                initialize the container's hostname
-                                (which the container can choose to
-                                override, however). If not specified,
-                                the last component of the root
-                                directory path of the container is
-                                used, possibly suffixed with a random
-                                identifier in case
-                                <option>--ephemeral</option> mode is
-                                selected. If the root directory
-                                selected is the host's root directory
-                                the host's hostname is used as default
-                                instead.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--uuid=</option></term>
-
-                                <listitem><para>Set the specified UUID
-                                for the container. The init system
-                                will initialize
-                                <filename>/etc/machine-id</filename>
-                                from this if this file is not set yet.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--slice=</option></term>
-
-                                <listitem><para>Make the container
-                                part of the specified slice, instead
-                                of the default
-                                <filename>machine.slice</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--private-network</option></term>
-
-                                <listitem><para>Disconnect networking
-                                of the container from the host. This
-                                makes all network interfaces
-                                unavailable in the container, with the
-                                exception of the loopback device and
-                                those specified with
-                                <option>--network-interface=</option>
-                                and configured with
-                                <option>--network-veth</option>. If
-                                this option is specified, the
-                                CAP_NET_ADMIN capability will be added
-                                to the set of capabilities the
-                                container retains. The latter may be
-                                disabled by using
-                                <option>--drop-capability=</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--network-interface=</option></term>
-
-                                <listitem><para>Assign the specified
-                                network interface to the
-                                container. This will remove the
-                                specified interface from the calling
-                                namespace and place it in the
-                                container. When the container
-                                terminates, it is moved back to the
-                                host namespace. Note that
-                                <option>--network-interface=</option>
-                                implies
-                                <option>--private-network</option>. This
-                                option may be used more than once to
-                                add multiple network interfaces to the
-                                container.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--network-macvlan=</option></term>
-
-                                <listitem><para>Create a
-                                <literal>macvlan</literal> interface
-                                of the specified Ethernet network
-                                interface and add it to the
-                                container. A
-                                <literal>macvlan</literal> interface
-                                is a virtual interface that adds a
-                                second MAC address to an existing
-                                physical Ethernet link. The interface
-                                in the container will be named after
-                                the interface on the host, prefixed
-                                with <literal>mv-</literal>. Note that
-                                <option>--network-macvlan=</option>
-                                implies
-                                <option>--private-network</option>. This
-                                option may be used more than once to
-                                add multiple network interfaces to the
-                                container.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--network-ipvlan=</option></term>
-
-                                <listitem><para>Create an
-                                <literal>ipvlan</literal> interface
-                                of the specified Ethernet network
-                                interface and add it to the
-                                container. An
-                                <literal>ipvlan</literal> interface
-                                is a virtual interface, similar to a
-                                <literal>macvlan</literal> interface, which
-                                uses the same MAC address as the underlying
-                                interface. The interface
-                                in the container will be named after
-                                the interface on the host, prefixed
-                                with <literal>iv-</literal>. Note that
-                                <option>--network-ipvlan=</option>
-                                implies
-                                <option>--private-network</option>. This
-                                option may be used more than once to
-                                add multiple network interfaces to the
-                                container.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-n</option></term>
-                                <term><option>--network-veth</option></term>
-
-                                <listitem><para>Create a virtual
-                                Ethernet link
-                                (<literal>veth</literal>) between host
-                                and container. The host side of the
-                                Ethernet link will be available as a
-                                network interface named after the
-                                container's name (as specified with
-                                <option>--machine=</option>), prefixed
-                                with <literal>ve-</literal>. The
-                                container side of the Ethernet
-                                link will be named
-                                <literal>host0</literal>. Note that
-                                <option>--network-veth</option>
-                                implies
-                                <option>--private-network</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--network-bridge=</option></term>
-
-                                <listitem><para>Adds the host side of
-                                the Ethernet link created with
-                                <option>--network-veth</option> to the
-                                specified bridge. Note that
-                                <option>--network-bridge=</option>
-                                implies
-                                <option>--network-veth</option>. If
-                                this option is used, the host side of
-                                the Ethernet link will use the
-                                <literal>vb-</literal> prefix instead
-                                of <literal>ve-</literal>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-p</option></term>
-                                <term><option>--port=</option></term>
-
-                                <listitem><para>If private networking
-                                is enabled, maps an IP port on the
-                                host onto an IP port on the
-                                container. Takes a protocol specifier
-                                (either <literal>tcp</literal> or
-                                <literal>udp</literal>), separated by
-                                a colon from a host port number in the
-                                range 1 to 65535, separated by a colon
-                                from a container port number in the
-                                range from 1 to 65535. The protocol
-                                specifier and its separating colon may
-                                be omitted, in which case
-                                <literal>tcp</literal> is assumed.
-                                The container port number and its
-                                colon may be ommitted, in which case
-                                the same port as the host port is
-                                implied. This option is only supported
-                                if private networking is used, such as
-                                <option>--network-veth</option> or
-                                <option>--network-bridge=</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-Z</option></term>
-                                <term><option>--selinux-context=</option></term>
-
-                                <listitem><para>Sets the SELinux
-                                security context to be used to label
-                                processes in the container.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-L</option></term>
-                                <term><option>--selinux-apifs-context=</option></term>
-
-                                <listitem><para>Sets the SELinux security
-                                context to be used to label files in
-                                the virtual API file systems in the
-                                container.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--capability=</option></term>
-
-                                <listitem><para>List one or more
-                                additional capabilities to grant the
-                                container. Takes a comma-separated
-                                list of capability names, see
-                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for more information. Note that the
-                                following capabilities will be granted
-                                in any way: CAP_CHOWN,
-                                CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH,
-                                CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER,
-                                CAP_KILL, CAP_LEASE,
-                                CAP_LINUX_IMMUTABLE,
-                                CAP_NET_BIND_SERVICE,
-                                CAP_NET_BROADCAST, CAP_NET_RAW,
-                                CAP_SETGID, CAP_SETFCAP, CAP_SETPCAP,
-                                CAP_SETUID, CAP_SYS_ADMIN,
-                                CAP_SYS_CHROOT, CAP_SYS_NICE,
-                                CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
-                                CAP_SYS_RESOURCE, CAP_SYS_BOOT,
-                                CAP_AUDIT_WRITE,
-                                CAP_AUDIT_CONTROL. Also CAP_NET_ADMIN
-                                is retained if
-                                <option>--private-network</option> is
-                                specified. If the special value
-                                <literal>all</literal> is passed, all
-                                capabilities are
-                                retained.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--drop-capability=</option></term>
-
-                                <listitem><para>Specify one or more
-                                additional capabilities to drop for
-                                the container. This allows running the
-                                container with fewer capabilities than
-                                the default (see above).</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--link-journal=</option></term>
-
-                                <listitem><para>Control whether the
-                                container's journal shall be made
-                                visible to the host system. If enabled,
-                                allows viewing the container's journal
-                                files from the host (but not vice
-                                versa). Takes one of
-                                <literal>no</literal>,
-                                <literal>host</literal>,
-                                <literal>try-host</literal>,
-                                <literal>guest</literal>,
-                                <literal>try-guest</literal>,
-                                <literal>auto</literal>. If
-                                <literal>no</literal>, the journal is
-                                not linked. If <literal>host</literal>,
-                                the journal files are stored on the
-                                host file system (beneath
-                                <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
-                                and the subdirectory is bind-mounted
-                                into the container at the same
-                                location. If <literal>guest</literal>,
-                                the journal files are stored on the
-                                guest file system (beneath
-                                <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
-                                and the subdirectory is symlinked into the host
-                                at the same location. <literal>try-host</literal>
-                                and <literal>try-guest</literal> do the same
-                                but do not fail if the host does not have
-                                persistent journalling enabled.
-                                If <literal>auto</literal> (the default),
-                                and the right subdirectory of
-                                <filename>/var/log/journal</filename>
-                                exists, it will be bind mounted
-                                into the container. If the
-                                subdirectory does not exist, no
-                                linking is performed. Effectively,
-                                booting a container once with
-                                <literal>guest</literal> or
-                                <literal>host</literal> will link the
-                                journal persistently if further on
-                                the default of <literal>auto</literal>
-                                is used.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-j</option></term>
-
-                                <listitem><para>Equivalent to
-                                <option>--link-journal=try-guest</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--read-only</option></term>
-
-                                <listitem><para>Mount the root file
-                                system read-only for the
-                                container.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--bind=</option></term>
-                                <term><option>--bind-ro=</option></term>
-
-                                <listitem><para>Bind mount a file or
-                                directory from the host into the
-                                container. Either takes a path
-                                argument -- in which case the
-                                specified path will be mounted from
-                                the host to the same path in the
-                                container --, or a colon-separated
-                                pair of paths -- in which case the
-                                first specified path is the source in
-                                the host, and the second path is the
-                                destination in the container. The
-                                <option>--bind-ro=</option> option
-                                creates read-only bind
-                                mounts.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--tmpfs=</option></term>
-
-                                <listitem><para>Mount a tmpfs file
-                                system into the container. Takes a
-                                single absolute path argument that
-                                specifies where to mount the tmpfs
-                                instance to (in which case the
-                                directory access mode will be chosen
-                                as 0755, owned by root/root), or
-                                optionally a colon-separated pair of
-                                path and mount option string, that is
-                                used for mounting (in which case the
-                                kernel default for access mode and
-                                owner will be chosen, unless otherwise
-                                specified). This option is
-                                particularly useful for mounting
-                                directories such as
-                                <filename>/var</filename> as tmpfs, to
-                                allow state-less systems, in
-                                particular when combined with
-                                <option>--read-only</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--setenv=</option></term>
-
-                                <listitem><para>Specifies an
-                                environment variable assignment to
-                                pass to the init process in the
-                                container, in the format
-                                <literal>NAME=VALUE</literal>. This
-                                may be used to override the default
-                                variables or to set additional
-                                variables. This parameter may be used
-                                more than once.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--share-system</option></term>
-
-                                <listitem><para>Allows the container
-                                to share certain system facilities
-                                with the host. More specifically, this
-                                turns off PID namespacing, UTS
-                                namespacing and IPC namespacing, and
-                                thus allows the guest to see and
-                                interact more easily with processes
-                                outside of the container. Note that
-                                using this option makes it impossible
-                                to start up a full Operating System in
-                                the container, as an init system
-                                cannot operate in this mode. It is
-                                only useful to run specific programs
-                                or applications this way, without
-                                involving an init system in the
-                                container. This option implies
-                                <option>--register=no</option>. This
-                                option may not be combined with
-                                <option>--boot</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--register=</option></term>
-
-                                <listitem><para>Controls whether the
-                                container is registered with
-                                <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Takes
-                                a boolean argument, defaults to
-                                <literal>yes</literal>. This option
-                                should be enabled when the container
-                                runs a full Operating System (more
-                                specifically: an init system), and is
-                                useful to ensure that the container is
-                                accessible via
-                                <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                and shown by tools such as
-                                <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
-                                the container does not run an init
-                                system, it is recommended to set this
-                                option to <literal>no</literal>. Note
-                                that <option>--share-system</option>
-                                implies
-                                <option>--register=no</option>.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--keep-unit</option></term>
-
-                                <listitem><para>Instead of creating a
-                                transient scope unit to run the
-                                container in, simply register the
-                                service or scope unit
-                                <command>systemd-nspawn</command> has
-                                been invoked in with
-                                <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
-                                has no effect if
-                                <option>--register=no</option> is
-                                used. This switch should be used if
-                                <command>systemd-nspawn</command> is
-                                invoked from within a service unit,
-                                and the service unit's sole purpose
-                                is to run a single
-                                <command>systemd-nspawn</command>
-                                container. This option is not
-                                available if run from a user
-                                session.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--personality=</option></term>
-
-                                <listitem><para>Control the
-                                architecture ("personality") reported
-                                by
-                                <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                in the container. Currently, only
-                                <literal>x86</literal> and
-                                <literal>x86-64</literal> are
-                                supported. This is useful when running
-                                a 32-bit container on a 64-bit
-                                host. If this setting is not used,
-                                the personality reported in the
-                                container is the same as the one
-                                reported on the
-                                host.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-q</option></term>
-                                <term><option>--quiet</option></term>
-
-                                <listitem><para>Turns off any status
-                                output by the tool itself. When this
-                                switch is used, the only output
-                                from nspawn will be the console output
-                                of the container OS itself.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--volatile</option><replaceable>=MODE</replaceable></term>
-
-                                <listitem><para>Boots the container in
-                                volatile mode. When no mode parameter
-                                is passed or when mode is specified as
-                                <literal>yes</literal> full volatile
-                                mode is enabled. This means the root
-                                directory is mounted as mostly
-                                unpopulated <literal>tmpfs</literal>
-                                instance, and
-                                <filename>/usr</filename> from the OS
-                                tree is mounted into it, read-only
-                                (the system thus starts up with
-                                read-only OS resources, but pristine
-                                state and configuration, any changes
-                                to the either are lost on
-                                shutdown). When the mode parameter is
-                                specified as <literal>state</literal>
-                                the OS tree is mounted read-only, but
-                                <filename>/var</filename> is mounted
-                                as <literal>tmpfs</literal> instance
-                                into it (the system thus starts up
-                                with read-only OS resources and
-                                configuration, but pristine state, any
-                                changes to the latter are lost on
-                                shutdown). When the mode parameter is
-                                specified as <literal>no</literal>
-                                (the default) the whole OS tree is
-                                made available writable.</para>
-
-                                <para>Note that setting this to
-                                <literal>yes</literal> or
-                                <literal>state</literal> will only
-                                work correctly with operating systems
-                                in the container that can boot up with
-                                only <filename>/usr</filename>
-                                mounted, and are able to populate
-                                <filename>/var</filename>
-                                automatically, as
-                                needed.</para></listitem>
-                        </varlistentry>
-
-                        <xi:include href="standard-options.xml" xpointer="help" />
-                        <xi:include href="standard-options.xml" xpointer="version" />
-                </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>Examples</title>
-
-                <example>
-                        <title>Download a Fedora image and start a shell in it</title>
-
-                        <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-nspawn</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-nspawn</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-nspawn</refname>
+    <refpurpose>Spawn a namespace container for debugging, testing and building</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-nspawn</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-nspawn</command>
+      <arg choice="plain">-b</arg>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-nspawn</command> may be used to run a
+    command or OS in a light-weight namespace container. In many ways
+    it is similar to
+    <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    but more powerful since it fully virtualizes the file system
+    hierarchy, as well as the process tree, the various IPC subsystems
+    and the host and domain name.</para>
+
+    <para><command>systemd-nspawn</command> limits access to various
+    kernel interfaces in the container to read-only, such as
+    <filename>/sys</filename>, <filename>/proc/sys</filename> or
+    <filename>/sys/fs/selinux</filename>. Network interfaces and the
+    system clock may not be changed from within the container. Device
+    nodes may not be created. The host system cannot be rebooted and
+    kernel modules may not be loaded from within the container.</para>
+
+    <para>Note that even though these security precautions are taken
+    <command>systemd-nspawn</command> is not suitable for secure
+    container setups. Many of the security features may be
+    circumvented and are hence primarily useful to avoid accidental
+    changes to the host system from the container. The intended use of
+    this program is debugging and testing as well as building of
+    packages, distributions and software involved with boot and
+    systems management.</para>
+
+    <para>In contrast to
+    <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+    may be used to boot full Linux-based operating systems in a
+    container.</para>
+
+    <para>Use a tool like
+    <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    or
+    <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    to set up an OS directory tree suitable as file system hierarchy
+    for <command>systemd-nspawn</command> containers.</para>
+
+    <para>Note that <command>systemd-nspawn</command> will mount file
+    systems private to the container to <filename>/dev</filename>,
+    <filename>/run</filename> and similar. These will not be visible
+    outside of the container, and their contents will be lost when the
+    container exits.</para>
+
+    <para>Note that running two <command>systemd-nspawn</command>
+    containers from the same directory tree will not make processes in
+    them see each other. The PID namespace separation of the two
+    containers is complete and the containers will share very few
+    runtime objects except for the underlying file system. Use
+    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>login</command> command to request an additional login
+    prompt in a running container.</para>
+
+    <para><command>systemd-nspawn</command> implements the
+    <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+    Interface</ulink> specification.</para>
+
+    <para>As a safety check <command>systemd-nspawn</command> will
+    verify the existence of <filename>/usr/lib/os-release</filename>
+    or <filename>/etc/os-release</filename> in the container tree
+    before starting the container (see
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+    It might be necessary to add this file to the container tree
+    manually if the OS of the container is too old to contain this
+    file out-of-the-box.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>If option <option>-b</option> is specified, the arguments
+    are used as arguments for the init binary. Otherwise,
+    <replaceable>COMMAND</replaceable> specifies the program to launch
+    in the container, and the remaining arguments are used as
+    arguments for this program. If <option>-b</option> is not used and
+    no arguments are specifed, a shell is launched in the
+    container.</para>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-D</option></term>
+        <term><option>--directory=</option></term>
+
+        <listitem><para>Directory to use as file system root for the
+        container.</para>
+
+        <para>If neither <option>--directory=</option>, nor
+        <option>--image=</option> is specified the directory is
+        determined as <filename>/var/lib/machines/</filename> suffixed
+        by the machine name as specified with
+        <option>--machine=</option>. If neither
+        <option>--directory=</option>, <option>--image=</option>, nor
+        <option>--machine=</option> are specified, the current
+        directory will be used. May not be specified together with
+        <option>--image=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--template=</option></term>
+
+        <listitem><para>Directory or <literal>btrfs</literal>
+        subvolume to use as template for the container's root
+        directory. If this is specified and the container's root
+        directory (as configured by <option>--directory=</option>)
+        does not yet exist it is created as <literal>btrfs</literal>
+        subvolume and populated from this template tree. Ideally, the
+        specified template path refers to the root of a
+        <literal>btrfs</literal> subvolume, in which case a simple
+        copy-on-write snapshot is taken, and populating the root
+        directory is instant. If the specified template path does not
+        refer to the root of a <literal>btrfs</literal> subvolume (or
+        not even to a <literal>btrfs</literal> file system at all),
+        the tree is copied, which can be substantially more
+        time-consuming. Note that if this option is used the
+        container's root directory (in contrast to the template
+        directory!) must be located on a <literal>btrfs</literal> file
+        system, so that the <literal>btrfs</literal> subvolume may be
+        created. May not be specified together with
+        <option>--image=</option> or
+        <option>--ephemeral</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-x</option></term>
+        <term><option>--ephemeral</option></term>
+
+        <listitem><para>If specified, the container is run with a
+        temporary <literal>btrfs</literal> snapshot of its root
+        directory (as configured with <option>--directory=</option>),
+        that is removed immediately when the container terminates.
+        This option is only supported if the root file system is
+        <literal>btrfs</literal>. May not be specified together with
+        <option>--image=</option> or
+        <option>--template=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+        <term><option>--image=</option></term>
+
+        <listitem><para>Disk image to mount the root directory for the
+        container from. Takes a path to a regular file or to a block
+        device node. The file or block device must contain
+        either:</para>
+
+        <itemizedlist>
+          <listitem><para>An MBR partition table with a single
+          partition of type 0x83 that is marked
+          bootable.</para></listitem>
+
+          <listitem><para>A GUID partition table (GPT) with a single
+          partition of type
+          0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
+
+          <listitem><para>A GUID partition table (GPT) with a marked
+          root partition which is mounted as the root directory of the
+          container. Optionally, GPT images may contain a home and/or
+          a server data partition which are mounted to the appropriate
+          places in the container. All these partitions must be
+          identified by the partition types defined by the <ulink
+          url="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+          Partitions Specification</ulink>.</para></listitem>
+        </itemizedlist>
+
+        <para>Any other partitions, such as foreign partitions, swap
+        partitions or EFI system partitions are not mounted. May not
+        be specified together with <option>--directory=</option>,
+        <option>--template=</option> or
+        <option>--ephemeral</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-b</option></term>
+        <term><option>--boot</option></term>
+
+        <listitem><para>Automatically search for an init binary and
+        invoke it instead of a shell or a user supplied program. If
+        this option is used, arguments specified on the command line
+        are used as arguments for the init binary. This option may not
+        be combined with <option>--share-system</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--user=</option></term>
+
+        <listitem><para>After transitioning into the container, change
+        to the specified user-defined in the container's user
+        database. Like all other systemd-nspawn features, this is not
+        a security feature and provides protection against accidental
+        destructive operations only.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Sets the machine name for this container. This
+        name may be used to identify this container during its runtime
+        (for example in tools like
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and similar), and is used to initialize the container's
+        hostname (which the container can choose to override,
+        however). If not specified, the last component of the root
+        directory path of the container is used, possibly suffixed
+        with a random identifier in case <option>--ephemeral</option>
+        mode is selected. If the root directory selected is the host's
+        root directory the host's hostname is used as default
+        instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uuid=</option></term>
+
+        <listitem><para>Set the specified UUID for the container. The
+        init system will initialize
+        <filename>/etc/machine-id</filename> from this if this file is
+        not set yet. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice=</option></term>
+
+        <listitem><para>Make the container part of the specified
+        slice, instead of the default
+        <filename>machine.slice</filename>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-network</option></term>
+
+        <listitem><para>Disconnect networking of the container from
+        the host. This makes all network interfaces unavailable in the
+        container, with the exception of the loopback device and those
+        specified with <option>--network-interface=</option> and
+        configured with <option>--network-veth</option>. If this
+        option is specified, the CAP_NET_ADMIN capability will be
+        added to the set of capabilities the container retains. The
+        latter may be disabled by using
+        <option>--drop-capability=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-interface=</option></term>
+
+        <listitem><para>Assign the specified network interface to the
+        container. This will remove the specified interface from the
+        calling namespace and place it in the container. When the
+        container terminates, it is moved back to the host namespace.
+        Note that <option>--network-interface=</option> implies
+        <option>--private-network</option>. This option may be used
+        more than once to add multiple network interfaces to the
+        container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-macvlan=</option></term>
+
+        <listitem><para>Create a <literal>macvlan</literal> interface
+        of the specified Ethernet network interface and add it to the
+        container. A <literal>macvlan</literal> interface is a virtual
+        interface that adds a second MAC address to an existing
+        physical Ethernet link. The interface in the container will be
+        named after the interface on the host, prefixed with
+        <literal>mv-</literal>. Note that
+        <option>--network-macvlan=</option> implies
+        <option>--private-network</option>. This option may be used
+        more than once to add multiple network interfaces to the
+        container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-ipvlan=</option></term>
+
+        <listitem><para>Create an <literal>ipvlan</literal> interface
+        of the specified Ethernet network interface and add it to the
+        container. An <literal>ipvlan</literal> interface is a virtual
+        interface, similar to a <literal>macvlan</literal> interface,
+        which uses the same MAC address as the underlying interface.
+        The interface in the container will be named after the
+        interface on the host, prefixed with <literal>iv-</literal>.
+        Note that <option>--network-ipvlan=</option> implies
+        <option>--private-network</option>. This option may be used
+        more than once to add multiple network interfaces to the
+        container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--network-veth</option></term>
+
+        <listitem><para>Create a virtual Ethernet link
+        (<literal>veth</literal>) between host and container. The host
+        side of the Ethernet link will be available as a network
+        interface named after the container's name (as specified with
+        <option>--machine=</option>), prefixed with
+        <literal>ve-</literal>. The container side of the Ethernet
+        link will be named <literal>host0</literal>. Note that
+        <option>--network-veth</option> implies
+        <option>--private-network</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-bridge=</option></term>
+
+        <listitem><para>Adds the host side of the Ethernet link
+        created with <option>--network-veth</option> to the specified
+        bridge. Note that <option>--network-bridge=</option> implies
+        <option>--network-veth</option>. If this option is used, the
+        host side of the Ethernet link will use the
+        <literal>vb-</literal> prefix instead of
+        <literal>ve-</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--port=</option></term>
+
+        <listitem><para>If private networking is enabled, maps an IP
+        port on the host onto an IP port on the container. Takes a
+        protocol specifier (either <literal>tcp</literal> or
+        <literal>udp</literal>), separated by a colon from a host port
+        number in the range 1 to 65535, separated by a colon from a
+        container port number in the range from 1 to 65535. The
+        protocol specifier and its separating colon may be omitted, in
+        which case <literal>tcp</literal> is assumed. The container
+        port number and its colon may be ommitted, in which case the
+        same port as the host port is implied. This option is only
+        supported if private networking is used, such as
+        <option>--network-veth</option> or
+        <option>--network-bridge=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-Z</option></term>
+        <term><option>--selinux-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label processes in the container.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-L</option></term>
+        <term><option>--selinux-apifs-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label files in the virtual API file systems in the
+        container.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--capability=</option></term>
+
+        <listitem><para>List one or more additional capabilities to
+        grant the container. Takes a comma-separated list of
+        capability names, see
+        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for more information. Note that the following capabilities
+        will be granted in any way: CAP_CHOWN, CAP_DAC_OVERRIDE,
+        CAP_DAC_READ_SEARCH, CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER,
+        CAP_KILL, CAP_LEASE, CAP_LINUX_IMMUTABLE,
+        CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, CAP_NET_RAW,
+        CAP_SETGID, CAP_SETFCAP, CAP_SETPCAP, CAP_SETUID,
+        CAP_SYS_ADMIN, CAP_SYS_CHROOT, CAP_SYS_NICE, CAP_SYS_PTRACE,
+        CAP_SYS_TTY_CONFIG, CAP_SYS_RESOURCE, CAP_SYS_BOOT,
+        CAP_AUDIT_WRITE, CAP_AUDIT_CONTROL. Also CAP_NET_ADMIN is
+        retained if <option>--private-network</option> is specified.
+        If the special value <literal>all</literal> is passed, all
+        capabilities are retained.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-capability=</option></term>
+
+        <listitem><para>Specify one or more additional capabilities to
+        drop for the container. This allows running the container with
+        fewer capabilities than the default (see
+        above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--link-journal=</option></term>
+
+        <listitem><para>Control whether the container's journal shall
+        be made visible to the host system. If enabled, allows viewing
+        the container's journal files from the host (but not vice
+        versa). Takes one of <literal>no</literal>,
+        <literal>host</literal>, <literal>try-host</literal>,
+        <literal>guest</literal>, <literal>try-guest</literal>,
+        <literal>auto</literal>. If <literal>no</literal>, the journal
+        is not linked. If <literal>host</literal>, the journal files
+        are stored on the host file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is bind-mounted into the container at the
+        same location. If <literal>guest</literal>, the journal files
+        are stored on the guest file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is symlinked into the host at the same
+        location. <literal>try-host</literal> and
+        <literal>try-guest</literal> do the same but do not fail if
+        the host does not have persistent journalling enabled. If
+        <literal>auto</literal> (the default), and the right
+        subdirectory of <filename>/var/log/journal</filename> exists,
+        it will be bind mounted into the container. If the
+        subdirectory does not exist, no linking is performed.
+        Effectively, booting a container once with
+        <literal>guest</literal> or <literal>host</literal> will link
+        the journal persistently if further on the default of
+        <literal>auto</literal> is used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem><para>Equivalent to
+        <option>--link-journal=try-guest</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>Mount the root file system read-only for the
+        container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind=</option></term>
+        <term><option>--bind-ro=</option></term>
+
+        <listitem><para>Bind mount a file or directory from the host
+        into the container. Either takes a path argument -- in which
+        case the specified path will be mounted from the host to the
+        same path in the container --, or a colon-separated pair of
+        paths -- in which case the first specified path is the source
+        in the host, and the second path is the destination in the
+        container. The <option>--bind-ro=</option> option creates
+        read-only bind mounts.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tmpfs=</option></term>
+
+        <listitem><para>Mount a tmpfs file system into the container.
+        Takes a single absolute path argument that specifies where to
+        mount the tmpfs instance to (in which case the directory
+        access mode will be chosen as 0755, owned by root/root), or
+        optionally a colon-separated pair of path and mount option
+        string, that is used for mounting (in which case the kernel
+        default for access mode and owner will be chosen, unless
+        otherwise specified). This option is particularly useful for
+        mounting directories such as <filename>/var</filename> as
+        tmpfs, to allow state-less systems, in particular when
+        combined with <option>--read-only</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=</option></term>
+
+        <listitem><para>Specifies an environment variable assignment
+        to pass to the init process in the container, in the format
+        <literal>NAME=VALUE</literal>. This may be used to override
+        the default variables or to set additional variables. This
+        parameter may be used more than once.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--share-system</option></term>
+
+        <listitem><para>Allows the container to share certain system
+        facilities with the host. More specifically, this turns off
+        PID namespacing, UTS namespacing and IPC namespacing, and thus
+        allows the guest to see and interact more easily with
+        processes outside of the container. Note that using this
+        option makes it impossible to start up a full Operating System
+        in the container, as an init system cannot operate in this
+        mode. It is only useful to run specific programs or
+        applications this way, without involving an init system in the
+        container. This option implies <option>--register=no</option>.
+        This option may not be combined with
+        <option>--boot</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--register=</option></term>
+
+        <listitem><para>Controls whether the container is registered
+        with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Takes a boolean argument, defaults to <literal>yes</literal>.
+        This option should be enabled when the container runs a full
+        Operating System (more specifically: an init system), and is
+        useful to ensure that the container is accessible via
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and shown by tools such as
+        <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        If the container does not run an init system, it is
+        recommended to set this option to <literal>no</literal>. Note
+        that <option>--share-system</option> implies
+        <option>--register=no</option>. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--keep-unit</option></term>
+
+        <listitem><para>Instead of creating a transient scope unit to
+        run the container in, simply register the service or scope
+        unit <command>systemd-nspawn</command> has been invoked in
+        with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        This has no effect if <option>--register=no</option> is used.
+        This switch should be used if
+        <command>systemd-nspawn</command> is invoked from within a
+        service unit, and the service unit's sole purpose is to run a
+        single <command>systemd-nspawn</command> container. This
+        option is not available if run from a user
+        session.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--personality=</option></term>
+
+        <listitem><para>Control the architecture ("personality")
+        reported by
+        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        in the container. Currently, only <literal>x86</literal> and
+        <literal>x86-64</literal> are supported. This is useful when
+        running a 32-bit container on a 64-bit host. If this setting
+        is not used, the personality reported in the container is the
+        same as the one reported on the host.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Turns off any status output by the tool
+        itself. When this switch is used, the only output from nspawn
+        will be the console output of the container OS
+        itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--volatile</option><replaceable>=MODE</replaceable></term>
+
+        <listitem><para>Boots the container in volatile mode. When no
+        mode parameter is passed or when mode is specified as
+        <literal>yes</literal> full volatile mode is enabled. This
+        means the root directory is mounted as mostly unpopulated
+        <literal>tmpfs</literal> instance, and
+        <filename>/usr</filename> from the OS tree is mounted into it,
+        read-only (the system thus starts up with read-only OS
+        resources, but pristine state and configuration, any changes
+        to the either are lost on shutdown). When the mode parameter
+        is specified as <literal>state</literal> the OS tree is
+        mounted read-only, but <filename>/var</filename> is mounted as
+        <literal>tmpfs</literal> instance into it (the system thus
+        starts up with read-only OS resources and configuration, but
+        pristine state, any changes to the latter are lost on
+        shutdown). When the mode parameter is specified as
+        <literal>no</literal> (the default) the whole OS tree is made
+        available writable.</para>
+
+        <para>Note that setting this to <literal>yes</literal> or
+        <literal>state</literal> will only work correctly with
+        operating systems in the container that can boot up with only
+        <filename>/usr</filename> mounted, and are able to populate
+        <filename>/var</filename> automatically, as
+        needed.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Download a Fedora image and start a shell in it</title>
+
+      <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
 # systemd-nspawn -M Fedora-Cloud-Base-20141203-21</programlisting>
 
-<para>This downloads an image using <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and opens a shell in it.</para>
-                </example>
+      <para>This downloads an image using
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and opens a shell in it.</para>
+    </example>
 
-                <example>
-                        <title>Build and boot a minimal Fedora distribution in a container</title>
+    <example>
+      <title>Build and boot a minimal Fedora distribution in a container</title>
 
-                        <programlisting># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
+      <programlisting># dnf -y --releasever=21 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd dnf fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
-                        <para>This installs a minimal Fedora distribution into
-                        the directory <filename noindex='true'>/srv/mycontainer/</filename> and
-                        then boots an OS in a namespace container in
-                        it.</para>
-                </example>
+      <para>This installs a minimal Fedora distribution into the
+      directory <filename noindex='true'>/srv/mycontainer/</filename>
+      and then boots an OS in a namespace container in it.</para>
+    </example>
 
-                <example>
-                        <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
+    <example>
+      <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
 
-                        <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+      <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</programlisting>
 
-                        <para>This installs a minimal Debian unstable
-                        distribution into the directory
-                        <filename>~/debian-tree/</filename> and then spawns a
-                        shell in a namespace container in it.</para>
-                </example>
+      <para>This installs a minimal Debian unstable distribution into
+      the directory <filename>~/debian-tree/</filename> and then
+      spawns a shell in a namespace container in it.</para>
+    </example>
 
-                <example>
-                        <title>Boot a minimal Arch Linux distribution in a container</title>
+    <example>
+      <title>Boot a minimal Arch Linux distribution in a container</title>
 
-                        <programlisting># pacstrap -c -d ~/arch-tree/ base
+      <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
-                        <para>This installs a mimimal Arch Linux distribution into
-                        the directory <filename>~/arch-tree/</filename> and then
-                        boots an OS in a namespace container in it.</para>
-                </example>
+      <para>This installs a mimimal Arch Linux distribution into the
+      directory <filename>~/arch-tree/</filename> and then boots an OS
+      in a namespace container in it.</para>
+    </example>
 
-                <example>
-                        <title>Boot into an ephemeral <literal>btrfs</literal> snapshot of the host system</title>
+    <example>
+      <title>Boot into an ephemeral <literal>btrfs</literal> snapshot of the host system</title>
 
-                        <programlisting># systemd-nspawn -D / -xb</programlisting>
+      <programlisting># systemd-nspawn -D / -xb</programlisting>
 
-                        <para>This runs a copy of the host system in a
-                        <literal>btrfs</literal> snapshot which is
-                        removed immediately when the container
-                        exits. All file system changes made during
-                        runtime will be lost on shutdown,
-                        hence.</para>
-                </example>
+      <para>This runs a copy of the host system in a
+      <literal>btrfs</literal> snapshot which is removed immediately
+      when the container exits. All file system changes made during
+      runtime will be lost on shutdown, hence.</para>
+    </example>
 
-                <example>
-                        <title>Run a container with SELinux sandbox security contexts</title>
+    <example>
+      <title>Run a container with SELinux sandbox security contexts</title>
 
-                        <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+      <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
 # systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
-                </example>
-        </refsect1>
+    </example>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>The exit code of the program executed in the
-                container is returned.</para>
-        </refsect1>
+    <para>The exit code of the program executed in the container is
+    returned.</para>
+  </refsect1>
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>

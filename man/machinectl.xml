@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   This file is part of systemd.
@@ -22,943 +22,741 @@
 -->
 
 <refentry id="machinectl" conditional='ENABLE_MACHINED'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-
-        <refentryinfo>
-                <title>machinectl</title>
-                <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
-
-        <refmeta>
-                <refentrytitle>machinectl</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
-
-        <refnamediv>
-                <refname>machinectl</refname>
-                <refpurpose>Control the systemd machine manager</refpurpose>
-        </refnamediv>
-
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>machinectl</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="req">COMMAND</arg>
-                        <arg choice="opt" rep="repeat">NAME</arg>
-                </cmdsynopsis>
-        </refsynopsisdiv>
-
-        <refsect1>
-                <title>Description</title>
-
-                <para><command>machinectl</command> may be used to
-                introspect and control the state of the
-                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                virtual machine and container registration manager <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Options</title>
-
-                <para>The following options are understood:</para>
-
-                <variablelist>
-                        <varlistentry>
-                                <term><option>-p</option></term>
-                                <term><option>--property=</option></term>
-
-                                <listitem><para>When showing machine
-                                or image properties, limit the output
-                                to certain properties as specified by
-                                the argument. If not specified, all
-                                set properties are shown. The argument
-                                should be a property name, such as
-                                <literal>Name</literal>. If specified
-                                more than once, all properties with
-                                the specified names are
-                                shown.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-a</option></term>
-                                <term><option>--all</option></term>
-
-                                <listitem><para>When showing machine
-                                or image properties, show all
-                                properties regardless of whether they
-                                are set or not.</para>
-
-                                <para>When listing VM or container
-                                images, do not suppress images
-                                beginning in a dot character
-                                (<literal>.</literal>).</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-l</option></term>
-                                <term><option>--full</option></term>
-
-                                <listitem><para>Do not ellipsize
-                                process tree entries.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-ask-password</option></term>
-
-                                <listitem><para>Do not query the user
-                                for authentication for privileged
-                                operations.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--kill-who=</option></term>
-
-                                <listitem><para>When used with
-                                <command>kill</command>,
-                                choose which processes to kill. Must
-                                be one of <option>leader</option>, or
-                                <option>all</option> to select whether
-                                to kill only the leader process of the
-                                machine or all processes of the
-                                machine. If omitted, defaults to
-                                <option>all</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-s</option></term>
-                                <term><option>--signal=</option></term>
-
-                                <listitem><para>When used with
-                                <command>kill</command>, choose
-                                which signal to send to selected
-                                processes. Must be one of the
-                                well-known signal specifiers, such as
-                                <constant>SIGTERM</constant>,
-                                <constant>SIGINT</constant> or
-                                <constant>SIGSTOP</constant>. If
-                                omitted, defaults to
-                                <constant>SIGTERM</constant>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--mkdir</option></term>
-
-                                <listitem><para>When used with
-                                <command>bind</command> creates the
-                                destination directory before applying
-                                the bind mount.</para></listitem>
-                        </varlistentry>
-
-
-                        <varlistentry>
-                                <term><option>--read-only</option></term>
-
-                                <listitem><para>When used with
-                                <command>bind</command> applies a
-                                read-only bind
-                                mount.</para></listitem>
-                        </varlistentry>
-
-
-                        <varlistentry>
-                                <term><option>-n</option></term>
-                                <term><option>--lines=</option></term>
-
-                                <listitem><para>When used with
-                                <command>status</command>, controls
-                                the number of journal lines to show,
-                                counting from the most recent
-                                ones. Takes a positive integer
-                                argument. Defaults to 10.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-o</option></term>
-                                <term><option>--output=</option></term>
-
-                                <listitem><para>When used with
-                                <command>status</command>, controls
-                                the formatting of the journal entries
-                                that are shown. For the available
-                                choices, see
-                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-                                Defaults to
-                                <literal>short</literal>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--verify=</option></term>
-
-                                <listitem><para>When downloading a
-                                container or VM image, specify whether
-                                the image shall be verified before it
-                                is made available. Takes one of
-                                <literal>no</literal>,
-                                <literal>checksum</literal> and
-                                <literal>signature</literal>. If
-                                <literal>no</literal> no verification
-                                is done. If
-                                <literal>checksum</literal> is
-                                specified the download is checked for
-                                integrity after transfer is complete,
-                                but no signatures are verified. If
-                                <literal>signature</literal> is
-                                specified, the checksum is verified
-                                and the images's signature is checked
-                                against a local keyring of trustable
-                                vendors. It is strongly recommended to
-                                set this option to
-                                <literal>signature</literal> if the
-                                server and protocol support this.
-                                Defaults to
-                                <literal>signature</literal>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--force</option></term>
-
-                                <listitem><para>When downloading a
-                                container or VM image, and a local
-                                copy by the specified local machine
-                                name already exists, delete it first
-                                and replace it by the newly downloaded
-                                image.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--dkr-index-url</option></term>
-
-                                <listitem><para>Specifies the index
-                                server to use for downloading
-                                <literal>dkr</literal> images with the
-                                <command>pull-dkr</command>. Takes a
-                                <literal>http://</literal>,
-                                <literal>https://</literal> URL.</para></listitem>
-                        </varlistentry>
-
-                        <xi:include href="user-system-options.xml" xpointer="host" />
-                        <xi:include href="user-system-options.xml" xpointer="machine" />
-
-                        <xi:include href="standard-options.xml" xpointer="no-pager" />
-                        <xi:include href="standard-options.xml" xpointer="no-legend" />
-                        <xi:include href="standard-options.xml" xpointer="help" />
-                        <xi:include href="standard-options.xml" xpointer="version" />
-                </variablelist>
-        </refsect1>
-
-        <refsect1>
-                <title>Commands</title>
-
-                <para>The following commands are understood:</para>
-
-                <refsect2><title>Machine Commands</title><variablelist>
-
-                        <varlistentry>
-                                <term><command>list</command></term>
-
-                                <listitem><para>List currently running
-                                (online) virtual machines and
-                                containers. To enumerate container
-                                images that can be started,
-                                use <command>list-images</command>
-                                (see below).</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>status</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Show terse runtime
-                                status information about one or more
-                                virtual machines and containers,
-                                followed by the most recent log data
-                                from the journal. This function is
-                                intended to generate human-readable
-                                output. If you are looking for
-                                computer-parsable output, use
-                                <command>show</command> instead. Note
-                                that the log data shown is reported by
-                                the virtual machine or container
-                                manager, and frequently contains
-                                console output of the machine, but not
-                                necessarily journal contents of the
-                                machine itself.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>show</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Show properties of one
-                                or more registered virtual machines or
-                                containers or the manager itself. If
-                                no argument is specified, properties
-                                of the manager will be shown. If an
-                                NAME is specified, properties of this
-                                virtual machine or container are
-                                shown. By default, empty properties
-                                are suppressed. Use
-                                <option>--all</option> to show those
-                                too. To select specific properties to
-                                show, use
-                                <option>--property=</option>. This
-                                command is intended to be used
-                                whenever computer-parsable output is
-                                required. Use
-                                <command>status</command> if you are
-                                looking for formatted human-readable
-                                output.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>start</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Start a container as a
-                                system service, using
-                                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-                                This starts
-                                <filename>systemd-nspawn@.service</filename>,
-                                instantiated for the specified machine
-                                name, similar to the effect of
-                                <command>systemctl start</command> on
-                                the service
-                                name. <command>systemd-nspawn</command>
-                                looks for a container image by the
-                                specified name in
-                                <filename>/var/lib/machines/</filename>
-                                (and other search paths, see below) and runs
-                                it. Use <command>list-images</command>
-                                (see below), for listing available
-                                container images to start.</para>
-
-                                <para>Note that
-                                <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                also interfaces with a variety of
-                                other container and VM managers,
-                                <command>systemd-nspawn</command> is
-                                just one implementation of it. Most of
-                                the commands available in
-                                <command>machinectl</command> may be
-                                used on containers or VMs controlled
-                                by other managers, not just
-                                <command>systemd-nspawn</command>. Starting
-                                VMs and container images on those
-                                managers requires manager-specific
-                                tools.</para>
-
-                                <para>To interactively start a
-                                container on the command line with
-                                full access to the container's
-                                console, please invoke
-                                <command>systemd-nspawn</command>
-                                directly. To stop a running container
-                                use <command>machinectl
-                                poweroff</command>, see
-                                below.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>login</command> <replaceable>NAME</replaceable></term>
-
-                                <listitem><para>Open an interactive terminal login
-                                session to a container. This will
-                                create a TTY connection to a specific
-                                container and asks for the execution of a
-                                getty on it. Note that this is only
-                                supported for containers running
-                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                as init system.</para>
-
-                                <para>This command will open a full
-                                login prompt on the container, which
-                                then asks for username and
-                                password. Use
-                                <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                with the <option>--machine=</option>
-                                switch to invoke a single command,
-                                either interactively or in the
-                                background within a local
-                                container.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>enable</command> <replaceable>NAME</replaceable>...</term>
-                                <term><command>disable</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Enable or disable a
-                                container as a system service to start
-                                at system boot, using
-                                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-                                This enables or disables
-                                <filename>systemd-nspawn@.service</filename>,
-                                instantiated for the specified machine
-                                name, similar to the effect of
-                                <command>systemctl enable</command> or
-                                <command>systemctl disable</command>
-                                on the service name.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>poweroff</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Power off one or more
-                                containers. This will trigger a reboot
-                                by sending SIGRTMIN+4 to the
-                                container's init process, which causes
-                                systemd-compatible init systems to
-                                shut down cleanly. This operation does
-                                not work on containers that do not run
-                                a
-                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
-                                init system, such as sysvinit. Use
-                                <command>terminate</command> (see
-                                below) to immediately terminate a
-                                container or VM, without cleanly
-                                shutting it down.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>reboot</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Reboot one or more
-                                containers. This will trigger a reboot
-                                by sending SIGINT to the container's
-                                init process, which is roughly
-                                equivalent to pressing Ctrl+Alt+Del on
-                                a non-containerized system, and is
-                                compatible with containers running any
-                                system manager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>terminate</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Immediately terminates
-                                a virtual machine or container,
-                                without cleanly shutting it down. This
-                                kills all processes of the virtual
-                                machine or container and deallocates
-                                all resources attached to that
-                                instance. Use
-                                <command>poweroff</command> to issue a
-                                clean shutdown request.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>kill</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Send a signal to one
-                                or more processes of the virtual
-                                machine or container. This means
-                                processes as seen by the host, not the
-                                processes inside the virtual machine
-                                or container.
-                                Use <option>--kill-who=</option> to
-                                select which process to kill. Use
-                                <option>--signal=</option> to select
-                                the signal to send.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>bind</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
-
-                                <listitem><para>Bind mounts a
-                                directory from the host into the
-                                specified container. The first
-                                directory argument is the source
-                                directory on the host, the second
-                                directory argument the source
-                                directory on the host. When the latter
-                                is omitted the destination path in the
-                                container is the same as the source
-                                path on the host. When combined with
-                                the <option>--read-only</option>
-                                switch a ready-only bind mount is
-                                created. When combined with the
-                                <option>--mkdir</option> switch the
-                                destination path is first created
-                                before the mount is applied. Note that
-                                this option is currently only
-                                supported for
-                                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                containers.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
-
-                                <listitem><para>Copies files or
-                                directories from the host system into
-                                a running container. Takes a container
-                                name, followed by the source path on
-                                the host and the destination path in
-                                the container. If the destination path
-                                is omitted the same as the source path
-                                is used.</para></listitem>
-                        </varlistentry>
-
-
-                        <varlistentry>
-                                <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
-
-                                <listitem><para>Copies files or
-                                directories from a container into the
-                                host system. Takes a container name,
-                                followed by the source path in the
-                                container the destination path on the
-                                host. If the destination path is
-                                omitted the same as the source path is
-                                used.</para></listitem>
-                        </varlistentry>
-                </variablelist></refsect2>
-
-                <refsect2><title>Image Commands</title><variablelist>
-
-                        <varlistentry>
-                                <term><command>list-images</command></term>
-
-                                <listitem><para>Show a list of locally
-                                installed container and VM
-                                images. This enumerates all raw disk
-                                images and container directories and
-                                subvolumes in
-                                <filename>/var/lib/machines/</filename> (and other search paths, see below). Use
-                                <command>start</command> (see above)
-                                to run a container off one of the
-                                listed images. Note that by default
-                                containers whose name begins with a
-                                dot (<literal>.</literal>) are not
-                                shown. To show these too, specify
-                                <option>--all</option>. Note that a
-                                special image <literal>.host</literal>
-                                always implicitly exists and refers to
-                                the image the host itself is booted
-                                from.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>image-status</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Show terse status
-                                information about one or more
-                                container or VM images. This function
-                                is intended to generate human-readable
-                                output. Use
-                                <command>show-image</command> (see
-                                below) to generate computer-parsable
-                                output instead.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>show-image</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Show properties of one
-                                or more registered virtual machine or
-                                container images, or the manager
-                                itself. If no argument is specified,
-                                properties of the manager will be
-                                shown. If an NAME is specified,
-                                properties of this virtual machine or
-                                container image are shown. By default,
-                                empty properties are suppressed. Use
-                                <option>--all</option> to show those
-                                too. To select specific properties to
-                                show, use
-                                <option>--property=</option>. This
-                                command is intended to be used
-                                whenever computer-parsable output is
-                                required. Use
-                                <command>image-status</command> if you
-                                are looking for formatted
-                                human-readable
-                                output.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
-
-                                <listitem><para>Clones a container or
-                                disk image. The arguments specify the
-                                name of the image to clone and the
-                                name of the newly cloned image. Note
-                                that plain directory container images
-                                are cloned into subvolume images with
-                                this command. Note that cloning a
-                                container or VM image is optimized for
-                                btrfs file systems, and might not be
-                                efficient on others, due to file
-                                system limitations.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>rename</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
-
-                                <listitem><para>Renames a container or
-                                disk image. The arguments specify the
-                                name of the image to rename and the
-                                new name of the
-                                image.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>read-only</command> <replaceable>NAME</replaceable> [<replaceable>BOOL</replaceable>]</term>
-
-                                <listitem><para>Marks or (unmarks) a
-                                container or disk image
-                                read-only. Takes a VM or container
-                                image name, followed by a boolean as
-                                arguments. If the boolean is omitted,
-                                positive is implied, i.e. the image is
-                                marked read-only.</para></listitem>
-                        </varlistentry>
-
-
-                        <varlistentry>
-                                <term><command>remove</command> <replaceable>NAME</replaceable>...</term>
-
-                                <listitem><para>Removes one or more
-                                container or disk images. The special
-                                image <literal>.host</literal>, which
-                                refers to the host's own directory
-                                tree may not be
-                                removed.</para></listitem>
-                        </varlistentry>
-
-                </variablelist></refsect2>
-
-                <refsect2><title>Image Transfer Commands</title><variablelist>
-
-                        <varlistentry>
-                                <term><command>pull-tar</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-                                <listitem><para>Downloads a
-                                <filename>.tar</filename> container
-                                image from the specified URL, and
-                                makes it available under the specified
-                                local machine name. The URL must be of
-                                type <literal>http://</literal> or
-                                <literal>https://</literal>, and must
-                                refer to a <filename>.tar</filename>,
-                                <filename>.tar.gz</filename>,
-                                <filename>.tar.xz</filename> or
-                                <filename>.tar.bz2</filename> archive
-                                file. If the local machine name is
-                                omitted the name it is automatically
-                                derived from the last component of the
-                                URL, with its suffix removed.</para>
-
-                                <para>The image is verified before it
-                                is made available, unless
-                                <option>--verify=no</option> is
-                                specified. Verification is done via
-                                SHA256SUMS and SHA256SUMS.gpg files,
-                                that need to be made available on the
-                                same web server, under the same URL as
-                                the <filename>.tar</filename> file,
-                                but with the last component (the
-                                filename) of the URL replaced. With
-                                <option>--verify=checksum</option>
-                                only the SHA256 checksum for the file
-                                is verified, based on the
-                                <filename>SHA256SUMS</filename>
-                                file. With
-                                <option>--verify=signature</option>
-                                the SHA256SUMS file is first verified
-                                with detached GPG signature file
-                                <filename>SHA256SUMS.gpg</filename>. The
-                                public key for this verification step
-                                needs to be available in
-                                <filename>/usr/lib/systemd/import-pubring.gpg</filename>
-                                or
-                                <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
-
-                                <para>The container image will be
-                                downloaded and stored in a read-only
-                                subvolume in
-                                <filename>/var/lib/machines/</filename>,
-                                that is named after the specified URL
-                                and its HTTP etag. A writable snapshot
-                                is then taken from this subvolume, and
-                                named after the specified local
-                                name. This behaviour ensures that
-                                creating multiple container instances
-                                of the same URL is efficient, as
-                                multiple downloads are not
-                                necessary. In order to create only the
-                                read-only image, and avoid creating
-                                its writable snapshot, specify
-                                <literal>-</literal> as local machine
-                                name.</para>
-
-                                <para>Note that the read-only
-                                subvolume is prefixed with
-                                <filename>.tar-</filename>, and
-                                is thus now shown by
-                                <command>list-images</command>, unless
-                                <option>--all</option> is passed.</para>
-
-                                <para>Note that pressing C-c during
-                                execution of this command will not
-                                abort the download. Use
-                                <command>cancel-transfer</command>,
-                                described below.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>pull-raw</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-                                <listitem><para>Downloads a
-                                <filename>.raw</filename> container or
-                                VM disk image from the specified URL,
-                                and makes it available under the
-                                specified local machine name. The URL
-                                must be of type
-                                <literal>http://</literal> or
-                                <literal>https://</literal>. The
-                                container image must either be a
-                                <filename>.qcow2</filename> or raw
-                                disk image, optionally compressed as
-                                <filename>.gz</filename>,
-                                <filename>.xz</filename>, or
-                                <filename>.bz2</filename>. If the
-                                local machine name is omitted the name
-                                it is automatically derived from the
-                                last component of the URL, with its
-                                suffix removed.</para>
-
-                                <para>Image verification is identical
-                                for raw and tar images (see above).</para>
-
-                                <para>If the the downloaded image is
-                                in <filename>.qcow2</filename> format
-                                it es converted into a raw image file
-                                before it is made available.</para>
-
-                                <para>Downloaded images of this type
-                                will be placed as read-only
-                                <filename>.raw</filename> file in
-                                <filename>/var/lib/machines/</filename>. A
-                                local, writable (reflinked) copy is
-                                then made under the specified local
-                                machine name. To omit creation of the
-                                local, writable copy pass
-                                <literal>-</literal> as local machine
-                                name.</para>
-
-                                <para>Similar to the behaviour of
-                                <command>pull-tar</command>, the
-                                read-only image is prefixed with
-                                <filename>.raw-</filename>, and thus
-                                now shown by
-                                <command>list-images</command>, unless
-                                <option>--all</option> is
-                                passed.</para>
-
-                                <para>Note that pressing C-c during
-                                execution of this command will not
-                                abort the download. Use
-                                <command>cancel-transfer</command>,
-                                described below.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>pull-dkr</command> <replaceable>REMOTE</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-                                <listitem><para>Downloads a
-                                <literal>dkr</literal> container image
-                                and makes it available locally. The
-                                remote name refers to a
-                                <literal>dkr</literal> container
-                                name. If omitted, the local machine
-                                name is derived from the
-                                <literal>dkr</literal> container
-                                name.</para>
-
-                                <para>Image verification is not
-                                available for <literal>dkr</literal>
-                                containers, and thus
-                                <option>--verify=no</option> must
-                                always be specified with this
-                                command.</para>
-
-                                <para>This command downloads all
-                                (missing) layers for the specified
-                                container and places them in read-only
-                                subvolumes in
-                                <filename>/var/lib/machines/</filename>. A
-                                writable snapshot of the newest layer
-                                is then created under the specified
-                                local machine name. To omit creation
-                                of this writable snapshot, pass
-                                <literal>-</literal> as local machine
-                                name.</para>
-
-                                <para>The read-only layer subvolumes
-                                are prefixed with
-                                <filename>.dkr-</filename>, and thus
-                                now shown by
-                                <command>list-images</command>, unless
-                                <option>--all</option> is
-                                passed.</para>
-
-                                <para>To specify the
-                                <literal>dkr</literal> index server to
-                                use for looking up the specified
-                                container, use
-                                <option>--dkr-index-url=</option>.</para>
-
-                                <para>Note that pressing C-c during
-                                execution of this command will not
-                                abort the download. Use
-                                <command>cancel-transfer</command>,
-                                described below.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>list-transfers</command></term>
-
-                                <listitem><para>Shows a list of
-                                container or VM image downloads that
-                                are currently in
-                                progress.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>cancel-transfers</command> <replaceable>ID</replaceable>...</term>
-
-                                <listitem><para>Aborts download of the
-                                container or VM image with the
-                                specified ID. To list ongoing
-                                transfers and their IDs, use
-                                <command>list-transfers</command>.
-                                </para></listitem>
-                        </varlistentry>
-
-                </variablelist></refsect2>
-
-        </refsect1>
-
-        <refsect1>
-                <title>Files and Directories</title>
-
-                <para>Machine images are preferably stored in
-                <filename>/var/lib/machines/</filename>, but are also
-                searched for in
-                <filename>/usr/local/lib/machines/</filename> and
-                <filename>/usr/lib/machines/</filename>. For
-                compatibility reasons the directory
-                <filename>/var/lib/container/</filename> is searched,
-                too. Note that images stored below
-                <filename>/usr</filename> are always considered
-                read-only. It is possible to symlink machines images
-                from other directories into
-                <filename>/var/lib/machines/</filename> to make them
-                available for control with
-                <command>machinectl</command>.</para>
-
-                <para>Disk images are understood by
-                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                and <command>machinectl</command> in three
-                formats:</para>
-
-                <itemizedlist>
-                        <listitem><para>A simple directory tree,
-                        containing the files and directories of the
-                        container to boot.</para></listitem>
-
-                        <listitem><para>A subvolume (on btrfs file
-                        systems), which are similar to the simple
-                        directories, described above. However, they
-                        have additional benefits, such as efficient
-                        cloning and quota reporting.</para></listitem>
-
-                        <listitem><para>"Raw" disk images, i.e. binary
-                        images of disks with a GPT or MBR partition
-                        table. Images of this type are regular
-                        files with the suffix
-                        <literal>.raw</literal>.</para></listitem>
-                </itemizedlist>
-
-                <para>See
-                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                for more information on image formats, in particular
-                it's <option>--directory=</option> and
-                <option>--image=</option> options.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Examples</title>
-                <example>
-                        <title>Download an Ubuntu image and open a shell in it</title>
-
-                        <programlisting># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>machinectl</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>machinectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>machinectl</refname>
+    <refpurpose>Control the systemd machine manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>machinectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>machinectl</command> may be used to introspect and
+    control the state of the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    virtual machine and container registration manager
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing machine or image properties,
+        limit the output to certain properties as specified by the
+        argument. If not specified, all set properties are shown. The
+        argument should be a property name, such as
+        <literal>Name</literal>. If specified more than once, all
+        properties with the specified names are
+        shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem><para>When showing machine or image properties, show
+        all properties regardless of whether they are set or
+        not.</para>
+
+        <para>When listing VM or container images, do not suppress
+        images beginning in a dot character
+        (<literal>.</literal>).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem><para>Do not ellipsize process tree entries.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-who=</option></term>
+
+        <listitem><para>When used with <command>kill</command>, choose
+        which processes to kill. Must be one of
+        <option>leader</option>, or <option>all</option> to select
+        whether to kill only the leader process of the machine or all
+        processes of the machine. If omitted, defaults to
+        <option>all</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--signal=</option></term>
+
+        <listitem><para>When used with <command>kill</command>, choose
+        which signal to send to selected processes. Must be one of the
+        well-known signal specifiers, such as
+        <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
+        <constant>SIGSTOP</constant>. If omitted, defaults to
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>When used with <command>bind</command> creates
+        the destination directory before applying the bind
+        mount.</para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>When used with <command>bind</command> applies
+        a read-only bind mount.</para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the number of journal lines to show, counting from
+        the most recent ones. Takes a positive integer argument.
+        Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the formatting of the journal entries that are shown.
+        For the available choices, see
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Defaults to <literal>short</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify=</option></term>
+
+        <listitem><para>When downloading a container or VM image,
+        specify whether the image shall be verified before it is made
+        available. Takes one of <literal>no</literal>,
+        <literal>checksum</literal> and <literal>signature</literal>.
+        If <literal>no</literal> no verification is done. If
+        <literal>checksum</literal> is specified the download is
+        checked for integrity after transfer is complete, but no
+        signatures are verified. If <literal>signature</literal> is
+        specified, the checksum is verified and the images's signature
+        is checked against a local keyring of trustable vendors. It is
+        strongly recommended to set this option to
+        <literal>signature</literal> if the server and protocol
+        support this. Defaults to
+        <literal>signature</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When downloading a container or VM image, and
+        a local copy by the specified local machine name already
+        exists, delete it first and replace it by the newly downloaded
+        image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dkr-index-url</option></term>
+
+        <listitem><para>Specifies the index server to use for
+        downloading <literal>dkr</literal> images with the
+        <command>pull-dkr</command>. Takes a
+        <literal>http://</literal>, <literal>https://</literal>
+        URL.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <refsect2><title>Machine Commands</title><variablelist>
+
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List currently running (online) virtual
+        machines and containers. To enumerate container images that
+        can be started, use <command>list-images</command> (see
+        below).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>status</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Show terse runtime status information about
+        one or more virtual machines and containers, followed by the
+        most recent log data from the journal. This function is
+        intended to generate human-readable output. If you are looking
+        for computer-parsable output, use <command>show</command>
+        instead. Note that the log data shown is reported by the
+        virtual machine or container manager, and frequently contains
+        console output of the machine, but not necessarily journal
+        contents of the machine itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Show properties of one or more registered
+        virtual machines or containers or the manager itself. If no
+        argument is specified, properties of the manager will be
+        shown. If an NAME is specified, properties of this virtual
+        machine or container are shown. By default, empty properties
+        are suppressed. Use <option>--all</option> to show those too.
+        To select specific properties to show, use
+        <option>--property=</option>. This command is intended to be
+        used whenever computer-parsable output is required. Use
+        <command>status</command> if you are looking for formatted
+        human-readable output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>start</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Start a container as a system service, using
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        This starts <filename>systemd-nspawn@.service</filename>,
+        instantiated for the specified machine name, similar to the
+        effect of <command>systemctl start</command> on the service
+        name. <command>systemd-nspawn</command> looks for a container
+        image by the specified name in
+        <filename>/var/lib/machines/</filename> (and other search
+        paths, see below) and runs it. Use
+        <command>list-images</command> (see below), for listing
+        available container images to start.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also interfaces with a variety of other container and VM
+        managers, <command>systemd-nspawn</command> is just one
+        implementation of it. Most of the commands available in
+        <command>machinectl</command> may be used on containers or VMs
+        controlled by other managers, not just
+        <command>systemd-nspawn</command>. Starting VMs and container
+        images on those managers requires manager-specific
+        tools.</para>
+
+        <para>To interactively start a container on the command line
+        with full access to the container's console, please invoke
+        <command>systemd-nspawn</command> directly. To stop a running
+        container use <command>machinectl poweroff</command>, see
+        below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>login</command> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Open an interactive terminal login session to
+        a container. This will create a TTY connection to a specific
+        container and asks for the execution of a getty on it. Note
+        that this is only supported for containers running
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as init system.</para>
+
+        <para>This command will open a full login prompt on the
+        container, which then asks for username and password. Use
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        with the <option>--machine=</option> switch to invoke a single
+        command, either interactively or in the background within a
+        local container.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>enable</command> <replaceable>NAME</replaceable>...</term>
+        <term><command>disable</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Enable or disable a container as a system
+        service to start at system boot, using
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        This enables or disables
+        <filename>systemd-nspawn@.service</filename>, instantiated for
+        the specified machine name, similar to the effect of
+        <command>systemctl enable</command> or <command>systemctl
+        disable</command> on the service name.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>poweroff</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Power off one or more containers. This will
+        trigger a reboot by sending SIGRTMIN+4 to the container's init
+        process, which causes systemd-compatible init systems to shut
+        down cleanly. This operation does not work on containers that
+        do not run a
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
+        init system, such as sysvinit. Use
+        <command>terminate</command> (see below) to immediately
+        terminate a container or VM, without cleanly shutting it
+        down.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>reboot</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Reboot one or more containers. This will
+        trigger a reboot by sending SIGINT to the container's init
+        process, which is roughly equivalent to pressing Ctrl+Alt+Del
+        on a non-containerized system, and is compatible with
+        containers running any system manager.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>terminate</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Immediately terminates a virtual machine or
+        container, without cleanly shutting it down. This kills all
+        processes of the virtual machine or container and deallocates
+        all resources attached to that instance. Use
+        <command>poweroff</command> to issue a clean shutdown
+        request.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>kill</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Send a signal to one or more processes of the
+        virtual machine or container. This means processes as seen by
+        the host, not the processes inside the virtual machine or
+        container. Use <option>--kill-who=</option> to select which
+        process to kill. Use <option>--signal=</option> to select the
+        signal to send.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>bind</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+        <listitem><para>Bind mounts a directory from the host into the
+        specified container. The first directory argument is the
+        source directory on the host, the second directory argument
+        the source directory on the host. When the latter is omitted
+        the destination path in the container is the same as the
+        source path on the host. When combined with the
+        <option>--read-only</option> switch a ready-only bind mount is
+        created. When combined with the <option>--mkdir</option>
+        switch the destination path is first created before the mount
+        is applied. Note that this option is currently only supported
+        for
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        containers.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+        <listitem><para>Copies files or directories from the host
+        system into a running container. Takes a container name,
+        followed by the source path on the host and the destination
+        path in the container. If the destination path is omitted the
+        same as the source path is used.</para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+        <listitem><para>Copies files or directories from a container
+        into the host system. Takes a container name, followed by the
+        source path in the container the destination path on the host.
+        If the destination path is omitted the same as the source path
+        is used.</para></listitem>
+      </varlistentry>
+    </variablelist></refsect2>
+
+    <refsect2><title>Image Commands</title><variablelist>
+
+      <varlistentry>
+        <term><command>list-images</command></term>
+
+        <listitem><para>Show a list of locally installed container and
+        VM images. This enumerates all raw disk images and container
+        directories and subvolumes in
+        <filename>/var/lib/machines/</filename> (and other search
+        paths, see below). Use <command>start</command> (see above) to
+        run a container off one of the listed images. Note that by
+        default containers whose name begins with a dot
+        (<literal>.</literal>) are not shown. To show these too,
+        specify <option>--all</option>. Note that a special image
+        <literal>.host</literal> always implicitly exists and refers
+        to the image the host itself is booted from.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>image-status</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Show terse status information about one or
+        more container or VM images. This function is intended to
+        generate human-readable output. Use
+        <command>show-image</command> (see below) to generate
+        computer-parsable output instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show-image</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Show properties of one or more registered
+        virtual machine or container images, or the manager itself. If
+        no argument is specified, properties of the manager will be
+        shown. If an NAME is specified, properties of this virtual
+        machine or container image are shown. By default, empty
+        properties are suppressed. Use <option>--all</option> to show
+        those too. To select specific properties to show, use
+        <option>--property=</option>. This command is intended to be
+        used whenever computer-parsable output is required. Use
+        <command>image-status</command> if you are looking for
+        formatted human-readable output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Clones a container or disk image. The
+        arguments specify the name of the image to clone and the name
+        of the newly cloned image. Note that plain directory container
+        images are cloned into subvolume images with this command.
+        Note that cloning a container or VM image is optimized for
+        btrfs file systems, and might not be efficient on others, due
+        to file system limitations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>rename</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Renames a container or disk image. The
+        arguments specify the name of the image to rename and the new
+        name of the image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>read-only</command> <replaceable>NAME</replaceable> [<replaceable>BOOL</replaceable>]</term>
+
+        <listitem><para>Marks or (unmarks) a container or disk image
+        read-only. Takes a VM or container image name, followed by a
+        boolean as arguments. If the boolean is omitted, positive is
+        implied, i.e. the image is marked read-only.</para></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><command>remove</command> <replaceable>NAME</replaceable>...</term>
+
+        <listitem><para>Removes one or more container or disk images.
+        The special image <literal>.host</literal>, which refers to
+        the host's own directory tree may not be
+        removed.</para></listitem>
+      </varlistentry>
+
+    </variablelist></refsect2>
+
+    <refsect2><title>Image Transfer Commands</title><variablelist>
+
+      <varlistentry>
+        <term><command>pull-tar</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads a <filename>.tar</filename>
+        container image from the specified URL, and makes it available
+        under the specified local machine name. The URL must be of
+        type <literal>http://</literal> or
+        <literal>https://</literal>, and must refer to a
+        <filename>.tar</filename>, <filename>.tar.gz</filename>,
+        <filename>.tar.xz</filename> or <filename>.tar.bz2</filename>
+        archive file. If the local machine name is omitted the name it
+        is automatically derived from the last component of the URL,
+        with its suffix removed.</para>
+
+        <para>The image is verified before it is made available,
+        unless <option>--verify=no</option> is specified. Verification
+        is done via SHA256SUMS and SHA256SUMS.gpg files, that need to
+        be made available on the same web server, under the same URL
+        as the <filename>.tar</filename> file, but with the last
+        component (the filename) of the URL replaced. With
+        <option>--verify=checksum</option> only the SHA256 checksum
+        for the file is verified, based on the
+        <filename>SHA256SUMS</filename> file. With
+        <option>--verify=signature</option> the SHA256SUMS file is
+        first verified with detached GPG signature file
+        <filename>SHA256SUMS.gpg</filename>. The public key for this
+        verification step needs to be available in
+        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
+        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+
+        <para>The container image will be downloaded and stored in a
+        read-only subvolume in
+        <filename>/var/lib/machines/</filename>, that is named after
+        the specified URL and its HTTP etag. A writable snapshot is
+        then taken from this subvolume, and named after the specified
+        local name. This behaviour ensures that creating multiple
+        container instances of the same URL is efficient, as multiple
+        downloads are not necessary. In order to create only the
+        read-only image, and avoid creating its writable snapshot,
+        specify <literal>-</literal> as local machine name.</para>
+
+        <para>Note that the read-only subvolume is prefixed with
+        <filename>.tar-</filename>, and is thus now shown by
+        <command>list-images</command>, unless <option>--all</option>
+        is passed.</para>
+
+        <para>Note that pressing C-c during execution of this command
+        will not abort the download. Use
+        <command>cancel-transfer</command>, described
+        below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pull-raw</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads a <filename>.raw</filename>
+        container or VM disk image from the specified URL, and makes
+        it available under the specified local machine name. The URL
+        must be of type <literal>http://</literal> or
+        <literal>https://</literal>. The container image must either
+        be a <filename>.qcow2</filename> or raw disk image, optionally
+        compressed as <filename>.gz</filename>,
+        <filename>.xz</filename>, or <filename>.bz2</filename>. If the
+        local machine name is omitted the name it is automatically
+        derived from the last component of the URL, with its suffix
+        removed.</para>
+
+        <para>Image verification is identical for raw and tar images
+        (see above).</para>
+
+        <para>If the the downloaded image is in
+        <filename>.qcow2</filename> format it es converted into a raw
+        image file before it is made available.</para>
+
+        <para>Downloaded images of this type will be placed as
+        read-only <filename>.raw</filename> file in
+        <filename>/var/lib/machines/</filename>. A local, writable
+        (reflinked) copy is then made under the specified local
+        machine name. To omit creation of the local, writable copy
+        pass <literal>-</literal> as local machine name.</para>
+
+        <para>Similar to the behaviour of <command>pull-tar</command>,
+        the read-only image is prefixed with
+        <filename>.raw-</filename>, and thus now shown by
+        <command>list-images</command>, unless <option>--all</option>
+        is passed.</para>
+
+        <para>Note that pressing C-c during execution of this command
+        will not abort the download. Use
+        <command>cancel-transfer</command>, described
+        below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pull-dkr</command> <replaceable>REMOTE</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads a <literal>dkr</literal> container
+        image and makes it available locally. The remote name refers
+        to a <literal>dkr</literal> container name. If omitted, the
+        local machine name is derived from the <literal>dkr</literal>
+        container name.</para>
+
+        <para>Image verification is not available for
+        <literal>dkr</literal> containers, and thus
+        <option>--verify=no</option> must always be specified with
+        this command.</para>
+
+        <para>This command downloads all (missing) layers for the
+        specified container and places them in read-only subvolumes in
+        <filename>/var/lib/machines/</filename>. A writable snapshot
+        of the newest layer is then created under the specified local
+        machine name. To omit creation of this writable snapshot, pass
+        <literal>-</literal> as local machine name.</para>
+
+        <para>The read-only layer subvolumes are prefixed with
+        <filename>.dkr-</filename>, and thus now shown by
+        <command>list-images</command>, unless <option>--all</option>
+        is passed.</para>
+
+        <para>To specify the <literal>dkr</literal> index server to
+        use for looking up the specified container, use
+        <option>--dkr-index-url=</option>.</para>
+
+        <para>Note that pressing C-c during execution of this command
+        will not abort the download. Use
+        <command>cancel-transfer</command>, described
+        below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-transfers</command></term>
+
+        <listitem><para>Shows a list of container or VM image
+        downloads that are currently in progress.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>...</term>
+
+        <listitem><para>Aborts download of the container or VM image
+        with the specified ID. To list ongoing transfers and their
+        IDs, use <command>list-transfers</command>. </para></listitem>
+      </varlistentry>
+
+    </variablelist></refsect2>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Files and Directories</title>
+
+    <para>Machine images are preferably stored in
+    <filename>/var/lib/machines/</filename>, but are also searched for
+    in <filename>/usr/local/lib/machines/</filename> and
+    <filename>/usr/lib/machines/</filename>. For compatibility reasons
+    the directory <filename>/var/lib/container/</filename> is
+    searched, too. Note that images stored below
+    <filename>/usr</filename> are always considered read-only. It is
+    possible to symlink machines images from other directories into
+    <filename>/var/lib/machines/</filename> to make them available for
+    control with <command>machinectl</command>.</para>
+
+    <para>Disk images are understood by
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and <command>machinectl</command> in three formats:</para>
+
+    <itemizedlist>
+      <listitem><para>A simple directory tree, containing the files
+      and directories of the container to boot.</para></listitem>
+
+      <listitem><para>A subvolume (on btrfs file systems), which are
+      similar to the simple directories, described above. However,
+      they have additional benefits, such as efficient cloning and
+      quota reporting.</para></listitem>
+
+      <listitem><para>"Raw" disk images, i.e. binary images of disks
+      with a GPT or MBR partition table. Images of this type are
+      regular files with the suffix
+      <literal>.raw</literal>.</para></listitem>
+    </itemizedlist>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for more information on image formats, in particular it's
+    <option>--directory=</option> and <option>--image=</option>
+    options.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Download an Ubuntu image and open a shell in it</title>
+
+      <programlisting># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
 # systemd-nspawn -M trusty-server-cloudimg-amd64-root</programlisting>
 
-                        <para>This downloads and verifies the
-                        specified <filename>.tar</filename> image, and
-                        then uses
-                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                        to open a shell in it.</para>
-                </example>
+      <para>This downloads and verifies the specified
+      <filename>.tar</filename> image, and then uses
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      to open a shell in it.</para>
+    </example>
 
-                <example>
-                        <title>Download a Fedora image, set a root password in it, start it as service</title>
+    <example>
+      <title>Download a Fedora image, set a root password in it, start
+      it as service</title>
 
-                        <programlisting># machinectl pull-raw --verify=no http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-20141203-21
-# passwd
-# exit
-# machinectl start Fedora-Cloud-Base-20141203-21
-# machinectl login Fedora-Cloud-Base-20141203-21</programlisting>
+      <programlisting># machinectl pull-raw --verify=no
+      http://ftp.halifax.rwth-aachen.de/fedora/linux/releases/21/Cloud/Images/x86_64/Fedora-Cloud-Base-20141203-21.x86_64.raw.xz
+      # systemd-nspawn -M Fedora-Cloud-Base-20141203-21 # passwd #
+      exit # machinectl start Fedora-Cloud-Base-20141203-21 #
+      machinectl login Fedora-Cloud-Base-20141203-21</programlisting>
 
-                        <para>This downloads the specified
-                        <filename>.raw</filename> image with
-                        verification disabled. Then a shell is opened
-                        in it and a root password is set. Afterwards
-                        the shell is left, and the machine started as
-                        system service. With the last command a login
-                        prompt into the container is requested.</para>
-                </example>
+      <para>This downloads the specified <filename>.raw</filename>
+      image with verification disabled. Then a shell is opened in it
+      and a root password is set. Afterwards the shell is left, and
+      the machine started as system service. With the last command a
+      login prompt into the container is requested.</para>
+    </example>
 
-                <example>
-                        <title>Download a Fedora <literal>dkr</literal> image</title>
+    <example>
+      <title>Download a Fedora <literal>dkr</literal> image</title>
 
-                        <programlisting># machinectl pull-dkr --verify=no mattdm/fedora
+      <programlisting># machinectl pull-dkr --verify=no mattdm/fedora
 # systemd-nspawn -M fedora</programlisting>
 
-                        <para>Downloads a <literal>dkr</literal> image
-                        and opens a shell in it. Note that the
-                        specified download command might require an
-                        index server to be specified with the
-                        <literal>--dkr-index-url=</literal>.</para>
-                </example>
-        </refsect1>
+      <para>Downloads a <literal>dkr</literal> image and opens a shell
+      in it. Note that the specified download command might require an
+      index server to be specified with the
+      <literal>--dkr-index-url=</literal>.</para>
+    </example>
+  </refsect1>
 
-        <refsect1>
-                <title>Exit status</title>
+  <refsect1>
+    <title>Exit status</title>
 
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise.</para>
-        </refsect1>
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
 
-        <xi:include href="less-variables.xml" />
+  <xi:include href="less-variables.xml" />
 
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>
