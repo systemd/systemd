@@ -367,8 +367,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (streq(key, "quiet") && !value) {
 
-                log_set_max_level(LOG_NOTICE);
-
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
 

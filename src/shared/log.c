@@ -914,7 +914,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
          * The systemd.log_xyz= settings are parsed by all tools, and
          * so is "debug".
          *
-         * However, "quiet" is only parsed by PID 1!
+         * However, "quiet" is only parsed by PID 1, and only turns of
+         * status output to /dev/console, but does not alter the log
+         * level.
          */
 
         if (streq(key, "debug") && !value)
