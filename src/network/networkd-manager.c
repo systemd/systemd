@@ -151,10 +151,6 @@ int manager_connect_bus(Manager *m) {
         } if (r < 0)
                 return r;
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0)
-                return r;
-
         r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
                              "type='signal',"
                              "sender='org.freedesktop.login1',"
@@ -165,6 +161,26 @@ int manager_connect_bus(Manager *m) {
                              m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add manager object vtable: %m");
+
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
+        if (r < 0)
+               return log_error_errno(r, "Failed to add link object vtable: %m");
+
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add link enumerator: %m");
+
+        r = sd_bus_request_name(m->bus, "org.freedesktop.network1", 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register name: %m");
+
+        r = sd_bus_attach_event(m->bus, m->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         return 0;
 }
@@ -739,6 +755,13 @@ int manager_save(Manager *m) {
         if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
                 goto fail;
+        }
+
+        if (m->operational_state != operstate) {
+                m->operational_state = operstate;
+                r = manager_send_changed(m, "OperationalState", NULL);
+                if (r < 0)
+                        log_error_errno(r, "Could not emit changed OperationalState: %m");
         }
 
         return 0;

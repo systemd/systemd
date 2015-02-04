@@ -5585,6 +5585,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-netdev-bond.c \
 	src/network/networkd-netdev-bridge.c \
 	src/network/networkd-link.c \
+	src/network/networkd-link-bus.c \
 	src/network/networkd-ipv4ll.c \
 	src/network/networkd-dhcp4.c \
 	src/network/networkd-dhcp6.c \
@@ -5592,6 +5593,7 @@ libsystemd_networkd_core_la_SOURCES = \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
 	src/network/networkd-manager.c \
+	src/network/networkd-manager-bus.c \
 	src/network/networkd-fdb.c \
 	src/network/networkd-address-pool.c
 
@@ -5672,6 +5674,15 @@ dist_systemunit_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-networkd.service \
 	units/systemd-networkd-wait-online.service
+
+dist_systemunit_DATA_busnames += \
+	units/org.freedesktop.network1.busname
+
+dist_dbussystemservice_DATA += \
+	src/network/org.freedesktop.network1.service
+
+dist_dbuspolicy_DATA += \
+	src/network/org.freedesktop.network1.conf
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.socket $(pkgsysconfdir)/system/sockets.target.wants/systemd-networkd.socket \

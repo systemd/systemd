@@ -338,11 +338,24 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         return 0;
 }
 
+static void link_set_state(Link *link, LinkState state) {
+        assert(link);
+
+        if (link->state == state)
+                return;
+
+        link->state = state;
+
+        link_send_changed(link, "AdministrativeState", NULL);
+
+        return;
+}
+
 void link_drop(Link *link) {
         if (!link || link->state == LINK_STATE_LINGER)
                 return;
 
-        link->state = LINK_STATE_LINGER;
+        link_set_state(link, LINK_STATE_LINGER);
 
         log_link_debug(link, "link removed");
 
@@ -356,7 +369,7 @@ static void link_enter_unmanaged(Link *link) {
 
         log_link_debug(link, "unmanaged");
 
-        link->state = LINK_STATE_UNMANAGED;
+        link_set_state(link, LINK_STATE_UNMANAGED);
 
         link_save(link);
 }
@@ -430,7 +443,7 @@ void link_enter_failed(Link *link) {
 
         log_link_warning(link, "failed");
 
-        link->state = LINK_STATE_FAILED;
+        link_set_state(link, LINK_STATE_FAILED);
 
         link_stop_clients(link);
 
@@ -473,7 +486,7 @@ static int link_enter_configured(Link *link) {
 
         log_link_info(link, "link configured");
 
-        link->state = LINK_STATE_CONFIGURED;
+        link_set_state(link, LINK_STATE_CONFIGURED);
 
         link_save(link);
 
@@ -536,7 +549,7 @@ static int link_enter_set_routes(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ADDRESSES);
 
-        link->state = LINK_STATE_SETTING_ROUTES;
+        link_set_state(link, LINK_STATE_SETTING_ROUTES);
 
         LIST_FOREACH(routes, rt, link->network->static_routes) {
                 r = route_configure(rt, link, &route_handler);
@@ -617,7 +630,7 @@ static int link_enter_set_addresses(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        link->state = LINK_STATE_SETTING_ADDRESSES;
+        link_set_state(link, LINK_STATE_SETTING_ADDRESSES);
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 r = address_configure(ad, link, &address_handler);
@@ -1153,7 +1166,7 @@ static int link_enter_join_netdev(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-        link->state = LINK_STATE_ENSLAVING;
+        link_set_state(link, LINK_STATE_ENSLAVING);
 
         link_save(link);
 
@@ -1724,7 +1737,7 @@ int link_update(Link *link, sd_rtnl_message *m) {
         if (link->state == LINK_STATE_LINGER) {
                 link_ref(link);
                 log_link_info(link, "link readded");
-                link->state = LINK_STATE_ENSLAVING;
+                link_set_state(link, LINK_STATE_ENSLAVING);
         }
 
         r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
@@ -1843,11 +1856,11 @@ int link_update(Link *link, sd_rtnl_message *m) {
 }
 
 static void link_update_operstate(Link *link) {
-
+        LinkOperationalState operstate;
         assert(link);
 
         if (link->kernel_operstate == IF_OPER_DORMANT)
-                link->operstate = LINK_OPERSTATE_DORMANT;
+                operstate = LINK_OPERSTATE_DORMANT;
         else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
@@ -1863,17 +1876,22 @@ static void link_update_operstate(Link *link) {
 
                 if (scope < RT_SCOPE_SITE)
                         /* universally accessible addresses found */
-                        link->operstate = LINK_OPERSTATE_ROUTABLE;
+                        operstate = LINK_OPERSTATE_ROUTABLE;
                 else if (scope < RT_SCOPE_HOST)
                         /* only link or site local addresses found */
-                        link->operstate = LINK_OPERSTATE_DEGRADED;
+                        operstate = LINK_OPERSTATE_DEGRADED;
                 else
                         /* no useful addresses found */
-                        link->operstate = LINK_OPERSTATE_CARRIER;
+                        operstate = LINK_OPERSTATE_CARRIER;
         } else if (link->flags & IFF_UP)
-                link->operstate = LINK_OPERSTATE_NO_CARRIER;
+                operstate = LINK_OPERSTATE_NO_CARRIER;
         else
-                link->operstate = LINK_OPERSTATE_OFF;
+                operstate = LINK_OPERSTATE_OFF;
+
+        if (link->operstate != operstate) {
+                link->operstate = operstate;
+                link_send_changed(link, "OperationalState", NULL);
+        }
 }
 
 int link_save(Link *link) {

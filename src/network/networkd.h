@@ -72,6 +72,17 @@ typedef enum LLMNRSupport {
         _LLMNR_SUPPORT_INVALID = -1,
 } LLMNRSupport;
 
+typedef enum LinkOperationalState {
+        LINK_OPERSTATE_OFF,
+        LINK_OPERSTATE_NO_CARRIER,
+        LINK_OPERSTATE_DORMANT,
+        LINK_OPERSTATE_CARRIER,
+        LINK_OPERSTATE_DEGRADED,
+        LINK_OPERSTATE_ROUTABLE,
+        _LINK_OPERSTATE_MAX,
+        _LINK_OPERSTATE_INVALID = -1
+} LinkOperationalState;
+
 struct FdbEntry {
         Network *network;
         unsigned section;
@@ -209,6 +220,7 @@ struct Manager {
         bool enumerating;
 
         char *state_file;
+        LinkOperationalState operational_state;
 
         Hashmap *links;
         Hashmap *netdevs;
@@ -222,6 +234,8 @@ extern const char* const network_dirs[];
 
 /* Manager */
 
+extern const sd_bus_vtable manager_vtable[];
+
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
 
@@ -231,6 +245,7 @@ bool manager_should_reload(Manager *m);
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
 
+int manager_send_changed(Manager *m, const char *property, ...) _sentinel_;
 int manager_save(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
@@ -394,3 +409,8 @@ const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
 AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
 
 int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+/* Opeartional State */
+
+const char* link_operstate_to_string(LinkOperationalState s) _const_;
+LinkOperationalState link_operstate_from_string(const char *s) _pure_;
