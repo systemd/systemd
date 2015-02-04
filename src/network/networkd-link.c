@@ -1492,7 +1492,10 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         } else {
                 r = link_get(m, ifindex, &link);
                 if (r < 0 || !link) {
-                        log_warning("rtnl: received address for nonexistent link (%d), ignoring", ifindex);
+                        /* when enumerating we might be out of sync, but we will
+                         * get the address again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received address for nonexistent link (%d), ignoring", ifindex);
                         return 0;
                 }
         }

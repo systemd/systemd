@@ -525,9 +525,13 @@ int manager_rtnl_enumerate_links(Manager *m) {
         for (link = reply; link; link = sd_rtnl_message_next(link)) {
                 int k;
 
+                m->enumerating = true;
+
                 k = manager_rtnl_process_link(m->rtnl, link, m);
                 if (k < 0)
                         r = k;
+
+                m->enumerating = false;
         }
 
         return r;
@@ -556,9 +560,13 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
         for (addr = reply; addr; addr = sd_rtnl_message_next(addr)) {
                 int k;
 
+                m->enumerating = true;
+
                 k = link_rtnl_process_address(m->rtnl, addr, m);
                 if (k < 0)
                         r = k;
+
+                m->enumerating = false;
         }
 
         return r;

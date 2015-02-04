@@ -206,6 +206,8 @@ struct Manager {
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
 
+        bool enumerating;
+
         char *state_file;
 
         Hashmap *links;
