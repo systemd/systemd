@@ -285,7 +285,7 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
         }
 
         /* resync */
-        log_info("System time changed. Resyncing.");
+        log_debug("System time changed. Resyncing.");
         m->poll_resync = true;
 
         return manager_send_request(m);
@@ -740,7 +740,7 @@ static int manager_begin(Manager *m) {
                 m->poll_interval_usec = NTP_POLL_INTERVAL_MIN_SEC * USEC_PER_SEC;
 
         server_address_pretty(m->current_server_address, &pretty);
-        log_info("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
+        log_debug("Using NTP server %s (%s).", strna(pretty), m->current_server_name->string);
         sd_notifyf(false, "STATUS=Using Time Server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);
