@@ -259,6 +259,7 @@ Features:
     for all routes to it. possibly a second default for DHCP routes.
   - allow Name= to be specified repeatedly in the [Match] section. Maybe also
     support Name=foo*|bar*|baz ?
+  - duplicate address check for static IPs (like ARPCHECK in network-scripts)
 
 * resolved:
   - put networkd events and rtnl events at a higher priority, so that
