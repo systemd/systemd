@@ -78,8 +78,6 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
-int manager_connect_bus(Manager *m);
-
 static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
         Manager *m = userdata;
 
@@ -434,10 +432,6 @@ int manager_new(Manager **ret) {
         sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         r = manager_connect_rtnl(m);
-        if (r < 0)
-                return r;
-
-        r = manager_connect_bus(m);
         if (r < 0)
                 return r;
 

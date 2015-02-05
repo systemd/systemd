@@ -239,6 +239,7 @@ extern const sd_bus_vtable manager_vtable[];
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
 
+int manager_connect_bus(Manager *m);
 int manager_run(Manager *m);
 
 int manager_load_config(Manager *m);

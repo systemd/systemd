@@ -86,6 +86,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
+        r = manager_connect_bus(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not connect to bus: %m");
+                goto out;
+        }
+
         r = manager_load_config(m);
         if (r < 0) {
                 log_error_errno(r, "Could not load configuration files: %m");
