@@ -34,12 +34,8 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/types.h>
 #include <linux/hdreg.h>
-#include <linux/fs.h>
-#include <linux/cdrom.h>
 #include <linux/bsg.h>
-#include <arpa/inet.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
