@@ -38,6 +38,9 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
 
         assert(manager);
 
+        if (!manager->bus)
+                return 0; /* replace by assert when we have kdbus */
+
         l = strv_from_stdarg_alloca(property);
 
         return sd_bus_emit_properties_changed_strv(

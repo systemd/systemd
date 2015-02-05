@@ -108,6 +108,9 @@ int link_send_changed(Link *link, const char *property, ...) {
         assert(link);
         assert(link->manager);
 
+        if (!link->manager->bus)
+                return 0; /* replace with assert when we have kdbus */
+
         l = strv_from_stdarg_alloca(property);
 
         p = link_bus_path(link);
