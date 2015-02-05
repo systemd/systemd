@@ -32,3 +32,7 @@ typedef struct FsckProgress {
         size_t max;
         int pass;
 } FsckProgress;
+
+typedef struct FsckdMessage {
+        uint8_t cancel;
+} FsckdMessage;

@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "build.h"
+#include "def.h"
 #include "event-util.h"
 #include "fsckd.h"
 #include "log.h"
@@ -44,6 +45,7 @@
 #include "util.h"
 
 #define IDLE_TIME_SECONDS 30
+#define PLYMOUTH_REQUEST_KEY "K\2\2\3"
 
 struct Manager;
 
@@ -56,6 +58,7 @@ typedef struct Client {
         int pass;
         double percent;
         size_t buflen;
+        bool cancelled;
 
         LIST_FIELDS(struct Client, clients);
 } Client;
@@ -68,8 +71,13 @@ typedef struct Manager {
         FILE *console;
         double percent;
         int numdevices;
+        int plymouth_fd;
+        bool plymouth_cancel_sent;
+        bool cancel_requested;
 } Manager;
 
+static int connect_plymouth(Manager *m);
+static int update_global_progress(Manager *m);
 static void manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
@@ -92,6 +100,19 @@ static double compute_percent(int pass, size_t cur, size_t max) {
                 (double) cur / max;
 }
 
+static int request_cancel_client(Client *current) {
+        FsckdMessage cancel_msg;
+        ssize_t n;
+        cancel_msg.cancel = 1;
+
+        n = send(current->fd, &cancel_msg, sizeof(FsckdMessage), 0);
+        if (n < 0 || (size_t) n < sizeof(FsckdMessage))
+                return log_warning_errno(n, "Cannot send cancel to fsck on (%u, %u): %m",
+                                         major(current->devnum), minor(current->devnum));
+        else
+                current->cancelled = true;
+        return 0;
+}
 
 static void remove_client(Client **first, Client *item) {
         LIST_REMOVE(clients, *first, item);
@@ -99,10 +120,91 @@ static void remove_client(Client **first, Client *item) {
         free(item);
 }
 
+static void on_plymouth_disconnect(Manager *m) {
+        safe_close(m->plymouth_fd);
+        m->plymouth_fd = -1;
+        m->plymouth_cancel_sent = false;
+}
+
+static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *m = userdata;
+        Client *current;
+        char buffer[6];
+        int r;
+
+        assert(m);
+
+        r = read(m->plymouth_fd, buffer, sizeof(buffer));
+        if (r <= 0)
+                on_plymouth_disconnect(m);
+        else {
+               if (buffer[0] == '\15')
+                       log_error("Message update to plymouth wasn't delivered successfully");
+
+               /* the only answer support type we requested is a key interruption */
+               if (buffer[0] == '\2' && buffer[5] == '\3') {
+                       m->cancel_requested = true;
+                       /* cancel all connected clients */
+                       LIST_FOREACH(clients, current, m->clients)
+                               request_cancel_client(current);
+               }
+        }
+
+        return 0;
+}
+
+static int send_message_plymouth_socket(int plymouth_fd, const char *message, bool update) {
+        _cleanup_free_ char *packet = NULL;
+        int r, n;
+        char mode = 'M';
+
+        if (update)
+                mode = 'U';
+
+        if (asprintf(&packet, "%c\002%c%s%n", mode, (int) (strlen(message) + 1), message, &n) < 0)
+                return log_oom();
+        r = loop_write(plymouth_fd, packet, n + 1, true);
+        return r;
+}
+
+
+static int send_message_plymouth(Manager *m, const char *message) {
+        int r;
+        const char *plymouth_cancel_message = NULL;
+
+        r = connect_plymouth(m);
+        if (r < 0)
+                return r;
+
+        if (!m->plymouth_cancel_sent) {
+                /* indicate to plymouth that we listen to Ctrl+C */
+                r = loop_write(m->plymouth_fd, PLYMOUTH_REQUEST_KEY, sizeof(PLYMOUTH_REQUEST_KEY), true);
+                if (r < 0)
+                        return log_warning_errno(errno, "Can't send to plymouth cancel key: %m");
+                m->plymouth_cancel_sent = true;
+                plymouth_cancel_message = strjoina("fsckd-cancel-msg:", "Press Ctrl+C to cancel all filesystem checks in progress");
+                r = send_message_plymouth_socket(m->plymouth_fd, plymouth_cancel_message, false);
+                if (r < 0)
+                        log_warning_errno(r, "Can't send filesystem cancel message to plymouth: %m");
+        } else if (m->numdevices == 0) {
+                m->plymouth_cancel_sent = false;
+                r = send_message_plymouth_socket(m->plymouth_fd, "", false);
+                if (r < 0)
+                        log_warning_errno(r, "Can't clear plymouth filesystem cancel message: %m");
+        }
+
+        r = send_message_plymouth_socket(m->plymouth_fd,  message, true);
+        if (r < 0)
+                return log_warning_errno(errno, "Couldn't send \"%s\" to plymouth: %m", message);
+
+        return 0;
+}
+
 static int update_global_progress(Manager *m) {
         Client *current = NULL;
         _cleanup_free_ char *console_message = NULL;
-        int current_numdevices = 0, l = 0;
+        _cleanup_free_ char *fsck_message = NULL;
+        int current_numdevices = 0, l = 0, r;
         double current_percent = 100;
 
         /* get the overall percentage */
@@ -123,6 +225,8 @@ static int update_global_progress(Manager *m) {
                 if (asprintf(&console_message, "Checking in progress on %d disks (%3.1f%% complete)",
                                                 m->numdevices, m->percent) < 0)
                         return -ENOMEM;
+                if (asprintf(&fsck_message, "fsckd:%d:%3.1f:%s", m->numdevices, m->percent, console_message) < 0)
+                        return -ENOMEM;
 
                 /* write to console */
                 if (m->console) {
@@ -130,9 +234,38 @@ static int update_global_progress(Manager *m) {
                         fflush(m->console);
                 }
 
+                /* try to connect to plymouth and send message */
+                r = send_message_plymouth(m, fsck_message);
+                if (r < 0)
+                        log_debug("Couldn't send message to plymouth");
+
                 if (l > m->clear)
                         m->clear = l;
         }
+        return 0;
+}
+
+static int connect_plymouth(Manager *m) {
+        union sockaddr_union sa = PLYMOUTH_SOCKET;
+        int r;
+
+        /* try to connect or reconnect if sending a message */
+        if (m->plymouth_fd <= 0) {
+                m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+                if (m->plymouth_fd < 0) {
+                        return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
+                }
+                if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+                        on_plymouth_disconnect(m);
+                        return log_warning_errno(errno, "Couldn't connect to plymouth: %m");
+                }
+                r = sd_event_add_io(m->event, NULL, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
+                if (r < 0) {
+                        on_plymouth_disconnect(m);
+                        return log_warning_errno(r, "Can't listen to plymouth socket: %m");
+                }
+        }
+
         return 0;
 }
 
@@ -145,6 +278,12 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
 
         assert(client);
         m = client->manager;
+
+        /* check first if we need to cancel this client */
+        if (m->cancel_requested) {
+                if (!client->cancelled)
+                        request_cancel_client(client);
+        }
 
         /* ensure we have enough data to read */
         r = ioctl(fd, FIONREAD, &buflen);
@@ -210,6 +349,9 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
                         remove_client(&(m->clients), client);
                         return r;
                 }
+                /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
+                if (m->cancel_requested)
+                        request_cancel_client(client);
         } else
                 return log_error_errno(errno, "Couldn't accept a new connection: %m");
 
@@ -233,6 +375,7 @@ static void manager_free(Manager *m) {
         }
 
         safe_close(m->connection_fd);
+        safe_close(m->plymouth_fd);
         if (m->console)
                 fclose(m->console);
 
@@ -266,6 +409,7 @@ static int manager_new(Manager **ret, int fd) {
         }
         m->percent = 100;
 
+        m->plymouth_fd = -1;
         *ret = m;
         m = NULL;
 
