@@ -183,7 +183,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 }
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 if (!cname) {
                         r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of requested type", q->request_hostname);
                         goto finish;
@@ -219,6 +219,8 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
                         added++;
                 }
+
+                // what about the cache?
 
                 /* If we didn't find anything, then let's restart the
                  * query, this time with the cname */
@@ -398,7 +400,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 }
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 _cleanup_free_ char *ip = NULL;
 
                 in_addr_to_string(q->request_family, &q->request_address, &ip);
