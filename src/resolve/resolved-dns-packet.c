@@ -1192,7 +1192,7 @@ static int dns_packet_read_memdup(
         if (r < 0)
                 return r;
 
-        if (size <= 0)
+        if (size == 0)
                 *ret = NULL;
         else {
                 void *copy;

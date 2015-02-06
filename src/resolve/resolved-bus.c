@@ -514,7 +514,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 added ++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }
@@ -840,7 +840,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 added++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }
