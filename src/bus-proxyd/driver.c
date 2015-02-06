@@ -350,6 +350,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         return synthetic_reply_method_errno(m, r, NULL);
 
                 cmd.flags = KDBUS_LIST_QUEUED;
+                cmd.size = sizeof(cmd);
                 r = ioctl(a->input_fd, KDBUS_CMD_LIST, &cmd);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, -errno, NULL);
