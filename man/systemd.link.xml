@@ -216,7 +216,10 @@
                 nothing is done. Otherwise, a new MAC address is
                 generated which is guaranteed to be the same on every
                 boot for the given machine and the given device, but
-                which is otherwise random.</para>
+                which is otherwise random. This feature depends on ID_NET_NAME_*
+                properties existing for the link, on hardware where these
+                properties are not set the generation of a persistent mac address
+                will fail.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
