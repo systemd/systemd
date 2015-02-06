@@ -43,7 +43,8 @@ static char *link_bus_path(Link *link) {
         assert(link);
         assert(link->ifindex > 0);
 
-        asprintf(&p, "/org/freedesktop/network1/link/%d", link->ifindex);
+        if (asprintf(&p, "/org/freedesktop/network1/link/_%d", link->ifindex) < 0)
+                return NULL;
 
         return p;
 }
@@ -89,7 +90,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
         assert(found);
 
-        if (sscanf(path, "/org/freedesktop/network1/link/%d", &ifindex) != 1)
+        if (sscanf(path, "/org/freedesktop/network1/link/_%d", &ifindex) != 1)
                 return 0;
 
         r = link_get(m, ifindex, &link);
