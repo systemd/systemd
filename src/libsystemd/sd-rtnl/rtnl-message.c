@@ -1350,9 +1350,11 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                         log_debug("rtnl: no data in socket");
 
                 return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
-        } else if (r == 0)
-                /* connection was closed by the kernel */
-                return -ECONNRESET;
+        } else if (r == 0) {
+                /* connection was closed by the kernel? */
+                log_warning("rtnl: ignoring empty message");
+                return 0;
+        }
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
