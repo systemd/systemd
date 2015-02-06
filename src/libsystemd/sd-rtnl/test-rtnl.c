@@ -353,6 +353,13 @@ static void test_get_addresses(sd_rtnl *rtnl) {
         }
 }
 
+static void test_message(void) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+
+        assert_se(rtnl_message_new_synthetic_error(-ETIMEDOUT, 1, &m) >= 0);
+        assert_se(sd_rtnl_message_get_errno(m) == -ETIMEDOUT);
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -360,6 +367,8 @@ int main(void) {
         const char *string_data;
         int if_loopback;
         uint16_t type;
+
+        test_message();
 
         test_match();
 

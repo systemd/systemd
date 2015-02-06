@@ -71,8 +71,6 @@ int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type) {
         if (r < 0)
                 return r;
 
-        assert(nl_type->type == NLA_NESTED);
-
         r = message_new_empty(rtnl, &m);
         if (r < 0)
                 return r;

@@ -107,12 +107,10 @@ int rtnl_message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message
 
         assert(error <= 0);
 
-        r = message_new(NULL, ret, NLMSG_SPACE(sizeof(struct nlmsgerr)));
+        r = message_new(NULL, ret, NLMSG_ERROR);
         if (r < 0)
                 return r;
 
-        (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
-        (*ret)->hdr->nlmsg_type = NLMSG_ERROR;
         (*ret)->hdr->nlmsg_seq = serial;
 
         err = NLMSG_DATA((*ret)->hdr);
