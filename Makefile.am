@@ -4992,9 +4992,6 @@ BUSNAMES_TARGET_WANTS += \
 dist_pkgdata_DATA += \
 	src/locale/kbd-model-map
 
-dist_noinst_SCRIPT = \
-	src/locale/generate-kbd-model-map
-
 localectl_SOURCES = \
 	src/locale/localectl.c
 
