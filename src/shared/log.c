@@ -949,7 +949,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 void log_parse_environment(void) {
         const char *e;
 
-        (void) parse_proc_cmdline(parse_proc_cmdline_item);
+        if (get_ctty_devnr(0, NULL) < 0)
+                /* Only try to read the command line in daemons.
+                   We assume that anything that has a controlling
+                   tty is user stuff. */
+                (void) parse_proc_cmdline(parse_proc_cmdline_item);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
