@@ -2851,6 +2851,9 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
                 if (!sv)
                         return log_oom();
 
+                if ((pid_t) pid < 0)
+                        return log_error_errno(ERANGE, "Bad PID %"PRIu32": %m", pid);
+
                 if (!strv_contains(sv,
                                   a == ACTION_HALT ||
                                   a == ACTION_POWEROFF ||
@@ -2862,7 +2865,7 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
                 user = uid_to_name(uid);
 
                 log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",
-                            who, pid, strna(comm), strna(user), why);
+                            who, (pid_t) pid, strna(comm), strna(user), why);
 
                 c++;
         }
