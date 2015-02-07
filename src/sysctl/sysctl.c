@@ -78,22 +78,6 @@ static int apply_sysctl(const char *property, const char *value) {
         n = stpcpy(p, "/proc/sys/");
         strcpy(n, property);
 
-        if (!strv_isempty(arg_prefixes)) {
-                char **i;
-                bool good = false;
-
-                STRV_FOREACH(i, arg_prefixes)
-                        if (path_startswith(p, *i)) {
-                                good = true;
-                                break;
-                        }
-
-                if (!good) {
-                        log_debug("Skipping %s", p);
-                        return 0;
-                }
-        }
-
         k = write_string_file(p, value);
         if (k < 0) {
                 log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
@@ -173,6 +157,20 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 p = normalize_sysctl(strstrip(p));
                 value = strstrip(value);
 
+                if (!strv_isempty(arg_prefixes)) {
+                        char **i, *t;
+                        STRV_FOREACH(i, arg_prefixes) {
+                                t = path_startswith(*i, "/proc/sys/");
+                                if (t == NULL)
+                                        t = *i;
+                                if (path_startswith(p, t))
+                                        goto found;
+                        }
+                        /* not found */
+                        continue;
+                }
+
+found:
                 existing = hashmap_get2(sysctl_options, p, &v);
                 if (existing) {
                         if (streq(value, existing))
