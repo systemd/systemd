@@ -4514,6 +4514,23 @@ static int init_home_and_lookup_paths(char **user_home, char **user_runtime, Loo
         return 0;
 }
 
+static int cat_file(const char *filename, bool newline) {
+        _cleanup_close_ int fd;
+
+        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        printf("%s%s# %s%s\n",
+               newline ? "\n" : "",
+               ansi_highlight_blue(),
+               filename,
+               ansi_highlight_off());
+        fflush(stdout);
+
+        return copy_bytes(fd, STDOUT_FILENO, (off_t) -1, false);
+}
+
 static int cat(sd_bus *bus, char **args) {
         _cleanup_free_ char *user_home = NULL;
         _cleanup_free_ char *user_runtime = NULL;
@@ -4559,32 +4576,15 @@ static int cat(sd_bus *bus, char **args) {
                         puts("");
 
                 if (fragment_path) {
-                        printf("%s# %s%s\n",
-                               ansi_highlight_blue(),
-                               fragment_path,
-                               ansi_highlight_off());
-                        fflush(stdout);
-
-                        r = copy_file_fd(fragment_path, STDOUT_FILENO, false);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to cat %s: %m", fragment_path);
-                                continue;
-                        }
+                        r = cat_file(fragment_path, false);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to cat %s: %m", fragment_path);
                 }
 
                 STRV_FOREACH(path, dropin_paths) {
-                        printf("%s%s# %s%s\n",
-                               isempty(fragment_path) && path == dropin_paths ? "" : "\n",
-                               ansi_highlight_blue(),
-                               *path,
-                               ansi_highlight_off());
-                        fflush(stdout);
-
-                        r = copy_file_fd(*path, STDOUT_FILENO, false);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to cat %s: %m", *path);
-                                continue;
-                        }
+                        r = cat_file(*path, path == dropin_paths);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to cat %s: %m", *path);
                 }
         }
 
