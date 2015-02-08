@@ -87,10 +87,6 @@
   </a>
 </xsl:template>
 
-<xsl:template match="citerefentry[@project='gummiboot']">
-  <xsl:call-template name="inline.charseq"/>
-</xsl:template>
-
 <xsl:template match="refsect1/title|refsect1/info/title">
   <!-- the ID is output in the block.object call for refsect1 -->
   <h2>

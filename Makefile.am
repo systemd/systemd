@@ -2479,15 +2479,21 @@ systemd_efi_boot_generator_LDADD = \
 
 # ------------------------------------------------------------------------------
 bootctl_SOURCES = \
-	src/boot/boot.h \
-	src/boot/boot-loader.h \
-	src/boot/bootctl.c \
-	src/boot/boot-loader.c \
-	src/boot/boot-efi.c
+	src/boot/bootctl.c
+
+bootctl_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DEFI_MACHINE_TYPE_NAME=\"$(EFI_MACHINE_TYPE_NAME)\" \
+	-DSD_BOOTLIBDIR=\"$(sd_bootlibdir)\"
+
+bootctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(BLKID_CFLAGS)
 
 bootctl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-internal.la
+	libsystemd-internal.la \
+	$(BLKID_LIBS)
 
 bin_PROGRAMS += \
 	bootctl

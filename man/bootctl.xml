@@ -21,7 +21,6 @@
 
 <refentry id="bootctl" conditional='ENABLE_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
-
   <refentryinfo>
     <title>bootctl</title>
     <productname>systemd</productname>
@@ -48,65 +47,82 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>bootctl</command>
-      <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="req">COMMAND</arg>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>status</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>update</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>install</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg>remove</command>
     </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>bootctl</command> may be used to query or (in the
-    future) change the firmware and boot manager settings.</para>
+    <para><command>bootctl</command> checks, updates,
+    installs or removes the boot loader from the current
+    system.</para>
 
-    <para>Firmware information is available only on EFI systems.
-    </para>
+    <para><command>bootctl status</command> checks and prints the
+    currently installed versions of the boot loader binaries and the
+    all current EFI boot variables.</para>
 
-    <para>Currently, only the
-    <citerefentry project='gummiboot'><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    boot manager implements the required boot loader interface to
-    provide complete boot manager information.</para>
+    <para><command>bootctl update</command> updates all installed
+    versions of sd-boot, if the current version is newer than the
+    version installed in the EFI system partition. This also includes
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. An
+    sd-boot entry in the EFI boot variables is created, if there
+    is no current entry. A created entry will be added to the end of
+    the boot order list.</para>
+
+    <para><command>bootctl install</command> installs sd-boot into
+    the EFI system partition. A copy of sd-boot will be stored as
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. An sd-boot
+    entry in the EFI boot variables is created and added to the top
+    of the boot order list.</para>
+
+    <para><command>bootctl remove</command> removes all installed
+    versions of sd-boot from the EFI system partition, and removes
+    sd-boot from the EFI boot variables.</para>
+
+    <para>If no command is passed <command>status</command> is
+    implied.</para>
   </refsect1>
 
   <refsect1>
     <title>Options</title>
-
     <para>The following options are understood:</para>
 
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-
-    <para>The following commands are understood:</para>
-
-    <variablelist>
       <varlistentry>
-        <term><command>status</command></term>
+        <term><option>--path</option></term>
+        <listitem><para>Path to the EFI system partition. The default is /boot.</para></listitem>
+      </varlistentry>
 
-        <listitem><para>Show firmware and boot manager information
-        about the system, including secure boot mode status and
-        selected firmware entry (where available).</para></listitem>
+      <varlistentry>
+        <term><option>--no-variables</option></term>
+        <listitem><para>Do not touch the EFI boot variables.</para></listitem>
       </varlistentry>
     </variablelist>
-
   </refsect1>
 
   <refsect1>
     <title>Exit status</title>
-
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>On success 0 is returned, a non-zero failure
+    code otherwise.</para>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
-      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot loader interface</ulink>,
-      <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>,
-      <ulink url="http://www.freedesktop.org/wiki/Software/gummiboot/">gummiboot</ulink>
+      <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
+      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Systemd boot loader interface</ulink>
     </para>
   </refsect1>
-
 </refentry>
