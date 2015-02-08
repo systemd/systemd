@@ -104,7 +104,6 @@ struct Network {
         char *match_driver;
         char *match_type;
         char *match_name;
-        char *dhcp_vendor_class_identifier;
 
         Condition *match_host;
         Condition *match_virt;
@@ -116,6 +115,7 @@ struct Network {
         NetDev *bond;
         Hashmap *stacked_netdevs;
         AddressFamilyBoolean dhcp;
+        char *dhcp_vendor_class_identifier;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
@@ -320,6 +320,11 @@ int config_parse_vxlan_group_address(const char *unit,
                                      const char *rvalue,
                                      void *data,
                                      void *userdata);
+
+extern const sd_bus_vtable network_vtable[];
+
+int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
+int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 
 /* gperf */
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, unsigned length);

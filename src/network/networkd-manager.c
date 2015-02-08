@@ -174,6 +174,14 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add link enumerator: %m");
 
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
+        if (r < 0)
+               return log_error_errno(r, "Failed to add network object vtable: %m");
+
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add network enumerator: %m");
+
         r = sd_bus_request_name(m->bus, "org.freedesktop.network1", 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to register name: %m");
