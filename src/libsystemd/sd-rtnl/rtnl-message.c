@@ -609,6 +609,49 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type) {
         return 0;
 }
 
+int sd_rtnl_message_get_family(sd_rtnl_message *m, int *family) {
+        assert_return(m, -EINVAL);
+        assert_return(family, -EINVAL);
+
+        assert(m->hdr);
+
+        if (rtnl_message_type_is_link(m->hdr->nlmsg_type)) {
+                struct ifinfomsg *ifi;
+
+                ifi = NLMSG_DATA(m->hdr);
+
+                *family = ifi->ifi_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_route(m->hdr->nlmsg_type)) {
+                struct rtmsg *rtm;
+
+                rtm = NLMSG_DATA(m->hdr);
+
+                *family = rtm->rtm_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_neigh(m->hdr->nlmsg_type)) {
+                struct ndmsg *ndm;
+
+                ndm = NLMSG_DATA(m->hdr);
+
+                *family = ndm->ndm_family;
+
+                return 0;
+        } else if (rtnl_message_type_is_addr(m->hdr->nlmsg_type)) {
+                struct ifaddrmsg *ifa;
+
+                ifa = NLMSG_DATA(m->hdr);
+
+                *family = ifa->ifa_family;
+
+                return 0;
+        }
+
+        return -ENOTSUP;
+}
+
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
 
@@ -898,16 +941,37 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
         assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -ERANGE);
 
         r = message_attribute_has_type(m, type, NLA_NESTED);
-        if (r < 0)
-                return r;
-        else
+        if (r < 0) {
+                const NLTypeSystemUnion *type_system_union;
+                int family;
+
+                r = message_attribute_has_type(m, type, NLA_UNION);
+                if (r < 0)
+                        return r;
+                size = (size_t) r;
+
+                r = sd_rtnl_message_get_family(m, &family);
+                if (r < 0)
+                        return r;
+
+                r = type_system_get_type_system_union(m->container_type_system[m->n_containers], &type_system_union, type);
+                if (r < 0)
+                        return r;
+
+                r = type_system_union_protocol_get_type_system(type_system_union,
+                                                               &m->container_type_system[m->n_containers + 1],
+                                                               family);
+                if (r < 0)
+                        return r;
+        } else {
                 size = (size_t)r;
 
-        r = type_system_get_type_system(m->container_type_system[m->n_containers],
-                                        &m->container_type_system[m->n_containers + 1],
-                                        type);
-        if (r < 0)
-                return r;
+                r = type_system_get_type_system(m->container_type_system[m->n_containers],
+                                                &m->container_type_system[m->n_containers + 1],
+                                                type);
+                if (r < 0)
+                        return r;
+        }
 
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, size);
         if (r < 0)
@@ -1181,7 +1245,6 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                         return r;
         } else if (nl_type->type == NLA_UNION) {
                 const NLTypeSystemUnion *type_system_union;
-                const char *key;
 
                 r = type_system_get_type_system_union(m->container_type_system[m->n_containers],
                                                       &type_system_union,
@@ -1189,15 +1252,42 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_message_read_string(m, type_system_union->match, &key);
-                if (r < 0)
-                        return r;
+                switch (type_system_union->match_type) {
+                case NL_MATCH_SIBLING:
+                {
+                        const char *key;
 
-                r = type_system_union_get_type_system(type_system_union,
-                                                      &type_system,
-                                                      key);
-                if (r < 0)
-                        return r;
+                        r = sd_rtnl_message_read_string(m, type_system_union->match, &key);
+                        if (r < 0)
+                                return r;
+
+                        r = type_system_union_get_type_system(type_system_union,
+                                                              &type_system,
+                                                              key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+                case NL_MATCH_PROTOCOL:
+                {
+                        int family;
+
+                        r = sd_rtnl_message_get_family(m, &family);
+                        if (r < 0)
+                                return r;
+
+                        r = type_system_union_protocol_get_type_system(type_system_union,
+                                                                       &type_system,
+                                                                       family);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+                default:
+                        assert_not_reached("sd-rtnl: invalid type system union type");
+                }
         } else
                 return -EINVAL;
 

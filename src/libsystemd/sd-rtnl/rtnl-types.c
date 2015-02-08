@@ -224,6 +224,7 @@ static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
         .num = _NL_UNION_LINK_INFO_DATA_MAX,
         .lookup = nl_union_link_info_data_from_string,
         .type_systems = rtnl_link_info_data_type_systems,
+        .match_type = NL_MATCH_SIBLING,
         .match = IFLA_INFO_KIND,
 };
 
@@ -242,7 +243,7 @@ static const NLTypeSystem rtnl_link_info_type_system = {
         .types = rtnl_link_info_types,
 };
 
-static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
+static const struct NLType rtnl_prot_info_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
         [IFLA_BRPORT_STATE]     = { .type = NLA_U8 },
         [IFLA_BRPORT_COST]      = { .type = NLA_U32 },
         [IFLA_BRPORT_PRIORITY]  = { .type = NLA_U16 },
@@ -253,9 +254,15 @@ static const struct NLType rtnl_bridge_port_types[IFLA_BRPORT_MAX + 1] = {
         [IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
 };
 
-static const NLTypeSystem rtnl_bridge_port_type_system = {
-        .max = ELEMENTSOF(rtnl_bridge_port_types) - 1,
-        .types = rtnl_bridge_port_types,
+static const NLTypeSystem rtnl_prot_info_type_systems[AF_MAX] = {
+        [AF_BRIDGE] =   { .max = ELEMENTSOF(rtnl_prot_info_bridge_port_types) - 1,
+                          .types = rtnl_prot_info_bridge_port_types },
+};
+
+static const NLTypeSystemUnion rtnl_prot_info_type_system_union = {
+        .num = AF_MAX,
+        .type_systems = rtnl_prot_info_type_systems,
+        .match_type = NL_MATCH_PROTOCOL,
 };
 
 static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
@@ -273,9 +280,8 @@ static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_MASTER]           = { .type = NLA_U32 },
 /*
         [IFLA_WIRELESS],
-        [IFLA_PROTINFO],
 */
-        [IFLA_PROTINFO]         = { .type = NLA_NESTED, .type_system = &rtnl_bridge_port_type_system },
+        [IFLA_PROTINFO]         = { .type = NLA_UNION, .type_system_union = &rtnl_prot_info_type_system_union },
         [IFLA_TXQLEN]           = { .type = NLA_U32 },
 /*
         [IFLA_MAP]              = { .len = sizeof(struct rtnl_link_ifmap) },
@@ -463,6 +469,7 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         int type;
 
         assert(type_system_union);
+        assert_return(type_system_union->match_type == NL_MATCH_SIBLING, -EINVAL);
         assert(type_system_union->lookup);
         assert(type_system_union->type_systems);
         assert(ret);
@@ -475,6 +482,28 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         assert(type < type_system_union->num);
 
         *ret = &type_system_union->type_systems[type];
+
+        return 0;
+}
+
+int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol) {
+        const NLTypeSystem *type_system;
+
+        assert(type_system_union);
+        assert(type_system_union->type_systems);
+        assert(ret);
+        assert_return(type_system_union->match_type == NL_MATCH_PROTOCOL, -EINVAL);
+        assert_return(protocol < type_system_union->num, -EINVAL);
+
+        if (protocol >= type_system_union->num)
+                return -ENOTSUP;
+
+        type_system = &type_system_union->type_systems[protocol];
+
+        if (!type_system)
+                return -ENOTSUP;
+
+        *ret = type_system;
 
         return 0;
 }

@@ -36,12 +36,18 @@ enum {
         NLA_UNION,
 };
 
+typedef enum NLMatchType {
+        NL_MATCH_SIBLING,
+        NL_MATCH_PROTOCOL,
+} NLMatchType;
+
 typedef struct NLTypeSystemUnion NLTypeSystemUnion;
 typedef struct NLTypeSystem NLTypeSystem;
 typedef struct NLType NLType;
 
 struct NLTypeSystemUnion {
         int num;
+        NLMatchType match_type;
         uint16_t match;
         int (*lookup)(const char *);
         const NLTypeSystem *type_systems;
@@ -63,6 +69,7 @@ int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, ui
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
 int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLTypeSystemUnion **ret, uint16_t type);
 int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key);
+int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol);
 
 typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_BOND,
