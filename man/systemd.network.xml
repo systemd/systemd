@@ -236,10 +236,12 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>IPv4LL=</varname></term>
+          <term><varname>LinkLocal=</varname></term>
           <listitem>
-            <para>A boolean. When true, enables IPv4 link-local support.
-            </para>
+            <para>Enables link-local address autoconfiguration. Accepts
+            <literal>yes</literal>, <literal>no</literal>,
+            <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
+            <literal>ipv6</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

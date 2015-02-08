@@ -107,6 +107,8 @@ static int network_load_one(Manager *manager, const char *filename) {
 
         network->llmnr = LLMNR_SUPPORT_YES;
 
+        network->link_local = ADDRESS_FAMILY_IPV6;
+
         r = config_parse(NULL, filename, file,
                          "Match\0"
                          "Link\0"
@@ -516,6 +518,37 @@ int config_parse_tunnel(const char *unit,
         }
 
         netdev_ref(netdev);
+
+        return 0;
+}
+
+int config_parse_ipv4ll(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamilyBoolean *link_local = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Note that this is mostly like
+         * config_parse_address_family_boolean(), except that it
+         * applies only to IPv4 */
+
+        if (parse_boolean(rvalue))
+                *link_local |= ADDRESS_FAMILY_IPV4;
+        else
+                *link_local &= ~ADDRESS_FAMILY_IPV4;
 
         return 0;
 }

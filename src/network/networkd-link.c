@@ -72,7 +72,17 @@ bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return link->network->ipv4ll;
+        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_YES);
+}
+
+bool link_ipv6ll_enabled(Link *link) {
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        return IN_SET(link->network->link_local, ADDRESS_FAMILY_IPV6, ADDRESS_FAMILY_YES);
 }
 
 bool link_lldp_enabled(Link *link) {
@@ -1087,6 +1097,38 @@ static int link_up(Link *link) {
                 }
         }
 
+        if (!link_ipv6ll_enabled(link)) {
+                r = sd_rtnl_message_open_container(req, IFLA_AF_SPEC);
+                if (r < 0) {
+                        log_link_error(link, "Could not open IFLA_AF_SPEC container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container(req, AF_INET6);
+                if (r < 0) {
+                        log_link_error(link, "Could not open AF_INET6 container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, IN6_ADDR_GEN_MODE_NONE);
+                if (r < 0) {
+                        log_link_error(link, "Could not append IFLA_INET6_ADDR_GEN_MODE: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(req);
+                if (r < 0) {
+                        log_link_error(link, "Could not close AF_INET6 contaire: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(req);
+                if (r < 0) {
+                        log_link_error(link, "Could not close IFLA_AF_SPEC contaire: %s", strerror(-r));
+                        return r;
+                }
+        }
+
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link,
                                0, NULL);
         if (r < 0) {
@@ -1391,8 +1433,8 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
                 return r;
 
         if (link->flags & IFF_LOOPBACK) {
-                if (network->ipv4ll)
-                        log_link_debug(link, "ignoring IPv4LL for loopback link");
+                if (network->link_local != ADDRESS_FAMILY_NO)
+                        log_link_debug(link, "ignoring link-local autoconfiguration for loopback link");
 
                 if (network->dhcp != ADDRESS_FAMILY_NO)
                         log_link_debug(link, "ignoring DHCP clients for loopback link");

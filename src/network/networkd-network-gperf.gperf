@@ -36,7 +36,7 @@ Network.VXLAN,               config_parse_netdev,                0,             
 Network.Tunnel,              config_parse_tunnel,                0,                             0
 Network.DHCP,                config_parse_dhcp,                  0,                             offsetof(Network, dhcp)
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
-Network.IPv4LL,              config_parse_bool,                  0,                             offsetof(Network, ipv4ll)
+Network.LinkLocal,           config_parse_address_family_boolean,0,                             offsetof(Network, link_local)
 Network.IPv4LLRoute,         config_parse_bool,                  0,                             offsetof(Network, ipv4ll_route)
 Network.LLDP,                config_parse_bool,                  0,                             offsetof(Network, lldp)
 Network.Address,             config_parse_address,               0,                             0
@@ -69,6 +69,7 @@ Bridge.Cost,                 config_parse_unsigned,              0,             
 BridgeFDB.MACAddress,        config_parse_fdb_hwaddr,            0,                             0
 BridgeFDB.VLANId,            config_parse_fdb_vlan_id,           0,                             0
 /* backwards compatibility: do not add new entries to this section */
+Network.IPv4LL,              config_parse_ipv4ll,                0,                             offsetof(Network, link_local)
 DHCPv4.UseDNS,               config_parse_bool,                  0,                             offsetof(Network, dhcp_dns)
 DHCPv4.UseMTU,               config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)
 DHCPv4.UseHostname,          config_parse_bool,                  0,                             offsetof(Network, dhcp_hostname)

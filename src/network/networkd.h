@@ -126,7 +126,7 @@ struct Network {
         bool dhcp_critical;
         bool dhcp_routes;
         unsigned dhcp_route_metric;
-        bool ipv4ll;
+        AddressFamilyBoolean link_local;
         bool ipv4ll_route;
 
         bool dhcp_server;
@@ -398,6 +398,12 @@ int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned li
 int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
                       const char *section, unsigned section_line, const char *lvalue,
                       int ltype, const char *rvalue, void *data, void *userdata);
+
+/* IPv4LL support (legacy) */
+
+int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line,
+                        const char *section, unsigned section_line, const char *lvalue,
+                        int ltype, const char *rvalue, void *data, void *userdata);
 
 /* LLMNR support */
 

@@ -116,6 +116,7 @@ int icmp6_configure(Link *link);
 
 bool link_lldp_enabled(Link *link);
 bool link_ipv4ll_enabled(Link *link);
+bool link_ipv6ll_enabled(Link *link);
 bool link_dhcp4_server_enabled(Link *link);
 bool link_dhcp4_enabled(Link *link);
 bool link_dhcp6_enabled(Link *link);
