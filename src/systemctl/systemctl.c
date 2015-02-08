@@ -2993,7 +2993,7 @@ static int start_special(sd_bus *bus, char **args) {
                 return -EPERM;
         }
 
-        if (a == ACTION_REBOOT) {
+        if (a == ACTION_REBOOT && args[1]) {
                 r = update_reboot_param_file(args[1]);
                 if (r < 0)
                         return r;
