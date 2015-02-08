@@ -38,19 +38,17 @@ AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-di
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
-AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
-       test "x$host_cpu" = "xmips64" || test "x$host_cpu" = "xmips64el"],
-      [AC_DEFINE(ARCH_MIPS, [], [Whether on mips arch])])
-
 LT_PREREQ(2.2)
 LT_INIT([disable-static])
 
 AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not supported by systemd])])
 AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by systemd])])
 
-# i18n stuff for the PolicyKit policy files
+SET_ARCH(X86_64, x86_64*)
+SET_ARCH(IA32, i*86*)
+SET_ARCH(MIPS, mips*)
 
-# Check whether intltool can be found, disable NLS otherwise
+# i18n stuff for the PolicyKit policy files, heck whether intltool can be found, disable NLS otherwise
 AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
 AS_IF([test x"$intltool_found" != xyes],
       [AS_IF([test x"$enable_nls" = xyes],
@@ -1145,6 +1143,63 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
+EFI_CC=gcc
+AC_SUBST([EFI_CC])
+
+EFI_ARCH=`echo $host | sed "s/\(-\).*$//"`
+
+AM_COND_IF(ARCH_IA32, [
+        EFI_ARCH=ia32
+        EFI_MACHINE_TYPE_NAME=ia32])
+
+AM_COND_IF(ARCH_X86_64, [
+        EFI_MACHINE_TYPE_NAME=x64])
+
+AC_SUBST([EFI_ARCH])
+AC_SUBST([EFI_MACHINE_TYPE_NAME])
+
+have_gnuefi=no
+AC_ARG_ENABLE(gnuefi, AS_HELP_STRING([--enable-gnuefi], [Disable optional gnuefi support]))
+AS_IF([test "x$enable_gnuefi" != "xno"], [
+        AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
+                [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
+                 have_gnuefi=yes],
+                [AS_IF([test "x$have_gnuefi" = xyes], [AC_MSG_ERROR([*** gnuefi support requested but headers not found])])
+        ])
+])
+AM_CONDITIONAL(HAVE_GNUEFI, [test "$have_gnuefi" = "yes"])
+
+if test "x$enable_gnuefi" != "xno"; then
+        efiroot=$(echo $(cd /usr/lib/$(gcc -print-multi-os-directory); pwd))
+
+        EFI_LIB_DIR="$efiroot"
+        AC_ARG_WITH(efi-libdir,
+                AS_HELP_STRING([--with-efi-libdir=PATH], [Path to efi lib directory]),
+                [EFI_LIB_DIR="$withval"], [EFI_LIB_DIR="$efiroot"]
+        )
+        AC_SUBST([EFI_LIB_DIR])
+
+        AC_ARG_WITH(efi-ldsdir,
+                AS_HELP_STRING([--with-efi-ldsdir=PATH], [Path to efi lds directory]),
+                [EFI_LDS_DIR="$withval"],
+                [
+                        for EFI_LDS_DIR in "${efiroot}/gnuefi" "${efiroot}"; do
+                            for lds in ${EFI_LDS_DIR}/elf_${EFI_ARCH}_efi.lds; do
+                                    test -f ${lds} && break 2
+                            done
+                        done
+                ]
+        )
+        AC_SUBST([EFI_LDS_DIR])
+
+        AC_ARG_WITH(efi-includedir,
+                AS_HELP_STRING([--with-efi-includedir=PATH], [Path to efi include directory]),
+                [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
+        )
+        AC_SUBST([EFI_INC_DIR])
+fi
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(unifont,
         AS_HELP_STRING([--with-unifont=PATH],
                 [Path to unifont.hex]),
@@ -1392,6 +1447,14 @@ AS_IF([test "x$0" != "x./configure"], [
         AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
 ])
 
+# QEMU and OVMF UEFI firmware
+AS_IF([test x"$cross_compiling" = "xyes"], [], [
+        AC_PATH_PROG([QEMU], [qemu-system-x86_64])
+        AC_CHECK_FILE([/usr/share/qemu/bios-ovmf.bin], [QEMU_BIOS=/usr/share/qemu/bios-ovmf.bin])
+        AC_CHECK_FILE([/usr/share/qemu-ovmf/bios.bin], [QEMU_BIOS=/usr/share/qemu-ovmf/bios.bin])
+        AC_SUBST([QEMU_BIOS])
+])
+
 AC_ARG_ENABLE(tests,
         [AC_HELP_STRING([--disable-tests], [disable tests])],
         enable_tests=$enableval, enable_tests=yes)
@@ -1496,6 +1559,13 @@ AC_MSG_RESULT([
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
+        gnuefi:                  ${have_gnuefi}
+        efi arch:                ${EFI_ARCH}
+        EFI machine type:        ${EFI_MACHINE_TYPE_NAME}
+        EFI CC                   ${EFI_CC}
+        EFI libdir:              ${EFI_LIB_DIR}
+        EFI ldsdir:              ${EFI_LDS_DIR}
+        EFI includedir:          ${EFI_INC_DIR}
         kmod:                    ${have_kmod}
         xkbcommon:               ${have_xkbcommon}
         blkid:                   ${have_blkid}

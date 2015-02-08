@@ -111,6 +111,7 @@ catalogdir=$(prefix)/lib/systemd/catalog
 kernelinstalldir = $(prefix)/lib/kernel/install.d
 factory_etcdir = $(prefix)/share/factory/etc
 factory_pamdir = $(prefix)/share/factory/etc/pam.d
+sd_bootlibdir = $(prefix)/lib/systemd/sd-boot
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -2497,6 +2498,126 @@ dist_bashcompletion_DATA += \
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_bootctl
 
+# ------------------------------------------------------------------------------
+efi_cppflags = \
+	$(EFI_CPPFLAGS) \
+	-I$(top_builddir) -include config.h \
+	-I$(EFI_INC_DIR)/efi \
+	-I$(EFI_INC_DIR)/efi/$(EFI_ARCH) \
+	-DEFI_MACHINE_TYPE_NAME=\"$(EFI_MACHINE_TYPE_NAME)\"
+
+efi_cflags = \
+	$(EFI_CFLAGS) \
+	-Wall \
+	-Wextra \
+	-nostdinc \
+	-ggdb -O0 \
+	-fpic \
+	-fshort-wchar \
+	-nostdinc \
+	-ffreestanding \
+	-fno-strict-aliasing \
+	-fno-stack-protector \
+	-Wsign-compare \
+	-mno-sse \
+	-mno-mmx
+
+if ARCH_X86_64
+efi_cflags += \
+	-mno-red-zone \
+	-DEFI_FUNCTION_WRAPPER \
+	-DGNU_EFI_USE_MS_ABI
+endif
+
+efi_ldflags = \
+	$(EFI_LDFLAGS) \
+	-T $(EFI_LDS_DIR)/elf_$(EFI_ARCH)_efi.lds \
+	-shared \
+	-Bsymbolic \
+	-nostdlib \
+	-znocombreloc \
+	-L $(EFI_LIB_DIR) \
+	$(EFI_LDS_DIR)/crt0-efi-$(EFI_ARCH).o
+
+# ------------------------------------------------------------------------------
+sd_boot_headers = \
+	src/sd-boot/util.h \
+	src/sd-boot/console.h \
+	src/sd-boot/graphics.h \
+	src/sd-boot/pefile.h
+
+sd_boot_sources = \
+	src/sd-boot/util.c \
+	src/sd-boot/console.c \
+	src/sd-boot/graphics.c \
+	src/sd-boot/pefile.c \
+	src/sd-boot/sd-boot.c
+
+sd_boot_objects = $(addprefix $(top_builddir)/,$(sd_boot_sources:.c=.o))
+sd_boot_solib = $(top_builddir)/src/sd-boot/sd_boot.so
+sd_boot = sd-boot$(EFI_MACHINE_TYPE_NAME).efi
+
+sd_bootlib_DATA = $(sd_boot)
+CLEANFILES += $(sd_boot_objects) $(sd_boot_solib) $(sd_boot)
+EXTRA_DIST += $(sd_boot_sources) $(sd_boot_headers)
+
+$(top_builddir)/src/sd-boot/%.o: $(top_srcdir)/src/sd-boot/%.c $(addprefix $(top_srcdir)/,$(sd_boot_headers))
+	@$(MKDIR_P) $(top_builddir)/src/sd-boot/
+	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+
+$(sd_boot_solib): $(sd_boot_objects)
+	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(sd_boot_objects) \
+		-o $@ -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name); \
+	nm -D -u $@ | grep ' U ' && exit 1 || :
+
+$(sd_boot): $(sd_boot_solib)
+	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
+	  -j .dynsym -j .rel -j .rela -j .reloc \
+	  --target=efi-app-$(EFI_ARCH) $< $@
+
+# ------------------------------------------------------------------------------
+stub_headers = \
+	src/sd-boot/util.h \
+	src/sd-boot/pefile.h \
+	src/sd-boot/linux.h
+
+stub_sources = \
+	src/sd-boot/util.c \
+	src/sd-boot/pefile.c \
+	src/sd-boot/linux.c \
+	src/sd-boot/stub.c
+
+stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
+stub_solib = $(top_builddir)/src/sd-boot/stub.so
+stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
+
+sd_bootlib_DATA += $(stub)
+CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
+EXTRA_DIST += $(stub_sources) $(stub_headers)
+
+$(top_builddir)/src/sd-boot/%.o: $(top_srcdir)/src/sd-boot/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
+	@$(MKDIR_P) $(top_builddir)/src/sd-boot/
+	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+
+$(stub_solib): $(stub_objects)
+	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(stub_objects) \
+		-o $@ -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name); \
+	nm -D -u $@ | grep ' U ' && exit 1 || :
+
+$(stub): $(stub_solib)
+	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
+	  -j .dynsym -j .rel -j .rela -j .reloc \
+	  --target=efi-app-$(EFI_ARCH) $< $@
+
+# ------------------------------------------------------------------------------
+CLEANFILES += test-efi-disk.img
+EXTRA_DIST += test/test-efi-create-disk.sh
+
+test-efi-disk.img: $(sd_boot) $(stub) test/test-efi-create-disk.sh
+	$(AM_V_GEN)test/test-efi-create-disk.sh
+
+test-efi: test-efi-disk.img
+	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
 endif
 
 # ------------------------------------------------------------------------------
