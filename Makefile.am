@@ -5688,6 +5688,12 @@ GENERAL_ALIASES += \
 	$(systemunitdir)/systemd-networkd.service $(pkgsysconfdir)/system/multi-user.target.wants/systemd-networkd.service \
 	$(systemunitdir)/systemd-networkd-wait-online.service $(pkgsysconfdir)/system/network-online.target.wants/systemd-networkd-wait-online.service
 
+SYSTEM_UNIT_ALIASES += \
+	systemd-networkd.service dbus-org.freedesktop.network1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.network1.busname
+
 EXTRA_DIST += \
 	src/network/networkd-network-gperf.gperf \
 	src/network/networkd-netdev-gperf.gperf \
