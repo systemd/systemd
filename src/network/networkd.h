@@ -128,6 +128,7 @@ struct Network {
         unsigned dhcp_route_metric;
         AddressFamilyBoolean link_local;
         bool ipv4ll_route;
+        union in_addr_union ipv6_token;
 
         bool dhcp_server;
 
@@ -404,6 +405,11 @@ int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+/* IPv6 support */
+int config_parse_token(const char *unit, const char *filename, unsigned line,
+                       const char *section, unsigned section_line, const char *lvalue,
+                       int ltype, const char *rvalue, void *data, void *userdata);
 
 /* LLMNR support */
 

@@ -1097,36 +1097,44 @@ static int link_up(Link *link) {
                 }
         }
 
+        r = sd_rtnl_message_open_container(req, IFLA_AF_SPEC);
+        if (r < 0) {
+                log_link_error(link, "Could not open IFLA_AF_SPEC container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(req, AF_INET6);
+        if (r < 0) {
+                log_link_error(link, "Could not open AF_INET6 container: %s", strerror(-r));
+                return r;
+        }
+
         if (!link_ipv6ll_enabled(link)) {
-                r = sd_rtnl_message_open_container(req, IFLA_AF_SPEC);
-                if (r < 0) {
-                        log_link_error(link, "Could not open IFLA_AF_SPEC container: %s", strerror(-r));
-                        return r;
-                }
-
-                r = sd_rtnl_message_open_container(req, AF_INET6);
-                if (r < 0) {
-                        log_link_error(link, "Could not open AF_INET6 container: %s", strerror(-r));
-                        return r;
-                }
-
                 r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, IN6_ADDR_GEN_MODE_NONE);
                 if (r < 0) {
                         log_link_error(link, "Could not append IFLA_INET6_ADDR_GEN_MODE: %s", strerror(-r));
                         return r;
                 }
+        }
 
-                r = sd_rtnl_message_close_container(req);
+        if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
+                r = sd_rtnl_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
                 if (r < 0) {
-                        log_link_error(link, "Could not close AF_INET6 contaire: %s", strerror(-r));
+                        log_link_error(link, "Could not append IFLA_INET6_TOKEN: %s", strerror(-r));
                         return r;
                 }
+        }
 
-                r = sd_rtnl_message_close_container(req);
-                if (r < 0) {
-                        log_link_error(link, "Could not close IFLA_AF_SPEC contaire: %s", strerror(-r));
-                        return r;
-                }
+        r = sd_rtnl_message_close_container(req);
+        if (r < 0) {
+                log_link_error(link, "Could not close AF_INET6 container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(req);
+        if (r < 0) {
+                log_link_error(link, "Could not close IFLA_AF_SPEC contaire: %s", strerror(-r));
+                return r;
         }
 
         r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link,

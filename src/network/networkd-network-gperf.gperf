@@ -38,6 +38,7 @@ Network.DHCP,                config_parse_dhcp,                  0,             
 Network.DHCPServer,          config_parse_bool,                  0,                             offsetof(Network, dhcp_server)
 Network.LinkLocal,           config_parse_address_family_boolean,0,                             offsetof(Network, link_local)
 Network.IPv4LLRoute,         config_parse_bool,                  0,                             offsetof(Network, ipv4ll_route)
+Network.IPv6Token,           config_parse_token,                 0,                             offsetof(Network, ipv6_token)
 Network.LLDP,                config_parse_bool,                  0,                             offsetof(Network, lldp)
 Network.Address,             config_parse_address,               0,                             0
 Network.Gateway,             config_parse_gateway,               0,                             0
