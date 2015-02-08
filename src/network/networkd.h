@@ -97,6 +97,7 @@ struct Network {
         Manager *manager;
 
         char *filename;
+        char *name;
 
         struct ether_addr *match_mac;
         char *match_path;
@@ -224,6 +225,7 @@ struct Manager {
 
         Hashmap *links;
         Hashmap *netdevs;
+        Hashmap *networks_by_name;
         LIST_HEAD(Network, networks);
         LIST_HEAD(AddressPool, address_pools);
 
@@ -265,6 +267,7 @@ void network_free(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 #define _cleanup_network_free_ _cleanup_(network_freep)
 
+int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, struct udev_device *device,
                 const char *ifname, const struct ether_addr *mac,
                 Network **ret);

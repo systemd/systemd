@@ -481,6 +481,8 @@ void manager_free(Manager *m) {
         while ((network = m->networks))
                 network_free(network);
 
+        hashmap_free(m->networks_by_name);
+
         while ((netdev = hashmap_first(m->netdevs)))
                 netdev_unref(netdev);
         hashmap_free(m->netdevs);

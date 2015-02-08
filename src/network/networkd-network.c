@@ -34,6 +34,7 @@
 static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_network_free_ Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
+        char *d;
         Route *route;
         Address *address;
         int r;
@@ -84,6 +85,18 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
+        network->name = strdup(basename(filename));
+        if (!network->name)
+                return log_oom();
+
+        d = strrchr(network->name, '.');
+        if (!d)
+                return -EINVAL;
+
+        assert(streq(d, ".network"));
+
+        *d = '\0';
+
         network->dhcp = ADDRESS_FAMILY_NO;
         network->dhcp_ntp = true;
         network->dhcp_dns = true;
@@ -114,6 +127,14 @@ static int network_load_one(Manager *manager, const char *filename) {
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
         LIST_PREPEND(networks, manager->networks, network);
+
+        r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(manager->networks_by_name, network->name, network);
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(routes, route, network->static_routes) {
                 if (!route->family) {
@@ -210,8 +231,15 @@ void network_free(Network *network) {
         hashmap_free(network->routes_by_section);
         hashmap_free(network->fdb_entries_by_section);
 
-        if (network->manager && network->manager->networks)
-                LIST_REMOVE(networks, network->manager->networks, network);
+        if (network->manager) {
+                if (network->manager->networks)
+                        LIST_REMOVE(networks, network->manager->networks, network);
+
+                if (network->manager->networks_by_name)
+                        hashmap_remove(network->manager->networks_by_name, network->name);
+        }
+
+        free(network->name);
 
         condition_free_list(network->match_host);
         condition_free_list(network->match_virt);
@@ -219,6 +247,22 @@ void network_free(Network *network) {
         condition_free_list(network->match_arch);
 
         free(network);
+}
+
+int network_get_by_name(Manager *manager, const char *name, Network **ret) {
+        Network *network;
+
+        assert(manager);
+        assert(name);
+        assert(ret);
+
+        network = hashmap_get(manager->networks_by_name, name);
+        if (!network)
+                return -ENOENT;
+
+        *ret = network;
+
+        return 0;
 }
 
 int network_get(Manager *manager, struct udev_device *device,
