@@ -278,15 +278,18 @@ static const struct NLType rtnl_af_spec_inet6_types[IFLA_INET6_MAX + 1] = {
         [IFLA_INET6_ADDR_GEN_MODE]      = { .type = NLA_U8 },
 };
 
-static const NLTypeSystem rtnl_af_spec_type_systems[AF_MAX] = {
-        [AF_INET6] =    { .max = ELEMENTSOF(rtnl_af_spec_inet6_types) - 1,
-                          .types = rtnl_af_spec_inet6_types },
+static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
+        .max = ELEMENTSOF(rtnl_af_spec_inet6_types) - 1,
+        .types = rtnl_af_spec_inet6_types,
 };
 
-static const NLTypeSystemUnion rtnl_af_spec_type_system_union = {
-        .num = AF_MAX,
-        .type_systems = rtnl_af_spec_type_systems,
-        .match_type = NL_MATCH_PROTOCOL,
+static const NLType rtnl_af_spec_types[AF_MAX + 1] = {
+        [AF_INET6] =    { .type = NLA_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
+};
+
+static const NLTypeSystem rtnl_af_spec_type_system = {
+        .max = ELEMENTSOF(rtnl_af_spec_types) - 1,
+        .types = rtnl_af_spec_types,
 };
 
 static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
@@ -323,7 +326,7 @@ static const NLType rtnl_link_types[IFLA_MAX + 1 ] = {
         [IFLA_VF_PORTS]         = { .type = NLA_NESTED },
         [IFLA_PORT_SELF]        = { .type = NLA_NESTED },
 */
-        [IFLA_AF_SPEC]          = { .type = NLA_NESTED, .type_system_union = &rtnl_af_spec_type_system_union },
+        [IFLA_AF_SPEC]          = { .type = NLA_NESTED, .type_system = &rtnl_af_spec_type_system },
 /*
         [IFLA_VF_PORTS],
         [IFLA_PORT_SELF],
