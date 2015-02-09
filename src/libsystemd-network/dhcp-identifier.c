@@ -90,7 +90,7 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, uint32_t
         if (name)
                 siphash24((uint8_t*)&id, name, strlen(name), HASH_KEY.bytes);
         else
-                /* fall back to mac address if no predictable name available */
+                /* fall back to MAC address if no predictable name available */
                 siphash24((uint8_t*)&id, mac, mac_len, HASH_KEY.bytes);
 
         /* fold into 32 bits */

@@ -680,12 +680,12 @@ int config_parse_token(
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "IPv6 token canno t be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
         if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "IPv6 token canno t be longer than 64 bits, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "IPv6 token can not be longer than 64 bits, ignoring: %s", rvalue);
                 return 0;
         }
 

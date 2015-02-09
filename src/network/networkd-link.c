@@ -1133,7 +1133,7 @@ static int link_up(Link *link) {
 
         r = sd_rtnl_message_close_container(req);
         if (r < 0) {
-                log_link_error(link, "Could not close IFLA_AF_SPEC contaire: %s", strerror(-r));
+                log_link_error(link, "Could not close IFLA_AF_SPEC container: %s", strerror(-r));
                 return r;
         }
 

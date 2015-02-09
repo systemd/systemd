@@ -1362,7 +1362,7 @@ WantedBy=multi-user.target</programlisting>
 
       <para>Now one wants to change some settings as an administrator:
       firstly, in the local setup, <filename>/srv/webserver</filename>
-      might not exit, because the HTTP server is configured to use
+      might not exist, because the HTTP server is configured to use
       <filename>/srv/www</filename> instead. Secondly, the local
       configuration makes the HTTP server also depend on a memory
       cache service, <filename>memcached.service</filename>, that

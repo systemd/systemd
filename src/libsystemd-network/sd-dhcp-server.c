@@ -597,7 +597,7 @@ static int ensure_sane_request(DHCPRequest *req, DHCPMessage *message) {
 
         req->message = message;
 
-        /* set client id based on mac address if client did not send an explicit
+        /* set client id based on MAC address if client did not send an explicit
            one */
         if (!req->client_id.data) {
                 uint8_t *data;
