@@ -101,7 +101,8 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r < 0)
                 return 0;
 
-        if (sscanf(identifier, "%d", &ifindex) != 1)
+        r = safe_atoi(identifier, &ifindex);
+        if (r < 0)
                 return 0;
 
         r = link_get(m, ifindex, &link);
