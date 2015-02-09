@@ -38,12 +38,18 @@ const sd_bus_vtable link_vtable[] = {
 };
 
 static char *link_bus_path(Link *link) {
+        _cleanup_free_ char *ifindex = NULL;
         char *p;
+        int r;
 
         assert(link);
         assert(link->ifindex > 0);
 
-        if (asprintf(&p, "/org/freedesktop/network1/link/_%d", link->ifindex) < 0)
+        if (asprintf(&ifindex, "%d", link->ifindex) < 0)
+                return NULL;
+
+        r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex, &p);
+        if (r < 0)
                 return NULL;
 
         return p;
@@ -80,6 +86,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 }
 
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *identifier = NULL;
         Manager *m = userdata;
         Link *link;
         int ifindex, r;
@@ -90,7 +97,11 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
         assert(found);
 
-        if (sscanf(path, "/org/freedesktop/network1/link/_%d", &ifindex) != 1)
+        r = sd_bus_path_decode(path, "/org/freedesktop/network1/link", &identifier);
+        if (r < 0)
+                return 0;
+
+        if (sscanf(identifier, "%d", &ifindex) != 1)
                 return 0;
 
         r = link_get(m, ifindex, &link);
