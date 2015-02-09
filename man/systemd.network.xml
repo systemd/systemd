@@ -469,6 +469,14 @@
             <para>The metric of the route. An unsigned integer</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Scope=</varname></term>
+          <listitem>
+            <para>The scope of the route. One of the values <literal>global</literal>,
+            <literal>link</literal> or <literal>host</literal>. Defaults to
+            <literal>global</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

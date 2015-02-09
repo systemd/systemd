@@ -427,3 +427,44 @@ int config_parse_route_priority(const char *unit,
 
         return 0;
 }
+
+int config_parse_route_scope(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (streq(rvalue, "host"))
+                n->scope = RT_SCOPE_HOST;
+        else if (streq(rvalue, "link"))
+                n->scope = RT_SCOPE_LINK;
+        else if (streq(rvalue, "global"))
+                n->scope = RT_SCOPE_UNIVERSE;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Unknown route scope: %s", rvalue);
+                return 0;
+        }
+
+        n = NULL;
+
+        return 0;
+}
