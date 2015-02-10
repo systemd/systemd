@@ -34,6 +34,13 @@ External:
 
 Features:
 
+* generate better errors when people try to set transient properties
+  that are not supported...
+  http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
+
+* nspawn, if stdout/stderr/stdin are non-ttys, don't set up
+  /dev/console, but instead just pass the fds through directly.
+
 * When runlevel3.target is used to define dependencies on other units,
   then we don't pick it up currently, since nothing ever references
   runlevel3.target, and never figure out it actually is just an alias
