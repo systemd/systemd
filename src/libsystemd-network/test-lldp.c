@@ -45,13 +45,13 @@ static struct ether_addr mac_addr = {
 static int lldp_build_tlv_packet(tlv_packet **ret) {
         _cleanup_tlv_packet_free_ tlv_packet *m = NULL;
         const uint8_t lldp_dst[] = LLDP_MULTICAST_ADDR;
-        struct ether_header ether;
+        struct ether_header ether = {
+                .ether_type = htons(ETHERTYPE_LLDP),
+        };
 
         /* Append ethernet header */
-        memset(&ether, 0, sizeof(ether));
         memcpy(&ether.ether_dhost, lldp_dst, ETHER_ADDR_LEN);
         memcpy(&ether.ether_shost, &mac_addr, ETHER_ADDR_LEN);
-        ether.ether_type = htons(ETHERTYPE_LLDP);
 
         assert_se(tlv_packet_new(&m) >= 0);
 
