@@ -1582,7 +1582,7 @@ static int client_receive_message_raw(sd_event_source *s, int fd,
         iov.iov_base = packet;
         iov.iov_len = buflen;
 
-        len = recvmsg(fd, &msg, 0);
+        len = recvmsg(fd, &msg, MSG_CMSG_CLOEXEC);
         if (len < 0) {
                 log_dhcp_client(client, "could not receive message from raw "
                                 "socket: %m");

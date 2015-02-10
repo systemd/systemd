@@ -892,7 +892,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         mh.msg_control = &control;
         mh.msg_controllen = sizeof(control);
 
-        l = recvmsg(fd, &mh, 0);
+        l = recvmsg(fd, &mh, MSG_CMSG_CLOEXEC);
         if (l < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;

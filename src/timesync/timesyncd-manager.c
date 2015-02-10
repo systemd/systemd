@@ -516,7 +516,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        len = recvmsg(fd, &msghdr, MSG_DONTWAIT);
+        len = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (len < 0) {
                 if (errno == EAGAIN)
                         return 0;

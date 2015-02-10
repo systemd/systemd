@@ -69,7 +69,7 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
         assert(fd >= 0);
         assert(_b);
 
-        n = recvmsg(fd, &msghdr, MSG_DONTWAIT);
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n <= 0) {
                 if (n == 0) {
                         log_error("Short read");
