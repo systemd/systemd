@@ -83,10 +83,10 @@ int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8
 }
 
 bool net_match_config(const struct ether_addr *match_mac,
-                      const char *match_path,
-                      const char *match_driver,
-                      const char *match_type,
-                      const char *match_name,
+                      char * const *match_paths,
+                      char * const *match_drivers,
+                      char * const *match_types,
+                      char * const *match_names,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel,
@@ -97,6 +97,10 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
+        char * const *match_path;
+        char * const *match_driver;
+        char * const *match_type;
+        char * const *match_name;
 
         if (match_host && !condition_test(match_host))
                 return false;
@@ -113,21 +117,49 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return false;
 
-        if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
-                return false;
+        if (!strv_isempty(match_paths)) {
+                if (!dev_path)
+                        return false;
 
-        if (match_driver) {
-                if (dev_parent_driver && !streq(match_driver, dev_parent_driver))
-                        return false;
-                else if (!streq_ptr(match_driver, dev_driver))
-                        return false;
+                STRV_FOREACH(match_path, match_paths)
+                        if (fnmatch(*match_path, dev_path, 0) != 0)
+                                return true;
+
+                return false;
         }
 
-        if (match_type && !streq_ptr(match_type, dev_type))
-                return false;
-
-        if (match_name && (!dev_name || fnmatch(match_name, dev_name, 0)))
+        if (!strv_isempty(match_drivers)) {
+                if (!dev_driver)
                         return false;
+
+                STRV_FOREACH(match_driver, match_drivers)
+                        if (fnmatch(*match_driver, dev_driver, 0) != 0)
+                                return true;
+
+                return false;
+        }
+
+        if (!strv_isempty(match_types)) {
+                if (!dev_type)
+                        return false;
+
+                STRV_FOREACH(match_type, match_types)
+                        if (fnmatch(*match_type, dev_type, 0) != 0)
+                                return true;
+
+                return false;
+        }
+
+        if (!strv_isempty(match_names)) {
+                if (!dev_name)
+                        return false;
+
+                STRV_FOREACH(match_name, match_names)
+                        if (fnmatch(*match_name, dev_name, 0) != 0)
+                                return true;
+
+                return false;
+        }
 
         return true;
 }
@@ -208,6 +240,49 @@ int config_parse_ifname(const char *unit,
                 n = NULL;
         } else
                 *s = NULL;
+
+        return 0;
+}
+
+int config_parse_ifnames(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+
+        char ***sv = data;
+        const char *word, *state;
+        size_t l;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(word, l, rvalue, state) {
+                char *n;
+
+                n = strndup(word, l);
+                if (!n)
+                        return log_oom();
+
+                if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                        free(n);
+                        return 0;
+                }
+
+                r = strv_consume(sv, n);
+                if (r < 0)
+                        return log_oom();
+        }
 
         return 0;
 }

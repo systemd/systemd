@@ -100,10 +100,10 @@ struct Network {
         char *name;
 
         struct ether_addr *match_mac;
-        char *match_path;
-        char *match_driver;
-        char *match_type;
-        char *match_name;
+        char **match_path;
+        char **match_driver;
+        char **match_type;
+        char **match_name;
 
         Condition *match_host;
         Condition *match_virt;

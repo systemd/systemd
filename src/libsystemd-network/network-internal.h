@@ -29,10 +29,10 @@
 #include "condition.h"
 
 bool net_match_config(const struct ether_addr *match_mac,
-                      const char *match_path,
-                      const char *match_driver,
-                      const char *match_type,
-                      const char *match_name,
+                      char * const *match_path,
+                      char * const *match_driver,
+                      char * const *match_type,
+                      char * const *match_name,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel,
@@ -55,6 +55,10 @@ int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
 int config_parse_ifname(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_ifnames(const char *unit, const char *filename, unsigned line,
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,

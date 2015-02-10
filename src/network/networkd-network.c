@@ -196,10 +196,10 @@ void network_free(Network *network) {
         free(network->filename);
 
         free(network->match_mac);
-        free(network->match_path);
-        free(network->match_driver);
-        free(network->match_type);
-        free(network->match_name);
+        strv_free(network->match_path);
+        strv_free(network->match_driver);
+        strv_free(network->match_type);
+        strv_free(network->match_name);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);

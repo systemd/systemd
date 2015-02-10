@@ -103,10 +103,10 @@
       <varlistentry>
         <term><varname>OriginalName=</varname></term>
         <listitem>
-          <para>The device name, as exposed by the udev property
-          "INTERFACE". May contain shell style globs. This can not be
-          used to match on names that have already been changed from
-          userspace. Caution is advised when matching on
+          <para>A whitespace-separated list of shell-style globs matching
+          the device name, as exposed by the udev property
+          "INTERFACE". This can not be used to match on names that have
+          already been changed from userspace. Caution is advised when matching on
           kernel-assigned names, as they are known to be unstable
           between reboots.</para>
         </listitem>
@@ -114,15 +114,16 @@
       <varlistentry>
         <term><varname>Path=</varname></term>
         <listitem>
-          <para>The persistent path, as exposed by the
-          udev property <literal>ID_PATH</literal>. May
-          contain shell style globs.</para>
+          <para>A whitespace-separated list of shell-style globs matching
+          the persistent path, as exposed by the udev property
+          <literal>ID_PATH</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Driver=</varname></term>
         <listitem>
-          <para>The driver currently bound to the device,
+          <para>A whitespace-separated list of shell-style globs matching
+          the driver currently bound to the device,
           as exposed by the udev property <literal>DRIVER</literal>
           of its parent device, or if that is not set, the
           driver as exposed by <literal>ethtool -i</literal>
@@ -132,7 +133,8 @@
       <varlistentry>
         <term><varname>Type=</varname></term>
         <listitem>
-          <para>The device type, as exposed by the udev
+          <para>A whitespace-separated list of shell-style globs matching
+          the device type, as exposed by the udev
           property <literal>DEVTYPE</literal>.</para>
         </listitem>
       </varlistentry>

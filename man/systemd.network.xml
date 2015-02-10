@@ -107,15 +107,16 @@
         <varlistentry>
           <term><varname>Path=</varname></term>
           <listitem>
-            <para>The persistent path, as exposed by the udev
-            property <literal>ID_PATH</literal>. May contain shell
-            style globs.</para>
+            <para>A whitespace-separated list of shell-style globs
+            matching the persistent path, as exposed by the udev
+            property <literal>ID_PATH</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Driver=</varname></term>
           <listitem>
-            <para>The driver currently bound to the device, as
+            <para>A whitespace-separated list of shell-style globs
+            matching the driver currently bound to the device, as
             exposed by the udev property <literal>DRIVER</literal>
             of its parent device, or if that is not set the driver
             as exposed by <literal>ethtool -i</literal> of the
@@ -125,16 +126,17 @@
         <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
-            <para>The device type, as exposed by the udev property
+            <para>A whitespace-separated list of shell-style globs
+            matching the device type, as exposed by the udev property
             <literal>DEVTYPE</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Name=</varname></term>
           <listitem>
-            <para>The device name, as exposed by the udev property
-            <literal>INTERFACE</literal>. May contain shell style
-            globs.</para>
+            <para>A whitespace-separated list of shell-style globs
+            matching the device name, as exposed by the udev property
+            <literal>INTERFACE</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
