@@ -327,7 +327,10 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 return synthetic_reply_return_strv(m, names);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
-                struct kdbus_cmd_list cmd = {};
+                struct kdbus_cmd_list cmd = {
+                        .flags = KDBUS_LIST_QUEUED,
+                        .size = sizeof(cmd),
+                };
                 struct kdbus_info *name_list, *name;
                 _cleanup_strv_free_ char **owners = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -349,8 +352,6 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                cmd.flags = KDBUS_LIST_QUEUED;
-                cmd.size = sizeof(cmd);
                 r = ioctl(a->input_fd, KDBUS_CMD_LIST, &cmd);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, -errno, NULL);
