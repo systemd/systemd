@@ -86,31 +86,33 @@ int fdb_entry_new_static(Network *const network,
 }
 
 static int set_fdb_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = userdata;
+        Link *link = userdata;
         int r;
 
-        assert(fdb_entry);
+        assert(link);
 
         r = sd_rtnl_message_get_errno(m);
-        if ((r < 0) && (r != (-EEXIST)))
-                log_error("Could not add FDB entry for interface: %s error: %s",
-                          fdb_entry->network->match_name, strerror(-r));
+        if (r < 0 && r != -EEXIST)
+                log_link_error(link, "Could not add FDB entry: %s", strerror(-r));
 
         return 1;
 }
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
-int fdb_entry_configure(sd_rtnl *const rtnl,
-                        FdbEntry *const fdb_entry,
-                        const int ifindex) {
+int fdb_entry_configure(Link *link,
+                        FdbEntry *const fdb_entry) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        sd_rtnl *rtnl;
         int r;
 
+        assert(link);
+        assert(link->manager);
         assert(fdb_entry);
-        assert(rtnl);
+
+        rtnl = link->manager->rtnl;
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, ifindex, PF_BRIDGE);
+        r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
@@ -136,9 +138,9 @@ int fdb_entry_configure(sd_rtnl *const rtnl,
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = sd_rtnl_call_async(rtnl, req, set_fdb_handler, fdb_entry, 0, NULL);
+        r = sd_rtnl_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                log_link_error(link, "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 

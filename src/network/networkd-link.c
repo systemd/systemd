@@ -733,7 +733,7 @@ static int link_set_bridge_fdb(const Link *const link) {
         int r = 0;
 
         LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
-                r = fdb_entry_configure(link->manager->rtnl, fdb_entry, link->ifindex);
+                r = fdb_entry_configure(link, fdb_entry);
                 if(r < 0) {
                         log_link_error(link, "Failed to add MAC entry to static MAC table: %s", strerror(-r));
                         break;
