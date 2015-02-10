@@ -195,4 +195,10 @@
 - When you allocate a file descriptor, it should be made O_CLOEXEC
   right from the beginning, as none of our files should leak to forked
   binaries by default. Hence, whenever you open a file, O_CLOEXEC must
-  be specified, right from the beginning.
+  be specified, right from the beginning. This also applies to
+  sockets. Effectively this means that all invocations to:
+
+  a) open() must get O_CLOEXEC passed
+  b) socket() and socketpair() must get SOCK_CLOEXEC passed
+  c) recvmsg() must get MSG_CMSG_CLOEXEC set
+  d) F_DUPFD_CLOEXEC should be used instead of F_DUPFD, and so on
