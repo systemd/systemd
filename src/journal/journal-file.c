@@ -1963,11 +1963,12 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
                 return TEST_RIGHT;
 }
 
-static inline int find_data_object_by_boot_id(
+static int find_data_object_by_boot_id(
                 JournalFile *f,
                 sd_id128_t boot_id,
                 Object **o,
                 uint64_t *b) {
+
         char t[sizeof("_BOOT_ID=")-1 + 32 + 1] = "_BOOT_ID=";
 
         sd_id128_to_string(boot_id, t + 9);
