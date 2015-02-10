@@ -36,8 +36,6 @@ Before 219:
 
 * revert Kay's revert orgies
 
-* networkd's match bus properties should be "as" instead of "s"
-
 Features:
 
 * coredump: make the handler check /proc/$PID/rlimits for RLIMIT_CORE,
