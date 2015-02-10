@@ -25,12 +25,49 @@
 
 #include "networkd.h"
 
+static int property_get_ether_addrs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Network *n = userdata;
+        const char *ether = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(n);
+
+        if (n->match_mac)
+                ether = ether_ntoa(n->match_mac);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        if (ether) {
+                r = sd_bus_message_append(reply, "s", strempty(ether));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 const sd_bus_vtable network_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-/*        SD_BUS_PROPERTY("MatchMAC", "s", NULL TODO, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST), */
+        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "s", NULL, offsetof(Network, match_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchDriver", "s", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "s", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
