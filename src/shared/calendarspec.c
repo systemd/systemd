@@ -24,7 +24,7 @@
 
 #include "calendarspec.h"
 
-#define BITS_WEEKDAYS	127
+#define BITS_WEEKDAYS   127
 
 static void free_chain(CalendarComponent *c) {
         CalendarComponent *n;
