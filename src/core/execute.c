@@ -40,8 +40,6 @@
 #include <sys/poll.h>
 #include <glob.h>
 #include <sys/personality.h>
-#include <libgen.h>
-#undef basename
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
