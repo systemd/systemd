@@ -473,6 +473,14 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:pvr*
 # KEYBOARD_KEY_3e=fullscreen, no defined key sym
 
 
+# HP EliteBook 725 G2
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
+# HP ProBook 440 G2
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
+# HP ProBook 445 G1
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook445G1NotebookPC:pvr*
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+
 ###########################################################
 # IBM
 ###########################################################
