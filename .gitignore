@@ -103,6 +103,7 @@
 /systemd-notify
 /systemd-nspawn
 /systemd-path
+/systemd-pull
 /systemd-quotacheck
 /systemd-random-seed
 /systemd-rc-local-generator
