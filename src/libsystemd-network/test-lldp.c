@@ -143,9 +143,8 @@ static int lldp_parse_port_id_tlv(tlv_packet *m) {
         case LLDP_PORT_SUBTYPE_INTERFACE_NAME:
                 assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
-                p = malloc0(length + 1);
+                p = strndup(str, length-1);
                 assert_se(p);
-                strncpy(p, str, length-1);
 
                 assert_se(streq(p, TEST_LLDP_PORT) == 1);
                 break;
@@ -165,9 +164,8 @@ static int lldp_parse_system_name_tlv(tlv_packet *m) {
         assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_NAME) >= 0);
         assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
-        p = malloc0(length + 1);
+        p = strndup(str, length);
         assert_se(p);
-        strncpy(p, str, length);
 
         assert_se(streq(p, TEST_LLDP_TYPE_SYSTEM_NAME) == 1);
 
@@ -183,9 +181,8 @@ static int lldp_parse_system_desc_tlv(tlv_packet *m) {
         assert_se(lldp_tlv_packet_enter_container(m, LLDP_TYPE_SYSTEM_DESCRIPTION) >= 0);
         assert_se(tlv_packet_read_string(m, &str, &length) >= 0);
 
-        p = malloc0(length + 1);
+        p = strndup(str, length);
         assert_se(p);
-        strncpy(p, str, length);
 
         assert_se(streq(p, TEST_LLDP_TYPE_SYSTEM_DESC) == 1);
 
