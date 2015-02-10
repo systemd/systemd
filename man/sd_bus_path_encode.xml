@@ -62,8 +62,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <funcprototype>
         <funcdef>int <function>sd_bus_path_decode</function></funcdef>
-        <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>char **<parameter>ret_external_id</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
