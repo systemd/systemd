@@ -259,8 +259,8 @@ typedef enum UnitSetPropertiesMode {
 #include "automount.h"
 #include "swap.h"
 #include "timer.h"
-#include "path.h"
 #include "slice.h"
+#include "path.h"
 #include "scope.h"
 
 struct UnitVTable {

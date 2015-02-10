@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "macro.h"
+
 bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);

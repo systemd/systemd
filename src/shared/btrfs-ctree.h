@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "macro.h"
 #include "sparse-endian.h"
 
 /* Stolen from btrfs' ctree.h */

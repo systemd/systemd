@@ -23,6 +23,7 @@
 
 #include <net/ethernet.h>
 
+#include "macro.h"
 #include "sparse-endian.h"
 #include "sd-id128.h"
 

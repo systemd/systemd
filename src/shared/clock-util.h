@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "util.h"
+
 int clock_is_localtime(void);
 int clock_set_timezone(int *min);
 int clock_reset_timewarp(void);

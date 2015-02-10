@@ -21,5 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "boot.h"
+
 int boot_loader_read_entries(struct boot_info *info);
 int boot_loader_find_active_entry(struct boot_info *info, const char *loader_active);

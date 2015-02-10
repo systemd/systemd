@@ -32,6 +32,7 @@
 #include "hashmap.h"
 #include "set.h"
 #include "journal-file.h"
+#include "sd-journal.h"
 
 typedef struct Match Match;
 typedef struct Location Location;

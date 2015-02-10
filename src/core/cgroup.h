@@ -21,7 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "list.h"
+#include "time-util.h"
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;

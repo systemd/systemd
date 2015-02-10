@@ -199,6 +199,7 @@ struct ExecContext {
 };
 
 #include "cgroup.h"
+#include "cgroup-util.h"
 
 struct ExecParameters {
         char **argv;

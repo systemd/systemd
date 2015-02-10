@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
 #include "sd-bus.h"
 #include "sd-bus-protocol.h"
 
