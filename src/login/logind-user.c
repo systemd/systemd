@@ -322,7 +322,7 @@ static int user_mkdir_runtime_path(User *u) {
         if (path_is_mount_point(p, false) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
-                mkdir(p, 0700);
+                (void) mkdir(p, 0700);
 
                 if (mac_smack_use())
                         r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
