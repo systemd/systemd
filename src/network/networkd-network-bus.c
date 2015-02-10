@@ -40,10 +40,9 @@ const sd_bus_vtable network_vtable[] = {
 };
 
 static char *network_bus_path(Network *network) {
-        _cleanup_free_ char *e = NULL;
         _cleanup_free_ char *name = NULL;
-        char *networkname;
-        char *d;
+        char *networkname, *d, *path;
+        int r;
 
         assert(network);
         assert(network->filename);
@@ -62,11 +61,11 @@ static char *network_bus_path(Network *network) {
 
         *d = '\0';
 
-        e = bus_label_escape(networkname);
-        if (!e)
+        r = sd_bus_path_encode("/org/freedesktop/network1/network", networkname, &path);
+        if (r < 0)
                 return NULL;
 
-        return strappend("/org/freedesktop/network1/network/", e);
+        return path;
 }
 
 int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
@@ -102,7 +101,6 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
         Manager *m = userdata;
         Network *network;
         _cleanup_free_ char *name = NULL;
-        _cleanup_free_ char *e = NULL;
         int r;
 
         assert(bus);
@@ -111,14 +109,11 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(m);
         assert(found);
 
-        if (sscanf(path, "/org/freedesktop/network1/network/%ms", &name) != 1)
+        r = sd_bus_path_decode(path, "/org/freedesktop/network1/network", &name);
+        if (r < 0)
                 return 0;
 
-        e = bus_label_unescape(name);
-        if (!e)
-                return -ENOMEM;
-
-        r = network_get_by_name(m, e, &network);
+        r = network_get_by_name(m, name, &network);
         if (r < 0)
                 return 0;
 
