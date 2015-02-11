@@ -21,7 +21,6 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-resolved
 CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
-SecureBits=noroot noroot-locked
 ProtectSystem=full
 ProtectHome=yes
 WatchdogSec=1min

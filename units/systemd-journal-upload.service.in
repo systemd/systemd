@@ -12,7 +12,6 @@ After=network.target
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-upload \
           --save-state
-SecureBits=noroot noroot-locked
 User=systemd-journal-upload
 PrivateTmp=yes
 PrivateDevices=yes
