@@ -38,6 +38,8 @@ Before 219:
 
 Features:
 
+* assign MESSAGE_ID to log messages about failed services
+
 * coredump: make the handler check /proc/$PID/rlimits for RLIMIT_CORE,
   and supress coredump if turned off. Then change RLIMIT_CORE to
   infinity by default for all services. This then allows per-service
