@@ -534,13 +534,18 @@ static bool manager_check_idle(void *userdata) {
 int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.network1",
-                        DEFAULT_EXIT_USEC,
-                        manager_check_idle,
-                        m);
+        if (m->bus)
+                return bus_event_loop_with_idle(
+                                m->event,
+                                m->bus,
+                                "org.freedesktop.network1",
+                                DEFAULT_EXIT_USEC,
+                                manager_check_idle,
+                                m);
+        else
+                /* failed to connect to the bus, so we lose exit-on-idle logic,
+                   this should not happen except if dbus is not around at all */
+                return sd_event_loop(m->event);
 }
 
 int manager_load_config(Manager *m) {
