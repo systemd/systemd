@@ -1660,11 +1660,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       may match zero units and this is not considered an error.</para>
 
       <para>Glob patterns use
-      <citerefentry><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       so normal shell-style globbing rules are used, and
       <literal>*</literal>, <literal>?</literal>,
       <literal>[]</literal> may be used. See
-      <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       for more details. The patterns are matched against the names of
       currently loaded units, and patterns which do not match anything
       are silently skipped. For example:
@@ -1726,7 +1726,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 
