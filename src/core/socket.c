@@ -2603,10 +2603,6 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
 
         if (se->state == SERVICE_DEAD ||
-            se->state == SERVICE_STOP ||
-            se->state == SERVICE_STOP_SIGTERM ||
-            se->state == SERVICE_STOP_SIGKILL ||
-            se->state == SERVICE_STOP_POST ||
             se->state == SERVICE_FINAL_SIGTERM ||
             se->state == SERVICE_FINAL_SIGKILL ||
             se->state == SERVICE_AUTO_RESTART)
