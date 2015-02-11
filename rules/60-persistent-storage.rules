@@ -53,7 +53,8 @@ KERNEL=="mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+=
 
 # by-path (parent device path)
 ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
-ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", KERNEL=="mmcblk[0-9]*rpmb", SYMLINK+="disk/by-path/$env{ID_PATH}-rpmb"
+ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", KERNEL!="mmcblk[0-9]*rpmb", SYMLINK+="disk/by-path/$env{ID_PATH}"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # skip unpartitioned removable media devices from drivers which do not send "change" events
@@ -65,6 +66,9 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 # single-session CDs do not have ID_CDROM_MEDIA_SESSION_LAST_OFFSET
 KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DATA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="", \
   IMPORT{builtin}="blkid --noraid"
+
+# don't try to read Replay Protected Memory Block partitions
+KERNEL=="mmcblk[0-9]*rpmb", GOTO="persistent_storage_end"
 
 # probe filesystem metadata of disks
 KERNEL!="sr*", IMPORT{builtin}="blkid"
