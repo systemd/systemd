@@ -13,6 +13,7 @@ Requires=systemd-journal-remote.socket
 ExecStart=@rootlibexecdir@/systemd-journal-remote \
           --listen-https=-3 \
           --output=/var/log/journal/remote/
+SecureBits=noroot noroot-locked
 User=systemd-journal-remote
 Group=systemd-journal-remote
 PrivateTmp=yes

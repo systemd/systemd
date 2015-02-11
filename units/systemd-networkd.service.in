@@ -23,6 +23,7 @@ Restart=on-failure
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+SecureBits=noroot noroot-locked
 ProtectSystem=full
 ProtectHome=yes
 WatchdogSec=1min

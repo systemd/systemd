@@ -11,6 +11,7 @@ Requires=systemd-journal-gatewayd.socket
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
+SecureBits=noroot noroot-locked
 User=systemd-journal-gateway
 Group=systemd-journal-gateway
 SupplementaryGroups=systemd-journal

@@ -14,6 +14,7 @@ Documentation=http://www.freedesktop.org/wiki/Software/systemd/hostnamed
 ExecStart=@rootlibexecdir@/systemd-hostnamed
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN
+SecureBits=noroot noroot-locked
 WatchdogSec=1min
 PrivateTmp=yes
 PrivateDevices=yes
