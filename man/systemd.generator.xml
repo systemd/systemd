@@ -101,7 +101,7 @@
     <filename>/etc</filename>.</para>
 
     <para>After installing new generators or updating the
-    configuration, <command>systemctl daemon-reloead</command> may be
+    configuration, <command>systemctl daemon-reload</command> may be
     executed. This will delete the previous configuration created by
     generators, re-run all generators, and cause
     <command>systemd</command> to reload units from disk. See
