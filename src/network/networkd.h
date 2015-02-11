@@ -383,7 +383,7 @@ int config_parse_label(const char *unit, const char *filename, unsigned line,
                        int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Forwarding database table. */
-int fdb_entry_configure(Link *link, FdbEntry *const fdb_entry);
+int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry);
 void fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_new_static(Network *const network, const unsigned section, FdbEntry **ret);
 

@@ -728,7 +728,7 @@ int link_address_drop_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata)
         return 1;
 }
 
-static int link_set_bridge_fdb(const Link *const link) {
+static int link_set_bridge_fdb(Link *const link) {
         FdbEntry *fdb_entry;
         int r = 0;
 
