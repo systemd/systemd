@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <endian.h>
+
 #include "networkd.h"
 
 typedef enum LinkState {
@@ -152,8 +154,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 #define log_link_struct(link, level, ...) log_struct(level, "INTERFACE=%s", link->ifname, __VA_ARGS__)
 
-#define ADDRESS_FMT_VAL(address)            \
-        (address).s_addr & 0xFF,            \
-        ((address).s_addr >> 8) & 0xFF,     \
-        ((address).s_addr >> 16) & 0xFF,    \
-        (address).s_addr >> 24
+#define ADDRESS_FMT_VAL(address)                   \
+        be32toh((address).s_addr) >> 24,           \
+        (be32toh((address).s_addr) >> 16) & 0xFFu, \
+        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
+        be32toh((address).s_addr) & 0xFFu
