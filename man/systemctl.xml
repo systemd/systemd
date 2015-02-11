@@ -1367,12 +1367,16 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>daemon-reload</command></term>
 
           <listitem>
-            <para>Reload systemd manager configuration. This will reload
-            all unit files and recreate the entire dependency
-            tree. While the daemon is being reloaded, all sockets systemd
-            listens on behalf of user configuration will stay
-            accessible.</para> <para>This command should not be confused
-            with the <command>reload</command> command.</para>
+            <para>Reload systemd manager configuration. This will
+            rerun all generators (see
+            <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+            reload all unit files, and recreate the entire dependency
+            tree. While the daemon is being reloaded, all sockets
+            systemd listens on behalf of user configuration will stay
+            accessible.</para>
+
+            <para>This command should not be confused with the
+            <command>reload</command> command.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1721,6 +1725,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

@@ -99,6 +99,7 @@ MANPAGES += \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
 	man/systemd.exec.5 \
+	man/systemd.generator.7 \
 	man/systemd.journal-fields.7 \
 	man/systemd.kill.5 \
 	man/systemd.link.5 \
@@ -1791,6 +1792,7 @@ EXTRA_DIST += \
 	man/systemd.device.xml \
 	man/systemd.directives.xml \
 	man/systemd.exec.xml \
+	man/systemd.generator.xml \
 	man/systemd.index.xml \
 	man/systemd.journal-fields.xml \
 	man/systemd.kill.xml \
