@@ -25,9 +25,14 @@
 
 #include <fcntl.h>
 #include <malloc.h>
-#include <libgen.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
+
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the XDG
+ * version which is really broken. */
+#include <libgen.h>
+#undef basename
 
 #include "util.h"
 #include "strv.h"

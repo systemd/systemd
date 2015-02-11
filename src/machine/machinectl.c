@@ -31,8 +31,13 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/mount.h>
+
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the XDG
+ * version which is really broken. */
 #include <libgen.h>
 #undef basename
+
 #include "sd-bus.h"
 #include "log.h"
 #include "util.h"

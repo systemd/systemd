@@ -60,10 +60,14 @@
 #include <locale.h>
 #include <sys/personality.h>
 #include <sys/xattr.h>
-#include <libgen.h>
 #include <sys/statvfs.h>
 #include <sys/file.h>
 #include <linux/fs.h>
+
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the XDG
+ * version which is really broken. */
+#include <libgen.h>
 #undef basename
 
 #ifdef HAVE_SYS_AUXV_H
