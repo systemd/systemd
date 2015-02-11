@@ -122,7 +122,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                         return false;
 
                 STRV_FOREACH(match_path, match_paths)
-                        if (fnmatch(*match_path, dev_path, 0) != 0)
+                        if (fnmatch(*match_path, dev_path, 0) == 0)
                                 return true;
 
                 return false;
@@ -133,7 +133,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                         return false;
 
                 STRV_FOREACH(match_driver, match_drivers)
-                        if (fnmatch(*match_driver, dev_driver, 0) != 0)
+                        if (fnmatch(*match_driver, dev_driver, 0) == 0)
                                 return true;
 
                 return false;
@@ -144,7 +144,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                         return false;
 
                 STRV_FOREACH(match_type, match_types)
-                        if (fnmatch(*match_type, dev_type, 0) != 0)
+                        if (fnmatch(*match_type, dev_type, 0) == 0)
                                 return true;
 
                 return false;
@@ -155,7 +155,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                         return false;
 
                 STRV_FOREACH(match_name, match_names)
-                        if (fnmatch(*match_name, dev_name, 0) != 0)
+                        if (fnmatch(*match_name, dev_name, 0) == 0)
                                 return true;
 
                 return false;
