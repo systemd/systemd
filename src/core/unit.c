@@ -1653,7 +1653,7 @@ static void unit_check_binds_to(Unit *u) {
         if (!stop)
                 return;
 
-        log_unit_info(u->id, "Unit %s is bound to inactive service. Stopping, too.", u->id);
+        log_unit_info(u->id, "Unit %s is bound to inactive unit. Stopping, too.", u->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
