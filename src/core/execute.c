@@ -1617,7 +1617,8 @@ static int exec_child(
                                 return -errno;
                         }
 
-                if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
+                if (chdir(context->working_directory ?: "/") < 0 &&
+                    !context->working_directory_missing_ok) {
                         *exit_status = EXIT_CHDIR;
                         return -errno;
                 }

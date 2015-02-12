@@ -3178,6 +3178,10 @@ int unit_patch_contexts(Unit *u) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
+
+                        /* Allow user services to run, even if the
+                         * home directory is missing */
+                        ec->working_directory_missing_ok = true;
                 }
 
                 if (u->manager->running_as == SYSTEMD_USER &&

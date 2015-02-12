@@ -99,6 +99,7 @@ struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory;
+        bool working_directory_missing_ok;
 
         mode_t umask;
         int oom_score_adjust;
