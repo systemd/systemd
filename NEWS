@@ -1,5 +1,305 @@
 systemd System and Service Manager
 
+CHANGES WITH 219:
+
+        (This changes list is very incomplete, and the release is
+        weeks out still.)
+
+        * Introduce a new API "sd-hwdb.h" for querying the hardware
+          metadata database. With this minimal interface one can query
+          and enumerate the udev hwdb, decoupled from the old libudev
+          library. libudev's interface for this is now only a wrapper
+          around sd-hwdb. A new tool systemd-hwdb has been added to
+          interface with and update the database.
+
+        * When any of systemd's tools copies files (for example due to
+          tmpfiles' C lines) a btrfs reflink will attempted first,
+          before bytewise copying is done.
+
+        * systemd-nspawn gained a new --ephemeral switch. When
+          specified a btrfs snapshot is taken of the container's root
+          directory, and immediately removed when the container
+          terminates again. Thus, a container can be started whose
+          changes never alter the container's root directory, and are
+          lost on container termination. This switch can also be used
+          for starting a container off the root file system of the
+          host without affecting the host OS. This switch is only
+          available on btrfs file systems.
+
+        * systemd-nspawn gained a new --template= switch. It takes the
+          path to a container tree to use as template for the tree
+          specified via --directory=, should that director be
+          missing. This allows instantiating containers dynamically,
+          on first run. This switch is only available on btrfs file
+          systems.
+
+        * When a .mount unit refers to a mount point on which multiple
+          mounts are stacked, and the .mount unit is stopped all of
+          the stacked mount points will now be unmounted until no
+          mount point remains.
+
+        * systemd now has an explicit notion of supported and
+          unsupported unit types. Jobs enqueued for unsupported unit
+          types will now fail with an "unsupported" error code. More
+          specifically .swap, .automount and .device units are not
+          supported in containers, .busname units are not supported on
+          non-kdbus systems. .swap and .automount are also not
+          supported if their respective kernel compile time options
+          are disabled.
+
+        * machinectl gained support for two new "copy-from" and
+          "copy-to" commands for copying files from a running
+          container to the host or vice versa.
+
+        * machinectl gained support for a new "bind" command to bind
+          mount host directories into local containers. This is
+          currently only supported for nspawn containers.
+
+        * networkd gained support for configuring bridge forwarding
+          database entries (fdb) from .network files.
+
+        * A new tiny daemon "systemd-importd" has been added that can
+          download container images in tar, raw, qcow2 or dkr formats,
+          and make them available locally in /var/lib/machines, so
+          that they can run as nspawn containers. The daemon can GPG
+          verify the downloads (not supported for dkr, since it has no
+          provisions for verifying downloads). It will transparently
+          decompress bz2, xz, gzip compressed downloads if necessary,
+          and restore sparse files on disk. The daemon uses privilege
+          separation to ensure the actual download logic runs with
+          fewer privileges than the deamon itself. machinectl has
+          gained new commands "pull-tar", "pull-raw" and "pull-dkr" to
+          make the functionality of importd available to the
+          user. With this in place the Fedora and Ubuntu "Cloud"
+          images can be downloaded and booted as containers unmodified
+          (the Fedora images lack the appropriate GPG signature files
+          currently, so they cannot be verified, but this will change
+          soon, hopefully). Note that downloading images is currently
+          only fully supported on btrfs.
+
+        * machinectl is now able to list container images found in
+          /var/lib/machines, along with some metadata about sizes of
+          disk and similar. If the directory is located on btrfs and
+          quota is enabled, this includes quota display. A new command
+          "image-status" has been added that shows additional
+          information about images.
+
+        * machinectl is now able to clone container images
+          efficiently, if the underlying file system (btrfs) supports
+          it, with the new "machinectl list-images" command. It also
+          gained commands for renaming and removing images, as well as
+          marking them read-only or read-write (supported also on
+          legacy file systems).
+
+        * networkd gained support for collecting LLDP network
+          announcements, from hardware that supports this. This is
+          shown in networkctl output.
+
+        * systemd-run gained support for a new -t (--pty) switch for
+          invoking a binary on a pty whose input and output is
+          connected to the invoking terminal. This allows executing
+          processes as system services while interactively
+          communicating with them via the terminal. Most interestingly
+          this is supported across container boundaries. Invoking
+          "systemd-run -t /bin/bash" is an alternative to running a
+          full login session, the difference being that the former
+          will not register a session, nor go through the PAM session
+          setup.
+
+        * tmpfiles gained support for a new "v" line type for creating
+          btrfs subvolumes. If the underlying file system is a legacy
+          file system, this automatically degrades to creating a
+          normal directory. Among others /var/lib/machines is now
+          created like this at boot, should it be missing.
+
+        * The directory /var/lib/containers/ has been deprecated and
+          been replaced by /var/lib/machines. The term "machines" has
+          been used in the systemd context as generic term for both
+          VMs and containers, and hence appears more appropriate for
+          this, as the directory can also contain raw images bootable
+          via qemu/kvm.
+
+        * systemd-nspawn when invoked with -M but without --directory=
+          or --image= is now capable of searching for the container
+          root directory, subvolume or disk image automatically, in
+          /var/lib/machines. systemd-nspawn@.service has been updated
+          to make use of this, thus allowing it to be used for raw
+          disk images, too.
+
+        * A new machines.target unit has been introduced that is
+          supposed to group all containers/VMs invoked as services on
+          the system. systemd-nspawn@.service has been updated to
+          integrate with that.
+
+        * machinectl gained a new "start" command, for invoking a
+          container as a service. "machinectl start foo" is mostly
+          equivalent to "systemctl start systemd-nspawn@foo.service",
+          but handles escaping in a nicer way.
+
+        * systemd-nspawn will now mount most of the cgroupfs tree
+          read-only into each container, with the exception of the
+          container's own subtree in the name=systemd hierarchy.
+
+        * journald now sets the special FS_NOCOW file flag for its
+          journal files. This should improve performance on btrfs, by
+          avoiding heavy fragmentation when journald's write-pattern
+          is used on COW file systems. It degrades btrfs' data
+          integrity guarantees for the files to the same levels as for
+          ext3/ext4 however. This should be OK though as journald does
+          its own data integrity checks and all its objects are
+          checksummed on disk. Also, journald should handle btrfs disk
+          full events a lot more gracefully now, by processing SIGBUS
+          errors, and not relying on fallocate() anymore.
+
+        * When journald detects that journal files it is writing to
+          have been deleted it will immediately start new journal
+          files.
+
+        * systemd now provides a way to store file descriptors
+          per-service in PID 1.This is useful for daemons to ensure
+          that fds they require are not lost during a daemon
+          restart. The fds are passed to the deamon on the next
+          invocation in the same way socket activation fds are
+          passed. This is now used by journald to ensure that the
+          various sockets connected to all the system's stdout/stderr
+          are not lost when journald is restarted. File descriptors
+          may be stored in PID 1 via the sd_pid_notify_with_fds() API,
+          an extension to sd_notify(). Note that a limit is enforced
+          on the number of fds a service can store in PID 1, and it
+          defaults to 0, so that no fds may be stored, unless this is
+          explicitly turned on.
+
+        * The default TERM variable to use for units connected to a
+          terminal, when no other value is explicitly is set is now
+          vt220 rather than vt102. This should be fairly safe still,
+          but allows PgUp/PgDn work.
+
+        * The /etc/crypttab option header= as known from Debian is now
+          supported.
+
+        * "loginctl user-status" and "loginctl session-status" will
+          now show the last 10 lines of log messages of the
+          user/session following the status output. Similar,
+          "machinectl status" will show the last 10 log lines
+          associated with a virtual machine or container
+          service. (Note that this is usually not the log messages
+          done in the VM/container itself, but simply what the
+          container manager logs. For nspawn this includes all console
+          output however.)
+
+        * "loginctl session-status" without further argument will now
+          show the status of the session of the caller. Similar,
+          "lock-session", "unlock-session", "activate",
+          "enable-linger", "disable-linger" may now be called without
+          session/user parameter in which case they apply to the
+          caller's session/user.
+
+        * An X11 session scriptlet is now shipped that uploads
+          $DISPLAY and $XAUTHORITY into the environment of the systemd
+          --user daemon if a session begins. This should improve
+          compatibility with X11 enabled applications run as systemd
+          user services.
+
+        * Generators are now subject to masking via /etc and /run, the
+          same way as unit files.
+
+        * networkd .network files gained support for configuring
+          per-link IPv4/IPv6 packet forwarding as well as IPv4
+          masquerading. This is by default turned on for veth links to
+          containers, as registered by systemd-nspawn. This means that
+          nspawn containers run with --network-veth will now get
+          automatic routed access to the host's networks without any
+          further configuration or setup, as long as networkd runs on
+          the host.
+
+        * systemd-nspawn gained the --port= (-p) switch to expose TCP
+          or UDP posts of a container on the host. With this in place
+          it is possible to run containers with private veth links
+          (--network-veth), and have their functionality exposed on
+          the host as if their services were running directly on the
+          host.
+
+        * systemd-nspawn's --network-beth switch now gained a short
+          version "-n", since with the changes above it is now truly
+          useful out-of-the-box. The systemd-nspawn@.service has been
+          updated to make use of it too by default.
+
+        * systemd-nspawn will now maintain a per-image R/W lock, to
+          ensure that the same image is not started more than once
+          writable. (It's OK to run an image multiple times
+          simultaneously in read-only mode.)
+
+        * systemd-nspawn's --image= option is now capable of
+          dissecting and booting MBR and GPT disk images that contain
+          only a single active Linux partition. Previously it
+          supported only GPT disk images with proper GPT type
+          IDs. This allows running cloud images from major
+          distributions directly with systemd-nspawn, without
+          modification.
+
+        * In addition to collecting mouse dpi data in the udev
+          hardware database, there's now support for collecting angle
+          information for mouse scroll wheels. The database is
+          supposed to guarantee similar scrolling behaviour on mice
+          that it knows about. There's also support for collecting
+          information about Touchpad types.
+
+        * udev's input_id built-in will now also collect touch screen
+          dimension data and attach it to probed devices.
+
+        * /etc/os-release gained support for a Distribution Privacy
+          Policy link field.
+
+        * networkd gained support for creating "ipvlan", "gretap",
+          "ip6gre", "ip6gretap" and "ip6tnl" network devices.
+
+        * systemd-tmpfiles gained support for "a" lines for setting
+          ACLs on files.
+
+        * systemd-nspawn will now mount /tmp in the container to
+          tmpfs, automatically.
+
+        * systemd now exposes the memory.usage_in_bytes cgroup
+          attribute and shows it for each service in the "systemctl
+          status" output, if available.
+
+        * When the user presses Ctrl-Alt-Del more than 7x within 2s an
+          immediate reboot is triggered. This useful if shutdown is
+          hung and is unable to complete, to expedite the
+          operation. Note that this kind of reboot will still unmount
+          all file systems, and hence should not result in fsck being
+          run on next reboot.
+
+        * A .device unit for an optical block device will now be
+          considered active only when a medium is in the drive. Also,
+          mount units are now bound to their backing devices thus
+          triggering automatic unmounting when devices become
+          unavailable. With this in place systemd will now
+          automatically unmount left-over mounts when a CD-ROM is
+          ejected or an USB stick is yanked from the system.
+
+        * networkd-wait-online now has support for waiting for
+          specific interfaces only (with globbing), and for giving up
+          after a configurable timeout.
+
+        * networkd now exits when idle. It will be automatically
+          restarted as soon as interfaces show up, are removed or
+          change state. networkd will stay around as long as there is
+          at least one DHCP state machine or similar around, that keep
+          it non-idle.
+
+        * networkd may now configure IPv6 link-local addressing in
+          addition to IPv4 link-local addressing.
+
+        * The IPv6 "token" for use in SLAAC may now be configured for
+          each .network interface in networkd.
+
+        * Routes configured with networkd may now be assigned a scope
+          in .network files.
+
+        * networkd's [Match] sections now support globbing and lists
+          of multiple space-separated matches per item.
+
 CHANGES WITH 218:
 
         * When querying unit file enablement status (for example via
