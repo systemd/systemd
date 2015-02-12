@@ -30,6 +30,7 @@
 #include "mkdir.h"
 #include "fileio.h"
 #include "verbs.h"
+#include "build.h"
 
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
@@ -651,25 +652,28 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
 static void help(void) {
         printf("Usage: %s OPTIONS COMMAND\n\n"
-               "Options:\n"
-               "  --usr                generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -r,--root=PATH       alternative root path in the filesystem\n"
-               "  -h,--help\n\n"
+               "Update or query the hardware database.\n\n"
+               "  -h --help            Show this help\n"
+               "     --version         Show package version\n"
+               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "  -r --root=PATH       Alternative root path in the filesystem\n\n"
                "Commands:\n"
-               "  update               update the hwdb database\n"
-               "  query MODALIAS       query database and print result\n\n",
+               "  update               Update the hwdb database\n"
+               "  query MODALIAS       Query database and print result\n",
                program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
-                ARG_USR = 0x100,
+                ARG_VERSION = 0x100,
+                ARG_USR,
         };
 
         static const struct option options[] = {
-                { "usr",    no_argument,       NULL, ARG_USR },
-                { "root",   required_argument, NULL, 'r' },
-                { "help",   no_argument,       NULL, 'h' },
+                { "help",     no_argument,       NULL, 'h'         },
+                { "version",  no_argument,       NULL, ARG_VERSION },
+                { "usr",      no_argument,       NULL, ARG_USR     },
+                { "root",     required_argument, NULL, 'r'         },
                 {}
         };
 
@@ -680,17 +684,27 @@ static int parse_argv(int argc, char *argv[]) {
 
         while ((c = getopt_long(argc, argv, "ut:r:h", options, NULL)) >= 0) {
                 switch(c) {
-                case ARG_USR:
-                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
-                        break;
-                case 'r':
-                        arg_root = optarg;
-                        break;
+
                 case 'h':
                         help();
                         return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
+                        return 0;
+
+                case ARG_USR:
+                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
+                        break;
+
+                case 'r':
+                        arg_root = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
+
                 default:
                         assert_not_reached("Unknown option");
                 }
@@ -702,7 +716,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int hwdb_main(int argc, char *argv[]) {
         const Verb verbs[] = {
                 { "update", 1, 1, 0, hwdb_update },
-                { "query", 2, 2, 0, hwdb_query },
+                { "query",  2, 2, 0, hwdb_query  },
                 {},
         };
 
