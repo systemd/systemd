@@ -2021,8 +2021,8 @@ finish:
                         /* If we reboot let's set the shutdown
                          * watchdog and tell the shutdown binary to
                          * repeatedly ping it */
-                        watchdog_set_timeout(&arg_shutdown_watchdog);
-                        watchdog_close(false);
+                        r = watchdog_set_timeout(&arg_shutdown_watchdog);
+                        watchdog_close(r < 0);
 
                         /* Tell the binary how often to ping, ignore failure */
                         if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
