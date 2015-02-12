@@ -1058,6 +1058,7 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
 static int link_up(Link *link) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        uint8_t ipv6ll_mode;
         int r;
 
         assert(link);
@@ -1109,12 +1110,11 @@ static int link_up(Link *link) {
                 return r;
         }
 
-        if (!link_ipv6ll_enabled(link)) {
-                r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, IN6_ADDR_GEN_MODE_NONE);
-                if (r < 0) {
-                        log_link_error(link, "Could not append IFLA_INET6_ADDR_GEN_MODE: %s", strerror(-r));
-                        return r;
-                }
+        ipv6ll_mode = link_ipv6ll_enabled(link) ? IN6_ADDR_GEN_MODE_EUI64 : IN6_ADDR_GEN_MODE_NONE;
+        r = sd_rtnl_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+        if (r < 0) {
+                log_link_error(link, "Could not append IFLA_INET6_ADDR_GEN_MODE: %s", strerror(-r));
+                return r;
         }
 
         if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
