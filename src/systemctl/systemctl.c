@@ -2314,7 +2314,6 @@ static int unit_find_paths(sd_bus *bus,
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_bus_message_unref_ sd_bus_message *unit_load_error = NULL;
                 _cleanup_free_ char *unit = NULL;
-                _cleanup_strv_free_ char **load_error = NULL;
                 char *unit_load_error_name, *unit_load_error_message;
 
                 unit = unit_dbus_path_from_name(unit_name);
