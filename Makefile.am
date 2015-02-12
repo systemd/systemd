@@ -46,9 +46,9 @@ LIBGUDEV_CURRENT=2
 LIBGUDEV_REVISION=0
 LIBGUDEV_AGE=2
 
-LIBSYSTEMD_CURRENT=5
-LIBSYSTEMD_REVISION=1
-LIBSYSTEMD_AGE=5
+LIBSYSTEMD_CURRENT=6
+LIBSYSTEMD_REVISION=0
+LIBSYSTEMD_AGE=6
 
 # The following four libraries only exist for compatibility reasons,
 # their version info should not be bumped anymore
