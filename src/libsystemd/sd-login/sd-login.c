@@ -23,7 +23,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "util.h"
 #include "cgroup-util.h"

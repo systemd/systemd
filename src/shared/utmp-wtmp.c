@@ -26,7 +26,7 @@
 #include <sys/utsname.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "macro.h"
 #include "path-util.h"

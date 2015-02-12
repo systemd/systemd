@@ -40,7 +40,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/prctl.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "util.h"
 #include "list.h"

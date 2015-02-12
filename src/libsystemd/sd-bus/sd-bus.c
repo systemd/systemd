@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <byteswap.h>
 #include <sys/mman.h>
 #include <pthread.h>

@@ -39,7 +39,7 @@
 #include <linux/tiocl.h>
 #include <termios.h>
 #include <stdarg.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <ctype.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>

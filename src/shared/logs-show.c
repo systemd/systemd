@@ -22,7 +22,7 @@
 #include <time.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <fcntl.h>

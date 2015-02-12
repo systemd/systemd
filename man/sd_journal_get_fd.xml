@@ -291,7 +291,7 @@ int main(int argc, char *argv[]) {
     example lacks all error checking for the sake of
     simplicity):</para>
 
-    <programlisting>#include &lt;sys/poll.h&gt;
+    <programlisting>#include &lt;poll.h&gt;
 #include &lt;systemd/sd-journal.h&gt;
 
 int wait_for_changes(sd_journal *j) {

@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 

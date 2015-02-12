@@ -23,7 +23,7 @@
 #include <resolv.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <netinet/in.h>
 
 #include "rtnl-util.h"

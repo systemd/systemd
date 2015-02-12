@@ -19,7 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/poll.h>
+#include <poll.h>
 #include <string.h>
 
 #include "systemd/sd-login.h"

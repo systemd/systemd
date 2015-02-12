@@ -23,7 +23,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <byteswap.h>
 
 #include "util.h"

@@ -25,7 +25,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stddef.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <getopt.h>

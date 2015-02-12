@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <sys/inotify.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
 

@@ -27,7 +27,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #include "log.h"
 #include "util.h"

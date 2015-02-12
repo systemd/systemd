@@ -24,7 +24,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>

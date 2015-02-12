@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <termios.h>
 #include <unistd.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/inotify.h>
 #include <errno.h>
 #include <fcntl.h>

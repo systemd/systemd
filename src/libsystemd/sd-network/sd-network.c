@@ -24,7 +24,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <net/if.h>
 
 #include "util.h"

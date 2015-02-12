@@ -37,7 +37,7 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <glob.h>
 #include <sys/personality.h>
 

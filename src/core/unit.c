@@ -24,7 +24,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>

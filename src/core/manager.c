@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <sys/epoll.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
 #include <linux/kd.h>
