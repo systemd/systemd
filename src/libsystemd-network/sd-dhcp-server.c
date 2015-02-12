@@ -897,7 +897,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         iov.iov_base = message;
         iov.iov_len = buflen;
 
-        len = recvmsg(fd, &msg, MSG_CMSG_CLOEXEC);
+        len = recvmsg(fd, &msg, 0);
         if (len < buflen)
                 return 0;
         else if ((size_t)len < sizeof(DHCPMessage))

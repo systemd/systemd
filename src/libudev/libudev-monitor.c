@@ -600,7 +600,7 @@ retry:
         smsg.msg_name = &snl;
         smsg.msg_namelen = sizeof(snl);
 
-        buflen = recvmsg(udev_monitor->sock, &smsg, MSG_CMSG_CLOEXEC);
+        buflen = recvmsg(udev_monitor->sock, &smsg, 0);
         if (buflen < 0) {
                 if (errno != EINTR)
                         log_debug("unable to receive message");

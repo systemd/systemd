@@ -1431,7 +1431,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         assert(fd >= 0);
         assert(iov);
 
-        r = recvmsg(fd, &msg, MSG_TRUNC | MSG_CMSG_CLOEXEC | (peek ? MSG_PEEK : 0));
+        r = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
         if (r < 0) {
                 /* no data */
                 if (errno == ENOBUFS)
@@ -1467,7 +1467,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 /* not from the kernel, ignore */
                 if (peek) {
                         /* drop the message */
-                        r = recvmsg(fd, &msg, MSG_CMSG_CLOEXEC);
+                        r = recvmsg(fd, &msg, 0);
                         if (r < 0)
                                 return (errno == EAGAIN || errno == EINTR) ? 0 : -errno;
                 }

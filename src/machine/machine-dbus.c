@@ -255,7 +255,7 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
                 iov[0] = (struct iovec) { .iov_base = &family, .iov_len = sizeof(family) };
                 iov[1] = (struct iovec) { .iov_base = &in_addr, .iov_len = sizeof(in_addr) };
 
-                n = recvmsg(pair[0], &mh, MSG_CMSG_CLOEXEC);
+                n = recvmsg(pair[0], &mh, 0);
                 if (n < 0)
                         return sd_bus_error_set_errno(error, -errno);
                 if ((size_t) n < sizeof(family))

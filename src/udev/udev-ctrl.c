@@ -372,7 +372,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         iov.iov_base = &uctrl_msg->ctrl_msg_wire;
         iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
 
-        size = recvmsg(conn->sock, &smsg, MSG_CMSG_CLOEXEC);
+        size = recvmsg(conn->sock, &smsg, 0);
         if (size <  0) {
                 log_error_errno(errno, "unable to receive ctrl message: %m");
                 goto err;
