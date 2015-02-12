@@ -1237,7 +1237,7 @@ static void test_glob_exists(void) {
 static void test_execute_directory(void) {
         char template_lo[] = "/tmp/test-readlink_and_make_absolute-lo.XXXXXXX";
         char template_hi[] = "/tmp/test-readlink_and_make_absolute-hi.XXXXXXX";
-        const char const* dirs[] = {template_hi, template_lo, NULL};
+        const char * dirs[] = {template_hi, template_lo, NULL};
         const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
 
         assert_se(mkdtemp(template_lo));
