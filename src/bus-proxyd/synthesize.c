@@ -83,7 +83,6 @@ int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const 
 }
 
 int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
-
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         assert(call);
@@ -95,6 +94,22 @@ int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_e
                 return synthetic_reply_method_error(call, p);
 
         sd_bus_error_set_errno(&berror, error);
+
+        return synthetic_reply_method_error(call, &berror);
+}
+
+int synthetic_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) {
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        va_list ap;
+
+        assert(call);
+
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        va_start(ap, format);
+        sd_bus_error_set_errnofv(&berror, error, format, ap);
+        va_end(ap);
 
         return synthetic_reply_method_error(call, &berror);
 }

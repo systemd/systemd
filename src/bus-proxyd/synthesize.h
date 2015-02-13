@@ -23,10 +23,12 @@
 
 #include "sd-bus.h"
 
-int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...);
 int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...);
 int synthetic_reply_method_return_strv(sd_bus_message *call, char **l);
 
 int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error *e);
+int synthetic_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_(3, 4);
 int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p);
+int synthetic_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) _sd_printf_(3, 4);
+
 int synthesize_name_acquired(sd_bus *a, sd_bus *b, sd_bus_message *m);

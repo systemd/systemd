@@ -704,23 +704,29 @@ static int proxy_process_destination_to_local(Proxy *p) {
 
         r = sd_bus_send(p->local_bus, m, NULL);
         if (r < 0) {
-                if (r == -EPERM && m->reply_cookie > 0) {
-                        /* If the peer tries to send a reply and it is rejected with EPERM
-                         * by the kernel, we ignore the error. This catches cases where the
-                         * original method-call didn't had EXPECT_REPLY set, but the proxy-peer
-                         * still sends a reply. This is allowed in dbus1, but not in kdbus. We
-                         * don't want to track reply-windows in the proxy, so we simply ignore
-                         * EPERM for all replies. The only downside is, that callers are no
-                         * longer notified if their replies are dropped. However, this is
-                         * equivalent to the caller's timeout to expire, so this should be
-                         * acceptable. Nobody sane sends replies without a matching method-call,
-                         * so nobody should care. */
-                        return 1;
-                } else {
-                        if (r != -ECONNRESET)
-                                log_error_errno(r, "Failed to send message to client: %m");
+                if (r == -ECONNRESET)
                         return r;
-                }
+
+                /* If the peer tries to send a reply and it is
+                 * rejected with EPERM by the kernel, we ignore the
+                 * error. This catches cases where the original
+                 * method-call didn't had EXPECT_REPLY set, but the
+                 * proxy-peer still sends a reply. This is allowed in
+                 * dbus1, but not in kdbus. We don't want to track
+                 * reply-windows in the proxy, so we simply ignore
+                 * EPERM for all replies. The only downside is, that
+                 * callers are no longer notified if their replies are
+                 * dropped. However, this is equivalent to the
+                 * caller's timeout to expire, so this should be
+                 * acceptable. Nobody sane sends replies without a
+                 * matching method-call, so nobody should care. */
+                if (r == -EPERM && m->reply_cookie > 0)
+                        return 1;
+
+                /* Return the error to the client, if we can */
+                synthetic_reply_method_errnof(m, r, "Failed to forward message we got from destination: %m");
+                log_error_errno(r, "Failed to send message to client, ignoring: %m");
+                return 1;
         }
 
         return 1;
@@ -771,17 +777,20 @@ static int proxy_process_local_to_destination(Proxy *p) {
 
                 r = sd_bus_send(p->destination_bus, m, NULL);
                 if (r < 0) {
-                        if (r == -EREMCHG) {
-                                /* The name database changed since the policy check, hence let's check again */
-                                continue;
-                        } else if (r == -EPERM && m->reply_cookie > 0) {
-                                /* see above why EPERM is ignored for replies */
-                                return 1;
-                        } else {
-                                if (r != -ECONNRESET)
-                                        log_error_errno(r, "Failed to send message to bus: %m");
+                        if (r == -ECONNRESET)
                                 return r;
-                        }
+
+                        /* The name database changed since the policy check, hence let's check again */
+                        if (r == -EREMCHG)
+                                continue;
+
+                        /* see above why EPERM is ignored for replies */
+                        if (r == -EPERM && m->reply_cookie > 0)
+                                return 1;
+
+                        synthetic_reply_method_errnof(m, r, "Failed to forward message we got from local: %m");
+                        log_error_errno(r, "Failed to send message to bus: %m");
+                        return 1;
                 }
 
                 break;
