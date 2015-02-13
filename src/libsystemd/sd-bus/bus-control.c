@@ -233,15 +233,15 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
 }
 
 static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
-        struct kdbus_cmd_list cmd = {};
+        struct kdbus_cmd_list cmd = {
+                .size = sizeof(cmd),
+                .flags = flags,
+        };
         struct kdbus_info *name_list, *name;
         uint64_t previous_id = 0;
         int r;
 
         /* Caller will free half-constructed list on failure... */
-
-        cmd.size = sizeof(cmd);
-        cmd.flags = flags;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_LIST, &cmd);
         if (r < 0)
@@ -896,7 +896,7 @@ _public_ int sd_bus_get_name_creds(
 static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         struct kdbus_cmd_info cmd = {
-                .size = sizeof(struct kdbus_cmd_info)
+                .size = sizeof(struct kdbus_cmd_info),
         };
         struct kdbus_info *creator_info;
         pid_t pid = 0;
@@ -1403,7 +1403,10 @@ int bus_remove_match_internal_kernel(
                 sd_bus *bus,
                 uint64_t cookie) {
 
-        struct kdbus_cmd_match m;
+        struct kdbus_cmd_match m = {
+                .size = offsetof(struct kdbus_cmd_match, items),
+                .cookie = cookie,
+        };
         int r;
 
         assert(bus);
@@ -1411,10 +1414,6 @@ int bus_remove_match_internal_kernel(
         /* Monitor streams don't support matches, make this a NOP */
         if (bus->hello_flags & KDBUS_HELLO_MONITOR)
                 return 0;
-
-        zero(m);
-        m.size = offsetof(struct kdbus_cmd_match, items);
-        m.cookie = cookie;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
         if (r < 0)
