@@ -673,7 +673,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
         assert(p);
 
         r = sd_bus_process(p->destination_bus, &m);
-        if (r == -ECONNRESET) /* Treat 'connection reset by peer' as clean exit condition */
+        if (r == -ECONNRESET || r == -ENOTCONN) /* Treat 'connection reset by peer' as clean exit condition */
                 return r;
         if (r < 0) {
                 log_error_errno(r, "Failed to process destination bus: %m");
@@ -704,7 +704,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
 
         r = sd_bus_send(p->local_bus, m, NULL);
         if (r < 0) {
-                if (r == -ECONNRESET)
+                if (r == -ECONNRESET || r == -ENOTCONN)
                         return r;
 
                 /* If the peer tries to send a reply and it is
@@ -739,7 +739,7 @@ static int proxy_process_local_to_destination(Proxy *p) {
         assert(p);
 
         r = sd_bus_process(p->local_bus, &m);
-        if (r == -ECONNRESET) /* Treat 'connection reset by peer' as clean exit condition */
+        if (r == -ECONNRESET || r == -ENOTCONN) /* Treat 'connection reset by peer' as clean exit condition */
                 return r;
         if (r < 0) {
                 log_error_errno(r, "Failed to process local bus: %m");
@@ -777,7 +777,7 @@ static int proxy_process_local_to_destination(Proxy *p) {
 
                 r = sd_bus_send(p->destination_bus, m, NULL);
                 if (r < 0) {
-                        if (r == -ECONNRESET)
+                        if (r == -ECONNRESET || r == -ENOTCONN)
                                 return r;
 
                         /* The name database changed since the policy check, hence let's check again */
@@ -810,7 +810,7 @@ int proxy_run(Proxy *p) {
                 if (p->got_hello) {
                         /* Read messages from bus, to pass them on to our client */
                         r = proxy_process_destination_to_local(p);
-                        if (r == -ECONNRESET)
+                        if (r == -ECONNRESET || r == -ENOTCONN)
                                 return 0;
                         if (r < 0)
                                 return r;
@@ -820,7 +820,7 @@ int proxy_run(Proxy *p) {
 
                 /* Read messages from our client, to pass them on to the bus */
                 r = proxy_process_local_to_destination(p);
-                if (r == -ECONNRESET)
+                if (r == -ECONNRESET || r == -ENOTCONN)
                         return 0;
                 if (r < 0)
                         return r;
