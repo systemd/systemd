@@ -576,11 +576,11 @@ static int process_hello(Proxy *p, sd_bus_message *m) {
                 if (p->got_hello)
                         return 0;
 
-                return log_error_errno(-EIO, "First packet isn't hello (it's %s.%s), aborting.", m->interface, m->member);
+                return log_error_errno(EIO, "First packet isn't hello (it's %s.%s), aborting.", m->interface, m->member);
         }
 
         if (p->got_hello)
-                return log_error_errno(-EIO, "Got duplicate hello, aborting.");
+                return log_error_errno(EIO, "Got duplicate hello, aborting.");
 
         p->got_hello = true;
 
