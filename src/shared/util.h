@@ -355,16 +355,11 @@ static inline uint32_t random_u32(void) {
                 return name##_table[i];                                 \
         }
 
-#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
-        scope type name##_from_string(const char *s) {                  \
-                type i;                                                 \
-                if (!s)                                                 \
-                        return (type) -1;                               \
-                for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
-                        if (name##_table[i] &&                          \
-                            streq(name##_table[i], s))                  \
-                                return i;                               \
-                return (type) -1;                                       \
+ssize_t string_table_lookup(const char * const *table, size_t len, const char *key);
+
+#define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)                                \
+        scope inline type name##_from_string(const char *s) {                                   \
+                return (type)string_table_lookup(name##_table, ELEMENTSOF(name##_table), s);    \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
