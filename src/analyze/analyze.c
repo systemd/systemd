@@ -974,24 +974,34 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
+        bool match_patterns;
 
         assert(u);
         assert(prop);
         assert(color);
+
+        match_patterns = strv_fnmatch(u->id, patterns, 0);
+
+        if (!strv_isempty(arg_dot_from_patterns) &&
+            !match_patterns &&
+            !strv_fnmatch(u->id, arg_dot_from_patterns, 0))
+                        return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(unit, units) {
-                if (!strv_fnmatch_or_empty(u->id, arg_dot_from_patterns, 0))
+                bool match_patterns2;
+
+                match_patterns2 = strv_fnmatch(*unit, patterns, 0);
+
+                if (!strv_isempty(arg_dot_to_patterns) &&
+                    !match_patterns2 &&
+                    !strv_fnmatch(*unit, arg_dot_to_patterns, 0))
                         continue;
 
-                if (!strv_fnmatch_or_empty(*unit, arg_dot_to_patterns, 0))
-                        continue;
-
-                if (!strv_fnmatch_or_empty(u->id, patterns, 0) &&
-                    !strv_fnmatch_or_empty(*unit, patterns, 0))
+                if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
                         continue;
 
                 printf("\t\"%s\"->\"%s\" [color=\"%s\"];\n", u->id, *unit, color);

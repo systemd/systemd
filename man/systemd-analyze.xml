@@ -227,13 +227,22 @@
 
         <listitem><para>When used in conjunction with the
         <command>dot</command> command (see above), this selects which
-        relationships are shown in the dependency graph. They both
-        require
+        relationships are shown in the dependency graph. Both options
+        require a
         <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        patterns as arguments, which are matched against left-hand and
-        right-hand, respectively, nodes of a relationship. Each of
-        these can be used more than once, which means a unit name must
-        match one of the given values.</para></listitem>
+        pattern as an argument, which will be matched against the
+        left-hand and the right-hand, respectively, nodes of a
+        relationship.</para>
+
+        <para>Each of these can be used more than once, in which case
+        the unit name must match one of the values. When tests for
+        both sides of the relation are present, a relation must pass
+        both tests to be shown. When patterns are also specified as
+        positional arguments, they must match at least one side of the
+        relation. In other words, patterns specified with those two
+        options will trim the list of edges matched by the positional
+        arguments, if any are given, and fully determine the list of
+        edges shown otherwise.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,7 +261,7 @@
         <term><option>--no-man</option></term>
 
         <listitem><para>Do not invoke man to verify the existence of
-        man pages listen in <varname>Documentation=</varname>.
+        man pages listed in <varname>Documentation=</varname>.
         </para></listitem>
       </varlistentry>
 
