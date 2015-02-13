@@ -123,7 +123,7 @@ int bus_event_loop_with_idle(
                 if (r < 0)
                         return r;
 
-                if (r == 0 && !exiting) {
+                if (r == 0 && !exiting && idle) {
 
                         r = sd_bus_try_close(bus);
                         if (r == -EBUSY)
