@@ -8,6 +8,7 @@
 [Unit]
 Description=networkd rtnetlink socket
 Documentation=man:systemd-networkd.service(8) man:rtnetlink(7)
+ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 Before=sockets.target
 
