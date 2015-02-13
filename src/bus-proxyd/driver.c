@@ -305,7 +305,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 /* Let's sort the names list to make it stable */
                 strv_sort(names);
 
-                return synthetic_reply_return_strv(m, names);
+                return synthetic_reply_method_return_strv(m, names);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListNames")) {
                 _cleanup_strv_free_ char **names = NULL;
@@ -324,7 +324,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 /* Let's sort the names list to make it stable */
                 strv_sort(names);
 
-                return synthetic_reply_return_strv(m, names);
+                return synthetic_reply_method_return_strv(m, names);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
                 struct kdbus_cmd_list cmd = {
@@ -389,7 +389,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (err < 0)
                         return synthetic_reply_method_errno(m, err, NULL);
 
-                return synthetic_reply_return_strv(m, owners);
+                return synthetic_reply_method_return_strv(m, owners);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "NameHasOwner")) {
                 const char *name;

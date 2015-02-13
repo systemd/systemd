@@ -125,7 +125,7 @@ int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) 
         return synthetic_driver_send(call->bus, m);
 }
 
-int synthetic_reply_return_strv(sd_bus_message *call, char **l) {
+int synthetic_reply_method_return_strv(sd_bus_message *call, char **l) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
