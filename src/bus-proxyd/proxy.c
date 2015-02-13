@@ -53,7 +53,7 @@
 #include "proxy.h"
 #include "synthesize.h"
 
-static int proxy_create_dest(Proxy *p, const char *dest, const char *local_sec, bool negotiate_fds) {
+static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
         _cleanup_bus_close_unref_ sd_bus *b = NULL;
         int r;
 
@@ -65,7 +65,7 @@ static int proxy_create_dest(Proxy *p, const char *dest, const char *local_sec, 
         if (r < 0)
                 return log_error_errno(r, "Failed to set bus name: %m");
 
-        r = sd_bus_set_address(b, dest);
+        r = sd_bus_set_address(b, destination);
         if (r < 0)
                 return log_error_errno(r, "Failed to set address to connect to: %m");
 
@@ -104,7 +104,7 @@ static int proxy_create_dest(Proxy *p, const char *dest, const char *local_sec, 
         if (r < 0)
                 return log_error_errno(r, "Failed to start bus client: %m");
 
-        p->dest_bus = b;
+        p->destination_bus = b;
         b = NULL;
         return 0;
 }
@@ -122,7 +122,7 @@ static int proxy_create_local(Proxy *p, int in_fd, int out_fd, bool negotiate_fd
         if (r < 0)
                 return log_error_errno(r, "Failed to set fds: %m");
 
-        r = sd_bus_get_bus_id(p->dest_bus, &server_id);
+        r = sd_bus_get_bus_id(p->destination_bus, &server_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to get server ID: %m");
 
@@ -158,10 +158,10 @@ static int proxy_prepare_matches(Proxy *p) {
         const char *unique;
         int r;
 
-        if (!p->dest_bus->is_kernel)
+        if (!p->destination_bus->is_kernel)
                 return 0;
 
-        r = sd_bus_get_unique_name(p->dest_bus, &unique);
+        r = sd_bus_get_unique_name(p->destination_bus, &unique);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
@@ -177,7 +177,7 @@ static int proxy_prepare_matches(Proxy *p) {
         if (!match)
                 return log_oom();
 
-        r = sd_bus_add_match(p->dest_bus, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameLost: %m");
 
@@ -194,14 +194,14 @@ static int proxy_prepare_matches(Proxy *p) {
         if (!match)
                 return log_oom();
 
-        r = sd_bus_add_match(p->dest_bus, NULL, match, NULL, NULL);
+        r = sd_bus_add_match(p->destination_bus, NULL, match, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for NameAcquired: %m");
 
         return 0;
 }
 
-int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest) {
+int proxy_new(Proxy **out, int in_fd, int out_fd, const char *destination) {
         _cleanup_(proxy_freep) Proxy *p = NULL;
         _cleanup_free_ char *local_sec = NULL;
         bool is_unix;
@@ -226,7 +226,7 @@ int proxy_new(Proxy **out, int in_fd, int out_fd, const char *dest) {
                 (void) getpeersec(in_fd, &local_sec);
         }
 
-        r = proxy_create_dest(p, dest, local_sec, is_unix);
+        r = proxy_create_destination(p, destination, local_sec, is_unix);
         if (r < 0)
                 return r;
 
@@ -248,7 +248,7 @@ Proxy *proxy_free(Proxy *p) {
                 return NULL;
 
         sd_bus_close_unrefp(&p->local_bus);
-        sd_bus_close_unrefp(&p->dest_bus);
+        sd_bus_close_unrefp(&p->destination_bus);
         set_free_free(p->owned_names);
         free(p);
 
@@ -264,7 +264,7 @@ int proxy_set_policy(Proxy *p, SharedPolicy *sp, char **configuration) {
         assert(sp);
 
         /* no need to load legacy policy if destination is not kdbus */
-        if (!p->dest_bus->is_kernel)
+        if (!p->destination_bus->is_kernel)
                 return 0;
 
         p->policy = sp;
@@ -279,7 +279,7 @@ int proxy_set_policy(Proxy *p, SharedPolicy *sp, char **configuration) {
         if (!configuration) {
                 const char *scope;
 
-                r = sd_bus_get_scope(p->dest_bus, &scope);
+                r = sd_bus_get_scope(p->destination_bus, &scope);
                 if (r < 0)
                         return log_error_errno(r, "Couldn't determine bus scope: %m");
 
@@ -329,23 +329,23 @@ int proxy_hello_policy(Proxy *p, uid_t original_uid) {
 }
 
 static int proxy_wait(Proxy *p) {
-        uint64_t timeout_dest, timeout_local, t;
-        int events_dest, events_local, fd;
+        uint64_t timeout_destination, timeout_local, t;
+        int events_destination, events_local, fd;
         struct timespec _ts, *ts;
         struct pollfd *pollfd;
         int r;
 
         assert(p);
 
-        fd = sd_bus_get_fd(p->dest_bus);
+        fd = sd_bus_get_fd(p->destination_bus);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to get fd: %m");
 
-        events_dest = sd_bus_get_events(p->dest_bus);
-        if (events_dest < 0)
-                return log_error_errno(events_dest, "Failed to get events mask: %m");
+        events_destination = sd_bus_get_events(p->destination_bus);
+        if (events_destination < 0)
+                return log_error_errno(events_destination, "Failed to get events mask: %m");
 
-        r = sd_bus_get_timeout(p->dest_bus, &timeout_dest);
+        r = sd_bus_get_timeout(p->destination_bus, &timeout_destination);
         if (r < 0)
                 return log_error_errno(r, "Failed to get timeout: %m");
 
@@ -357,8 +357,8 @@ static int proxy_wait(Proxy *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get timeout: %m");
 
-        t = timeout_dest;
-        if (t == (uint64_t) -1 || (timeout_local != (uint64_t) -1 && timeout_local < timeout_dest))
+        t = timeout_destination;
+        if (t == (uint64_t) -1 || (timeout_local != (uint64_t) -1 && timeout_local < timeout_destination))
                 t = timeout_local;
 
         if (t == (uint64_t) -1)
@@ -376,7 +376,7 @@ static int proxy_wait(Proxy *p) {
         }
 
         pollfd = (struct pollfd[3]) {
-                { .fd = fd,           .events = events_dest,            },
+                { .fd = fd,           .events = events_destination,            },
                 { .fd = p->local_in,  .events = events_local & POLLIN,  },
                 { .fd = p->local_out, .events = events_local & POLLOUT, },
         };
@@ -584,14 +584,14 @@ static int process_hello(Proxy *p, sd_bus_message *m) {
 
         p->got_hello = true;
 
-        if (!p->dest_bus->is_kernel)
+        if (!p->destination_bus->is_kernel)
                 return 0;
 
         r = sd_bus_message_new_method_return(m, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate HELLO reply: %m");
 
-        r = sd_bus_message_append(n, "s", p->dest_bus->unique_name);
+        r = sd_bus_message_append(n, "s", p->destination_bus->unique_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to append unique name to HELLO reply: %m");
 
@@ -617,7 +617,7 @@ static int process_hello(Proxy *p, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate initial NameAcquired message: %m");
 
-        r = sd_bus_message_append(n, "s", p->dest_bus->unique_name);
+        r = sd_bus_message_append(n, "s", p->destination_bus->unique_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to append unique name to NameAcquired message: %m");
 
@@ -666,13 +666,13 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
         return 0;
 }
 
-static int proxy_process_dest_to_local(Proxy *p) {
+static int proxy_process_destination_to_local(Proxy *p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
         assert(p);
 
-        r = sd_bus_process(p->dest_bus, &m);
+        r = sd_bus_process(p->destination_bus, &m);
         if (r < 0) {
                 /* treat 'connection reset by peer' as clean exit condition */
                 if (r != -ECONNRESET)
@@ -689,14 +689,14 @@ static int proxy_process_dest_to_local(Proxy *p) {
         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
                 return -ECONNRESET;
 
-        r = synthesize_name_acquired(p->dest_bus, p->local_bus, m);
+        r = synthesize_name_acquired(p->destination_bus, p->local_bus, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to synthesize message: %m");
 
-        patch_sender(p->dest_bus, m);
+        patch_sender(p->destination_bus, m);
 
         if (p->policy) {
-                r = process_policy(p->dest_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
+                r = process_policy(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to process policy: %m");
                 else if (r > 0)
@@ -727,7 +727,7 @@ static int proxy_process_dest_to_local(Proxy *p) {
         return 1;
 }
 
-static int proxy_process_local_to_dest(Proxy *p) {
+static int proxy_process_local_to_destination(Proxy *p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
@@ -756,7 +756,7 @@ static int proxy_process_local_to_dest(Proxy *p) {
         else if (r > 0)
                 return 1;
 
-        r = bus_proxy_process_driver(p->dest_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
+        r = bus_proxy_process_driver(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
         if (r < 0)
                 return log_error_errno(r, "Failed to process driver calls: %m");
         else if (r > 0)
@@ -764,14 +764,14 @@ static int proxy_process_local_to_dest(Proxy *p) {
 
         for (;;) {
                 if (p->policy) {
-                        r = process_policy(p->local_bus, p->dest_bus, m, p->policy, &p->local_creds, p->owned_names);
+                        r = process_policy(p->local_bus, p->destination_bus, m, p->policy, &p->local_creds, p->owned_names);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to process policy: %m");
                         else if (r > 0)
                                 return 1;
                 }
 
-                r = sd_bus_send(p->dest_bus, m, NULL);
+                r = sd_bus_send(p->destination_bus, m, NULL);
                 if (r < 0) {
                         if (r == -EREMCHG) {
                                 /* The name database changed since the policy check, hence let's check again */
@@ -802,7 +802,7 @@ int proxy_run(Proxy *p) {
 
                 if (p->got_hello) {
                         /* Read messages from bus, to pass them on to our client */
-                        r = proxy_process_dest_to_local(p);
+                        r = proxy_process_destination_to_local(p);
                         if (r == -ECONNRESET)
                                 return 0;
                         else if (r < 0)
@@ -812,7 +812,7 @@ int proxy_run(Proxy *p) {
                 }
 
                 /* Read messages from our client, to pass them on to the bus */
-                r = proxy_process_local_to_dest(p);
+                r = proxy_process_local_to_destination(p);
                 if (r == -ECONNRESET)
                         return 0;
                 else if (r < 0)

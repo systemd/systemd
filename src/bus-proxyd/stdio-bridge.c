@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = rename_service(p->dest_bus, p->local_bus);
+        r = rename_service(p->destination_bus, p->local_bus);
         if (r < 0)
                 log_debug_errno(r, "Failed to rename process: %m");
 

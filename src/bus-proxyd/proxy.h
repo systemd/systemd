@@ -34,7 +34,7 @@ struct Proxy {
         int local_in;
         int local_out;
 
-        sd_bus *dest_bus;
+        sd_bus *destination_bus;
 
         Set *owned_names;
         SharedPolicy *policy;
