@@ -651,7 +651,7 @@ int config_parse_llmnr(
         return 0;
 }
 
-int config_parse_token(
+int config_parse_ipv6token(
                 const char* unit,
                 const char *filename,
                 unsigned line,

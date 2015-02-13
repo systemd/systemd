@@ -411,9 +411,9 @@ int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line,
                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* IPv6 support */
-int config_parse_token(const char *unit, const char *filename, unsigned line,
-                       const char *section, unsigned section_line, const char *lvalue,
-                       int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_ipv6token(const char *unit, const char *filename, unsigned line,
+                           const char *section, unsigned section_line, const char *lvalue,
+                           int ltype, const char *rvalue, void *data, void *userdata);
 
 /* LLMNR support */
 
