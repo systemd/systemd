@@ -692,3 +692,13 @@ char **strv_reverse(char **l) {
 
         return l;
 }
+
+bool strv_fnmatch(const char *s, char* const* patterns, int flags) {
+        char* const* p;
+
+        STRV_FOREACH(p, patterns)
+                if (fnmatch(*p, s, 0) == 0)
+                        return true;
+
+        return false;
+}

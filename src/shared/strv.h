@@ -23,6 +23,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <fnmatch.h>
 
 #include "util.h"
 
@@ -144,3 +145,11 @@ void strv_print(char **l);
         }))
 
 char **strv_reverse(char **l);
+
+bool strv_fnmatch(const char *s, char* const* patterns, int flags);
+
+static inline bool strv_fnmatch_or_empty(const char *s, char* const* patterns, int flags) {
+        assert(s);
+        return strv_isempty(patterns) ||
+               strv_fnmatch(s, patterns, flags);
+}

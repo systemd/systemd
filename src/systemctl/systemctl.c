@@ -37,7 +37,6 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <sys/prctl.h>
-#include <fnmatch.h>
 
 #include "sd-daemon.h"
 #include "sd-shutdown.h"
@@ -311,16 +310,9 @@ static int compare_unit_info(const void *a, const void *b) {
 }
 
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
-        if (!strv_isempty(patterns)) {
-                char **pattern;
-
-                STRV_FOREACH(pattern, patterns)
-                        if (fnmatch(*pattern, u->id, FNM_NOESCAPE) == 0)
-                                goto next;
+        if (!strv_fnmatch_or_empty(u->id, patterns, FNM_NOESCAPE))
                 return false;
-        }
 
-next:
         if (arg_types) {
                 const char *dot;
 
@@ -1255,16 +1247,9 @@ static int compare_unit_file_list(const void *a, const void *b) {
 }
 
 static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
-        if (!strv_isempty(patterns)) {
-                char **pattern;
-
-                STRV_FOREACH(pattern, patterns)
-                        if (fnmatch(*pattern, basename(u->path), FNM_NOESCAPE) == 0)
-                                goto next;
+        if (!strv_fnmatch_or_empty(basename(u->path), patterns, FNM_NOESCAPE))
                 return false;
-        }
 
-next:
         if (!strv_isempty(arg_types)) {
                 const char *dot;
 
@@ -1276,10 +1261,9 @@ next:
                         return false;
         }
 
-        if (!strv_isempty(arg_states)) {
-                if (!strv_find(arg_states, unit_file_state_to_string(u->state)))
-                        return false;
-        }
+        if (!strv_isempty(arg_states) &&
+            !strv_find(arg_states, unit_file_state_to_string(u->state)))
+                return false;
 
         return true;
 }
@@ -1736,18 +1720,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
 }
 
 static bool output_show_machine(const char *name, char **patterns) {
-        char **i;
-
-        assert(name);
-
-        if (strv_isempty(patterns))
-                return true;
-
-        STRV_FOREACH(i, patterns)
-                if (fnmatch(*i, name, FNM_NOESCAPE) == 0)
-                        return true;
-
-        return false;
+        return strv_fnmatch_or_empty(name, patterns, FNM_NOESCAPE);
 }
 
 static int get_machine_list(
@@ -2100,17 +2073,7 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
 }
 
 static bool output_show_job(struct job_info *job, char **patterns) {
-        char **pattern;
-
-        assert(job);
-
-        if (strv_isempty(patterns))
-                return true;
-
-        STRV_FOREACH(pattern, patterns)
-                if (fnmatch(*pattern, job->name, FNM_NOESCAPE) == 0)
-                        return true;
-        return false;
+        return strv_fnmatch_or_empty(job->name, patterns, FNM_NOESCAPE);
 }
 
 static int list_jobs(sd_bus *bus, char **args) {

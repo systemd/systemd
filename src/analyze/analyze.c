@@ -25,7 +25,6 @@
 #include <getopt.h>
 #include <locale.h>
 #include <sys/utsname.h>
-#include <fnmatch.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
@@ -985,46 +984,15 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
                 return r;
 
         STRV_FOREACH(unit, units) {
-                char **p;
-                bool match_found;
+                if (!strv_fnmatch_or_empty(u->id, arg_dot_from_patterns, 0))
+                        continue;
 
-                if (!strv_isempty(arg_dot_from_patterns)) {
-                        match_found = false;
+                if (!strv_fnmatch_or_empty(*unit, arg_dot_to_patterns, 0))
+                        continue;
 
-                        STRV_FOREACH(p, arg_dot_from_patterns)
-                                if (fnmatch(*p, u->id, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-
-                        if (!match_found)
-                                continue;
-                }
-
-                if (!strv_isempty(arg_dot_to_patterns)) {
-                        match_found = false;
-
-                        STRV_FOREACH(p, arg_dot_to_patterns)
-                                if (fnmatch(*p, *unit, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-
-                        if (!match_found)
-                                continue;
-                }
-
-                if (!strv_isempty(patterns)) {
-                        match_found = false;
-
-                        STRV_FOREACH(p, patterns)
-                                if (fnmatch(*p, u->id, 0) == 0 || fnmatch(*p, *unit, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-                        if (!match_found)
-                                continue;
-                }
+                if (!strv_fnmatch_or_empty(u->id, patterns, 0) &&
+                    !strv_fnmatch_or_empty(*unit, patterns, 0))
+                        continue;
 
                 printf("\t\"%s\"->\"%s\" [color=\"%s\"];\n", u->id, *unit, color);
         }

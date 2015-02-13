@@ -22,7 +22,6 @@
 #include <netinet/ether.h>
 #include <linux/if.h>
 #include <arpa/inet.h>
-#include <fnmatch.h>
 
 #include "strv.h"
 #include "siphash24.h"
@@ -97,10 +96,6 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
-        char * const *match_path;
-        char * const *match_driver;
-        char * const *match_type;
-        char * const *match_name;
 
         if (match_host && !condition_test(match_host))
                 return false;
@@ -117,49 +112,17 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return false;
 
-        if (!strv_isempty(match_paths)) {
-                if (!dev_path)
-                        return false;
+        if (!strv_isempty(match_paths))
+                return strv_fnmatch(dev_path, match_paths, 0);
 
-                STRV_FOREACH(match_path, match_paths)
-                        if (fnmatch(*match_path, dev_path, 0) == 0)
-                                return true;
+        if (!strv_isempty(match_drivers))
+                return strv_fnmatch(dev_driver, match_drivers, 0);
 
-                return false;
-        }
+        if (!strv_isempty(match_types))
+                return strv_fnmatch(dev_type, match_types, 0);
 
-        if (!strv_isempty(match_drivers)) {
-                if (!dev_driver)
-                        return false;
-
-                STRV_FOREACH(match_driver, match_drivers)
-                        if (fnmatch(*match_driver, dev_driver, 0) == 0)
-                                return true;
-
-                return false;
-        }
-
-        if (!strv_isempty(match_types)) {
-                if (!dev_type)
-                        return false;
-
-                STRV_FOREACH(match_type, match_types)
-                        if (fnmatch(*match_type, dev_type, 0) == 0)
-                                return true;
-
-                return false;
-        }
-
-        if (!strv_isempty(match_names)) {
-                if (!dev_name)
-                        return false;
-
-                STRV_FOREACH(match_name, match_names)
-                        if (fnmatch(*match_name, dev_name, 0) == 0)
-                                return true;
-
-                return false;
-        }
+        if (!strv_isempty(match_names))
+                return strv_fnmatch(dev_name, match_names, 0);
 
         return true;
 }
