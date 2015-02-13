@@ -376,7 +376,7 @@ static int proxy_wait(Proxy *p) {
         }
 
         pollfd = (struct pollfd[3]) {
-                { .fd = fd,           .events = events_destination,            },
+                { .fd = fd,           .events = events_destination,     },
                 { .fd = p->local_in,  .events = events_local & POLLIN,  },
                 { .fd = p->local_out, .events = events_local & POLLOUT, },
         };
@@ -689,6 +689,8 @@ static int proxy_process_destination_to_local(Proxy *p) {
                 return -ECONNRESET;
 
         r = synthesize_name_acquired(p->destination_bus, p->local_bus, m);
+        if (r == -ECONNRESET || r == -ENOTCONN)
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to synthesize message: %m");
 
@@ -696,6 +698,8 @@ static int proxy_process_destination_to_local(Proxy *p) {
 
         if (p->policy) {
                 r = process_policy(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
+                if (r == -ECONNRESET || r == -ENOTCONN)
+                        return r;
                 if (r < 0)
                         return log_error_errno(r, "Failed to process policy: %m");
                 if (r > 0)
@@ -755,12 +759,16 @@ static int proxy_process_local_to_destination(Proxy *p) {
                 return -ECONNRESET;
 
         r = process_hello(p, m);
+        if (r == -ECONNRESET || r == -ENOTCONN)
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to process HELLO: %m");
         if (r > 0)
                 return 1;
 
         r = bus_proxy_process_driver(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
+        if (r == -ECONNRESET || r == -ENOTCONN)
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to process driver calls: %m");
         if (r > 0)
@@ -769,9 +777,11 @@ static int proxy_process_local_to_destination(Proxy *p) {
         for (;;) {
                 if (p->policy) {
                         r = process_policy(p->local_bus, p->destination_bus, m, p->policy, &p->local_creds, p->owned_names);
+                        if (r == -ECONNRESET || r == -ENOTCONN)
+                                return r;
                         if (r < 0)
                                 return log_error_errno(r, "Failed to process policy: %m");
-                        else if (r > 0)
+                        if (r > 0)
                                 return 1;
                 }
 
@@ -829,6 +839,8 @@ int proxy_run(Proxy *p) {
 
                 if (!busy) {
                         r = proxy_wait(p);
+                        if (r == -ECONNRESET || r == -ENOTCONN)
+                                return 0;
                         if (r < 0)
                                 return r;
                 }
