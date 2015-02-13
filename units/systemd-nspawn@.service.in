@@ -12,7 +12,7 @@ PartOf=machines.target
 Before=machines.target
 
 [Service]
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --machine=%I
+ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth --machine=%I
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
