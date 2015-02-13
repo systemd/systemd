@@ -5,9 +5,6 @@
 usb:v0001*
  ID_VENDOR_FROM_DATABASE=Fry's Electronics
 
-usb:v0001p142B*
- ID_MODEL_FROM_DATABASE=Arbiter Systems, Inc.
-
 usb:v0001p7778*
  ID_MODEL_FROM_DATABASE=Counterfeit flash drive [Kingston]
 
@@ -10565,6 +10562,9 @@ usb:v04A9p26DA*
 usb:v04A9p26E6*
  ID_MODEL_FROM_DATABASE=iR1024
 
+usb:v04A9p2736*
+ ID_MODEL_FROM_DATABASE=I-SENSYS MF4550d
+
 usb:v04A9p2737*
  ID_MODEL_FROM_DATABASE=MF4410
 
@@ -11401,6 +11401,18 @@ usb:v04A9p3289*
 
 usb:v04A9p328A*
  ID_MODEL_FROM_DATABASE=PowerShot ELPH 150 IS / IXUS 155
+
+usb:v04A9p328B*
+ ID_MODEL_FROM_DATABASE=PowerShot N Facebook(R) Ready
+
+usb:v04A9p329A*
+ ID_MODEL_FROM_DATABASE=PowerShot SX60 HS
+
+usb:v04A9p329B*
+ ID_MODEL_FROM_DATABASE=PowerShot SX520 HS
+
+usb:v04A9p329C*
+ ID_MODEL_FROM_DATABASE=PowerShot SX400 IS
 
 usb:v04AA*
  ID_VENDOR_FROM_DATABASE=DaeWoo Telecom, Ltd
@@ -21701,6 +21713,9 @@ usb:v05E3p0608*
 usb:v05E3p0610*
  ID_MODEL_FROM_DATABASE=4-port hub
 
+usb:v05E3p0616*
+ ID_MODEL_FROM_DATABASE=hub
+
 usb:v05E3p0660*
  ID_MODEL_FROM_DATABASE=USB 2.0 Hub
 
@@ -30254,6 +30269,9 @@ usb:v0924p3CE8*
 usb:v0924p3D5B*
  ID_MODEL_FROM_DATABASE=Phaser 6115MFP TWAIN Scanner
 
+usb:v0924p3D6D*
+ ID_MODEL_FROM_DATABASE=WorkCentre 6015N/NI
+
 usb:v0924p420F*
  ID_MODEL_FROM_DATABASE=WorkCentre PE220 Series
 
@@ -30561,7 +30579,7 @@ usb:v0930p6540*
  ID_MODEL_FROM_DATABASE=TransMemory Flash Memory
 
 usb:v0930p6544*
- ID_MODEL_FROM_DATABASE=Kingston DataTraveler 2.0 Stick (2GB)
+ ID_MODEL_FROM_DATABASE=TransMemory-Mini / Kingston DataTraveler 2.0 Stick (2GB)
 
 usb:v0930p6545*
  ID_MODEL_FROM_DATABASE=Kingston DataTraveler 102/2.0 / HEMA Flash Drive 2 GB / PNY Attache 4GB Stick
@@ -30884,6 +30902,9 @@ usb:v0951p1656*
 usb:v0951p1665*
  ID_MODEL_FROM_DATABASE=Digital DataTraveler SE9 64GB
 
+usb:v0951p1666*
+ ID_MODEL_FROM_DATABASE=DataTraveler G4
+
 usb:v0951p1689*
  ID_MODEL_FROM_DATABASE=DataTraveler SE9
 
@@ -30903,7 +30924,7 @@ usb:v0955p7030*
  ID_MODEL_FROM_DATABASE=Tegra 3 (recovery mode)
 
 usb:v0955p7100*
- ID_MODEL_FROM_DATABASE=Notion Ink Adam
+ ID_MODEL_FROM_DATABASE=Tegra Device
 
 usb:v0955p7820*
  ID_MODEL_FROM_DATABASE=Tegra 2 AC100 developer mode
@@ -34532,6 +34553,12 @@ usb:v0BC2p2300*
 usb:v0BC2p2320*
  ID_MODEL_FROM_DATABASE=USB 3.0 bridge [Portable Expansion Drive]
 
+usb:v0BC2p2321*
+ ID_MODEL_FROM_DATABASE=Expansion Portable
+
+usb:v0BC2p2340*
+ ID_MODEL_FROM_DATABASE=FreeAgent External Hard Drive
+
 usb:v0BC2p3000*
  ID_MODEL_FROM_DATABASE=FreeAgent Desktop
 
@@ -35734,6 +35761,15 @@ usb:v0C4Bp0100*
 
 usb:v0C4Bp0300*
  ID_MODEL_FROM_DATABASE=cyberJack pinpad(a)
+
+usb:v0C4Bp0400*
+ ID_MODEL_FROM_DATABASE=cyberJack e-com(a)
+
+usb:v0C4Bp0401*
+ ID_MODEL_FROM_DATABASE=cyberJack pinpad(a2)
+
+usb:v0C4Bp0500*
+ ID_MODEL_FROM_DATABASE=cyberJack RFID standard dual interface smartcard reader
 
 usb:v0C4Bp0501*
  ID_MODEL_FROM_DATABASE=cyberJack RFID comfort dual interface smartcard reader
@@ -48560,6 +48596,15 @@ usb:v1C26*
 usb:v1C27*
  ID_VENDOR_FROM_DATABASE=HuiYang D & S Cable Co., Ltd.
 
+usb:v1C29*
+ ID_VENDOR_FROM_DATABASE=Elster GmbH
+
+usb:v1C29p0001*
+ ID_MODEL_FROM_DATABASE=ExMFE5 Simulator
+
+usb:v1C29p10FC*
+ ID_MODEL_FROM_DATABASE=enCore device
+
 usb:v1C31*
  ID_VENDOR_FROM_DATABASE=LS Cable Ltd.
 
@@ -50475,7 +50520,25 @@ usb:v2639p0013*
  ID_MODEL_FROM_DATABASE=MTi-300 AHRS
 
 usb:v2639p0017*
- ID_MODEL_FROM_DATABASE=MTi-G-700 GPS INS
+ ID_MODEL_FROM_DATABASE=MTi-G 7xx GNSS/INS
+
+usb:v2639p0100*
+ ID_MODEL_FROM_DATABASE=Body Pack
+
+usb:v2639p0101*
+ ID_MODEL_FROM_DATABASE=Awinda Station
+
+usb:v2639p0102*
+ ID_MODEL_FROM_DATABASE=Awinda Dongle
+
+usb:v2639p0103*
+ ID_MODEL_FROM_DATABASE=Sync Station
+
+usb:v2639p0200*
+ ID_MODEL_FROM_DATABASE=MTw
+
+usb:v2639pD00D*
+ ID_MODEL_FROM_DATABASE=Wireless Receiver
 
 usb:v2650*
  ID_VENDOR_FROM_DATABASE=Electronics For Imaging, Inc. [hex]
@@ -50735,14 +50798,35 @@ usb:v3125*
 usb:v3125p0001*
  ID_MODEL_FROM_DATABASE=TrackerPod Camera Stand
 
+usb:v3136*
+ ID_VENDOR_FROM_DATABASE=Navini Networks
+
 usb:v3176*
  ID_VENDOR_FROM_DATABASE=Whanam Electronics Co., Ltd
+
+usb:v3195*
+ ID_VENDOR_FROM_DATABASE=Link Instruments
+
+usb:v3195pF190*
+ ID_MODEL_FROM_DATABASE=MSO-19
+
+usb:v3195pF280*
+ ID_MODEL_FROM_DATABASE=MSO-28
+
+usb:v3195pF281*
+ ID_MODEL_FROM_DATABASE=MSO-28
 
 usb:v3275*
  ID_VENDOR_FROM_DATABASE=VidzMedia Pte Ltd
 
 usb:v3275p4FB1*
  ID_MODEL_FROM_DATABASE=MonsterTV P2H
+
+usb:v3333*
+ ID_VENDOR_FROM_DATABASE=InLine
+
+usb:v3333p3333*
+ ID_MODEL_FROM_DATABASE=2 port KVM switch model 60652K
 
 usb:v3334*
  ID_VENDOR_FROM_DATABASE=AEI
@@ -50761,6 +50845,12 @@ usb:v3340p0E3A*
 
 usb:v3340pA0A3*
  ID_MODEL_FROM_DATABASE=deltaX 5 BT (D) PDA
+
+usb:v3344*
+ ID_VENDOR_FROM_DATABASE=Leaguer Microelectronics (LME)
+
+usb:v3344p3744*
+ ID_MODEL_FROM_DATABASE=OEM PC Remote
 
 usb:v3504*
  ID_VENDOR_FROM_DATABASE=Micro Star
@@ -51308,6 +51398,12 @@ usb:v4146p9281*
 usb:v4146pBA01*
  ID_MODEL_FROM_DATABASE=Intuix Flash Drive
 
+usb:v4168*
+ ID_VENDOR_FROM_DATABASE=Targus
+
+usb:v4168p1010*
+ ID_MODEL_FROM_DATABASE=Wireless Compact Laser Mouse
+
 usb:v4242*
  ID_VENDOR_FROM_DATABASE=USB Design by Example
 
@@ -51316,6 +51412,15 @@ usb:v4242p4201*
 
 usb:v4242p4220*
  ID_MODEL_FROM_DATABASE=Echo 1 Camera
+
+usb:v4255*
+ ID_VENDOR_FROM_DATABASE=GoPro
+
+usb:v4255p1000*
+ ID_MODEL_FROM_DATABASE=9FF2 [Digital Photo Display]
+
+usb:v4255p2000*
+ ID_MODEL_FROM_DATABASE=HD2-14 [Hero 2 Camera]
 
 usb:v4317*
  ID_VENDOR_FROM_DATABASE=Broadcom Corp.
@@ -51454,6 +51559,18 @@ usb:v5345*
 
 usb:v5345p1234*
  ID_MODEL_FROM_DATABASE=PDS6062T Oscilloscope
+
+usb:v534C*
+ ID_VENDOR_FROM_DATABASE=SatoshiLabs
+
+usb:v534Cp0001*
+ ID_MODEL_FROM_DATABASE=Bitcoin Wallet [TREZOR]
+
+usb:v5354*
+ ID_VENDOR_FROM_DATABASE=Meyer Instruments (MIS)
+
+usb:v5354p0017*
+ ID_MODEL_FROM_DATABASE=PAXcam2
 
 usb:v544D*
  ID_VENDOR_FROM_DATABASE=Transmeta Corp.
@@ -51605,6 +51722,9 @@ usb:v5986p02D0*
 usb:v5986p03D0*
  ID_MODEL_FROM_DATABASE=Lenovo Integrated Webcam [R5U877]
 
+usb:v59E3*
+ ID_VENDOR_FROM_DATABASE=Nonolith Labs
+
 usb:v5A57*
  ID_VENDOR_FROM_DATABASE=Zinwell
 
@@ -51652,6 +51772,93 @@ usb:v6189p182D*
 
 usb:v6189p2068*
  ID_MODEL_FROM_DATABASE=USB to serial cable (v2)
+
+usb:v6244*
+ ID_VENDOR_FROM_DATABASE=LightingSoft AG
+
+usb:v6244p0101*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI5A
+
+usb:v6244p0201*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI5C
+
+usb:v6244p0300*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI6 Firmware download
+
+usb:v6244p0301*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI6C
+
+usb:v6244p0302*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI6A
+
+usb:v6244p0303*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI6D
+
+usb:v6244p0400*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK1A
+
+usb:v6244p0401*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK1A
+
+usb:v6244p0410*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI7 Firmware Download
+
+usb:v6244p0411*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI7A
+
+usb:v6244p0420*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI8A Firmware Download
+
+usb:v6244p0421*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI8A
+
+usb:v6244p0430*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI8C Firmware Download
+
+usb:v6244p0431*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI8C
+
+usb:v6244p0440*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9A Firmware Download
+
+usb:v6244p0441*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9A
+
+usb:v6244p0450*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9C Firmware Download
+
+usb:v6244p0451*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9C
+
+usb:v6244p0460*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK2 Firmware download
+
+usb:v6244p0461*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK2
+
+usb:v6244p0470*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK1B Firmware download
+
+usb:v6244p0471*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK1B
+
+usb:v6244p0480*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK3 Firmware download
+
+usb:v6244p0481*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK3
+
+usb:v6244p0490*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9D Firmware Download
+
+usb:v6244p0491*
+ ID_MODEL_FROM_DATABASE=Intelligent Usb Dmx Interface SIUDI9D
+
+usb:v6244p0500*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK2B Firmware download
+
+usb:v6244p0501*
+ ID_MODEL_FROM_DATABASE=Touch Sensitive Intelligent Control Keypad STICK2B
 
 usb:v6253*
  ID_VENDOR_FROM_DATABASE=TwinHan Technology Co., Ltd
@@ -51926,6 +52133,30 @@ usb:v8341*
 usb:v8341p2000*
  ID_MODEL_FROM_DATABASE=Flashdisk
 
+usb:v8564*
+ ID_VENDOR_FROM_DATABASE=Transcend Information, Inc.
+
+usb:v8564p1000*
+ ID_MODEL_FROM_DATABASE=JetFlash
+
+usb:v8564p4000*
+ ID_MODEL_FROM_DATABASE=RDF8
+
+usb:v8644*
+ ID_VENDOR_FROM_DATABASE=Intenso GmbG
+
+usb:v8644p8003*
+ ID_MODEL_FROM_DATABASE=Micro Line
+
+usb:v8644p800B*
+ ID_MODEL_FROM_DATABASE=Micro Line (4GB)
+
+usb:v8E06*
+ ID_VENDOR_FROM_DATABASE=CH Products, Inc.
+
+usb:v8E06pF700*
+ ID_MODEL_FROM_DATABASE=DT225 Trackball
+
 usb:v9016*
  ID_VENDOR_FROM_DATABASE=Sitecom
 
@@ -51982,6 +52213,18 @@ usb:v9710p7832*
 
 usb:v9710p7840*
  ID_MODEL_FROM_DATABASE=MCS7820/MCS7840 2/4 port serial adapter
+
+usb:v9849*
+ ID_VENDOR_FROM_DATABASE=Bestmedia CD Recordable GmbH & Co. KG
+
+usb:v9849p0701*
+ ID_MODEL_FROM_DATABASE=Platinum MyDrive HP
+
+usb:v9999*
+ ID_VENDOR_FROM_DATABASE=Odeon
+
+usb:v9999p0001*
+ ID_MODEL_FROM_DATABASE=JAF Mobile Phone Flasher Interface
 
 usb:v99FA*
  ID_VENDOR_FROM_DATABASE=Grandtec
@@ -52067,11 +52310,29 @@ usb:vA727p6895*
 usb:vA727p6897*
  ID_MODEL_FROM_DATABASE=AR5523
 
+usb:vAAAA*
+ ID_VENDOR_FROM_DATABASE=MXT
+
+usb:vAAAAp8815*
+ ID_MODEL_FROM_DATABASE=microSD CardReader
+
 usb:vABCD*
  ID_VENDOR_FROM_DATABASE=Unknown
 
 usb:vABCDpCDEE*
  ID_MODEL_FROM_DATABASE=Petcam
+
+usb:vB58E*
+ ID_VENDOR_FROM_DATABASE=Blue Microphones
+
+usb:vB58Ep9E84*
+ ID_MODEL_FROM_DATABASE=Yeti Stereo Microphone
+
+usb:vC216*
+ ID_VENDOR_FROM_DATABASE=Card Device Expert Co., LTD
+
+usb:vC216p0180*
+ ID_MODEL_FROM_DATABASE=MSR90 MagStripe reader
 
 usb:vC251*
  ID_VENDOR_FROM_DATABASE=Keil Software, Inc.
@@ -52088,6 +52349,15 @@ usb:vCACEp0002*
 usb:vCACEp0300*
  ID_MODEL_FROM_DATABASE=AirPcap NX [Atheros AR9001U-(2)NG]
 
+usb:vCD12*
+ ID_VENDOR_FROM_DATABASE=SMART TECHNOLOGY INDUSTRIAL LTD.
+
+usb:vD208*
+ ID_VENDOR_FROM_DATABASE=Ultimarc
+
+usb:vD208p0310*
+ ID_MODEL_FROM_DATABASE=Mini-PAC Arcade Control Interface
+
 usb:vD209*
  ID_VENDOR_FROM_DATABASE=Ultimarc
 
@@ -52096,6 +52366,12 @@ usb:vD209p0301*
 
 usb:vD209p0501*
  ID_MODEL_FROM_DATABASE=Ultra-Stik Ultimarc Ultra-Stik Player 1
+
+usb:vD904*
+ ID_VENDOR_FROM_DATABASE=LogiLink
+
+usb:vD904p0003*
+ ID_MODEL_FROM_DATABASE=Laser Mouse (ID0009A)
 
 usb:vE4E4*
  ID_VENDOR_FROM_DATABASE=Xorcom Ltd.
@@ -52193,14 +52469,50 @@ usb:vEB1ApE355*
 usb:vEB2A*
  ID_VENDOR_FROM_DATABASE=KWorld
 
+usb:vEF18*
+ ID_VENDOR_FROM_DATABASE=SMART TECHNOLOGY INDUSTRIAL LTD.
+
 usb:vF003*
  ID_VENDOR_FROM_DATABASE=Hewlett Packard
 
 usb:vF003p6002*
  ID_MODEL_FROM_DATABASE=PhotoSmart C500
 
+usb:vF182*
+ ID_VENDOR_FROM_DATABASE=Leap Motion
+
+usb:vF182p0003*
+ ID_MODEL_FROM_DATABASE=Controller
+
 usb:vF4EC*
  ID_VENDOR_FROM_DATABASE=Atten Electronics / Siglent Technologies
 
 usb:vF4ECpEE38*
  ID_MODEL_FROM_DATABASE=Digital Storage Oscilloscope
+
+usb:vF4ED*
+ ID_VENDOR_FROM_DATABASE=Shenzhen Siglent Co., Ltd.
+
+usb:vF4EDpEE37*
+ ID_MODEL_FROM_DATABASE=SDG1010 Waveform Generator
+
+usb:vF4EDpEE3A*
+ ID_MODEL_FROM_DATABASE=SDG1010 Waveform Generator (TMC mode)
+
+usb:vF766*
+ ID_VENDOR_FROM_DATABASE=Hama
+
+usb:vF766p0001*
+ ID_MODEL_FROM_DATABASE=PC-Gamepad "Greystorm"
+
+usb:vFC08*
+ ID_VENDOR_FROM_DATABASE=Conrad Electronic SE
+
+usb:vFC08p0101*
+ ID_MODEL_FROM_DATABASE=MIDI Cable UA0037
+
+usb:vFFEE*
+ ID_VENDOR_FROM_DATABASE=FNK Tech
+
+usb:vFFEEp0100*
+ ID_MODEL_FROM_DATABASE=Card Reader Controller RTS5101/RTS5111/RTS5116
