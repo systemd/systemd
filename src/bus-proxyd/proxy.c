@@ -431,7 +431,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                         return 0;
 
                 /* The message came from the kernel, and is sent to our legacy client. */
-                sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
+                (void) sd_bus_creds_get_well_known_names(&m->creds, &sender_names);
 
                 (void) sd_bus_creds_get_euid(&m->creds, &sender_uid);
                 (void) sd_bus_creds_get_egid(&m->creds, &sender_gid);
@@ -492,7 +492,7 @@ static int process_policy_unlocked(sd_bus *from, sd_bus *to, sd_bus_message *m, 
                         if (r < 0)
                                 return handle_policy_error(m, r);
 
-                        sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
+                        (void) sd_bus_creds_get_well_known_names(destination_creds, &destination_names);
 
                         (void) sd_bus_creds_get_euid(destination_creds, &destination_uid);
                         (void) sd_bus_creds_get_egid(destination_creds, &destination_gid);
