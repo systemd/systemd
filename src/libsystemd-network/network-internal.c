@@ -112,17 +112,17 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return false;
 
-        if (!strv_isempty(match_paths))
-                return strv_fnmatch(dev_path, match_paths, 0);
+        if (!strv_fnmatch_or_empty(dev_path, match_paths, 0))
+                return false;
 
-        if (!strv_isempty(match_drivers))
-                return strv_fnmatch(dev_driver, match_drivers, 0);
+        if (!strv_fnmatch_or_empty(dev_driver, match_drivers, 0))
+                return false;
 
-        if (!strv_isempty(match_types))
-                return strv_fnmatch(dev_type, match_types, 0);
+        if (!strv_fnmatch_or_empty(dev_type, match_types, 0))
+                return false;
 
-        if (!strv_isempty(match_names))
-                return strv_fnmatch(dev_name, match_names, 0);
+        if (!strv_fnmatch_or_empty(dev_name, match_names, 0))
+                return false;
 
         return true;
 }
