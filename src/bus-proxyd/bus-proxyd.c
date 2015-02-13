@@ -130,19 +130,18 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
 
         r = pthread_attr_init(&attr);
         if (r < 0) {
-                r = log_error_errno(errno, "Cannot initialize pthread attributes: %m");
-                goto exit;
+                return log_error_errno(errno, "Cannot initialize pthread attributes: %m");
         }
 
         r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
         if (r < 0) {
                 r = log_error_errno(errno, "Cannot mark pthread attributes as detached: %m");
-                goto exit_attr;
+                goto finish;
         }
 
         r = shared_policy_new(&sp);
         if (r < 0)
-                goto exit_attr;
+                goto finish;
 
         for (;;) {
                 ClientContext *c;
@@ -155,7 +154,7 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
                                 continue;
 
                         r = log_error_errno(errno, "accept4() failed: %m");
-                        break;
+                        goto finish;
                 }
 
                 r = client_context_new(&c);
@@ -177,9 +176,8 @@ static int loop_clients(int accept_fd, uid_t bus_uid) {
                 }
         }
 
-exit_attr:
+finish:
         pthread_attr_destroy(&attr);
-exit:
         return r;
 }
 
@@ -234,17 +232,11 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case ARG_ADDRESS: {
-                        char *a;
-
-                        a = strdup(optarg);
-                        if (!a)
+                case ARG_ADDRESS:
+                        r = free_and_strdup(&arg_address, optarg);
+                        if (r < 0)
                                 return log_oom();
-
-                        free(arg_address);
-                        arg_address = a;
                         break;
-                }
 
                 case ARG_CONFIGURATION:
                         r = strv_extend(&arg_configuration, optarg);
@@ -296,7 +288,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        const char *user = "systemd-bus-proxy";
         int r, accept_fd;
         uid_t uid, bus_uid;
         gid_t gid;
@@ -308,6 +299,8 @@ int main(int argc, char *argv[]) {
         bus_uid = getuid();
 
         if (geteuid() == 0) {
+                const char *user = "systemd-bus-proxy";
+
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Cannot resolve user name %s: %m", user);
@@ -332,6 +325,7 @@ int main(int argc, char *argv[]) {
         }
 
         accept_fd = SD_LISTEN_FDS_START;
+
         r = fd_nonblock(accept_fd, false);
         if (r < 0) {
                 log_error_errno(r, "Cannot mark accept-fd non-blocking: %m");
