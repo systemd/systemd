@@ -323,7 +323,8 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, getrandom, renamea
 #include <linux/random.h>
 ]])
 
-AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
+AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
+                IFLA_MACVLAN_FLAGS,
                 IFLA_IPVLAN_MODE,
                 IFLA_VTI_REMOTE,
                 IFLA_PHYS_PORT_ID,
