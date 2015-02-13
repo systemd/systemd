@@ -238,7 +238,7 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>LinkLocal=</varname></term>
+          <term><varname>LinkLocalAddressing=</varname></term>
           <listitem>
             <para>Enables link-local address autoconfiguration. Accepts
             <literal>yes</literal>, <literal>no</literal>,
