@@ -87,6 +87,7 @@ bool arg_filter = true;
 bool arg_show_cmdline = false;
 bool arg_show_cgroup = false;
 bool arg_pss = false;
+bool arg_percpu = false;
 int samples;
 int arg_samples_len = DEFAULT_SAMPLES_LEN; /* we record len+1 (1 start sample) */
 double arg_hz = DEFAULT_HZ;
@@ -122,6 +123,7 @@ static void parse_conf(void) {
                 { "Bootchart", "ScaleX",           config_parse_double, 0, &arg_scale_x     },
                 { "Bootchart", "ScaleY",           config_parse_double, 0, &arg_scale_y     },
                 { "Bootchart", "ControlGroup",     config_parse_bool,   0, &arg_show_cgroup },
+                { "Bootchart", "PerCPU",           config_parse_bool,   0, &arg_percpu      },
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -151,6 +153,7 @@ static void help(void) {
                 "  -F, --no-filter       Disable filtering of unimportant or ephemeral processes\n"
                 "  -C, --cmdline         Display full command lines with arguments\n"
                 "  -c, --control-group   Display process control group\n"
+                "      --per-cpu         Draw each CPU utilization and wait bar also\n"
                 "  -h, --help            Display this message\n\n"
                 "See bootchart.conf for more information.\n",
                 program_invocation_short_name,
@@ -163,20 +166,26 @@ static void help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_PERCPU = 0x100,
+        };
+
         static const struct option options[] = {
-                {"rel",           no_argument,        NULL,  'r'},
-                {"freq",          required_argument,  NULL,  'f'},
-                {"samples",       required_argument,  NULL,  'n'},
-                {"pss",           no_argument,        NULL,  'p'},
-                {"output",        required_argument,  NULL,  'o'},
-                {"init",          required_argument,  NULL,  'i'},
-                {"no-filter",     no_argument,        NULL,  'F'},
-                {"cmdline",       no_argument,        NULL,  'C'},
-                {"control-group", no_argument,        NULL,  'c'},
-                {"help",          no_argument,        NULL,  'h'},
-                {"scale-x",       required_argument,  NULL,  'x'},
-                {"scale-y",       required_argument,  NULL,  'y'},
-                {"entropy",       no_argument,        NULL,  'e'},
+                {"rel",           no_argument,        NULL,  'r'       },
+                {"freq",          required_argument,  NULL,  'f'       },
+                {"samples",       required_argument,  NULL,  'n'       },
+                {"pss",           no_argument,        NULL,  'p'       },
+                {"output",        required_argument,  NULL,  'o'       },
+                {"init",          required_argument,  NULL,  'i'       },
+                {"no-filter",     no_argument,        NULL,  'F'       },
+                {"cmdline",       no_argument,        NULL,  'C'       },
+                {"control-group", no_argument,        NULL,  'c'       },
+                {"help",          no_argument,        NULL,  'h'       },
+                {"scale-x",       required_argument,  NULL,  'x'       },
+                {"scale-y",       required_argument,  NULL,  'y'       },
+                {"entropy",       no_argument,        NULL,  'e'       },
+                {"per-cpu",       no_argument,        NULL,  ARG_PERCPU},
                 {}
         };
         int c, r;
@@ -236,6 +245,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case 'e':
                         arg_entropy = true;
+                        break;
+                case ARG_PERCPU:
+                        arg_percpu = true;
                         break;
                 case 'h':
                         help();

@@ -118,6 +118,7 @@ extern bool arg_show_cmdline;
 extern bool arg_show_cgroup;
 extern bool arg_pss;
 extern bool arg_entropy;
+extern bool arg_percpu;
 extern bool initcall;
 extern int samples;
 extern int cpus;
