@@ -673,13 +673,12 @@ static int proxy_process_destination_to_local(Proxy *p) {
         assert(p);
 
         r = sd_bus_process(p->destination_bus, &m);
+        if (r == -ECONNRESET) /* Treat 'connection reset by peer' as clean exit condition */
+                return r;
         if (r < 0) {
-                /* treat 'connection reset by peer' as clean exit condition */
-                if (r != -ECONNRESET)
-                        log_error_errno(r, "Failed to process destination bus: %m");
+                log_error_errno(r, "Failed to process destination bus: %m");
                 return r;
         }
-
         if (r == 0)
                 return 0;
         if (!m)
@@ -699,7 +698,7 @@ static int proxy_process_destination_to_local(Proxy *p) {
                 r = process_policy(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to process policy: %m");
-                else if (r > 0)
+                if (r > 0)
                         return 1;
         }
 
@@ -734,13 +733,12 @@ static int proxy_process_local_to_destination(Proxy *p) {
         assert(p);
 
         r = sd_bus_process(p->local_bus, &m);
+        if (r == -ECONNRESET) /* Treat 'connection reset by peer' as clean exit condition */
+                return r;
         if (r < 0) {
-                /* treat 'connection reset by peer' as clean exit condition */
-                if (r != -ECONNRESET)
-                        log_error_errno(r, "Failed to process local bus: %m");
+                log_error_errno(r, "Failed to process local bus: %m");
                 return r;
         }
-
         if (r == 0)
                 return 0;
         if (!m)
@@ -753,13 +751,13 @@ static int proxy_process_local_to_destination(Proxy *p) {
         r = process_hello(p, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to process HELLO: %m");
-        else if (r > 0)
+        if (r > 0)
                 return 1;
 
         r = bus_proxy_process_driver(p->destination_bus, p->local_bus, m, p->policy, &p->local_creds, p->owned_names);
         if (r < 0)
                 return log_error_errno(r, "Failed to process driver calls: %m");
-        else if (r > 0)
+        if (r > 0)
                 return 1;
 
         for (;;) {
@@ -805,9 +803,9 @@ int proxy_run(Proxy *p) {
                         r = proxy_process_destination_to_local(p);
                         if (r == -ECONNRESET)
                                 return 0;
-                        else if (r < 0)
+                        if (r < 0)
                                 return r;
-                        else if (r > 0)
+                        if (r > 0)
                                 busy = true;
                 }
 
@@ -815,9 +813,9 @@ int proxy_run(Proxy *p) {
                 r = proxy_process_local_to_destination(p);
                 if (r == -ECONNRESET)
                         return 0;
-                else if (r < 0)
+                if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         busy = true;
 
                 if (!busy) {
