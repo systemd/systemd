@@ -434,7 +434,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_PAYLOAD_OFF:
                         if (!h) {
-                                h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
+                                h = (struct bus_header *)((uint8_t *)k + d->vec.offset);
 
                                 if (!bus_header_is_complete(h, d->vec.size))
                                         return -EBADMSG;
@@ -526,11 +526,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                                 if (idx >= begin_body) {
                                         if (!part->is_zero)
-                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset;
+                                                part->data = (uint8_t *)k + d->vec.offset;
                                         part->size = d->vec.size;
                                 } else {
                                         if (!part->is_zero)
-                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset + (begin_body - idx);
+                                                part->data = (uint8_t *)k + d->vec.offset + (begin_body - idx);
                                         part->size = d->vec.size - (begin_body - idx);
                                 }
 
