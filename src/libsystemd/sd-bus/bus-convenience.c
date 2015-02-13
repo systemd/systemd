@@ -234,7 +234,7 @@ _public_ int sd_bus_reply_method_errnof(
                 return 0;
 
         va_start(ap, format);
-        bus_error_set_errnofv(&berror, error, format, ap);
+        sd_bus_error_set_errnofv(&berror, error, format, ap);
         va_end(ap);
 
         return sd_bus_reply_method_error(call, &berror);

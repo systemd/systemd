@@ -350,6 +350,7 @@ global:
         sd_bus_error_set_const;
         sd_bus_error_set_errno;
         sd_bus_error_set_errnof;
+        sd_bus_error_set_errnofv;
         sd_bus_error_get_errno;
         sd_bus_error_copy;
         sd_bus_error_is_set;

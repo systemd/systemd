@@ -742,7 +742,7 @@ _public_ int sd_bus_message_new_method_errnof(
         va_list ap;
 
         va_start(ap, format);
-        bus_error_set_errnofv(&berror, error, format, ap);
+        sd_bus_error_set_errnofv(&berror, error, format, ap);
         va_end(ap);
 
         return sd_bus_message_new_method_error(call, m, &berror);
