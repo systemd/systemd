@@ -11,4 +11,4 @@ Name=host0
 
 [Network]
 DHCP=yes
-LinkLocal=yes
+LinkLocalAddressing=yes
