@@ -17,12 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
-#include <errno.h>
 #include <getopt.h>
 
 #include "udev.h"

@@ -32,8 +32,6 @@
 #include "unit.h"
 #include "automount.h"
 #include "mount.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "unit-name.h"
 #include "special.h"
 #include "label.h"

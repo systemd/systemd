@@ -18,19 +18,15 @@
 ***/
 
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <sys/ioctl.h>
-#include <linux/limits.h>
 #include <linux/input.h>
 
 #include "udev.h"
 
 static const struct key *keyboard_lookup_key(const char *str, unsigned len);
 #include "keyboard-keys-from-name.h"
-#include "keyboard-keys-to-name.h"
 
 static int install_force_release(struct udev_device *dev, const unsigned *release, unsigned release_count) {
         struct udev_device *atkbd;

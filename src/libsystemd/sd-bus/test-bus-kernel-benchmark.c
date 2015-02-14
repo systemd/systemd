@@ -19,16 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <ctype.h>
 #include <sys/wait.h>
 
 #include "util.h"
-#include "log.h"
 #include "time-util.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-internal.h"
 #include "bus-util.h"

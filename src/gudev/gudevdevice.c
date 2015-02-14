@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "gudevdevice.h"
 #include "gudevprivate.h"

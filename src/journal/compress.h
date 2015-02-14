@@ -21,8 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <stdbool.h>
 #include <unistd.h>
 
 #include "journal-def.h"

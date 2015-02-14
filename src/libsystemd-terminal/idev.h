@@ -25,15 +25,12 @@
 
 #pragma once
 
-#include <inttypes.h>
 #include <libudev.h>
 #include <linux/input.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
 #include <xkbcommon/xkbcommon.h>
-#include "util.h"
 
 typedef struct idev_data                idev_data;
 typedef struct idev_data_evdev          idev_data_evdev;

@@ -23,21 +23,16 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <stdbool.h>
-#include <stdarg.h>
 #include <limits.h>
 #include <sys/ioctl.h>
-#include <sys/wait.h>
 #include <linux/tiocl.h>
 #include <linux/kd.h>
 #include <linux/vt.h>
 
 #include "util.h"
 #include "log.h"
-#include "macro.h"
 #include "virt.h"
 #include "fileio.h"
 

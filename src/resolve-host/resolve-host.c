@@ -19,14 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <arpa/inet.h>
 #include <net/if.h>
 #include <getopt.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "bus-common-errors.h"
 #include "in-addr-util.h"
 #include "af-list.h"
 #include "build.h"

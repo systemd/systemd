@@ -21,10 +21,7 @@
 
 #include <sys/mount.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 #include <unistd.h>
 #include <ftw.h>
 
@@ -42,7 +39,6 @@
 #include "virt.h"
 #include "efivars.h"
 #include "smack-util.h"
-#include "def.h"
 #include "cgroup-util.h"
 
 typedef enum MountMode {

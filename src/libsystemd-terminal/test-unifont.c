@@ -24,14 +24,11 @@
  * The glyphs are then compared to hard-coded glyphs.
  */
 
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "macro.h"
 #include "unifont-def.h"
 #include "unifont.h"
-#include "util.h"
 
 static void render(char *w, const unifont_glyph *g) {
         unsigned int i, j;

@@ -22,9 +22,7 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
 
-#include "util.h"
 #include "list.h"
 #include "hashmap.h"
 #include "sd-event.h"

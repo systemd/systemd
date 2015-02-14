@@ -20,12 +20,9 @@
 ***/
 
 #include <errno.h>
-#include <signal.h>
-#include <unistd.h>
 
 #include "unit.h"
 #include "slice.h"
-#include "load-fragment.h"
 #include "log.h"
 #include "dbus-slice.h"
 #include "special.h"

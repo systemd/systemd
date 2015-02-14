@@ -30,12 +30,10 @@
 #include <ftw.h>
 
 #include "cgroup-util.h"
-#include "log.h"
 #include "set.h"
 #include "macro.h"
 #include "util.h"
 #include "path-util.h"
-#include "strv.h"
 #include "unit-name.h"
 #include "fileio.h"
 #include "special.h"

@@ -27,17 +27,12 @@ typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 
-#include <linux/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/capability.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sched.h>
 
 #include "list.h"
-#include "util.h"
-#include "set.h"
 #include "fdset.h"
 #include "missing.h"
 #include "namespace.h"

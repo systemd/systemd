@@ -33,7 +33,6 @@
 #include "mount-setup.h"
 #include "special.h"
 #include "mkdir.h"
-#include "fileio.h"
 #include "generator.h"
 #include "strv.h"
 #include "virt.h"

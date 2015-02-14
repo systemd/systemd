@@ -20,7 +20,6 @@
 ***/
 
 #include "util.h"
-#include "label.h"
 #include "selinux-util.h"
 
 #define MESSAGE                                                         \

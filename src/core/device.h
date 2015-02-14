@@ -23,7 +23,6 @@
 
 typedef struct Device Device;
 
-#include "unit.h"
 
 /* We simply watch devices, we cannot plug/unplug them. That
  * simplifies the state engine greatly */

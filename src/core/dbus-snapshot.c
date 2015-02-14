@@ -23,7 +23,6 @@
 #include "unit.h"
 #include "dbus.h"
 #include "snapshot.h"
-#include "dbus-unit.h"
 #include "dbus-snapshot.h"
 
 int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {

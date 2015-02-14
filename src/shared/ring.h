@@ -21,11 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/uio.h>
 
 typedef struct Ring Ring;
 

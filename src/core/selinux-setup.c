@@ -22,8 +22,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -31,8 +29,6 @@
 
 #include "selinux-setup.h"
 #include "selinux-util.h"
-#include "label.h"
-#include "mount-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"

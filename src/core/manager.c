@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
@@ -27,14 +26,10 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <sys/epoll.h>
-#include <poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
 #include <linux/kd.h>
-#include <termios.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <sys/timerfd.h>
 
@@ -43,7 +38,6 @@
 #endif
 
 #include "sd-daemon.h"
-#include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "manager.h"
@@ -56,7 +50,6 @@
 #include "mkdir.h"
 #include "ratelimit.h"
 #include "locale-setup.h"
-#include "mount-setup.h"
 #include "unit-name.h"
 #include "missing.h"
 #include "path-lookup.h"
@@ -64,7 +57,6 @@
 #include "exit-status.h"
 #include "virt.h"
 #include "watchdog.h"
-#include "cgroup-util.h"
 #include "path-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"

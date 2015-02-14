@@ -40,11 +40,9 @@ enum DnsTransactionState {
 };
 
 #include "resolved-dns-scope.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
-#include "resolved-dns-stream.h"
 
 struct DnsTransaction {
         DnsScope *scope;

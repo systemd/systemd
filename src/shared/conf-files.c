@@ -19,13 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <dirent.h>
 
 #include "macro.h"

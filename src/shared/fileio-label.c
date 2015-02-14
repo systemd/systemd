@@ -19,13 +19,9 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "util.h"
 #include "selinux-util.h"
-#include "label.h"
 #include "fileio-label.h"
 
 int write_string_file_atomic_label(const char *fn, const char *line) {

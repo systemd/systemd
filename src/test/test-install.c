@@ -19,13 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <fcntl.h>
 
-#include "util.h"
-#include "path-util.h"
 #include "install.h"
 
 static void dump_changes(UnitFileChange *c, unsigned n) {

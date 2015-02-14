@@ -27,11 +27,8 @@ typedef struct DnsScope DnsScope;
 
 #include "resolved-dns-server.h"
 #include "resolved-dns-packet.h"
-#include "resolved-dns-query.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-zone.h"
-#include "resolved-dns-stream.h"
-#include "resolved-manager.h"
 #include "resolved-link.h"
 
 typedef enum DnsScopeMatch {

@@ -25,11 +25,7 @@ typedef enum DeviceType DeviceType;
 typedef struct SessionDevice SessionDevice;
 
 #include "list.h"
-#include "util.h"
 #include "logind.h"
-#include "logind-device.h"
-#include "logind-seat.h"
-#include "logind-session.h"
 
 enum DeviceType {
         DEVICE_TYPE_UNKNOWN,

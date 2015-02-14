@@ -22,7 +22,6 @@
 #include "sd-bus.h"
 #include "bus-dump.h"
 #include "bus-util.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;

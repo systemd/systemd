@@ -21,10 +21,8 @@
 
 #include "unit.h"
 #include "timer.h"
-#include "dbus-unit.h"
 #include "dbus-timer.h"
 #include "bus-util.h"
-#include "errno-list.h"
 #include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, timer_result, TimerResult);

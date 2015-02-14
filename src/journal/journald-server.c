@@ -24,20 +24,17 @@
 #include <linux/sockios.h>
 #include <sys/statvfs.h>
 #include <sys/mman.h>
-#include <sys/timerfd.h>
 
 #include <libudev.h>
 
 #include "sd-journal.h"
 #include "sd-messages.h"
 #include "sd-daemon.h"
-#include "fileio.h"
 #include "mkdir.h"
 #include "hashmap.h"
 #include "journal-file.h"
 #include "socket-util.h"
 #include "cgroup-util.h"
-#include "list.h"
 #include "missing.h"
 #include "conf-parser.h"
 #include "selinux-util.h"
@@ -48,7 +45,6 @@
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 #include "journald-stream.h"
-#include "journald-console.h"
 #include "journald-native.h"
 #include "journald-audit.h"
 #include "journald-server.h"

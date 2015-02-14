@@ -23,8 +23,6 @@
 
 typedef struct Button Button;
 
-#include "list.h"
-#include "util.h"
 #include "logind.h"
 
 struct Button {

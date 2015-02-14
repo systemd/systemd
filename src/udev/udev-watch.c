@@ -17,14 +17,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sys/types.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/inotify.h>
 

@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <sys/mount.h>
 
 /* When we include libgen.h because we need dirname() we immediately

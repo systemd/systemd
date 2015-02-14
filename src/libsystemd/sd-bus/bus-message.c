@@ -27,7 +27,6 @@
 #include "utf8.h"
 #include "strv.h"
 #include "time-util.h"
-#include "cgroup-util.h"
 #include "memfd-util.h"
 
 #include "sd-bus.h"

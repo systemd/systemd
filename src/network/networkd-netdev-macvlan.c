@@ -22,9 +22,7 @@
 #include <net/if.h>
 
 #include "networkd-netdev-macvlan.h"
-#include "network-internal.h"
 #include "conf-parser.h"
-#include "list.h"
 
 static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
         [NETDEV_MACVLAN_MODE_PRIVATE] = "private",

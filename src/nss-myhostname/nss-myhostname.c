@@ -19,16 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <limits.h>
 #include <nss.h>
-#include <sys/types.h>
 #include <netdb.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <net/if.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 
 #include "local-addresses.h"
 #include "macro.h"

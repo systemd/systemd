@@ -21,7 +21,6 @@
 ***/
 
 #include <sys/ioctl.h>
-#include <netinet/if_ether.h>
 
 #include "siphash24.h"
 

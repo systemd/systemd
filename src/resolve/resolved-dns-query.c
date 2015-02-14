@@ -19,10 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "af-list.h"
 
 #include "resolved-dns-query.h"
-#include "resolved-dns-domain.h"
 
 /* How long to wait for the query in total */
 #define QUERY_TIMEOUT_USEC (30 * USEC_PER_SEC)

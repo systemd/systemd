@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <string.h>
-#include <assert.h>
 
 #include "util.h"
 #include "macro.h"

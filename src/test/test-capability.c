@@ -17,7 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/capability.h>
 #include <sys/socket.h>

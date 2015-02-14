@@ -20,7 +20,6 @@
 ***/
 
 #include <errno.h>
-#include <unistd.h>
 #include <malloc.h>
 #include <sys/un.h>
 

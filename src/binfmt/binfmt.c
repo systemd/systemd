@@ -25,11 +25,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
-#include <stdarg.h>
 #include <getopt.h>
 
 #include "log.h"
-#include "hashmap.h"
 #include "strv.h"
 #include "util.h"
 #include "conf-files.h"

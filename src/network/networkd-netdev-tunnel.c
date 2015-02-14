@@ -19,7 +19,6 @@
     along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <linux/ip.h>
@@ -29,7 +28,6 @@
 #include "sd-rtnl.h"
 #include "networkd-netdev-tunnel.h"
 #include "networkd-link.h"
-#include "network-internal.h"
 #include "util.h"
 #include "missing.h"
 #include "conf-parser.h"

@@ -19,13 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <signal.h>
-#include <unistd.h>
 
 #include "unit.h"
 #include "target.h"
-#include "load-fragment.h"
 #include "log.h"
 #include "dbus-target.h"
 #include "special.h"

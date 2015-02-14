@@ -19,18 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
 #include <net/if.h>
-#include <asm/types.h>
-#include <netinet/in.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "sd-rtnl.h"
-#include "util.h"
-#include "macro.h"
-#include "socket-util.h"
 #include "rtnl-util.h"
 #include "missing.h"
 #include "loopback-setup.h"

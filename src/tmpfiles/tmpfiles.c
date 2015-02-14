@@ -26,8 +26,6 @@
 #include <string.h>
 #include <limits.h>
 #include <dirent.h>
-#include <grp.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -37,8 +35,6 @@
 #include <glob.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/param.h>
 #include <sys/xattr.h>
 
 #include "log.h"

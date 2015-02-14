@@ -22,7 +22,6 @@
 ***/
 
 #include "sd-bus.h"
-#include "machine.h"
 
 extern const sd_bus_vtable machine_vtable[];
 

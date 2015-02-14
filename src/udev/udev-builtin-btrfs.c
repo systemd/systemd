@@ -17,12 +17,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <sys/ioctl.h>
 
 #ifdef HAVE_LINUX_BTRFS_H

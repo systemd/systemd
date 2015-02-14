@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include "log.h"
 #include "macro.h"
 #include "resolved-dns-domain.h"
 

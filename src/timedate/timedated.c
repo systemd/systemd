@@ -23,7 +23,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "sd-id128.h"
 #include "sd-messages.h"
 #include "sd-event.h"
 #include "sd-bus.h"
@@ -32,10 +31,8 @@
 #include "strv.h"
 #include "def.h"
 #include "clock-util.h"
-#include "conf-files.h"
 #include "path-util.h"
 #include "fileio-label.h"
-#include "label.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "bus-common-errors.h"

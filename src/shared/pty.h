@@ -21,17 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "barrier.h"
 #include "macro.h"
 #include "sd-event.h"
-#include "util.h"
 
 typedef struct Pty Pty;
 

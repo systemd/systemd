@@ -21,21 +21,15 @@
 
 #include <stdlib.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
 #include <time.h>
 #include <math.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <sys/timerfd.h>
 #include <sys/timex.h>
 #include <sys/socket.h>
 #include <resolv.h>
-#include <sys/prctl.h>
 #include <sys/types.h>
-#include <grp.h>
 
 #include "missing.h"
 #include "util.h"
@@ -45,13 +39,8 @@
 #include "list.h"
 #include "ratelimit.h"
 #include "strv.h"
-#include "conf-parser.h"
 #include "sd-daemon.h"
-#include "event-util.h"
 #include "network-util.h"
-#include "clock-util.h"
-#include "capability.h"
-#include "mkdir.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "time-util.h"

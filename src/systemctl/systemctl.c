@@ -22,21 +22,16 @@
 
 #include <sys/reboot.h>
 #include <linux/reboot.h>
-#include <sys/syscall.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/ioctl.h>
-#include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <stddef.h>
-#include <sys/prctl.h>
 
 #include "sd-daemon.h"
 #include "sd-shutdown.h"
@@ -55,7 +50,6 @@
 #include "cgroup-util.h"
 #include "list.h"
 #include "path-lookup.h"
-#include "conf-parser.h"
 #include "exit-status.h"
 #include "build.h"
 #include "unit-name.h"

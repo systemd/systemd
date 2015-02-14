@@ -20,14 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
 #include <errno.h>
-#include <dirent.h>
-#include <getopt.h>
 
 #include "systemd/sd-login.h"
 #include "logind-acl.h"

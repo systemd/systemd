@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include <inttypes.h>
 
 #include "sd-event.h"
 #include "hashmap.h"

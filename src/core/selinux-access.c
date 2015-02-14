@@ -24,12 +24,9 @@
 #ifdef HAVE_SELINUX
 
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
-#include <limits.h>
 #include <selinux/selinux.h>
 #include <selinux/avc.h>
-#include <sys/socket.h>
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
@@ -38,7 +35,6 @@
 #include "bus-util.h"
 #include "util.h"
 #include "log.h"
-#include "audit.h"
 #include "selinux-util.h"
 #include "audit-fd.h"
 #include "strv.h"

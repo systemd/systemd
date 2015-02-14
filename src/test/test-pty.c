@@ -20,13 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <fcntl.h>
 #include <locale.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "def.h"
 #include "pty.h"
 #include "util.h"
 

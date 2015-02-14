@@ -23,7 +23,6 @@
 
 #include <stdbool.h>
 #include <sys/types.h>
-#include "util.h"
 #include "logs-show.h"
 
 int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, bool kernel_threads, OutputFlags flags);

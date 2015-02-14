@@ -91,7 +91,6 @@ struct CGroupContext {
 };
 
 #include "unit.h"
-#include "manager.h"
 #include "cgroup-util.h"
 
 void cgroup_context_init(CGroupContext *c);

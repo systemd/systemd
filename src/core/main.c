@@ -23,11 +23,9 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <getopt.h>
 #include <signal.h>
-#include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/mount.h>
@@ -40,14 +38,12 @@
 #endif
 
 #include "sd-daemon.h"
-#include "sd-messages.h"
 #include "sd-bus.h"
 #include "log.h"
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
 #include "missing.h"
-#include "label.h"
 #include "pager.h"
 #include "build.h"
 #include "strv.h"
@@ -55,7 +51,6 @@
 #include "virt.h"
 #include "architecture.h"
 #include "watchdog.h"
-#include "path-util.h"
 #include "switch-root.h"
 #include "capability.h"
 #include "killall.h"

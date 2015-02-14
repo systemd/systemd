@@ -20,22 +20,16 @@
 ***/
 
 #include <stdlib.h>
-#include <assert.h>
 #include <errno.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include <linux/veth.h>
 #include <net/if.h>
 
 #include "util.h"
-#include "socket-util.h"
 #include "sd-event.h"
 #include "event-util.h"
 #include "sd-rtnl.h"
-#include "rtnl-util.h"
 #include "sd-pppoe.h"
 
 static void pppoe_handler(sd_pppoe *ppp, int event, void *userdata) {

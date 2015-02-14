@@ -20,7 +20,6 @@
 ***/
 
 #include <sys/epoll.h>
-#include <sys/timerfd.h>
 #include <errno.h>
 #include <unistd.h>
 

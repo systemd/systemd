@@ -20,7 +20,6 @@
 ***/
 
 #include <sys/epoll.h>
-#include <sys/signalfd.h>
 #include <sys/ioctl.h>
 #include <limits.h>
 #include <termios.h>

@@ -19,11 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <fcntl.h>
 
 #include "log.h"
 #include "util.h"
@@ -31,7 +28,6 @@
 
 #include "sd-bus.h"
 #include "bus-internal.h"
-#include "bus-message.h"
 #include "bus-util.h"
 
 struct context {

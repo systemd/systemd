@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include <stdlib.h>
 
 #include "journal-file.h"
 

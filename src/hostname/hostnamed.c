@@ -30,7 +30,6 @@
 #include "virt.h"
 #include "env-util.h"
 #include "fileio-label.h"
-#include "label.h"
 #include "bus-util.h"
 #include "event-util.h"
 #include "selinux-util.h"

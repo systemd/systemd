@@ -23,12 +23,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <dirent.h>
 #include <poll.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/filter.h>
 

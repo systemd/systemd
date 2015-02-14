@@ -19,24 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <net/if.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <stddef.h>
-#include <sys/ioctl.h>
 #include <netdb.h>
 
 #include "macro.h"
-#include "util.h"
-#include "mkdir.h"
 #include "path-util.h"
+#include "util.h"
 #include "socket-util.h"
 #include "missing.h"
 #include "fileio.h"

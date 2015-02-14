@@ -33,7 +33,6 @@
 #include "env-util.h"
 #include "fileio.h"
 #include "fileio-label.h"
-#include "label.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "bus-message.h"

@@ -20,16 +20,13 @@
 ***/
 
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <pwd.h>
-#include <unistd.h>
 #include <linux/vt.h>
 
 #include "strv.h"
 #include "cgroup-util.h"
-#include "audit.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "udev-util.h"

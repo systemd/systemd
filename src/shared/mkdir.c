@@ -19,14 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 
-#include "label.h"
 #include "util.h"
 #include "path-util.h"
 #include "mkdir.h"

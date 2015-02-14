@@ -23,11 +23,9 @@
 #include <sys/epoll.h>
 #include <libudev.h>
 
-#include "strv.h"
 #include "log.h"
 #include "unit-name.h"
 #include "dbus-device.h"
-#include "def.h"
 #include "path-util.h"
 #include "udev-util.h"
 #include "unit.h"

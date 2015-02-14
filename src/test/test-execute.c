@@ -23,7 +23,6 @@
 #include "manager.h"
 #include "util.h"
 #include "macro.h"
-#include "strv.h"
 #include "mkdir.h"
 
 typedef void (*test_function_t)(Manager *m);

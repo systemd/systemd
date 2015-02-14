@@ -27,7 +27,6 @@
 #include "lldp-tlv.h"
 #include "lldp-network.h"
 #include "lldp-internal.h"
-#include "sd-lldp.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
         typedef struct LLDPFrame {

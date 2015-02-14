@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
@@ -29,12 +28,9 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <mqueue.h>
-#include <sys/xattr.h>
 
 #include "sd-event.h"
 #include "log.h"
-#include "load-dropin.h"
-#include "load-fragment.h"
 #include "strv.h"
 #include "mkdir.h"
 #include "path-util.h"

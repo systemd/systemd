@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <string.h>
 
 #include "hashmap.h"
 #include "list.h"

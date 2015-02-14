@@ -23,27 +23,21 @@
 #include <sched.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/syscall.h>
 #include <sys/mount.h>
-#include <sys/wait.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/prctl.h>
 #include <getopt.h>
-#include <termios.h>
-#include <sys/signalfd.h>
 #include <grp.h>
 #include <linux/fs.h>
-#include <sys/un.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <net/if.h>
 #include <linux/veth.h>
 #include <sys/personality.h>
 #include <linux/loop.h>
-#include <poll.h>
 #include <sys/file.h>
 
 #ifdef HAVE_SELINUX
@@ -66,7 +60,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "macro.h"
-#include "audit.h"
 #include "missing.h"
 #include "cgroup-util.h"
 #include "strv.h"
@@ -79,9 +72,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "ptyfwd.h"
-#include "bus-kernel.h"
 #include "env-util.h"
-#include "def.h"
 #include "rtnl-util.h"
 #include "udev-util.h"
 #include "blkid-util.h"

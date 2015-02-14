@@ -20,7 +20,6 @@
 ***/
 
 #include "util.h"
-#include "log.h"
 #include "fileio.h"
 #include "cap-list.h"
 #include "capability.h"

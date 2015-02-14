@@ -24,12 +24,9 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/if_infiniband.h>
-#include <netinet/ether.h>
-#include <sys/param.h>
 #include <sys/ioctl.h>
 
 #include "util.h"
-#include "list.h"
 #include "refcnt.h"
 #include "async.h"
 

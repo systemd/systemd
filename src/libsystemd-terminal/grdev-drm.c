@@ -42,7 +42,6 @@
 #include "grdev.h"
 #include "grdev-internal.h"
 #include "macro.h"
-#include "udev-util.h"
 #include "util.h"
 
 #define GRDRM_MAX_TRIES (16)

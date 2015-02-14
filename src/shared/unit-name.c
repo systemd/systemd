@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <assert.h>
 
 #include "path-util.h"
 #include "bus-label.h"

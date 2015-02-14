@@ -19,10 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
-#include <sys/types.h>
 
 #include "device-nodes.h"
 #include "utf8.h"

@@ -21,12 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <pthread.h>
 
 #include "list.h"
 #include "hashmap.h"
-#include "set.h"
 
 typedef enum PolicyItemType {
         _POLICY_ITEM_TYPE_UNSET = 0,

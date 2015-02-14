@@ -24,13 +24,10 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <linux/vt.h>
-#include <sys/timerfd.h>
 
 #include "sd-daemon.h"
 #include "strv.h"
 #include "conf-parser.h"
-#include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"

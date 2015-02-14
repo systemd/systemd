@@ -21,9 +21,7 @@
 
 #include "unit.h"
 #include "socket.h"
-#include "dbus-unit.h"
 #include "dbus-execute.h"
-#include "dbus-kill.h"
 #include "dbus-cgroup.h"
 #include "dbus-socket.h"
 #include "bus-util.h"

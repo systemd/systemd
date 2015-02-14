@@ -27,7 +27,6 @@
 #include "log.h"
 #include "journal-file.h"
 #include "journal-verify.h"
-#include "journal-authenticate.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77

@@ -22,7 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
 
 enum {
         JSON_END,

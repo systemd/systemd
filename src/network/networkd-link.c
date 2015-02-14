@@ -28,12 +28,9 @@
 #include "fileio.h"
 #include "bus-util.h"
 #include "udev-util.h"
-#include "libudev-private.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-netdev.h"
-#include "conf-parser.h"
-#include "dhcp-lease-internal.h"
 
 bool link_dhcp6_enabled(Link *link) {
         if (link->flags & IFF_LOOPBACK)

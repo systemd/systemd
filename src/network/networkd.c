@@ -20,7 +20,6 @@
 ***/
 
 #include "capability.h"
-#include "sd-event.h"
 #include "sd-daemon.h"
 
 #include "networkd.h"

@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <arpa/inet.h>
 
 #include "networkd.h"
 #include "networkd-link.h"

@@ -22,7 +22,6 @@
 
 #include <sys/reboot.h>
 #include <linux/reboot.h>
-#include <sys/syscall.h>
 
 #include "bus-util.h"
 #include "bus-error.h"

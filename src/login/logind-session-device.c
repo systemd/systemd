@@ -19,16 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <fcntl.h>
 #include <libudev.h>
 #include <linux/input.h>
-#include <linux/ioctl.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "util.h"
 #include "missing.h"

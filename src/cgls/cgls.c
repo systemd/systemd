@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>

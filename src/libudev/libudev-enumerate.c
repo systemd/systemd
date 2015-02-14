@@ -20,14 +20,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
 #include <fnmatch.h>
 #include <stdbool.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 
 #include "libudev.h"
 #include "libudev-private.h"

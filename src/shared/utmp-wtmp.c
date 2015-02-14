@@ -21,7 +21,6 @@
 
 #include <utmpx.h>
 #include <errno.h>
-#include <assert.h>
 #include <string.h>
 #include <sys/utsname.h>
 #include <fcntl.h>

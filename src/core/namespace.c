@@ -25,23 +25,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sched.h>
-#include <sys/syscall.h>
-#include <limits.h>
 #include <linux/fs.h>
-#include <sys/file.h>
 
 #include "strv.h"
 #include "util.h"
 #include "path-util.h"
 #include "missing.h"
-#include "execute.h"
 #include "loopback-setup.h"
-#include "mkdir.h"
 #include "dev-setup.h"
-#include "def.h"
-#include "label.h"
 #include "selinux-util.h"
 #include "namespace.h"
 

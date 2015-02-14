@@ -23,7 +23,6 @@
 
 typedef struct Timer Timer;
 
-#include "unit.h"
 #include "calendarspec.h"
 
 typedef enum TimerState {

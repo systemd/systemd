@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <string.h>
-#include <time.h>
 #include <net/if.h>
 #include <sys/prctl.h>
 #include <poll.h>

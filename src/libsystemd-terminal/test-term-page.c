@@ -25,14 +25,10 @@
  * those internals are changed. They should be fairly obvious, though.
  */
 
-#include <assert.h>
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "macro.h"
 #include "term-internal.h"
-#include "util.h"
 
 #define MY_ASSERT_VALS __FILE__, __LINE__, __PRETTY_FUNCTION__
 #define MY_ASSERT_FORW _FILE, _LINE, _FUNC

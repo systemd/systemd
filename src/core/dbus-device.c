@@ -21,7 +21,6 @@
 
 #include "unit.h"
 #include "device.h"
-#include "dbus-unit.h"
 #include "dbus-device.h"
 
 const sd_bus_vtable bus_device_vtable[] = {

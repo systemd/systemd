@@ -25,7 +25,6 @@
 #include <netinet/in.h>
 #include <netinet/ether.h>
 #include <sys/un.h>
-#include <asm/types.h>
 #include <linux/netlink.h>
 #include <linux/if_packet.h>
 

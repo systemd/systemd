@@ -75,7 +75,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <wchar.h>
 #include "macro.h"
 #include "term-internal.h"
 #include "util.h"

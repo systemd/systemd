@@ -20,9 +20,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 
 #include "util.h"
@@ -31,8 +29,11 @@
 #include "macro.h"
 #include "siphash24.h"
 #include "strv.h"
-#include "list.h"
 #include "mempool.h"
+
+#ifdef ENABLE_DEBUG_HASHMAP
+#include "list.h"
+#endif
 
 /*
  * Implementation of hashmaps.

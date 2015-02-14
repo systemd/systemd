@@ -27,7 +27,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "hashmap.h"
-#include "strv.h"
 #include "fileio.h"
 #include "path-util.h"
 #include "special.h"

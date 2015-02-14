@@ -22,7 +22,6 @@
 ***/
 
 #include "set.h"
-#include "util.h"
 
 typedef struct FDSet FDSet;
 

@@ -20,17 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <pwd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/epoll.h>
 
 #include "sd-daemon.h"
-#include "strv.h"
-#include "conf-parser.h"
 #include "cgroup-util.h"
-#include "mkdir.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "label.h"

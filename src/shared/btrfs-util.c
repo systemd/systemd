@@ -31,7 +31,6 @@
 #include "util.h"
 #include "path-util.h"
 #include "macro.h"
-#include "strv.h"
 #include "copy.h"
 #include "selinux-util.h"
 #include "smack-util.h"

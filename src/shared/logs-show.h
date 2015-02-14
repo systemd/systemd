@@ -22,7 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <unistd.h>
 #include <sys/types.h>
 
 #include "sd-journal.h"

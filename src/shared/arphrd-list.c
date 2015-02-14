@@ -20,7 +20,6 @@
 ***/
 
 #include <net/if_arp.h>
-#include <sys/socket.h>
 #include <string.h>
 
 #include "util.h"

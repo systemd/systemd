@@ -20,7 +20,6 @@
 ***/
 
 #include <unistd.h>
-#include <string.h>
 
 #include "watchdog.h"
 #include "log.h"

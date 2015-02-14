@@ -20,9 +20,7 @@
 ***/
 
 #include <time.h>
-#include <assert.h>
 #include <errno.h>
-#include <poll.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <fcntl.h>
@@ -32,7 +30,6 @@
 #include "util.h"
 #include "utf8.h"
 #include "hashmap.h"
-#include "fileio.h"
 #include "journal-internal.h"
 
 /* up to three lines (each up to 100 characters),

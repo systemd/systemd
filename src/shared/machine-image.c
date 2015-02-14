@@ -23,7 +23,6 @@
 #include <linux/fs.h>
 #include <fcntl.h>
 
-#include "strv.h"
 #include "utf8.h"
 #include "btrfs-util.h"
 #include "path-util.h"

@@ -34,10 +34,6 @@
 #include "unit.h"
 #include "unit-name.h"
 #include "special.h"
-#include "exit-status.h"
-#include "def.h"
-#include "env-util.h"
-#include "fileio.h"
 #include "hashmap.h"
 
 typedef enum RunlevelType {

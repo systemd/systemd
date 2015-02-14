@@ -18,22 +18,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <stdio.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <sys/param.h>
 
-#include "util.h"
-#include "list.h"
 
 #include "dhcp-protocol.h"
-#include "dhcp-lease-internal.h"
 #include "dhcp-internal.h"
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp-client.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 

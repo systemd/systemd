@@ -16,11 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <stddef.h>
-#include <string.h>
 #include <errno.h>
 #include <getopt.h>
 

@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "bus-type.h"
 #include "bus-gvariant.h"
 #include "bus-signature.h"

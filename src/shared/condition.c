@@ -23,14 +23,12 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/statvfs.h>
 #include <fnmatch.h>
 
 #include "sd-id128.h"
 #include "util.h"
 #include "virt.h"
 #include "path-util.h"
-#include "fileio.h"
 #include "architecture.h"
 #include "smack-util.h"
 #include "apparmor-util.h"

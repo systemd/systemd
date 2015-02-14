@@ -20,7 +20,6 @@
 ***/
 
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "path-lookup.h"
 #include "log.h"

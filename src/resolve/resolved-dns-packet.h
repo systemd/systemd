@@ -21,7 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <inttypes.h>
 
 #include "macro.h"
 #include "sparse-endian.h"

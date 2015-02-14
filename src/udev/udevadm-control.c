@@ -12,7 +12,6 @@
  * GNU General Public License for more details.
  */
 
-#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,10 +19,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <sys/un.h>
 
 #include "udev.h"
 #include "udev-util.h"

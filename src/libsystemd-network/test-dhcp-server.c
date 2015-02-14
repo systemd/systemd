@@ -20,8 +20,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/if_ether.h>
-#include <assert.h>
 #include <errno.h>
 
 #include "sd-event.h"

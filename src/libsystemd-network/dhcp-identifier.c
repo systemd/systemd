@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 
 #include "sd-id128.h"
 #include "libudev.h"
@@ -28,7 +27,6 @@
 #include "virt.h"
 #include "sparse-endian.h"
 #include "siphash24.h"
-#include "util.h"
 
 #include "dhcp6-protocol.h"
 #include "dhcp-identifier.h"

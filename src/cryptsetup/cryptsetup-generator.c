@@ -20,11 +20,8 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "dropin.h"
-#include "fileio.h"
 #include "generator.h"
 #include "hashmap.h"
 #include "log.h"

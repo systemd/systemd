@@ -22,7 +22,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
 #include <sys/types.h>
 
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid);

@@ -25,7 +25,6 @@
 #include <unistd.h>
 
 #include "util.h"
-#include "def.h"
 #include "killall.h"
 #include "set.h"
 

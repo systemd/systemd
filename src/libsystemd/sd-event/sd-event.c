@@ -22,7 +22,6 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
-#include <pthread.h>
 
 #include "sd-id128.h"
 #include "sd-daemon.h"

@@ -21,7 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 #include "sd-network.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_network_monitor*, sd_network_monitor_unref);

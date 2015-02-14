@@ -21,7 +21,6 @@
 ***/
 
 #include <netinet/ether.h>
-#include <arpa/inet.h>
 #include <linux/if_bonding.h>
 
 #include "conf-parser.h"

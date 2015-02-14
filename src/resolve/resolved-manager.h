@@ -24,9 +24,7 @@
 #include "sd-event.h"
 #include "sd-network.h"
 #include "sd-rtnl.h"
-#include "util.h"
 #include "list.h"
-#include "in-addr-util.h"
 #include "hashmap.h"
 
 typedef struct Manager Manager;
@@ -41,8 +39,6 @@ enum Support {
 };
 
 #include "resolved-dns-query.h"
-#include "resolved-dns-server.h"
-#include "resolved-dns-scope.h"
 #include "resolved-dns-stream.h"
 #include "resolved-link.h"
 

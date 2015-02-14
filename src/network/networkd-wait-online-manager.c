@@ -25,7 +25,6 @@
 
 #include "rtnl-util.h"
 
-#include "network-util.h"
 #include "network-internal.h"
 #include "networkd-wait-online-link.h"
 #include "networkd-wait-online.h"

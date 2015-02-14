@@ -21,9 +21,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "log.h"
 #include "util.h"

@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/xattr.h>
 
 #ifdef HAVE_ELFUTILS
@@ -44,7 +43,6 @@
 #include "conf-parser.h"
 #include "copy.h"
 #include "stacktrace.h"
-#include "path-util.h"
 #include "compress.h"
 #include "acl-util.h"
 #include "capability.h"

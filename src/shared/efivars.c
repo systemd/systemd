@@ -22,9 +22,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#include <ctype.h>
 
-#include "acpi-fpdt.h"
 #include "util.h"
 #include "utf8.h"
 #include "efivars.h"

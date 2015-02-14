@@ -21,10 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
 #include "sd-bus.h"
 #include "bus-xml-policy.h"
-#include "util.h"
 
 typedef struct Proxy Proxy;
 

@@ -23,7 +23,6 @@
 
 #include "ethtool-util.h"
 #include "condition.h"
-#include "util.h"
 #include "list.h"
 #include "libudev.h"
 

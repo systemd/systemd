@@ -25,7 +25,6 @@
 
 #include "strv.h"
 #include "siphash24.h"
-#include "libudev-private.h"
 #include "dhcp-lease-internal.h"
 #include "log.h"
 #include "utf8.h"

@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <stdlib.h>
 
 #include "log.h"
 #include "bus-signature.h"

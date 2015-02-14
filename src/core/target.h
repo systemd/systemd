@@ -23,7 +23,6 @@
 
 typedef struct Target Target;
 
-#include "unit.h"
 
 typedef enum TargetState {
         TARGET_DEAD,

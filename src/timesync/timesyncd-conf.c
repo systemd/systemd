@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "in-addr-util.h"
 
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"

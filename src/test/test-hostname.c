@@ -19,10 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
-#include <fcntl.h>
 
 #include "hostname-setup.h"
 #include "util.h"

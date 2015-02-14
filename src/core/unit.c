@@ -19,12 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/epoll.h>
-#include <sys/timerfd.h>
-#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -45,12 +41,10 @@
 #include "cgroup-util.h"
 #include "missing.h"
 #include "mkdir.h"
-#include "label.h"
 #include "fileio-label.h"
 #include "bus-common-errors.h"
 #include "dbus.h"
 #include "execute.h"
-#include "virt.h"
 #include "dropin.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {

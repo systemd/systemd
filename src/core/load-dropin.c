@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
-#include <errno.h>
 
 #include "unit.h"
 #include "load-dropin.h"
@@ -29,7 +27,6 @@
 #include "unit-name.h"
 #include "conf-parser.h"
 #include "load-fragment.h"
-#include "conf-files.h"
 
 static int add_dependency_consumer(
                 UnitDependency dependency,

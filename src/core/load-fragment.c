@@ -21,26 +21,18 @@
 ***/
 
 #include <linux/oom.h>
-#include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <sys/prctl.h>
-#include <sys/mount.h>
 #include <linux/fs.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/types.h>
-#include <grp.h>
 
 #ifdef HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 
-#include "sd-messages.h"
 #include "unit.h"
 #include "strv.h"
 #include "conf-parser.h"

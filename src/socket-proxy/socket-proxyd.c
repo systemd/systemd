@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -37,7 +36,6 @@
 #include "log.h"
 #include "socket-util.h"
 #include "util.h"
-#include "event-util.h"
 #include "build.h"
 #include "set.h"
 #include "path-util.h"

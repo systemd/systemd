@@ -26,8 +26,6 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -35,13 +33,11 @@
 #include "journal-file.h"
 #include "journald-native.h"
 #include "socket-util.h"
-#include "mkdir.h"
 #include "build.h"
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
 #include "conf-parser.h"
-#include "siphash24.h"
 
 #ifdef HAVE_GNUTLS
 #include <gnutls/gnutls.h>

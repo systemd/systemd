@@ -22,7 +22,6 @@
 #include <string.h>
 
 #include "util.h"
-#include "strv.h"
 #include "strxcpyx.h"
 
 static void test_strpcpy(void) {

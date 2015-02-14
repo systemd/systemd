@@ -19,18 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <arpa/inet.h>
 #include <resolv.h>
-#include <net/if.h>
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <netinet/in.h>
 
 #include "rtnl-util.h"
-#include "event-util.h"
-#include "network-util.h"
 #include "network-internal.h"
-#include "conf-parser.h"
 #include "socket-util.h"
 #include "af-list.h"
 #include "utf8.h"

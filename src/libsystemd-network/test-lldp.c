@@ -21,13 +21,8 @@
 ***/
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <linux/if_ether.h>
 #include <net/ethernet.h>
-#include <sys/types.h>
 #include <arpa/inet.h>
 
 #include "macro.h"

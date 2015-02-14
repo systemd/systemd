@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include <sys/types.h>
 
 #include "hashmap.h"
 #include "in-addr-util.h"

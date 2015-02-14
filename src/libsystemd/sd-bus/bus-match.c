@@ -22,7 +22,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-match.h"
-#include "bus-error.h"
 #include "bus-util.h"
 #include "strv.h"
 

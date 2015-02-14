@@ -21,10 +21,7 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include "util.h"
 
 typedef struct unifont unifont;
 typedef struct unifont_glyph unifont_glyph;

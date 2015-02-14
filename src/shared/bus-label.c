@@ -19,13 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "util.h"
 #include "macro.h"
-#include "def.h"
 
 #include "bus-label.h"
 

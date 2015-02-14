@@ -19,27 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/types.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <string.h>
 #include <errno.h>
-#include <poll.h>
 #include <stddef.h>
-#include <getopt.h>
 
 #include "log.h"
 #include "util.h"
 #include "sd-bus.h"
-#include "bus-internal.h"
-#include "bus-message.h"
-#include "bus-util.h"
-#include "build.h"
 #include "strv.h"
-#include "def.h"
-#include "capability.h"
 #include "bus-xml-policy.h"
 
 static int test_policy_load(Policy *p, const char *name) {

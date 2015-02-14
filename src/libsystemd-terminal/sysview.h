@@ -36,13 +36,9 @@
 
 #pragma once
 
-#include <inttypes.h>
-#include <libudev.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
-#include "util.h"
 
 typedef struct sysview_event            sysview_event;
 typedef struct sysview_device           sysview_device;

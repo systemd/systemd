@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -48,7 +47,6 @@
 #include <pwd.h>
 #include <netinet/ip.h>
 #include <linux/kd.h>
-#include <dlfcn.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <glob.h>
@@ -83,7 +81,6 @@
 #include "missing.h"
 #include "log.h"
 #include "strv.h"
-#include "label.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "exit-status.h"

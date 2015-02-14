@@ -19,13 +19,8 @@
 ***/
 
 #include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-#include <string.h>
 #include <getopt.h>
-#include <fcntl.h>
 #include <sys/epoll.h>
 
 #include "libudev.h"

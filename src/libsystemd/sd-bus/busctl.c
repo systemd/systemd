@@ -26,12 +26,10 @@
 #include "log.h"
 #include "build.h"
 #include "pager.h"
-#include "xml.h"
 #include "path-util.h"
 #include "set.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-dump.h"

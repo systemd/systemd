@@ -21,14 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 
 #include "macro.h"
-#include "util.h"
 
 /* See source file for an API description. */
 

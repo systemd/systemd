@@ -28,7 +28,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "hashmap.h"
-#include "strv.h"
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"

@@ -23,7 +23,6 @@
 
 typedef struct Snapshot Snapshot;
 
-#include "unit.h"
 
 typedef enum SnapshotState {
         SNAPSHOT_DEAD,

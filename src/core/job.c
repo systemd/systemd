@@ -19,10 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
-#include <sys/timerfd.h>
-#include <sys/epoll.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -30,8 +27,6 @@
 #include "unit.h"
 #include "macro.h"
 #include "strv.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "log.h"
 #include "dbus-job.h"
 #include "special.h"

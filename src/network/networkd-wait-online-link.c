@@ -20,10 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/if.h>
 
 #include "sd-network.h"
-#include "strv.h"
 
 #include "networkd-wait-online-link.h"
 

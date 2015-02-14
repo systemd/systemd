@@ -24,12 +24,10 @@
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
-#include "unit.h"
 #include "path.h"
 #include "ratelimit.h"
 #include "kill.h"
 #include "exit-status.h"
-#include "failure-action.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,

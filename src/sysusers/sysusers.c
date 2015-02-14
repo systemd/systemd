@@ -19,7 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
 #include <shadow.h>
@@ -36,7 +35,6 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "utf8.h"
-#include "label.h"
 #include "fileio-label.h"
 #include "uid-range.h"
 #include "selinux-util.h"

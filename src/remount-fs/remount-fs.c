@@ -20,7 +20,6 @@
 ***/
 
 #include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -30,7 +29,6 @@
 #include "log.h"
 #include "util.h"
 #include "path-util.h"
-#include "set.h"
 #include "mount-setup.h"
 #include "exit-status.h"
 

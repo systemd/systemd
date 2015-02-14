@@ -1,5 +1,4 @@
 #include "networkd.h"
-#include "networkd-link.h"
 #include "networkd-netdev-bond.h"
 #include "networkd-netdev-macvlan.h"
 #include "dhcp6-internal.h"

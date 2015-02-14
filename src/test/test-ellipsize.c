@@ -22,7 +22,6 @@
 #include <stdio.h>
 
 #include "util.h"
-#include "utf8.h"
 #include "def.h"
 
 static void test_one(const char *p) {

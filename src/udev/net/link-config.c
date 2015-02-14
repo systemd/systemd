@@ -22,7 +22,6 @@
 #include <netinet/ether.h>
 #include <linux/netdevice.h>
 
-#include "sd-id128.h"
 
 #include "missing.h"
 #include "link-config.h"
@@ -36,11 +35,8 @@
 #include "path-util.h"
 #include "conf-parser.h"
 #include "conf-files.h"
-#include "fileio.h"
-#include "hashmap.h"
 #include "rtnl-util.h"
 #include "network-internal.h"
-#include "siphash24.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);

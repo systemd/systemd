@@ -20,19 +20,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
 #include <poll.h>
-#include <net/if.h>
 
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
 #include "fileio.h"
 #include "sd-network.h"
-#include "network-internal.h"
 
 _public_ int sd_network_get_operational_state(char **state) {
         _cleanup_free_ char *s = NULL;

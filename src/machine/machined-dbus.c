@@ -22,21 +22,12 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 
 #include "sd-id128.h"
-#include "sd-messages.h"
-#include "strv.h"
-#include "mkdir.h"
 #include "path-util.h"
-#include "special.h"
-#include "fileio-label.h"
-#include "label.h"
-#include "utf8.h"
 #include "unit-name.h"
 #include "bus-util.h"
 #include "bus-common-errors.h"
-#include "time-util.h"
 #include "cgroup-util.h"
 #include "machine-image.h"
 #include "image-dbus.h"

@@ -22,8 +22,6 @@
 #include <net/if.h>
 
 #include "networkd-netdev-vlan.h"
-#include "network-internal.h"
-#include "list.h"
 
 static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *req) {
         VLan *v = VLAN(netdev);

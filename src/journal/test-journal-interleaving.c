@@ -26,7 +26,6 @@
 #include "systemd/sd-journal.h"
 
 #include "journal-file.h"
-#include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "util.h"
 #include "log.h"

@@ -38,7 +38,6 @@
 #include "strv.h"
 #include "memfd-util.h"
 #include "capability.h"
-#include "cgroup-util.h"
 #include "fileio.h"
 
 #include "bus-internal.h"

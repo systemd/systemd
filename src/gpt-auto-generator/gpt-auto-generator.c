@@ -21,8 +21,6 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/statfs.h>
 #include <blkid/blkid.h>
 

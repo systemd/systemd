@@ -22,10 +22,7 @@
 #pragma once
 
 #include "networkd.h"
-#include "hashmap.h"
 #include "list.h"
-#include "set.h"
-#include "in-addr-util.h"
 
 typedef struct NetDevVTable NetDevVTable;
 

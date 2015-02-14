@@ -19,16 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <ctype.h>
 #include <net/if.h>
 #include <net/ethernet.h>
 
 #include "networkd.h"
-#include "networkd-netdev.h"
 #include "networkd-link.h"
-#include "network-internal.h"
-#include "path-util.h"
-#include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"
 

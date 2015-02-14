@@ -23,7 +23,6 @@
 #include <fcntl.h>
 
 #include "bus-common-errors.h"
-#include "bus-util.h"
 #include "bus-error.h"
 #include "transaction.h"
 

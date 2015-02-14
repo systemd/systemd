@@ -21,14 +21,11 @@
 ***/
 
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <netinet/in.h>
-#include <arpa/nameser.h>
 #include <resolv.h>
-#include <signal.h>
 #include <errno.h>
 
 #include "socket-util.h"

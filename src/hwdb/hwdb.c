@@ -18,7 +18,6 @@
 ***/
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
@@ -28,7 +27,6 @@
 #include "conf-files.h"
 #include "strv.h"
 #include "mkdir.h"
-#include "fileio.h"
 #include "verbs.h"
 #include "build.h"
 

@@ -19,21 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/vt.h>
 #include <string.h>
 
-#include "sd-id128.h"
 #include "sd-messages.h"
 #include "logind-seat.h"
 #include "logind-acl.h"
 #include "util.h"
 #include "mkdir.h"
-#include "path-util.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;

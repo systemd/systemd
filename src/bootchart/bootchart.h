@@ -24,7 +24,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dirent.h>
 #include <stdbool.h>
 #include "list.h"
 

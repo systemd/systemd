@@ -34,7 +34,6 @@
 #include "hashmap.h"
 #include "strv.h"
 #include "strbuf.h"
-#include "strxcpyx.h"
 #include "conf-files.h"
 #include "mkdir.h"
 #include "catalog.h"

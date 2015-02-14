@@ -32,7 +32,6 @@ typedef enum DnsServerType {
         DNS_SERVER_LINK,
 } DnsServerType;
 
-#include "resolved-manager.h"
 #include "resolved-link.h"
 
 struct DnsServer {

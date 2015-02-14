@@ -19,14 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <fcntl.h>
 
 #include "loopback-setup.h"
 #include "log.h"
-#include "util.h"
 
 int main(int argc, char* argv[]) {
         int r;

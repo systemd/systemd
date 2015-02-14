@@ -24,14 +24,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <pwd.h>
 
 #include "manager.h"
 #include "unit.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "install.h"
 #include "specifier.h"
 #include "util.h"
 #include "macro.h"

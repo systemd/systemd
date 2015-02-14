@@ -32,7 +32,6 @@
 #include "path-util.h"
 #include "strv.h"
 #include "ask-password-api.h"
-#include "def.h"
 #include "libudev.h"
 #include "udev-util.h"
 

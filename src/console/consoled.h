@@ -21,10 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <libudev.h>
-#include <stdlib.h>
 #include "grdev.h"
 #include "idev.h"
 #include "list.h"

@@ -19,24 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
-#include <sys/select.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <netinet/in.h>
-#include <arpa/nameser.h>
 #include <resolv.h>
-#include <dirent.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/prctl.h>

@@ -20,24 +20,17 @@
 ***/
 
 #include <errno.h>
-#include <limits.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
-#include <sys/swap.h>
 #include <libudev.h>
 
 #include "unit.h"
 #include "swap.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "unit-name.h"
 #include "dbus-swap.h"
 #include "special.h"
-#include "bus-common-errors.h"
 #include "exit-status.h"
-#include "def.h"
 #include "path-util.h"
 #include "virt.h"
 #include "udev-util.h"

@@ -31,13 +31,7 @@ typedef enum UnitActiveState UnitActiveState;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
-#include "sd-event.h"
-#include "set.h"
-#include "util.h"
 #include "list.h"
-#include "socket-util.h"
-#include "execute.h"
-#include "cgroup.h"
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
@@ -76,7 +70,6 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
 
-#include "manager.h"
 #include "job.h"
 
 struct UnitRef {
@@ -249,13 +242,11 @@ typedef enum UnitSetPropertiesMode {
         UNIT_PERSISTENT = 2,
 } UnitSetPropertiesMode;
 
-#include "service.h"
 #include "socket.h"
 #include "busname.h"
 #include "target.h"
 #include "snapshot.h"
 #include "device.h"
-#include "mount.h"
 #include "automount.h"
 #include "swap.h"
 #include "timer.h"

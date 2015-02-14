@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
-#include <pwd.h>
 #include <locale.h>
 
 #include "sd-bus.h"

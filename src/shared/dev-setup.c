@@ -20,15 +20,10 @@
 ***/
 
 #include <errno.h>
-#include <sys/stat.h>
 #include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 #include <unistd.h>
 
 #include "dev-setup.h"
-#include "log.h"
-#include "macro.h"
 #include "util.h"
 #include "label.h"
 

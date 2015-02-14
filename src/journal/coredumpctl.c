@@ -35,7 +35,6 @@
 #include "pager.h"
 #include "macro.h"
 #include "journal-internal.h"
-#include "copy.h"
 #include "compress.h"
 #include "sigbus.h"
 

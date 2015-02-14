@@ -20,18 +20,10 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <stddef.h>
-#include <unistd.h>
-#include <signal.h>
-#include <fcntl.h>
 #include <errno.h>
-#include <string.h>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
-#include "libudev.h"
 #include "libudev-private.h"
 #include "macro.h"
 

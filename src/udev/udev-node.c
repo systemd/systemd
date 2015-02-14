@@ -15,7 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -23,11 +22,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <grp.h>
 #include <dirent.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "udev.h"
 #include "smack-util.h"

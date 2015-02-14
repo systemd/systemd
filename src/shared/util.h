@@ -25,7 +25,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <time.h>
-#include <sys/time.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -36,12 +35,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <sys/resource.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <locale.h>
 #include <mntent.h>
-#include <sys/socket.h>
 #include <sys/inotify.h>
 
 #if SIZEOF_PID_T == 4

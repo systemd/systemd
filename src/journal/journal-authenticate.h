@@ -22,7 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
 
 #include "journal-file.h"
 

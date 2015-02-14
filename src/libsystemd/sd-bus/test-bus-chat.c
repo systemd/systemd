@@ -29,7 +29,6 @@
 #include "macro.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
 #include "bus-error.h"
 #include "bus-match.h"
 #include "bus-internal.h"

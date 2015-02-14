@@ -26,7 +26,6 @@
  * parent TTY. Think of this like what "GNU-screen" does.
  */
 
-#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>

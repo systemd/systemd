@@ -20,7 +20,6 @@
 ***/
 
 #include "bus-label.h"
-#include "bus-common-errors.h"
 #include "strv.h"
 #include "bus-util.h"
 #include "machine-image.h"

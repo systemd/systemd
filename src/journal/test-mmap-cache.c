@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "log.h"
 #include "macro.h"
 #include "util.h"
 #include "mmap-cache.h"

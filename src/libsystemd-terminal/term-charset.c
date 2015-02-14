@@ -60,9 +60,6 @@
  * include them. The mapper has to take care not to use them in GL.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
 #include "term-internal.h"
 
 /*

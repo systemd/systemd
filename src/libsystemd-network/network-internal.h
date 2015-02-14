@@ -21,8 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 
 #include "udev.h"

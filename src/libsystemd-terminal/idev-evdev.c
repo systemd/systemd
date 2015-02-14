@@ -20,20 +20,16 @@
 ***/
 
 #include <fcntl.h>
-#include <inttypes.h>
 #include <libevdev/libevdev.h>
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
-#include <unistd.h>
 #include "bus-util.h"
-#include "hashmap.h"
 #include "idev.h"
 #include "idev-internal.h"
 #include "macro.h"
-#include "udev-util.h"
 #include "util.h"
 
 typedef struct idev_evdev idev_evdev;

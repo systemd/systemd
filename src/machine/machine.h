@@ -26,7 +26,6 @@ typedef struct MachineOperation MachineOperation;
 typedef enum KillWho KillWho;
 
 #include "list.h"
-#include "util.h"
 #include "machined.h"
 
 typedef enum MachineState {

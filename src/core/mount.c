@@ -21,7 +21,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <mntent.h>
 #include <sys/epoll.h>
 #include <signal.h>
 #include <libmount.h>
@@ -30,8 +29,6 @@
 #include "manager.h"
 #include "unit.h"
 #include "mount.h"
-#include "load-fragment.h"
-#include "load-dropin.h"
 #include "log.h"
 #include "sd-messages.h"
 #include "strv.h"
@@ -41,9 +38,7 @@
 #include "unit-name.h"
 #include "dbus-mount.h"
 #include "special.h"
-#include "bus-common-errors.h"
 #include "exit-status.h"
-#include "def.h"
 #include "fstab-util.h"
 
 #define RETRY_UMOUNT_MAX 32

@@ -28,13 +28,10 @@
 
 #include <endian.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include "macro.h"
 #include "unifont-def.h"
 #include "unifont.h"

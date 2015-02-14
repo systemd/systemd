@@ -22,8 +22,6 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
-#include <errno.h>
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
@@ -108,9 +106,7 @@ enum JobResult {
 };
 
 #include "sd-event.h"
-#include "manager.h"
 #include "unit.h"
-#include "hashmap.h"
 #include "list.h"
 
 struct JobDependency {

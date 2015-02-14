@@ -22,9 +22,7 @@
 
 #include "unit.h"
 #include "swap.h"
-#include "dbus-unit.h"
 #include "dbus-execute.h"
-#include "dbus-kill.h"
 #include "dbus-cgroup.h"
 #include "dbus-swap.h"
 #include "bus-util.h"

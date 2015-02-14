@@ -22,9 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
-#include <assert.h>
 #include <stdlib.h>
-#include <netinet/ether.h>
 
 #include "conf-parser.h"
 #include "conf-files.h"
@@ -34,8 +32,6 @@
 #include "log.h"
 #include "utf8.h"
 #include "path-util.h"
-#include "set.h"
-#include "exit-status.h"
 #include "sd-messages.h"
 
 int log_syntax_internal(

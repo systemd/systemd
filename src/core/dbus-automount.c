@@ -19,9 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "unit.h"
 #include "automount.h"
-#include "dbus-unit.h"
 #include "dbus-automount.h"
 #include "bus-util.h"
 

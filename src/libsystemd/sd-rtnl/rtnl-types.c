@@ -19,12 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stddef.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <linux/in6.h>
 #include <linux/veth.h>
 #include <linux/if_bridge.h>
 #include <linux/if_addr.h>

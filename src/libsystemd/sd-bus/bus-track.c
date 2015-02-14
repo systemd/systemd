@@ -20,7 +20,6 @@
 ***/
 
 #include "sd-bus.h"
-#include "set.h"
 #include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"

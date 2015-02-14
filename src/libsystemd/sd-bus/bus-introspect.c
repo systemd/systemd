@@ -20,7 +20,6 @@
 ***/
 
 #include "util.h"
-#include "sd-bus-protocol.h"
 #include "bus-introspect.h"
 #include "bus-signature.h"
 #include "bus-internal.h"

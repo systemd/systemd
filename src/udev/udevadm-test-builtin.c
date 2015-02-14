@@ -17,19 +17,9 @@
 
 #include <stdlib.h>
 #include <stddef.h>
-#include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
 #include <getopt.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/inotify.h>
-#include <poll.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "udev.h"
 

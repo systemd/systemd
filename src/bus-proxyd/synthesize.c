@@ -21,21 +21,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
 #include <stddef.h>
 
-#include "log.h"
 #include "util.h"
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "strv.h"
-#include "def.h"
-#include "bus-control.h"
 #include "synthesize.h"
 
 static int synthetic_driver_send(sd_bus *b, sd_bus_message *m) {

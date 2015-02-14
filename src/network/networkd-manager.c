@@ -27,13 +27,11 @@
 #include "networkd.h"
 #include "networkd-netdev.h"
 #include "networkd-link.h"
-#include "network-internal.h"
 #include "libudev-private.h"
 #include "udev-util.h"
 #include "rtnl-util.h"
 #include "bus-util.h"
 #include "def.h"
-#include "mkdir.h"
 #include "virt.h"
 
 #include "sd-rtnl.h"

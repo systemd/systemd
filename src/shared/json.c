@@ -23,7 +23,6 @@
 #include <math.h>
 
 #include "macro.h"
-#include "log.h"
 #include "util.h"
 #include "utf8.h"
 #include "json.h"

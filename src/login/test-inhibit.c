@@ -25,7 +25,6 @@
 #include "util.h"
 #include "sd-bus.h"
 #include "bus-util.h"
-#include "bus-error.h"
 
 static int inhibit(sd_bus *bus, const char *what) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;

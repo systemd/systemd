@@ -22,14 +22,10 @@
  * Terminal Parser Tests
  */
 
-#include <assert.h>
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "macro.h"
 #include "term-internal.h"
-#include "util.h"
 #include "utf8.h"
 
 static void test_term_utf8_invalid(void) {

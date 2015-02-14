@@ -21,7 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
 
 int ask_password_tty(const char *message, usec_t until, bool echo, const char *flag_file, char **_passphrase);
 

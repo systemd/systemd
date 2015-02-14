@@ -20,8 +20,6 @@
 ***/
 
 #include "unit.h"
-#include "target.h"
-#include "dbus-unit.h"
 #include "dbus-target.h"
 
 const sd_bus_vtable bus_target_vtable[] = {

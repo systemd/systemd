@@ -22,7 +22,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "macro.h"
 
 int conf_files_list(char ***strv, const char *suffix, const char *root, const char *dir, ...);
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, const char* const* dirs);

@@ -19,14 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <stdarg.h>
-#include <ctype.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #include "grp.h"

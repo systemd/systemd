@@ -24,17 +24,14 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <locale.h>
-#include <sys/utsname.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"
 #include "bus-error.h"
-#include "install.h"
 #include "log.h"
 #include "build.h"
 #include "util.h"
 #include "strxcpyx.h"
-#include "fileio.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "special.h"

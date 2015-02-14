@@ -21,10 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#include <inttypes.h>
 #include <netinet/in.h>
 
-#include "util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "dns-type.h"

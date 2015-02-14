@@ -20,7 +20,6 @@
 ***/
 
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/epoll.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>

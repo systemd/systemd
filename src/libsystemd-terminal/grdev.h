@@ -53,8 +53,6 @@
 
 #pragma once
 
-#include <drm_fourcc.h>
-#include <inttypes.h>
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>

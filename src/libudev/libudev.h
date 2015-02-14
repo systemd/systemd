@@ -22,7 +22,6 @@
 
 #include <stdarg.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 
 #ifdef __cplusplus
 extern "C" {

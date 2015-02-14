@@ -29,7 +29,6 @@
 #include "rtnl-util.h"
 #include "event-util.h"
 #include "missing.h"
-#include "rtnl-internal.h"
 
 static void test_message_link_bridge(sd_rtnl *rtnl) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *message = NULL;

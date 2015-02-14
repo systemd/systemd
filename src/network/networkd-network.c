@@ -22,7 +22,6 @@
 #include <ctype.h>
 #include <net/if.h>
 
-#include "path-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "util.h"

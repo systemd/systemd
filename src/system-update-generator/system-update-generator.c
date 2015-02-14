@@ -24,8 +24,6 @@
 
 #include "log.h"
 #include "util.h"
-#include "unit-name.h"
-#include "path-util.h"
 
 /*
  * Implements the logic described in

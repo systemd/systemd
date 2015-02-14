@@ -19,16 +19,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdlib.h>
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "util.h"
-#include "socket-util.h"
 #include "sd-event.h"
 #include "event-util.h"
 

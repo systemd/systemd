@@ -20,16 +20,12 @@
 ***/
 
 #include <errno.h>
-#include <inttypes.h>
-#include <libudev.h>
 #include <stdlib.h>
 #include "consoled.h"
 #include "grdev.h"
-#include "hashmap.h"
 #include "idev.h"
 #include "list.h"
 #include "macro.h"
-#include "sd-bus.h"
 #include "sd-event.h"
 #include "sysview.h"
 #include "util.h"

@@ -20,7 +20,6 @@
 ***/
 
 #include <netinet/in.h>
-#include <netinet/ether.h>
 #include <stdbool.h>
 #include <unistd.h>
 

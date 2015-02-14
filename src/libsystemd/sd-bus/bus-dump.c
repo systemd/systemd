@@ -22,7 +22,6 @@
 #include "util.h"
 #include "capability.h"
 #include "strv.h"
-#include "audit.h"
 #include "macro.h"
 #include "cap-list.h"
 

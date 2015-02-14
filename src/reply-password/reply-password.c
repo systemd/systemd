@@ -20,17 +20,9 @@
 ***/
 
 #include <sys/socket.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <assert.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/un.h>
-#include <sys/stat.h>
-#include <sys/signalfd.h>
-#include <getopt.h>
 #include <stddef.h>
 
 #include "log.h"

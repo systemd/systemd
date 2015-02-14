@@ -28,12 +28,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <time.h>
 #include <getopt.h>
 #include <signal.h>
 #include <poll.h>
 #include <sys/stat.h>
-#include <sys/ioctl.h>
 #include <sys/inotify.h>
 #include <linux/fs.h>
 
@@ -54,7 +52,6 @@
 #include "journal-internal.h"
 #include "journal-def.h"
 #include "journal-verify.h"
-#include "journal-authenticate.h"
 #include "journal-qrcode.h"
 #include "journal-vacuum.h"
 #include "fsprg.h"

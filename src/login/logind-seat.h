@@ -24,9 +24,6 @@
 typedef struct Seat Seat;
 
 #include "list.h"
-#include "util.h"
-#include "logind.h"
-#include "logind-device.h"
 #include "logind-session.h"
 
 struct Seat {

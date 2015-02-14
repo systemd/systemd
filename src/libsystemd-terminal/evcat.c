@@ -26,17 +26,13 @@
  * problems.
  */
 
-#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <libevdev/libevdev.h>
 #include <linux/kd.h>
-#include <linux/vt.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <systemd/sd-bus.h>
@@ -46,7 +42,6 @@
 #include <unistd.h>
 #include <xkbcommon/xkbcommon.h>
 #include "build.h"
-#include "bus-util.h"
 #include "event-util.h"
 #include "idev.h"
 #include "macro.h"

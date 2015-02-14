@@ -21,10 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
-#include <assert.h>
-#include <sys/socket.h>
 
 #include "sd-rtnl.h"
 #include "in-addr-util.h"

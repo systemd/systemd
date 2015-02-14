@@ -26,7 +26,6 @@
 
 typedef struct Swap Swap;
 
-#include "unit.h"
 
 typedef enum SwapState {
         SWAP_DEAD,

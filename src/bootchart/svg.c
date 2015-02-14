@@ -23,14 +23,11 @@
  ***/
 
 #include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <limits.h>
 #include <unistd.h>
 #include <sys/utsname.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 #include "util.h"

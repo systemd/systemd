@@ -24,21 +24,15 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <sys/vfs.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <dirent.h>
-#include <sys/mount.h>
-#include <stdint.h>
 
 #include "macro.h"
 #include "smack-setup.h"
 #include "util.h"
 #include "fileio.h"
 #include "log.h"
-#include "label.h"
 
 #define SMACK_CONFIG "/etc/smack/accesses.d/"
 #define CIPSO_CONFIG "/etc/smack/cipso.d/"

@@ -24,7 +24,6 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <mqueue.h>

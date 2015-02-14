@@ -25,7 +25,6 @@
 #include "sd-bus.h"
 #include "hashmap.h"
 #include "time-util.h"
-#include "util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,

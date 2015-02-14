@@ -17,20 +17,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <dirent.h>
 #include <ctype.h>
-#include <fcntl.h>
-#include <time.h>
-#include <pwd.h>
-#include <grp.h>
-#include <sys/stat.h>
-#include <sys/param.h>
 
 #include "device-nodes.h"
 #include "libudev.h"

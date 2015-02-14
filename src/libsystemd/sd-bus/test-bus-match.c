@@ -20,7 +20,6 @@
 ***/
 
 #include "log.h"
-#include "util.h"
 #include "macro.h"
 
 #include "bus-match.h"

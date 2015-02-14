@@ -21,11 +21,8 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
 #include <ctype.h>
-#include <time.h>
 
 #include "libudev.h"
 #include "libudev-private.h"

@@ -20,7 +20,6 @@
 ***/
 
 #include <errno.h>
-#include <inttypes.h>
 #include <stdlib.h>
 #include "consoled.h"
 #include "grdev.h"

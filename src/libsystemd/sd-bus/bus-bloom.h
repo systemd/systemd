@@ -23,7 +23,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 /*
  * Our default bloom filter has the following parameters:

@@ -30,11 +30,9 @@
 #include <errno.h>
 #include <getopt.h>
 #include <linux/kd.h>
-#include <linux/vt.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <systemd/sd-bus.h>
@@ -43,10 +41,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include "build.h"
-#include "bus-util.h"
-#include "event-util.h"
 #include "grdev.h"
-#include "grdev-internal.h"
 #include "macro.h"
 #include "sysview.h"
 #include "util.h"

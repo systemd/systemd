@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include "set.h"
 #include "util.h"

@@ -15,22 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
 #include <getopt.h>
 #include <time.h>
 #include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/epoll.h>
-#include <linux/types.h>
-#include <linux/netlink.h>
 
 #include "udev.h"
 #include "udev-util.h"

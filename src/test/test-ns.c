@@ -20,13 +20,9 @@
 ***/
 
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/mount.h>
-#include <linux/fs.h>
 
 #include "namespace.h"
-#include "execute.h"
 #include "log.h"
 
 int main(int argc, char *argv[]) {

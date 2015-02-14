@@ -19,19 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <libudev.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
-#include <systemd/sd-login.h>
 #include "grdev.h"
 #include "grdev-internal.h"
 #include "hashmap.h"
 #include "login-shared.h"
 #include "macro.h"
-#include "udev-util.h"
 #include "util.h"
 
 static void pipe_enable(grdev_pipe *pipe);

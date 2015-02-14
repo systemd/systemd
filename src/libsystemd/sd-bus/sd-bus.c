@@ -20,19 +20,16 @@
 ***/
 
 #include <endian.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <poll.h>
-#include <byteswap.h>
 #include <sys/mman.h>
 #include <pthread.h>
 
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
-#include "set.h"
 #include "missing.h"
 #include "def.h"
 #include "cgroup-util.h"
@@ -45,8 +42,6 @@
 #include "bus-socket.h"
 #include "bus-kernel.h"
 #include "bus-control.h"
-#include "bus-introspect.h"
-#include "bus-signature.h"
 #include "bus-objects.h"
 #include "bus-util.h"
 #include "bus-container.h"

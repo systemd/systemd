@@ -19,29 +19,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <stdarg.h>
-#include <ctype.h>
-#include <sys/prctl.h>
 #include <sys/time.h>
 #include <linux/rtc.h>
 
 #include "macro.h"
 #include "util.h"
-#include "log.h"
-#include "strv.h"
 #include "clock-util.h"
-#include "fileio.h"
 
 int clock_get_hwclock(struct tm *tm) {
         _cleanup_close_ int fd = -1;

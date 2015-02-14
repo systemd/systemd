@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -29,14 +27,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/prctl.h>
-#include <linux/sched.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
-#include <pwd.h>
-#include <sys/mount.h>
-#include <linux/fs.h>
-#include <linux/oom.h>
 #include <poll.h>
 #include <glob.h>
 #include <sys/personality.h>
@@ -80,11 +72,13 @@
 #include "errno-list.h"
 #include "af-list.h"
 #include "mkdir.h"
-#include "apparmor-util.h"
 #include "smack-util.h"
 #include "bus-endpoint.h"
-#include "label.h"
 #include "cap-list.h"
+
+#ifdef HAVE_APPARMOR
+#include "apparmor-util.h"
+#endif
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

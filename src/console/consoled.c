@@ -21,11 +21,9 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 #include "consoled.h"
 #include "log.h"
 #include "sd-daemon.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;

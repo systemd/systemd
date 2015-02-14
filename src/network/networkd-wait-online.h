@@ -25,7 +25,6 @@
 #include "sd-rtnl.h"
 #include "sd-network.h"
 
-#include "util.h"
 #include "hashmap.h"
 
 typedef struct Manager Manager;

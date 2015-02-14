@@ -19,18 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <assert.h>
-#include <time.h>
-#include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <poll.h>
 #include <sys/epoll.h>
-#include <sys/un.h>
-#include <fcntl.h>
 #include <ctype.h>
 
 #include "sd-daemon.h"

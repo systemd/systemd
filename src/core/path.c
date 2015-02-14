@@ -21,7 +21,6 @@
 
 #include <sys/inotify.h>
 #include <sys/epoll.h>
-#include <sys/ioctl.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -31,7 +30,6 @@
 #include "mkdir.h"
 #include "dbus-path.h"
 #include "special.h"
-#include "path-util.h"
 #include "macro.h"
 #include "bus-util.h"
 #include "bus-error.h"

@@ -20,16 +20,13 @@
 ***/
 
 #include <endian.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
-#include <byteswap.h>
 
 #include "util.h"
 #include "macro.h"
 #include "missing.h"
-#include "strv.h"
 #include "utf8.h"
 #include "sd-daemon.h"
 

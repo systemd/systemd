@@ -28,15 +28,12 @@
  * increase it at the slightly cost of lengthen test-duration on other machines.
  */
 
-#include <errno.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "barrier.h"
-#include "def.h"
 #include "util.h"
 
 /* 20ms to test deadlocks; All timings use multiples of this constant as

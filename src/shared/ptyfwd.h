@@ -21,11 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/types.h>
-#include <signal.h>
 #include <stdbool.h>
 
-#include "util.h"
 #include "sd-event.h"
 
 typedef struct PTYForward PTYForward;

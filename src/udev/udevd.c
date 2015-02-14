@@ -26,25 +26,19 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
-#include <time.h>
 #include <getopt.h>
-#include <dirent.h>
 #include <sys/file.h>
 #include <sys/time.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
 #include <sys/mount.h>
-#include <poll.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
-#include <sys/utsname.h>
 
 #include "sd-daemon.h"
 #include "rtnl-util.h"

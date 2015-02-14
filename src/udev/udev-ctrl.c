@@ -10,12 +10,10 @@
  */
 
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>

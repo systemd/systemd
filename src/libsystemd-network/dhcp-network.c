@@ -18,7 +18,6 @@
 ***/
 
 #include <errno.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <linux/if_packet.h>
@@ -26,7 +25,6 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <linux/filter.h>
 
 #include "socket-util.h"

@@ -20,11 +20,7 @@
     along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
-#include <arpa/inet.h>
-#include <net/if.h>
 
-#include "sd-rtnl.h"
 #include "networkd-netdev-bridge.h"
 #include "missing.h"
 

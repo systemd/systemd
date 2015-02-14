@@ -36,7 +36,6 @@
 #include "install.h"
 #include "conf-parser.h"
 #include "conf-files.h"
-#include "specifier.h"
 #include "install-printf.h"
 #include "special.h"
 

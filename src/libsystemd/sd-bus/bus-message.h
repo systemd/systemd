@@ -23,11 +23,9 @@
 
 #include <stdbool.h>
 #include <byteswap.h>
-#include <sys/socket.h>
 
 #include "macro.h"
 #include "sd-bus.h"
-#include "kdbus.h"
 #include "time-util.h"
 #include "bus-creds.h"
 #include "bus-protocol.h"

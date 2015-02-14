@@ -21,18 +21,12 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-#include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <endian.h>
-#include <byteswap.h>
-#include <assert.h>
-#include <limits.h>
-#include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/stat.h>

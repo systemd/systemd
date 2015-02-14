@@ -24,16 +24,13 @@
 
 #include "siphash24.h"
 #include "hashmap.h"
-#include "event-util.h"
 
 #include "lldp-tlv.h"
 #include "lldp-port.h"
 #include "sd-lldp.h"
 #include "prioq.h"
-#include "strv.h"
 #include "lldp-internal.h"
 #include "lldp-util.h"
-#include "ether-addr-util.h"
 
 typedef enum LLDPAgentRXState {
         LLDP_AGENT_RX_WAIT_PORT_OPERATIONAL = 4,

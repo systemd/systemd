@@ -20,13 +20,11 @@
 ***/
 
 #include <stdlib.h>
-#include <getopt.h>
 
 #include "manager.h"
 #include "bus-util.h"
 #include "log.h"
 #include "strv.h"
-#include "build.h"
 #include "pager.h"
 #include "analyze-verify.h"
 

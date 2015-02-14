@@ -19,13 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 
 #include "locale-setup.h"
 #include "util.h"
-#include "macro.h"
 #include "virt.h"
 #include "fileio.h"
 #include "strv.h"

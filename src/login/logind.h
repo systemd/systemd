@@ -22,12 +22,10 @@
 ***/
 
 #include <stdbool.h>
-#include <inttypes.h>
 #include <libudev.h>
 
 #include "sd-event.h"
 #include "sd-bus.h"
-#include "util.h"
 #include "list.h"
 #include "hashmap.h"
 #include "set.h"
@@ -35,9 +33,6 @@
 typedef struct Manager Manager;
 
 #include "logind-device.h"
-#include "logind-seat.h"
-#include "logind-session.h"
-#include "logind-user.h"
 #include "logind-inhibit.h"
 #include "logind-button.h"
 #include "logind-action.h"

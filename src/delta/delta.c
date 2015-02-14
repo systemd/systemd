@@ -21,7 +21,6 @@
 ***/
 
 #include <errno.h>
-#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>

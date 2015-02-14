@@ -23,8 +23,6 @@
 
 typedef struct Socket Socket;
 
-#include "manager.h"
-#include "unit.h"
 #include "socket-util.h"
 #include "mount.h"
 #include "service.h"

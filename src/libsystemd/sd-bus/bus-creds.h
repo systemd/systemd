@@ -24,7 +24,6 @@
 #include <stdbool.h>
 
 #include "sd-bus.h"
-#include "time-util.h"
 
 struct sd_bus_creds {
         bool allocated;

@@ -15,19 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "udev.h"
 #include "udev-util.h"

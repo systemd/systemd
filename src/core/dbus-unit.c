@@ -24,11 +24,8 @@
 #include "selinux-access.h"
 #include "cgroup-util.h"
 #include "strv.h"
-#include "path-util.h"
-#include "fileio.h"
 #include "bus-common-errors.h"
 #include "dbus.h"
-#include "dbus-manager.h"
 #include "dbus-unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);

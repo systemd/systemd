@@ -32,7 +32,6 @@
 #include "journal-verify.h"
 #include "lookup3.h"
 #include "compress.h"
-#include "fsprg.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {
         unsigned n, i, j, k;

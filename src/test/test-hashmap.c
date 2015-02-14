@@ -17,8 +17,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include "strv.h"
 #include "util.h"
 #include "hashmap.h"
 

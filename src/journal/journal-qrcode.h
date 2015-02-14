@@ -21,8 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
 #include <stdio.h>
 
 #include "systemd/sd-id128.h"

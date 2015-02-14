@@ -22,7 +22,6 @@
 #include "sd-event.h"
 #include "sd-daemon.h"
 #include "mkdir.h"
-#include "label.h"
 #include "capability.h"
 #include "selinux-util.h"
 

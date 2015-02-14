@@ -21,16 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <stdbool.h>
-#include <sys/epoll.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 
 #include "sd-event.h"
 #include "journal-file.h"
 #include "hashmap.h"
-#include "util.h"
 #include "audit.h"
 #include "journald-rate-limit.h"
 #include "list.h"

@@ -24,9 +24,7 @@
 typedef struct User User;
 
 #include "list.h"
-#include "util.h"
 #include "logind.h"
-#include "logind-session.h"
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */

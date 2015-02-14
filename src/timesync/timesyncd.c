@@ -21,7 +21,6 @@
 
 #include "sd-event.h"
 #include "sd-daemon.h"
-#include "mkdir.h"
 #include "capability.h"
 #include "clock-util.h"
 #include "network-util.h"

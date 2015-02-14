@@ -22,7 +22,6 @@
 /* See RFC 2516 */
 
 #include <sys/ioctl.h>
-#include <linux/ppp_defs.h>
 #include <linux/ppp-ioctl.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -36,7 +35,6 @@
 #include "socket-util.h"
 #include "async.h"
 #include "refcnt.h"
-#include "unaligned.h"
 #include "utf8.h"
 
 #define PPPOE_MAX_PACKET_SIZE 1484

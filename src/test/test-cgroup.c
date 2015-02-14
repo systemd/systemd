@@ -25,7 +25,6 @@
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "util.h"
-#include "log.h"
 
 int main(int argc, char*argv[]) {
         char *path;

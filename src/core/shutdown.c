@@ -20,21 +20,15 @@
 ***/
 
 #include <sys/mman.h>
-#include <sys/types.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
-#include <sys/syscall.h>
-#include <fcntl.h>
-#include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 #include <getopt.h>
 
 #include "missing.h"
@@ -42,14 +36,12 @@
 #include "fileio.h"
 #include "umount.h"
 #include "util.h"
-#include "mkdir.h"
 #include "virt.h"
 #include "watchdog.h"
 #include "killall.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "switch-root.h"
-#include "strv.h"
 
 #define FINALIZE_ATTEMPTS 50
 

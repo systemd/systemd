@@ -36,7 +36,6 @@ typedef enum HandleAction {
 } HandleAction;
 
 #include "logind.h"
-#include "logind-inhibit.h"
 
 int manager_handle_action(
                 Manager *m,

@@ -25,8 +25,6 @@
 #include "log.h"
 
 #include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "bus-dump.h"

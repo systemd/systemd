@@ -21,13 +21,9 @@
 
 #include <sys/socket.h>
 #include <poll.h>
-#include <sys/types.h>
 #include <sys/timerfd.h>
-#include <assert.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <stddef.h>
 
 #include "systemd/sd-daemon.h"

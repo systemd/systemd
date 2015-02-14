@@ -25,8 +25,6 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <sys/signalfd.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
 
 #include "macro.h"

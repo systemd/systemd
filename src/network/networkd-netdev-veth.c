@@ -19,8 +19,6 @@
     along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <netinet/ether.h>
-#include <arpa/inet.h>
 #include <net/if.h>
 #include <linux/veth.h>
 

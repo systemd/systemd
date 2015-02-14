@@ -19,13 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <limits.h>
-#include <dirent.h>
 #include <getopt.h>
 #include <libkmod.h>
 
@@ -33,7 +30,6 @@
 #include "util.h"
 #include "strv.h"
 #include "conf-files.h"
-#include "fileio.h"
 #include "build.h"
 
 static char **arg_proc_cmdline_modules = NULL;

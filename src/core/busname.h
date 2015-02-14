@@ -24,7 +24,6 @@
 typedef struct BusName BusName;
 typedef struct BusNamePolicy BusNamePolicy;
 
-#include "unit.h"
 
 typedef enum BusNameState {
         BUSNAME_DEAD,

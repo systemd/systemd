@@ -22,17 +22,12 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 #include <unistd.h>
 
 #include "base-filesystem.h"
 #include "log.h"
 #include "macro.h"
-#include "strv.h"
 #include "util.h"
-#include "label.h"
-#include "mkdir.h"
 
 typedef struct BaseFilesystem {
         const char *dir;

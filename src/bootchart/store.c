@@ -25,8 +25,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>

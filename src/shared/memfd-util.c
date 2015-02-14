@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 
@@ -30,7 +29,6 @@
 #endif
 
 #include "util.h"
-#include "bus-label.h"
 #include "memfd-util.h"
 #include "utf8.h"
 #include "missing.h"

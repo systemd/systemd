@@ -27,9 +27,7 @@
 #include <systemd/sd-event.h>
 #include <systemd/sd-login.h>
 #include "bus-util.h"
-#include "event-util.h"
 #include "macro.h"
-#include "set.h"
 #include "sysview.h"
 #include "sysview-internal.h"
 #include "udev-util.h"

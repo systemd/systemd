@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <pwd.h>
 
-#include "sd-id128.h"
 #include "sd-messages.h"
 #include "strv.h"
 #include "mkdir.h"
@@ -32,10 +31,7 @@
 #include "special.h"
 #include "sleep-config.h"
 #include "fileio-label.h"
-#include "label.h"
-#include "utf8.h"
 #include "unit-name.h"
-#include "virt.h"
 #include "audit.h"
 #include "bus-util.h"
 #include "bus-error.h"

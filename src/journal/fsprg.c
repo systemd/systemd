@@ -30,7 +30,6 @@
 
 #include <gcrypt.h>
 #include <string.h>
-#include <assert.h>
 
 #include "fsprg.h"
 

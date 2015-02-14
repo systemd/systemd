@@ -20,15 +20,12 @@
 ***/
 
 #include <errno.h>
-#include <libudev.h>
 #include <stdlib.h>
-#include <string.h>
 #include "consoled.h"
 #include "grdev.h"
 #include "idev.h"
 #include "log.h"
 #include "sd-bus.h"
-#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-login.h"
 #include "sysview.h"

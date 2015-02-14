@@ -25,7 +25,6 @@
 #include "sd-resolve.h"
 #include "sd-network.h"
 #include "list.h"
-#include "socket-util.h"
 #include "ratelimit.h"
 
 typedef struct Manager Manager;

@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
-#include <pwd.h>
 #include <locale.h>
 #include <fcntl.h>
 #include <netinet/in.h>

@@ -20,14 +20,9 @@
 ***/
 
 #include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <locale.h>
-#include <errno.h>
 
 #include "def.h"
 #include "ring.h"
-#include "util.h"
 
 static void test_ring(void) {
         static const char buf[8192];

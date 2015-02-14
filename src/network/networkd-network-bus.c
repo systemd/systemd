@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "bus-util.h"
-#include "bus-label.h"
 #include "strv.h"
 
 #include "networkd.h"

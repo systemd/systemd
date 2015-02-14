@@ -22,11 +22,8 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <getopt.h>
 #include <locale.h>
-#include <string.h>
-#include <sys/timex.h>
 
 #include "sd-bus.h"
 #include "bus-util.h"

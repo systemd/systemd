@@ -20,12 +20,9 @@
 ***/
 
 #include <net/if.h>
-#include <linux/if_link.h>
 
 #include "networkd-netdev-ipvlan.h"
-#include "network-internal.h"
 #include "conf-parser.h"
-#include "list.h"
 
 static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
         [NETDEV_IPVLAN_MODE_L2] = "L2",

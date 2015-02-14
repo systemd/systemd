@@ -22,7 +22,6 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -37,7 +36,6 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "bus-common-errors.h"
-#include "fileio.h"
 #include "udev-util.h"
 #include "path-util.h"
 #include "socket-util.h"

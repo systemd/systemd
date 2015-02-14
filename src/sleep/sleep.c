@@ -22,10 +22,8 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <string.h>
 #include <getopt.h>
 
-#include "sd-id128.h"
 #include "sd-messages.h"
 #include "log.h"
 #include "util.h"
