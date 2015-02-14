@@ -81,14 +81,14 @@ static int proxy_create_destination(Proxy *p, const char *destination, const cha
                 b->fake_pids.pid = p->local_creds.pid;
                 b->fake_pids_valid = true;
 
-                b->fake_creds.uid = p->local_creds.uid;
+                b->fake_creds.uid = UID_INVALID;
                 b->fake_creds.euid = p->local_creds.uid;
-                b->fake_creds.suid = p->local_creds.uid;
-                b->fake_creds.fsuid = p->local_creds.uid;
-                b->fake_creds.gid = p->local_creds.gid;
+                b->fake_creds.suid = UID_INVALID;
+                b->fake_creds.fsuid = UID_INVALID;
+                b->fake_creds.gid = GID_INVALID;
                 b->fake_creds.egid = p->local_creds.gid;
-                b->fake_creds.sgid = p->local_creds.gid;
-                b->fake_creds.fsgid = p->local_creds.gid;
+                b->fake_creds.sgid = GID_INVALID;
+                b->fake_creds.fsgid = GID_INVALID;
                 b->fake_creds_valid = true;
         }
 
