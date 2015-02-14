@@ -248,6 +248,10 @@ mouse:ps2:*:name:ImExPS/2 Logitech Wheel Mouse:
 # Microsoft
 ##########################################
 
+mouse:usb:v045ep0040:name:Microsoft Microsoft 3-Button Mouse with
+IntelliEye(TM):
+ MOUSE_DPI=400@125
+
 # Note: unsure that these work, it's likely that all devices on these
 # receivers show up with the same vid/pid/name
 
