@@ -2,9 +2,6 @@ systemd System and Service Manager
 
 CHANGES WITH 219:
 
-        (This changes list is very incomplete, and the release is
-        weeks out still.)
-
         * Introduce a new API "sd-hwdb.h" for querying the hardware
           metadata database. With this minimal interface one can query
           and enumerate the udev hwdb, decoupled from the old libudev
@@ -301,19 +298,20 @@ CHANGES WITH 219:
           of multiple space-separated matches per item.
 
         Contributions from: Alban Crequy, Alin Rauta, Andrey Chaser,
-        Bastien Nocera, Carlos Garnacho, Carlos Morata Castillo, Chris
-        Atkinson, Chris J. Arges, Christian Seiler, Christoph Brill,
-        Colin Guthrie, Colin Walters, Cristian Rodríguez, Daniele
-        Medri, Daniel Mack, Dave Reisner, David Herrmann, Erik
-        Auerswald, Filipe Brandenburger, Frank Theile, Gabor Kelemen,
-        Gabriel de Perthuis, Harald Hoyer, Hui Wang, Ivan Shapovalov,
-        Jan Engelhardt, Jan Synacek, Jay Faulkner, Johannes Hölzl,
-        Jonas Ådahl, Jonathan Boulle, Josef Andersson, Kay Sievers,
-        Ken Werner, Lennart Poettering, Lucas De Marchi, Lukas Nykryn,
-        Lukasz Skalski, Luke Shumaker, Mantas Mikulėnas, Manuel
-        Mendez, Marcel Holtmann, Marc Schmitzer, Marko Myllynen,
-        Martin Pitt, Maxim Mikityanskiy, Michael Biebl, Michael
-        Marineau, Michael Olbrich, Michal Schmidt, Mindaugas
+        Bastien Nocera, Bruno Bottazzini, Carlos Garnacho, Carlos
+        Morata Castillo, Chris Atkinson, Chris J. Arges, Christian
+        Kirbach, Christian Seiler, Christoph Brill, Colin Guthrie,
+        Colin Walters, Cristian Rodríguez, Daniele Medri, Daniel Mack,
+        Dave Reisner, David Herrmann, Djalal Harouni, Erik Auerswald,
+        Filipe Brandenburger, Frank Theile, Gabor Kelemen, Gabriel de
+        Perthuis, Harald Hoyer, Hui Wang, Ivan Shapovalov, Jan
+        Engelhardt, Jan Synacek, Jay Faulkner, Johannes Hölzl, Jonas
+        Ådahl, Jonathan Boulle, Josef Andersson, Kay Sievers, Ken
+        Werner, Lennart Poettering, Lucas De Marchi, Lukas Märdian,
+        Lukas Nykryn, Lukasz Skalski, Luke Shumaker, Mantas Mikulėnas,
+        Manuel Mendez, Marcel Holtmann, Marc Schmitzer, Marko
+        Myllynen, Martin Pitt, Maxim Mikityanskiy, Michael Biebl,
+        Michael Marineau, Michael Olbrich, Michal Schmidt, Mindaugas
         Baranauskas, Moez Bouhlel, Naveen Kumar, Patrik Flykt, Paul
         Martin, Peter Hutterer, Peter Mattern, Philippe De Swert,
         Piotr Drąg, Rafael Ferreira, Rami Rosen, Robert Milasan, Ronny
@@ -321,10 +319,10 @@ CHANGES WITH 219:
         Shawn Landden, Stéphane Graber, Susant Sahani, Sylvain
         Plantefève, Thomas Hindoe Paaboel Andersen, Tim JP, Tom
         Gundersen, Topi Miettinen, Torstein Husebø, Umut Tezduyar
-        Lindskog, Veres Lajos, Vincent Batts, Wieland Hoffmann,
-        Zbigniew Jędrzejewski-Szmek
+        Lindskog, Veres Lajos, Vincent Batts, WaLyong Cho, Wieland
+        Hoffmann, Zbigniew Jędrzejewski-Szmek
 
-        -- Berlin, 2015-02-??
+        -- Berlin, 2015-02-16
 
 CHANGES WITH 218:
 
