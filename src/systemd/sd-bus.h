@@ -371,7 +371,7 @@ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
 int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 4);
-int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap);
+int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) _sd_printf_(3,0);
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
