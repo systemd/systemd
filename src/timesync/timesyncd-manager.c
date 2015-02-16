@@ -98,7 +98,7 @@
  * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
  * in seconds relative to 0h on 1 January 1900."
  */
-#define OFFSET_1900_1970        2208988800UL
+#define OFFSET_1900_1970        UINT64_C(2208988800)
 
 #define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
