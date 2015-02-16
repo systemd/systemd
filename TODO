@@ -34,6 +34,10 @@ External:
 
 Features:
 
+* journalctl --verify: don't show files that are currently being
+  written to as FAIL, but instead show that their are being written
+  to.
+
 * nspawn: allow configuring cgroup (and other) properties via
   --property= when invoking from the command line.
 
