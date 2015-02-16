@@ -113,19 +113,19 @@ bool net_match_config(const struct ether_addr *match_mac,
                 return false;
 
         if (!strv_isempty(match_paths) &&
-            (!dev_path || !strv_fnmatch(dev_path, match_paths, 0)))
+            (!dev_path || !strv_fnmatch(match_paths, dev_path, 0)))
                 return false;
 
         if (!strv_isempty(match_drivers) &&
-            (!dev_driver || !strv_fnmatch(dev_driver, match_drivers, 0)))
+            (!dev_driver || !strv_fnmatch(match_drivers, dev_driver, 0)))
                 return false;
 
         if (!strv_isempty(match_types) &&
-            (!dev_type || !strv_fnmatch_or_empty(dev_type, match_types, 0)))
+            (!dev_type || !strv_fnmatch_or_empty(match_types, dev_type, 0)))
                 return false;
 
         if (!strv_isempty(match_names) &&
-            (!dev_name || !strv_fnmatch_or_empty(dev_name, match_names, 0)))
+            (!dev_name || !strv_fnmatch_or_empty(match_names, dev_name, 0)))
                 return false;
 
         return true;

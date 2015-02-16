@@ -310,7 +310,7 @@ static int compare_unit_info(const void *a, const void *b) {
 }
 
 static bool output_show_unit(const UnitInfo *u, char **patterns) {
-        if (!strv_fnmatch_or_empty(u->id, patterns, FNM_NOESCAPE))
+        if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
         if (arg_types) {
@@ -1247,7 +1247,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
 }
 
 static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
-        if (!strv_fnmatch_or_empty(basename(u->path), patterns, FNM_NOESCAPE))
+        if (!strv_fnmatch_or_empty(patterns, basename(u->path), FNM_NOESCAPE))
                 return false;
 
         if (!strv_isempty(arg_types)) {
@@ -1720,7 +1720,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
 }
 
 static bool output_show_machine(const char *name, char **patterns) {
-        return strv_fnmatch_or_empty(name, patterns, FNM_NOESCAPE);
+        return strv_fnmatch_or_empty(patterns, name, FNM_NOESCAPE);
 }
 
 static int get_machine_list(
@@ -2073,7 +2073,7 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipp
 }
 
 static bool output_show_job(struct job_info *job, char **patterns) {
-        return strv_fnmatch_or_empty(job->name, patterns, FNM_NOESCAPE);
+        return strv_fnmatch_or_empty(patterns, job->name, FNM_NOESCAPE);
 }
 
 static int list_jobs(sd_bus *bus, char **args) {
