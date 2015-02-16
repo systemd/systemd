@@ -1373,3 +1373,60 @@ bluetooth:v01C6*
 
 bluetooth:v01C7*
  ID_VENDOR_FROM_DATABASE=Abiogenix Inc.
+
+bluetooth:v01C8*
+ ID_VENDOR_FROM_DATABASE=Poly-Control ApS
+
+bluetooth:v01C9*
+ ID_VENDOR_FROM_DATABASE=Avi-on
+
+bluetooth:v01CA*
+ ID_VENDOR_FROM_DATABASE=Laerdal Medical AS
+
+bluetooth:v01CB*
+ ID_VENDOR_FROM_DATABASE=Fetch My Pet
+
+bluetooth:v01CC*
+ ID_VENDOR_FROM_DATABASE=Sam Labs Ltd.
+
+bluetooth:v01CD*
+ ID_VENDOR_FROM_DATABASE=Chengdu Synwing Technology Ltd
+
+bluetooth:v01CE*
+ ID_VENDOR_FROM_DATABASE=HOUWA SYSTEM DESIGN, k.k.
+
+bluetooth:v01CF*
+ ID_VENDOR_FROM_DATABASE=BSH
+
+bluetooth:v01D0*
+ ID_VENDOR_FROM_DATABASE=Primus Inter Pares Ltd
+
+bluetooth:v01D1*
+ ID_VENDOR_FROM_DATABASE=August
+
+bluetooth:v01D2*
+ ID_VENDOR_FROM_DATABASE=Gill Electronics
+
+bluetooth:v01D3*
+ ID_VENDOR_FROM_DATABASE=Sky Wave Design
+
+bluetooth:v01D4*
+ ID_VENDOR_FROM_DATABASE=Newlab S.r.l.
+
+bluetooth:v01D5*
+ ID_VENDOR_FROM_DATABASE=ELAD srl
+
+bluetooth:v01D6*
+ ID_VENDOR_FROM_DATABASE=G-wearables inc.
+
+bluetooth:v01D7*
+ ID_VENDOR_FROM_DATABASE=Squadrone Systems Inc.
+
+bluetooth:v01D8*
+ ID_VENDOR_FROM_DATABASE=Code Corporation
+
+bluetooth:v01D9*
+ ID_VENDOR_FROM_DATABASE=Savant Systems LLC
+
+bluetooth:v01DA*
+ ID_VENDOR_FROM_DATABASE=Logitech International SA
