@@ -540,6 +540,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         Context *c = userdata;
         int64_t utc;
         struct timespec ts;
+        usec_t start;
         struct tm* tm;
         int r;
 
@@ -586,6 +587,13 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
                 return r;
         if (r == 0)
                 return 1;
+
+        /* adjust ts for time spent in program */
+        r = sd_bus_message_get_monotonic_usec(m, &start);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0)
+                timespec_store(&ts, timespec_load(&ts) + (now(CLOCK_MONOTONIC) - start));
 
         /* Set system clock */
         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
@@ -726,6 +734,8 @@ int main(int argc, char *argv[]) {
         r = connect_bus(&context, event, &bus);
         if (r < 0)
                 goto finish;
+
+        (void)sd_bus_negotiate_timestamp(bus, true);
 
         r = context_read_data(&context);
         if (r < 0) {

@@ -168,8 +168,6 @@ Features:
 
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
 
-* timedated should compensate on SetTime for the time spent in polkit
-
 * figure out when we can use the coarse timers
 
 * sd-resolve: drop res_query wrapping, people should call via the bus to resolved instead
