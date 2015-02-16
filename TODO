@@ -32,11 +32,9 @@ External:
 * When lz4 gets an API for lz4 command output, make use of it to
   compress coredumps in a way compatible with /usr/bin/lz4.
 
-Before 219:
-
-* revert Kay's revert orgies
-
 Features:
+
+* add udev rule construct SYSCTL{} to write to sysctls
 
 * assign MESSAGE_ID to log messages about failed services
 
