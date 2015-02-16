@@ -216,7 +216,7 @@ CHANGES WITH 219:
           the host as if their services were running directly on the
           host.
 
-        * systemd-nspawn's --network-beth switch now gained a short
+        * systemd-nspawn's --network-veth switch now gained a short
           version "-n", since with the changes above it is now truly
           useful out-of-the-box. The systemd-nspawn@.service has been
           updated to make use of it too by default.
