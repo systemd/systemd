@@ -268,3 +268,6 @@ _public_ int udev_queue_flush(struct udev_queue *udev_queue) {
 
         return flush_fd(udev_queue->fd);
 }
+
+__asm__(".symver udev_queue_flush,udev_queue_flush@LIBUDEV_183");
+__asm__(".symver udev_queue_get_fd,udev_queue_get_fd@LIBUDEV_183");
