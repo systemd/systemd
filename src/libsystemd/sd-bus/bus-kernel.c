@@ -1152,7 +1152,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call
 
                                 /* Anybody can send us invalid messages, let's just drop them. */
                                 if (r == -EBADMSG || r == -EPROTOTYPE)
-                                        log_debug_errno(r, "Ignoring invalid message: %m");
+                                        log_debug_errno(r, "Ignoring invalid synchronous reply: %m");
                                 else
                                         return r;
                         }

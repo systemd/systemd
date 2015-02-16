@@ -413,6 +413,20 @@ static int message_append_field_uint64(sd_bus_message *m, uint64_t h, uint64_t x
         return 0;
 }
 
+static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
+        assert(m);
+
+        if (BUS_MESSAGE_IS_GVARIANT(m))
+                return message_append_field_uint64(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, cookie);
+        else {
+                /* 64bit cookies are not supported on dbus1 */
+                if (cookie > 0xffffffffUL)
+                        return -ENOTSUP;
+
+                return message_append_field_uint32(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) cookie);
+        }
+}
+
 int bus_message_from_header(
                 sd_bus *bus,
                 void *header,
@@ -737,14 +751,7 @@ static int message_new_reply(
         if (t->reply_cookie == 0)
                 return -ENOTSUP;
 
-        if (BUS_MESSAGE_IS_GVARIANT(t))
-                r = message_append_field_uint64(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_cookie);
-        else {
-                if (t->reply_cookie > 0xffffffff)
-                        return -ENOTSUP;
-
-                r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) t->reply_cookie);
-        }
+        r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -898,7 +905,7 @@ int bus_message_new_synthetic_error(
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = cookie;
 
-        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) t->reply_cookie);
+        r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
                 goto fail;
 
@@ -5818,7 +5825,8 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
                         return -ENOMEM;
 
                 n->reply_cookie = (*m)->reply_cookie;
-                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) n->reply_cookie);
+
+                r = message_append_reply_cookie(n, n->reply_cookie);
                 if (r < 0)
                         return r;
 
