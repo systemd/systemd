@@ -301,7 +301,6 @@ finish:
 }
 
 static int tar_import_job_on_open_disk(ImportJob *j) {
-        _cleanup_close_pair_ int pipefd[2] = { -1 , -1 };
         TarImport *i;
         int r;
 
