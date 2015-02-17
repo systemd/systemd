@@ -689,7 +689,7 @@ static int get_acls_from_arg(Item *item) {
          * afterwards, so the mask can be added now if necessary. */
         r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
-                log_warning_errno(errno, "Failed to parse ACL \"%s\": %m. Ignoring",
+                log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring",
                                   item->argument);
 #else
         log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
