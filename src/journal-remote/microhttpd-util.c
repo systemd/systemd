@@ -179,6 +179,7 @@ static int verify_cert_authorized(gnutls_session_t session) {
                 return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
         log_info("Certificate status: %s", out.data);
+        gnutls_free(out.data);
 
         return status == 0 ? 0 : -EPERM;
 }
