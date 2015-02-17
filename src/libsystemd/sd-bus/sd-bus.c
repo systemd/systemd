@@ -357,6 +357,21 @@ _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
         return free_and_strdup(&bus->description, description);
 }
 
+_public_ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        bus->allow_interactive_authorization = !!b;
+        return 0;
+}
+
+_public_ int sd_bus_get_allow_interactive_authorization(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        return bus->allow_interactive_authorization;
+}
+
 static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
         int r;

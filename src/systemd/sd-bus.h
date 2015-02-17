@@ -143,6 +143,8 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_negotiate_timestamp(sd_bus *bus, int b);
 int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
 int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *creds_mask);
+int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
+int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
 
 int sd_bus_start(sd_bus *ret);
 

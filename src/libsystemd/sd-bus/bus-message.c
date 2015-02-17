@@ -634,6 +634,9 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(m);
         m->bus = sd_bus_ref(bus);
 
+        if (bus->allow_interactive_authorization)
+                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+
         return m;
 }
 

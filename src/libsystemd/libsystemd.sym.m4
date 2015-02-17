@@ -185,6 +185,8 @@ global:
         sd_bus_set_trusted;
         sd_bus_set_monitor;
         sd_bus_set_description;
+        sd_bus_set_allow_interactive_authorization;
+        sd_bus_get_allow_interactive_authorization;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_timestamp;
         sd_bus_negotiate_creds;
