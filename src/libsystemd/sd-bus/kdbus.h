@@ -602,9 +602,15 @@ enum kdbus_recv_flags {
  * @KDBUS_RECV_RETURN_INCOMPLETE_FDS:	One or more file descriptors could not
  *					be installed. These descriptors in
  *					KDBUS_ITEM_FDS will carry the value -1.
+ * @KDBUS_RECV_RETURN_DROPPED_MSGS:	There have been dropped messages since
+ *					the last time a message was received.
+ *					The 'dropped_msgs' counter contains the
+ *					number of messages dropped pool
+ *					overflows or other missed broadcasts.
  */
 enum kdbus_recv_return_flags {
 	KDBUS_RECV_RETURN_INCOMPLETE_FDS	= 1ULL <<  0,
+	KDBUS_RECV_RETURN_DROPPED_MSGS		= 1ULL <<  1,
 };
 
 /**
@@ -614,10 +620,12 @@ enum kdbus_recv_return_flags {
  * @return_flags:	Command return flags, kernel → userspace
  * @priority:		Minimum priority of the messages to de-queue. Lowest
  *			values have the highest priority.
- * @dropped_msgs:	In case the KDBUS_CMD_RECV ioctl returns
- *			-EOVERFLOW, this field will contain the number of
- *			broadcast messages that have been lost since the
- *			last call.
+ * @dropped_msgs:	In case there were any dropped messages since the last
+ *			time a message was received, this will be set to the
+ *			number of lost messages and
+ *			KDBUS_RECV_RETURN_DROPPED_MSGS will be set in
+ *			'return_flags'. This can only happen if the ioctl
+ *			returns 0 or EAGAIN.
  * @msg:		Return storage for received message.
  * @items:		Additional items for this command.
  *
