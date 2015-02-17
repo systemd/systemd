@@ -15,10 +15,9 @@ After=machine.slice
 [Service]
 ExecStart=@rootlibexecdir@/systemd-machined
 BusName=org.freedesktop.machine1
-CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
 WatchdogSec=1min
-PrivateTmp=yes
-PrivateDevices=yes
-PrivateNetwork=yes
-ProtectSystem=full
-ProtectHome=yes
+
+# Note that machined cannot be placed in a mount namespace, since it
+# needs access to the host's mount namespace in order to implement the
+# "machinectl bind" operation.

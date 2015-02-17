@@ -559,6 +559,27 @@ static int method_open_machine_login(sd_bus *bus, sd_bus_message *message, void 
         return bus_machine_method_open_login(bus, message, machine, error);
 }
 
+static int method_bind_mount_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_bind_mount(bus, message, machine, error);
+}
+
 static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(image_unrefp) Image* i = NULL;
         const char *name;
@@ -672,6 +693,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, 0),
         SD_BUS_METHOD("CloneImage", "ssb", NULL, method_clone_image, 0),
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, 0),
+        SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, 0),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END

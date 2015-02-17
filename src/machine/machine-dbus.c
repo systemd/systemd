@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/mount.h>
 
 #include "bus-util.h"
 #include "bus-label.h"
@@ -32,6 +33,7 @@
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "path-util.h"
+#include "mkdir.h"
 #include "bus-internal.h"
 #include "machine.h"
 #include "machine-dbus.h"
@@ -518,6 +520,211 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_send(bus, reply, NULL);
 }
 
+int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
+        bool mount_slave_created = false, mount_slave_mounted = false,
+                mount_tmp_created = false, mount_tmp_mounted = false,
+                mount_outside_created = false, mount_outside_mounted = false;
+        const char *dest, *src;
+        Machine *m = userdata;
+        int read_only, make_directory;
+        pid_t child;
+        siginfo_t si;
+        int r;
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
+
+        r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_directory);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(src) || !path_is_safe(src))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+
+        if (isempty(dest))
+                dest = src;
+        else if (!path_is_absolute(dest) || !path_is_safe(dest))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+
+        /* One day, when bind mounting /proc/self/fd/n works across
+         * namespace boundaries we should rework this logic to make
+         * use of it... */
+
+        p = strjoina("/run/systemd/nspawn/propagate/", m->name, "/");
+        if (laccess(p, F_OK) < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
+
+        /* Our goal is to install a new bind mount into the container,
+           possibly read-only. This is irritatingly complex
+           unfortunately, currently.
+
+           First, we start by creating a private playground in /tmp,
+           that we can mount MS_SLAVE. (Which is necessary, since
+           MS_MOUNT cannot be applied to mounts with MS_SHARED parent
+           mounts.) */
+
+        if (!mkdtemp(mount_slave))
+                return sd_bus_error_set_errnof(error, errno, "Failed to create playground %s: %m", mount_slave);
+
+        mount_slave_created = true;
+
+        if (mount(mount_slave, mount_slave, NULL, MS_BIND, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to make bind mount %s: %m", mount_slave);
+                goto finish;
+        }
+
+        mount_slave_mounted = true;
+
+        if (mount(NULL, mount_slave, NULL, MS_SLAVE, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to remount slave %s: %m", mount_slave);
+                goto finish;
+        }
+
+        /* Second, we mount the source directory to a directory inside
+           of our MS_SLAVE playground. */
+        mount_tmp = strjoina(mount_slave, "/mount");
+        if (mkdir(mount_tmp, 0700) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
+                goto finish;
+        }
+
+        mount_tmp_created = true;
+
+        if (mount(src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to overmount %s: %m", mount_tmp);
+                goto finish;
+        }
+
+        mount_tmp_mounted = true;
+
+        /* Third, we remount the new bind mount read-only if requested. */
+        if (read_only)
+                if (mount(NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
+                        r = sd_bus_error_set_errnof(error, errno, "Failed to remount read-only %s: %m", mount_tmp);
+                        goto finish;
+                }
+
+        /* Fourth, we move the new bind mount into the propagation
+         * directory. This way it will appear there read-only
+         * right-away. */
+
+        mount_outside = strjoina("/run/systemd/nspawn/propagate/", m->name, "/XXXXXX");
+        if (!mkdtemp(mount_outside)) {
+                r = sd_bus_error_set_errnof(error, errno, "Cannot create propagation directory %s: %m", mount_outside);
+                goto finish;
+        }
+
+        mount_outside_created = true;
+
+        if (mount(mount_tmp, mount_outside, NULL, MS_MOVE, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
+                goto finish;
+        }
+
+        mount_outside_mounted = true;
+        mount_tmp_mounted = false;
+
+        (void) rmdir(mount_tmp);
+        mount_tmp_created = false;
+
+        (void) umount(mount_slave);
+        mount_slave_mounted = false;
+
+        (void) rmdir(mount_slave);
+        mount_slave_created = false;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
+                goto finish;
+        }
+
+        child = fork();
+        if (child < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+                goto finish;
+        }
+
+        if (child == 0) {
+                const char *mount_inside;
+                int mntfd;
+                const char *q;
+
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                q = procfs_file_alloca(m->leader, "ns/mnt");
+                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntfd < 0) {
+                        r = log_error_errno(errno, "Failed to open mount namespace of leader: %m");
+                        goto child_fail;
+                }
+
+                if (setns(mntfd, CLONE_NEWNS) < 0) {
+                        r = log_error_errno(errno, "Failed to join namespace of leader: %m");
+                        goto child_fail;
+                }
+
+                if (make_directory)
+                        (void) mkdir_p(dest, 0755);
+
+                /* Fifth, move the mount to the right place inside */
+                mount_inside = strjoina("/run/systemd/nspawn/incoming/", basename(mount_outside));
+                if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
+                        r = log_error_errno(errno, "Failed to mount: %m");
+                        goto child_fail;
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                _exit(EXIT_FAILURE);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to wait for client: %m");
+                goto finish;
+        }
+        if (si.si_code != CLD_EXITED) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                goto finish;
+        }
+        if (si.si_status != EXIT_SUCCESS) {
+
+                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                        r = sd_bus_error_set_errnof(error, r, "Failed to mount in container: %m");
+                else
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client failed.");
+                goto finish;
+        }
+
+        r = sd_bus_reply_method_return(message, NULL);
+
+finish:
+        if (mount_outside_mounted)
+                umount(mount_outside);
+        if (mount_outside_created)
+                rmdir(mount_outside);
+
+        if (mount_tmp_mounted)
+                umount(mount_tmp);
+        if (mount_tmp_created)
+                rmdir(mount_tmp);
+
+        if (mount_slave_mounted)
+                umount(mount_slave);
+        if (mount_slave_created)
+                rmdir(mount_slave);
+
+        return r;
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -537,6 +744,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
         SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("BindMount", "ssbb", NULL, bus_machine_method_bind_mount, 0),
         SD_BUS_VTABLE_END
 };
 
