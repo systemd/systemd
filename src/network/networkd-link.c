@@ -272,6 +272,8 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
 
 static void link_free(Link *link) {
         Address *address;
+        Iterator i;
+        Link *carrier;
 
         if (!link)
                 return;
@@ -308,6 +310,14 @@ static void link_free(Link *link) {
         free(link->state_file);
 
         udev_device_unref(link->udev_device);
+
+        HASHMAP_FOREACH (carrier, link->bound_to_links, i)
+                hashmap_remove(link->bound_to_links, INT_TO_PTR(carrier->ifindex));
+        hashmap_free(link->bound_to_links);
+
+        HASHMAP_FOREACH (carrier, link->bound_by_links, i)
+                hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
+        hashmap_free(link->bound_by_links);
 
         free(link);
 }
@@ -351,19 +361,6 @@ static void link_set_state(Link *link, LinkState state) {
         link->state = state;
 
         link_send_changed(link, "AdministrativeState", NULL);
-
-        return;
-}
-
-void link_drop(Link *link) {
-        if (!link || link->state == LINK_STATE_LINGER)
-                return;
-
-        link_set_state(link, LINK_STATE_LINGER);
-
-        log_link_debug(link, "link removed");
-
-        link_unref(link);
 
         return;
 }
@@ -1148,13 +1145,319 @@ static int link_up(Link *link) {
         return 0;
 }
 
+static int link_down_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        _cleanup_link_unref_ Link *link = userdata;
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0)
+                log_link_warning_errno(link, -r, "%-*s: could not bring down interface: %m", IFNAMSIZ, link->ifname);
+
+        return 1;
+}
+
+static int link_down(Link *link) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "bringing link down");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req,
+                                     RTM_SETLINK, link->ifindex);
+        if (r < 0) {
+                log_link_error(link, "Could not allocate RTM_SETLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
+        if (r < 0) {
+                log_link_error(link, "Could not set link flags: %s",
+                               strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_down_handler, link,
+                               0, NULL);
+        if (r < 0) {
+                log_link_error(link,
+                               "Could not send rtnetlink message: %s",
+                               strerror(-r));
+                return r;
+        }
+
+        link_ref(link);
+
+        return 0;
+}
+
+static int link_handle_bound_to_list(Link *link) {
+        Link *l;
+        Iterator i;
+        int r;
+        bool required_up = false;
+        bool link_is_up = false;
+
+        assert(link);
+
+        if (hashmap_isempty(link->bound_to_links))
+                return 0;
+
+        if (link->flags & IFF_UP)
+                link_is_up = true;
+
+        HASHMAP_FOREACH (l, link->bound_to_links, i)
+                if (link_has_carrier(l)) {
+                        required_up = true;
+                        break;
+                }
+
+        if (!required_up && link_is_up) {
+                r = link_down(link);
+                if (r < 0)
+                        return r;
+        } else if (required_up && !link_is_up) {
+                r = link_up(link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int link_handle_bound_by_list(Link *link) {
+        Iterator i;
+        Link *l;
+        int r;
+
+        assert(link);
+
+        if (hashmap_isempty(link->bound_by_links))
+                return 0;
+
+        HASHMAP_FOREACH (l, link->bound_by_links, i) {
+                r = link_handle_bound_to_list(l);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
+        int r;
+
+        assert(link);
+        assert(carrier);
+
+        if (link == carrier)
+                return 0;
+
+        if (hashmap_get(*h, INT_TO_PTR(carrier->ifindex)))
+                return 0;
+
+        r = hashmap_ensure_allocated(h, NULL);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(*h, INT_TO_PTR(carrier->ifindex), carrier);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int link_new_bound_by_list(Link *link) {
+        Manager *m;
+        Link *carrier;
+        Iterator i;
+        int r;
+        bool list_updated = false;
+
+        assert(link);
+        assert(link->manager);
+
+        m = link->manager;
+
+        HASHMAP_FOREACH (carrier, m->links, i) {
+                if (!carrier->network)
+                        continue;
+
+                if (strv_isempty(carrier->network->bind_carrier))
+                        continue;
+
+                if (strv_fnmatch(carrier->network->bind_carrier, link->ifname, 0)) {
+                        r = link_put_carrier(link, carrier, &link->bound_by_links);
+                        if (r < 0)
+                                return r;
+
+                        list_updated = true;
+                }
+        }
+
+        if (list_updated)
+                link_save(link);
+
+        HASHMAP_FOREACH (carrier, link->bound_by_links, i) {
+                r = link_put_carrier(carrier, link, &carrier->bound_to_links);
+                if (r < 0)
+                        return r;
+
+                link_save(carrier);
+        }
+
+        return 0;
+}
+
+static int link_new_bound_to_list(Link *link) {
+        Manager *m;
+        Link *carrier;
+        Iterator i;
+        int r;
+        bool list_updated = false;
+
+        assert(link);
+        assert(link->manager);
+
+        if (!link->network)
+                return 0;
+
+        if (strv_isempty(link->network->bind_carrier))
+                return 0;
+
+        m = link->manager;
+
+        HASHMAP_FOREACH (carrier, m->links, i) {
+                if (strv_fnmatch(link->network->bind_carrier, carrier->ifname, 0)) {
+                        r = link_put_carrier(link, carrier, &link->bound_to_links);
+                        if (r < 0)
+                                return r;
+
+                        list_updated = true;
+                }
+        }
+
+        if (list_updated)
+                link_save(link);
+
+        HASHMAP_FOREACH (carrier, link->bound_to_links, i) {
+                r = link_put_carrier(carrier, link, &carrier->bound_by_links);
+                if (r < 0)
+                        return r;
+
+                link_save(carrier);
+        }
+
+        return 0;
+}
+
+static int link_new_carrier_maps(Link *link) {
+        int r;
+
+        r = link_new_bound_by_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_new_bound_to_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_handle_bound_to_list(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static void link_free_bound_to_list(Link *link) {
+        Link *bound_to;
+        Iterator i;
+
+        HASHMAP_FOREACH (bound_to, link->bound_to_links, i) {
+                hashmap_remove(link->bound_to_links, INT_TO_PTR(bound_to->ifindex));
+
+                if (hashmap_remove(bound_to->bound_by_links, INT_TO_PTR(link->ifindex)))
+                        link_save(bound_to);
+        }
+
+        return;
+}
+
+static void link_free_bound_by_list(Link *link) {
+        Link *bound_by;
+        Iterator i;
+
+        HASHMAP_FOREACH (bound_by, link->bound_by_links, i) {
+                hashmap_remove(link->bound_by_links, INT_TO_PTR(bound_by->ifindex));
+
+                if (hashmap_remove(bound_by->bound_to_links, INT_TO_PTR(link->ifindex))) {
+                        link_save(bound_by);
+                        link_handle_bound_to_list(bound_by);
+                }
+        }
+
+        return;
+}
+
+static void link_free_carrier_maps(Link *link) {
+        bool list_updated = false;
+
+        assert(link);
+
+        if (!hashmap_isempty(link->bound_to_links)) {
+                link_free_bound_to_list(link);
+                list_updated = true;
+        }
+
+        if (!hashmap_isempty(link->bound_by_links)) {
+                link_free_bound_by_list(link);
+                list_updated = true;
+        }
+
+        if (list_updated)
+                link_save(link);
+
+        return;
+}
+
+void link_drop(Link *link) {
+        if (!link || link->state == LINK_STATE_LINGER)
+                return;
+
+        link_set_state(link, LINK_STATE_LINGER);
+
+        link_free_carrier_maps(link);
+
+        log_link_debug(link, "link removed");
+
+        link_unref(link);
+
+        return;
+}
+
 static int link_joined(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
 
-        if (!(link->flags & IFF_UP)) {
+        if (!hashmap_isempty(link->bound_to_links)) {
+                r = link_handle_bound_to_list(link);
+                if (r < 0)
+                        return r;
+        } else if (!(link->flags & IFF_UP)) {
                 r = link_up(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -1429,6 +1732,14 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         log_link_debug(link, "link state is up-to-date");
 
+        r = link_new_bound_by_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         r = network_get(link->manager, link->udev_device, link->ifname,
                         &link->mac, &network);
         if (r == -ENOENT) {
@@ -1449,6 +1760,10 @@ static int link_initialized_and_synced(sd_rtnl *rtnl, sd_rtnl_message *m,
         }
 
         r = network_apply(link->manager, network, link);
+        if (r < 0)
+                return r;
+
+        r = link_new_bound_to_list(link);
         if (r < 0)
                 return r;
 
@@ -1729,6 +2044,10 @@ static int link_carrier_gained(Link *link) {
                 }
         }
 
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -1742,6 +2061,10 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1782,16 +2105,26 @@ int link_update(Link *link, sd_rtnl_message *m) {
                 link_ref(link);
                 log_link_info(link, "link readded");
                 link_set_state(link, LINK_STATE_ENSLAVING);
+
+                r = link_new_carrier_maps(link);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_rtnl_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
                 log_link_info(link, "renamed to %s", ifname);
 
+                link_free_carrier_maps(link);
+
                 free(link->ifname);
                 link->ifname = strdup(ifname);
                 if (!link->ifname)
                         return -ENOMEM;
+
+                r = link_new_carrier_maps(link);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_rtnl_message_read_u32(m, IFLA_MTU, &mtu);
@@ -2058,6 +2391,39 @@ int link_save(Link *link) {
 
                 fprintf(f, "LLMNR=%s\n",
                         llmnr_support_to_string(link->network->llmnr));
+        }
+
+        if (!hashmap_isempty(link->bound_to_links)) {
+                Link *carrier;
+                Iterator i;
+                bool space = false;
+
+                fputs("CARRIER_BOUND_TO=", f);
+                HASHMAP_FOREACH(carrier, link->bound_to_links, i) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(carrier->ifname, f);
+                        space = true;
+                }
+
+                fputs("\n", f);
+        }
+
+        if (!hashmap_isempty(link->bound_by_links)) {
+                Link *carrier;
+                Iterator i;
+                bool space = false;
+
+                fputs("CARRIER_BOUND_BY=", f);
+                space = false;
+                HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
+                        if (space)
+                                fputc(' ', f);
+                        fputs(carrier->ifname, f);
+                        space = true;
+                }
+
+                fputs("\n", f);
         }
 
         if (link->dhcp_lease) {

@@ -208,6 +208,7 @@ void network_free(Network *network) {
         strv_free(network->ntp);
         strv_free(network->dns);
         strv_free(network->domains);
+        strv_free(network->bind_carrier);
 
         netdev_unref(network->bridge);
 

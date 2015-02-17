@@ -48,6 +48,7 @@ Network.LLMNR,               config_parse_llmnr,                 0,             
 Network.NTP,                 config_parse_strv,                  0,                             offsetof(Network, ntp)
 Network.IPForward,           config_parse_address_family_boolean,0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,        config_parse_bool,                  0,                             offsetof(Network, ip_masquerade)
+Network.BindCarrier,         config_parse_strv,                  0,                             offsetof(Network, bind_carrier)
 Address.Address,             config_parse_address,               0,                             0
 Address.Peer,                config_parse_address,               0,                             0
 Address.Broadcast,           config_parse_broadcast,             0,                             0

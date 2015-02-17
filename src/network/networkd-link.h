@@ -85,6 +85,9 @@ struct Link {
 
         sd_lldp *lldp;
         char *lldp_file;
+
+        Hashmap *bound_by_links;
+        Hashmap *bound_to_links;
 };
 
 Link *link_unref(Link *link);

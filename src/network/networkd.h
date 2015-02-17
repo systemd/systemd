@@ -151,7 +151,7 @@ struct Network {
         Hashmap *fdb_entries_by_section;
 
         bool wildcard_domain;
-        char **domains, **dns, **ntp;
+        char **domains, **dns, **ntp, **bind_carrier;
 
         LLMNRSupport llmnr;
 

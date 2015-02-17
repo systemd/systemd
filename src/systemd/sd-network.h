@@ -116,6 +116,12 @@ int sd_network_link_get_lldp(int ifindex, char **lldp);
 /* Get the DNS domain names for a given link. */
 int sd_network_link_get_domains(int ifindex, char ***domains);
 
+/* Get the CARRIERS to which current link is bound to. */
+int sd_network_link_get_carrier_bound_to(int ifindex, char ***carriers);
+
+/* Get the CARRIERS that are bound to current link. */
+int sd_network_link_get_carrier_bound_by(int ifindex, char ***carriers);
+
 /* Returns whether or not domains that don't match any link should be resolved
  * on this link. 1 for yes, 0 for no and negative value for error */
 int sd_network_link_get_wildcard_domain(int ifindex);

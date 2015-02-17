@@ -261,6 +261,14 @@ _public_ int sd_network_link_get_domains(int ifindex, char ***ret) {
         return network_get_link_strv("DOMAINS", ifindex, ret);
 }
 
+_public_ int sd_network_link_get_carrier_bound_to(int ifindex, char ***ret) {
+        return network_get_link_strv("CARRIER_BOUND_TO", ifindex, ret);
+}
+
+_public_ int sd_network_link_get_carrier_bound_by(int ifindex, char ***ret) {
+        return network_get_link_strv("CARRIER_BOUND_BY", ifindex, ret);
+}
+
 _public_ int sd_network_link_get_wildcard_domain(int ifindex) {
         int r;
         _cleanup_free_ char *p = NULL, *s = NULL;

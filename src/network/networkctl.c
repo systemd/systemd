@@ -508,6 +508,8 @@ static int link_status_one(
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
         const char *on_color_operational, *off_color_operational,
                    *on_color_setup, *off_color_setup;
+        _cleanup_strv_free_ char **carrier_bound_to = NULL;
+        _cleanup_strv_free_ char **carrier_bound_by = NULL;
         struct ether_addr e;
         unsigned iftype;
         int r, ifindex;
@@ -606,12 +608,15 @@ static int link_status_one(
 
         sd_network_link_get_network_file(ifindex, &network);
 
+        sd_network_link_get_carrier_bound_to(ifindex, &carrier_bound_to);
+        sd_network_link_get_carrier_bound_by(ifindex, &carrier_bound_by);
+
         printf("%s%s%s %i: %s\n", on_color_operational, draw_special_char(DRAW_BLACK_CIRCLE), off_color_operational, ifindex, name);
 
-        printf("   Link File: %s\n"
-               "Network File: %s\n"
-               "        Type: %s\n"
-               "       State: %s%s%s (%s%s%s)\n",
+        printf("       Link File: %s\n"
+               "    Network File: %s\n"
+               "            Type: %s\n"
+               "           State: %s%s%s (%s%s%s)\n",
                strna(link),
                strna(network),
                strna(t),
@@ -619,13 +624,13 @@ static int link_status_one(
                on_color_setup, strna(setup_state), off_color_setup);
 
         if (path)
-                printf("        Path: %s\n", path);
+                printf("            Path: %s\n", path);
         if (driver)
-                printf("      Driver: %s\n", driver);
+                printf("          Driver: %s\n", driver);
         if (vendor)
-                printf("      Vendor: %s\n", vendor);
+                printf("          Vendor: %s\n", vendor);
         if (model)
-                printf("       Model: %s\n", model);
+                printf("           Model: %s\n", model);
 
         if (have_mac) {
                 _cleanup_free_ char *description = NULL;
@@ -634,23 +639,29 @@ static int link_status_one(
                 ieee_oui(hwdb, &e, &description);
 
                 if (description)
-                        printf("  HW Address: %s (%s)\n", ether_addr_to_string(&e, ea), description);
+                        printf("      HW Address: %s (%s)\n", ether_addr_to_string(&e, ea), description);
                 else
-                        printf("  HW Address: %s\n", ether_addr_to_string(&e, ea));
+                        printf("      HW Address: %s\n", ether_addr_to_string(&e, ea));
         }
 
         if (mtu > 0)
-                printf("         MTU: %u\n", mtu);
+                printf("             MTU: %u\n", mtu);
 
-        dump_addresses(rtnl, "     Address: ", ifindex);
-        dump_gateways(rtnl, hwdb, "     Gateway: ", ifindex);
+        dump_addresses(rtnl, "         Address: ", ifindex);
+        dump_gateways(rtnl, hwdb, "         Gateway: ", ifindex);
 
         if (!strv_isempty(dns))
-                dump_list("         DNS: ", dns);
+                dump_list("             DNS: ", dns);
         if (!strv_isempty(domains))
-                dump_list("      Domain: ", domains);
+                dump_list("          Domain: ", domains);
         if (!strv_isempty(ntp))
-                dump_list("         NTP: ", ntp);
+                dump_list("             NTP: ", ntp);
+
+        if (!strv_isempty(carrier_bound_to))
+                dump_list("Carrier Bound To: ", carrier_bound_to);
+
+        if (!strv_isempty(carrier_bound_by))
+                dump_list("Carrier Bound By: ", carrier_bound_by);
 
         return 0;
 }
