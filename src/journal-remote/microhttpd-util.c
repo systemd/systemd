@@ -239,10 +239,14 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         return 0;
 }
 
+static inline void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+        gnutls_x509_crt_deinit(*p);
+}
+
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         const union MHD_ConnectionInfo *ci;
         gnutls_session_t session;
-        gnutls_x509_crt_t client_cert;
+        _cleanup_(gnutls_x509_crt_deinitp) gnutls_x509_crt_t client_cert = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 
