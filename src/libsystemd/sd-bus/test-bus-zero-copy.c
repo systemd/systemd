@@ -39,6 +39,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
+        const char *unique;
         uint8_t *p;
         sd_bus *a, *b;
         int r, bus_ref;
@@ -81,7 +82,10 @@ int main(int argc, char *argv[]) {
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
-        r = sd_bus_message_new_method_call(b, &m, ":1.1", "/a/path", "an.inter.face", "AMethod");
+        r = sd_bus_get_unique_name(a, &unique);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_new_method_call(b, &m, unique, "/a/path", "an.inter.face", "AMethod");
         assert_se(r >= 0);
 
         r = sd_bus_message_open_container(m, 'r', "aysay");
