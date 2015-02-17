@@ -2505,6 +2505,7 @@ dist_zshcompletion_DATA += \
 	shell-completion/zsh/_bootctl
 
 # ------------------------------------------------------------------------------
+if HAVE_GNUEFI
 efi_cppflags = \
 	$(EFI_CPPFLAGS) \
 	-I$(top_builddir) -include config.h \
@@ -2624,6 +2625,7 @@ test-efi-disk.img: $(sd_boot) $(stub) test/test-efi-create-disk.sh
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
+endif
 endif
 
 # ------------------------------------------------------------------------------
