@@ -37,6 +37,7 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 int bus_machine_method_open_pty(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);

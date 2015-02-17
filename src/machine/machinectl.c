@@ -32,12 +32,6 @@
 #include <net/if.h>
 #include <sys/mount.h>
 
-/* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the XDG
- * version which is really broken. */
-#include <libgen.h>
-#undef basename
-
 #include "sd-bus.h"
 #include "log.h"
 #include "util.h"
@@ -1002,140 +996,32 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int machine_get_leader(sd_bus *bus, const char *name, pid_t *ret) {
+static int copy_files(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL;
-        const char *object;
-        uint32_t leader;
+        sd_bus *bus = userdata;
+        bool copy_from;
         int r;
 
         assert(bus);
-        assert(name);
-        assert(ret);
+
+        copy_from = streq(argv[0], "copy-from");
 
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "GetMachine",
+                        copy_from ? "CopyFromMachine" : "CopyToMachine",
                         &error,
-                        &reply,
-                        "s", name);
+                        NULL,
+                        "sss",
+                        argv[1],
+                        argv[2],
+                        argv[3]);
         if (r < 0) {
-                log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                log_error("Failed to copy: %s", bus_error_message(&error, -r));
                 return r;
         }
-
-        r = sd_bus_message_read(reply, "o", &object);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.machine1",
-                        object,
-                        "org.freedesktop.machine1.Machine",
-                        "Leader",
-                        &error,
-                        &reply2,
-                        "u");
-        if (r < 0)
-                return log_error_errno(r, "Failed to retrieve PID of leader: %m");
-
-        r = sd_bus_message_read(reply2, "u", &leader);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        *ret = leader;
-        return 0;
-}
-
-static int copy_files(int argc, char *argv[], void *userdata) {
-        char *dest, *host_path, *container_path, *host_dirname, *host_basename, *container_dirname, *container_basename, *t;
-        _cleanup_close_ int hostfd = -1;
-        sd_bus *bus = userdata;
-        pid_t child, leader;
-        bool copy_from;
-        siginfo_t si;
-        int r;
-
-        assert(bus);
-
-        copy_from = streq(argv[0], "copy-from");
-        dest = argv[3] ?: argv[2];
-        host_path = strdupa(copy_from ? dest : argv[2]);
-        container_path = strdupa(copy_from ? argv[2] : dest);
-
-        if (!path_is_absolute(container_path)) {
-                log_error("Container path not absolute.");
-                return -EINVAL;
-        }
-
-        t = strdupa(host_path);
-        host_basename = basename(t);
-        host_dirname = dirname(host_path);
-
-        t = strdupa(container_path);
-        container_basename = basename(t);
-        container_dirname = dirname(container_path);
-
-        r = machine_get_leader(bus, argv[1], &leader);
-        if (r < 0)
-                return r;
-
-        hostfd = open(host_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to open source directory: %m");
-
-        child = fork();
-        if (child < 0)
-                return log_error_errno(errno, "Failed to fork(): %m");
-
-        if (child == 0) {
-                int containerfd;
-                const char *q;
-                int mntfd;
-
-                q = procfs_file_alloca(leader, "ns/mnt");
-                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (mntfd < 0) {
-                        log_error_errno(errno, "Failed to open mount namespace of leader: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (setns(mntfd, CLONE_NEWNS) < 0) {
-                        log_error_errno(errno, "Failed to join namespace of leader: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
-                if (containerfd < 0) {
-                        log_error_errno(errno, "Failed top open destination directory: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (copy_from)
-                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, true);
-                else
-                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, true);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to copy tree: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        r = wait_for_terminate(child, &si);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for client: %m");
-        if (si.si_code != CLD_EXITED) {
-                log_error("Client died abnormally.");
-                return -EIO;
-        }
-        if (si.si_status != EXIT_SUCCESS)
-                return -EIO;
 
         return 0;
 }

@@ -24,6 +24,12 @@
 #include <arpa/inet.h>
 #include <sys/mount.h>
 
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the XDG
+ * version which is really broken. */
+#include <libgen.h>
+#undef basename
+
 #include "bus-util.h"
 #include "bus-label.h"
 #include "strv.h"
@@ -725,6 +731,178 @@ finish:
         return r;
 }
 
+static int machine_operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        MachineOperation *o = userdata;
+        int r;
+
+        assert(o);
+        assert(si);
+
+        o->pid = 0;
+
+        if (si->si_code != CLD_EXITED) {
+                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
+                goto fail;
+        }
+
+        if (si->si_status != EXIT_SUCCESS) {
+                if (read(o->errno_fd, &r, sizeof(r)) == sizeof(r))
+                        r = sd_bus_error_set_errnof(&error, r, "%m");
+                else
+                        r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Client failed.");
+
+                goto fail;
+        }
+
+        r = sd_bus_reply_method_return(o->message, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to reply to message: %m");
+
+        machine_operation_unref(o);
+        return 0;
+
+fail:
+        r = sd_bus_reply_method_error(o->message, &error);
+        if (r < 0)
+                log_error_errno(r, "Failed to reply to message: %m");
+
+        machine_operation_unref(o);
+        return 0;
+}
+
+int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *src, *dest, *host_path, *container_path, *host_basename, *host_dirname, *container_basename, *container_dirname;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_ int hostfd = -1;
+        Machine *m = userdata;
+        MachineOperation *o;
+        bool copy_from;
+        pid_t child;
+        char *t;
+        int r;
+
+        if (m->n_operations >= MACHINE_OPERATIONS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
+
+        if (m->class != MACHINE_CONTAINER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
+
+        r = sd_bus_message_read(message, "ss", &src, &dest);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(src) || !path_is_safe(src))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+
+        if (isempty(dest))
+                dest = src;
+        else if (!path_is_absolute(dest) || !path_is_safe(dest))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and not contain ../.");
+
+        copy_from = strstr(sd_bus_message_get_member(message), "CopyFrom");
+
+        if (copy_from) {
+                container_path = src;
+                host_path = dest;
+        } else {
+                host_path = src;
+                container_path = dest;
+        }
+
+        host_basename = basename(host_path);
+        t = strdupa(host_path);
+        host_dirname = dirname(t);
+
+        container_basename = basename(container_path);
+        t = strdupa(container_path);
+        container_dirname = dirname(t);
+
+        hostfd = open(host_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to open host directory %s: %m", host_dirname);
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
+
+        child = fork();
+        if (child < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+
+        if (child == 0) {
+                int containerfd;
+                const char *q;
+                int mntfd;
+
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                q = procfs_file_alloca(m->leader, "ns/mnt");
+                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntfd < 0) {
+                        r = log_error_errno(errno, "Failed to open mount namespace of leader: %m");
+                        goto child_fail;
+                }
+
+                if (setns(mntfd, CLONE_NEWNS) < 0) {
+                        r = log_error_errno(errno, "Failed to join namespace of leader: %m");
+                        goto child_fail;
+                }
+
+                containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+                if (containerfd < 0) {
+                        r = log_error_errno(errno, "Failed top open destination directory: %m");
+                        goto child_fail;
+                }
+
+                if (copy_from)
+                        r = copy_tree_at(containerfd, container_basename, hostfd, host_basename, true);
+                else
+                        r = copy_tree_at(hostfd, host_basename, containerfd, container_basename, true);
+
+                hostfd = safe_close(hostfd);
+                containerfd = safe_close(containerfd);
+
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to copy tree: %m");
+                        goto child_fail;
+                }
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                _exit(EXIT_FAILURE);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        /* Copying might take a while, hence install a watch the
+         * child, and return */
+
+        o = new0(MachineOperation, 1);
+        if (!o)
+                return log_oom();
+
+        o->pid = child;
+        o->message = sd_bus_message_ref(message);
+        o->errno_fd = errno_pipe_fd[0];
+        errno_pipe_fd[0] = -1;
+
+        r = sd_event_add_child(m->manager->event, &o->event_source, child, WEXITED, machine_operation_done, o);
+        if (r < 0) {
+                machine_operation_unref(o);
+                return log_oom();
+        }
+
+        LIST_PREPEND(operations, m->operations, o);
+        m->n_operations++;
+        o->machine = m;
+
+        return 1;
+}
+
 const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -745,6 +923,8 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, 0),
         SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("BindMount", "ssbb", NULL, bus_machine_method_bind_mount, 0),
+        SD_BUS_METHOD("CopyFrom", "ss", NULL, bus_machine_method_copy, 0),
+        SD_BUS_METHOD("CopyTo", "ss", NULL, bus_machine_method_copy, 0),
         SD_BUS_VTABLE_END
 };
 

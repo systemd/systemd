@@ -74,6 +74,9 @@ fail:
 void machine_free(Machine *m) {
         assert(m);
 
+        while (m->operations)
+                machine_operation_unref(m->operations);
+
         if (m->in_gc_queue)
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
@@ -499,6 +502,28 @@ int machine_kill(Machine *m, KillWho who, int signo) {
 
         /* Otherwise make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
+}
+
+MachineOperation *machine_operation_unref(MachineOperation *o) {
+        if (!o)
+                return NULL;
+
+        sd_event_source_unref(o->event_source);
+
+        safe_close(o->errno_fd);
+
+        if (o->pid > 1)
+                (void) kill(o->pid, SIGKILL);
+
+        sd_bus_message_unref(o->message);
+
+        if (o->machine) {
+                LIST_REMOVE(operations, o->machine->operations, o);
+                o->machine->n_operations--;
+        }
+
+        free(o);
+        return NULL;
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

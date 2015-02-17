@@ -325,6 +325,8 @@ int main(int argc, char *argv[]) {
          * check stays in. */
         mkdir_label("/run/systemd/machines", 0755);
 
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGCHLD, -1) >= 0);
+
         m = manager_new();
         if (!m) {
                 r = log_oom();
