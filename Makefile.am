@@ -111,7 +111,7 @@ catalogdir=$(prefix)/lib/systemd/catalog
 kernelinstalldir = $(prefix)/lib/kernel/install.d
 factory_etcdir = $(prefix)/share/factory/etc
 factory_pamdir = $(prefix)/share/factory/etc/pam.d
-sd_bootlibdir = $(prefix)/lib/systemd/sd-boot
+bootlibdir = $(prefix)/lib/systemd/boot/efi
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -2484,7 +2484,7 @@ bootctl_SOURCES = \
 bootctl_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DEFI_MACHINE_TYPE_NAME=\"$(EFI_MACHINE_TYPE_NAME)\" \
-	-DSD_BOOTLIBDIR=\"$(sd_bootlibdir)\"
+	-DBOOTLIBDIR=\"$(bootlibdir)\"
 
 bootctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2548,63 +2548,63 @@ efi_ldflags = \
 	$(EFI_LDS_DIR)/crt0-efi-$(EFI_ARCH).o
 
 # ------------------------------------------------------------------------------
-sd_boot_headers = \
-	src/sd-boot/util.h \
-	src/sd-boot/console.h \
-	src/sd-boot/graphics.h \
-	src/sd-boot/pefile.h
+systemd_boot_headers = \
+	src/boot/efi/util.h \
+	src/boot/efi/console.h \
+	src/boot/efi/graphics.h \
+	src/boot/efi/pefile.h
 
-sd_boot_sources = \
-	src/sd-boot/util.c \
-	src/sd-boot/console.c \
-	src/sd-boot/graphics.c \
-	src/sd-boot/pefile.c \
-	src/sd-boot/sd-boot.c
+systemd_boot_sources = \
+	src/boot/efi/util.c \
+	src/boot/efi/console.c \
+	src/boot/efi/graphics.c \
+	src/boot/efi/pefile.c \
+	src/boot/efi/boot.c
 
-sd_boot_objects = $(addprefix $(top_builddir)/,$(sd_boot_sources:.c=.o))
-sd_boot_solib = $(top_builddir)/src/sd-boot/sd_boot.so
-sd_boot = sd-boot$(EFI_MACHINE_TYPE_NAME).efi
+systemd_boot_objects = $(addprefix $(top_builddir)/,$(systemd_boot_sources:.c=.o))
+systemd_boot_solib = $(top_builddir)/src/boot/efi/systemd_boot.so
+systemd_boot = systemd-boot$(EFI_MACHINE_TYPE_NAME).efi
 
-sd_bootlib_DATA = $(sd_boot)
-CLEANFILES += $(sd_boot_objects) $(sd_boot_solib) $(sd_boot)
-EXTRA_DIST += $(sd_boot_sources) $(sd_boot_headers)
+bootlib_DATA = $(systemd_boot)
+CLEANFILES += $(systemd_boot_objects) $(systemd_boot_solib) $(systemd_boot)
+EXTRA_DIST += $(systemd_boot_sources) $(systemd_boot_headers)
 
-$(top_builddir)/src/sd-boot/%.o: $(top_srcdir)/src/sd-boot/%.c $(addprefix $(top_srcdir)/,$(sd_boot_headers))
-	@$(MKDIR_P) $(top_builddir)/src/sd-boot/
+$(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(systemd_boot_headers))
+	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
 	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
-$(sd_boot_solib): $(sd_boot_objects)
-	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(sd_boot_objects) \
+$(systemd_boot_solib): $(systemd_boot_objects)
+	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(systemd_boot_objects) \
 		-o $@ -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name); \
 	nm -D -u $@ | grep ' U ' && exit 1 || :
 
-$(sd_boot): $(sd_boot_solib)
+$(systemd_boot): $(systemd_boot_solib)
 	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc \
 	  --target=efi-app-$(EFI_ARCH) $< $@
 
 # ------------------------------------------------------------------------------
 stub_headers = \
-	src/sd-boot/util.h \
-	src/sd-boot/pefile.h \
-	src/sd-boot/linux.h
+	src/boot/efi/util.h \
+	src/boot/efi/pefile.h \
+	src/boot/efi/linux.h
 
 stub_sources = \
-	src/sd-boot/util.c \
-	src/sd-boot/pefile.c \
-	src/sd-boot/linux.c \
-	src/sd-boot/stub.c
+	src/boot/efi/util.c \
+	src/boot/efi/pefile.c \
+	src/boot/efi/linux.c \
+	src/boot/efi/stub.c
 
 stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
-stub_solib = $(top_builddir)/src/sd-boot/stub.so
+stub_solib = $(top_builddir)/src/boot/efi/stub.so
 stub = linux$(EFI_MACHINE_TYPE_NAME).efi.stub
 
-sd_bootlib_DATA += $(stub)
+bootlib_DATA += $(stub)
 CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 EXTRA_DIST += $(stub_sources) $(stub_headers)
 
-$(top_builddir)/src/sd-boot/%.o: $(top_srcdir)/src/sd-boot/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
-	@$(MKDIR_P) $(top_builddir)/src/sd-boot/
+$(top_builddir)/src/boot/efi/%.o: $(top_srcdir)/src/boot/efi/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
+	@$(MKDIR_P) $(top_builddir)/src/boot/efi/
 	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
 $(stub_solib): $(stub_objects)
@@ -2621,7 +2621,7 @@ $(stub): $(stub_solib)
 CLEANFILES += test-efi-disk.img
 EXTRA_DIST += test/test-efi-create-disk.sh
 
-test-efi-disk.img: $(sd_boot) $(stub) test/test-efi-create-disk.sh
+test-efi-disk.img: $(systemd_boot) $(stub) test/test-efi-create-disk.sh
 	$(AM_V_GEN)test/test-efi-create-disk.sh
 
 test-efi: test-efi-disk.img

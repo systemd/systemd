@@ -215,7 +215,7 @@ fail:
         return r;
 }
 
-/* search for "#### LoaderInfo: sd-boot 218 ####" string inside the binary */
+/* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
 static int get_file_version(FILE *f, char **v) {
         struct stat st;
         char *buf;
@@ -351,7 +351,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
         if (r == 0)
-                fprintf(stderr, "sd-boot not installed in ESP.\n");
+                fprintf(stderr, "systemd-boot not installed in ESP.\n");
         else if (r < 0)
                 return r;
 
@@ -710,7 +710,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         _cleanup_free_ char *v = NULL;
         int r;
 
-        if (asprintf(&p, SD_BOOTLIBDIR "/%s", name) < 0) {
+        if (asprintf(&p, BOOTLIBDIR "/%s", name) < 0) {
                 fprintf(stderr, "Out of memory.\n");
                 return -ENOMEM;
         }
@@ -722,11 +722,11 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
         r = copy_file(p, q, force);
 
-        if (startswith(name, "sd-boot")) {
+        if (startswith(name, "systemd-boot")) {
                 int k;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                if (asprintf(&v, "%s/EFI/Boot/BOOT%s", esp_path, name + strlen("sd-boot")) < 0) {
+                if (asprintf(&v, "%s/EFI/Boot/BOOT%s", esp_path, name + strlen("systemd-boot")) < 0) {
                         fprintf(stderr, "Out of memory.\n");
                         return -ENOMEM;
                 }
@@ -756,9 +756,9 @@ static int install_binaries(const char *esp_path, bool force) {
                         return r;
         }
 
-        d = opendir(SD_BOOTLIBDIR);
+        d = opendir(BOOTLIBDIR);
         if (!d) {
-                fprintf(stderr, "Failed to open "SD_BOOTLIBDIR": %m\n");
+                fprintf(stderr, "Failed to open "BOOTLIBDIR": %m\n");
                 return -errno;
         }
 
@@ -814,7 +814,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         if (n_options < 0)
                 return n_options;
 
-        /* find already existing sd-boot entry */
+        /* find already existing systemd-boot entry */
         for (i = 0; i < n_options; i++)
                 if (same_entry(options[i], uuid, path)) {
                         new_id = options[i];
@@ -1036,7 +1036,7 @@ static int remove_boot_efi(const char *esp_path) {
                 if (r < 0)
                         goto finish;
 
-                if (r > 0 && strncmp(v, "sd-boot ", 10) == 0) {
+                if (r > 0 && strncmp(v, "systemd-boot ", 10) == 0) {
 
                         r = unlink(q);
                         if (r < 0) {
@@ -1089,7 +1089,7 @@ static int remove_binaries(const char *esp_path) {
         char *p;
         int r, q;
 
-        if (asprintf(&p, "%s/EFI/sd-boot", esp_path) < 0) {
+        if (asprintf(&p, "%s/EFI/systemd-boot", esp_path) < 0) {
                 fprintf(stderr, "Out of memory.\n");
                 return -ENOMEM;
         }
@@ -1113,7 +1113,7 @@ static int remove_binaries(const char *esp_path) {
         if (q < 0 && r == 0)
                 r = q;
 
-        q = rmdir_one(esp_path, "EFI/sd-boot");
+        q = rmdir_one(esp_path, "EFI/systemd-boot");
         if (q < 0 && r == 0)
                 r = q;
 
@@ -1196,10 +1196,10 @@ static int help(void) {
                "     --no-variables  Don't touch EFI variables\n"
                "\n"
                "Comands:\n"
-               "     status          Show status of installed sd-boot and EFI variables\n"
-               "     install         Install sd-boot to the ESP and EFI variables\n"
-               "     update          Update sd-boot in the ESP and EFI variables\n"
-               "     remove          Remove sd-boot from the ESP and EFI variables\n",
+               "     status          Show status of installed systemd-boot and EFI variables\n"
+               "     install         Install systemd-boot to the ESP and EFI variables\n"
+               "     update          Update systemd-boot in the ESP and EFI variables\n"
+               "     remove          Remove systemd-boot from the ESP and EFI variables\n",
                program_invocation_short_name);
 
         return 0;
@@ -1371,7 +1371,7 @@ static int bootctl_main(int argc, char*argv[]) {
                 if (arg_touch_variables)
                         r = install_variables(arg_path,
                                               part, pstart, psize, uuid,
-                                              "/EFI/systemd/sd-boot" EFI_MACHINE_TYPE_NAME ".efi",
+                                              "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
                                               arg_action == ACTION_INSTALL);
                 break;
 
@@ -1379,7 +1379,7 @@ static int bootctl_main(int argc, char*argv[]) {
                 r = remove_binaries(arg_path);
 
                 if (arg_touch_variables) {
-                        q = remove_variables(uuid, "/EFI/systemd/sd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
+                        q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
                         if (q < 0 && r == 0)
                                 r = q;
                 }

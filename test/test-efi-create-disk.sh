@@ -12,7 +12,7 @@ mkdir -p mnt
 mount ${LOOP}p1 mnt
 
 mkdir -p mnt/EFI/{Boot,systemd}
-cp sd-bootx64.efi mnt/EFI/Boot/bootx64.efi
+cp systemd-bootx64.efi mnt/EFI/Boot/bootx64.efi
 cp test/splash.bmp mnt/EFI/systemd/
 
 [ -e /boot/shellx64.efi ] && cp /boot/shellx64.efi mnt/

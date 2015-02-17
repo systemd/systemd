@@ -72,22 +72,22 @@
     all current EFI boot variables.</para>
 
     <para><command>bootctl update</command> updates all installed
-    versions of sd-boot, if the current version is newer than the
+    versions of systemd-boot, if the current version is newer than the
     version installed in the EFI system partition. This also includes
-    the EFI default/fallback loader at /EFI/Boot/boot*.efi. An
-    sd-boot entry in the EFI boot variables is created, if there
-    is no current entry. A created entry will be added to the end of
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. A
+    systemd-boot entry in the EFI boot variables is created, if there
+    is no current entry. The created entry will be added to the end of
     the boot order list.</para>
 
-    <para><command>bootctl install</command> installs sd-boot into
-    the EFI system partition. A copy of sd-boot will be stored as
-    the EFI default/fallback loader at /EFI/Boot/boot*.efi. An sd-boot
+    <para><command>bootctl install</command> installs systemd-boot into
+    the EFI system partition. A copy of systemd-boot will be stored as
+    the EFI default/fallback loader at /EFI/Boot/boot*.efi. A systemd-boot
     entry in the EFI boot variables is created and added to the top
     of the boot order list.</para>
 
     <para><command>bootctl remove</command> removes all installed
-    versions of sd-boot from the EFI system partition, and removes
-    sd-boot from the EFI boot variables.</para>
+    versions of systemd-boot from the EFI system partition, and removes
+    systemd-boot from the EFI boot variables.</para>
 
     <para>If no command is passed <command>status</command> is
     implied.</para>

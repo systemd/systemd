@@ -46,7 +46,7 @@
 /mtd_probe
 /networkctl
 /linuxx64.efi.stub
-/sd-bootx64.efi
+/systemd-bootx64.efi
 /test-efi-disk.img
 /scsi_id
 /systemadm
