@@ -182,26 +182,26 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
 
         r = readlink_malloc("/proc/self/ns/net", &us);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         p = procfs_file_alloca(m->leader, "ns/net");
         r = readlink_malloc(p, &them);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         if (streq(us, them))
                 return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
 
         r = namespace_open(m->leader, NULL, NULL, &netns_fd, NULL);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return -errno;
 
         child = fork();
         if (child < 0)
-                return sd_bus_error_set_errno(error, -errno);
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
 
         if (child == 0) {
                 _cleanup_free_ struct local_address *addresses = NULL;
@@ -238,11 +238,11 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(iay)");
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         for (;;) {
                 int family;
@@ -259,51 +259,51 @@ int bus_machine_method_get_addresses(sd_bus *bus, sd_bus_message *message, void 
 
                 n = recvmsg(pair[0], &mh, 0);
                 if (n < 0)
-                        return sd_bus_error_set_errno(error, -errno);
+                        return -errno;
                 if ((size_t) n < sizeof(family))
                         break;
 
                 r = sd_bus_message_open_container(reply, 'r', "iay");
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
 
                 r = sd_bus_message_append(reply, "i", family);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
 
                 switch (family) {
 
                 case AF_INET:
                         if (n != sizeof(struct in_addr) + sizeof(family))
-                                return sd_bus_error_set_errno(error, EIO);
+                                return -EIO;
 
                         r = sd_bus_message_append_array(reply, 'y', &in_addr.in, sizeof(in_addr.in));
                         break;
 
                 case AF_INET6:
                         if (n != sizeof(struct in6_addr) + sizeof(family))
-                                return sd_bus_error_set_errno(error, EIO);
+                                return -EIO;
 
                         r = sd_bus_message_append_array(reply, 'y', &in_addr.in6, sizeof(in_addr.in6));
                         break;
                 }
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
-                        return sd_bus_error_set_errno(error, r);
+                        return r;
         }
 
         r = wait_for_terminate(child, &si);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
         if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return sd_bus_error_set_errno(error, EIO);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_error_set_errno(error, r);
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -336,7 +336,7 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 
         child = fork();
         if (child < 0)
-                return -errno;
+                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
 
         if (child == 0) {
                 _cleanup_close_ int fd = -1;
@@ -375,9 +375,9 @@ int bus_machine_method_get_os_release(sd_bus *bus, sd_bus_message *message, void
 
         r = wait_for_terminate(child, &si);
         if (r < 0)
-                return r;
+                return sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
         if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return -EIO;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client died abnormally.");
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -482,7 +482,7 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT, m->leader);
 #endif
         if (!container_bus->address)
-                return -ENOMEM;
+                return log_oom();
 
         container_bus->bus_client = true;
         container_bus->trusted = false;
@@ -494,7 +494,7 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
 
         getty = strjoin("container-getty@", p, ".service", NULL);
         if (!getty)
-                return -ENOMEM;
+                return log_oom();
 
         r = sd_bus_call_method(
                         container_bus,
@@ -546,7 +546,7 @@ int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *us
         if (isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_safe(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and not contain ../.");
 
         /* One day, when bind mounting /proc/self/fd/n works across
          * namespace boundaries we should rework this logic to make
@@ -688,7 +688,7 @@ int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *us
 
         r = wait_for_terminate(child, &si);
         if (r < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to wait for client: %m");
+                r = sd_bus_error_set_errnof(error, r, "Failed to wait for client: %m");
                 goto finish;
         }
         if (si.si_code != CLD_EXITED) {
@@ -698,7 +698,7 @@ int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *us
         if (si.si_status != EXIT_SUCCESS) {
 
                 if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
-                        r = sd_bus_error_set_errnof(error, r, "Failed to mount in container: %m");
+                        r = sd_bus_error_set_errnof(error, r, "Failed to mount: %m");
                 else
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Client failed.");
                 goto finish;
