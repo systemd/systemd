@@ -82,9 +82,6 @@ Features:
   application of the file to the carrier sense on another interface,
   in order to implement uplink/downlink logic.
 
-* make networkd subscribe to PrepareForSleep(false) and refresh all
-  DHCP leases then.
-
 * when the fstab-generator runs in the initrd, it should create a /dev/null mask for systemd-fsck-root.service, to avoid that the the root fs is fsck'ed twice.
 
 * maybe introduce WantsMountsFor=? Usecase:
@@ -136,8 +133,6 @@ Features:
 
 * introduce systemd-nspawn-ephemeral@.service, and hook it into "machinectl start" with a new --ephemeral switch
 
-* logind,machined: add generic catch-all polkit verbs for most privileged operations, similar to systemd itself
-
 * "machinectl status" should also show internal logs of the container in question
 
 * "machinectl list-images" should show os-release data, as well as machine-info data (including deployment level)
@@ -152,13 +147,9 @@ Features:
 
 * "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
 
-* "machinectl status" should show 10 most recent log lines of both the host logs of the unit of the machine, plus the logs generated in the machine
-
 * add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
 * systemd-nspawn -x should support ephemeral instances of gpt images
-
-* move machinectl's mount and copy commands into machined
 
 * hostnamectl: show root image uuid
 
@@ -194,9 +185,6 @@ Features:
 * the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
 
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
-
-* we should try harder to collapse start jobs for swaps that end up being the same:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-November/025359.html
 
 * timedated should compensate on SetTime for the time spent in polkit
 
@@ -381,7 +369,6 @@ Features:
     the hierarchies of child processes
 
 * transient units:
-  - allow creating auxiliary units with the same call
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
   - ensure scope units may be started only a single time
 
@@ -541,7 +528,6 @@ Features:
   - logind: when the power button is pressed short, just popup a
     logout dialog. If it is pressed for 1s, do the usual
     shutdown. Inspiration are Macs here.
-  - logind: allow users to kill or lock their own sessions
   - expose "Locked" property on logind sesison objects
   - given that logind now lets PID 1 do all nasty work, we can
     probably reduce the capability set it retains substantially.
