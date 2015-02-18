@@ -187,6 +187,7 @@ static unsigned long arg_personality = 0xffffffffLU;
 static char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
+static char **arg_property = NULL;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -205,6 +206,7 @@ static void help(void) {
                "  -M --machine=NAME         Set the machine name for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
+               "     --property=NAME=VALUE  Set scope unit property\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
                "                            Assign an existing network interface to the\n"
@@ -294,6 +296,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PERSONALITY,
                 ARG_VOLATILE,
                 ARG_TEMPLATE,
+                ARG_PROPERTY,
         };
 
         static const struct option options[] = {
@@ -331,6 +334,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",                 required_argument, NULL, 'i'                   },
                 { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
                 { "port",                  required_argument, NULL, 'p'                   },
+                { "property",              required_argument, NULL, ARG_PROPERTY          },
                 {}
         };
 
@@ -730,6 +734,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_PROPERTY:
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -1897,6 +1907,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
         } else {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                char **i;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -1906,7 +1917,7 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                 "org.freedesktop.machine1.Manager",
                                 "CreateMachineWithNetwork");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create message: %m");
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(
                                 m,
@@ -1919,21 +1930,21 @@ static int register_machine(pid_t pid, int local_ifindex) {
                                 strempty(arg_directory),
                                 local_ifindex > 0 ? 1 : 0, local_ifindex);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append message arguments: %m");
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_open_container(m, 'a', "(sv)");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open container: %m");
+                        return bus_log_create_error(r);
 
                 if (!isempty(arg_slice)) {
                         r = sd_bus_message_append(m, "(sv)", "Slice", "s", arg_slice);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to append slice: %m");
+                                return bus_log_create_error(r);
                 }
 
                 r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add device policy: %m");
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 9,
                                           /* Allow the container to
@@ -1959,9 +1970,23 @@ static int register_machine(pid_t pid, int local_ifindex) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add device whitelist: %m");
 
+                STRV_FOREACH(i, arg_property) {
+                        r = sd_bus_message_open_container(m, 'r', "sv");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = bus_append_unit_property_assignment(m, *i);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to close container: %m");
+                        return bus_log_create_error(r);
 
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }

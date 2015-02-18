@@ -297,7 +297,22 @@
 
         <listitem><para>Make the container part of the specified
         slice, instead of the default
-        <filename>machine.slice</filename>.</para>
+        <filename>machine.slice</filename>. This is only applies if
+        the machine is run in its own scope unit, i.e. if
+        <option>--keep-unit</option> is not used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+
+        <listitem><para>Set a unit property on the scope unit to
+        register for the machine. This only applies if the machine is
+        run in its own scope unit, i.e. if
+        <option>--keep-unit</option> is not used. Takes unit property
+        assignments in the same format as <command>systemctl
+        set-property</command>. This is useful to set memory limits
+        and similar for machines.</para>
         </listitem>
       </varlistentry>
 
