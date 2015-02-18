@@ -95,7 +95,7 @@ static void test_utf8_escaping_printable(void) {
 
 static void test_utf16_to_utf8(void) {
         char *a = NULL;
-        const uint16_t utf16[] = { 'a', 0xd800, 'b', 0xdc00, 'c', 0xd801, 0xdc37 };
+        const uint16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
         const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7, 0 };
 
         a = utf16_to_utf8(utf16, 14);
