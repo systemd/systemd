@@ -1327,7 +1327,6 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
 static int list_unit_files(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         UnitFileList *unit;
         size_t size = 0;
@@ -1374,6 +1373,8 @@ static int list_unit_files(sd_bus *bus, char **args) {
                 assert(c <= n_units);
                 hashmap_free(h);
         } else {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
@@ -1882,7 +1883,6 @@ static int list_machines(sd_bus *bus, char **args) {
 
 static int get_default(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *_path = NULL;
         const char *path;
         int r;
@@ -1894,6 +1894,8 @@ static int get_default(sd_bus *bus, char **args) {
                 path = _path;
 
         } else {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
@@ -1952,28 +1954,20 @@ static int set_default(sd_bus *bus, char **args) {
 
                 r = 0;
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
 
-                r = sd_bus_message_new_method_call(
+                polkit_agent_open_if_enabled();
+
+                r = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "SetDefaultTarget");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "sb", unit, 1);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                                "SetDefaultTarget",
+                                &error,
+                                &reply,
+                                "sb", unit, 1);
                 if (r < 0) {
                         log_error("Failed to set default target: %s", bus_error_message(&error, -r));
                         return r;
@@ -2130,7 +2124,6 @@ static int list_jobs(sd_bus *bus, char **args) {
 }
 
 static int cancel_job(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char **name;
         int r = 0;
 
@@ -2139,8 +2132,10 @@ static int cancel_job(sd_bus *bus, char **args) {
         if (strv_length(args) <= 1)
                 return daemon_reload(bus, args);
 
+        polkit_agent_open_if_enabled();
+
         STRV_FOREACH(name, args+1) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
 
@@ -2148,25 +2143,15 @@ static int cancel_job(sd_bus *bus, char **args) {
                 if (q < 0)
                         return log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
 
-                q = sd_bus_message_new_method_call(
+                q = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "CancelJob");
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (q < 0)
-                        return bus_log_create_error(1);
-
-                q = sd_bus_message_append(m, "u", id);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_call(bus, m, 0, &error, NULL);
+                                "CancelJob",
+                                &error,
+                                NULL,
+                                "u", id);
                 if (q < 0) {
                         log_error("Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, q));
                         if (r == 0)
@@ -2250,12 +2235,13 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
         return 0;
 }
 
-static int unit_find_paths(sd_bus *bus,
-                           const char *unit_name,
-                           bool avoid_bus_cache,
-                           LookupPaths *lp,
-                           char **fragment_path,
-                           char ***dropin_paths) {
+static int unit_find_paths(
+                sd_bus *bus,
+                const char *unit_name,
+                bool avoid_bus_cache,
+                LookupPaths *lp,
+                char **fragment_path,
+                char ***dropin_paths) {
 
         _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **dropins = NULL;
@@ -2556,7 +2542,7 @@ static int start_unit_one(
                 sd_bus_error *error,
                 BusWaitForJobs *w) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -2567,25 +2553,15 @@ static int start_unit_one(
 
         log_debug("Calling manager for %s on %s, %s", method, name, mode);
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
-                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        method);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(m, "ss", name, mode);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, error, &reply);
+                        method,
+                        error,
+                        &reply,
+                        "ss", name, mode);
         if (r < 0) {
                 const char *verb;
 
@@ -3029,7 +3005,6 @@ static int check_unit_failed(sd_bus *bus, char **args) {
 }
 
 static int kill_unit(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         int r, q;
@@ -3047,27 +3022,17 @@ static int kill_unit(sd_bus *bus, char **args) {
                 log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_message_new_method_call(
+                q = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "KillUnit");
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_append(m, "ssi", *names, arg_kill_who, arg_signal);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_call(bus, m, 0, &error, NULL);
+                                "KillUnit",
+                                &error,
+                                NULL,
+                                "ssi", *names, arg_kill_who, arg_signal);
                 if (q < 0) {
                         log_error("Failed to kill unit %s: %s", *names, bus_error_message(&error, q));
                         if (r == 0)
@@ -4648,10 +4613,6 @@ static int set_property(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         n = unit_name_mangle(args[1], MANGLE_NOGLOB);
         if (!n)
                 return log_oom();
@@ -4693,7 +4654,7 @@ static int set_property(sd_bus *bus, char **args) {
 
 static int snapshot(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *n = NULL, *id = NULL;
         const char *path;
         int r;
@@ -4707,25 +4668,15 @@ static int snapshot(sd_bus *bus, char **args) {
         if (!n)
                 return log_oom();
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
-                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "CreateSnapshot");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(m, "sb", n, false);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+                        "CreateSnapshot",
+                        &error,
+                        &reply,
+                        "sb", n, false);
         if (r < 0) {
                 log_error("Failed to create snapshot: %s", bus_error_message(&error, r));
                 return r;
@@ -4755,7 +4706,6 @@ static int snapshot(sd_bus *bus, char **args) {
 }
 
 static int delete_snapshot(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         int r;
@@ -4769,28 +4719,18 @@ static int delete_snapshot(sd_bus *bus, char **args) {
                 log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int q;
 
-                q = sd_bus_message_new_method_call(
+                q = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "RemoveSnapshot");
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_append(m, "s", *name);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_call(bus, m, 0, &error, NULL);
+                                "RemoveSnapshot",
+                                &error,
+                                NULL,
+                                "s", *name);
                 if (q < 0) {
                         log_error("Failed to remove snapshot %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
@@ -4803,7 +4743,6 @@ static int delete_snapshot(sd_bus *bus, char **args) {
 
 static int daemon_reload(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         const char *method;
         int r;
 
@@ -4829,21 +4768,15 @@ static int daemon_reload(sd_bus *bus, char **args) {
                                     /* "daemon-reload" */ "Reload";
         }
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
-                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        method);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+                        method,
+                        &error,
+                        NULL,
+                        NULL);
         if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
                 /* There's always a fallback possible for
                  * legacy actions. */
@@ -4859,7 +4792,6 @@ static int daemon_reload(sd_bus *bus, char **args) {
 }
 
 static int reset_failed(sd_bus *bus, char **args) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         int r, q;
@@ -4874,27 +4806,17 @@ static int reset_failed(sd_bus *bus, char **args) {
                 log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_message_new_method_call(
+                q = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "ResetFailedUnit");
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_message_append(m, "s", *name);
-                if (q < 0)
-                        return bus_log_create_error(q);
-
-                q = sd_bus_call(bus, m, 0, &error, NULL);
+                                "ResetFailedUnit",
+                                &error,
+                                NULL,
+                                "s", *name);
                 if (q < 0) {
                         log_error("Failed to reset failed state of unit %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
@@ -5013,6 +4935,8 @@ static int set_environment(sd_bus *bus, char **args) {
         assert(bus);
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         method = streq(args[0], "set-environment")
                 ? "SetEnvironment"
                 : "UnsetEnvironment";
@@ -5024,10 +4948,6 @@ static int set_environment(sd_bus *bus, char **args) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         method);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -5052,6 +4972,8 @@ static int import_environment(sd_bus *bus, char **args) {
         assert(bus);
         assert(args);
 
+        polkit_agent_open_if_enabled();
+
         r = sd_bus_message_new_method_call(
                         bus,
                         &m,
@@ -5059,10 +4981,6 @@ static int import_environment(sd_bus *bus, char **args) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "SetEnvironment");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -5370,10 +5288,6 @@ static int enable_unit(sd_bus *bus, char **args) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 r = sd_bus_message_append_strv(m, names);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -5489,10 +5403,6 @@ static int add_dependency(sd_bus *bus, char **args) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 r = sd_bus_message_append_strv(m, names);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -5539,35 +5449,23 @@ static int preset_all(sd_bus *bus, char **args) {
                 r = 0;
 
         } else {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
 
                 polkit_agent_open_if_enabled();
 
-                r = sd_bus_message_new_method_call(
+                r = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "PresetAllUnitFiles");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(
-                                m,
+                                "PresetAllUnitFiles",
+                                &error,
+                                &reply,
                                 "sbb",
                                 unit_file_preset_mode_to_string(arg_preset_mode),
                                 arg_runtime,
                                 arg_force);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0) {
                         log_error("Failed to execute operation: %s", bus_error_message(&error, r));
                         return r;
@@ -7460,6 +7358,9 @@ int main(int argc, char*argv[]) {
 
         if (!avoid_bus())
                 r = bus_open_transport_systemd(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
+
+        if (bus)
+                sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         /* systemctl_main() will print an error message for the bus
          * connection, but only if it needs to */
