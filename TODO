@@ -51,20 +51,6 @@ Features:
   that are not supported...
   http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
 
-* nspawn, if stdout/stderr/stdin are non-ttys, don't set up
-  /dev/console, but instead just pass the fds through directly.
-
-* When runlevel3.target is used to define dependencies on other units,
-  then we don't pick it up currently, since nothing ever references
-  runlevel3.target, and never figure out it actually is just an alias
-  for multi-user.target. A hackish fix could be to add a .wants link
-  from multi-user.target to runlevel3.target, if it is a symlink to
-  it. Best would be to create this .wants/ symlink from
-  sysv-generator. systemd would then load the referenced unit, figure
-  out it is just an alias and that the dependency would be on itself
-  and suppress it. Thus the alias and its deps would be loaded as
-  desired.
-
 * PID 1: when invoking systemctl preset-all on first boots, operate in
   an exclusively additive way, i.e. never remove any pre-existing
   symlinks, only add new ones.
@@ -89,8 +75,6 @@ Features:
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
   picked up by systemd unless they contain a medium. This would mirror
   the behaviour we already have for CD drives.
-
-* We should remove really old cruft from cdrom_id
 
 * nspawn: emulate /dev/kmsg using CUSE and turn off the syslog syscall
   with seccomp. That should provide us with a useful log buffer that
