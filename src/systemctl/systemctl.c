@@ -5771,7 +5771,6 @@ static int get_file_to_edit(const char *name, const char *user_home, const char 
         return 0;
 }
 
-
 static int unit_file_create_dropin(const char *unit_name, const char *user_home, const char *user_runtime, char **ret_new_path, char **ret_tmp_path) {
         char *tmp_new_path, *ending;
         char *tmp_tmp_path;
@@ -5798,12 +5797,14 @@ static int unit_file_create_dropin(const char *unit_name, const char *user_home,
         return 0;
 }
 
-static int unit_file_create_copy(const char *unit_name,
-                                 const char *fragment_path,
-                                 const char *user_home,
-                                 const char *user_runtime,
-                                 char **ret_new_path,
-                                 char **ret_tmp_path) {
+static int unit_file_create_copy(
+                const char *unit_name,
+                const char *fragment_path,
+                const char *user_home,
+                const char *user_runtime,
+                char **ret_new_path,
+                char **ret_tmp_path) {
+
         char *tmp_new_path;
         char *tmp_tmp_path;
         int r;
@@ -5859,9 +5860,8 @@ static int run_editor(char **paths) {
 
         if (pid == 0) {
                 const char **args;
-                char **backup_editors = STRV_MAKE("nano", "vim", "vi");
                 char *editor;
-                char **tmp_path, **original_path, **p;
+                char **tmp_path, **original_path, *p;
                 unsigned i = 1;
                 size_t argc;
 
@@ -5890,9 +5890,9 @@ static int run_editor(char **paths) {
                         execvp(editor, (char* const*) args);
                 }
 
-                STRV_FOREACH(p, backup_editors) {
-                        args[0] = *p;
-                        execvp(*p, (char* const*) args);
+                FOREACH_STRING(p, "nano", "vim", "vi") {
+                        args[0] = p;
+                        execvp(p, (char* const*) args);
                         /* We do not fail if the editor doesn't exist
                          * because we want to try each one of them before
                          * failing.
@@ -5903,7 +5903,7 @@ static int run_editor(char **paths) {
                         }
                 }
 
-                log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR or $EDITOR or $VISUAL.");
+                log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
 
