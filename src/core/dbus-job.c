@@ -29,22 +29,6 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
 
-static int verify_sys_admin_or_owner_sync(sd_bus_message *message, Job *j, sd_bus_error *error) {
-        int r;
-
-        if (sd_bus_track_contains(j->clients, sd_bus_message_get_sender(message)))
-                return 0; /* One of the job owners is calling us */
-
-        r = sd_bus_query_sender_privilege(message, CAP_SYS_ADMIN);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access denied to perform action");
-
-        /* Root has called us */
-        return 0;
-}
-
 static int property_get_unit(
                 sd_bus *bus,
                 const char *path,
@@ -76,13 +60,20 @@ int bus_job_method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, 
         assert(message);
         assert(j);
 
-        r = verify_sys_admin_or_owner_sync(message, j, error);
-        if (r < 0)
-                return r;
-
         r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
         if (r < 0)
                 return r;
+
+        /* Access is granted to the job owner */
+        if (!sd_bus_track_contains(j->clients, sd_bus_message_get_sender(message))) {
+
+                /* And for everybody else consult PolicyKit */
+                r = bus_verify_manage_units_async(j->unit->manager, message, error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        }
 
         job_finish_and_invalidate(j, JOB_CANCELED, true);
 

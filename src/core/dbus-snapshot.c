@@ -21,6 +21,7 @@
 
 #include "selinux-access.h"
 #include "unit.h"
+#include "dbus.h"
 #include "snapshot.h"
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
@@ -37,6 +38,12 @@ int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
+        r = bus_verify_manage_units_async(UNIT(s)->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         snapshot_remove(s);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -44,7 +51,7 @@ int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userd
 
 const sd_bus_vtable bus_snapshot_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Remove", NULL, NULL, bus_snapshot_method_remove, 0),
         SD_BUS_PROPERTY("Cleanup", "b", bus_property_get_bool, offsetof(Snapshot, cleanup), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_METHOD("Remove", NULL, NULL, bus_snapshot_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };

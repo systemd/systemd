@@ -28,8 +28,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.manage-units">
-                <_description>Manage system services or units</_description>
-                <_message>Authentication is required to manage system services or units.</_message>
+                <_description>Manage system services or other units</_description>
+                <_message>Authentication is required to manage system services or other units.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -40,6 +40,16 @@
         <action id="org.freedesktop.systemd1.manage-unit-files">
                 <_description>Manage system service or unit files</_description>
                 <_message>Authentication is required to manage system service or unit files.</_message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.systemd1.set-environment">
+                <_description>Set or unset system and service manager environment variables</_description>
+                <_message>Authentication is required to set or unset system and service manager environment variables.</_message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

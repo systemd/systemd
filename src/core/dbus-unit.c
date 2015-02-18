@@ -393,7 +393,14 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 }
 
-int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u, JobType job_type, bool reload_if_possible, sd_bus_error *error) {
+int bus_unit_method_start_generic(
+                sd_bus *bus,
+                sd_bus_message *message,
+                Unit *u,
+                JobType job_type,
+                bool reload_if_possible,
+                sd_bus_error *error) {
+
         const char *smode;
         JobMode mode;
         int r;
@@ -403,6 +410,10 @@ int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u,
         assert(u);
         assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
 
+        r = mac_selinux_unit_access_check(u, message, job_type == JOB_STOP ? "stop" : "start", error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "s", &smode);
         if (r < 0)
                 return r;
@@ -410,6 +421,12 @@ int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u,
         mode = job_mode_from_string(smode);
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
+
+        r = bus_verify_manage_units_async(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         return bus_unit_queue_job(bus, message, u, job_type, mode, reload_if_possible, error);
 }
@@ -453,11 +470,9 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         assert(message);
         assert(u);
 
-        r = bus_verify_manage_unit_async_for_kill(u->manager, message, error);
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
@@ -474,9 +489,11 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        r = bus_verify_manage_units_async_for_kill(u->manager, message, error);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_kill(u, who, signo, error);
         if (r < 0)
@@ -493,15 +510,15 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
         assert(message);
         assert(u);
 
-        r = bus_verify_manage_unit_async(u->manager, message, error);
+        r = mac_selinux_unit_access_check(u, message, "reload", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(u->manager, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        r = mac_selinux_unit_access_check(u, message, "reload", error);
-        if (r < 0)
-                return r;
 
         unit_reset_failed(u);
 
@@ -516,19 +533,19 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
         assert(message);
         assert(u);
 
-        r = bus_verify_manage_unit_async(u->manager, message, error);
+        r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)
                 return r;
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = bus_verify_manage_units_async(u->manager, message, error);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, error);
         if (r < 0)
@@ -606,16 +623,16 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
 
-        SD_BUS_METHOD("Start", "s", "o", method_start, 0),
-        SD_BUS_METHOD("Stop", "s", "o", method_stop, 0),
-        SD_BUS_METHOD("Reload", "s", "o", method_reload, 0),
-        SD_BUS_METHOD("Restart", "s", "o", method_restart, 0),
-        SD_BUS_METHOD("TryRestart", "s", "o", method_try_restart, 0),
-        SD_BUS_METHOD("ReloadOrRestart", "s", "o", method_reload_or_restart, 0),
-        SD_BUS_METHOD("ReloadOrTryRestart", "s", "o", method_reload_or_try_restart, 0),
-        SD_BUS_METHOD("Kill", "si", NULL, bus_unit_method_kill, 0),
-        SD_BUS_METHOD("ResetFailed", NULL, NULL, bus_unit_method_reset_failed, 0),
-        SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, 0),
+        SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Reload", "s", "o", method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Restart", "s", "o", method_restart, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("TryRestart", "s", "o", method_try_restart, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReloadOrRestart", "s", "o", method_reload_or_restart, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReloadOrTryRestart", "s", "o", method_reload_or_try_restart, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Kill", "si", NULL, bus_unit_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResetFailed", NULL, NULL, bus_unit_method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

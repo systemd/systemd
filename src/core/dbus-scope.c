@@ -19,16 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "selinux-access.h"
 #include "unit.h"
 #include "scope.h"
-#include "dbus-unit.h"
-#include "dbus-cgroup.h"
-#include "dbus-kill.h"
-#include "dbus-scope.h"
 #include "dbus.h"
 #include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-common-errors.h"
+#include "dbus-unit.h"
+#include "dbus-cgroup.h"
+#include "dbus-kill.h"
+#include "dbus-scope.h"
 
 static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Scope *s = userdata;
@@ -38,18 +39,21 @@ static int bus_scope_abandon(sd_bus *bus, sd_bus_message *message, void *userdat
         assert(message);
         assert(s);
 
-        r = bus_verify_manage_unit_async(UNIT(s)->manager, message, error);
+        r = mac_selinux_unit_access_check(UNIT(s), message, "stop", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(UNIT(s)->manager, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = scope_abandon(s);
-        if (sd_bus_error_is_set(error))
-                return r;
-
         if (r == -ESTALE)
                 return sd_bus_error_setf(error, BUS_ERROR_SCOPE_NOT_RUNNING, "Scope %s is not running, cannot abandon.", UNIT(s)->id);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -62,7 +66,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
-        SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_abandon, 0),
+        SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
