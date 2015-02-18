@@ -241,14 +241,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV:
-
                         if (strv_extend(&arg_environment, optarg) < 0)
                                 return log_oom();
 
                         break;
 
                 case 'p':
-
                         if (strv_extend(&arg_property, optarg) < 0)
                                 return log_oom();
 
@@ -389,11 +387,8 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                         return r;
 
                 r = bus_append_unit_property_assignment(m, *i);
-                if (r < 0) {
-                        r = sd_bus_message_append(m, "sv", 0);
-                        if (r < 0)
-                                return r;
-                }
+                if (r < 0)
+                        return r;
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
