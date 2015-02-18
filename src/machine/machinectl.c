@@ -969,15 +969,13 @@ static int poweroff_machine(int argc, char *argv[], void *userdata) {
 static int terminate_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int i;
+        int r, i;
 
         assert(bus);
 
         polkit_agent_open_if_enabled();
 
         for (i = 1; i < argc; i++) {
-                int r;
-
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1003,6 +1001,8 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         int r;
 
         assert(bus);
+
+        polkit_agent_open_if_enabled();
 
         copy_from = streq(argv[0], "copy-from");
 
@@ -1032,6 +1032,8 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
         int r;
 
         assert(bus);
+
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call_method(
                         bus,
@@ -1082,7 +1084,7 @@ static int on_machine_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd
 
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_slot_unref_ sd_bus_slot *slot = NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
@@ -1123,24 +1125,15 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine removal match: %m");
 
-        r = sd_bus_message_new_method_call(bus,
-                                           &m,
-                                           "org.freedesktop.machine1",
-                                           "/org/freedesktop/machine1",
-                                           "org.freedesktop.machine1.Manager",
-                                           "OpenMachineLogin");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(m, "s", argv[1]);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "OpenMachineLogin",
+                        &error,
+                        &reply,
+                        "s", argv[1]);
         if (r < 0) {
                 log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
                 return r;
@@ -1305,7 +1298,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 _cleanup_free_ char *e = NULL, *unit = NULL;
                 const char *object;
 
@@ -1322,25 +1315,15 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 if (!unit)
                         return log_oom();
 
-                r = sd_bus_message_new_method_call(
+                r = sd_bus_call_method(
                                 bus,
-                                &m,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "StartUnit");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "ss", unit, "fail");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                                "StartUnit",
+                                &error,
+                                &reply,
+                                "ss", unit, "fail");
                 if (r < 0) {
                         log_error("Failed to start unit: %s", bus_error_message(&error, -r));
                         return r;
@@ -1383,10 +1366,6 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         method);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1442,23 +1421,15 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        m = sd_bus_message_unref(m);
-
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
-                        &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "Reload");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+                        "Reload",
+                        &error,
+                        NULL,
+                        NULL);
         if (r < 0) {
                 log_error("Failed to reload daemon: %s", bus_error_message(&error, -r));
                 return r;
@@ -1546,10 +1517,6 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
         r = sd_bus_attach_event(bus, event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
 
         r = sd_bus_add_match(
                         bus,
@@ -2222,6 +2189,8 @@ int main(int argc, char*argv[]) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
+
+        sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         r = machinectl_main(argc, argv, bus);
 
