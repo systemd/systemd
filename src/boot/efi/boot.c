@@ -405,7 +405,7 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
                 break;
         }
 
-        Print(L"systemd-boot version:        " VERSION "\n");
+        Print(L"systemd-boot version:   " VERSION "\n");
         Print(L"architecture:           " EFI_MACHINE_TYPE_NAME "\n");
         Print(L"loaded image:           %s\n", loaded_image_path);
         Print(L"UEFI specification:     %d.%02d\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
