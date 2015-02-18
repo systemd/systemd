@@ -45,6 +45,8 @@ typedef struct Image {
         uint64_t usage_exclusive;
         uint64_t limit;
         uint64_t limit_exclusive;
+
+        void *userdata;
 } Image;
 
 Image *image_unref(Image *i);

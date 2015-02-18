@@ -622,6 +622,7 @@ static int method_remove_image(sd_bus *bus, sd_bus_message *message, void *userd
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
+        i->userdata = userdata;
         return bus_image_method_remove(bus, message, i, error);
 }
 
@@ -646,6 +647,7 @@ static int method_rename_image(sd_bus *bus, sd_bus_message *message, void *userd
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
+        i->userdata = userdata;
         return bus_image_method_rename(bus, message, i, error);
 }
 
@@ -668,6 +670,7 @@ static int method_clone_image(sd_bus *bus, sd_bus_message *message, void *userda
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
+        i->userdata = userdata;
         return bus_image_method_clone(bus, message, i, error);
 }
 
@@ -690,6 +693,7 @@ static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, voi
         if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
+        i->userdata = userdata;
         return bus_image_method_mark_read_only(bus, message, i, error);
 }
 
@@ -704,19 +708,19 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
         SD_BUS_METHOD("RegisterMachineWithNetwork", "sayssusai", "o", method_register_machine_with_network, 0),
-        SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
         SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, 0),
-        SD_BUS_METHOD("CopyFromMachine", "sss", NULL, method_copy_machine, 0),
-        SD_BUS_METHOD("CopyToMachine", "sss", NULL, method_copy_machine, 0),
-        SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, 0),
-        SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, 0),
-        SD_BUS_METHOD("CloneImage", "ssb", NULL, method_clone_image, 0),
-        SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, 0),
+        SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CopyFromMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CopyToMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CloneImage", "ssb", NULL, method_clone_image, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END
