@@ -8110,3 +8110,13 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
         return -1;
 }
+
+void cmsg_close_all(struct msghdr *mh) {
+        struct cmsghdr *cmsg;
+
+        assert(mh);
+
+        for (cmsg = CMSG_FIRSTHDR(mh); cmsg; cmsg = CMSG_NXTHDR(mh, cmsg))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
+                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+}

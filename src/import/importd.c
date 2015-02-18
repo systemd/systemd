@@ -518,12 +518,10 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 return -errno;
         }
 
+        cmsg_close_all(&msghdr);
+
         for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
-                        log_warning("Somebody sent us unexpected fds, ignoring.");
-                        return 0;
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                if (cmsg->cmsg_level == SOL_SOCKET &&
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 

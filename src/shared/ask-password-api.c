@@ -475,6 +475,8 @@ int ask_password_agent(
                         goto finish;
                 }
 
+                cmsg_close_all(&msghdr);
+
                 if (n <= 0) {
                         log_error("Message too short");
                         continue;

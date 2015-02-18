@@ -1080,3 +1080,5 @@ void sigkill_wait(pid_t *pid);
 #define _cleanup_sigkill_wait_ _cleanup_(sigkill_wait)
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
+
+void cmsg_close_all(struct msghdr *mh);

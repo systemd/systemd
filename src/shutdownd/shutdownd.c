@@ -70,17 +70,19 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
         assert(_b);
 
         n = recvmsg(fd, &msghdr, MSG_DONTWAIT);
-        if (n <= 0) {
-                if (n == 0) {
-                        log_error("Short read");
-                        return -EIO;
-                }
-
+        if (n < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
 
                 log_error_errno(errno, "recvmsg(): %m");
                 return -errno;
+        }
+
+        cmsg_close_all(&msghdr);
+
+        if (n == 0) {
+                log_error("Short read");
+                return -EIO;
         }
 
         if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||

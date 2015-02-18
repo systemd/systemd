@@ -377,6 +377,9 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
                 log_error_errno(errno, "unable to receive ctrl message: %m");
                 goto err;
         }
+
+        cmsg_close_all(&smsg);
+
         cmsg = CMSG_FIRSTHDR(&smsg);
         cred = (struct ucred *) CMSG_DATA(cmsg);
 
