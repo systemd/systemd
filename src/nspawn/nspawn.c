@@ -3606,6 +3606,7 @@ int main(int argc, char *argv[]) {
         int ret = EXIT_SUCCESS;
         union in_addr_union exposed = {};
         _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
+        bool interactive;
 
         log_parse_environment();
         log_open();
@@ -3779,6 +3780,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
+        interactive = isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0;
+
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
                 r = log_error_errno(errno, "Failed to acquire pseudo tty: %m");
@@ -3791,14 +3794,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (!arg_quiet)
-                log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
-                         arg_machine, arg_image ?: arg_directory);
-
         if (unlockpt(master) < 0) {
                 r = log_error_errno(errno, "Failed to unlock tty: %m");
                 goto finish;
         }
+
+        if (!arg_quiet)
+                log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
+                         arg_machine, arg_image ?: arg_directory);
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
@@ -3885,9 +3888,6 @@ int main(int argc, char *argv[]) {
 
                         master = safe_close(master);
 
-                        close_nointr(STDIN_FILENO);
-                        close_nointr(STDOUT_FILENO);
-                        close_nointr(STDERR_FILENO);
 
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
@@ -3895,21 +3895,27 @@ int main(int argc, char *argv[]) {
                         reset_all_signal_handlers();
                         reset_signal_mask();
 
-                        r = open_terminal(console, O_RDWR);
-                        if (r != STDIN_FILENO) {
-                                if (r >= 0) {
-                                        safe_close(r);
-                                        r = -EINVAL;
+                        if (interactive) {
+                                close_nointr(STDIN_FILENO);
+                                close_nointr(STDOUT_FILENO);
+                                close_nointr(STDERR_FILENO);
+
+                                r = open_terminal(console, O_RDWR);
+                                if (r != STDIN_FILENO) {
+                                        if (r >= 0) {
+                                                safe_close(r);
+                                                r = -EINVAL;
+                                        }
+
+                                        log_error_errno(r, "Failed to open console: %m");
+                                        _exit(EXIT_FAILURE);
                                 }
 
-                                log_error_errno(r, "Failed to open console: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
-                            dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO) {
-                                log_error_errno(errno, "Failed to duplicate console: %m");
-                                _exit(EXIT_FAILURE);
+                                if (dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
+                                    dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO) {
+                                        log_error_errno(errno, "Failed to duplicate console: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
                         }
 
                         if (setsid() < 0) {
@@ -4252,7 +4258,7 @@ int main(int argc, char *argv[]) {
 
                                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
-                                r = pty_forward_new(event, master, true, &forward);
+                                r = pty_forward_new(event, master, true, !interactive, &forward);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to create PTY forwarder: %m");
                                         goto finish;

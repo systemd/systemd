@@ -1150,7 +1150,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
         sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
 
-        r = pty_forward_new(event, master, true, &forward);
+        r = pty_forward_new(event, master, true, false, &forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 

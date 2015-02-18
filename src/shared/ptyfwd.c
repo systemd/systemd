@@ -42,6 +42,8 @@ struct PTYForward {
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
 
+        bool read_only:1;
+
         bool saved_stdin:1;
         bool saved_stdout:1;
 
@@ -298,7 +300,13 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         return 0;
 }
 
-int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward **ret) {
+int pty_forward_new(
+                sd_event *event,
+                int master,
+                bool ignore_vhangup,
+                bool read_only,
+                PTYForward **ret) {
+
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
@@ -307,6 +315,7 @@ int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward
         if (!f)
                 return -ENOMEM;
 
+        f->read_only = read_only;
         f->ignore_vhangup = ignore_vhangup;
 
         if (event)
@@ -317,13 +326,15 @@ int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward
                         return r;
         }
 
-        r = fd_nonblock(STDIN_FILENO, true);
-        if (r < 0)
-                return r;
+        if (!read_only) {
+                r = fd_nonblock(STDIN_FILENO, true);
+                if (r < 0)
+                        return r;
 
-        r = fd_nonblock(STDOUT_FILENO, true);
-        if (r < 0)
-                return r;
+                r = fd_nonblock(STDOUT_FILENO, true);
+                if (r < 0)
+                        return r;
+        }
 
         r = fd_nonblock(master, true);
         if (r < 0)
@@ -334,42 +345,44 @@ int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                 (void)ioctl(master, TIOCSWINSZ, &ws);
 
-        if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
-                struct termios raw_stdin_attr;
+        if (!read_only) {
+                if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
+                        struct termios raw_stdin_attr;
 
-                f->saved_stdin = true;
+                        f->saved_stdin = true;
 
-                raw_stdin_attr = f->saved_stdin_attr;
-                cfmakeraw(&raw_stdin_attr);
-                raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
-                tcsetattr(STDIN_FILENO, TCSANOW, &raw_stdin_attr);
+                        raw_stdin_attr = f->saved_stdin_attr;
+                        cfmakeraw(&raw_stdin_attr);
+                        raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
+                        tcsetattr(STDIN_FILENO, TCSANOW, &raw_stdin_attr);
+                }
+
+                if (tcgetattr(STDOUT_FILENO, &f->saved_stdout_attr) >= 0) {
+                        struct termios raw_stdout_attr;
+
+                        f->saved_stdout = true;
+
+                        raw_stdout_attr = f->saved_stdout_attr;
+                        cfmakeraw(&raw_stdout_attr);
+                        raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
+                        raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
+                        tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
+                }
+
+                r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
+                if (r < 0 && r != -EPERM)
+                        return r;
         }
-
-        if (tcgetattr(STDOUT_FILENO, &f->saved_stdout_attr) >= 0) {
-                struct termios raw_stdout_attr;
-
-                f->saved_stdout = true;
-
-                raw_stdout_attr = f->saved_stdout_attr;
-                cfmakeraw(&raw_stdout_attr);
-                raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
-                raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
-                tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
-        }
-
-        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
-        if (r < 0 && r != -EPERM)
-                return r;
 
         r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
         if (r == -EPERM)
                 /* stdout without epoll support. Likely redirected to regular file. */
                 f->stdout_writable = true;
         else if (r < 0)
+                return r;
+
+        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
+        if (r < 0)
                 return r;
 
         r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);

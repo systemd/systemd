@@ -30,7 +30,7 @@
 
 typedef struct PTYForward PTYForward;
 
-int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, PTYForward **f);
+int pty_forward_new(sd_event *event, int master, bool ignore_vhangup, bool read_only, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
 
 int pty_forward_get_last_char(PTYForward *f, char *ch);
