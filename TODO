@@ -38,9 +38,6 @@ Features:
   written to as FAIL, but instead show that their are being written
   to.
 
-* nspawn: allow configuring cgroup (and other) properties via
-  --property= when invoking from the command line.
-
 * add udev rule construct SYSCTL{} to write to sysctls
 
 * assign MESSAGE_ID to log messages about failed services
@@ -49,9 +46,6 @@ Features:
   and supress coredump if turned off. Then change RLIMIT_CORE to
   infinity by default for all services. This then allows per-service
   control of coredumping.
-
-* introduce some call that iterates through cmsg and closes all fds
-  passed in, and use it everywhere...
 
 * generate better errors when people try to set transient properties
   that are not supported...
