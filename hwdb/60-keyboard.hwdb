@@ -586,7 +586,6 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:pvr*
  KEYBOARD_KEY_f3=f21
 
 # Thinkpad X200_Tablet
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X2*Tablet*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*
  KEYBOARD_KEY_5d=menu
  KEYBOARD_KEY_63=fn
@@ -596,7 +595,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*
  KEYBOARD_KEY_6c=direction                              # rotate screen
 
 # ThinkPad X6 Tablet
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X6*Tablet*
  KEYBOARD_KEY_6c=direction                              # rotate
  KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
