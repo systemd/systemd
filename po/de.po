@@ -10,8 +10,8 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
 "product=systemd&keywords=I18N+L10N&component=general\n"
 "POT-Creation-Date: 2015-01-22 14:27+0000\n"
-"PO-Revision-Date: 2015-01-29 19:00+0100\n"
-"Last-Translator: Christian Kirbach <christian.kirbach@gmail.com>\n"
+"PO-Revision-Date: 2015-02-18 17:08+0100\n"
+"Last-Translator: Martin Pitt <martin.pitt@ubuntu.com>\n"
 "Language-Team: German <gnome-de@gnome.org>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -456,14 +456,14 @@ msgstr ""
 
 #: ../src/fsckd/fsckd.c:186
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr ""
+msgstr "Strl+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
 
 #: ../src/fsckd/fsckd.c:227
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Prüfe %d Laufwerk (%3.1f%% fertig)"
+msgstr[1] "Prüfe %d Laufwerke (%3.1f%% fertig)"
 
 #~ msgid "Privileged system and service manager access"
 #~ msgstr "Privilegierter Zugriff auf die System- und Dienstverwaltung"
