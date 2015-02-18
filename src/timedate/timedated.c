@@ -397,7 +397,14 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-timezone", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_TIME,
+                        "org.freedesktop.timedate1.set-timezone",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -458,7 +465,14 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
         if (lrtc == c->local_rtc)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-local-rtc", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_TIME,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -563,7 +577,14 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-time", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_TIME,
+                        "org.freedesktop.timedate1.set-time",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -603,7 +624,14 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         if ((bool)ntp == c->use_ntp)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-ntp", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_TIME,
+                        "org.freedesktop.timedate1.set-ntp",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

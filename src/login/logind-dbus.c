@@ -854,11 +854,7 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
         if (r < 0)
                 return r;
 
-        r = session_activate(session);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_session_method_activate(bus, message, session, error);
 }
 
 static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -915,11 +911,7 @@ static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        r = session_send_lock(session, streq(sd_bus_message_get_member(message), "LockSession"));
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_session_method_lock(bus, message, session, error);
 }
 
 static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -930,6 +922,19 @@ static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *user
         assert(message);
         assert(m);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.lock-sessions",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = session_send_lock_all(m, streq(sd_bus_message_get_member(message), "LockSessions"));
         if (r < 0)
                 return r;
@@ -938,47 +943,29 @@ static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *user
 }
 
 static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *name, *swho;
+        const char *name;
         Manager *m = userdata;
         Session *session;
-        int32_t signo;
-        KillWho who;
         int r;
 
         assert(bus);
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "ssi", &name, &swho, &signo);
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-
-        if (isempty(swho))
-                who = KILL_ALL;
-        else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
-        }
-
-        if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = manager_get_session_from_creds(m, message, name, error, &session);
         if (r < 0)
                 return r;
 
-        r = session_kill(session, who, signo);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_session_method_kill(bus, message, session, error);
 }
 
 static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint32_t uid;
-        int32_t signo;
         User *user;
         int r;
 
@@ -986,22 +973,15 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "ui", &uid, &signo);
+        r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
                 return r;
-
-        if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = manager_get_user_from_creds(m, message, uid, error, &user);
         if (r < 0)
                 return r;
 
-        r = user_kill(user, signo);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_user_method_kill(bus, message, user, error);
 }
 
 static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1022,11 +1002,7 @@ static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *
         if (r < 0)
                 return r;
 
-        r = session_stop(session, true);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_session_method_terminate(bus, message, session, error);
 }
 
 static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1047,11 +1023,7 @@ static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        r = user_stop(user, true);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_user_method_terminate(bus, message, user, error);
 }
 
 static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1072,11 +1044,7 @@ static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        r = seat_stop_sessions(seat, true);
-        if (r < 0)
-                return r;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return bus_seat_method_terminate(bus, message, seat, error);
 }
 
 static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1119,6 +1087,7 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-user-linger",
                         interactive,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1291,6 +1260,7 @@ static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *user
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.attach-device",
                         interactive,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1322,6 +1292,7 @@ static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *user
                         CAP_SYS_ADMIN,
                         "org.freedesktop.login1.flush-devices",
                         interactive,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1619,7 +1590,7 @@ static int method_do_shutdown_or_sleep(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, interactive, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_multiple_sessions, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1627,7 +1598,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, interactive, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1635,7 +1606,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, interactive, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1772,7 +1743,7 @@ static int method_can_shutdown_or_sleep(
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
-                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, false, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1785,7 +1756,7 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action_ignore_inhibit, false, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1801,7 +1772,7 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_verify_polkit(message, CAP_SYS_BOOT, action, false, &challenge, error);
+                r = bus_verify_polkit(message, CAP_SYS_BOOT, action, false, UID_INVALID, &challenge, error);
                 if (r < 0)
                         return r;
 
@@ -1921,15 +1892,20 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (m->action_what & w)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS, "The operation inhibition has been requested for is already running");
 
-        r = bus_verify_polkit_async(message, CAP_SYS_BOOT,
-                                    w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                                    w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
-                                    w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
-                                    w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
-                                    w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
-                                    w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
-                                                                        "org.freedesktop.login1.inhibit-handle-lid-switch",
-                                    false, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_BOOT,
+                        w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                        w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                        w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
+                        w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                        w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                        w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
+                                                            "org.freedesktop.login1.inhibit-handle-lid-switch",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2025,15 +2001,15 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ReleaseSession", "s", NULL, method_release_session, 0),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ActivateSessionOnSeat", "ss", NULL, method_activate_session_on_seat, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("LockSession", "s", NULL, method_lock_session, 0),
-        SD_BUS_METHOD("UnlockSession", "s", NULL, method_lock_session, 0),
-        SD_BUS_METHOD("LockSessions", NULL, NULL, method_lock_sessions, 0),
-        SD_BUS_METHOD("UnlockSessions", NULL, NULL, method_lock_sessions, 0),
-        SD_BUS_METHOD("KillSession", "ssi", NULL, method_kill_session, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("KillUser", "ui", NULL, method_kill_user, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("TerminateSession", "s", NULL, method_terminate_session, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("TerminateUser", "u", NULL, method_terminate_user, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("TerminateSeat", "s", NULL, method_terminate_seat, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("LockSession", "s", NULL, method_lock_session, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("UnlockSession", "s", NULL, method_lock_session, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("LockSessions", NULL, NULL, method_lock_sessions, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("UnlockSessions", NULL, NULL, method_lock_sessions, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("KillSession", "ssi", NULL, method_kill_session, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("KillUser", "ui", NULL, method_kill_user, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("TerminateSession", "s", NULL, method_terminate_session, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("TerminateUser", "u", NULL, method_terminate_user, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("TerminateSeat", "s", NULL, method_terminate_seat, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetUserLinger", "ubb", NULL, method_set_user_linger, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachDevice", "ssb", NULL, method_attach_device, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("FlushDevices", "b", NULL, method_flush_devices, SD_BUS_VTABLE_UNPRIVILEGED),

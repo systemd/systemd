@@ -171,13 +171,26 @@ static int property_get_linger(
         return sd_bus_message_append(reply, "b", r > 0);
 }
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_user_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = userdata;
         int r;
 
         assert(bus);
         assert(message);
         assert(u);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.login1.manage",
+                        false,
+                        u->uid,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = user_stop(u, true);
         if (r < 0)
@@ -186,7 +199,7 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_user_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = userdata;
         int32_t signo;
         int r;
@@ -194,6 +207,19 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
         assert(bus);
         assert(message);
         assert(u);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_KILL,
+                        "org.freedesktop.login1.manage",
+                        false,
+                        u->uid,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = sd_bus_message_read(message, "i", &signo);
         if (r < 0)
@@ -227,8 +253,8 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("Kill", "i", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_user_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Kill", "i", NULL, bus_user_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

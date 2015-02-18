@@ -661,6 +661,7 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -736,6 +737,7 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -865,6 +867,7 @@ static int method_cancel(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bu
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &t->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -894,6 +897,7 @@ static int method_cancel_transfer(sd_bus *bus, sd_bus_message *msg, void *userda
                         CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)

@@ -179,3 +179,8 @@ void session_leave_vt(Session *s);
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force);
 void session_drop_controller(Session *s);
+
+int bus_session_method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_lock(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_session_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);

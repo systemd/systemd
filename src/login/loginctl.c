@@ -869,7 +869,7 @@ static int activate(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
@@ -904,7 +904,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -954,7 +954,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -988,7 +988,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -1025,7 +1025,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -1054,7 +1054,7 @@ static int attach(int argc, char *argv[], void *userdata) {
 
         for (i = 2; i < argc; i++) {
 
-                r = sd_bus_call_method (
+                r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -1082,7 +1082,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_if_enabled();
 
-        r = sd_bus_call_method (
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -1374,6 +1374,8 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
+
+        sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         r = loginctl_main(argc, argv, bus);
 

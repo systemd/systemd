@@ -190,11 +190,33 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
         return has_owner;
 }
 
+static int check_good_user(sd_bus_message *m, uid_t good_user) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        uid_t sender_uid;
+        int r;
+
+        assert(m);
+
+        if (good_user == UID_INVALID)
+                return 0;
+
+        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &sender_uid);
+        if (r < 0)
+                return r;
+
+        return sender_uid == good_user;
+}
+
 int bus_verify_polkit(
                 sd_bus_message *call,
                 int capability,
                 const char *action,
                 bool interactive,
+                uid_t good_user,
                 bool *_challenge,
                 sd_bus_error *e) {
 
@@ -202,6 +224,10 @@ int bus_verify_polkit(
 
         assert(call);
         assert(action);
+
+        r = check_good_user(call, good_user);
+        if (r != 0)
+                return r;
 
         r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
@@ -330,6 +356,7 @@ int bus_verify_polkit_async(
                 int capability,
                 const char *action,
                 bool interactive,
+                uid_t good_user,
                 Hashmap **registry,
                 sd_bus_error *error) {
 
@@ -346,6 +373,10 @@ int bus_verify_polkit_async(
         assert(call);
         assert(action);
         assert(registry);
+
+        r = check_good_user(call, good_user);
+        if (r != 0)
+                return r;
 
 #ifdef ENABLE_POLKIT
         q = hashmap_get(*registry, call);

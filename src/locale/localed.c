@@ -949,7 +949,14 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         if (modified) {
                 _cleanup_strv_free_ char **settings = NULL;
 
-                r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-locale", interactive, &c->polkit_registry, error);
+                r = bus_verify_polkit_async(
+                                m,
+                                CAP_SYS_ADMIN,
+                                "org.freedesktop.locale1.set-locale",
+                                interactive,
+                                UID_INVALID,
+                                &c->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1027,7 +1034,14 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                     (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keymap data");
 
-                r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", interactive, &c->polkit_registry, error);
+                r = bus_verify_polkit_async(
+                                m,
+                                CAP_SYS_ADMIN,
+                                "org.freedesktop.locale1.set-keyboard",
+                                interactive,
+                                UID_INVALID,
+                                &c->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1146,7 +1160,14 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     (options && !string_is_safe(options)))
                         return sd_bus_error_set_errnof(error, -EINVAL, "Received invalid keyboard data");
 
-                r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", interactive, &c->polkit_registry, error);
+                r = bus_verify_polkit_async(
+                                m,
+                                CAP_SYS_ADMIN,
+                                "org.freedesktop.locale1.set-keyboard",
+                                interactive,
+                                UID_INVALID,
+                                &c->polkit_registry,
+                                error);
                 if (r < 0)
                         return r;
                 if (r == 0)

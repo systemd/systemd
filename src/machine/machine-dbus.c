@@ -133,6 +133,7 @@ int bus_machine_method_terminate(sd_bus *bus, sd_bus_message *message, void *use
                         CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
                         false,
+                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -178,6 +179,7 @@ int bus_machine_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata
                         CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
                         false,
+                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -480,6 +482,7 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.login",
                         false,
+                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -583,6 +586,7 @@ int bus_machine_method_bind_mount(sd_bus *bus, sd_bus_message *message, void *us
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
                         false,
+                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -841,6 +845,7 @@ int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
                         false,
+                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)

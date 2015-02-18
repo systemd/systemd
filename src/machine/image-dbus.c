@@ -47,6 +47,7 @@ int bus_image_method_remove(
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -88,6 +89,7 @@ int bus_image_method_rename(
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -129,6 +131,7 @@ int bus_image_method_clone(
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -165,6 +168,7 @@ int bus_image_method_mark_read_only(
                         CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         false,
+                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)

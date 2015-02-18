@@ -427,7 +427,14 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (streq_ptr(name, c->data[PROP_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.hostname1.set-hostname", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.set-hostname",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -469,7 +476,14 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN, "org.freedesktop.hostname1.set-static-hostname", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.set-static-hostname",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -534,10 +548,14 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
          * same time as the static one, use the same policy action for
          * both... */
 
-        r = bus_verify_polkit_async(m, CAP_SYS_ADMIN,
-                                    prop == PROP_PRETTY_HOSTNAME ?
-                                    "org.freedesktop.hostname1.set-static-hostname" :
-                                    "org.freedesktop.hostname1.set-machine-info", interactive, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

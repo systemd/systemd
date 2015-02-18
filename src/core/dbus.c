@@ -1193,18 +1193,18 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
 }
 
 int bus_verify_manage_unit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", false, UID_INVALID, &m->polkit_registry, error);
 }
 
 /* Same as bus_verify_manage_unit_async(), but checks for CAP_KILL instead of CAP_SYS_ADMIN */
 int bus_verify_manage_unit_async_for_kill(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_KILL, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_KILL, "org.freedesktop.systemd1.manage-units", false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", false, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", false, &m->polkit_registry, error);
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", false, UID_INVALID, &m->polkit_registry, error);
 }
