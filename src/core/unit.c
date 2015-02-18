@@ -516,7 +516,7 @@ void unit_free(Unit *u) {
                 free(u->cgroup_path);
         }
 
-        set_remove(u->manager->failed_units, u);
+        manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
         free(u->description);
@@ -1797,10 +1797,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         /* Keep track of failed units */
-        if (ns == UNIT_FAILED)
-                set_put(u->manager->failed_units, u);
-        else
-                set_remove(u->manager->failed_units, u);
+        manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
 
         /* Make sure the cgroup is always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))

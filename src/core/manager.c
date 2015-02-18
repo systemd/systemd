@@ -3053,6 +3053,23 @@ const char *manager_get_runtime_prefix(Manager *m) {
                getenv("XDG_RUNTIME_DIR");
 }
 
+void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
+        unsigned size;
+
+        assert(m);
+        assert(u->manager == m);
+
+        size = set_size(m->failed_units);
+
+        if (failed)
+                set_put(m->failed_units, u);
+        else
+                set_remove(m->failed_units, u);
+
+        if (set_size(m->failed_units) != size)
+                bus_manager_send_change_signal(m);
+}
+
 ManagerState manager_state(Manager *m) {
         Unit *u;
 

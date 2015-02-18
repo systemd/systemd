@@ -362,5 +362,7 @@ const char *manager_get_runtime_prefix(Manager *m);
 
 ManagerState manager_state(Manager *m);
 
+void manager_update_failed_units(Manager *m, Unit *u, bool failed);
+
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;

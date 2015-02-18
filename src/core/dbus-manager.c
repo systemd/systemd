@@ -1985,7 +1985,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
         SD_BUS_PROPERTY("NNames", "u", property_get_n_names, 0, 0),
-        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_n_failed_units, 0, 0),
+        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_n_failed_units, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NJobs", "u", property_get_n_jobs, 0, 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
@@ -2138,5 +2138,23 @@ void bus_manager_send_reloading(Manager *m, bool active) {
         r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
                 log_debug_errno(r, "Failed to send reloading signal: %m");
+}
 
+static int send_changed_signal(sd_bus *bus, void *userdata) {
+        assert(bus);
+
+        return sd_bus_emit_properties_changed_strv(bus,
+                                                   "/org/freedesktop/systemd1",
+                                                   "org.freedesktop.systemd1.Manager",
+                                                   NULL);
+}
+
+void bus_manager_send_change_signal(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to send manager change signal: %m");
 }
