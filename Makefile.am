@@ -242,14 +242,11 @@ endef
 
 INSTALL_DIRS =
 
-RUNLEVEL1_TARGET_WANTS =
-RUNLEVEL2_TARGET_WANTS =
-RUNLEVEL3_TARGET_WANTS =
-RUNLEVEL4_TARGET_WANTS =
-RUNLEVEL5_TARGET_WANTS =
 SHUTDOWN_TARGET_WANTS =
 LOCAL_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
+GRAPHICAL_TARGET_WANTS =
+RESCUE_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
 BUSNAMES_TARGET_WANTS =
@@ -263,14 +260,11 @@ USER_UNIT_ALIASES =
 GENERAL_ALIASES =
 
 install-target-wants-hook:
-	what="$(RUNLEVEL1_TARGET_WANTS)" && wants=runlevel1.target && dir=$(systemunitdir) && $(add-wants)
-	what="$(RUNLEVEL2_TARGET_WANTS)" && wants=runlevel2.target && dir=$(systemunitdir) && $(add-wants)
-	what="$(RUNLEVEL3_TARGET_WANTS)" && wants=runlevel3.target && dir=$(systemunitdir) && $(add-wants)
-	what="$(RUNLEVEL4_TARGET_WANTS)" && wants=runlevel4.target && dir=$(systemunitdir) && $(add-wants)
-	what="$(RUNLEVEL5_TARGET_WANTS)" && wants=runlevel5.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(GRAPHICAL_TARGET_WANTS)" && wants=graphical.target && dir=$(systemunitdir) && $(add-wants)
+	what="$(RESCUE_TARGET_WANTS)" && wants=rescue.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && dir=$(systemunitdir) && $(add-wants)
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && dir=$(systemunitdir) && $(add-wants)
@@ -6572,15 +6566,11 @@ SOCKETS_TARGET_WANTS += \
 
 if HAVE_UTMP
 if HAVE_SYSV_COMPAT
-RUNLEVEL1_TARGET_WANTS += \
+MULTI_USER_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
-RUNLEVEL2_TARGET_WANTS += \
+GRAPHICAL_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
-RUNLEVEL3_TARGET_WANTS += \
-	systemd-update-utmp-runlevel.service
-RUNLEVEL4_TARGET_WANTS += \
-	systemd-update-utmp-runlevel.service
-RUNLEVEL5_TARGET_WANTS += \
+RESCUE_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 endif
 

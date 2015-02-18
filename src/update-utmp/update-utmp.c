@@ -80,11 +80,9 @@ static int get_current_runlevel(Context *c) {
                  * here over the others, since these are the main
                  * runlevels used on Fedora. It might make sense to
                  * change the order on some distributions. */
-                { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '3', SPECIAL_RUNLEVEL3_TARGET },
-                { '4', SPECIAL_RUNLEVEL4_TARGET },
-                { '2', SPECIAL_RUNLEVEL2_TARGET },
-                { '1', SPECIAL_RESCUE_TARGET },
+                { '5', SPECIAL_GRAPHICAL_TARGET  },
+                { '3', SPECIAL_MULTI_USER_TARGET },
+                { '1', SPECIAL_RESCUE_TARGET     },
         };
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;

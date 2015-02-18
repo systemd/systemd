@@ -42,6 +42,8 @@
 /* Special boot targets */
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EMERGENCY_TARGET "emergency.target"
+#define SPECIAL_MULTI_USER_TARGET "multi-user.target"
+#define SPECIAL_GRAPHICAL_TARGET "graphical.target"
 
 /* Early boot targets */
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
@@ -107,13 +109,6 @@
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
 #define SPECIAL_SIGPWR_TARGET "sigpwr.target"
 #define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
-
-/* For SysV compatibility. Usually an alias for a saner target. On
- * SysV-free systems this doesn't exist. */
-#define SPECIAL_RUNLEVEL2_TARGET "runlevel2.target"
-#define SPECIAL_RUNLEVEL3_TARGET "runlevel3.target"
-#define SPECIAL_RUNLEVEL4_TARGET "runlevel4.target"
-#define SPECIAL_RUNLEVEL5_TARGET "runlevel5.target"
 
 /* Where we add all our system units, users and machines by default */
 #define SPECIAL_SYSTEM_SLICE "system.slice"

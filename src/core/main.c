@@ -280,10 +280,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 "s",         SPECIAL_RESCUE_TARGET,
                 "S",         SPECIAL_RESCUE_TARGET,
                 "1",         SPECIAL_RESCUE_TARGET,
-                "2",         SPECIAL_RUNLEVEL2_TARGET,
-                "3",         SPECIAL_RUNLEVEL3_TARGET,
-                "4",         SPECIAL_RUNLEVEL4_TARGET,
-                "5",         SPECIAL_RUNLEVEL5_TARGET,
+                "2",         SPECIAL_MULTI_USER_TARGET,
+                "3",         SPECIAL_MULTI_USER_TARGET,
+                "4",         SPECIAL_MULTI_USER_TARGET,
+                "5",         SPECIAL_GRAPHICAL_TARGET,
         };
         int r;
 

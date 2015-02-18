@@ -78,15 +78,15 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
                 const char *special;
                 bool isolate;
         } table[] = {
-                { '0', SPECIAL_POWEROFF_TARGET,  false },
-                { '1', SPECIAL_RESCUE_TARGET,    true  },
-                { 's', SPECIAL_RESCUE_TARGET,    true  },
-                { 'S', SPECIAL_RESCUE_TARGET,    true  },
-                { '2', SPECIAL_RUNLEVEL2_TARGET, true  },
-                { '3', SPECIAL_RUNLEVEL3_TARGET, true  },
-                { '4', SPECIAL_RUNLEVEL4_TARGET, true  },
-                { '5', SPECIAL_RUNLEVEL5_TARGET, true  },
-                { '6', SPECIAL_REBOOT_TARGET,    false },
+                { '0', SPECIAL_POWEROFF_TARGET,   false },
+                { '1', SPECIAL_RESCUE_TARGET,     true  },
+                { 's', SPECIAL_RESCUE_TARGET,     true  },
+                { 'S', SPECIAL_RESCUE_TARGET,     true  },
+                { '2', SPECIAL_MULTI_USER_TARGET, true  },
+                { '3', SPECIAL_MULTI_USER_TARGET, true  },
+                { '4', SPECIAL_MULTI_USER_TARGET, true  },
+                { '5', SPECIAL_GRAPHICAL_TARGET,  true  },
+                { '6', SPECIAL_REBOOT_TARGET,     false },
         };
 
         unsigned i;

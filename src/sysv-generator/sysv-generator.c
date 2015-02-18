@@ -51,11 +51,11 @@ static const struct {
         const RunlevelType type;
 } rcnd_table[] = {
         /* Standard SysV runlevels for start-up */
-        { "rc1.d",  SPECIAL_RESCUE_TARGET,    RUNLEVEL_UP },
-        { "rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
-        { "rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
-        { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
-        { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
+        { "rc1.d",  SPECIAL_RESCUE_TARGET,     RUNLEVEL_UP },
+        { "rc2.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
+        { "rc3.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
+        { "rc4.d",  SPECIAL_MULTI_USER_TARGET, RUNLEVEL_UP },
+        { "rc5.d",  SPECIAL_GRAPHICAL_TARGET,  RUNLEVEL_UP },
 
         /* Standard SysV runlevels for shutdown */
         { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
