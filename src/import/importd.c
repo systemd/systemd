@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/prctl.h>
+#include <sys/vfs.h>
 
 #include "sd-bus.h"
 #include "util.h"
@@ -29,8 +30,9 @@
 #include "def.h"
 #include "socket-util.h"
 #include "mkdir.h"
-#include "import-util.h"
 #include "def.h"
+#include "missing.h"
+#include "import-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;
@@ -641,6 +643,23 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *dkr_ind
         return NULL;
 }
 
+static int check_btrfs(sd_bus_error *error) {
+        struct statfs sfs;
+
+        if (statfs("/var/lib/machines", &sfs) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                if (statfs("/var/lib", &sfs) < 0)
+                        return -errno;
+        }
+
+        if (!F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
+
+        return 0;
+}
+
 static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *remote, *local, *verify, *object;
@@ -685,6 +704,10 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
                 v = import_verify_from_string(verify);
         if (v < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
+
+        r = check_btrfs(error);
+        if (r < 0)
+                return r;
 
         type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_TAR : TRANSFER_RAW;
 
@@ -776,6 +799,10 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
 
         if (v != IMPORT_VERIFY_NO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "DKR does not support verification.");
+
+        r = check_btrfs(error);
+        if (r < 0)
+                return r;
 
         if (manager_find(m, TRANSFER_DKR, index_url, remote))
                 return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
