@@ -872,10 +872,7 @@ static int mount_all(const char *dest) {
         int r = 0;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
-                _cleanup_free_ char *where = NULL;
-#ifdef HAVE_SELINUX
-                _cleanup_free_ char *options = NULL;
-#endif
+                _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
                 int t;
 
