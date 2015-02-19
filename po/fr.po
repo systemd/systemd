@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-01-22 16:03+0100\n"
+"POT-Creation-Date: 2015-02-18 19:48+0100\n"
 "PO-Revision-Date: 2014-12-28 13:04+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -27,11 +27,11 @@ msgid ""
 msgstr "Authentification requise pour renvoyer la phrase secrète au système."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
+msgid "Manage system services or other units"
 msgstr "Gérer les services système ou les unités"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
+msgid "Authentication is required to manage system services or other units."
 msgstr ""
 "Authentification requise pour gérer les services système ou les unités."
 
@@ -46,10 +46,24 @@ msgstr ""
 "unités."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Set or unset system and service manager environment variables"
+msgstr ""
+"Définir ou supprimer des variables d'environnement du système ou du "
+"gestionnaire de services"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Authentification requise pour définir ou supprimer des variables "
+"d'environnement du système ou du gestionnaire de services."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
 msgid "Reload the systemd state"
 msgstr "Recharger l'état de systemd"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
 msgid "Authentication is required to reload the systemd state."
 msgstr "Authentification requise pour recharger l'état de systemd"
 
@@ -89,8 +103,8 @@ msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
 #: ../src/import/org.freedesktop.import1.policy.in.h:2
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
-"Authentification requise pour télécharger une image de "
-"machine virtuelle (VM) ou de conteneur."
+"Authentification requise pour télécharger une image de machine virtuelle "
+"(VM) ou de conteneur."
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -383,14 +397,58 @@ msgstr ""
 "Authentification requise pour mettre le système en hibernation alors qu'une "
 "application a demandé de l'empêcher."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manager active sessions, users and seats"
+msgstr "Gérer les sessions actives, les utilisateurs et les postes (seats)"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr ""
+"Authentification requise pour gérer les sessions actives, les utilisateurs "
+"et les postes (seats)."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr "Verrouiller ou déverrouiller des sessions actives"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+msgid "Authentication is required for locking or unlocking active sessions."
+msgstr ""
+"Authentification requise pour verrouiller ou déverrouiller des sessions "
+"actives."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Connexion dans un conteneur local"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-msgid "Authentication is required to log into a local container"
+msgid "Authentication is required to log into a local container."
 msgstr ""
 "Authentification requise pour permettre la connexion dans un conteneur local."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Manage local virtual machines and containers"
+msgstr "Gérer les machines virtuelles (VM) et conteneurs locaux"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Authentification requise pour gérer les machines virtuelles (VM) et les "
+"conteneurs locaux."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Manage local virtual machine and container images"
+msgstr "Gérer les images locales de machines virtuelles (VM) et de conteneurs"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Authentification requise pour gérer les images locales de machines "
+"virtuelles (VM) et de conteneurs."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -436,7 +494,9 @@ msgstr ""
 
 #: ../src/fsckd/fsckd.c:186
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr "Appuyez sur Ctrl+C pour annuler toutes vérifications du système de fichier en cours"
+msgstr ""
+"Appuyez sur Ctrl+C pour annuler toutes vérifications en cours du système de "
+"fichiers"
 
 #: ../src/fsckd/fsckd.c:227
 #, c-format
