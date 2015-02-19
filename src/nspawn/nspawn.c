@@ -188,6 +188,8 @@ static char *arg_image = NULL;
 static Volatile arg_volatile = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
+static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
+static bool arg_userns = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -223,6 +225,8 @@ static void help(void) {
                "                            Add a virtual ethernet connection between host\n"
                "                            and container and add it to an existing bridge on\n"
                "                            the host\n"
+               "     --private-users[=UIDBASE[:NUIDS]]\n"
+               "                            Run within user namespace\n"
                "  -p --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]\n"
                "                            Expose a container IP port on the host\n"
                "  -Z --selinux-context=SECLABEL\n"
@@ -297,6 +301,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VOLATILE,
                 ARG_TEMPLATE,
                 ARG_PROPERTY,
+                ARG_PRIVATE_USERS,
         };
 
         static const struct option options[] = {
@@ -335,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "volatile",              optional_argument, NULL, ARG_VOLATILE          },
                 { "port",                  required_argument, NULL, 'p'                   },
                 { "property",              required_argument, NULL, ARG_PROPERTY          },
+                { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
                 {}
         };
 
@@ -741,6 +747,35 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_PRIVATE_USERS:
+                        if (optarg) {
+                                _cleanup_free_ char *buffer = NULL;
+                                const char *range, *shift;
+
+                                range = strchr(optarg, ':');
+                                if (range) {
+                                        buffer = strndup(optarg, range - optarg);
+                                        if (!buffer)
+                                                return log_oom();
+                                        shift = buffer;
+
+                                        range++;
+                                        if (safe_atou32(range, &arg_uid_range) < 0 || arg_uid_range <= 0) {
+                                                log_error("Failed to parse UID range: %s", range);
+                                                return -EINVAL;
+                                        }
+                                } else
+                                        shift = optarg;
+
+                                if (parse_uid(shift, &arg_uid_shift) < 0) {
+                                        log_error("Failed to parse UID: %s", optarg);
+                                        return -EINVAL;
+                                }
+                        }
+
+                        arg_userns = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -887,6 +922,19 @@ static int mount_all(const char *dest) {
 #endif
                         o = mount_table[k].options;
 
+                if (arg_userns && arg_uid_shift != UID_INVALID && streq_ptr(mount_table[k].type, "tmpfs")) {
+                        char *uid_options = NULL;
+
+                        if (o)
+                                asprintf(&uid_options, "%s,uid=" UID_FMT ",gid=" UID_FMT, o, arg_uid_shift, arg_uid_shift);
+                        else
+                                asprintf(&uid_options, "uid=" UID_FMT ",gid=" UID_FMT, arg_uid_shift, arg_uid_shift);
+                        if (!uid_options)
+                                return log_oom();
+
+                        free(options);
+                        o = options = uid_options;
+                }
 
                 if (mount(mount_table[k].what,
                           where,
@@ -3592,6 +3640,38 @@ static int determine_names(void) {
         return 0;
 }
 
+static int determine_uid_shift(void) {
+        int r;
+
+        if (!arg_userns)
+                return 0;
+
+        if (arg_uid_shift == UID_INVALID) {
+                struct stat st;
+
+                r = stat(arg_directory, &st);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to determine UID base of %s: %m", arg_directory);
+
+                arg_uid_shift = st.st_uid & UINT32_C(0xffff0000);
+
+                if (arg_uid_shift != (st.st_gid & UINT32_C(0xffff0000))) {
+                        log_error("UID and GID base of %s don't match.", arg_directory);
+                        return -EINVAL;
+                }
+
+                arg_uid_range = UINT32_C(0x10000);
+        }
+
+        if (arg_uid_shift > (uid_t) -1 - arg_uid_range) {
+                log_error("UID base too high for UID range.");
+                return -EINVAL;
+        }
+
+        log_info("Using user namespaces with base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL, *console = NULL;
@@ -3780,6 +3860,10 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
+        r = determine_uid_shift();
+        if (r < 0)
+                goto finish;
+
         interactive = isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0;
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
@@ -3888,7 +3972,6 @@ int main(int argc, char *argv[]) {
 
                         master = safe_close(master);
 
-
                         kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
@@ -3930,6 +4013,9 @@ int main(int argc, char *argv[]) {
                                 log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                        if (arg_private_network)
+                                loopback_setup();
 
                         /* Mark everything as slave, so that we still
                          * receive mounts from the real root, but don't
@@ -4001,7 +4087,7 @@ int main(int argc, char *argv[]) {
                         /* Tell the parent that we are ready, and that
                          * it can cgroupify us to that we lack access
                          * to certain devices and resources. */
-                        (void) barrier_place(&barrier);
+                        (void) barrier_place(&barrier); /* #1 */
 
                         if (setup_boot_id(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
@@ -4026,7 +4112,7 @@ int main(int argc, char *argv[]) {
 
                         /* Wait until we are cgroup-ified, so that we
                          * can mount the right cgroup path writable */
-                        (void) barrier_sync_next(&barrier);
+                        (void) barrier_place_and_sync(&barrier); /* #2 */
 
                         if (mount_cgroup(arg_directory) < 0)
                                 _exit(EXIT_FAILURE);
@@ -4051,15 +4137,49 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        umask(0022);
+                        if (arg_userns) {
+                                if (unshare(CLONE_NEWUSER) < 0) {
+                                        log_error_errno(errno, "unshare(CLONE_NEWUSER) failed: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
 
-                        if (arg_private_network)
-                                loopback_setup();
+                                /* Tell the parent, that it now can
+                                 * write the UID map. */
+                                (void) barrier_place(&barrier); /* #3 */
+
+                                /* Wait until the parent wrote the UID
+                                 * map */
+                                (void) barrier_place_and_sync(&barrier); /* #4 */
+                        }
+
+                        umask(0022);
 
                         if (drop_capabilities() < 0) {
                                 log_error_errno(errno, "drop_capabilities() failed: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                        setup_hostname();
+
+                        if (arg_personality != 0xffffffffLU) {
+                                if (personality(arg_personality) < 0) {
+                                        log_error_errno(errno, "personality() failed: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        } else if (secondary) {
+                                if (personality(PER_LINUX32) < 0) {
+                                        log_error_errno(errno, "personality() failed: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
+#ifdef HAVE_SELINUX
+                        if (arg_selinux_context)
+                                if (setexeccon((security_context_t) arg_selinux_context) < 0) {
+                                        log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
+                                        _exit(EXIT_FAILURE);
+                                }
+#endif
 
                         r = change_uid_gid(&home);
                         if (r < 0)
@@ -4095,28 +4215,6 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-                        setup_hostname();
-
-                        if (arg_personality != 0xffffffffLU) {
-                                if (personality(arg_personality) < 0) {
-                                        log_error_errno(errno, "personality() failed: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-                        } else if (secondary) {
-                                if (personality(PER_LINUX32) < 0) {
-                                        log_error_errno(errno, "personality() failed: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-                        }
-
-#ifdef HAVE_SELINUX
-                        if (arg_selinux_context)
-                                if (setexeccon((security_context_t) arg_selinux_context) < 0) {
-                                        log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
-                                        _exit(EXIT_FAILURE);
-                                }
-#endif
-
                         if (!strv_isempty(arg_setenv)) {
                                 char **n;
 
@@ -4130,9 +4228,10 @@ int main(int argc, char *argv[]) {
                         } else
                                 env_use = (char**) envp;
 
-                        /* Wait until the parent is ready with the setup, too... */
-                        if (!barrier_place_and_sync(&barrier))
-                                _exit(EXIT_FAILURE);
+                        /* Let the parent know that we are ready and
+                         * wait until the parent is ready with the
+                         * setup, too... */
+                        (void) barrier_place_and_sync(&barrier); /* #5 */
 
                         if (arg_boot) {
                                 char **a;
@@ -4171,10 +4270,12 @@ int main(int argc, char *argv[]) {
                 kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
                 rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
 
+                (void) barrier_place(&barrier); /* #1 */
+
                 /* Wait for the most basic Child-setup to be done,
                  * before we add hardware to it, and place it in a
                  * cgroup. */
-                if (barrier_sync_next(&barrier)) {
+                if (barrier_sync(&barrier)) { /* #1 */
                         int ifi = 0;
 
                         r = move_network_interfaces(pid);
@@ -4201,6 +4302,35 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
+                        /* Notify the child that the parent is ready with all
+                         * its setup, and that the child can now hand over
+                         * control to the code to run inside the container. */
+                        (void) barrier_place(&barrier); /* #2 */
+
+                        if (arg_userns) {
+                                char uid_map[strlen("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+
+                                (void) barrier_place_and_sync(&barrier); /* #3 */
+
+                                xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
+                                xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, arg_uid_shift, arg_uid_range);
+                                r = write_string_file(uid_map, line);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to write UID map: %m");
+                                        goto finish;
+                                }
+
+                                /* We always assign the same UID and GID ranges */
+                                xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
+                                r = write_string_file(uid_map, line);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to write GID map: %m");
+                                        goto finish;
+                                }
+
+                                (void) barrier_place(&barrier); /* #4 */
+                        }
+
                         /* Block SIGCHLD here, before notifying child.
                          * process_pty() will handle it with the other signals. */
                         r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
@@ -4212,13 +4342,8 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
 
-                        /* Notify the child that the parent is ready with all
-                         * its setup, and that the child can now hand over
-                         * control to the code to run inside the container. */
-                        (void) barrier_place(&barrier);
-
-                        /* And wait that the child is completely ready now. */
-                        if (barrier_place_and_sync(&barrier)) {
+                        /* Let the child know that we are ready and wait that the child is completely ready now. */
+                        if (barrier_place_and_sync(&barrier)) { /* #5 */
                                 _cleanup_event_unref_ sd_event *event = NULL;
                                 _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
                                 _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
