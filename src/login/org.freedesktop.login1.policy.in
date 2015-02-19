@@ -271,7 +271,7 @@
         </action>
 
         <action id="org.freedesktop.login1.manage">
-                <_description>Manager active sessions, users and seats</_description>
+                <_description>Manage active sessions, users and seats</_description>
                 <_message>Authentication is required for managing active sessions, users and seats.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
