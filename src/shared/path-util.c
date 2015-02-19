@@ -436,6 +436,10 @@ bool path_equal(const char *a, const char *b) {
         }
 }
 
+bool path_equal_or_files_same(const char *a, const char *b) {
+        return path_equal(a, b) || files_same(a, b) > 0;
+}
+
 char* path_join(const char *root, const char *path, const char *rest) {
         assert(path);
 

@@ -325,9 +325,6 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
         if (a->type != b->type)
                 return false;
 
-        if (a->size != b->size)
-                return false;
-
         if (socket_address_family(a) != socket_address_family(b))
                 return false;
 
@@ -352,14 +349,16 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                 break;
 
         case AF_UNIX:
-
                 if ((a->sockaddr.un.sun_path[0] == 0) != (b->sockaddr.un.sun_path[0] == 0))
                         return false;
 
                 if (a->sockaddr.un.sun_path[0]) {
-                        if (!strneq(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, sizeof(a->sockaddr.un.sun_path)))
+                        if (!path_equal_or_files_same(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path))
                                 return false;
                 } else {
+                        if (a->size != b->size)
+                                return false;
+
                         if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, a->size) != 0)
                                 return false;
                 }
@@ -367,7 +366,6 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                 break;
 
         case AF_NETLINK:
-
                 if (a->protocol != b->protocol)
                         return false;
 
