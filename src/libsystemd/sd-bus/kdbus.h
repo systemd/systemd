@@ -780,11 +780,13 @@ struct kdbus_cmd_list {
 /**
  * struct kdbus_cmd_info - struct used for KDBUS_CMD_CONN_INFO ioctl
  * @size:		The total size of the struct
- * @flags:		KDBUS_ATTACH_* flags, userspace → kernel
+ * @flags:		Flags for this ioctl, userspace → kernel
  * @return_flags:	Command return flags, kernel → userspace
  * @id:			The 64-bit ID of the connection. If set to zero, passing
  *			@name is required. kdbus will look up the name to
  *			determine the ID in this case.
+ * @attach_flags:	Set of attach flags to specify the set of information
+ *			to receive, userspace → kernel
  * @offset:		Returned offset in the caller's pool buffer where the
  *			kdbus_info struct result is stored. The user must
  *			use KDBUS_CMD_FREE to free the allocated memory.
@@ -802,6 +804,7 @@ struct kdbus_cmd_info {
 	__u64 flags;
 	__u64 return_flags;
 	__u64 id;
+	__u64 attach_flags;
 	__u64 offset;
 	__u64 info_size;
 	struct kdbus_item items[0];

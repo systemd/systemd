@@ -654,7 +654,7 @@ int bus_get_name_creds_kdbus(
                 mask |= SD_BUS_CREDS_PID;
 
         cmd->size = size;
-        cmd->flags = attach_flags_to_kdbus(mask);
+        cmd->attach_flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
@@ -919,7 +919,7 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
                      SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)))
                 mask |= SD_BUS_CREDS_PID;
 
-        cmd.flags = attach_flags_to_kdbus(mask);
+        cmd.attach_flags = attach_flags_to_kdbus(mask);
 
         r = ioctl(bus->input_fd, KDBUS_CMD_BUS_CREATOR_INFO, &cmd);
         if (r < 0)
