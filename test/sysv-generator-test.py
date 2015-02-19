@@ -178,6 +178,8 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(s.get('Service', 'ExecStop'),
                          '%s stop' % init_script)
 
+        self.assertNotIn('Overwriting', err)
+
     def test_simple_enabled_all(self):
         '''simple service without dependencies, enabled in all runlevels'''
 
@@ -185,6 +187,7 @@ class SysvGeneratorTest(unittest.TestCase):
         err, results = self.run_generator()
         self.assertEqual(list(results), ['foo.service'])
         self.assert_enabled('foo.service', ['multi-user', 'graphical'])
+        self.assertNotIn('Overwriting', err)
 
     def test_simple_enabled_some(self):
         '''simple service without dependencies, enabled in some runlevels'''
@@ -270,6 +273,7 @@ class SysvGeneratorTest(unittest.TestCase):
         for f in ['bar.service', 'baz.service']:
             self.assertEqual(os.readlink(os.path.join(self.out_dir, f)),
                              'foo.service')
+        self.assertNotIn('Overwriting', err)
 
     def test_same_provides_in_multiple_scripts(self):
         '''multiple init.d scripts provide the same name'''
@@ -289,6 +293,9 @@ class SysvGeneratorTest(unittest.TestCase):
         self.add_sysv('bar', {'Provides': 'bar'}, enable=True)
         err, results = self.run_generator()
         self.assertEqual(sorted(results), ['bar.service', 'foo.service'])
+        # we do expect an overwrite here, bar.service should overwrite the
+        # alias link from foo.service
+        self.assertIn('Overwriting', err)
 
     def test_nonexecutable_script(self):
         '''ignores non-executable init.d script'''

@@ -166,7 +166,7 @@ static int generate_unit_file(SysvStub *s) {
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
          * so remove an existing link */
-        if (is_symlink(unit)) {
+        if (is_symlink(unit) > 0) {
                 log_warning("Overwriting existing symlink %s with real service", unit);
                 (void) unlink(unit);
         }
