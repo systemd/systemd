@@ -511,7 +511,7 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
 #ifdef ENABLE_KDBUS
         asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT ";x-machine-unix:pid=" PID_FMT, m->leader, m->leader);
 #else
-        asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT, m->leader);
+        asprintf(&container_bus->address, "x-machine-unix:pid=" PID_FMT, m->leader);
 #endif
         if (!container_bus->address)
                 return log_oom();
