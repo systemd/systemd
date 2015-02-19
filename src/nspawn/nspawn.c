@@ -1444,6 +1444,10 @@ static int copy_devnodes(const char *dest) {
 
                         if (mknod(to, st.st_mode, st.st_rdev) < 0)
                                 return log_error_errno(errno, "mknod(%s) failed: %m", to);
+
+                        if (arg_userns && arg_uid_shift != UID_INVALID)
+                                if (lchown(to, arg_uid_shift, arg_uid_shift) < 0)
+                                        return log_error_errno(errno, "chown() of device node %s failed: %m", to);
                 }
         }
 
@@ -1459,6 +1463,10 @@ static int setup_ptmx(const char *dest) {
 
         if (symlink("pts/ptmx", p) < 0)
                 return log_error_errno(errno, "Failed to create /dev/ptmx symlink: %m");
+
+        if (arg_userns && arg_uid_shift != UID_INVALID)
+                if (lchown(p, arg_uid_shift, arg_uid_shift) < 0)
+                        return log_error_errno(errno, "lchown() of symlink %s failed: %m", p);
 
         return 0;
 }
