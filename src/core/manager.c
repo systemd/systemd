@@ -953,7 +953,7 @@ int manager_enumerate(Manager *m) {
                 int q;
 
                 if (unit_vtable[c]->supported && !unit_vtable[c]->supported(m)) {
-                        log_info("Unit type .%s is not supported on this system.", unit_type_to_string(c));
+                        log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
                 }
 
