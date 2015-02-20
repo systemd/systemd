@@ -464,23 +464,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
                         return false;
         }
 
-        switch (b.sockaddr.sa.sa_family) {
-
-        case AF_INET:
-                return b.sockaddr.in.sin_port == a->sockaddr.in.sin_port &&
-                        b.sockaddr.in.sin_addr.s_addr == a->sockaddr.in.sin_addr.s_addr;
-
-        case AF_INET6:
-                return b.sockaddr.in6.sin6_port == a->sockaddr.in6.sin6_port &&
-                        memcmp(&b.sockaddr.in6.sin6_addr, &a->sockaddr.in6.sin6_addr, sizeof(struct in6_addr)) == 0;
-
-        case AF_UNIX:
-                return b.sockaddr.size == a->size &&
-                        memcmp(b.sockaddr.un.sun_path, a->sockaddr.un.sun_path, b.size - offsetof(struct sockaddr_un, sun_path)) == 0;
-
-        }
-
-        return false;
+        return socket_address_equal(a, &b);
 }
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, char **ret) {
