@@ -435,48 +435,48 @@ bool socket_ipv6_is_supported(void) {
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
-        union sockaddr_union sa;
-        socklen_t salen = sizeof(sa), solen;
-        int protocol, type;
+        SocketAddress b;
+        socklen_t solen;
 
         assert(a);
         assert(fd >= 0);
 
-        if (getsockname(fd, &sa.sa, &salen) < 0)
+        b.size = sizeof(b.sockaddr);
+        if (getsockname(fd, &b.sockaddr.sa, &b.size) < 0)
                 return false;
 
-        if (sa.sa.sa_family != a->sockaddr.sa.sa_family)
+        if (b.sockaddr.sa.sa_family != a->sockaddr.sa.sa_family)
                 return false;
 
-        solen = sizeof(type);
-        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &solen) < 0)
+        solen = sizeof(b.type);
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &b.type, &solen) < 0)
                 return false;
 
-        if (type != a->type)
+        if (b.type != a->type)
                 return false;
 
         if (a->protocol != 0)  {
-                solen = sizeof(protocol);
-                if (getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &protocol, &solen) < 0)
+                solen = sizeof(b.protocol);
+                if (getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &b.protocol, &solen) < 0)
                         return false;
 
-                if (protocol != a->protocol)
+                if (b.protocol != a->protocol)
                         return false;
         }
 
-        switch (sa.sa.sa_family) {
+        switch (b.sockaddr.sa.sa_family) {
 
         case AF_INET:
-                return sa.in.sin_port == a->sockaddr.in.sin_port &&
-                        sa.in.sin_addr.s_addr == a->sockaddr.in.sin_addr.s_addr;
+                return b.sockaddr.in.sin_port == a->sockaddr.in.sin_port &&
+                        b.sockaddr.in.sin_addr.s_addr == a->sockaddr.in.sin_addr.s_addr;
 
         case AF_INET6:
-                return sa.in6.sin6_port == a->sockaddr.in6.sin6_port &&
-                        memcmp(&sa.in6.sin6_addr, &a->sockaddr.in6.sin6_addr, sizeof(struct in6_addr)) == 0;
+                return b.sockaddr.in6.sin6_port == a->sockaddr.in6.sin6_port &&
+                        memcmp(&b.sockaddr.in6.sin6_addr, &a->sockaddr.in6.sin6_addr, sizeof(struct in6_addr)) == 0;
 
         case AF_UNIX:
-                return salen == a->size &&
-                        memcmp(sa.un.sun_path, a->sockaddr.un.sun_path, salen - offsetof(struct sockaddr_un, sun_path)) == 0;
+                return b.sockaddr.size == a->size &&
+                        memcmp(b.sockaddr.un.sun_path, a->sockaddr.un.sun_path, b.size - offsetof(struct sockaddr_un, sun_path)) == 0;
 
         }
 
