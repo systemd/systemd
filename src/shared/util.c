@@ -1689,6 +1689,7 @@ bool chars_intersect(const char *a, const char *b) {
 
 bool fstype_is_network(const char *fstype) {
         static const char table[] =
+                "afs\0"
                 "cifs\0"
                 "smbfs\0"
                 "sshfs\0"
