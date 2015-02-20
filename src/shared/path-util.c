@@ -457,9 +457,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         union file_handle_union h = FILE_HANDLE_INIT;
         int mount_id = -1, mount_id_parent = -1;
-        _cleanup_free_ char *parent = NULL;
         struct stat a, b;
         int r;
+        _cleanup_close_ int fd = -1;
         bool nosupp = false;
 
         /* We are not actually interested in the file handles, but
@@ -469,7 +469,15 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         if (path_equal(t, "/"))
                 return 1;
 
-        r = name_to_handle_at(AT_FDCWD, t, &h.handle, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
+        fd = openat(AT_FDCWD, t, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|(allow_symlink ? 0 : O_PATH));
+        if (fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = name_to_handle_at(fd, "", &h.handle, &mount_id, AT_EMPTY_PATH);
         if (r < 0) {
                 if (errno == ENOSYS)
                         /* This kernel does not support name_to_handle_at()
@@ -486,12 +494,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                         return -errno;
         }
 
-        r = path_get_parent(t, &parent);
-        if (r < 0)
-                return r;
 
         h.handle.handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, AT_SYMLINK_FOLLOW);
+        r = name_to_handle_at(fd, "..", &h.handle, &mount_id_parent, 0);
         if (r < 0)
                 if (errno == EOPNOTSUPP)
                         if (nosupp)
@@ -510,10 +515,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                 return mount_id != mount_id_parent;
 
 fallback:
-        if (allow_symlink)
-                r = stat(t, &a);
-        else
-                r = lstat(t, &a);
+        r = fstatat(fd, "", &a, AT_EMPTY_PATH);
 
         if (r < 0) {
                 if (errno == ENOENT)
@@ -522,14 +524,8 @@ fallback:
                 return -errno;
         }
 
-        free(parent);
-        parent = NULL;
 
-        r = path_get_parent(t, &parent);
-        if (r < 0)
-                return r;
-
-        r = stat(parent, &b);
+        r = fstatat(fd, "..", &b, 0);
         if (r < 0)
                 return -errno;
 
