@@ -722,6 +722,18 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
                 return 1;
         }
 
+        case SD_BUS_TYPE_INT64: {
+                int64_t i;
+
+                r = sd_bus_message_read_basic(property, type, &i);
+                if (r < 0)
+                        return r;
+
+                printf("%s=%lld\n", name, (long long) i);
+
+                return 1;
+        }
+
         case SD_BUS_TYPE_UINT32: {
                 uint32_t u;
 
