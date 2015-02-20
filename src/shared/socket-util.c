@@ -349,6 +349,10 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                 break;
 
         case AF_UNIX:
+                if (a->size <= offsetof(struct sockaddr_un, sun_path) ||
+                    b->size <= offsetof(struct sockaddr_un, sun_path))
+                        return false;
+
                 if ((a->sockaddr.un.sun_path[0] == 0) != (b->sockaddr.un.sun_path[0] == 0))
                         return false;
 
