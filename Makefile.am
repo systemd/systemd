@@ -2488,6 +2488,7 @@ systemd_efi_boot_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+if HAVE_BLKID
 bootctl_SOURCES = \
 	src/boot/bootctl.c
 
@@ -2513,6 +2514,7 @@ dist_bashcompletion_DATA += \
 
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_bootctl
+endif
 
 # ------------------------------------------------------------------------------
 if HAVE_GNUEFI
