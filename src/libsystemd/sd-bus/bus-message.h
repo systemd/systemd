@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <byteswap.h>
+#include <sys/socket.h>
 
 #include "macro.h"
 #include "sd-bus.h"

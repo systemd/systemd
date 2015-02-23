@@ -33,6 +33,7 @@
 #include <sched.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <stddef.h>
