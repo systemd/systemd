@@ -179,6 +179,16 @@ static inline int memfd_create(const char *name, unsigned int flags) {
 #    define __NR_getrandom 349
 #  elif defined(__powerpc__)
 #    define __NR_getrandom 359
+#  elif defined _MIPS_SIM
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define __NR_getrandom 4353
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_NABI32
+#      define __NR_getrandom 6317
+#    endif
+#    if _MIPS_SIM == _MIPS_SIM_ABI64
+#      define __NR_getrandom 5313
+#    endif
 #  else
 #    warning "__NR_getrandom unknown for your architecture"
 #    define __NR_getrandom 0xffffffff
