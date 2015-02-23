@@ -2754,7 +2754,7 @@ static int setup_image(char **device_path, int *loop_nr) {
 
 #define PARTITION_TABLE_BLURB \
         "Note that the disk image needs to either contain only a single MBR partition of\n" \
-        "type 0x83 that is marked bootable, or a sinlge GPT partition of type" \
+        "type 0x83 that is marked bootable, or a single GPT partition of type " \
         "0FC63DAF-8483-4772-8E79-3D69D8477DE4 or follow\n" \
         "    http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n" \
         "to be bootable with systemd-nspawn."
