@@ -443,23 +443,22 @@
       delete when cleaning. If a file or directory is older than the
       current time minus the age field, it is deleted. The field
       format is a series of integers each followed by one of the
-      following postfixes for the respective time units:</para>
-
-      <variablelist>
-        <varlistentry>
-          <term><varname>s</varname></term>
-          <term><varname>min</varname></term>
-          <term><varname>h</varname></term>
-          <term><varname>d</varname></term>
-          <term><varname>w</varname></term>
-          <term><varname>ms</varname></term>
-          <term><varname>m</varname></term>
-        <term><varname>us</varname></term></varlistentry>
-      </variablelist>
+      following postfixes for the respective time units:
+      <constant>s</constant>,
+      <constant>m</constant> or <constant>min</constant>,
+      <constant>h</constant>,
+      <constant>d</constant>,
+      <constant>w</constant>,
+      <constant>ms</constant>,
+      <constant>us</constant>,
+      respectively meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds. Full names of the time units can
+      be used too.
+      </para>
 
       <para>If multiple integers and units are specified, the time
-      values are summed up. If an integer is given without a unit,
-      <varname>s</varname> is assumed.
+      values are summed. If an integer is given without a unit,
+      <constant>s</constant> is assumed.
       </para>
 
       <para>When the age is set to zero, the files are cleaned
