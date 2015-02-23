@@ -106,6 +106,10 @@ _sd_pure_ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
 
+_sd_pure_ static inline int sd_id128_is_null(sd_id128_t a) {
+        return a.qwords[0] == 0 && a.qwords[1] == 0;
+}
+
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
 
 _SD_END_DECLARATIONS;
