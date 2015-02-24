@@ -78,12 +78,18 @@ static void test_parse_nsec(void) {
         assert_se(u == 2);
         assert_se(parse_nsec(".7", &u) >= 0);
         assert_se(u == 0);
+        assert_se(parse_nsec("infinity", &u) >= 0);
+        assert_se(u == NSEC_INFINITY);
+        assert_se(parse_nsec(" infinity ", &u) >= 0);
+        assert_se(u == NSEC_INFINITY);
 
         assert_se(parse_nsec(" xyz ", &u) < 0);
         assert_se(parse_nsec("", &u) < 0);
         assert_se(parse_nsec(" . ", &u) < 0);
         assert_se(parse_nsec(" 5. ", &u) < 0);
         assert_se(parse_nsec(".s ", &u) < 0);
+        assert_se(parse_nsec(" infinity .7", &u) < 0);
+        assert_se(parse_nsec(".3 infinity", &u) < 0);
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
