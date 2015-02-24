@@ -281,6 +281,77 @@ int parse_acl(char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask)
         return 0;
 }
 
+static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
+        acl_tag_t tag_a, tag_b;
+
+        if (acl_get_tag_type(a, &tag_a) < 0)
+                return -errno;
+
+        if (acl_get_tag_type(b, &tag_b) < 0)
+                return -errno;
+
+        if (tag_a != tag_b)
+                return false;
+
+        switch (tag_a) {
+        case ACL_USER_OBJ:
+        case ACL_GROUP_OBJ:
+        case ACL_MASK:
+        case ACL_OTHER:
+                /* can have only one of those */
+                return true;
+        case ACL_USER: {
+                _cleanup_(acl_free_uid_tpp) uid_t *uid_a, *uid_b;
+
+                uid_a = acl_get_qualifier(a);
+                if (!uid_a)
+                        return -errno;
+
+                uid_b = acl_get_qualifier(b);
+                if (!uid_b)
+                        return -errno;
+
+                return *uid_a == *uid_b;
+        }
+        case ACL_GROUP: {
+                _cleanup_(acl_free_gid_tpp) gid_t *gid_a, *gid_b;
+
+                gid_a = acl_get_qualifier(a);
+                if (!gid_a)
+                        return -errno;
+
+                gid_b = acl_get_qualifier(b);
+                if (!gid_b)
+                        return -errno;
+
+                return *gid_a == *gid_b;
+        }
+        default:
+                assert_not_reached("Unknown acl tag type");
+        }
+}
+
+static int find_acl_entry(acl_t acl, acl_entry_t entry, acl_entry_t *out) {
+        acl_entry_t i;
+        int r;
+
+        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+             r > 0;
+             r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+
+                r = acl_entry_equal(i, entry);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *out = i;
+                        return 1;
+                }
+        }
+        if (r < 0)
+                return -errno;
+        return 0;
+}
+
 int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         _cleanup_(acl_freep) acl_t old;
         acl_entry_t i;
@@ -296,8 +367,12 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
 
                 acl_entry_t j;
 
-                if (acl_create_entry(&old, &j) < 0)
-                        return -errno;
+                r = find_acl_entry(old, i, &j);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        if (acl_create_entry(&old, &j) < 0)
+                                return -errno;
 
                 if (acl_copy_entry(j, i) < 0)
                         return -errno;

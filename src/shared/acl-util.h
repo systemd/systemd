@@ -41,5 +41,9 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl);
 DEFINE_TRIVIAL_CLEANUP_FUNC(acl_t, acl_free);
 #define acl_free_charp acl_free
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, acl_free_charp);
+#define acl_free_uid_tp acl_free
+DEFINE_TRIVIAL_CLEANUP_FUNC(uid_t*, acl_free_uid_tp);
+#define acl_free_gid_tp acl_free
+DEFINE_TRIVIAL_CLEANUP_FUNC(gid_t*, acl_free_gid_tp);
 
 #endif
