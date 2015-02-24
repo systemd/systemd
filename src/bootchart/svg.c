@@ -1167,7 +1167,7 @@ static void svg_ps_bars(void) {
 
                 ps->sample = ps->sample->next;
                 sample_hz = ps->sample;
-                for (ii=0;((ii<(int)arg_hz/2)&&(ps->sample->next));ii++)
+                for (ii=0;((ii<(int)arg_hz/2)&&(sample_hz->next));ii++)
                         sample_hz = sample_hz->next;
 
                 /* subtract bootchart cpu utilization from total */
