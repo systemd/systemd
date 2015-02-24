@@ -64,3 +64,6 @@ int btrfs_get_block_device(const char *path, dev_t *dev);
 
 int btrfs_defrag_fd(int fd);
 int btrfs_defrag(const char *p);
+
+int btrfs_quota_enable_fd(int fd, bool b);
+int btrfs_quota_enable(const char *path, bool b);

@@ -646,3 +646,26 @@ int btrfs_defrag(const char *p) {
 
         return btrfs_defrag_fd(fd);
 }
+
+int btrfs_quota_enable_fd(int fd, bool b) {
+        struct btrfs_ioctl_quota_ctl_args args = {
+                .cmd = b ? BTRFS_QUOTA_CTL_ENABLE : BTRFS_QUOTA_CTL_DISABLE,
+        };
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, BTRFS_IOC_QUOTA_CTL, &args) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_quota_enable(const char *path, bool b) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_quota_enable_fd(fd, b);
+}

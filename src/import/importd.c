@@ -792,6 +792,11 @@ static int setup_machine_directory(sd_bus_error *error) {
                 return sd_bus_error_set_errnof(error, r, "Failed to determine whether /var/lib/machines is located on btrfs: %m");
         if (r > 0) {
                 (void) btrfs_subvol_make_label("/var/lib/machines");
+
+                r = btrfs_quota_enable("/var/lib/machines", true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable quota, ignoring: %m");
+
                 return 0;
         }
 
@@ -857,6 +862,10 @@ static int setup_machine_directory(sd_bus_error *error) {
                 goto fail;
         }
         mntdir_mounted = true;
+
+        r = btrfs_quota_enable(mntdir, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable quota, ignoring: %m");
 
         if (chmod(mntdir, 0700) < 0) {
                 r = sd_bus_error_set_errnof(error, errno, "Failed to fix owner: %m");
