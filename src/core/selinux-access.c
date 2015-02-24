@@ -80,17 +80,33 @@ static int audit_callback(
         return 0;
 }
 
+static int callback_type_to_priority(int type) {
+        switch(type) {
+        case SELINUX_ERROR:   return LOG_ERR;
+        case SELINUX_WARNING: return LOG_WARNING;
+        case SELINUX_INFO:    return LOG_INFO;
+        case SELINUX_AVC:
+        default:              return LOG_NOTICE;
+        }
+}
+
 /*
-   Any time an access gets denied this callback will be called
-   code copied from dbus. If audit is turned on the messages will go as
-   user_avc's into the /var/log/audit/audit.log, otherwise they will be
-   sent to syslog.
+   libselinux uses this callback when access gets denied or other
+   events happen. If audit is turned on, messages will be reported
+   using audit netlink, otherwise they will be logged using the usual
+   channels.
+
+   Code copied from dbus and modified.
 */
 _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         va_list ap;
 
 #ifdef HAVE_AUDIT
-        if (get_audit_fd() >= 0) {
+        int fd;
+
+        fd = get_audit_fd();
+
+        if (fd >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 int r;
 
@@ -99,14 +115,15 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
                 va_end(ap);
 
                 if (r >= 0) {
-                        audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
                         return 0;
                 }
         }
 #endif
 
         va_start(ap, fmt);
-        log_internalv(LOG_AUTH | LOG_INFO, 0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
+        log_internalv(LOG_AUTH | callback_type_to_priority(type),
+                      0, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
         va_end(ap);
 
         return 0;
