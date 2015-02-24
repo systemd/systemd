@@ -803,7 +803,7 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                 printf("\t   Limit: %s\n", s3);
 }
 
-static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
+static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
                 { "Name",                  "s",  NULL, offsetof(ImageStatusInfo, name)            },
@@ -822,7 +822,6 @@ static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool
         ImageStatusInfo info = {};
         int r;
 
-        assert(verb);
         assert(bus);
         assert(path);
         assert(new_line);
@@ -847,6 +846,59 @@ static int show_image_info(const char *verb, sd_bus *bus, const char *path, bool
 
         return r;
 }
+
+typedef struct PoolStatusInfo {
+        char *path;
+        uint64_t usage;
+        uint64_t limit;
+} PoolStatusInfo;
+
+static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
+        char bs[FORMAT_BYTES_MAX], *s;
+
+        if (i->path)
+                printf("\t    Path: %s\n", i->path);
+
+        s = format_bytes(bs, sizeof(bs), i->usage);
+        if (s)
+                printf("\t   Usage: %s\n", s);
+
+        s = format_bytes(bs, sizeof(bs), i->limit);
+        if (s)
+                printf("\t   Limit: %s\n", s);
+}
+
+static int show_pool_info(sd_bus *bus) {
+
+        static const struct bus_properties_map map[]  = {
+                { "PoolPath",  "s",  NULL, offsetof(PoolStatusInfo, path)  },
+                { "PoolUsage", "t",  NULL, offsetof(PoolStatusInfo, usage) },
+                { "PoolLimit", "t",  NULL, offsetof(PoolStatusInfo, limit) },
+                {}
+        };
+
+        PoolStatusInfo info = {
+                .usage = (uint64_t) -1,
+                .limit = (uint64_t) -1,
+        };
+        int r;
+
+        assert(bus);
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.machine1",
+                                   "/org/freedesktop/machine1",
+                                   map,
+                                   &info);
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %m");
+
+        print_pool_status_info(bus, &info);
+
+        free(info.path);
+        return 0;
+}
+
 
 static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) {
         int r;
@@ -881,11 +933,15 @@ static int show_image(int argc, char *argv[], void *userdata) {
 
         pager_open_if_enabled();
 
-        if (properties && argc <= 1) {
+        if (argc <= 1) {
 
                 /* If no argument is specified, inspect the manager
                  * itself */
-                r = show_image_properties(bus, "/org/freedesktop/machine1", &new_line);
+
+                if (properties)
+                        r = show_image_properties(bus, "/org/freedesktop/machine1", &new_line);
+                else
+                        r = show_pool_info(bus);
                 if (r < 0)
                         return r;
         }
@@ -914,7 +970,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
                 if (properties)
                         r = show_image_properties(bus, path, &new_line);
                 else
-                        r = show_image_info(argv[0], bus, path, &new_line);
+                        r = show_image_info(bus, path, &new_line);
         }
 
         return r;
@@ -2142,7 +2198,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "list",            VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
                 { "list-images",     VERB_ANY, 1,        0,            list_images       },
                 { "status",          2,        VERB_ANY, 0,            show_machine      },
-                { "image-status",    2,        VERB_ANY, 0,            show_image        },
+                { "image-status",    VERB_ANY, VERB_ANY, 0,            show_image        },
                 { "show",            VERB_ANY, VERB_ANY, 0,            show_machine      },
                 { "show-image",      VERB_ANY, VERB_ANY, 0,            show_image        },
                 { "terminate",       2,        VERB_ANY, 0,            terminate_machine },

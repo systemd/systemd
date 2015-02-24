@@ -29,10 +29,98 @@
 #include "bus-util.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
+#include "btrfs-util.h"
 #include "machine-image.h"
 #include "image-dbus.h"
 #include "machined.h"
 #include "machine-dbus.h"
+
+static int property_get_pool_path(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "s", "/var/lib/machines");
+}
+
+static int property_get_pool_usage(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_close_ int fd = -1;
+        uint64_t usage = (uint64_t) -1;
+        struct stat st;
+
+        assert(bus);
+        assert(reply);
+
+        /* We try to read the quota info from /var/lib/machines, as
+         * well as the usage of the loopback file
+         * /var/lib/machines.raw, and pick the larger value. */
+
+        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd >= 0) {
+                BtrfsQuotaInfo q;
+
+                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                        usage = q.referred;
+        }
+
+        if (stat("/var/lib/machines.raw", &st) >= 0) {
+                if (usage == (uint64_t) -1 || st.st_blocks * 512ULL > usage)
+                        usage = st.st_blocks * 512ULL;
+        }
+
+        return sd_bus_message_append(reply, "t", usage);
+}
+
+static int property_get_pool_limit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_close_ int fd = -1;
+        uint64_t size = (uint64_t) -1;
+        struct stat st;
+
+        assert(bus);
+        assert(reply);
+
+        /* We try to read the quota limit from /var/lib/machines, as
+         * well as the size of the loopback file
+         * /var/lib/machines.raw, and pick the smaller value. */
+
+        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd >= 0) {
+                BtrfsQuotaInfo q;
+
+                if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
+                        size = q.referred_max;
+        }
+
+        if (stat("/var/lib/machines.raw", &st) >= 0) {
+                if (size == (uint64_t) -1 || (uint64_t) st.st_size < size)
+                        size = st.st_size;
+        }
+
+        return sd_bus_message_append(reply, "t", size);
+}
 
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
@@ -690,6 +778,9 @@ static int method_mark_image_read_only(sd_bus *bus, sd_bus_message *message, voi
 
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("PoolPath", "s", property_get_pool_path, 0, 0),
+        SD_BUS_PROPERTY("PoolUsage", "t", property_get_pool_usage, 0, 0),
+        SD_BUS_PROPERTY("PoolLimit", "t", property_get_pool_limit, 0, 0),
         SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImage", "s", "o", method_get_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
