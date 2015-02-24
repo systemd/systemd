@@ -99,7 +99,7 @@ bool unit_name_is_valid(const char *n, enum template_valid template_ok) {
                 if (at == n)
                         return false;
 
-                if (!template_ok == TEMPLATE_VALID && at+1 == e)
+                if (template_ok != TEMPLATE_VALID && at+1 == e)
                         return false;
         }
 
