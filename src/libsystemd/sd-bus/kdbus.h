@@ -457,16 +457,6 @@ struct kdbus_item {
 } __attribute__((__aligned__(8)));
 
 /**
- * struct kdbus_item_list - A list of items
- * @size:		The total size of the structure
- * @items:		Array of items
- */
-struct kdbus_item_list {
-	__u64 size;
-	struct kdbus_item items[0];
-} __attribute__((__aligned__(8)));
-
-/**
  * enum kdbus_msg_flags - type of message
  * @KDBUS_MSG_EXPECT_REPLY:	Expect a reply message, used for
  *				method calls. The userspace-supplied
@@ -699,10 +689,10 @@ enum kdbus_hello_flags {
  * @id:			The ID of this connection (kernel → userspace)
  * @pool_size:		Size of the connection's buffer where the received
  *			messages are placed
- * @offset:		Pool offset where additional items of type
- *			kdbus_item_list are stored. They contain information
- *			about the bus and the newly created connection.
- * @items_size:		Copy of item_list.size stored in @offset.
+ * @offset:		Pool offset where items are returned to report
+ *			additional information about the bus and the newly
+ *			created connection.
+ * @items_size:		Size of buffer returned in the pool slice at @offset.
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
  * @items:		A list of items
  *

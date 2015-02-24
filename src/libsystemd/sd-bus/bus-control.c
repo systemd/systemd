@@ -76,7 +76,7 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags
         if (r < 0)
                 return -errno;
 
-        if (n->flags & KDBUS_NAME_IN_QUEUE)
+        if (n->return_flags & KDBUS_NAME_IN_QUEUE)
                 return 0;
 
         return 1;

@@ -840,9 +840,8 @@ fail:
 
 int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_bloom_parameter *bloom = NULL;
+        struct kdbus_item *items, *item;
         struct kdbus_cmd_hello *hello;
-        struct kdbus_item_list *items;
-        struct kdbus_item *item;
         _cleanup_free_ char *g = NULL;
         const char *name;
         size_t l = 0, m = 0, sz;
@@ -968,7 +967,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         /* extract bloom parameters from items */
         items = (void*)((uint8_t*)b->kdbus_buffer + hello->offset);
-        KDBUS_ITEM_FOREACH(item, items, items) {
+        KDBUS_FOREACH(item, items, hello->items_size) {
                 switch (item->type) {
                 case KDBUS_ITEM_BLOOM_PARAMETER:
                         bloom = &item->bloom_parameter;
