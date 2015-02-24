@@ -365,15 +365,15 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 }
 
 static int print_efi_option(uint16_t id, bool in_order) {
-        char *title = NULL;
-        char *path = NULL;
+        _cleanup_free_ char *title = NULL;
+        _cleanup_free_ char *path = NULL;
         sd_id128_t partition;
         bool active;
         int r = 0;
 
         r = efi_get_boot_option(id, &title, &partition, &path, &active);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* print only configured entries with partition information */
         if (!path || sd_id128_equal(partition, SD_ID128_NULL))
@@ -388,10 +388,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("         File: └─%s\n", path);
         printf("\n");
 
-finish:
-        free(title);
-        free(path);
-        return r;
+        return 0;
 }
 
 static int status_variables(void) {
@@ -896,7 +893,7 @@ finish:
 }
 
 static int remove_from_order(uint16_t slot) {
-        uint16_t *order = NULL;
+        _cleanup_free_ uint16_t *order = NULL;
         int n_order;
         int i;
         int err = 0;
@@ -917,7 +914,6 @@ static int remove_from_order(uint16_t slot) {
                 break;
         }
 
-        free(order);
         return err;
 }
 
