@@ -1961,6 +1961,56 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int set_limit(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        uint64_t limit;
+        int r;
+
+        if (streq(argv[argc-1], "-"))
+                limit = (uint64_t) -1;
+        else {
+                off_t off;
+
+                r = parse_size(argv[argc-1], 1024, &off);
+                if (r < 0)
+                        return log_error("Failed to parse size: %s", argv[argc-1]);
+
+                limit = (uint64_t) off;
+        }
+
+        if (argc > 2)
+                /* With two arguments changes the quota limit of the
+                 * specified image */
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "SetImageLimit",
+                                &error,
+                                NULL,
+                                "st", argv[1], limit);
+        else
+                /* With one argument changes the pool quota limit */
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "SetPoolLimit",
+                                &error,
+                                NULL,
+                                "t", limit);
+
+        if (r < 0) {
+                log_error("Could not set limit: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -2012,7 +2062,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  clone NAME NAME             Clone an image\n"
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
-               "  remove NAME...              Remove an image\n\n"
+               "  remove NAME...              Remove an image\n"
+               "  set-limit [NAME] BYTES      Set image size limit (quota)\n\n"
                "Image Transfer Commands:\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
@@ -2221,6 +2272,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "pull-dkr",        2,        3,        0,            pull_dkr          },
                 { "list-transfers",  VERB_ANY, 1,        0,            list_transfers    },
                 { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
+                { "set-limit",       2,        3,        0,            set_limit         },
                 {}
         };
 

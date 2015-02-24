@@ -669,3 +669,29 @@ int btrfs_quota_enable(const char *path, bool b) {
 
         return btrfs_quota_enable_fd(fd, b);
 }
+
+int btrfs_quota_limit_fd(int fd, uint64_t referred_max) {
+        struct btrfs_ioctl_qgroup_limit_args args = {
+                .lim.max_rfer =
+                        referred_max == (uint64_t) -1 ? 0 :
+                        referred_max == 0 ? 1 : referred_max,
+                .lim.flags = BTRFS_QGROUP_LIMIT_MAX_RFER,
+        };
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, BTRFS_IOC_QGROUP_LIMIT, &args) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_quota_limit(const char *path, uint64_t referred_max) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_quota_limit_fd(fd, referred_max);
+}

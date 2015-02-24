@@ -34,3 +34,4 @@ int bus_image_method_remove(sd_bus *bus, sd_bus_message *message, void *userdata
 int bus_image_method_rename(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_clone(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_mark_read_only(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_image_method_set_limit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);

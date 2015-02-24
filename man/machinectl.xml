@@ -469,7 +469,7 @@
       <varlistentry>
         <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
 
-        <listitem><para>Clones a container or disk image. The
+        <listitem><para>Clones a container or VM image. The
         arguments specify the name of the image to clone and the name
         of the newly cloned image. Note that plain directory container
         images are cloned into subvolume images with this command.
@@ -481,7 +481,7 @@
       <varlistentry>
         <term><command>rename</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
 
-        <listitem><para>Renames a container or disk image. The
+        <listitem><para>Renames a container or VM image. The
         arguments specify the name of the image to rename and the new
         name of the image.</para></listitem>
       </varlistentry>
@@ -489,20 +489,35 @@
       <varlistentry>
         <term><command>read-only</command> <replaceable>NAME</replaceable> [<replaceable>BOOL</replaceable>]</term>
 
-        <listitem><para>Marks or (unmarks) a container or disk image
+        <listitem><para>Marks or (unmarks) a container or VM image
         read-only. Takes a VM or container image name, followed by a
         boolean as arguments. If the boolean is omitted, positive is
         implied, i.e. the image is marked read-only.</para></listitem>
       </varlistentry>
 
-
       <varlistentry>
         <term><command>remove</command> <replaceable>NAME</replaceable>...</term>
 
-        <listitem><para>Removes one or more container or disk images.
+        <listitem><para>Removes one or more container or VM images.
         The special image <literal>.host</literal>, which refers to
         the host's own directory tree may not be
         removed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
+
+        <listitem><para>Sets the maximum size in bytes a specific
+        container or VM image, or all images may grow up to
+        (quota). Takes either one or two parameters. The first,
+        optional parameter refers to a container or VM image name. If
+        specified the size limit of the specified images is
+        changed. If omitted the overall size limit of the sum of all
+        images stored locally is changed. The final argument specifies
+        the size limit in bytes, possibly suffixed by the usual K, M,
+        G, T units. If the size limit shall be disabled, specify
+        <literal>-</literal> as size. This operation is currently only
+        supported on btrfs subvolume images.</para></listitem>
       </varlistentry>
 
     </variablelist></refsect2>

@@ -182,6 +182,44 @@ int bus_image_method_mark_read_only(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_image_method_set_limit(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Image *image = userdata;
+        Manager *m = image->userdata;
+        uint64_t limit;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        r = sd_bus_message_read(message, "t", &limit);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.machine1.manage-images",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = image_set_limit(image, limit);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
@@ -198,6 +236,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 

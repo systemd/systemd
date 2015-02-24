@@ -67,3 +67,6 @@ int btrfs_defrag(const char *p);
 
 int btrfs_quota_enable_fd(int fd, bool b);
 int btrfs_quota_enable(const char *path, bool b);
+
+int btrfs_quota_limit_fd(int fd, uint64_t referred_max);
+int btrfs_quota_limit(const char *path, uint64_t referred_max);

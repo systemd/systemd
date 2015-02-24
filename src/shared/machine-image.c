@@ -613,6 +613,19 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         return 0;
 }
 
+int image_set_limit(Image *i, uint64_t referred_max) {
+        assert(i);
+
+        if (path_equal(i->path, "/") ||
+            path_startswith(i->path, "/usr"))
+                return -EROFS;
+
+        if (i->type != IMAGE_SUBVOLUME)
+                return -ENOTSUP;
+
+        return btrfs_quota_limit(i->path, referred_max);
+}
+
 int image_name_lock(const char *name, int operation, LockFile *ret) {
         const char *p;
 
