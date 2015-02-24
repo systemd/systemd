@@ -301,7 +301,7 @@ static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
                 /* can have only one of those */
                 return true;
         case ACL_USER: {
-                _cleanup_(acl_free_uid_tpp) uid_t *uid_a, *uid_b;
+                _cleanup_(acl_free_uid_tpp) uid_t *uid_a = NULL, *uid_b = NULL;
 
                 uid_a = acl_get_qualifier(a);
                 if (!uid_a)
@@ -314,7 +314,7 @@ static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
                 return *uid_a == *uid_b;
         }
         case ACL_GROUP: {
-                _cleanup_(acl_free_gid_tpp) gid_t *gid_a, *gid_b;
+                _cleanup_(acl_free_gid_tpp) gid_t *gid_a = NULL, *gid_b = NULL;
 
                 gid_a = acl_get_qualifier(a);
                 if (!gid_a)
