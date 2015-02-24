@@ -186,6 +186,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-unused-parameter \
         -Wno-missing-field-initializers \
         -Wno-unused-result \
+        -Wno-format-signedness \
         -Werror=overflow \
         -Wdate-time \
         -Wnested-externs \
