@@ -786,7 +786,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         s = startswith(p, "infinity");
         if (s) {
                 s += strspn(s, WHITESPACE);
-                if (!*s != 0)
+                if (*s != 0)
                         return -EINVAL;
 
                 *nsec = NSEC_INFINITY;
