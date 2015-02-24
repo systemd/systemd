@@ -56,7 +56,8 @@ static void server(sd_bus *b, size_t *result) {
                         /* Make sure the mmap is mapped */
                         assert_se(sd_bus_message_read_array(m, 'y', &p, &sz) > 0);
 
-                        assert_se(sd_bus_reply_method_return(m, NULL) >= 0);
+                        r = sd_bus_reply_method_return(m, NULL);
+                        assert_se(r >= 0);
                 } else if (sd_bus_message_is_method_call(m, "benchmark.server", "Exit")) {
                         uint64_t res;
                         assert_se(sd_bus_message_read(m, "t", &res) > 0);
@@ -69,11 +70,11 @@ static void server(sd_bus *b, size_t *result) {
         }
 }
 
-static void transaction(sd_bus *b, size_t sz) {
+static void transaction(sd_bus *b, size_t sz, const char *server_name) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         uint8_t *p;
 
-        assert_se(sd_bus_message_new_method_call(b, &m, ":1.1", "/", "benchmark.server", "Work") >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &m, server_name, "/", "benchmark.server", "Work") >= 0);
         assert_se(sd_bus_message_append_array_space(m, 'y', sz, (void**) &p) >= 0);
 
         memset(p, 0x80, sz);
@@ -81,7 +82,7 @@ static void transaction(sd_bus *b, size_t sz) {
         assert_se(sd_bus_call(b, m, 0, NULL, &reply) >= 0);
 }
 
-static void client_bisect(const char *address) {
+static void client_bisect(const char *address, const char *server_name) {
         _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
         size_t lsize, rsize, csize;
         sd_bus *b;
@@ -96,7 +97,8 @@ static void client_bisect(const char *address) {
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
-        assert_se(sd_bus_call_method(b, ":1.1", "/", "benchmark.server", "Ping", NULL, NULL, NULL) >= 0);
+        r = sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", NULL, NULL, NULL);
+        assert_se(r >= 0);
 
         lsize = 1;
         rsize = MAX_SIZE;
@@ -121,7 +123,7 @@ static void client_bisect(const char *address) {
 
                 t = now(CLOCK_MONOTONIC);
                 for (n_copying = 0;; n_copying++) {
-                        transaction(b, csize);
+                        transaction(b, csize, server_name);
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
@@ -131,7 +133,7 @@ static void client_bisect(const char *address) {
 
                 t = now(CLOCK_MONOTONIC);
                 for (n_memfd = 0;; n_memfd++) {
-                        transaction(b, csize);
+                        transaction(b, csize, server_name);
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
@@ -147,14 +149,14 @@ static void client_bisect(const char *address) {
         }
 
         b->use_memfd = 1;
-        assert_se(sd_bus_message_new_method_call(b, &x, ":1.1", "/", "benchmark.server", "Exit") >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &x, server_name, "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
         assert_se(sd_bus_send(b, x, NULL) >= 0);
 
         sd_bus_unref(b);
 }
 
-static void client_chart(const char *address) {
+static void client_chart(const char *address, const char *server_name) {
         _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
         size_t csize;
         sd_bus *b;
@@ -169,7 +171,7 @@ static void client_chart(const char *address) {
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
-        assert_se(sd_bus_call_method(b, ":1.1", "/", "benchmark.server", "Ping", NULL, NULL, NULL) >= 0);
+        assert_se(sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", NULL, NULL, NULL) >= 0);
 
         printf("SIZE\tCOPY\tMEMFD\n");
 
@@ -183,7 +185,7 @@ static void client_chart(const char *address) {
 
                 t = now(CLOCK_MONOTONIC);
                 for (n_copying = 0;; n_copying++) {
-                        transaction(b, csize);
+                        transaction(b, csize, server_name);
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
@@ -194,7 +196,7 @@ static void client_chart(const char *address) {
 
                 t = now(CLOCK_MONOTONIC);
                 for (n_memfd = 0;; n_memfd++) {
-                        transaction(b, csize);
+                        transaction(b, csize, server_name);
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
@@ -203,7 +205,7 @@ static void client_chart(const char *address) {
         }
 
         b->use_memfd = 1;
-        assert_se(sd_bus_message_new_method_call(b, &x, ":1.1", "/", "benchmark.server", "Exit") >= 0);
+        assert_se(sd_bus_message_new_method_call(b, &x, server_name, "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
         assert_se(sd_bus_send(b, x, NULL) >= 0);
 
@@ -216,8 +218,9 @@ int main(int argc, char *argv[]) {
                 MODE_CHART,
         } mode = MODE_BISECT;
         int i;
-        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL;
+        _cleanup_free_ char *name = NULL, *bus_name = NULL, *address = NULL, *server_name = NULL;
         _cleanup_close_ int bus_ref = -1;
+        const char *unique;
         cpu_set_t cpuset;
         size_t result;
         sd_bus *b;
@@ -255,6 +258,12 @@ int main(int argc, char *argv[]) {
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
+        r = sd_bus_get_unique_name(b, &unique);
+        assert_se(r >= 0);
+
+        server_name = strdup(unique);
+        assert_se(server_name);
+
         sync();
         setpriority(PRIO_PROCESS, 0, -19);
 
@@ -271,11 +280,11 @@ int main(int argc, char *argv[]) {
 
                 switch (mode) {
                 case MODE_BISECT:
-                        client_bisect(address);
+                        client_bisect(address, server_name);
                         break;
 
                 case MODE_CHART:
-                        client_chart(address);
+                        client_chart(address, server_name);
                         break;
                 }
 
