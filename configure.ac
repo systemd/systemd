@@ -1166,40 +1166,39 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
         AC_CHECK_HEADERS(efi/${EFI_ARCH}/efibind.h,
                 [AC_DEFINE(HAVE_GNUEFI, 1, [Define if gnuefi is available])
                  have_gnuefi=yes],
-                [AS_IF([test "x$have_gnuefi" = xyes], [AC_MSG_ERROR([*** gnuefi support requested but headers not found])])
+                [AS_IF([test "x$enable_gnuefi" = xyes],
+                       [AC_MSG_ERROR([*** gnuefi support requested but headers not found])])
         ])
-])
-AM_CONDITIONAL(HAVE_GNUEFI, [test "$have_gnuefi" = "yes"])
 
-if test "x$enable_gnuefi" != "xno"; then
         efiroot=$(echo $(cd /usr/lib/$(gcc -print-multi-os-directory); pwd))
 
         EFI_LIB_DIR="$efiroot"
         AC_ARG_WITH(efi-libdir,
-                AS_HELP_STRING([--with-efi-libdir=PATH], [Path to efi lib directory]),
+                AS_HELP_STRING([--with-efi-libdir=PATH], [Path to EFI lib directory]),
                 [EFI_LIB_DIR="$withval"], [EFI_LIB_DIR="$efiroot"]
         )
         AC_SUBST([EFI_LIB_DIR])
 
+        have_efi_lds=no
         AC_ARG_WITH(efi-ldsdir,
-                AS_HELP_STRING([--with-efi-ldsdir=PATH], [Path to efi lds directory]),
+                AS_HELP_STRING([--with-efi-ldsdir=PATH], [Path to EFI lds directory]),
                 [EFI_LDS_DIR="$withval"],
-                [
-                        for EFI_LDS_DIR in "${efiroot}/gnuefi" "${efiroot}"; do
-                            for lds in ${EFI_LDS_DIR}/elf_${EFI_ARCH}_efi.lds; do
-                                    test -f ${lds} && break 2
-                            done
-                        done
-                ]
-        )
-        AC_SUBST([EFI_LDS_DIR])
+                [AS_FOR([DIR], [EFI_LDS_DIR], ["${efiroot}/gnuefi" "${efiroot}"],
+                        [AC_CHECK_FILE([DIR/elf_${EFI_ARCH}_efi.lds],
+                                       [have_efi_lds=yes && break])])])
+        AS_IF([test "x$have_efi_lds" = xyes],
+              [AC_SUBST([EFI_LDS_DIR])],
+              [AS_IF([test "x$enable_gnuefi" = xyes],
+                     [AC_MSG_ERROR([*** gnuefi support requested but files not found])],
+                     [have_gnuefi=no])])
 
         AC_ARG_WITH(efi-includedir,
-                AS_HELP_STRING([--with-efi-includedir=PATH], [Path to efi include directory]),
+                AS_HELP_STRING([--with-efi-includedir=PATH], [Path to EFI include directory]),
                 [EFI_INC_DIR="$withval"], [EFI_INC_DIR="/usr/include"]
         )
         AC_SUBST([EFI_INC_DIR])
-fi
+])
+AM_CONDITIONAL(HAVE_GNUEFI, [test "x$have_gnuefi" = xyes])
 
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(unifont,
@@ -1452,8 +1451,8 @@ AS_IF([test "x$0" != "x./configure"], [
 # QEMU and OVMF UEFI firmware
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
-        AC_CHECK_FILE([/usr/share/qemu/bios-ovmf.bin], [QEMU_BIOS=/usr/share/qemu/bios-ovmf.bin])
-        AC_CHECK_FILE([/usr/share/qemu-ovmf/bios.bin], [QEMU_BIOS=/usr/share/qemu-ovmf/bios.bin])
+        AC_CHECK_FILE([/usr/share/qemu/bios-ovmf.bin], [QEMU_BIOS=/usr/share/qemu/bios-ovmf.bin],
+                [AC_CHECK_FILE([/usr/share/qemu-ovmf/bios.bin], [QEMU_BIOS=/usr/share/qemu-ovmf/bios.bin])])
         AC_SUBST([QEMU_BIOS])
 ])
 
