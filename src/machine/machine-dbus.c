@@ -871,7 +871,7 @@ int bus_machine_method_copy(sd_bus *bus, sd_bus_message *message, void *userdata
         container_dirname = dirname(t);
 
         hostfd = open(host_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
-        if (r < 0)
+        if (hostfd < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open host directory %s: %m", host_dirname);
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
