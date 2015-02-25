@@ -34,6 +34,16 @@
 	5347  GDM72xx WiMAX
 02d0  Broadcom Corp.
 	044b  Nintendo Wii WLAN daughter card
+	a887  BCM43143 WLAN card
+	4324  BCM43241 WLAN card
+	4329  BCM4329 WLAN card
+	4330  BCM4330 WLAN card
+	4334  BCM4334 WLAN card
+	a94c  BCM43340 WLAN card
+	a94d  BCM43341 WLAN card
+	4335  BCM4335/BCM4339 WLAN card
+	a962  BCM43362 WLAN card
+	4354  BCM4354 WLAN card
 02db  SyChip Inc.
 	0002  Pegasus WLAN SDIO Card (6060SD)
 02df  Marvell Technology Group Ltd.
