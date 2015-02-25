@@ -177,7 +177,13 @@ static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t 
                 fprintf(stderr, "Failed to probe partition entry UUID %s: %s\n", p, strerror(-r));
                 goto fail;
         }
-        sd_id128_from_string(v, uuid);
+
+        r = sd_id128_from_string(v, uuid);
+        if (r < 0) {
+                fprintf(stderr, "Partition %s has invalid UUID: %s\n", p, v);
+                r = -EIO;
+                goto fail;
+        }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
