@@ -398,7 +398,7 @@ msgstr ""
 "application a demandé de l'empêcher."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Manager active sessions, users and seats"
+msgid "Manage active sessions, users and seats"
 msgstr "Gérer les sessions actives, les utilisateurs et les postes (seats)"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
