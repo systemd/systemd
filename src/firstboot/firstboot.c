@@ -525,9 +525,9 @@ static int process_root_password(void) {
 
         struct spwd item = {
                 .sp_namp = (char*) "root",
-                .sp_min = 0,
-                .sp_max = 99999,
-                .sp_warn = 7,
+                .sp_min = -1,
+                .sp_max = -1,
+                .sp_warn = -1,
                 .sp_inact = -1,
                 .sp_expire = -1,
                 .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
