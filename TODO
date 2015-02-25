@@ -34,6 +34,10 @@ External:
 
 Features:
 
+* to allow "linking" of nspawn containers, extend --network-bridge= so
+  that it can dynamically create bridge interfaces that are refcounted
+  by the containers on them. For each group of containers to link together
+
 * journalctl --verify: don't show files that are currently being
   written to as FAIL, but instead show that their are being written
   to.
