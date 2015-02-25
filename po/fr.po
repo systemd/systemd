@@ -413,7 +413,7 @@ msgid "Lock or unlock active sessions"
 msgstr "Verrouiller ou déverrouiller des sessions actives"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
-msgid "Authentication is required for locking or unlocking active sessions."
+msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Authentification requise pour verrouiller ou déverrouiller des sessions "
 "actives."

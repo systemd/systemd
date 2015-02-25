@@ -282,7 +282,7 @@
 
         <action id="org.freedesktop.login1.lock-sessions">
                 <_description>Lock or unlock active sessions</_description>
-                <_message>Authentication is required for locking or unlocking active sessions.</_message>
+                <_message>Authentication is required to lock or unlock active sessions.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
