@@ -2839,7 +2839,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BINDS_TO, device, true);
+        r = unit_add_two_dependencies(u, UNIT_AFTER, u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_BINDS_TO : UNIT_WANTS, device, true);
         if (r < 0)
                 return r;
 
