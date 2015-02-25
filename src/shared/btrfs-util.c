@@ -34,6 +34,7 @@
 #include "copy.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "fileio.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
 
@@ -308,17 +309,12 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
         return 0;
 }
 
-int btrfs_get_block_device(const char *path, dev_t *dev) {
+int btrfs_get_block_device_fd(int fd, dev_t *dev) {
         struct btrfs_ioctl_fs_info_args fsi = {};
-        _cleanup_close_ int fd = -1;
         uint64_t id;
 
-        assert(path);
+        assert(fd >= 0);
         assert(dev);
-
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return -errno;
 
         if (ioctl(fd, BTRFS_IOC_FS_INFO, &fsi) < 0)
                 return -errno;
@@ -354,6 +350,19 @@ int btrfs_get_block_device(const char *path, dev_t *dev) {
         }
 
         return -ENODEV;
+}
+
+int btrfs_get_block_device(const char *path, dev_t *dev) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(dev);
+
+        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_get_block_device_fd(fd, dev);
 }
 
 int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
@@ -694,4 +703,82 @@ int btrfs_quota_limit(const char *path, uint64_t referred_max) {
                 return -errno;
 
         return btrfs_quota_limit_fd(fd, referred_max);
+}
+
+int btrfs_resize_loopback_fd(int fd, uint64_t new_size) {
+        struct btrfs_ioctl_vol_args args = {};
+        _cleanup_free_ char *p = NULL, *loop = NULL, *backing = NULL;
+        _cleanup_close_ int loop_fd = -1, backing_fd = -1;
+        struct stat st;
+        dev_t dev;
+        int r;
+
+        /* btrfs cannot handle file systems < 16M, hence use this as minimum */
+        if (new_size < 16*1024*1024)
+                new_size = 16*1024*1024;
+
+        r = btrfs_get_block_device_fd(fd, &dev);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODEV;
+
+        if (asprintf(&p, "/sys/dev/block/%u:%u/loop/backing_file", major(dev), minor(dev)) < 0)
+                return -ENOMEM;
+        r = read_one_line_file(p, &backing);
+        if (r < 0)
+                return r;
+        if (isempty(backing) || !path_is_absolute(backing))
+                return -ENODEV;
+
+        backing_fd = open(backing, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (backing_fd < 0)
+                return -errno;
+
+        if (fstat(backing_fd, &st) < 0)
+                return -errno;
+        if (!S_ISREG(st.st_mode))
+                return -ENODEV;
+
+        if (new_size == (uint64_t) st.st_size)
+                return 0;
+
+        if (asprintf(&loop, "/dev/block/%u:%u", major(dev), minor(dev)) < 0)
+                return -ENOMEM;
+        loop_fd = open(loop, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (loop_fd < 0)
+                return -errno;
+
+        if (snprintf(args.name, sizeof(args.name), "%" PRIu64, new_size) >= (int) sizeof(args.name))
+                return -EINVAL;
+
+        if (new_size < (uint64_t) st.st_size) {
+                /* Decrease size: first decrease btrfs size, then shorten loopback */
+                if (ioctl(fd, BTRFS_IOC_RESIZE, &args) < 0)
+                        return -errno;
+        }
+
+        if (ftruncate(backing_fd, new_size) < 0)
+                return -errno;
+
+        if (ioctl(loop_fd, LOOP_SET_CAPACITY, 0) < 0)
+                return -errno;
+
+        if (new_size > (uint64_t) st.st_size) {
+                /* Increase size: first enlarge loopback, then increase btrfs size */
+                if (ioctl(fd, BTRFS_IOC_RESIZE, &args) < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+int btrfs_resize_loopback(const char *p, uint64_t new_size) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return btrfs_resize_loopback_fd(fd, new_size);
 }
