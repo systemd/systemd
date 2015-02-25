@@ -393,7 +393,8 @@ rootlibexec_PROGRAMS = \
 	systemd-sleep \
 	systemd-bus-proxyd \
 	systemd-socket-proxyd \
-	systemd-update-done
+	systemd-update-done \
+	systemd-user-sessions
 
 if HAVE_UTMP
 rootlibexec_PROGRAMS += \
@@ -554,7 +555,8 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/systemd-update-done.service
+	units/systemd-update-done.service \
+	units/systemd-user-sessions.service
 
 if HAVE_UTMP
 nodist_systemunit_DATA += \
@@ -607,7 +609,8 @@ EXTRA_DIST += \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
-	units/systemd-update-done.service.in
+	units/systemd-update-done.service.in \
+	units/systemd-user-sessions.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -2120,6 +2123,13 @@ systemd_update_done_SOURCES = \
 systemd_update_done_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_user_sessions_SOURCES = \
+	src/user-sessions/user-sessions.c
+
+systemd_user_sessions_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -5907,15 +5917,8 @@ endif
 noinst_LTLIBRARIES += \
 	libsystemd-logind-core.la
 
-systemd_user_sessions_SOURCES = \
-	src/login/user-sessions.c
-
-systemd_user_sessions_LDADD = \
-	libsystemd-shared.la
-
 rootlibexec_PROGRAMS += \
-	systemd-logind \
-	systemd-user-sessions
+	systemd-logind
 
 loginctl_SOURCES = \
 	src/login/loginctl.c \
@@ -6015,8 +6018,7 @@ dist_pamconf_DATA = \
 endif
 
 nodist_systemunit_DATA += \
-	units/systemd-logind.service \
-	units/systemd-user-sessions.service
+	units/systemd-logind.service
 
 dist_systemunit_DATA += \
 	units/user.slice
@@ -6040,8 +6042,7 @@ INSTALL_DIRS += \
 	$(systemdstatedir)
 
 MULTI_USER_TARGET_WANTS += \
-	systemd-logind.service \
-	systemd-user-sessions.service
+	systemd-logind.service
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-logind.service dbus-org.freedesktop.login1.service
@@ -6070,8 +6071,7 @@ EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
-	units/systemd-logind.service.in \
-	units/systemd-user-sessions.service.in
+	units/systemd-logind.service.in
 
 # ------------------------------------------------------------------------------
 if HAVE_PYTHON_DEVEL
@@ -6596,7 +6596,8 @@ LOCAL_FS_TARGET_WANTS += \
 
 MULTI_USER_TARGET_WANTS += \
 	getty.target \
-	systemd-ask-password-wall.path
+	systemd-ask-password-wall.path \
+	systemd-user-sessions.service
 
 SYSINIT_TARGET_WANTS += \
 	dev-hugepages.mount \
