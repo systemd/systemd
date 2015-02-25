@@ -465,8 +465,7 @@ int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSys
         if (r < 0)
                 return r;
 
-        assert_return(nl_type->type == NLA_NESTED, -EINVAL);
-
+        assert(nl_type->type == NLA_NESTED);
         assert(nl_type->type_system);
 
         *ret = nl_type->type_system;
@@ -484,8 +483,7 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
         if (r < 0)
                 return r;
 
-        assert_return(nl_type->type == NLA_UNION, -EINVAL);
-
+        assert(nl_type->type == NLA_UNION);
         assert(nl_type->type_system_union);
 
         *ret = nl_type->type_system_union;
@@ -497,7 +495,7 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
         int type;
 
         assert(type_system_union);
-        assert_return(type_system_union->match_type == NL_MATCH_SIBLING, -EINVAL);
+        assert(type_system_union->match_type == NL_MATCH_SIBLING);
         assert(type_system_union->lookup);
         assert(type_system_union->type_systems);
         assert(ret);
@@ -519,9 +517,8 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
 
         assert(type_system_union);
         assert(type_system_union->type_systems);
+        assert(type_system_union->match_type == NL_MATCH_PROTOCOL);
         assert(ret);
-        assert_return(type_system_union->match_type == NL_MATCH_PROTOCOL, -EINVAL);
-        assert_return(protocol < type_system_union->num, -EINVAL);
 
         if (protocol >= type_system_union->num)
                 return -ENOTSUP;
