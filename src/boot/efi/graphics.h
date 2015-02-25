@@ -21,6 +21,5 @@
 #define __SDBOOT_GRAPHICS_H
 
 EFI_STATUS graphics_mode(BOOLEAN on);
-EFI_STATUS graphics_splash(EFI_FILE *root_dir, CHAR16 *path,
-                           const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background);
+EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background);
 #endif

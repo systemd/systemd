@@ -321,12 +321,9 @@ EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
         return EFI_SUCCESS;
 }
 
-EFI_STATUS graphics_splash(EFI_FILE *root_dir, CHAR16 *path,
-                           const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
+EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
         EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
-        UINT8 *content;
-        INTN len;
         struct bmp_dib *dib;
         struct bmp_map *map;
         UINT8 *pixmap;
@@ -339,10 +336,6 @@ EFI_STATUS graphics_splash(EFI_FILE *root_dir, CHAR16 *path,
         err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
-
-        len = file_read(root_dir, path, 0, 0, &content);
-        if (len < 0)
-                return EFI_LOAD_ERROR;
 
         err = bmp_parse_header(content, len, &dib, &map, &pixmap);
         if (EFI_ERROR(err))
@@ -384,6 +377,5 @@ EFI_STATUS graphics_splash(EFI_FILE *root_dir, CHAR16 *path,
                                 dib->x, dib->y, 0);
 err:
         FreePool(blt);
-        FreePool(content);
         return err;
 }
