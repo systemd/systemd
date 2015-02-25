@@ -524,8 +524,7 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
                 return -ENOTSUP;
 
         type_system = &type_system_union->type_systems[protocol];
-
-        if (!type_system)
+        if (type_system->max == 0)
                 return -ENOTSUP;
 
         *ret = type_system;
