@@ -181,6 +181,7 @@ static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns = false;
+static int arg_kill_signal = 0;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -229,6 +230,7 @@ static void help(void) {
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host,\n"
                "                            try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
@@ -293,6 +295,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TEMPLATE,
                 ARG_PROPERTY,
                 ARG_PRIVATE_USERS,
+                ARG_KILL_SIGNAL,
         };
 
         static const struct option options[] = {
@@ -332,6 +335,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "port",                  required_argument, NULL, 'p'                   },
                 { "property",              required_argument, NULL, ARG_PROPERTY          },
                 { "private-users",         optional_argument, NULL, ARG_PRIVATE_USERS     },
+                { "kill-signal",           required_argument, NULL, ARG_KILL_SIGNAL       },
                 {}
         };
 
@@ -767,6 +771,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_userns = true;
                         break;
 
+                case ARG_KILL_SIGNAL:
+                        arg_kill_signal = signal_from_string_try_harder(optarg);
+                        if (arg_kill_signal < 0) {
+                                log_error("Cannot parse signal: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -828,6 +841,9 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
+
+        if (arg_boot && arg_kill_signal <= 0)
+                arg_kill_signal = SIGRTMIN+3;
 
         return 1;
 }
@@ -3559,7 +3575,7 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 
         pid = PTR_TO_UINT32(userdata);
         if (pid > 0) {
-                if (kill(pid, SIGRTMIN+3) >= 0) {
+                if (kill(pid, arg_kill_signal) >= 0) {
                         log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
                         sd_event_source_set_userdata(s, NULL);
                         return 0;
@@ -4356,7 +4372,7 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
-                                if (arg_boot) {
+                                if (arg_kill_signal > 0) {
                                         /* Try to kill the init system on SIGINT or SIGTERM */
                                         sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, UINT32_TO_PTR(pid));
                                         sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, UINT32_TO_PTR(pid));
