@@ -34,6 +34,9 @@ External:
 
 Features:
 
+* When logging about multiple units (stopping BoundTo units, conflicts, etc.),
+  log both units as UNIT=, so that journalctl -u triggers on both.
+
 * to allow "linking" of nspawn containers, extend --network-bridge= so
   that it can dynamically create bridge interfaces that are refcounted
   by the containers on them. For each group of containers to link together
