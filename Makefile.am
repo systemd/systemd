@@ -2531,6 +2531,7 @@ efi_cflags = \
 	$(EFI_CFLAGS) \
 	-Wall \
 	-Wextra \
+	-std=gnu90 \
 	-nostdinc \
 	-ggdb -O0 \
 	-fpic \
@@ -2547,8 +2548,7 @@ if ARCH_X86_64
 efi_cflags += \
 	-mno-red-zone \
 	-DEFI_FUNCTION_WRAPPER \
-	-DGNU_EFI_USE_MS_ABI \
-	-std=gnu90
+	-DGNU_EFI_USE_MS_ABI
 endif
 
 efi_ldflags = \
