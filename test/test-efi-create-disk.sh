@@ -13,7 +13,6 @@ mount ${LOOP}p1 mnt
 
 mkdir -p mnt/EFI/{Boot,systemd}
 cp systemd-bootx64.efi mnt/EFI/Boot/bootx64.efi
-cp test/splash.bmp mnt/
 
 [ -e /boot/shellx64.efi ] && cp /boot/shellx64.efi mnt/
 
@@ -30,7 +29,7 @@ objcopy \
 # install entries
 mkdir -p mnt/loader/entries
 echo -e "timeout 3\n" > mnt/loader/loader.conf
-echo -e "title Test\nefi /test\nsplash /splash.bmp\n" > mnt/loader/entries/test.conf
+echo -e "title Test\nefi /test\n" > mnt/loader/entries/test.conf
 echo -e "title Test2\nlinux /test2\noptions option=yes word number=1000 more\n" > mnt/loader/entries/test2.conf
 echo -e "title Test3\nlinux /test3\n" > mnt/loader/entries/test3.conf
 echo -e "title Test4\nlinux /test4\n" > mnt/loader/entries/test4.conf

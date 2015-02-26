@@ -21,7 +21,6 @@
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
-#include "splash.h"
 #include "pefile.h"
 #include "linux.h"
 
@@ -50,7 +49,6 @@ typedef struct {
         enum loader_type type;
         CHAR16 *loader;
         CHAR16 *options;
-        CHAR16 *splash;
         CHAR16 key;
         EFI_STATUS (*call)(VOID);
         BOOLEAN no_autoselect;
@@ -355,7 +353,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
         return -1;
 }
 
-static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_image_path) {
+static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN i;
         CHAR16 *s;
@@ -363,9 +361,6 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
         UINTN x;
         UINTN y;
         UINTN size;
-        EFI_STATUS err;
-        UINTN color = 0;
-        const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *pixel = NULL;
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -437,42 +432,6 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
                         break;
 
                 entry = config->entries[i];
-
-                if (entry->splash) {
-                        UINT8 *content = NULL;
-                        INTN len;
-
-                        len = file_read(root_dir, entry->splash, 0, 0, &content);
-                        if (len > 0) {
-                                for (;;) {
-                                        static const EFI_GRAPHICS_OUTPUT_BLT_PIXEL colors[] = {
-                                                { .Red = 0xff, .Green = 0xff, .Blue = 0xff },
-                                                { .Red = 0xc0, .Green = 0xc0, .Blue = 0xc0 },
-                                                { .Red = 0xff, .Green =    0, .Blue =    0 },
-                                                { .Red =    0, .Green = 0xff, .Blue =    0 },
-                                                { .Red =    0, .Green =    0, .Blue = 0xff },
-                                                { .Red =    0, .Green =    0, .Blue =    0 },
-                                        };
-
-                                        err = graphics_splash(content, len, pixel);
-                                        if (EFI_ERROR(err))
-                                                break;
-
-                                        /* 'b' rotates through background colors */
-                                        console_key_read(&key, TRUE);
-                                        if (key != KEYPRESS(0, 0, 'b'))
-                                                break;
-                                        pixel = &colors[color++];
-                                        if (color == ELEMENTSOF(colors))
-                                                color = 0;
-                                }
-                        }
-
-                        FreePool(content);
-                        graphics_mode(FALSE);
-                        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
-                }
-
                 Print(L"config entry:           %d/%d\n", i+1, config->entry_count);
                 if (entry->file)
                         Print(L"file                    '%s'\n", entry->file);
@@ -498,8 +457,6 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
                         Print(L"loader                  '%s'\n", entry->loader);
                 if (entry->options)
                         Print(L"options                 '%s'\n", entry->options);
-                if (entry->splash)
-                        Print(L"splash                  '%s'\n", entry->splash);
                 Print(L"auto-select             %s\n", entry->no_autoselect ? L"no" : L"yes");
                 if (entry->call)
                         Print(L"internal call           yes\n");
@@ -511,7 +468,7 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
-static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, EFI_FILE *root_dir, CHAR16 *loaded_image_path) {
+static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *loaded_image_path) {
         EFI_STATUS err;
         UINTN visible_max;
         UINTN idx_highlight;
@@ -835,7 +792,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, EFI_FILE *ro
                         break;
 
                 case KEYPRESS(0, 0, 'P'):
-                        print_status(config, root_dir, loaded_image_path);
+                        print_status(config, loaded_image_path);
                         refresh = TRUE;
                         break;
 
@@ -1143,12 +1100,6 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                                 new = NULL;
                         }
                         FreePool(new);
-                        continue;
-                }
-
-                if (strcmpa((CHAR8 *)"splash", key) == 0) {
-                        FreePool(entry->splash);
-                        entry->splash = stra_to_path(value);
                         continue;
                 }
         }
@@ -1900,7 +1851,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (menu) {
                         efivar_set_time_usec(L"LoaderTimeMenuUSec", 0);
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
-                        if (!menu_run(&config, &entry, root_dir, loaded_image_path))
+                        if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
 
                         /* run special entry like "reboot" */
@@ -1908,15 +1859,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 entry->call();
                                 continue;
                         }
-                } else if (entry->splash) {
-                        UINT8 *content = NULL;
-                        INTN len;
-
-                        len = file_read(root_dir, entry->splash, 0, 0, &content);
-                        if (len > 0)
-                                graphics_splash(content, len, NULL);
-
-                        FreePool(content);
                 }
 
                 /* export the selected boot entry to the system */
