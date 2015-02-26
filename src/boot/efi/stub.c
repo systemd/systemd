@@ -19,6 +19,7 @@
 #include "util.h"
 #include "pefile.h"
 #include "graphics.h"
+#include "splash.h"
 #include "linux.h"
 
 /* magic string to find in the binary image */

@@ -13,12 +13,10 @@
  *
  * Copyright (C) 2012-2013 Kay Sievers <kay@vrfy.org>
  * Copyright (C) 2012 Harald Hoyer <harald@redhat.com>
- * Copyright (C) 2013 Intel Corporation
- *   Authored by Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
  */
 
-#ifndef __SDBOOT_GRAPHICS_H
-#define __SDBOOT_GRAPHICS_H
+#ifndef __SDBOOT_SPLASH_H
+#define __SDBOOT_SPLASH_H
 
-EFI_STATUS graphics_mode(BOOLEAN on);
+EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background);
 #endif

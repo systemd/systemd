@@ -21,6 +21,7 @@
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
+#include "splash.h"
 #include "pefile.h"
 #include "linux.h"
 
