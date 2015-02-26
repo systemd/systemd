@@ -1937,14 +1937,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(image, &config, entry);
-
-                if (err == EFI_ACCESS_DENIED || err == EFI_SECURITY_VIOLATION) {
-                        /* Platform is secure boot and requested image isn't
-                         * trusted. Need to go back to prior boot system and
-                         * install more keys or hashes. Signal failure by
-                         * returning the error */
-                        Print(L"\nImage %s gives a security error\n", entry->title);
-                        Print(L"Please enrol the hash or signature of %s\n", entry->loader);
+                if (EFI_ERROR(err)) {
+                        Print(L"\nFailed to execute %s (%s): %r\n", entry->title, entry->loader, err);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out;
                 }
