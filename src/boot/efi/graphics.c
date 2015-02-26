@@ -322,6 +322,7 @@ EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
 }
 
 EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
+        EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
         EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
@@ -332,6 +333,15 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
+
+        if (!background) {
+                if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
+                        pixel.Red = 0xc0;
+                        pixel.Green = 0xc0;
+                        pixel.Blue = 0xc0;
+                }
+                background = &pixel;
+        }
 
         err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
         if (EFI_ERROR(err))

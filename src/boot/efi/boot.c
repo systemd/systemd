@@ -65,7 +65,6 @@ typedef struct {
         UINTN timeout_sec_config;
         INTN timeout_sec_efivar;
         CHAR16 *entry_default_pattern;
-        EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
         CHAR16 *entries_auto;
@@ -365,7 +364,7 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
         UINTN size;
         EFI_STATUS err;
         UINTN color = 0;
-        const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *pixel = config->background;
+        const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *pixel = NULL;
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -402,9 +401,6 @@ static VOID print_status(Config *config, EFI_FILE *root_dir, CHAR16 *loaded_imag
         Print(L"timeout (config):       %d\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
-        if (config->background)
-                Print(L"background              '#%02x%02x%02x'\n",
-                      config->background->Red, config->background->Green, config->background->Blue);
         Print(L"\n");
 
         Print(L"config entry count:     %d\n", config->entry_count);
@@ -1761,7 +1757,6 @@ static VOID config_free(Config *config) {
         FreePool(config->options_edit);
         FreePool(config->entry_oneshot);
         FreePool(config->entries_auto);
-        FreePool(config->background);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -1842,15 +1837,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         ZeroMem(&config, sizeof(Config));
         config_load(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
-        if (!config.background) {
-                config.background = AllocateZeroPool(sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-                if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
-                        config.background->Red = 0xc0;
-                        config.background->Green = 0xc0;
-                        config.background->Blue = 0xc0;
-                }
-        }
-
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_linux(&config, loaded_image, root_dir);
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
@@ -1927,7 +1913,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                         len = file_read(root_dir, entry->splash, 0, 0, &content);
                         if (len > 0)
-                                graphics_splash(content, len, config.background);
+                                graphics_splash(content, len, NULL);
 
                         FreePool(content);
                 }
@@ -1938,6 +1924,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(image, &config, entry);
                 if (EFI_ERROR(err)) {
+                        graphics_mode(FALSE);
                         Print(L"\nFailed to execute %s (%s): %r\n", entry->title, entry->loader, err);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out;

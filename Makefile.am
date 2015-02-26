@@ -2601,11 +2601,13 @@ $(systemd_boot): $(systemd_boot_solib)
 stub_headers = \
 	src/boot/efi/util.h \
 	src/boot/efi/pefile.h \
+	src/boot/efi/graphics.h \
 	src/boot/efi/linux.h
 
 stub_sources = \
 	src/boot/efi/util.c \
 	src/boot/efi/pefile.c \
+	src/boot/efi/graphics.c \
 	src/boot/efi/linux.c \
 	src/boot/efi/stub.c
 

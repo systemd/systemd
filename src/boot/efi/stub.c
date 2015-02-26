@@ -18,10 +18,11 @@
 
 #include "util.h"
 #include "pefile.h"
+#include "graphics.h"
 #include "linux.h"
 
 /* magic string to find in the binary image */
-static const char __attribute__((used)) magic[] = "#### LoaderInfo: stub " VERSION " ####";
+static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " VERSION " ####";
 
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
@@ -36,6 +37,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (UINT8 *)".cmdline",
                 (UINT8 *)".linux",
                 (UINT8 *)".initrd",
+                (UINT8 *)".splash",
                 NULL
         };
         UINTN addrs[ELEMENTSOF(sections)-1] = {};
@@ -96,10 +98,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 cmdline = line;
         }
 
+        if (szs[3] > 0)
+                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
+
         err = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[1],
                          (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
 
+        graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);
         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return err;
