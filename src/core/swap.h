@@ -115,8 +115,8 @@ struct Swap {
 
 extern const UnitVTable swap_vtable;
 
-int swap_process_new_device(Manager *m, struct udev_device *dev);
-int swap_process_removed_device(Manager *m, struct udev_device *dev);
+int swap_process_device_new(Manager *m, struct udev_device *dev);
+int swap_process_device_remove(Manager *m, struct udev_device *dev);
 
 const char* swap_state_to_string(SwapState i) _const_;
 SwapState swap_state_from_string(const char *s) _pure_;

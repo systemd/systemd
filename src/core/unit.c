@@ -2834,7 +2834,6 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
                 return -ENOMEM;
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);
-
         if (r < 0)
                 return r;
 

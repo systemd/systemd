@@ -1386,7 +1386,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
-static int mount_add_one(
+static int mount_setup_unit(
                 Manager *m,
                 const char *what,
                 const char *where,
@@ -1429,7 +1429,7 @@ static int mount_add_one(
 
                 u = unit_new(m, sizeof(Mount));
                 if (!u)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = unit_add_name(u, e);
                 if (r < 0)
@@ -1542,6 +1542,8 @@ static int mount_add_one(
         return 0;
 
 fail:
+        log_warning_errno(r, "Failed to set up mount unit: %m");
+
         if (delete && u)
                 unit_free(u);
 
@@ -1549,33 +1551,36 @@ fail:
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *tb = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *itr = NULL;
-        struct libmnt_fs *fs;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r = 0;
 
         assert(m);
 
-        tb = mnt_new_table();
-        itr = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!tb || !itr)
+        t = mnt_new_table();
+        if (!t)
                 return log_oom();
 
-        r = mnt_table_parse_mtab(tb, NULL);
+        i = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!i)
+                return log_oom();
+
+        r = mnt_table_parse_mtab(t, NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         r = 0;
         for (;;) {
                 const char *device, *path, *options, *fstype;
                 _cleanup_free_ const char *d = NULL, *p = NULL;
+                struct libmnt_fs *fs;
                 int k;
 
-                k = mnt_table_next_fs(tb, itr, &fs);
+                k = mnt_table_next_fs(t, i, &fs);
                 if (k == 1)
                         break;
-                else if (k < 0)
-                        return log_error_errno(k, "Failed to get next entry from /etc/fstab: %m");
+                if (k < 0)
+                        return log_error_errno(k, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                 device = mnt_fs_get_source(fs);
                 path = mnt_fs_get_target(fs);
@@ -1583,11 +1588,16 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 fstype = mnt_fs_get_fstype(fs);
 
                 d = cunescape(device);
-                p = cunescape(path);
-                if (!d || !p)
+                if (!d)
                         return log_oom();
 
-                k = mount_add_one(m, d, p, options, fstype, set_flags);
+                p = cunescape(path);
+                if (!p)
+                        return log_oom();
+
+                (void) device_found_node(m, d, true, DEVICE_FOUND_MOUNT, set_flags);
+
+                k = mount_setup_unit(m, d, p, options, fstype, set_flags);
                 if (r == 0 && k < 0)
                         r = k;
         }
@@ -1731,8 +1741,6 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
-                log_error_errno(r, "Failed to reread /proc/self/mountinfo: %m");
-
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                         Mount *mount = MOUNT(u);
@@ -1764,6 +1772,10 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         default:
                                 break;
                         }
+
+                        if (mount->parameters_proc_self_mountinfo.what)
+                                (void) device_found_node(m, mount->parameters_proc_self_mountinfo.what, false, DEVICE_FOUND_MOUNT, true);
+
 
                 } else if (mount->just_mounted || mount->just_changed) {
 
