@@ -19,6 +19,7 @@
 #include <efilib.h>
 
 #include "util.h"
+#include "graphics.h"
 #include "splash.h"
 
 struct bmp_file {
