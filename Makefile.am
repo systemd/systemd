@@ -2541,6 +2541,7 @@ efi_cflags = \
 	-fno-strict-aliasing \
 	-fno-stack-protector \
 	-Wsign-compare \
+	-Wno-missing-field-initializers \
 	-mno-sse \
 	-mno-mmx
 
