@@ -44,7 +44,7 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
-        assert(!parameter == (type == CONDITION_NULL));
+        assert((!parameter) == (type == CONDITION_NULL));
 
         c = new0(Condition, 1);
         if (!c)
