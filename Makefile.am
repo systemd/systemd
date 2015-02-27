@@ -393,8 +393,7 @@ rootlibexec_PROGRAMS = \
 	systemd-sleep \
 	systemd-bus-proxyd \
 	systemd-socket-proxyd \
-	systemd-update-done \
-	systemd-user-sessions
+	systemd-update-done
 
 if HAVE_UTMP
 rootlibexec_PROGRAMS += \
@@ -555,8 +554,7 @@ nodist_systemunit_DATA = \
 	units/initrd-udevadm-cleanup-db.service \
 	units/initrd-switch-root.service \
 	units/systemd-nspawn@.service \
-	units/systemd-update-done.service \
-	units/systemd-user-sessions.service
+	units/systemd-update-done.service
 
 if HAVE_UTMP
 nodist_systemunit_DATA += \
@@ -609,8 +607,7 @@ EXTRA_DIST += \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
-	units/systemd-update-done.service.in \
-	units/systemd-user-sessions.service.in
+	units/systemd-update-done.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -2123,13 +2120,6 @@ systemd_update_done_SOURCES = \
 systemd_update_done_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
-	libsystemd-shared.la
-
-# ------------------------------------------------------------------------------
-systemd_user_sessions_SOURCES = \
-	src/user-sessions/user-sessions.c
-
-systemd_user_sessions_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -6015,6 +6005,7 @@ pamlib_LTLIBRARIES = \
 
 dist_pamconf_DATA = \
 	src/login/systemd-user
+
 endif
 
 nodist_systemunit_DATA += \
@@ -6074,6 +6065,30 @@ EXTRA_DIST += \
 	units/systemd-logind.service.in
 
 # ------------------------------------------------------------------------------
+if HAVE_PAM
+
+systemd_user_sessions_SOURCES = \
+	src/user-sessions/user-sessions.c
+
+systemd_user_sessions_LDADD = \
+	libsystemd-shared.la
+
+rootlibexec_PROGRAMS += \
+	systemd-user-sessions
+
+nodist_systemunit_DATA += \
+	units/systemd-user-sessions.service
+
+EXTRA_DIST += \
+	units/systemd-user-sessions.service.in
+
+MULTI_USER_TARGET_WANTS += \
+	systemd-user-sessions.service
+
+endif
+
+# ------------------------------------------------------------------------------
+
 if HAVE_PYTHON_DEVEL
 pkgpyexec_LTLIBRARIES = \
 	_journal.la \
@@ -6596,8 +6611,7 @@ LOCAL_FS_TARGET_WANTS += \
 
 MULTI_USER_TARGET_WANTS += \
 	getty.target \
-	systemd-ask-password-wall.path \
-	systemd-user-sessions.service
+	systemd-ask-password-wall.path
 
 SYSINIT_TARGET_WANTS += \
 	dev-hugepages.mount \
