@@ -1329,8 +1329,8 @@ static int bootctl_main(int argc, char*argv[]) {
                 efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareType", &fw_type);
                 efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo", &fw_info);
                 efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &loader);
-                efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &loader_path);
-                efi_tilt_backslashes(loader_path);
+                if (efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &loader_path) > 0)
+                        efi_tilt_backslashes(loader_path);
                 efi_loader_get_device_part_uuid(&loader_part_uuid);
 
                 printf("System:\n");
