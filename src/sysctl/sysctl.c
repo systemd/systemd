@@ -176,7 +176,7 @@ found:
                         if (streq(value, existing))
                                 continue;
 
-                        log_info("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        log_debug("Overwriting earlier assignment of %s in file '%s'.", p, path);
                         free(hashmap_remove(sysctl_options, p));
                         free(v);
                 }
