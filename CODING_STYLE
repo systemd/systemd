@@ -208,3 +208,7 @@
   is needed. Everytime you need that please immediately undefine
   basename(), and add a comment about it, so that no code ever ends up
   using the XDG version!
+
+- Use the bool type for booleans, not integers. One exception: in public
+  headers (i.e those in src/systemd/sd-*.h) use integers after all, as "bool"
+  is C99 and in our public APIs we try to stick to C89 (with a few extension).
