@@ -1171,10 +1171,13 @@ static VOID config_load(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, 
                                 continue;
                         if (f->Attribute & EFI_FILE_DIRECTORY)
                                 continue;
+
                         len = StrLen(f->FileName);
                         if (len < 6)
                                 continue;
                         if (StriCmp(f->FileName + len - 5, L".conf") != 0)
+                                continue;
+                        if (StrnCmp(f->FileName, L"auto-", 5) == 0)
                                 continue;
 
                         len = file_read(entries_dir, f->FileName, 0, 0, &content);
