@@ -209,6 +209,8 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
                         j = strjoin(model, " ", label, NULL);
                         if (j)
                                 r = unit_set_description(u, j);
+                        else
+                                r = -ENOMEM;
                 } else
                         r = unit_set_description(u, model);
         } else
