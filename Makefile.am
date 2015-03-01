@@ -977,6 +977,8 @@ libsystemd_label_la_SOURCES = \
 	src/shared/btrfs-ctree.h \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
+	src/shared/machine-pool.c \
+	src/shared/machine-pool.h \
 	src/shared/copy.c \
 	src/shared/copy.h
 

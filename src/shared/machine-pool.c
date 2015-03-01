@@ -1,0 +1,289 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+/***
+  This file is part of systemd.
+
+  Copyright 2015 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <sys/prctl.h>
+#include <sys/vfs.h>
+#include <sys/statvfs.h>
+#include <sys/mount.h>
+
+#include "util.h"
+#include "mkdir.h"
+#include "btrfs-util.h"
+#include "path-util.h"
+#include "machine-pool.h"
+
+#define VAR_LIB_MACHINES_SIZE_START (1024UL*1024UL*500UL)
+#define VAR_LIB_MACHINES_FREE_MIN (1024UL*1024UL*750UL)
+
+static int check_btrfs(void) {
+        struct statfs sfs;
+
+        if (statfs("/var/lib/machines", &sfs) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                if (statfs("/var/lib", &sfs) < 0)
+                        return -errno;
+        }
+
+        return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
+}
+
+static int setup_machine_raw(sd_bus_error *error) {
+        _cleanup_free_ char *tmp = NULL;
+        _cleanup_close_ int fd = -1;
+        struct statvfs ss;
+        pid_t pid = 0;
+        siginfo_t si;
+        int r;
+
+        /* We want to be able to make use of btrfs-specific file
+         * system features, in particular subvolumes, reflinks and
+         * quota. Hence, if we detect that /var/lib/machines.raw is
+         * not located on btrfs, let's create a loopback file, place a
+         * btrfs file system into it, and mount it to
+         * /var/lib/machines. */
+
+        fd = open("/var/lib/machines.raw", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd >= 0) {
+                r = fd;
+                fd = -1;
+                return r;
+        }
+
+        if (errno != ENOENT)
+                return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
+
+        r = tempfn_xxxxxx("/var/lib/machines.raw", &tmp);
+        if (r < 0)
+                return r;
+
+        (void) mkdir_p_label("/var/lib", 0755);
+        fd = open(tmp, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0600);
+        if (fd < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to create /var/lib/machines.raw: %m");
+
+        if (fstatvfs(fd, &ss) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to determine free space on /var/lib/machines.raw: %m");
+                goto fail;
+        }
+
+        if (ss.f_bsize * ss.f_bavail < VAR_LIB_MACHINES_FREE_MIN) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Not enough free disk space to set up /var/lib/machines.");
+                goto fail;
+        }
+
+        if (ftruncate(fd, VAR_LIB_MACHINES_SIZE_START) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to enlarge /var/lib/machines.raw: %m");
+                goto fail;
+        }
+
+        pid = fork();
+        if (pid < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to fork mkfs.btrfs: %m");
+                goto fail;
+        }
+
+        if (pid == 0) {
+
+                /* Child */
+
+                reset_all_signal_handlers();
+                reset_signal_mask();
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                fd = safe_close(fd);
+
+                execlp("mkfs.btrfs", "-Lvar-lib-machines", tmp, NULL);
+                if (errno == ENOENT)
+                        return 99;
+
+                _exit(EXIT_FAILURE);
+        }
+
+        r = wait_for_terminate(pid, &si);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to wait for mkfs.btrfs: %m");
+                goto fail;
+        }
+
+        pid = 0;
+
+        if (si.si_code != CLD_EXITED) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs died abnormally.");
+                goto fail;
+        }
+        if (si.si_status == 99) {
+                r = sd_bus_error_set_errnof(error, ENOENT, "Cannot set up /var/lib/machines, mkfs.btrfs is missing");
+                goto fail;
+        }
+        if (si.si_status != 0) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs failed with error code %i", si.si_status);
+                goto fail;
+        }
+
+        if (renameat2(AT_FDCWD, tmp, AT_FDCWD, "/var/lib/machines.raw", RENAME_NOREPLACE) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to move /var/lib/machines.raw into place: %m");
+                goto fail;
+        }
+
+        r = fd;
+        fd = -1;
+
+        return r;
+
+fail:
+        if (tmp)
+                unlink_noerrno(tmp);
+
+        if (pid > 1)
+                kill_and_sigcont(pid, SIGKILL);
+
+        return r;
+}
+
+int setup_machine_directory(sd_bus_error *error) {
+        struct loop_info64 info = {
+                .lo_flags = LO_FLAGS_AUTOCLEAR,
+        };
+        _cleanup_close_ int fd = -1, control = -1, loop = -1;
+        _cleanup_free_ char* loopdev = NULL;
+        char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
+        bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
+        int r, nr = -1;
+
+        r = check_btrfs();
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to determine whether /var/lib/machines is located on btrfs: %m");
+        if (r > 0) {
+                (void) btrfs_subvol_make_label("/var/lib/machines");
+
+                r = btrfs_quota_enable("/var/lib/machines", true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable quota, ignoring: %m");
+
+                return 0;
+        }
+
+        if (path_is_mount_point("/var/lib/machines", true) > 0 ||
+            dir_is_empty("/var/lib/machines") == 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
+
+        fd = setup_machine_raw(error);
+        if (fd < 0)
+                return fd;
+
+        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (control < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to open /dev/loop-control: %m");
+
+        nr = ioctl(control, LOOP_CTL_GET_FREE);
+        if (nr < 0)
+                return sd_bus_error_set_errnof(error, errno, "Failed to allocate loop device: %m");
+
+        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        loop = open(loopdev, O_CLOEXEC|O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (loop < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to open loopback device: %m");
+                goto fail;
+        }
+
+        if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to bind loopback device: %m");
+                goto fail;
+        }
+
+        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to enable auto-clear for loopback device: %m");
+                goto fail;
+        }
+
+        /* We need to make sure the new /var/lib/machines directory
+         * has an access mode of 0700 at the time it is first made
+         * available. mkfs will create it with 0755 however. Hence,
+         * let's mount the directory into an inaccessible directory
+         * below /tmp first, fix the access mode, and move it to the
+         * public place then. */
+
+        if (!mkdtemp(tmpdir)) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount parent directory: %m");
+                goto fail;
+        }
+        tmpdir_made = true;
+
+        mntdir = strjoina(tmpdir, "/mnt");
+        if (mkdir(mntdir, 0700) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount directory: %m");
+                goto fail;
+        }
+        mntdir_made = true;
+
+        if (mount(loopdev, mntdir, "btrfs", 0, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to mount loopback device: %m");
+                goto fail;
+        }
+        mntdir_mounted = true;
+
+        r = btrfs_quota_enable(mntdir, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable quota, ignoring: %m");
+
+        if (chmod(mntdir, 0700) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to fix owner: %m");
+                goto fail;
+        }
+
+        (void) mkdir_p_label("/var/lib/machines", 0700);
+
+        if (mount(mntdir, "/var/lib/machines", NULL, MS_BIND, NULL) < 0) {
+                r = sd_bus_error_set_errnof(error, errno, "Failed to mount directory into right place: %m");
+                goto fail;
+        }
+
+        (void) umount2(mntdir, MNT_DETACH);
+        (void) rmdir(mntdir);
+        (void) rmdir(tmpdir);
+
+        return 0;
+
+fail:
+        if (mntdir_mounted)
+                (void) umount2(mntdir, MNT_DETACH);
+
+        if (mntdir_made)
+                (void) rmdir(mntdir);
+        if (tmpdir_made)
+                (void) rmdir(tmpdir);
+
+        if (loop >= 0) {
+                (void) ioctl(loop, LOOP_CLR_FD);
+                loop = safe_close(loop);
+        }
+
+        if (control >= 0 && nr >= 0)
+                (void) ioctl(control, LOOP_CTL_REMOVE, nr);
+
+        return r;
+}
