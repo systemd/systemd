@@ -161,6 +161,7 @@ fail:
 }
 
 int setup_machine_directory(sd_bus_error *error) {
+        _cleanup_release_lock_file_ LockFile lock_file = LOCK_FILE_INIT;
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR,
         };
@@ -169,6 +170,11 @@ int setup_machine_directory(sd_bus_error *error) {
         char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
         bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
         int r, nr = -1;
+
+        /* Make sure we only set the directory up once at a time */
+        r = make_lock_file("/run/systemd/machines.lock", LOCK_EX, &lock_file);
+        if (r < 0)
+                return r;
 
         r = check_btrfs();
         if (r < 0)
