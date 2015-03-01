@@ -2602,6 +2602,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
+        unit_serialize_item_format(u, f, "cpuacct-usage-base", "%" PRIu64, u->cpuacct_usage_base);
 
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
@@ -2776,6 +2777,12 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 u->transient = b;
 
                         continue;
+                } else if (streq(l, "cpuacct-usage-base")) {
+
+                        r = safe_atou64(v, &u->cpuacct_usage_base);
+                        if (r < 0)
+                                log_debug("Failed to parse CPU usage %s", v);
+
                 } else if (streq(l, "cgroup")) {
                         char *s;
 
@@ -2787,8 +2794,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 void *p;
 
                                 p = hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                                log_info("Removing cgroup_path %s from hashmap (%p)",
-                                         u->cgroup_path, p);
+                                log_info("Removing cgroup_path %s from hashmap (%p)", u->cgroup_path, p);
                                 free(u->cgroup_path);
                         }
 

@@ -3195,6 +3195,7 @@ typedef struct UnitStatusInfo {
         /* CGroup */
         uint64_t memory_current;
         uint64_t memory_limit;
+        uint64_t cpu_usage_nsec;
 
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
@@ -3465,6 +3466,11 @@ static void print_status_info(
                         printf("\n");
         }
 
+        if (i->cpu_usage_nsec != (uint64_t) -1) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                printf("      CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
+        }
+
         if (i->control_group &&
             (i->main_pid > 0 || i->control_pid > 0 ||
              ((arg_transport != BUS_TRANSPORT_LOCAL && arg_transport != BUS_TRANSPORT_MACHINE) || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0))) {
@@ -3683,6 +3689,8 @@ static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *
                         i->memory_current = u;
                 else if (streq(name, "MemoryLimit"))
                         i->memory_limit = u;
+                else if (streq(name, "CPUUsageNSec"))
+                        i->cpu_usage_nsec = u;
 
                 break;
         }
@@ -4156,6 +4164,7 @@ static int show_one(
         UnitStatusInfo info = {
                 .memory_current = (uint64_t) -1,
                 .memory_limit = (uint64_t) -1,
+                .cpu_usage_nsec = (uint64_t) -1,
         };
         ExecStatusInfo *p;
         int r;

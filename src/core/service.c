@@ -1057,7 +1057,11 @@ static int service_spawn(
         assert(c);
         assert(_pid);
 
-        unit_realize_cgroup(UNIT(s));
+        (void) unit_realize_cgroup(UNIT(s));
+        if (s->reset_cpu_usage) {
+                (void) unit_reset_cpu_usage(UNIT(s));
+                s->reset_cpu_usage = false;
+        }
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
@@ -1828,6 +1832,7 @@ static int service_start(Unit *u) {
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
+        s->reset_cpu_usage = true;
 
         free(s->status_text);
         s->status_text = NULL;

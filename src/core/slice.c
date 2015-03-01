@@ -181,7 +181,8 @@ static int slice_start(Unit *u) {
         assert(t);
         assert(t->state == SLICE_DEAD);
 
-        unit_realize_cgroup(u);
+        (void) unit_realize_cgroup(u);
+        (void) unit_reset_cpu_usage(u);
 
         slice_set_state(t, SLICE_ACTIVE);
         return 1;

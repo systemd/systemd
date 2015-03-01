@@ -126,5 +126,9 @@ pid_t unit_search_main_pid(Unit *u);
 
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
+int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_cpu_usage(Unit *u, nsec_t *ret);
+int unit_reset_cpu_usage(Unit *u);
+
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;

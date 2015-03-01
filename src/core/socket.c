@@ -1392,7 +1392,11 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
-        unit_realize_cgroup(UNIT(s));
+        (void) unit_realize_cgroup(UNIT(s));
+        if (s->reset_cpu_usage) {
+                (void) unit_reset_cpu_usage(UNIT(s));
+                s->reset_cpu_usage = false;
+        }
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
@@ -1948,6 +1952,8 @@ static int socket_start(Unit *u) {
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
 
         s->result = SOCKET_SUCCESS;
+        s->reset_cpu_usage = true;
+
         socket_enter_start_pre(s);
 
         return 1;

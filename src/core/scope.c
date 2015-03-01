@@ -286,6 +286,9 @@ static int scope_start(Unit *u) {
         if (!u->transient && UNIT(s)->manager->n_reloading <= 0)
                 return -ENOENT;
 
+        (void) unit_realize_cgroup(u);
+        (void) unit_reset_cpu_usage(u);
+
         r = unit_attach_pids_to_cgroup(u);
         if (r < 0)
                 return r;

@@ -604,7 +604,11 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
-        unit_realize_cgroup(UNIT(s));
+        (void) unit_realize_cgroup(UNIT(s));
+        if (s->reset_cpu_usage) {
+                (void) unit_reset_cpu_usage(UNIT(s));
+                s->reset_cpu_usage = false;
+        }
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
@@ -830,6 +834,8 @@ static int swap_start(Unit *u) {
                         return -EAGAIN;
 
         s->result = SWAP_SUCCESS;
+        s->reset_cpu_usage = true;
+
         swap_enter_activating(s);
         return 1;
 }
