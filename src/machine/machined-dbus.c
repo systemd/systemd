@@ -31,6 +31,7 @@
 #include "cgroup-util.h"
 #include "btrfs-util.h"
 #include "machine-image.h"
+#include "machine-pool.h"
 #include "image-dbus.h"
 #include "machined.h"
 #include "machine-dbus.h"
@@ -798,6 +799,11 @@ static int method_set_pool_limit(sd_bus *bus, sd_bus_message *message, void *use
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
+
+        /* Set up the machine directory if necessary */
+        r = setup_machine_directory(limit, error);
+        if (r < 0)
+                return r;
 
         r = btrfs_resize_loopback("/var/lib/machines", limit);
         if (r < 0 && r != -ENODEV)

@@ -47,7 +47,7 @@ static int check_btrfs(void) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-static int setup_machine_raw(sd_bus_error *error) {
+static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         _cleanup_free_ char *tmp = NULL;
         _cleanup_close_ int fd = -1;
         struct statvfs ss;
@@ -91,7 +91,7 @@ static int setup_machine_raw(sd_bus_error *error) {
                 goto fail;
         }
 
-        if (ftruncate(fd, VAR_LIB_MACHINES_SIZE_START) < 0) {
+        if (ftruncate(fd, size) < 0) {
                 r = sd_bus_error_set_errnof(error, errno, "Failed to enlarge /var/lib/machines.raw: %m");
                 goto fail;
         }
@@ -160,7 +160,7 @@ fail:
         return r;
 }
 
-int setup_machine_directory(sd_bus_error *error) {
+int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         _cleanup_release_lock_file_ LockFile lock_file = LOCK_FILE_INIT;
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR,
@@ -170,6 +170,12 @@ int setup_machine_directory(sd_bus_error *error) {
         char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
         bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
         int r, nr = -1;
+
+        /* btrfs cannot handle file systems < 16M, hence use this as minimum */
+        if (size == (uint64_t) -1)
+                size = VAR_LIB_MACHINES_SIZE_START;
+        else if (size < 16*1024*1024)
+                size = 16*1024*1024;
 
         /* Make sure we only set the directory up once at a time */
         r = make_lock_file("/run/systemd/machines.lock", LOCK_EX, &lock_file);
@@ -193,7 +199,7 @@ int setup_machine_directory(sd_bus_error *error) {
             dir_is_empty("/var/lib/machines") == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "/var/lib/machines is not a btrfs file system. Operation is not supported on legacy file systems.");
 
-        fd = setup_machine_raw(error);
+        fd = setup_machine_raw(size, error);
         if (fd < 0)
                 return fd;
 

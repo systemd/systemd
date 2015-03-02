@@ -689,7 +689,7 @@ static int method_pull_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userda
         if (v < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
 
-        r = setup_machine_directory(error);
+        r = setup_machine_directory((uint64_t) -1, error);
         if (r < 0)
                 return r;
 
@@ -784,7 +784,7 @@ static int method_pull_dkr(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_
         if (v != IMPORT_VERIFY_NO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "DKR does not support verification.");
 
-        r = setup_machine_directory(error);
+        r = setup_machine_directory((uint64_t) -1, error);
         if (r < 0)
                 return r;
 
