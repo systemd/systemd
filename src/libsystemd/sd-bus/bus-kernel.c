@@ -748,10 +748,21 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 case KDBUS_ITEM_AUXGROUPS:
 
                         if (bus->creds_mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                                assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+                                size_t i, n;
+                                gid_t *g;
 
-                                m->creds.n_supplementary_gids = (d->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
-                                m->creds.supplementary_gids = (gid_t*) d->data32;
+                                n = (d->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                g = new(gid_t, n);
+                                if (!g) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                for (i = 0; i < n; i++)
+                                        g[i] = d->data64[i];
+
+                                m->creds.supplementary_gids = g;
+                                m->creds.n_supplementary_gids = n;
                                 m->creds.mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
                         }
 

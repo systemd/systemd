@@ -583,15 +583,16 @@ static int bus_populate_creds_from_items(
 
                 case KDBUS_ITEM_AUXGROUPS:
                         if (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
-                                size_t n;
+                                size_t i, n;
                                 uid_t *g;
 
-                                assert_cc(sizeof(gid_t) == sizeof(uint32_t));
-
-                                n = (item->size - offsetof(struct kdbus_item, data32)) / sizeof(uint32_t);
-                                g = newdup(gid_t, item->data32, n);
+                                n = (item->size - offsetof(struct kdbus_item, data64)) / sizeof(uint64_t);
+                                g = new(gid_t, n);
                                 if (!g)
                                         return -ENOMEM;
+
+                                for (i = 0; i < n; i++)
+                                        g[i] = item->data64[i];
 
                                 free(c->supplementary_gids);
                                 c->supplementary_gids = g;

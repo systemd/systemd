@@ -70,14 +70,14 @@ struct kdbus_notify_name_change {
  *   KDBUS_ITEM_CREDS
  */
 struct kdbus_creds {
-	__u32 uid;
-	__u32 euid;
-	__u32 suid;
-	__u32 fsuid;
-	__u32 gid;
-	__u32 egid;
-	__u32 sgid;
-	__u32 fsgid;
+	__u64 uid;
+	__u64 euid;
+	__u64 suid;
+	__u64 fsuid;
+	__u64 gid;
+	__u64 egid;
+	__u64 sgid;
+	__u64 fsgid;
 } __attribute__((__aligned__(8)));
 
 /**
@@ -463,8 +463,10 @@ struct kdbus_item {
  *				cookie identifies the message and the
  *				respective reply carries the cookie
  *				in cookie_reply
- * @KDBUS_MSG_NO_AUTO_START:	Do not start a service, if the addressed
- *				name is not currently active
+ * @KDBUS_MSG_NO_AUTO_START:	Do not start a service if the addressed
+ *				name is not currently active. This flag is
+ *				not looked at by the kernel but only
+ *				serves as hint for userspace implementations.
  * @KDBUS_MSG_SIGNAL:		Treat this message as signal
  */
 enum kdbus_msg_flags {
@@ -497,9 +499,12 @@ enum kdbus_payload_type {
  * @cookie:		Userspace-supplied cookie, for the connection
  *			to identify its messages
  * @timeout_ns:		The time to wait for a message reply from the peer.
- *			If there is no reply, a kernel-generated message
+ *			If there is no reply, and the send command is
+ *			executed asynchronously, a kernel-generated message
  *			with an attached KDBUS_ITEM_REPLY_TIMEOUT item
- *			is sent to @src_id. The timeout is expected in
+ *			is sent to @src_id. For synchronously executed send
+ *			command, the value denotes the maximum time the call
+ *			blocks to wait for a reply. The timeout is expected in
  *			nanoseconds and as absolute CLOCK_MONOTONIC value.
  * @cookie_reply:	A reply to the requesting message with the same
  *			cookie. The requesting connection can match its

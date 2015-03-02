@@ -51,6 +51,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->user_unit);
         free(c->slice);
         free(c->unescaped_description);
+        free(c->supplementary_gids);
 
         free(c->well_known_names); /* note that this is an strv, but
                                     * we only free the array, not the
@@ -100,7 +101,9 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->unique_name);
                         free(c->cgroup_root);
                         free(c->description);
+
                         free(c->supplementary_gids);
+                        c->supplementary_gids = NULL;
 
                         strv_free(c->well_known_names);
                         c->well_known_names = NULL;
