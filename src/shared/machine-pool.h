@@ -24,3 +24,4 @@
 #include "sd-bus.h"
 
 int setup_machine_directory(uint64_t size, sd_bus_error *error);
+int grow_machine_directory(void);

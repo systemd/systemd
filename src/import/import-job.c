@@ -22,7 +22,11 @@
 #include <sys/xattr.h>
 
 #include "strv.h"
+#include "machine-pool.h"
 #include "import-job.h"
+
+/* Grow the /var/lib/machines directory after each 10MiB written */
+#define IMPORT_GROW_INTERVAL_BYTES (UINT64_C(10) * UINT64_C(1024) * UINT64_C(1024))
 
 ImportJob* import_job_unref(ImportJob *j) {
         if (!j)
@@ -197,6 +201,11 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
 
         if (j->disk_fd >= 0) {
 
+                if (j->grow_machine_directory && j->written_since_last_grow >= IMPORT_GROW_INTERVAL_BYTES) {
+                        j->written_since_last_grow = 0;
+                        grow_machine_directory();
+                }
+
                 if (j->allow_sparse)
                         n = sparse_write(j->disk_fd, p, sz, 64);
                 else
@@ -219,6 +228,7 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
         }
 
         j->written_uncompressed += sz;
+        j->written_since_last_grow += sz;
 
         return 0;
 }
@@ -666,6 +676,9 @@ int import_job_begin(ImportJob *j) {
 
         if (j->state != IMPORT_JOB_INIT)
                 return -EBUSY;
+
+        if (j->grow_machine_directory)
+                grow_machine_directory();
 
         r = curl_glue_make(&j->curl, j->url, j);
         if (r < 0)

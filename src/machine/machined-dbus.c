@@ -805,14 +805,16 @@ static int method_set_pool_limit(sd_bus *bus, sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        r = btrfs_resize_loopback("/var/lib/machines", limit);
-        if (r < 0 && r != -ENODEV)
+        r = btrfs_resize_loopback("/var/lib/machines", limit, false);
+        if (r == -ENOTTY)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
+        if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
 
         r = btrfs_quota_limit("/var/lib/machines", limit);
         if (r == -ENOTTY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
-        else if (r < 0)
+        if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
         return sd_bus_reply_method_return(message, NULL);

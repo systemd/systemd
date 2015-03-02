@@ -30,6 +30,7 @@
 #include "util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "import-util.h"
 #include "curl-util.h"
 #include "import-job.h"
@@ -58,6 +59,7 @@ struct TarImport {
 
         char *local;
         bool force_local;
+        bool grow_machine_directory;
 
         pid_t tar_pid;
 
@@ -120,6 +122,8 @@ int tar_import_new(
         i->image_root = strdup(image_root ?: "/var/lib/machines");
         if (!i->image_root)
                 return -ENOMEM;
+
+        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -376,6 +380,7 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
         i->tar_job->on_open_disk = tar_import_job_on_open_disk;
         i->tar_job->on_progress = tar_import_job_on_progress;
         i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
+        i->tar_job->grow_machine_directory = i->grow_machine_directory;
 
         r = import_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
         if (r < 0)

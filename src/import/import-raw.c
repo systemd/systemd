@@ -31,6 +31,7 @@
 #include "util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "import-util.h"
 #include "curl-util.h"
 #include "qcow2-util.h"
@@ -61,6 +62,7 @@ struct RawImport {
 
         char *local;
         bool force_local;
+        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
@@ -114,6 +116,8 @@ int raw_import_new(
         i->image_root = strdup(image_root ?: "/var/lib/machines");
         if (!i->image_root)
                 return -ENOMEM;
+
+        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -480,6 +484,7 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         i->raw_job->on_open_disk = raw_import_job_on_open_disk;
         i->raw_job->on_progress = raw_import_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
+        i->raw_job->grow_machine_directory = i->grow_machine_directory;
 
         r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
         if (r < 0)

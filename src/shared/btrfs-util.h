@@ -72,5 +72,5 @@ int btrfs_quota_enable(const char *path, bool b);
 int btrfs_quota_limit_fd(int fd, uint64_t referred_max);
 int btrfs_quota_limit(const char *path, uint64_t referred_max);
 
-int btrfs_resize_loopback_fd(int fd, uint64_t size);
-int btrfs_resize_loopback(const char *path, uint64_t size);
+int btrfs_resize_loopback_fd(int fd, uint64_t size, bool grow_only);
+int btrfs_resize_loopback(const char *path, uint64_t size, bool grow_only);

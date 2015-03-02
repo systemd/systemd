@@ -169,6 +169,7 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
         _cleanup_free_ char* loopdev = NULL;
         char tmpdir[] = "/tmp/import-mount.XXXXXX", *mntdir = NULL;
         bool tmpdir_made = false, mntdir_made = false, mntdir_mounted = false;
+        char buf[FORMAT_BYTES_MAX];
         int r, nr = -1;
 
         /* btrfs cannot handle file systems < 16M, hence use this as minimum */
@@ -274,6 +275,10 @@ int setup_machine_directory(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
+        (void) syncfs(fd);
+
+        log_info("Set up /var/lib/machines as btrfs loopback file system of size %s mounted on /var/lib/machines.raw.", format_bytes(buf, sizeof(buf), size));
+
         (void) umount2(mntdir, MNT_DETACH);
         (void) rmdir(mntdir);
         (void) rmdir(tmpdir);
@@ -298,4 +303,74 @@ fail:
                 (void) ioctl(control, LOOP_CTL_REMOVE, nr);
 
         return r;
+}
+
+static int sync_path(const char *p) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        if (syncfs(fd) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int grow_machine_directory(void) {
+        char buf[FORMAT_BYTES_MAX];
+        struct statvfs a, b;
+        uint64_t old_size, new_size, max_add;
+        int r;
+
+        /* Ensure the disk space data is accurate */
+        sync_path("/var/lib/machines");
+        sync_path("/var/lib/machines.raw");
+
+        if (statvfs("/var/lib/machines.raw", &a) < 0)
+                return -errno;
+
+        if (statvfs("/var/lib/machines", &b) < 0)
+                return -errno;
+
+        /* Don't grow if not enough disk space is available on the host */
+        if (((uint64_t) a.f_bavail * (uint64_t) a.f_bsize) <= VAR_LIB_MACHINES_FREE_MIN)
+                return 0;
+
+        /* Don't grow if at least 1/3th of the fs is still free */
+        if (b.f_bavail > b.f_blocks / 3)
+                return 0;
+
+        /* Calculate how much we are willing to add at maximum */
+        max_add = ((uint64_t) a.f_bavail * (uint64_t) a.f_bsize) - VAR_LIB_MACHINES_FREE_MIN;
+
+        /* Calculate the old size */
+        old_size = (uint64_t) b.f_blocks * (uint64_t) b.f_bsize;
+
+        /* Calculate the new size as three times the size of what is used right now */
+        new_size = ((uint64_t) b.f_blocks - (uint64_t) b.f_bavail) * (uint64_t) b.f_bsize * 3;
+
+        /* Always, grow at least to the start size */
+        if (new_size < VAR_LIB_MACHINES_SIZE_START)
+                new_size = VAR_LIB_MACHINES_SIZE_START;
+
+        /* If the new size is smaller than the old size, don't grow */
+        if (new_size < old_size)
+                return 0;
+
+        /* Ensure we never add more than the maximum */
+        if (new_size > old_size + max_add)
+                new_size = old_size + max_add;
+
+        r = btrfs_resize_loopback("/var/lib/machines", new_size, true);
+        if (r <= 0)
+                return r;
+
+        r = btrfs_quota_limit("/var/lib/machines", new_size);
+        if (r < 0)
+                return r;
+
+        log_info("Grew /var/lib/machines btrfs loopback file system to %s.", format_bytes(buf, sizeof(buf), new_size));
+        return 1;
 }

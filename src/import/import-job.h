@@ -107,6 +107,9 @@ struct ImportJob {
         gcry_md_hd_t checksum_context;
 
         char *checksum;
+
+        bool grow_machine_directory;
+        uint64_t written_since_last_grow;
 };
 
 int import_job_new(ImportJob **job, const char *url, CurlGlue *glue, void *userdata);

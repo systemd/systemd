@@ -28,6 +28,7 @@
 #include "btrfs-util.h"
 #include "utf8.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "import-util.h"
 #include "curl-util.h"
 #include "aufs-util.h"
@@ -72,6 +73,7 @@ struct DkrImport {
 
         char *local;
         bool force_local;
+        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
@@ -155,6 +157,8 @@ int dkr_import_new(
         i->image_root = strdup(image_root ?: "/var/lib/machines");
         if (!i->image_root)
                 return -ENOMEM;
+
+        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         i->index_url = strdup(index_url);
         if (!i->index_url)
@@ -561,6 +565,7 @@ static int dkr_import_pull_layer(DkrImport *i) {
         i->layer_job->on_finished = dkr_import_job_on_finished;
         i->layer_job->on_open_disk = dkr_import_job_on_open_disk;
         i->layer_job->on_progress = dkr_import_job_on_progress;
+        i->layer_job->grow_machine_directory = i->grow_machine_directory;
 
         r = import_job_begin(i->layer_job);
         if (r < 0)

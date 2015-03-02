@@ -705,7 +705,7 @@ int btrfs_quota_limit(const char *path, uint64_t referred_max) {
         return btrfs_quota_limit_fd(fd, referred_max);
 }
 
-int btrfs_resize_loopback_fd(int fd, uint64_t new_size) {
+int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_free_ char *p = NULL, *loop = NULL, *backing = NULL;
         _cleanup_close_ int loop_fd = -1, backing_fd = -1;
@@ -726,6 +726,8 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size) {
         if (asprintf(&p, "/sys/dev/block/%u:%u/loop/backing_file", major(dev), minor(dev)) < 0)
                 return -ENOMEM;
         r = read_one_line_file(p, &backing);
+        if (r == -ENOENT)
+                return -ENODEV;
         if (r < 0)
                 return r;
         if (isempty(backing) || !path_is_absolute(backing))
@@ -742,6 +744,9 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size) {
 
         if (new_size == (uint64_t) st.st_size)
                 return 0;
+
+        if (grow_only && new_size < (uint64_t) st.st_size)
+                return -EINVAL;
 
         if (asprintf(&loop, "/dev/block/%u:%u", major(dev), minor(dev)) < 0)
                 return -ENOMEM;
@@ -770,15 +775,19 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size) {
                         return -errno;
         }
 
-        return 0;
+        /* Make sure the free disk space is correctly updated for both file systems */
+        (void) fsync(fd);
+        (void) fsync(backing_fd);
+
+        return 1;
 }
 
-int btrfs_resize_loopback(const char *p, uint64_t new_size) {
+int btrfs_resize_loopback(const char *p, uint64_t new_size, bool grow_only) {
         _cleanup_close_ int fd = -1;
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        return btrfs_resize_loopback_fd(fd, new_size);
+        return btrfs_resize_loopback_fd(fd, new_size, grow_only);
 }
