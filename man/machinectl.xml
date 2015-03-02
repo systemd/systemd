@@ -508,16 +508,32 @@
         <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
 
         <listitem><para>Sets the maximum size in bytes a specific
-        container or VM image, or all images may grow up to
-        (quota). Takes either one or two parameters. The first,
+        container or VM image, or all images may grow up to on disk
+        (disk quota). Takes either one or two parameters. The first,
         optional parameter refers to a container or VM image name. If
-        specified the size limit of the specified images is
-        changed. If omitted the overall size limit of the sum of all
-        images stored locally is changed. The final argument specifies
-        the size limit in bytes, possibly suffixed by the usual K, M,
-        G, T units. If the size limit shall be disabled, specify
-        <literal>-</literal> as size. This operation is currently only
-        supported on btrfs subvolume images.</para></listitem>
+        specified the size limit of the specified image is changed. If
+        omitted the overall size limit of the sum of all images stored
+        locally is changed. The final argument specifies the size
+        limit in bytes, possibly suffixed by the usual K, M, G, T
+        units. If the size limit shall be disabled, specify
+        <literal>-</literal> as size.</para>
+
+        <para>Note that per-container size limits are only supported
+        on btrfs file systems. Also note that if
+        <command>set-limit</command> is invoked without image
+        parameter, and <filename>/var/lib/machines</filename> is
+        empty, and the directory is not located on btrfs, a btrfs
+        loopback file is implicitly created as
+        <filename>/var/lib/machines.raw</filename> with the given
+        size, and mounted to
+        <filename>/var/lib/machines</filename>. The size of the
+        loopback may later be readjusted with
+        <command>set-limit</command>, as well. If such a
+        loopback-mounted <filename>/var/lib/machines</filename>
+        directory is used <command>set-limit</command> without image
+        name alters both the quota setting within the file system as
+        well as the loopback file and file system size
+        itself.</para></listitem>
       </varlistentry>
 
     </variablelist></refsect2>
@@ -685,6 +701,17 @@
     possible to symlink machines images from other directories into
     <filename>/var/lib/machines/</filename> to make them available for
     control with <command>machinectl</command>.</para>
+
+    <para>Note that many image operations are only supported,
+    efficient or atomic on btrfs file systems. Due to this, if the
+    <command>pull-tar</command>, <command>pull-raw</command>,
+    <command>pull-dkr</command> and <command>set-limit</command>
+    commands notice that <filename>/var/lib/machines</filename> is
+    empty and not located on btrfs, they will implicitly set up a
+    loopback file <filename>/var/lib/machines.raw</filename>
+    containing a btrfs file system that is mounted to
+    <filename>/var/lib/machines</filename>. The size of this loopback
+    file may be controlled dynamically with <command>set-limit</command>.</para>
 
     <para>Disk images are understood by
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
