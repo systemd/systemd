@@ -281,8 +281,9 @@ int import_verify(
         _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int sig_file = -1;
         const char *p, *line;
-        char sig_file_path[] = "/tmp/sigXXXXXX";
+        char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_sigkill_wait_ pid_t pid = 0;
+        bool gpg_home_created = false;
         int r;
 
         assert(main_job);
@@ -347,6 +348,13 @@ int import_verify(
                 goto finish;
         }
 
+        if (!mkdtemp(gpg_home)) {
+                r = log_error_errno(errno, "Failed to create tempory home for gpg: %m");
+                goto finish;
+        }
+
+        gpg_home_created = true;
+
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork off gpg: %m");
@@ -359,13 +367,14 @@ int import_verify(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
-                        NULL, /* keyring to use */
+                        NULL, /* --homedir=  */
+                        NULL, /* --keyring= */
                         NULL, /* --verify */
                         NULL, /* signature file */
                         NULL, /* dash */
                         NULL  /* trailing NULL */
                 };
-                unsigned k = ELEMENTSOF(cmd) - 5;
+                unsigned k = ELEMENTSOF(cmd) - 6;
                 int null_fd;
 
                 /* Child */
@@ -398,6 +407,8 @@ int import_verify(
                 if (null_fd != STDOUT_FILENO)
                         null_fd = safe_close(null_fd);
 
+                cmd[k++] = strjoina("--homedir=", gpg_home);
+
                 /* We add the user keyring only to the command line
                  * arguments, if it's around since gpg fails
                  * otherwise. */
@@ -415,6 +426,7 @@ int import_verify(
                 fd_cloexec(STDOUT_FILENO, false);
                 fd_cloexec(STDERR_FILENO, false);
 
+                execvp("gpg2", (char * const *) cmd);
                 execvp("gpg", (char * const *) cmd);
                 log_error_errno(errno, "Failed to execute gpg: %m");
                 _exit(EXIT_FAILURE);
@@ -445,6 +457,9 @@ int import_verify(
 finish:
         if (sig_file >= 0)
                 unlink(sig_file_path);
+
+        if (gpg_home_created)
+                rm_rf_dangerous(gpg_home, false, true, false);
 
         return r;
 }
