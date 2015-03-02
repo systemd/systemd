@@ -108,7 +108,7 @@
           <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
-          <entry>A bridge devcie is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
+          <entry>A bridge device is a software switch, each of its slave devices and the bridge itself are ports of the switch.</entry></row>
 
           <row><entry><varname>dummy</varname></entry>
           <entry>A dummy device drops all packets sent to it.</entry></row>
