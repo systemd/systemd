@@ -2063,7 +2063,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
                "  remove NAME...              Remove an image\n"
-               "  set-limit [NAME] BYTES      Set image size limit (quota)\n\n"
+               "  set-limit [NAME] BYTES      Set image or pool size limit (quota)\n\n"
                "Image Transfer Commands:\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
