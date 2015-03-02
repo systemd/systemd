@@ -34,6 +34,12 @@ External:
 
 Features:
 
+* create a btrfs qgroup for /var/lib/machines, and add all container
+  subvolumes we create to it.
+
+* nspawn: add --overlay= to support overlay file systems, similar to
+  --tmpfs= and --bind=.
+
 * When logging about multiple units (stopping BoundTo units, conflicts, etc.),
   log both units as UNIT=, so that journalctl -u triggers on both.
 
@@ -64,10 +70,6 @@ Features:
 
 * Introduce $LISTEN_NAMES to complement $LISTEN_FDS, containing a
   colon separated list of identifiers for the fds passed.
-
-* networkd: implement BindCarrier= logic to .network units that binds
-  application of the file to the carrier sense on another interface,
-  in order to implement uplink/downlink logic.
 
 * when the fstab-generator runs in the initrd, it should create a /dev/null mask for systemd-fsck-root.service, to avoid that the the root fs is fsck'ed twice.
 
@@ -131,8 +133,6 @@ Features:
 * "machinectl diff"
 
 * "machinectl commit" that takes a writable snapshot of a tree, invokes a shell in it, and marks it read-only after use
-
-* add transparent btrfs pool in a loopback file in /var if btrfs operations (such as systemd-import pull-dkr) are used and /var is not a btrfs file system
 
 * systemd-nspawn -x should support ephemeral instances of gpt images
 
