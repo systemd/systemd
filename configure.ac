@@ -208,13 +208,13 @@ AS_CASE([$CC], [*clang*],
                -Wno-gnu-variable-sized-type-not-at-end \
         ])])
 
-AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
+AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -flto -ffat-lto-objects])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
-AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
+AS_CASE([$CFLAGS], [*-O[[12345sz\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
