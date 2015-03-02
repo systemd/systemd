@@ -34,8 +34,6 @@ External:
 
 Features:
 
-* gpg2 compat
-
 * When logging about multiple units (stopping BoundTo units, conflicts, etc.),
   log both units as UNIT=, so that journalctl -u triggers on both.
 
