@@ -2609,8 +2609,8 @@ int journal_file_open(
                  * shouldn't be too bad, given that we do our own
                  * checksumming). */
                 r = chattr_fd(f->fd, true, FS_NOCOW_FL);
-                if (r < 0)
-                        log_warning_errno(errno, "Failed to set file attributes: %m");
+                if (r < 0 && r != -ENOTTY)
+                        log_warning_errno(r, "Failed to set file attributes: %m");
 
                 /* Let's attach the creation time to the journal file,
                  * so that the vacuuming code knows the age of this
