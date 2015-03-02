@@ -350,11 +350,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 .msg_iovlen = 1,
                 .msg_name = &sockaddr,
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(int) * n_fds)];
-        } control;
+        struct cmsghdr *control;
         _cleanup_close_ int fd = -1;
         struct cmsghdr *cmsg = NULL;
         const char *e;
@@ -398,8 +394,10 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         if (msghdr.msg_namelen > sizeof(struct sockaddr_un))
                 msghdr.msg_namelen = sizeof(struct sockaddr_un);
 
+        control = alloca(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int) * n_fds));
+
         if (n_fds > 0) {
-                msghdr.msg_control = &control;
+                msghdr.msg_control = control;
                 msghdr.msg_controllen = CMSG_LEN(sizeof(int) * n_fds);
 
                 cmsg = CMSG_FIRSTHDR(&msghdr);
@@ -416,7 +414,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 try_without_ucred = true;
                 controllen_without_ucred = msghdr.msg_controllen;
 
-                msghdr.msg_control = &control;
+                msghdr.msg_control = control;
                 msghdr.msg_controllen += CMSG_LEN(sizeof(struct ucred));
 
                 if (cmsg)
