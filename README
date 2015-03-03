@@ -77,8 +77,8 @@ REQUIREMENTS:
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
-          CONFIG_TMPFS_POSIX_ACL
           CONFIG_TMPFS_XATTR
+          CONFIG_{TMPFS,EXT4,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
 
         Required for CPUShares in resource control unit settings
