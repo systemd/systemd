@@ -68,7 +68,7 @@ static int client_context_new(ClientContext **out) {
 
         c = new0(ClientContext, 1);
         if (!c)
-                return log_oom();
+                return -ENOMEM;
 
         c->fd = -1;
 
