@@ -3940,8 +3940,13 @@ TESTS += \
 if HAVE_PYTHON
 TESTS += \
 	test/rule-syntax-check.py \
+	$(NULL)
+
+if HAVE_SYSV_COMPAT
+TESTS += \
 	test/sysv-generator-test.py \
 	$(NULL)
+endif
 endif
 
 manual_tests += \
