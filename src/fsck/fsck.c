@@ -316,10 +316,8 @@ int main(int argc, char *argv[]) {
         if (arg_force)
                 cmdline[i++] = "-f";
 
-        if (progress_pipe[1] >= 0) {
-                xsprintf(dash_c, "-C%i", progress_pipe[1]);
-                cmdline[i++] = dash_c;
-        }
+        xsprintf(dash_c, "-C%i", progress_pipe[1]);
+        cmdline[i++] = dash_c;
 
         cmdline[i++] = device;
         cmdline[i++] = NULL;
@@ -330,18 +328,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (pid == 0) {
                 /* Child */
-                if (progress_pipe[0] >= 0)
-                        safe_close(progress_pipe[0]);
+                safe_close(progress_pipe[0]);
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
 
         progress_pipe[1] = safe_close(progress_pipe[1]);
 
-        if (progress_pipe[0] >= 0) {
-                progress_rc = process_progress(progress_pipe[0], pid, st.st_rdev);
-                progress_pipe[0] = -1;
-        }
+        progress_rc = process_progress(progress_pipe[0], pid, st.st_rdev);
+        progress_pipe[0] = -1;
 
         q = wait_for_terminate(pid, &status);
         if (q < 0) {
