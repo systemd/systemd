@@ -2364,6 +2364,7 @@ systemd_fsck_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_fsckd_SOURCES = \
 	src/fsckd/fsckd.c \
+	src/fsckd/fsckd.h \
 	$(NULL)
 
 systemd_fsckd_LDADD = \
