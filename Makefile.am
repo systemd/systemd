@@ -145,6 +145,7 @@ dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
 dist_dbussystemservice_DATA =
 dist_systemunit_DATA_busnames =
+dist_sysusers_DATA =
 check_PROGRAMS =
 check_DATA =
 tests=
@@ -2214,10 +2215,10 @@ nodist_systemunit_DATA += \
 	units/systemd-tmpfiles-clean.service
 
 nodist_tmpfiles_DATA = \
+	tmpfiles.d/systemd.conf \
 	tmpfiles.d/etc.conf
 
 dist_tmpfiles_DATA = \
-	tmpfiles.d/systemd.conf \
 	tmpfiles.d/systemd-nologin.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf \
@@ -2244,12 +2245,14 @@ INSTALL_DIRS += \
 endif
 
 EXTRA_DIST += \
+	tmpfiles.d/systemd.conf.m4 \
 	tmpfiles.d/etc.conf.m4 \
 	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in
 
 CLEANFILES += \
+	tmpfiles.d/systemd.conf \
 	tmpfiles.d/etc.conf
 
 # ------------------------------------------------------------------------------
@@ -2272,17 +2275,17 @@ nodist_systemunit_DATA += \
 SYSINIT_TARGET_WANTS += \
 	systemd-sysusers.service
 
-dist_sysusers_DATA = \
-	sysusers.d/systemd.conf
-
 nodist_sysusers_DATA = \
+	sysusers.d/systemd.conf \
 	sysusers.d/basic.conf
 
 EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
+	sysusers.d/systemd.conf.m4 \
 	sysusers.d/basic.conf.in
 
 CLEANFILES += \
+	sysusers.d/systemd.conf \
 	sysusers.d/basic.conf
 
 INSTALL_DIRS += \
@@ -4817,7 +4820,7 @@ dist_bashcompletion_DATA += \
 dist_zshcompletion_DATA += \
 	shell-completion/zsh/_coredumpctl
 
-sysctl_DATA = \
+nodist_sysctl_DATA = \
 	sysctl.d/50-coredump.conf
 
 CLEANFILES += \
