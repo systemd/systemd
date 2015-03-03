@@ -158,6 +158,13 @@ int sd_dhcp6_client_set_mac(sd_dhcp6_client *client, const uint8_t *addr,
         return 0;
 }
 
+static int client_ensure_duid(sd_dhcp6_client *client)
+{
+        if (client->duid_len != 0)
+                return 0;
+        return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+}
+
 int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *duid,
                              size_t duid_len)
 {
@@ -378,6 +385,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         if (r < 0)
                 return r;
 
+        assert (client->duid_len);
         r = dhcp6_option_append(&opt, &optlen, DHCP6_OPTION_CLIENTID,
                                 client->duid_len, &client->duid);
         if (r < 0)
@@ -1108,6 +1116,10 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client)
         if (r < 0)
                 return r;
 
+        r = client_ensure_duid(client);
+        if (r < 0)
+                return r;
+
         r = dhcp6_network_bind_udp_socket(client->index, NULL);
         if (r < 0)
                 return r;
@@ -1205,7 +1217,6 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
 int sd_dhcp6_client_new(sd_dhcp6_client **ret)
 {
         _cleanup_dhcp6_client_unref_ sd_dhcp6_client *client = NULL;
-        int r;
         size_t t;
 
         assert_return(ret, -EINVAL);
@@ -1221,11 +1232,6 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret)
         client->index = -1;
 
         client->fd = -1;
-
-        /* initialize DUID */
-        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
-        if (r < 0)
-                return r;
 
         client->req_opts_len = ELEMENTSOF(default_req_opts);
 
