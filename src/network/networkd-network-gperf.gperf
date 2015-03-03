@@ -58,6 +58,7 @@ Route.Destination,           config_parse_destination,           0,             
 Route.Source,                config_parse_destination,           0,                             0
 Route.Metric,                config_parse_route_priority,        0,                             0
 Route.Scope,                 config_parse_route_scope,           0,                             0
+DHCP.ClientIdentifier,       config_parse_dhcp_client_identifier,0,                             offsetof(Network, dhcp_client_identifier)
 DHCP.UseDNS,                 config_parse_bool,                  0,                             offsetof(Network, dhcp_dns)
 DHCP.UseMTU,                 config_parse_bool,                  0,                             offsetof(Network, dhcp_mtu)
 DHCP.UseHostname,            config_parse_bool,                  0,                             offsetof(Network, dhcp_hostname)

@@ -661,5 +661,21 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
+        switch (link->network->dhcp_client_identifier) {
+        case DHCP_CLIENT_ID_DUID:
+                /* Library defaults to this. */
+                break;
+        case DHCP_CLIENT_ID_MAC:
+                r = sd_dhcp_client_set_client_id(link->dhcp_client,
+                                                 ARPHRD_ETHER,
+                                                 (const uint8_t *) &link->mac,
+                                                 sizeof (link->mac));
+                if (r < 0)
+                        return r;
+                break;
+        default:
+                assert_not_reached("Unknown client identifier type.");
+        }
+
         return 0;
 }

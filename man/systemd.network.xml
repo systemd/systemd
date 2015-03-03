@@ -564,6 +564,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>ClientIdentifier=</varname></term>
+          <listitem>
+            <para>DHCP client identifier to use. Either <literal>mac</literal>
+            to use the MAC address of the link or <literal>duid</literal>
+            (the default) to use a RFC4361-complient Client ID.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>VendorClassIdentifier=</varname></term>
           <listitem>
             <para>The vendor class identifier used to identify vendor
