@@ -118,8 +118,6 @@ rootprefix=@rootprefix@
 rootbindir=$(rootprefix)/bin
 rootlibexecdir=$(rootprefix)/lib/systemd
 
-CLEANFILES = $(BUILT_SOURCES)
-DISTCLEANFILES =
 EXTRA_DIST =
 BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
@@ -160,6 +158,15 @@ noinst_PROGRAMS =
 TESTS =
 endif
 udevlibexec_PROGRAMS =
+
+in_files = $(filter %.in,$(EXTRA_DIST))
+in_in_files = $(filter %.in.in, $(in_files))
+m4_files = $(filter %.m4,$(EXTRA_DIST) $(in_files:.m4.in=.m4))
+
+CLEANFILES = $(BUILT_SOURCES) \
+	$(pkgconfiglib_DATA) \
+	$(in_files:.in=) $(in_in_files:.in.in=) \
+	$(m4_files:.m4=)
 
 .PHONY: $(INSTALL_EXEC_HOOKS) $(UNINSTALL_EXEC_HOOKS) \
 	$(INSTALL_DATA_HOOKS) $(UNINSTALL_DATA_HOOKS) \
@@ -609,12 +616,6 @@ EXTRA_DIST += \
 	units/initrd-switch-root.service.in \
 	units/systemd-nspawn@.service.in \
 	units/systemd-update-done.service.in
-
-CLEANFILES += \
-	units/console-shell.service.m4 \
-	units/console-getty.service.m4 \
-	units/container-getty@.service.m4 \
-	units/user@.service.m4
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -1223,35 +1224,34 @@ src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@
 
-EXTRA_DIST += \
+gperf_gperf_m4_sources = \
 	src/core/load-fragment-gperf.gperf.m4
 
-CLEANFILES += \
-	src/core/load-fragment-gperf.gperf \
-	src/core/load-fragment-gperf.c \
-	src/core/load-fragment-gperf-nulstr.c \
+gperf_txt_sources = \
 	src/shared/errno-list.txt \
-	src/shared/errno-from-name.gperf \
 	src/shared/af-list.txt \
-	src/shared/af-from-name.gperf \
 	src/shared/arphrd-list.txt \
-	src/shared/arphrd-from-name.gperf \
-	src/shared/cap-list.txt \
-	src/shared/cap-from-name.gperf \
-	src/resolve/dns_type-list.txt \
-	src/resolve/dns_type-from-name.gperf
+	src/shared/cap-list.txt
 
 BUILT_SOURCES += \
-	src/shared/errno-from-name.h \
-	src/shared/errno-to-name.h \
-	src/shared/af-from-name.h \
-	src/shared/af-to-name.h \
-	src/shared/arphrd-from-name.h \
-	src/shared/arphrd-to-name.h \
-	src/shared/cap-from-name.h \
-	src/shared/cap-to-name.h \
-	src/resolve/dns_type-from-name.h \
-	src/resolve/dns_type-to-name.h
+	$(gperf_gperf_m4_sources:-gperf.gperf.m4=-gperf.c) \
+	$(gperf_gperf_m4_sources:-gperf.gperf.m4=-gperf-nulstr.c) \
+	$(gperf_gperf_sources:-gperf.gperf=-gperf.c) \
+	$(gperf_txt_sources:-list.txt=-from-name.h) \
+	$(gperf_txt_sources:-list.txt=-to-name.h)
+
+CLEANFILES += \
+	$(gperf_txt_sources:-list.txt=-from-name.gperf)
+DISTCLEANFILES = \
+	$(gperf_txt_sources)
+
+EXTRA_DIST += \
+	$(gperf_gperf_m4_sources) \
+	$(gperf_gperf_sources) \
+	$(gperf_txt_sources:-list.txt=-from-name.gperf)
+
+CLEANFILES += \
+	$(gperf_txt_sources)
 
 %-from-name.gperf: %-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct $(notdir $*)_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' <$< >$@
@@ -1345,10 +1345,6 @@ nodist_rpmmacros_DATA = \
 EXTRA_DIST += \
 	src/core/systemd.pc.in \
 	src/core/macros.systemd.in
-
-CLEANFILES += \
-	src/core/macros.systemd \
-	src/core/org.freedesktop.systemd1.policy.in
 
 # ------------------------------------------------------------------------------
 
@@ -1724,9 +1720,6 @@ test_verbs_LDADD = \
 
 test_namespace_LDADD = \
 	libsystemd-core.la
-
-CLEANFILES += \
-	src/test/test-hashmap-ordered.c
 
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
@@ -2251,10 +2244,6 @@ EXTRA_DIST += \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in
 
-CLEANFILES += \
-	tmpfiles.d/systemd.conf \
-	tmpfiles.d/etc.conf
-
 # ------------------------------------------------------------------------------
 if ENABLE_SYSUSERS
 systemd_sysusers_SOURCES = \
@@ -2283,10 +2272,6 @@ EXTRA_DIST += \
 	units/systemd-sysusers.service.in \
 	sysusers.d/systemd.conf.m4 \
 	sysusers.d/basic.conf.in
-
-CLEANFILES += \
-	sysusers.d/systemd.conf \
-	sysusers.d/basic.conf
 
 INSTALL_DIRS += \
 	$(sysusersdir)
@@ -2903,9 +2888,6 @@ EXTRA_DIST += \
 	units/systemd-bus-proxyd.service.m4.in \
 	units/user/systemd-bus-proxyd.service.in
 
-CLEANFILES += \
-	units/systemd-bus-proxyd.service.m4
-
 if HAVE_SMACK
 bus-proxyd-set-cap-hook:
 	-$(SETCAP) cap_mac_admin+ei $(DESTDIR)$(rootlibexecdir)/systemd-bus-proxyd
@@ -3038,9 +3020,6 @@ EXTRA_DIST += \
 	src/libsystemd/libsystemd.pc.in \
 	src/libsystemd/sd-bus/DIFFERENCES \
 	src/libsystemd/sd-bus/GVARIANT-SERIALIZATION
-
-CLEANFILES += \
-	src/libsystemd/libsystemd.sym
 
 BUILT_SOURCES += \
 	src/libsystemd/libsystemd.sym
@@ -3661,7 +3640,6 @@ EXTRA_DIST += \
 	src/libudev/libudev.pc.in
 
 CLEANFILES += \
-	src/libudev/libudev.pc \
 	docs/html/libudev \
 	docs/html/gudev
 
@@ -3738,19 +3716,10 @@ EXTRA_DIST += \
 	rules/99-systemd.rules.in \
 	src/udev/udev.pc.in
 
-CLEANFILES += \
-	rules/99-systemd.rules \
-	src/udev/udev.pc
-
 EXTRA_DIST += \
 	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
 	units/systemd-udev-settle.service.in
-
-CLEANFILES += \
-	units/systemd-udevd.service \
-	units/systemd-udev-trigger.service \
-	units/systemd-udev-settle.service
 
 SOCKETS_TARGET_WANTS += \
 	systemd-udevd-control.socket \
@@ -3769,18 +3738,21 @@ rootlibexec_PROGRAMS += \
 noinst_LTLIBRARIES += \
 	libudev-core.la
 
-src/udev/keyboard-keys.txt:
+src/udev/keyboard-keys-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
-src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys.txt
+src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
 
 src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
 
-src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys.txt
+src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
+
+gperf_txt_sources += \
+	src/udev/keyboard-keys-list.txt
 
 libudev_core_la_SOURCES = \
 	src/udev/udev.h \
@@ -3808,15 +3780,7 @@ nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-to-name.h \
 	src/udev/net/link-config-gperf.c
 
-BUILT_SOURCES += \
-	$(nodist_libudev_core_la_SOURCES)
-
-CLEANFILES += \
-	src/udev/keyboard-keys-from-name.gperf \
-	src/udev/keyboard-keys.txt \
-	src/udev/net/link-config-gperf.c
-
-EXTRA_DIST += \
+gperf_gperf_sources = \
 	src/udev/net/link-config-gperf.gperf
 
 libudev_core_la_CFLAGS = \
@@ -3913,9 +3877,6 @@ dist_udevhwdb_DATA = \
 
 EXTRA_DIST += \
 	units/systemd-hwdb-update.service.in
-
-CLEANFILES += \
-	units/systemd-hwdb-update.service
 
 SYSINIT_TARGET_WANTS += \
 	systemd-hwdb-update.service
@@ -4099,9 +4060,6 @@ libgudev_include_HEADERS = \
 lib_LTLIBRARIES += libgudev-1.0.la
 
 pkgconfiglib_DATA += \
-	src/gudev/gudev-1.0.pc
-
-CLEANFILES += \
 	src/gudev/gudev-1.0.pc
 
 libgudev_1_0_la_SOURCES = \
@@ -4343,8 +4301,6 @@ nodist_pkgsysconf_DATA += \
 EXTRA_DIST += \
 	src/journal-remote/journal-remote.conf.in
 
-CLEANFILES += \
-	src/journal-remote/journal-remote.conf
 endif
 
 if HAVE_LIBCURL
@@ -4377,9 +4333,6 @@ nodist_pkgsysconf_DATA += \
 
 EXTRA_DIST += \
 	src/journal-remote/journal-upload.conf.in
-
-CLEANFILES += \
-	src/journal-remote/journal-upload.conf
 endif
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
@@ -4700,11 +4653,10 @@ SYSINIT_TARGET_WANTS += \
 EXTRA_DIST += \
 	units/systemd-journald.service.in \
 	units/systemd-journal-flush.service.in \
-	units/systemd-journal-catalog-update.service.in \
-	src/journal/journald-gperf.gperf
+	units/systemd-journal-catalog-update.service.in
 
-CLEANFILES += \
-	src/journal/journald-gperf.c
+gperf_gperf_sources += \
+	src/journal/journald-gperf.gperf
 
 # ------------------------------------------------------------------------------
 if HAVE_MICROHTTPD
@@ -4878,17 +4830,14 @@ systemd_vconsole_setup_LDADD = \
 rootlibexec_PROGRAMS += \
 	systemd-vconsole-setup
 
-nodist_systemunit_DATA += \
-	units/systemd-vconsole-setup.service
-
 nodist_udevrules_DATA += \
 	src/vconsole/90-vconsole.rules
 
+nodist_systemunit_DATA += \
+	units/systemd-vconsole-setup.service
+
 SYSINIT_TARGET_WANTS += \
 	systemd-vconsole-setup.service
-
-CLEANFILES += \
-	src/vconsole/90-vconsole.rules
 endif
 
 EXTRA_DIST += \
@@ -4920,9 +4869,6 @@ nodist_systemunit_DATA += \
 
 EXTRA_DIST += \
 	units/systemd-bootchart.service.in
-
-CLEANFILES += \
-	units/systemd-bootchart.service
 endif
 
 # ------------------------------------------------------------------------------
@@ -5251,11 +5197,8 @@ systemd_timesyncd_SOURCES = \
 nodist_systemd_timesyncd_SOURCES = \
 	src/timesync/timesyncd-gperf.c
 
-EXTRA_DIST += \
+gperf_gperf_sources += \
 	src/timesync/timesyncd-gperf.gperf
-
-CLEANFILES += \
-	src/timesync/timesyncd-gperf.c
 
 systemd_timesyncd_LDADD = \
 	libsystemd-resolve.la \
@@ -5281,9 +5224,6 @@ nodist_pkgsysconf_DATA += \
 
 EXTRA_DIST += \
 	src/timesync/timesyncd.conf.in
-
-CLEANFILES += \
-	src/timesync/timesyncd.conf
 endif
 
 # ------------------------------------------------------------------------------
@@ -5615,12 +5555,11 @@ systemd_resolved_SOURCES = \
 nodist_systemd_resolved_SOURCES = \
 	src/resolve/resolved-gperf.c
 
-EXTRA_DIST += \
-	src/resolve/resolved-gperf.gperf \
-	src/resolve/dns_type-from-name.gperf
+gperf_gperf_sources += \
+	src/resolve/resolved-gperf.gperf
 
-CLEANFILES += \
-	src/resolve/resolved-gperf.c
+gperf_txt_sources += \
+	src/resolve/dns_type-list.txt
 
 systemd_resolved_LDADD = \
 	libsystemd-network.la \
@@ -5661,9 +5600,6 @@ nodist_pkgsysconf_DATA += \
 
 EXTRA_DIST += \
 	src/resolve/resolved.conf.in
-
-CLEANFILES += \
-	src/resolve/resolved.conf
 
 tests += \
 	test-dns-domain
@@ -5887,15 +5823,14 @@ SYSTEM_UNIT_ALIASES += \
 BUSNAMES_TARGET_WANTS += \
 	org.freedesktop.network1.busname
 
-EXTRA_DIST += \
+gperf_gperf_sources += \
 	src/network/networkd-network-gperf.gperf \
-	src/network/networkd-netdev-gperf.gperf \
+	src/network/networkd-netdev-gperf.gperf
+
+EXTRA_DIST += \
 	units/systemd-networkd.service.in \
 	units/systemd-networkd-wait-online.service.in
 
-CLEANFILES += \
-	src/network/networkd-network-gperf.c \
-	src/network/networkd-netdev-gperf.c
 endif
 
 # ------------------------------------------------------------------------------
@@ -6093,17 +6028,15 @@ nodist_udevrules_DATA += \
 	src/login/71-seat.rules \
 	src/login/73-seat-late.rules
 
-CLEANFILES += \
-	src/login/logind-gperf.c \
-	src/login/71-seat.rules \
-	src/login/73-seat-late.rules
 endif
 
 polkitpolicy_in_files += \
 	src/login/org.freedesktop.login1.policy.in
 
+gperf_gperf_sources += \
+	src/login/logind-gperf.gperf
+
 EXTRA_DIST += \
-	src/login/logind-gperf.gperf \
 	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
 	units/systemd-logind.service.in
@@ -6258,7 +6191,7 @@ src/python-systemd/id128-constants.h: src/systemd/sd-messages.h
 	$(AM_V_GEN)$(SED) -n -r 's/,//g; s/#define (SD_MESSAGE_[A-Z0-9_]+)\s.*/add_id(m, "\1", \1) JOINER/p' <$< >$@
 
 BUILT_SOURCES += \
-	src/python-systemd/id128-constants.h
+	$(nodist_id128_la_SOURCES)
 
 SPHINXOPTS = -D version=$(VERSION) -D release=$(VERSION)
 sphinx-%:
@@ -6542,12 +6475,6 @@ endif
 EXTRA_DIST += \
 	$(polkitpolicy_in_files) \
 	$(polkitpolicy_in_in_files)
-
-CLEANFILES += \
-	$(nodist_systemunit_DATA) \
-	$(nodist_userunit_DATA) \
-	$(pkgconfiglib_DATA) \
-	$(nodist_polkitpolicy_DATA)
 
 # ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
