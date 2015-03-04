@@ -325,7 +325,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Force creation of image\n"
                "     --verify=                Verify downloaded image, one of: 'no',\n"
                "                              'checksum', 'signature'.\n"
-               "     --image-root=            Image root directory\n"
+               "     --image-root=PATH        Image root directory\n"
                "     --dkr-index-url=URL      Specify index URL to use for downloads\n\n"
                "Commands:\n"
                "  tar URL [NAME]              Download a TAR image\n"
