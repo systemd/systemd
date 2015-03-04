@@ -71,10 +71,8 @@
     for more information about special <filename>/etc/fstab</filename>
     mount options this generator understands.</para>
 
-    <para><filename>systemd-fstab-generator</filename> implements the
-    <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
-    specification</ulink>.</para>
+    <para><filename>systemd-fstab-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>

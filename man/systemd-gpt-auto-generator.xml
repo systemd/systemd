@@ -157,9 +157,7 @@
     using <command>btrfs subvolume set-default</command>.</para>
 
     <para><filename>systemd-gpt-auto-generator</filename> implements
-    the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generator
-    Specification</ulink>.</para>
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>

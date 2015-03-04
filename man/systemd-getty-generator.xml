@@ -75,9 +75,8 @@
     for more information on the <varname>console=</varname> kernel
     parameter.</para>
 
-    <para><filename>systemd-getty-generator</filename> implements the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
-    specification</ulink>.</para>
+    <para><filename>systemd-getty-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>Further information about configuration of gettys you may
     find in

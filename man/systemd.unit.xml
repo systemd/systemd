@@ -357,8 +357,8 @@
     from directories not on the unit load path. See the
     <command>link</command> command for
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    Also, some units are dynamically created via generators <ulink
-    url="http://www.freedesktop.org/wiki/Software/systemd/Generators/">Generators</ulink>.
+    Also, some units are dynamically created via a
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

@@ -415,9 +415,8 @@
 
     <para>Units may be generated dynamically at boot and system
     manager reload time, for example based on other configuration
-    files or parameters passed on the kernel command line. For details
-    see the
-    <ulink url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generators Specification</ulink>.</para>
+    files or parameters passed on the kernel command line. For details see
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>Systems which invoke systemd in a container or initrd
     environment should implement the
