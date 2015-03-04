@@ -108,8 +108,12 @@ int uname_architecture(void) {
                 { "armv8l",     ARCHITECTURE_ARM      },
                 { "armv8b",     ARCHITECTURE_ARM_BE   },
 #elif defined(__sh__) || defined(__sh64__)
-                { "sh64",       ARCHITECTURE_SH64     },
-                { "sh",         ARCHITECTURE_SH       },
+                { "sh5",        ARCHITECTURE_SH64     },
+                { "sh2",        ARCHITECTURE_SH       },
+                { "sh2a",       ARCHITECTURE_SH       },
+                { "sh3",        ARCHITECTURE_SH       },
+                { "sh4",        ARCHITECTURE_SH       },
+                { "sh4a",       ARCHITECTURE_SH       },
 #elif defined(__m68k__)
                 { "m68k",       ARCHITECTURE_M68K     },
 #elif defined(__tilegx__)
