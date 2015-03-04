@@ -36,7 +36,6 @@
 
 #include "sd-event.h"
 
-#define EPOLL_QUEUE_MAX 512U
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
 
 typedef enum EventSourceType {
@@ -2366,7 +2365,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 return 1;
         }
 
-        ev_queue_max = CLAMP(e->n_sources, 1U, EPOLL_QUEUE_MAX);
+        ev_queue_max = MAX(e->n_sources, 1u);
         ev_queue = newa(struct epoll_event, ev_queue_max);
 
         m = epoll_wait(e->epoll_fd, ev_queue, ev_queue_max,
