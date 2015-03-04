@@ -5,10 +5,11 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 #
-# You can override the directives in this file by creating files in
-# /etc/systemd/timesyncd.conf.d/*.conf.
+# Entries in this file show the compile time defaults.
+# You can change settings by editing this file.
+# Defaults can be restored by simply deleting this file.
 #
-# See timesyncd.conf(5) for details
+# See timesyncd.conf(5) for details.
 
 [Time]
 #NTP=

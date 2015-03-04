@@ -58,11 +58,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These files configure various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para>These files configure various parameters of the systemd
+    login manager,
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
-  <xi:include href="standard-conf.xml" xpointer="confd" />
-  <xi:include href="standard-conf.xml" xpointer="conf" />
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
     <title>Options</title>

@@ -68,8 +68,7 @@
     parameters and graph output.</para>
   </refsect1>
 
-  <xi:include href="standard-conf.xml" xpointer="confd" />
-  <xi:include href="standard-conf.xml" xpointer="conf" />
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
     <title>Options</title>
