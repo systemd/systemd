@@ -21,13 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <lzma.h>
-#include <zlib.h>
-#include <bzlib.h>
 #include <gcrypt.h>
 
 #include "macro.h"
 #include "curl-util.h"
+#include "import-compress.h"
 
 typedef struct PullJob PullJob;
 
@@ -92,10 +90,7 @@ struct PullJob {
 
         usec_t mtime;
 
-        PullJobCompression compressed;
-        lzma_stream xz;
-        z_stream gzip;
-        bz_stream bzip2;
+        ImportCompress compress;
 
         unsigned progress_percent;
         usec_t start_usec;

@@ -5456,6 +5456,8 @@ systemd_pull_SOURCES = \
 	src/import/pull-job.h \
 	src/import/pull-common.c \
 	src/import/pull-common.h \
+	src/import/import-compress.c \
+	src/import/import-compress.h \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
 	src/import/aufs-util.c \
