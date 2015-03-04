@@ -43,7 +43,7 @@
 #include "bus-internal.h"
 #include "selinux-access.h"
 
-#define CONNECTIONS_MAX 512
+#define CONNECTIONS_MAX 4096
 
 static void destroy_bus(Manager *m, sd_bus **bus);
 
