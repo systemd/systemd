@@ -5430,14 +5430,16 @@ if HAVE_GCRYPT
 
 rootlibexec_PROGRAMS += \
 	systemd-importd \
-	systemd-pull
+	systemd-pull \
+	systemd-import
 
 systemd_importd_SOURCES = \
 	src/import/importd.c
 
 systemd_importd_CFLAGS = \
 	$(AM_CFLAGS) \
-	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-pull\"
+	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-pull\" \
+	-D SYSTEMD_IMPORT_PATH=\"$(rootlibexecdir)/systemd-import\"
 
 systemd_importd_LDADD = \
 	libsystemd-internal.la \
@@ -5456,6 +5458,8 @@ systemd_pull_SOURCES = \
 	src/import/pull-job.h \
 	src/import/pull-common.c \
 	src/import/pull-common.h \
+	src/import/import-common.c \
+	src/import/import-common.h \
 	src/import/import-compress.c \
 	src/import/import-compress.h \
 	src/import/curl-util.c \
@@ -5483,6 +5487,32 @@ systemd_pull_LDADD = \
 	$(ZLIB_LIBS) \
 	-lbz2 \
 	$(GCRYPT_LIBS)
+
+systemd_import_SOURCES = \
+	src/import/import.c \
+	src/import/import-raw.c \
+	src/import/import-raw.h \
+	src/import/import-tar.c \
+	src/import/import-tar.h \
+	src/import/import-common.c \
+	src/import/import-common.h \
+	src/import/import-compress.c \
+	src/import/import-compress.h \
+	src/import/qcow2-util.c \
+	src/import/qcow2-util.h
+
+systemd_import_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(XZ_CFLAGS) \
+	$(ZLIB_CFLAGS)
+
+systemd_import_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	$(XZ_LIBS) \
+	$(ZLIB_LIBS) \
+	-lbz2
 
 dist_rootlibexec_DATA = \
 	src/import/import-pubring.gpg

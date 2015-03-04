@@ -32,6 +32,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "import-util.h"
+#include "import-common.h"
 #include "curl-util.h"
 #include "pull-job.h"
 #include "pull-common.h"
@@ -276,11 +277,11 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_FINALIZING);
 
-                r = pull_make_read_only(i->temp_path);
+                r = import_make_read_only(i->temp_path);
                 if (r < 0)
                         goto finish;
 
-                if (rename(i->temp_path, i->final_path) < 0) {
+                if (renameat2(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path, RENAME_NOREPLACE) < 0) {
                         r = log_error_errno(errno, "Failed to rename to final image name: %m");
                         goto finish;
                 }
@@ -334,7 +335,7 @@ static int tar_pull_job_on_open_disk(PullJob *j) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        j->disk_fd = pull_fork_tar(i->temp_path, &i->tar_pid);
+        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 

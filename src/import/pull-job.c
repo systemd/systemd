@@ -25,9 +25,6 @@
 #include "machine-pool.h"
 #include "pull-job.h"
 
-/* Grow the /var/lib/machines directory after each 10MiB written */
-#define PULL_GROW_INTERVAL_BYTES (UINT64_C(10) * UINT64_C(1024) * UINT64_C(1024))
-
 PullJob* pull_job_unref(PullJob *j) {
         if (!j)
                 return NULL;
@@ -148,8 +145,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                  * sparse and we just seeked for the last part */
 
                 if (ftruncate(j->disk_fd, j->written_uncompressed) < 0) {
-                        log_error_errno(errno, "Failed to truncate file: %m");
-                        r = -errno;
+                        r = log_error_errno(errno, "Failed to truncate file: %m");
                         goto finish;
                 }
 
@@ -197,7 +193,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         if (j->disk_fd >= 0) {
 
-                if (j->grow_machine_directory && j->written_since_last_grow >= PULL_GROW_INTERVAL_BYTES) {
+                if (j->grow_machine_directory && j->written_since_last_grow >= GROW_INTERVAL_BYTES) {
                         j->written_since_last_grow = 0;
                         grow_machine_directory();
                 }
@@ -206,10 +202,8 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                         n = sparse_write(j->disk_fd, p, sz, 64);
                 else
                         n = write(j->disk_fd, p, sz);
-                if (n < 0) {
-                        log_error_errno(errno, "Failed to write file: %m");
-                        return -errno;
-                }
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to write file: %m");
                 if ((size_t) n < sz) {
                         log_error("Short write");
                         return -EIO;

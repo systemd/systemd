@@ -34,6 +34,7 @@
 #include "aufs-util.h"
 #include "pull-job.h"
 #include "pull-common.h"
+#include "import-common.h"
 #include "pull-dkr.h"
 
 typedef enum DkrProgress {
@@ -491,7 +492,7 @@ static int dkr_pull_job_on_open_disk(PullJob *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make btrfs subvolume %s: %m", i->temp_path);
 
-        j->disk_fd = pull_fork_tar(i->temp_path, &i->tar_pid);
+        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 

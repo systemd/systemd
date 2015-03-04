@@ -33,6 +33,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "import-util.h"
+#include "import-common.h"
 #include "curl-util.h"
 #include "qcow2-util.h"
 #include "pull-job.h"
@@ -210,7 +211,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
+        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
@@ -226,9 +227,8 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
-        unlink(i->temp_path);
+        (void) unlink(i->temp_path);
         free(i->temp_path);
-
         i->temp_path = t;
         t = NULL;
 
@@ -380,11 +380,11 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 raw_pull_report_progress(i, RAW_FINALIZING);
 
-                r = pull_make_read_only_fd(i->raw_job->disk_fd);
+                r = import_make_read_only_fd(i->raw_job->disk_fd);
                 if (r < 0)
                         goto finish;
 
-                r = rename(i->temp_path, i->final_path);
+                r = renameat2(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path, RENAME_NOREPLACE);
                 if (r < 0) {
                         r = log_error_errno(errno, "Failed to move RAW file into place: %m");
                         goto finish;
@@ -426,12 +426,12 @@ static int raw_pull_job_on_open_disk(PullJob *j) {
                 return log_oom();
 
         r = tempfn_random(i->final_path, &i->temp_path);
-        if (r <0)
+        if (r < 0)
                 return log_oom();
 
-        mkdir_parents_label(i->temp_path, 0700);
+        (void) mkdir_parents_label(i->temp_path, 0700);
 
-        j->disk_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0644);
+        j->disk_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
         if (j->disk_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", i->temp_path);
 

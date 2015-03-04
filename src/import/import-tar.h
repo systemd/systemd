@@ -21,16 +21,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
-#include "pull-job.h"
+#include "sd-event.h"
+#include "macro.h"
 #include "import-util.h"
 
-int pull_make_local_copy(const char *final, const char *root, const char *local, bool force_local);
+typedef struct TarImport TarImport;
 
-int pull_find_old_etags(const char *url, const char *root, int dt, const char *prefix, const char *suffix, char ***etags);
+typedef void (*TarImportFinished)(TarImport *import, int error, void *userdata);
 
-int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret);
+int tar_import_new(TarImport **import, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata);
+TarImport* tar_import_unref(TarImport *import);
 
-int pull_make_verification_jobs(PullJob **ret_checksum_job, PullJob **ret_signature_job, ImportVerify verify, const char *url, CurlGlue *glue, PullJobFinished on_finished, void *userdata);
-int pull_verify(PullJob *main_job, PullJob *checksum_job, PullJob *signature_job);
+DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
+
+int tar_import_start(TarImport *import, int fd, const char *local, bool force_local, bool read_only);

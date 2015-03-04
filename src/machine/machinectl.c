@@ -1598,7 +1598,7 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed pull image: %s", bus_error_message(&error, -r));
+                log_error("Failed acquire image: %s", bus_error_message(&error, -r));
                 return r;
         }
 
@@ -1619,6 +1619,140 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         return -r;
+}
+
+static int import_tar(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *local = NULL, *path = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        if (argc >= 2)
+                path = argv[1];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (argc >= 3)
+                local = argv[2];
+        else if (path)
+                local = basename(path);
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (!local) {
+                log_error("Need either path or local name.");
+                return -EINVAL;
+        }
+
+        r = tar_strip_suffixes(local, &ll);
+        if (r < 0)
+                return log_oom();
+
+        local = ll;
+
+        if (!machine_name_is_valid(local)) {
+                log_error("Local name %s is not a suitable machine name.", local);
+                return -EINVAL;
+        }
+
+        if (path) {
+                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "ImportTar");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "hsbb",
+                        fd >= 0 ? fd : STDIN_FILENO,
+                        local,
+                        arg_force,
+                        arg_read_only);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return pull_image_common(bus, m);
+}
+
+static int import_raw(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *local = NULL, *path = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        if (argc >= 2)
+                path = argv[1];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (argc >= 3)
+                local = argv[2];
+        else if (path)
+                local = basename(path);
+        if (isempty(local) || streq(local, "-"))
+                local = NULL;
+
+        if (!local) {
+                log_error("Need either path or local name.");
+                return -EINVAL;
+        }
+
+        r = raw_strip_suffixes(local, &ll);
+        if (r < 0)
+                return log_oom();
+
+        local = ll;
+
+        if (!machine_name_is_valid(local)) {
+                log_error("Local name %s is not a suitable machine name.", local);
+                return -EINVAL;
+        }
+
+        if (path) {
+                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "ImportRaw");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "hsbb",
+                        fd >= 0 ? fd : STDIN_FILENO,
+                        local,
+                        arg_force,
+                        arg_read_only);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return pull_image_common(bus, m);
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
@@ -1652,7 +1786,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to strip tar suffixes: %m");
+                        return log_oom();
 
                 local = ll;
 
@@ -1716,7 +1850,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (local) {
                 r = raw_strip_suffixes(local, &ll);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to strip tar suffixes: %m");
+                        return log_oom();
 
                 local = ll;
 
@@ -2065,6 +2199,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (quota)\n\n"
                "Image Transfer Commands:\n"
+               "  import-tar FILE [NAME]      Import a local TAR container image\n"
+               "  import-raw FILE [NAME]      Import a local RAW container image\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  pull-dkr REMOTE [NAME]      Download a DKR container image\n"
@@ -2267,6 +2403,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "start",           2,        VERB_ANY, 0,            start_machine     },
                 { "enable",          2,        VERB_ANY, 0,            enable_machine    },
                 { "disable",         2,        VERB_ANY, 0,            enable_machine    },
+                { "import-tar",      2,        3,        0,            import_tar        },
+                { "import-raw",      2,        3,        0,            import_raw        },
                 { "pull-tar",        2,        3,        0,            pull_tar          },
                 { "pull-raw",        2,        3,        0,            pull_raw          },
                 { "pull-dkr",        2,        3,        0,            pull_dkr          },
