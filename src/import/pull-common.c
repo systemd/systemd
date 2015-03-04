@@ -26,12 +26,12 @@
 #include "copy.h"
 #include "btrfs-util.h"
 #include "capability.h"
-#include "import-job.h"
-#include "import-common.h"
+#include "pull-job.h"
+#include "pull-common.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 
-int import_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
+int pull_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -111,7 +111,7 @@ int import_find_old_etags(const char *url, const char *image_root, int dt, const
         return 0;
 }
 
-int import_make_local_copy(const char *final, const char *image_root, const char *local, bool force_local) {
+int pull_make_local_copy(const char *final, const char *image_root, const char *local, bool force_local) {
         const char *p;
         int r;
 
@@ -141,7 +141,7 @@ int import_make_local_copy(const char *final, const char *image_root, const char
         return 0;
 }
 
-int import_make_read_only_fd(int fd) {
+int pull_make_read_only_fd(int fd) {
         int r;
 
         assert(fd >= 0);
@@ -172,17 +172,17 @@ int import_make_read_only_fd(int fd) {
         return 0;
 }
 
-int import_make_read_only(const char *path) {
+int pull_make_read_only(const char *path) {
         _cleanup_close_ int fd = 1;
 
         fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", path);
 
-        return import_make_read_only_fd(fd);
+        return pull_make_read_only_fd(fd);
 }
 
-int import_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
+int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
         _cleanup_free_ char *escaped_url = NULL;
         char *path;
 
@@ -213,16 +213,16 @@ int import_make_path(const char *url, const char *etag, const char *image_root, 
         return 0;
 }
 
-int import_make_verification_jobs(
-                ImportJob **ret_checksum_job,
-                ImportJob **ret_signature_job,
+int pull_make_verification_jobs(
+                PullJob **ret_checksum_job,
+                PullJob **ret_signature_job,
                 ImportVerify verify,
                 const char *url,
                 CurlGlue *glue,
-                ImportJobFinished on_finished,
+                PullJobFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(import_job_unrefp) ImportJob *checksum_job = NULL, *signature_job = NULL;
+        _cleanup_(pull_job_unrefp) PullJob *checksum_job = NULL, *signature_job = NULL;
         int r;
 
         assert(ret_checksum_job);
@@ -240,7 +240,7 @@ int import_make_verification_jobs(
                 if (r < 0)
                         return r;
 
-                r = import_job_new(&checksum_job, checksum_url, glue, userdata);
+                r = pull_job_new(&checksum_job, checksum_url, glue, userdata);
                 if (r < 0)
                         return r;
 
@@ -256,7 +256,7 @@ int import_make_verification_jobs(
                 if (r < 0)
                         return r;
 
-                r = import_job_new(&signature_job, signature_url, glue, userdata);
+                r = pull_job_new(&signature_job, signature_url, glue, userdata);
                 if (r < 0)
                         return r;
 
@@ -272,10 +272,10 @@ int import_make_verification_jobs(
         return 0;
 }
 
-int import_verify(
-                ImportJob *main_job,
-                ImportJob *checksum_job,
-                ImportJob *signature_job) {
+int pull_verify(
+                PullJob *main_job,
+                PullJob *checksum_job,
+                PullJob *signature_job) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
         _cleanup_free_ char *fn = NULL;
@@ -287,14 +287,14 @@ int import_verify(
         int r;
 
         assert(main_job);
-        assert(main_job->state == IMPORT_JOB_DONE);
+        assert(main_job->state == PULL_JOB_DONE);
 
         if (!checksum_job)
                 return 0;
 
         assert(main_job->calc_checksum);
         assert(main_job->checksum);
-        assert(checksum_job->state == IMPORT_JOB_DONE);
+        assert(checksum_job->state == PULL_JOB_DONE);
 
         if (!checksum_job->payload || checksum_job->payload_size <= 0) {
                 log_error("Checksum is empty, cannot verify.");
@@ -327,7 +327,7 @@ int import_verify(
         if (!signature_job)
                 return 0;
 
-        assert(signature_job->state == IMPORT_JOB_DONE);
+        assert(signature_job->state == PULL_JOB_DONE);
 
         if (!signature_job->payload || signature_job->payload_size <= 0) {
                 log_error("Signature is empty, cannot verify.");
@@ -464,7 +464,7 @@ finish:
         return r;
 }
 
-int import_fork_tar(const char *path, pid_t *ret) {
+int pull_fork_tar(const char *path, pid_t *ret) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
         pid_t pid;
         int r;

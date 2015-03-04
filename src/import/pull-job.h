@@ -29,45 +29,45 @@
 #include "macro.h"
 #include "curl-util.h"
 
-typedef struct ImportJob ImportJob;
+typedef struct PullJob PullJob;
 
-typedef void (*ImportJobFinished)(ImportJob *job);
-typedef int (*ImportJobOpenDisk)(ImportJob *job);
-typedef int (*ImportJobHeader)(ImportJob *job, const char *header, size_t sz);
-typedef void (*ImportJobProgress)(ImportJob *job);
+typedef void (*PullJobFinished)(PullJob *job);
+typedef int (*PullJobOpenDisk)(PullJob *job);
+typedef int (*PullJobHeader)(PullJob *job, const char *header, size_t sz);
+typedef void (*PullJobProgress)(PullJob *job);
 
-typedef enum ImportJobState {
-        IMPORT_JOB_INIT,
-        IMPORT_JOB_ANALYZING, /* Still reading into ->payload, to figure out what we have */
-        IMPORT_JOB_RUNNING,  /* Writing to destination */
-        IMPORT_JOB_DONE,
-        IMPORT_JOB_FAILED,
-        _IMPORT_JOB_STATE_MAX,
-        _IMPORT_JOB_STATE_INVALID = -1,
-} ImportJobState;
+typedef enum PullJobState {
+        PULL_JOB_INIT,
+        PULL_JOB_ANALYZING, /* Still reading into ->payload, to figure out what we have */
+        PULL_JOB_RUNNING,  /* Writing to destination */
+        PULL_JOB_DONE,
+        PULL_JOB_FAILED,
+        _PULL_JOB_STATE_MAX,
+        _PULL_JOB_STATE_INVALID = -1,
+} PullJobState;
 
-#define IMPORT_JOB_STATE_IS_COMPLETE(j) (IN_SET((j)->state, IMPORT_JOB_DONE, IMPORT_JOB_FAILED))
+#define PULL_JOB_STATE_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
-typedef enum ImportJobCompression {
-        IMPORT_JOB_UNCOMPRESSED,
-        IMPORT_JOB_XZ,
-        IMPORT_JOB_GZIP,
-        IMPORT_JOB_BZIP2,
-        _IMPORT_JOB_COMPRESSION_MAX,
-        _IMPORT_JOB_COMPRESSION_INVALID = -1,
-} ImportJobCompression;
+typedef enum PullJobCompression {
+        PULL_JOB_UNCOMPRESSED,
+        PULL_JOB_XZ,
+        PULL_JOB_GZIP,
+        PULL_JOB_BZIP2,
+        _PULL_JOB_COMPRESSION_MAX,
+        _PULL_JOB_COMPRESSION_INVALID = -1,
+} PullJobCompression;
 
-struct ImportJob {
-        ImportJobState state;
+struct PullJob {
+        PullJobState state;
         int error;
 
         char *url;
 
         void *userdata;
-        ImportJobFinished on_finished;
-        ImportJobOpenDisk on_open_disk;
-        ImportJobHeader on_header;
-        ImportJobProgress on_progress;
+        PullJobFinished on_finished;
+        PullJobOpenDisk on_open_disk;
+        PullJobHeader on_header;
+        PullJobProgress on_progress;
 
         CurlGlue *glue;
         CURL *curl;
@@ -92,7 +92,7 @@ struct ImportJob {
 
         usec_t mtime;
 
-        ImportJobCompression compressed;
+        PullJobCompression compressed;
         lzma_stream xz;
         z_stream gzip;
         bz_stream bzip2;
@@ -112,11 +112,11 @@ struct ImportJob {
         uint64_t written_since_last_grow;
 };
 
-int import_job_new(ImportJob **job, const char *url, CurlGlue *glue, void *userdata);
-ImportJob* import_job_unref(ImportJob *job);
+int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
+PullJob* pull_job_unref(PullJob *job);
 
-int import_job_begin(ImportJob *j);
+int pull_job_begin(PullJob *j);
 
-void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
+void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(ImportJob*, import_job_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob*, pull_job_unref);

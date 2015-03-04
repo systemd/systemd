@@ -33,9 +33,9 @@
 #include "path-util.h"
 #include "import-util.h"
 #include "curl-util.h"
-#include "import-job.h"
-#include "import-common.h"
-#include "import-tar.h"
+#include "pull-job.h"
+#include "pull-common.h"
+#include "pull-tar.h"
 
 typedef enum TarProgress {
         TAR_DOWNLOADING,
@@ -44,17 +44,17 @@ typedef enum TarProgress {
         TAR_COPYING,
 } TarProgress;
 
-struct TarImport {
+struct TarPull {
         sd_event *event;
         CurlGlue *glue;
 
         char *image_root;
 
-        ImportJob *tar_job;
-        ImportJob *checksum_job;
-        ImportJob *signature_job;
+        PullJob *tar_job;
+        PullJob *checksum_job;
+        PullJob *signature_job;
 
-        TarImportFinished on_finished;
+        TarPullFinished on_finished;
         void *userdata;
 
         char *local;
@@ -69,7 +69,7 @@ struct TarImport {
         ImportVerify verify;
 };
 
-TarImport* tar_import_unref(TarImport *i) {
+TarPull* tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
@@ -78,9 +78,9 @@ TarImport* tar_import_unref(TarImport *i) {
                 (void) wait_for_terminate(i->tar_pid, NULL);
         }
 
-        import_job_unref(i->tar_job);
-        import_job_unref(i->checksum_job);
-        import_job_unref(i->signature_job);
+        pull_job_unref(i->tar_job);
+        pull_job_unref(i->checksum_job);
+        pull_job_unref(i->signature_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
@@ -99,20 +99,20 @@ TarImport* tar_import_unref(TarImport *i) {
         return NULL;
 }
 
-int tar_import_new(
-                TarImport **ret,
+int tar_pull_new(
+                TarPull **ret,
                 sd_event *event,
                 const char *image_root,
-                TarImportFinished on_finished,
+                TarPullFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(tar_import_unrefp) TarImport *i = NULL;
+        _cleanup_(tar_pull_unrefp) TarPull *i = NULL;
         int r;
 
         assert(ret);
         assert(event);
 
-        i = new0(TarImport, 1);
+        i = new0(TarPull, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -137,7 +137,7 @@ int tar_import_new(
         if (r < 0)
                 return r;
 
-        i->glue->on_finished = import_job_curl_on_finished;
+        i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
 
         *ret = i;
@@ -146,7 +146,7 @@ int tar_import_new(
         return 0;
 }
 
-static void tar_import_report_progress(TarImport *i, TarProgress p) {
+static void tar_pull_report_progress(TarPull *i, TarProgress p) {
         unsigned percent;
 
         assert(i);
@@ -193,7 +193,7 @@ static void tar_import_report_progress(TarImport *i, TarProgress p) {
         log_debug("Combined progress %u%%", percent);
 }
 
-static int tar_import_make_local_copy(TarImport *i) {
+static int tar_pull_make_local_copy(TarPull *i) {
         int r;
 
         assert(i);
@@ -203,34 +203,34 @@ static int tar_import_make_local_copy(TarImport *i) {
                 return 0;
 
         if (!i->final_path) {
-                r = import_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
+                r = pull_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", NULL, &i->final_path);
                 if (r < 0)
                         return log_oom();
         }
 
-        r = import_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static bool tar_import_is_done(TarImport *i) {
+static bool tar_pull_is_done(TarPull *i) {
         assert(i);
         assert(i->tar_job);
 
-        if (i->tar_job->state != IMPORT_JOB_DONE)
+        if (i->tar_job->state != PULL_JOB_DONE)
                 return false;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
+        if (i->checksum_job && i->checksum_job->state != PULL_JOB_DONE)
                 return false;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+        if (i->signature_job && i->signature_job->state != PULL_JOB_DONE)
                 return false;
 
         return true;
 }
 
-static void tar_import_job_on_finished(ImportJob *j) {
-        TarImport *i;
+static void tar_pull_job_on_finished(PullJob *j) {
+        TarPull *i;
         int r;
 
         assert(j);
@@ -253,7 +253,7 @@ static void tar_import_job_on_finished(ImportJob *j) {
          * successfully, or the download was skipped because we
          * already have the etag. */
 
-        if (!tar_import_is_done(i))
+        if (!tar_pull_is_done(i))
                 return;
 
         j->disk_fd = safe_close(i->tar_job->disk_fd);
@@ -268,15 +268,15 @@ static void tar_import_job_on_finished(ImportJob *j) {
         if (!i->tar_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
 
-                tar_import_report_progress(i, TAR_VERIFYING);
+                tar_pull_report_progress(i, TAR_VERIFYING);
 
-                r = import_verify(i->tar_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->tar_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
-                tar_import_report_progress(i, TAR_FINALIZING);
+                tar_pull_report_progress(i, TAR_FINALIZING);
 
-                r = import_make_read_only(i->temp_path);
+                r = pull_make_read_only(i->temp_path);
                 if (r < 0)
                         goto finish;
 
@@ -289,9 +289,9 @@ static void tar_import_job_on_finished(ImportJob *j) {
                 i->temp_path = NULL;
         }
 
-        tar_import_report_progress(i, TAR_COPYING);
+        tar_pull_report_progress(i, TAR_COPYING);
 
-        r = tar_import_make_local_copy(i);
+        r = tar_pull_make_local_copy(i);
         if (r < 0)
                 goto finish;
 
@@ -304,8 +304,8 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
-static int tar_import_job_on_open_disk(ImportJob *j) {
-        TarImport *i;
+static int tar_pull_job_on_open_disk(PullJob *j) {
+        TarPull *i;
         int r;
 
         assert(j);
@@ -317,7 +317,7 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         assert(!i->temp_path);
         assert(i->tar_pid <= 0);
 
-        r = import_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
+        r = pull_make_path(j->url, j->etag, i->image_root, ".tar-", NULL, &i->final_path);
         if (r < 0)
                 return log_oom();
 
@@ -334,25 +334,25 @@ static int tar_import_job_on_open_disk(ImportJob *j) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
+        j->disk_fd = pull_fork_tar(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 
         return 0;
 }
 
-static void tar_import_job_on_progress(ImportJob *j) {
-        TarImport *i;
+static void tar_pull_job_on_progress(PullJob *j) {
+        TarPull *i;
 
         assert(j);
         assert(j->userdata);
 
         i = j->userdata;
 
-        tar_import_report_progress(i, TAR_DOWNLOADING);
+        tar_pull_report_progress(i, TAR_DOWNLOADING);
 }
 
-int tar_import_pull(TarImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
+int tar_pull_start(TarPull *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         int r;
 
         assert(i);
@@ -372,40 +372,40 @@ int tar_import_pull(TarImport *i, const char *url, const char *local, bool force
         i->force_local = force_local;
         i->verify = verify;
 
-        r = import_job_new(&i->tar_job, url, i->glue, i);
+        r = pull_job_new(&i->tar_job, url, i->glue, i);
         if (r < 0)
                 return r;
 
-        i->tar_job->on_finished = tar_import_job_on_finished;
-        i->tar_job->on_open_disk = tar_import_job_on_open_disk;
-        i->tar_job->on_progress = tar_import_job_on_progress;
+        i->tar_job->on_finished = tar_pull_job_on_finished;
+        i->tar_job->on_open_disk = tar_pull_job_on_open_disk;
+        i->tar_job->on_progress = tar_pull_job_on_progress;
         i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         i->tar_job->grow_machine_directory = i->grow_machine_directory;
 
-        r = import_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
+        r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
         if (r < 0)
                 return r;
 
-        r = import_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_import_job_on_finished, i);
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
         if (r < 0)
                 return r;
 
-        r = import_job_begin(i->tar_job);
+        r = pull_job_begin(i->tar_job);
         if (r < 0)
                 return r;
 
         if (i->checksum_job) {
-                i->checksum_job->on_progress = tar_import_job_on_progress;
+                i->checksum_job->on_progress = tar_pull_job_on_progress;
 
-                r = import_job_begin(i->checksum_job);
+                r = pull_job_begin(i->checksum_job);
                 if (r < 0)
                         return r;
         }
 
         if (i->signature_job) {
-                i->signature_job->on_progress = tar_import_job_on_progress;
+                i->signature_job->on_progress = tar_pull_job_on_progress;
 
-                r = import_job_begin(i->signature_job);
+                r = pull_job_begin(i->signature_job);
                 if (r < 0)
                         return r;
         }

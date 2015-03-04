@@ -26,10 +26,10 @@
 #include "verbs.h"
 #include "build.h"
 #include "machine-image.h"
-#include "import-tar.h"
-#include "import-raw.h"
-#include "import-dkr.h"
 #include "import-util.h"
+#include "pull-tar.h"
+#include "pull-raw.h"
+#include "pull-dkr.h"
 
 static bool arg_force = false;
 static const char *arg_image_root = "/var/lib/machines";
@@ -42,9 +42,9 @@ static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_si
         return 0;
 }
 
-static void on_tar_finished(TarImport *import, int error, void *userdata) {
+static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event *event = userdata;
-        assert(import);
+        assert(pull);
 
         if (error == 0)
                 log_info("Operation completed successfully.");
@@ -53,7 +53,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_(tar_import_unrefp) TarImport *import = NULL;
+        _cleanup_(tar_pull_unrefp) TarPull *pull = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *url, *local;
         _cleanup_free_ char *l = NULL, *ll = NULL;
@@ -112,11 +112,11 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
-        r = tar_import_new(&import, event, arg_image_root, on_tar_finished, event);
+        r = tar_pull_new(&pull, event, arg_image_root, on_tar_finished, event);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate importer: %m");
+                return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = tar_import_pull(import, url, local, arg_force, arg_verify);
+        r = tar_pull_start(pull, url, local, arg_force, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -128,9 +128,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static void on_raw_finished(RawImport *import, int error, void *userdata) {
+static void on_raw_finished(RawPull *pull, int error, void *userdata) {
         sd_event *event = userdata;
-        assert(import);
+        assert(pull);
 
         if (error == 0)
                 log_info("Operation completed successfully.");
@@ -139,7 +139,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
 }
 
 static int pull_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_(raw_import_unrefp) RawImport *import = NULL;
+        _cleanup_(raw_pull_unrefp) RawPull *pull = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *url, *local;
         _cleanup_free_ char *l = NULL, *ll = NULL;
@@ -198,11 +198,11 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
-        r = raw_import_new(&import, event, arg_image_root, on_raw_finished, event);
+        r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate importer: %m");
+                return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = raw_import_pull(import, url, local, arg_force, arg_verify);
+        r = raw_pull_start(pull, url, local, arg_force, arg_verify);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -214,9 +214,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
+static void on_dkr_finished(DkrPull *pull, int error, void *userdata) {
         sd_event *event = userdata;
-        assert(import);
+        assert(pull);
 
         if (error == 0)
                 log_info("Operation completed successfully.");
@@ -225,7 +225,7 @@ static void on_dkr_finished(DkrImport *import, int error, void *userdata) {
 }
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
-        _cleanup_(dkr_import_unrefp) DkrImport *import = NULL;
+        _cleanup_(dkr_pull_unrefp) DkrPull *pull = NULL;
         _cleanup_event_unref_ sd_event *event = NULL;
         const char *name, *tag, *local;
         int r;
@@ -236,7 +236,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_verify != IMPORT_VERIFY_NO) {
-                log_error("Imports from dkr do not support image verification, please pass --verify=no.");
+                log_error("Pulls from dkr do not support image verification, please pass --verify=no.");
                 return -EINVAL;
         }
 
@@ -300,11 +300,11 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
         sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
-        r = dkr_import_new(&import, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
+        r = dkr_pull_new(&pull, event, arg_dkr_index_url, arg_image_root, on_dkr_finished, event);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate importer: %m");
+                return log_error_errno(r, "Failed to allocate puller: %m");
 
-        r = dkr_import_pull(import, name, tag, local, arg_force);
+        r = dkr_pull_start(pull, name, tag, local, arg_force);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -319,7 +319,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Import container or virtual machine image.\n\n"
+               "Download container or virtual machine image.\n\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"
@@ -409,7 +409,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int import_main(int argc, char *argv[]) {
+static int pull_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help", VERB_ANY, VERB_ANY, 0, help     },
@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = import_main(argc, argv);
+        r = pull_main(argc, argv);
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

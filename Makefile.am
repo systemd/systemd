@@ -5446,16 +5446,16 @@ systemd_importd_LDADD = \
 
 systemd_pull_SOURCES = \
 	src/import/pull.c \
-	src/import/import-raw.c \
-	src/import/import-raw.h \
-	src/import/import-tar.c \
-	src/import/import-tar.h \
-	src/import/import-dkr.c \
-	src/import/import-dkr.h \
-	src/import/import-job.c \
-	src/import/import-job.h \
-	src/import/import-common.c \
-	src/import/import-common.h \
+	src/import/pull-raw.c \
+	src/import/pull-raw.h \
+	src/import/pull-tar.c \
+	src/import/pull-tar.h \
+	src/import/pull-dkr.c \
+	src/import/pull-dkr.h \
+	src/import/pull-job.c \
+	src/import/pull-job.h \
+	src/import/pull-common.c \
+	src/import/pull-common.h \
 	src/import/curl-util.c \
 	src/import/curl-util.h \
 	src/import/aufs-util.c \

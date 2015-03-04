@@ -25,13 +25,13 @@
 #include "macro.h"
 #include "import-util.h"
 
-typedef struct TarImport TarImport;
+typedef struct TarPull TarPull;
 
-typedef void (*TarImportFinished)(TarImport *import, int error, void *userdata);
+typedef void (*TarPullFinished)(TarPull *pull, int error, void *userdata);
 
-int tar_import_new(TarImport **import, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata);
-TarImport* tar_import_unref(TarImport *import);
+int tar_pull_new(TarPull **pull, sd_event *event, const char *image_root, TarPullFinished on_finished, void *userdata);
+TarPull* tar_pull_unref(TarPull *pull);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(TarPull*, tar_pull_unref);
 
-int tar_import_pull(TarImport *import, const char *url, const char *local, bool force_local, ImportVerify verify);
+int tar_pull_start(TarPull *pull, const char *url, const char *local, bool force_local, ImportVerify verify);

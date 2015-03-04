@@ -23,12 +23,12 @@
 
 #include "strv.h"
 #include "machine-pool.h"
-#include "import-job.h"
+#include "pull-job.h"
 
 /* Grow the /var/lib/machines directory after each 10MiB written */
-#define IMPORT_GROW_INTERVAL_BYTES (UINT64_C(10) * UINT64_C(1024) * UINT64_C(1024))
+#define PULL_GROW_INTERVAL_BYTES (UINT64_C(10) * UINT64_C(1024) * UINT64_C(1024))
 
-ImportJob* import_job_unref(ImportJob *j) {
+PullJob* pull_job_unref(PullJob *j) {
         if (!j)
                 return NULL;
 
@@ -37,11 +37,11 @@ ImportJob* import_job_unref(ImportJob *j) {
 
         safe_close(j->disk_fd);
 
-        if (j->compressed == IMPORT_JOB_XZ)
+        if (j->compressed == PULL_JOB_XZ)
                 lzma_end(&j->xz);
-        else if (j->compressed == IMPORT_JOB_GZIP)
+        else if (j->compressed == PULL_JOB_GZIP)
                 inflateEnd(&j->gzip);
-        else if (j->compressed == IMPORT_JOB_BZIP2)
+        else if (j->compressed == PULL_JOB_BZIP2)
                 BZ2_bzDecompressEnd(&j->bzip2);
 
         if (j->checksum_context)
@@ -58,19 +58,19 @@ ImportJob* import_job_unref(ImportJob *j) {
         return NULL;
 }
 
-static void import_job_finish(ImportJob *j, int ret) {
+static void pull_job_finish(PullJob *j, int ret) {
         assert(j);
 
-        if (j->state == IMPORT_JOB_DONE ||
-            j->state == IMPORT_JOB_FAILED)
+        if (j->state == PULL_JOB_DONE ||
+            j->state == PULL_JOB_FAILED)
                 return;
 
         if (ret == 0) {
-                j->state = IMPORT_JOB_DONE;
+                j->state = PULL_JOB_DONE;
                 j->progress_percent = 100;
                 log_info("Download of %s complete.", j->url);
         } else {
-                j->state = IMPORT_JOB_FAILED;
+                j->state = PULL_JOB_FAILED;
                 j->error = ret;
         }
 
@@ -78,8 +78,8 @@ static void import_job_finish(ImportJob *j, int ret) {
                 j->on_finished(j);
 }
 
-void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
-        ImportJob *j = NULL;
+void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
+        PullJob *j = NULL;
         CURLcode code;
         long status;
         int r;
@@ -87,7 +87,7 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, &j) != CURLE_OK)
                 return;
 
-        if (!j || j->state == IMPORT_JOB_DONE || j->state == IMPORT_JOB_FAILED)
+        if (!j || j->state == PULL_JOB_DONE || j->state == PULL_JOB_FAILED)
                 return;
 
         if (result != CURLE_OK) {
@@ -116,7 +116,7 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->state != IMPORT_JOB_RUNNING) {
+        if (j->state != PULL_JOB_RUNNING) {
                 log_error("Premature connection termination.");
                 r = -EIO;
                 goto finish;
@@ -177,10 +177,10 @@ void import_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         r = 0;
 
 finish:
-        import_job_finish(j, r);
+        pull_job_finish(j, r);
 }
 
-static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
+static int pull_job_write_uncompressed(PullJob *j, void *p, size_t sz) {
         ssize_t n;
 
         assert(j);
@@ -201,7 +201,7 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
 
         if (j->disk_fd >= 0) {
 
-                if (j->grow_machine_directory && j->written_since_last_grow >= IMPORT_GROW_INTERVAL_BYTES) {
+                if (j->grow_machine_directory && j->written_since_last_grow >= PULL_GROW_INTERVAL_BYTES) {
                         j->written_since_last_grow = 0;
                         grow_machine_directory();
                 }
@@ -233,7 +233,7 @@ static int import_job_write_uncompressed(ImportJob *j, void *p, size_t sz) {
         return 0;
 }
 
-static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
+static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         int r;
 
         assert(j);
@@ -263,14 +263,14 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
 
         switch (j->compressed) {
 
-        case IMPORT_JOB_UNCOMPRESSED:
-                r = import_job_write_uncompressed(j, p, sz);
+        case PULL_JOB_UNCOMPRESSED:
+                r = pull_job_write_uncompressed(j, p, sz);
                 if (r < 0)
                         return r;
 
                 break;
 
-        case IMPORT_JOB_XZ:
+        case PULL_JOB_XZ:
                 j->xz.next_in = p;
                 j->xz.avail_in = sz;
 
@@ -287,14 +287,14 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
                                 return -EIO;
                         }
 
-                        r = import_job_write_uncompressed(j, buffer, sizeof(buffer) - j->xz.avail_out);
+                        r = pull_job_write_uncompressed(j, buffer, sizeof(buffer) - j->xz.avail_out);
                         if (r < 0)
                                 return r;
                 }
 
                 break;
 
-        case IMPORT_JOB_GZIP:
+        case PULL_JOB_GZIP:
                 j->gzip.next_in = p;
                 j->gzip.avail_in = sz;
 
@@ -310,14 +310,14 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
                                 return -EIO;
                         }
 
-                        r = import_job_write_uncompressed(j, buffer, sizeof(buffer) - j->gzip.avail_out);
+                        r = pull_job_write_uncompressed(j, buffer, sizeof(buffer) - j->gzip.avail_out);
                         if (r < 0)
                                 return r;
                 }
 
                 break;
 
-        case IMPORT_JOB_BZIP2:
+        case PULL_JOB_BZIP2:
                 j->bzip2.next_in = p;
                 j->bzip2.avail_in = sz;
 
@@ -333,7 +333,7 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
                                 return -EIO;
                         }
 
-                        r = import_job_write_uncompressed(j,  buffer, sizeof(buffer) - j->bzip2.avail_out);
+                        r = pull_job_write_uncompressed(j,  buffer, sizeof(buffer) - j->bzip2.avail_out);
                         if (r < 0)
                                 return r;
                 }
@@ -349,7 +349,7 @@ static int import_job_write_compressed(ImportJob *j, void *p, size_t sz) {
         return 0;
 }
 
-static int import_job_open_disk(ImportJob *j) {
+static int pull_job_open_disk(PullJob *j) {
         int r;
 
         assert(j);
@@ -383,7 +383,7 @@ static int import_job_open_disk(ImportJob *j) {
         return 0;
 }
 
-static int import_job_detect_compression(ImportJob *j) {
+static int pull_job_detect_compression(PullJob *j) {
         static const uint8_t xz_signature[] = {
                 0xfd, '7', 'z', 'X', 'Z', 0x00
         };
@@ -407,19 +407,19 @@ static int import_job_detect_compression(ImportJob *j) {
                 return 0;
 
         if (memcmp(j->payload, xz_signature, sizeof(xz_signature)) == 0)
-                j->compressed = IMPORT_JOB_XZ;
+                j->compressed = PULL_JOB_XZ;
         else if (memcmp(j->payload, gzip_signature, sizeof(gzip_signature)) == 0)
-                j->compressed = IMPORT_JOB_GZIP;
+                j->compressed = PULL_JOB_GZIP;
         else if (memcmp(j->payload, bzip2_signature, sizeof(bzip2_signature)) == 0)
-                j->compressed = IMPORT_JOB_BZIP2;
+                j->compressed = PULL_JOB_BZIP2;
         else
-                j->compressed = IMPORT_JOB_UNCOMPRESSED;
+                j->compressed = PULL_JOB_UNCOMPRESSED;
 
-        log_debug("Stream is XZ compressed: %s", yes_no(j->compressed == IMPORT_JOB_XZ));
-        log_debug("Stream is GZIP compressed: %s", yes_no(j->compressed == IMPORT_JOB_GZIP));
-        log_debug("Stream is BZIP2 compressed: %s", yes_no(j->compressed == IMPORT_JOB_BZIP2));
+        log_debug("Stream is XZ compressed: %s", yes_no(j->compressed == PULL_JOB_XZ));
+        log_debug("Stream is GZIP compressed: %s", yes_no(j->compressed == PULL_JOB_GZIP));
+        log_debug("Stream is BZIP2 compressed: %s", yes_no(j->compressed == PULL_JOB_BZIP2));
 
-        if (j->compressed == IMPORT_JOB_XZ) {
+        if (j->compressed == PULL_JOB_XZ) {
                 lzma_ret xzr;
 
                 xzr = lzma_stream_decoder(&j->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK);
@@ -428,14 +428,14 @@ static int import_job_detect_compression(ImportJob *j) {
                         return -EIO;
                 }
         }
-        if (j->compressed == IMPORT_JOB_GZIP) {
+        if (j->compressed == PULL_JOB_GZIP) {
                 r = inflateInit2(&j->gzip, 15+16);
                 if (r != Z_OK) {
                         log_error("Failed to initialize gzip decoder.");
                         return -EIO;
                 }
         }
-        if (j->compressed == IMPORT_JOB_BZIP2) {
+        if (j->compressed == PULL_JOB_BZIP2) {
                 r = BZ2_bzDecompressInit(&j->bzip2, 0, 0);
                 if (r != BZ_OK) {
                         log_error("Failed to initialize bzip2 decoder.");
@@ -443,7 +443,7 @@ static int import_job_detect_compression(ImportJob *j) {
                 }
         }
 
-        r = import_job_open_disk(j);
+        r = pull_job_open_disk(j);
         if (r < 0)
                 return r;
 
@@ -455,17 +455,17 @@ static int import_job_detect_compression(ImportJob *j) {
         j->payload_size = 0;
         j->payload_allocated = 0;
 
-        j->state = IMPORT_JOB_RUNNING;
+        j->state = PULL_JOB_RUNNING;
 
-        r = import_job_write_compressed(j, stub, stub_size);
+        r = pull_job_write_compressed(j, stub, stub_size);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static size_t import_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        ImportJob *j = userdata;
+static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        PullJob *j = userdata;
         size_t sz = size * nmemb;
         int r;
 
@@ -474,7 +474,7 @@ static size_t import_job_write_callback(void *contents, size_t size, size_t nmem
 
         switch (j->state) {
 
-        case IMPORT_JOB_ANALYZING:
+        case PULL_JOB_ANALYZING:
                 /* Let's first check what it actually is */
 
                 if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz)) {
@@ -485,22 +485,22 @@ static size_t import_job_write_callback(void *contents, size_t size, size_t nmem
                 memcpy(j->payload + j->payload_size, contents, sz);
                 j->payload_size += sz;
 
-                r = import_job_detect_compression(j);
+                r = pull_job_detect_compression(j);
                 if (r < 0)
                         goto fail;
 
                 break;
 
-        case IMPORT_JOB_RUNNING:
+        case PULL_JOB_RUNNING:
 
-                r = import_job_write_compressed(j, contents, sz);
+                r = pull_job_write_compressed(j, contents, sz);
                 if (r < 0)
                         goto fail;
 
                 break;
 
-        case IMPORT_JOB_DONE:
-        case IMPORT_JOB_FAILED:
+        case PULL_JOB_DONE:
+        case PULL_JOB_FAILED:
                 r = -ESTALE;
                 goto fail;
 
@@ -511,12 +511,12 @@ static size_t import_job_write_callback(void *contents, size_t size, size_t nmem
         return sz;
 
 fail:
-        import_job_finish(j, r);
+        pull_job_finish(j, r);
         return 0;
 }
 
-static size_t import_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        ImportJob *j = userdata;
+static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        PullJob *j = userdata;
         size_t sz = size * nmemb;
         _cleanup_free_ char *length = NULL, *last_modified = NULL;
         char *etag;
@@ -525,12 +525,12 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
         assert(contents);
         assert(j);
 
-        if (j->state == IMPORT_JOB_DONE || j->state == IMPORT_JOB_FAILED) {
+        if (j->state == PULL_JOB_DONE || j->state == PULL_JOB_FAILED) {
                 r = -ESTALE;
                 goto fail;
         }
 
-        assert(j->state == IMPORT_JOB_ANALYZING);
+        assert(j->state == PULL_JOB_ANALYZING);
 
         r = curl_header_strdup(contents, sz, "ETag:", &etag);
         if (r < 0) {
@@ -544,7 +544,7 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
                 if (strv_contains(j->old_etags, j->etag)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
-                        import_job_finish(j, 0);
+                        pull_job_finish(j, 0);
                         return sz;
                 }
 
@@ -593,12 +593,12 @@ static size_t import_job_header_callback(void *contents, size_t size, size_t nme
         return sz;
 
 fail:
-        import_job_finish(j, r);
+        pull_job_finish(j, r);
         return 0;
 }
 
-static int import_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
-        ImportJob *j = userdata;
+static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        PullJob *j = userdata;
         unsigned percent;
         usec_t n;
 
@@ -640,18 +640,18 @@ static int import_job_progress_callback(void *userdata, curl_off_t dltotal, curl
         return 0;
 }
 
-int import_job_new(ImportJob **ret, const char *url, CurlGlue *glue, void *userdata) {
-        _cleanup_(import_job_unrefp) ImportJob *j = NULL;
+int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata) {
+        _cleanup_(pull_job_unrefp) PullJob *j = NULL;
 
         assert(url);
         assert(glue);
         assert(ret);
 
-        j = new0(ImportJob, 1);
+        j = new0(PullJob, 1);
         if (!j)
                 return -ENOMEM;
 
-        j->state = IMPORT_JOB_INIT;
+        j->state = PULL_JOB_INIT;
         j->disk_fd = -1;
         j->userdata = userdata;
         j->glue = glue;
@@ -669,12 +669,12 @@ int import_job_new(ImportJob **ret, const char *url, CurlGlue *glue, void *userd
         return 0;
 }
 
-int import_job_begin(ImportJob *j) {
+int pull_job_begin(PullJob *j) {
         int r;
 
         assert(j);
 
-        if (j->state != IMPORT_JOB_INIT)
+        if (j->state != PULL_JOB_INIT)
                 return -EBUSY;
 
         if (j->grow_machine_directory)
@@ -715,19 +715,19 @@ int import_job_begin(ImportJob *j) {
                         return -EIO;
         }
 
-        if (curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, import_job_write_callback) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(j->curl, CURLOPT_WRITEDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, import_job_header_callback) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, pull_job_header_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(j->curl, CURLOPT_HEADERDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_XFERINFOFUNCTION, import_job_progress_callback) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_XFERINFOFUNCTION, pull_job_progress_callback) != CURLE_OK)
                 return -EIO;
 
         if (curl_easy_setopt(j->curl, CURLOPT_XFERINFODATA, j) != CURLE_OK)
@@ -740,7 +740,7 @@ int import_job_begin(ImportJob *j) {
         if (r < 0)
                 return r;
 
-        j->state = IMPORT_JOB_ANALYZING;
+        j->state = PULL_JOB_ANALYZING;
 
         return 0;
 }

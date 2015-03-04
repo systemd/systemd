@@ -35,9 +35,9 @@
 #include "import-util.h"
 #include "curl-util.h"
 #include "qcow2-util.h"
-#include "import-job.h"
-#include "import-common.h"
-#include "import-raw.h"
+#include "pull-job.h"
+#include "pull-common.h"
+#include "pull-raw.h"
 
 typedef enum RawProgress {
         RAW_DOWNLOADING,
@@ -47,17 +47,17 @@ typedef enum RawProgress {
         RAW_COPYING,
 } RawProgress;
 
-struct RawImport {
+struct RawPull {
         sd_event *event;
         CurlGlue *glue;
 
         char *image_root;
 
-        ImportJob *raw_job;
-        ImportJob *checksum_job;
-        ImportJob *signature_job;
+        PullJob *raw_job;
+        PullJob *checksum_job;
+        PullJob *signature_job;
 
-        RawImportFinished on_finished;
+        RawPullFinished on_finished;
         void *userdata;
 
         char *local;
@@ -70,13 +70,13 @@ struct RawImport {
         ImportVerify verify;
 };
 
-RawImport* raw_import_unref(RawImport *i) {
+RawPull* raw_pull_unref(RawPull *i) {
         if (!i)
                 return NULL;
 
-        import_job_unref(i->raw_job);
-        import_job_unref(i->checksum_job);
-        import_job_unref(i->signature_job);
+        pull_job_unref(i->raw_job);
+        pull_job_unref(i->checksum_job);
+        pull_job_unref(i->signature_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
@@ -94,19 +94,19 @@ RawImport* raw_import_unref(RawImport *i) {
         return NULL;
 }
 
-int raw_import_new(
-                RawImport **ret,
+int raw_pull_new(
+                RawPull **ret,
                 sd_event *event,
                 const char *image_root,
-                RawImportFinished on_finished,
+                RawPullFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(raw_import_unrefp) RawImport *i = NULL;
+        _cleanup_(raw_pull_unrefp) RawPull *i = NULL;
         int r;
 
         assert(ret);
 
-        i = new0(RawImport, 1);
+        i = new0(RawPull, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -131,7 +131,7 @@ int raw_import_new(
         if (r < 0)
                 return r;
 
-        i->glue->on_finished = import_job_curl_on_finished;
+        i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
 
         *ret = i;
@@ -140,7 +140,7 @@ int raw_import_new(
         return 0;
 }
 
-static void raw_import_report_progress(RawImport *i, RawProgress p) {
+static void raw_pull_report_progress(RawPull *i, RawProgress p) {
         unsigned percent;
 
         assert(i);
@@ -191,7 +191,7 @@ static void raw_import_report_progress(RawImport *i, RawProgress p) {
         log_debug("Combined progress %u%%", percent);
 }
 
-static int raw_import_maybe_convert_qcow2(RawImport *i) {
+static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         _cleanup_close_ int converted_fd = -1;
         _cleanup_free_ char *t = NULL;
         int r;
@@ -239,7 +239,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         return 1;
 }
 
-static int raw_import_make_local_copy(RawImport *i) {
+static int raw_pull_make_local_copy(RawPull *i) {
         _cleanup_free_ char *tp = NULL;
         _cleanup_close_ int dfd = -1;
         const char *p;
@@ -257,7 +257,7 @@ static int raw_import_make_local_copy(RawImport *i) {
                 assert(i->raw_job->disk_fd < 0);
 
                 if (!i->final_path) {
-                        r = import_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
+                        r = pull_make_path(i->raw_job->url, i->raw_job->etag, i->image_root, ".raw-", ".raw", &i->final_path);
                         if (r < 0)
                                 return log_oom();
                 }
@@ -318,22 +318,22 @@ static int raw_import_make_local_copy(RawImport *i) {
         return 0;
 }
 
-static bool raw_import_is_done(RawImport *i) {
+static bool raw_pull_is_done(RawPull *i) {
         assert(i);
         assert(i->raw_job);
 
-        if (i->raw_job->state != IMPORT_JOB_DONE)
+        if (i->raw_job->state != PULL_JOB_DONE)
                 return false;
-        if (i->checksum_job && i->checksum_job->state != IMPORT_JOB_DONE)
+        if (i->checksum_job && i->checksum_job->state != PULL_JOB_DONE)
                 return false;
-        if (i->signature_job && i->signature_job->state != IMPORT_JOB_DONE)
+        if (i->signature_job && i->signature_job->state != PULL_JOB_DONE)
                 return false;
 
         return true;
 }
 
-static void raw_import_job_on_finished(ImportJob *j) {
-        RawImport *i;
+static void raw_pull_job_on_finished(PullJob *j) {
+        RawPull *i;
         int r;
 
         assert(j);
@@ -359,28 +359,28 @@ static void raw_import_job_on_finished(ImportJob *j) {
          *
          * We only do something when we got all three files */
 
-        if (!raw_import_is_done(i))
+        if (!raw_pull_is_done(i))
                 return;
 
         if (!i->raw_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
                 assert(i->raw_job->disk_fd >= 0);
 
-                raw_import_report_progress(i, RAW_VERIFYING);
+                raw_pull_report_progress(i, RAW_VERIFYING);
 
-                r = import_verify(i->raw_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->raw_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
-                raw_import_report_progress(i, RAW_UNPACKING);
+                raw_pull_report_progress(i, RAW_UNPACKING);
 
-                r = raw_import_maybe_convert_qcow2(i);
+                r = raw_pull_maybe_convert_qcow2(i);
                 if (r < 0)
                         goto finish;
 
-                raw_import_report_progress(i, RAW_FINALIZING);
+                raw_pull_report_progress(i, RAW_FINALIZING);
 
-                r = import_make_read_only_fd(i->raw_job->disk_fd);
+                r = pull_make_read_only_fd(i->raw_job->disk_fd);
                 if (r < 0)
                         goto finish;
 
@@ -394,9 +394,9 @@ static void raw_import_job_on_finished(ImportJob *j) {
                 i->temp_path = NULL;
         }
 
-        raw_import_report_progress(i, RAW_COPYING);
+        raw_pull_report_progress(i, RAW_COPYING);
 
-        r = raw_import_make_local_copy(i);
+        r = raw_pull_make_local_copy(i);
         if (r < 0)
                 goto finish;
 
@@ -409,8 +409,8 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
-static int raw_import_job_on_open_disk(ImportJob *j) {
-        RawImport *i;
+static int raw_pull_job_on_open_disk(PullJob *j) {
+        RawPull *i;
         int r;
 
         assert(j);
@@ -421,7 +421,7 @@ static int raw_import_job_on_open_disk(ImportJob *j) {
         assert(!i->final_path);
         assert(!i->temp_path);
 
-        r = import_make_path(j->url, j->etag, i->image_root, ".raw-", ".raw", &i->final_path);
+        r = pull_make_path(j->url, j->etag, i->image_root, ".raw-", ".raw", &i->final_path);
         if (r < 0)
                 return log_oom();
 
@@ -442,18 +442,18 @@ static int raw_import_job_on_open_disk(ImportJob *j) {
         return 0;
 }
 
-static void raw_import_job_on_progress(ImportJob *j) {
-        RawImport *i;
+static void raw_pull_job_on_progress(PullJob *j) {
+        RawPull *i;
 
         assert(j);
         assert(j->userdata);
 
         i = j->userdata;
 
-        raw_import_report_progress(i, RAW_DOWNLOADING);
+        raw_pull_report_progress(i, RAW_DOWNLOADING);
 }
 
-int raw_import_pull(RawImport *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
+int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_local, ImportVerify verify) {
         int r;
 
         assert(i);
@@ -476,40 +476,40 @@ int raw_import_pull(RawImport *i, const char *url, const char *local, bool force
         i->verify = verify;
 
         /* Queue job for the image itself */
-        r = import_job_new(&i->raw_job, url, i->glue, i);
+        r = pull_job_new(&i->raw_job, url, i->glue, i);
         if (r < 0)
                 return r;
 
-        i->raw_job->on_finished = raw_import_job_on_finished;
-        i->raw_job->on_open_disk = raw_import_job_on_open_disk;
-        i->raw_job->on_progress = raw_import_job_on_progress;
+        i->raw_job->on_finished = raw_pull_job_on_finished;
+        i->raw_job->on_open_disk = raw_pull_job_on_open_disk;
+        i->raw_job->on_progress = raw_pull_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         i->raw_job->grow_machine_directory = i->grow_machine_directory;
 
-        r = import_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
+        r = pull_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
         if (r < 0)
                 return r;
 
-        r = import_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_import_job_on_finished, i);
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
         if (r < 0)
                 return r;
 
-        r = import_job_begin(i->raw_job);
+        r = pull_job_begin(i->raw_job);
         if (r < 0)
                 return r;
 
         if (i->checksum_job) {
-                i->checksum_job->on_progress = raw_import_job_on_progress;
+                i->checksum_job->on_progress = raw_pull_job_on_progress;
 
-                r = import_job_begin(i->checksum_job);
+                r = pull_job_begin(i->checksum_job);
                 if (r < 0)
                         return r;
         }
 
         if (i->signature_job) {
-                i->signature_job->on_progress = raw_import_job_on_progress;
+                i->signature_job->on_progress = raw_pull_job_on_progress;
 
-                r = import_job_begin(i->signature_job);
+                r = pull_job_begin(i->signature_job);
                 if (r < 0)
                         return r;
         }

@@ -24,13 +24,13 @@
 #include "sd-event.h"
 #include "util.h"
 
-typedef struct DkrImport DkrImport;
+typedef struct DkrPull DkrPull;
 
-typedef void (*DkrImportFinished)(DkrImport *import, int error, void *userdata);
+typedef void (*DkrPullFinished)(DkrPull *pull, int error, void *userdata);
 
-int dkr_import_new(DkrImport **import, sd_event *event, const char *index_url, const char *image_root, DkrImportFinished on_finished, void *userdata);
-DkrImport* dkr_import_unref(DkrImport *import);
+int dkr_pull_new(DkrPull **pull, sd_event *event, const char *index_url, const char *image_root, DkrPullFinished on_finished, void *userdata);
+DkrPull* dkr_pull_unref(DkrPull *pull);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DkrImport*, dkr_import_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DkrPull*, dkr_pull_unref);
 
-int dkr_import_pull(DkrImport *import, const char *name, const char *tag, const char *local, bool force_local);
+int dkr_pull_start(DkrPull *pull, const char *name, const char *tag, const char *local, bool force_local);
