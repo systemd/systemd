@@ -373,7 +373,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (isempty(p))
                 return;
 
-        n_iov_allocated = N_IOVEC_META_FIELDS + 5;
+        n_iov_allocated = N_IOVEC_META_FIELDS + 7;
         iov = new(struct iovec, n_iov_allocated);
         if (!iov) {
                 log_oom();
@@ -391,6 +391,10 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
 
         sprintf(id_field, "_AUDIT_ID=%" PRIu64, id);
         IOVEC_SET_STRING(iov[n_iov++], id_field);
+
+        assert_cc(32 == LOG_AUTH);
+        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=32");
+        IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
 
         m = alloca(strlen("MESSAGE=<audit-") + DECIMAL_STR_MAX(int) + strlen("> ") + strlen(p) + 1);
         sprintf(m, "MESSAGE=<audit-%i> %s", type, p);
