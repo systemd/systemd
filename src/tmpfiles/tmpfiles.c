@@ -1746,9 +1746,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 unsigned n;
 
                 for (n = 0; n < existing->count; n++) {
-                        if (!item_compatible(existing->items + n, &i))
+                        if (!item_compatible(existing->items + n, &i)) {
                                 log_warning("[%s:%u] Duplicate line for path \"%s\", ignoring.",
                                             fname, line, i.path);
+                                return 0;
+                        }
                 }
         } else {
                 existing = new0(ItemArray, 1);
