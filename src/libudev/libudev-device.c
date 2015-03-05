@@ -1926,6 +1926,7 @@ void udev_device_set_db_persist(struct udev_device *udev_device)
 int udev_device_rename(struct udev_device *udev_device, const char *name)
 {
         _cleanup_free_ char *dirname = NULL;
+        const char *interface;
         char *new_syspath;
         int r;
 
@@ -1941,6 +1942,13 @@ int udev_device_rename(struct udev_device *udev_device, const char *name)
         r = udev_device_set_syspath(udev_device, new_syspath);
         if (r < 0)
                 return r;
+
+        interface = udev_device_get_property_value(udev_device, "INTERFACE");
+        if (interface) {
+                /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
+                udev_device_add_property(udev_device, "INTERFACE_OLD", interface);
+                udev_device_add_property(udev_device, "INTERFACE", name);
+        }
 
         return 0;
 }

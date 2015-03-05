@@ -849,20 +849,12 @@ void udev_event_execute_rules(struct udev_event *event,
                                 log_warning_errno(r, "could not rename interface '%d' from '%s' to '%s': %m", udev_device_get_ifindex(dev),
                                                   udev_device_get_sysname(dev), event->name);
                         else {
-                                const char *interface_old;
-
-                                /* remember old name */
-                                interface_old = udev_device_get_sysname(dev);
-
                                 r = udev_device_rename(dev, event->name);
                                 if (r < 0)
                                         log_warning_errno(r, "renamed interface '%d' from '%s' to '%s', but could not update udev_device: %m",
                                                           udev_device_get_ifindex(dev), udev_device_get_sysname(dev), event->name);
-                                else {
-                                        udev_device_add_property(dev, "INTERFACE_OLD", interface_old);
-                                        udev_device_add_property(dev, "INTERFACE", event->name);
+                                else
                                         log_debug("changed devpath to '%s'", udev_device_get_devpath(dev));
-                                }
                         }
                 }
 
