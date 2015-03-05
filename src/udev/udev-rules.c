@@ -606,10 +606,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
                 val++;
         }
 
-        entry = udev_device_add_property(dev, key, val);
-        /* store in db, skip private keys */
-        if (key[0] != '.')
-                udev_list_entry_set_num(entry, true);
+        udev_device_add_property(dev, key, val);
 
         return 0;
 }
@@ -670,12 +667,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
                 const char *val = udev_list_entry_get_value(list_entry);
 
                 if (fnmatch(filter, key, 0) == 0) {
-                        struct udev_list_entry *entry;
-
-                        entry = udev_device_add_property(dev, key, val);
-                        /* store in db, skip private keys */
-                        if (key[0] != '.')
-                                udev_list_entry_set_num(entry, true);
+                        udev_device_add_property(dev, key, val);
                 }
         }
         return 0;
@@ -2178,12 +2170,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         const char *value;
 
                         value = udev_device_get_property_value(event->dev_db, key);
-                        if (value != NULL) {
-                                struct udev_list_entry *entry;
-
-                                entry = udev_device_add_property(event->dev, key, value);
-                                udev_list_entry_set_num(entry, true);
-                        } else {
+                        if (value != NULL)
+                                udev_device_add_property(event->dev, key, value);
+                        else {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         }
@@ -2203,13 +2192,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
 
                                         pos = strstr(cmdline, key);
                                         if (pos != NULL) {
-                                                struct udev_list_entry *entry;
-
                                                 pos += strlen(key);
                                                 if (pos[0] == '\0' || isspace(pos[0])) {
                                                         /* we import simple flags as 'FLAG=1' */
-                                                        entry = udev_device_add_property(event->dev, key, "1");
-                                                        udev_list_entry_set_num(entry, true);
+                                                        udev_device_add_property(event->dev, key, "1");
                                                         imported = true;
                                                 } else if (pos[0] == '=') {
                                                         const char *value;
@@ -2219,8 +2205,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                                                         while (pos[0] != '\0' && !isspace(pos[0]))
                                                                 pos++;
                                                         pos[0] = '\0';
-                                                        entry = udev_device_add_property(event->dev, key, value);
-                                                        udev_list_entry_set_num(entry, true);
+                                                        udev_device_add_property(event->dev, key, value);
                                                         imported = true;
                                                 }
                                         }
@@ -2393,7 +2378,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         char *value = rules_str(rules, cur->key.value_off);
                         char value_new[UTIL_NAME_SIZE];
                         const char *value_old = NULL;
-                        struct udev_list_entry *entry;
 
                         if (value[0] == '\0') {
                                 if (cur->key.op == OP_ADD)
@@ -2413,10 +2397,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules,
                         } else
                                 udev_event_apply_format(event, value, value_new, sizeof(value_new));
 
-                        entry = udev_device_add_property(event->dev, name, value_new);
-                        /* store in db, skip private keys */
-                        if (name[0] != '.')
-                                udev_list_entry_set_num(entry, true);
+                        udev_device_add_property(event->dev, name, value_new);
                         break;
                 }
                 case TK_A_TAG: {

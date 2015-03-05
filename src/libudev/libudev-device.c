@@ -37,6 +37,7 @@
 #include "libudev-private.h"
 
 static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
+static struct udev_list_entry *udev_device_add_property_internal(struct udev_device *udev_device, const char *key, const char *value);
 
 /**
  * SECTION:libudev-device
@@ -123,7 +124,7 @@ static int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long
 
         udev_device->seqnum = seqnum;
         snprintf(num, sizeof(num), "%llu", seqnum);
-        udev_device_add_property(udev_device, "SEQNUM", num);
+        udev_device_add_property_internal(udev_device, "SEQNUM", num);
         return 0;
 }
 
@@ -140,7 +141,7 @@ static int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
 
         udev_device->ifindex = ifindex;
         snprintf(num, sizeof(num), "%d", ifindex);
-        udev_device_add_property(udev_device, "IFINDEX", num);
+        udev_device_add_property_internal(udev_device, "IFINDEX", num);
         return 0;
 }
 
@@ -168,9 +169,9 @@ static int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
         udev_device->devnum = devnum;
 
         snprintf(num, sizeof(num), "%u", major(devnum));
-        udev_device_add_property(udev_device, "MAJOR", num);
+        udev_device_add_property_internal(udev_device, "MAJOR", num);
         snprintf(num, sizeof(num), "%u", minor(devnum));
-        udev_device_add_property(udev_device, "MINOR", num);
+        udev_device_add_property_internal(udev_device, "MINOR", num);
         return 0;
 }
 
@@ -187,7 +188,7 @@ static int udev_device_set_devpath_old(struct udev_device *udev_device, const ch
         udev_device->devpath_old = strdup(devpath_old);
         if (udev_device->devpath_old == NULL)
                 return -ENOMEM;
-        udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
+        udev_device_add_property_internal(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
 
         pos = strrchr(udev_device->devpath_old, '/');
         if (pos == NULL)
@@ -224,7 +225,7 @@ static int udev_device_set_driver(struct udev_device *udev_device, const char *d
         if (udev_device->driver == NULL)
                 return -ENOMEM;
         udev_device->driver_set = true;
-        udev_device_add_property(udev_device, "DRIVER", udev_device->driver);
+        udev_device_add_property_internal(udev_device, "DRIVER", udev_device->driver);
         return 0;
 }
 
@@ -254,7 +255,7 @@ static int udev_device_set_devtype(struct udev_device *udev_device, const char *
         if (udev_device->devtype == NULL)
                 return -ENOMEM;
         udev_device->devtype_set = true;
-        udev_device_add_property(udev_device, "DEVTYPE", udev_device->devtype);
+        udev_device_add_property_internal(udev_device, "DEVTYPE", udev_device->devtype);
         return 0;
 }
 
@@ -265,7 +266,7 @@ static int udev_device_set_subsystem(struct udev_device *udev_device, const char
         if (udev_device->subsystem == NULL)
                 return -ENOMEM;
         udev_device->subsystem_set = true;
-        udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
+        udev_device_add_property_internal(udev_device, "SUBSYSTEM", udev_device->subsystem);
         return 0;
 }
 
@@ -323,7 +324,7 @@ static int udev_device_set_devnode_mode(struct udev_device *udev_device, mode_t 
 
         udev_device->devnode_mode = mode;
         snprintf(num, sizeof(num), "%#o", mode);
-        udev_device_add_property(udev_device, "DEVMODE", num);
+        udev_device_add_property_internal(udev_device, "DEVMODE", num);
         return 0;
 }
 
@@ -340,7 +341,7 @@ static int udev_device_set_devnode_uid(struct udev_device *udev_device, uid_t ui
 
         udev_device->devnode_uid = uid;
         snprintf(num, sizeof(num), "%u", uid);
-        udev_device_add_property(udev_device, "DEVUID", num);
+        udev_device_add_property_internal(udev_device, "DEVUID", num);
         return 0;
 }
 
@@ -357,11 +358,11 @@ static int udev_device_set_devnode_gid(struct udev_device *udev_device, gid_t gi
 
         udev_device->devnode_gid = gid;
         snprintf(num, sizeof(num), "%u", gid);
-        udev_device_add_property(udev_device, "DEVGID", num);
+        udev_device_add_property_internal(udev_device, "DEVGID", num);
         return 0;
 }
 
-struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
+static struct udev_list_entry *udev_device_add_property_internal(struct udev_device *udev_device, const char *key, const char *value)
 {
         udev_device->envp_uptodate = false;
         if (value == NULL) {
@@ -374,6 +375,20 @@ struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device
                 return NULL;
         }
         return udev_list_entry_add(&udev_device->properties_list, key, value);
+}
+
+
+int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
+{
+        struct udev_list_entry *property;
+
+        property = udev_device_add_property_internal(udev_device, key, value);
+
+        /* store in db, skip private keys */
+        if (key[0] != '.')
+                udev_list_entry_set_num(property, true);
+
+        return 0;
 }
 
 static struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
@@ -389,7 +404,7 @@ static struct udev_list_entry *udev_device_add_property_from_string(struct udev_
         val = &val[1];
         if (val[0] == '\0')
                 val = NULL;
-        return udev_device_add_property(udev_device, name, val);
+        return udev_device_add_property_internal(udev_device, name, val);
 }
 
 static int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath)
@@ -402,7 +417,7 @@ static int udev_device_set_syspath(struct udev_device *udev_device, const char *
         if (udev_device->syspath ==  NULL)
                 return -ENOMEM;
         udev_device->devpath = udev_device->syspath + strlen("/sys");
-        udev_device_add_property(udev_device, "DEVPATH", udev_device->devpath);
+        udev_device_add_property_internal(udev_device, "DEVPATH", udev_device->devpath);
 
         pos = strrchr(udev_device->syspath, '/');
         if (pos == NULL)
@@ -1335,7 +1350,7 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                         l = strpcpyl(&s, sizeof(symlinks), udev_list_entry_get_name(list_entry), NULL);
                         udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
                                 l = strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry), NULL);
-                        udev_device_add_property(udev_device, "DEVLINKS", symlinks);
+                        udev_device_add_property_internal(udev_device, "DEVLINKS", symlinks);
                 }
         }
         if (!udev_device->tags_uptodate) {
@@ -1350,7 +1365,7 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                         l = strpcpyl(&s, sizeof(tags), ":", NULL);
                         udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
                                 l = strpcpyl(&s, l, udev_list_entry_get_name(list_entry), ":", NULL);
-                        udev_device_add_property(udev_device, "TAGS", tags);
+                        udev_device_add_property_internal(udev_device, "TAGS", tags);
                 }
         }
         return udev_list_get_entry(&udev_device->properties_list);
@@ -1412,7 +1427,7 @@ void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t us
 
         udev_device->usec_initialized = usec_initialized;
         snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
-        udev_device_add_property(udev_device, "USEC_INITIALIZED", num);
+        udev_device_add_property_internal(udev_device, "USEC_INITIALIZED", num);
 }
 
 /**
@@ -1656,7 +1671,7 @@ static int udev_device_set_devnode(struct udev_device *udev_device, const char *
         }
         if (udev_device->devnode == NULL)
                 return -ENOMEM;
-        udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
+        udev_device_add_property_internal(udev_device, "DEVNAME", udev_device->devnode);
         return 0;
 }
 
@@ -1883,7 +1898,7 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action)
         udev_device->action = strdup(action);
         if (udev_device->action == NULL)
                 return -ENOMEM;
-        udev_device_add_property(udev_device, "ACTION", udev_device->action);
+        udev_device_add_property_internal(udev_device, "ACTION", udev_device->action);
         return 0;
 }
 
@@ -1946,8 +1961,8 @@ int udev_device_rename(struct udev_device *udev_device, const char *name)
         interface = udev_device_get_property_value(udev_device, "INTERFACE");
         if (interface) {
                 /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
-                udev_device_add_property(udev_device, "INTERFACE_OLD", interface);
-                udev_device_add_property(udev_device, "INTERFACE", name);
+                udev_device_add_property_internal(udev_device, "INTERFACE_OLD", interface);
+                udev_device_add_property_internal(udev_device, "INTERFACE", name);
         }
 
         return 0;
