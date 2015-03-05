@@ -555,7 +555,6 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         char *key;
         char *val;
         size_t len;
-        struct udev_list_entry *entry;
 
         /* find key */
         key = line;

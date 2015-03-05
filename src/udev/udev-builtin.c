@@ -123,12 +123,7 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
 }
 
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val) {
-        struct udev_list_entry *entry;
-
-        entry = udev_device_add_property(dev, key, val);
-        /* store in db, skip private keys */
-        if (key[0] != '.')
-                udev_list_entry_set_num(entry, true);
+        udev_device_add_property(dev, key, val);
 
         if (test)
                 printf("%s=%s\n", key, val);

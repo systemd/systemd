@@ -824,13 +824,11 @@ void udev_event_execute_rules(struct udev_event *event,
 
                         for ((entry = udev_device_get_properties_list_entry(event->dev_db)); entry; entry = udev_list_entry_get_next(entry)) {
                                 const char *key, *value;
-                                struct udev_list_entry *property;
 
                                 key = udev_list_entry_get_name(entry);
                                 value = udev_list_entry_get_value(entry);
 
-                                property = udev_device_add_property(dev, key, value);
-                                udev_list_entry_set_num(property, true);
+                                udev_device_add_property(dev, key, value);
                         }
                 }
 
