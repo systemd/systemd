@@ -439,7 +439,7 @@ static int udev_device_set_syspath(struct udev_device *udev_device, const char *
  * udev_device_set_info_loaded() needs to be set, to avoid trying
  * to use a device without a DEVPATH set
  */
-void udev_device_add_property_from_string_parse(struct udev_device *udev_device, const char *property)
+static void udev_device_add_property_from_string_parse(struct udev_device *udev_device, const char *property)
 {
         if (startswith(property, "DEVPATH=")) {
                 char path[UTIL_PATH_SIZE];
@@ -515,7 +515,7 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
         }
 }
 
-int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_device)
+static int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_device)
 {
         if (udev_device->maj > 0)
                 udev_device_set_devnum(udev_device, makedev(udev_device->maj, udev_device->min));
