@@ -410,6 +410,24 @@
           on.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>UDPCheckSum=</varname></term>
+        <listitem>
+          <para>A boolean. When true transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumTx=</varname></term>
+        <listitem>
+          <para>A boolean. When true sending zero checksums in VXLAN/IPv6 is turned on.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroCheckSumRx=</varname></term>
+        <listitem>
+          <para>A boolean. When true receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

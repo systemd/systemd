@@ -133,6 +133,30 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_
                 }
         }
 
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_UDP_CSUM attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_TX attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
+        if (r < 0) {
+                log_netdev_error(netdev,
+                                 "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %s",
+                                 strerror(-r));
+                return r;
+        }
+
         return r;
 }
 
@@ -197,6 +221,9 @@ static void vxlan_init(NetDev *netdev) {
 
         v->id = VXLAN_VID_MAX + 1;
         v->learning = true;
+        v->udpcsum = false;
+        v->udp6zerocsumtx = false;
+        v->udp6zerocsumrx = false;
 }
 
 const NetDevVTable vxlan_vtable = {

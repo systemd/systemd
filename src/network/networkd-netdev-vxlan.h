@@ -47,6 +47,9 @@ struct VxLan {
         bool route_short_circuit;
         bool l2miss;
         bool l3miss;
+        bool udpcsum;
+        bool udp6zerocsumtx;
+        bool udp6zerocsumrx;
 };
 
 extern const NetDevVTable vxlan_vtable;
