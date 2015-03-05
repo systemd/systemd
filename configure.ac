@@ -1182,9 +1182,10 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
         have_efi_lds=no
         AC_ARG_WITH(efi-ldsdir,
                 AS_HELP_STRING([--with-efi-ldsdir=PATH], [Path to EFI lds directory]),
-                [EFI_LDS_DIR="$withval"],
+                [EFI_LDS_DIR="$withval" && AC_CHECK_FILE([${EFI_LDS_DIR}/elf_${EFI_ARCH}_efi.lds],
+                        [have_efi_lds=yes])],
                 [AS_FOR([DIR], [EFI_LDS_DIR], ["${efiroot}/gnuefi" "${efiroot}"],
-                        [AC_CHECK_FILE([DIR/elf_${EFI_ARCH}_efi.lds],
+                        [AC_CHECK_FILE([${EFI_LDS_DIR}/elf_${EFI_ARCH}_efi.lds],
                                        [have_efi_lds=yes && break])])])
         AS_IF([test "x$have_efi_lds" = xyes],
               [AC_SUBST([EFI_LDS_DIR])],
