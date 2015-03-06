@@ -36,6 +36,8 @@
 
 # Lenovo X1 Carbon 3rd
 touchpad:pnpid:*LEN0048*:
+# Lenovo W541
+touchpad:pnpid:*LEN004a*:
 # Lenovo T450s
 touchpad:pnpid:*LEN200f*:
  TOUCHPAD_HAS_TRACKPOINT_BUTTONS=1
