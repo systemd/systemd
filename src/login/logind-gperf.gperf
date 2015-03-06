@@ -29,6 +29,7 @@ Login.PowerKeyIgnoreInhibited,     config_parse_bool,          0, offsetof(Manag
 Login.SuspendKeyIgnoreInhibited,   config_parse_bool,          0, offsetof(Manager, suspend_key_ignore_inhibited)
 Login.HibernateKeyIgnoreInhibited, config_parse_bool,          0, offsetof(Manager, hibernate_key_ignore_inhibited)
 Login.LidSwitchIgnoreInhibited,    config_parse_bool,          0, offsetof(Manager, lid_switch_ignore_inhibited)
+Login.HoldoffTimeoutSec,           config_parse_sec,           0, offsetof(Manager, holdoff_timeout_usec)
 Login.IdleAction,                  config_parse_handle_action, 0, offsetof(Manager, idle_action)
 Login.IdleActionSec,               config_parse_sec,           0, offsetof(Manager, idle_action_usec)
 Login.RuntimeDirectorySize,        config_parse_tmpfs_size,    0, offsetof(Manager, runtime_dir_size)

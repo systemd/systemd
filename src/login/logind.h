@@ -37,9 +37,6 @@ typedef struct Manager Manager;
 #include "logind-button.h"
 #include "logind-action.h"
 
-#define IGNORE_LID_SWITCH_STARTUP_USEC (3 * USEC_PER_MINUTE)
-#define IGNORE_LID_SWITCH_SUSPEND_USEC (30 * USEC_PER_SEC)
-
 struct Manager {
         sd_event *event;
         sd_bus *bus;
@@ -120,6 +117,7 @@ struct Manager {
 
         Hashmap *polkit_registry;
 
+        usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
 
         size_t runtime_dir_size;
