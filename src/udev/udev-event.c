@@ -793,10 +793,6 @@ void udev_event_execute_rules(struct udev_event *event,
                 return;
 
         if (streq(udev_device_get_action(dev), "remove")) {
-                udev_device_read_db(dev);
-                udev_device_delete_db(dev);
-                udev_device_tag_index(dev, NULL, false);
-
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_watch_end(event->udev, dev);
 
@@ -807,6 +803,9 @@ void udev_event_execute_rules(struct udev_event *event,
 
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
+
+                udev_device_delete_db(dev);
+                udev_device_tag_index(dev, NULL, false);
         } else {
                 event->dev_db = udev_device_shallow_clone(dev);
                 if (event->dev_db != NULL) {

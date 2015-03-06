@@ -182,6 +182,7 @@ int udev_device_delete_db(struct udev_device *udev_device)
         if (id == NULL)
                 return -1;
         strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
+
         unlink(filename);
         return 0;
 }
