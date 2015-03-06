@@ -39,6 +39,7 @@ int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
 /* libudev-device.c */
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen);
 struct udev_device *udev_device_shallow_clone(struct udev_device *old_device);
+int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src);
 mode_t udev_device_get_devnode_mode(struct udev_device *udev_device);
 uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
 gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);

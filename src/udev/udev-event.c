@@ -819,18 +819,8 @@ void udev_event_execute_rules(struct udev_event *event,
                 }
 
                 if (major(udev_device_get_devnum(dev)) == 0 &&
-                    streq(udev_device_get_action(dev), "move")) {
-                        struct udev_list_entry *entry;
-
-                        for ((entry = udev_device_get_properties_list_entry(event->dev_db)); entry; entry = udev_list_entry_get_next(entry)) {
-                                const char *key, *value;
-
-                                key = udev_list_entry_get_name(entry);
-                                value = udev_list_entry_get_value(entry);
-
-                                udev_device_add_property(dev, key, value);
-                        }
-                }
+                    streq(udev_device_get_action(dev), "move"))
+                        udev_device_copy_properties(dev, event->dev_db);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,

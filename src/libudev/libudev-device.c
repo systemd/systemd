@@ -2030,3 +2030,18 @@ struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr,
 
         return device;
 }
+
+int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src) {
+        struct udev_list_entry *entry;
+
+        for ((entry = udev_device_get_properties_list_entry(src)); entry; entry = udev_list_entry_get_next(entry)) {
+                const char *key, *value;
+
+                key = udev_list_entry_get_name(entry);
+                value = udev_list_entry_get_value(entry);
+
+                udev_device_add_property(dst, key, value);
+        }
+
+        return 0;
+}
