@@ -1986,6 +1986,20 @@ struct udev_device *udev_device_shallow_clone(struct udev_device *old_device)
         return device;
 }
 
+struct udev_device *udev_device_clone_with_db(struct udev_device *old_device)
+{
+        struct udev_device *device;
+
+        device = udev_device_shallow_clone(old_device);
+        if (!device)
+                return NULL;
+
+        udev_device_read_db(device);
+        udev_device_set_info_loaded(device);
+
+        return device;
+}
+
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
         struct udev_device *device;
         ssize_t bufpos = 0;

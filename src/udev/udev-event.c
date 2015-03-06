@@ -807,11 +807,8 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_delete_db(dev);
                 udev_device_tag_index(dev, NULL, false);
         } else {
-                event->dev_db = udev_device_shallow_clone(dev);
+                event->dev_db = udev_device_clone_with_db(dev);
                 if (event->dev_db != NULL) {
-                        udev_device_read_db(event->dev_db);
-                        udev_device_set_info_loaded(event->dev_db);
-
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
                                 udev_watch_end(event->udev, event->dev_db);
