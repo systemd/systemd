@@ -506,12 +506,9 @@ static void kbdctx_log_fn(struct xkb_context *ctx, enum xkb_log_level lvl, const
                 sd_lvl = LOG_INFO;
         else if (lvl >= XKB_LOG_LEVEL_WARNING)
                 sd_lvl = LOG_INFO; /* most XKB warnings really are informational */
-        else if (lvl >= XKB_LOG_LEVEL_ERROR)
-                sd_lvl = LOG_ERR;
-        else if (lvl >= XKB_LOG_LEVEL_CRITICAL)
-                sd_lvl = LOG_CRIT;
         else
-                sd_lvl = LOG_CRIT;
+                /* XKB_LOG_LEVEL_ERROR and worse */
+                sd_lvl = LOG_ERR;
 
         snprintf(buf, sizeof(buf), "idev-xkb: %s", format);
         log_internalv(sd_lvl, 0, __FILE__, __LINE__, __func__, buf, args);
