@@ -551,6 +551,9 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         if (c->use_ntp)
                 return sd_bus_error_setf(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
 
+        /* this only gets used if dbus does not provide a timestamp */
+        start = now(CLOCK_MONOTONIC);
+
         r = sd_bus_message_read(m, "xbb", &utc, &relative, &interactive);
         if (r < 0)
                 return r;
@@ -590,10 +593,11 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
 
         /* adjust ts for time spent in program */
         r = sd_bus_message_get_monotonic_usec(m, &start);
+        /* when sd_bus_message_get_monotonic_usec() returns -ENODATA it does not modify &start */
         if (r < 0 && r != -ENODATA)
                 return r;
-        if (r >= 0)
-                timespec_store(&ts, timespec_load(&ts) + (now(CLOCK_MONOTONIC) - start));
+
+        timespec_store(&ts, timespec_load(&ts) + (now(CLOCK_MONOTONIC) - start));
 
         /* Set system clock */
         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
