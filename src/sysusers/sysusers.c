@@ -603,6 +603,8 @@ static int write_files(void) {
                 if (r < 0)
                         goto finish;
 
+                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+
                 original = fopen(shadow_path, "re");
                 if (original) {
                         struct spwd *sp;
@@ -616,8 +618,13 @@ static int write_files(void) {
 
                                 i = hashmap_get(users, sp->sp_namp);
                                 if (i && i->todo_user) {
-                                        r = -EEXIST;
-                                        goto finish;
+                                        /* we will update the existing entry */
+                                        sp->sp_lstchg = lstchg;
+
+                                        /* only the /etc/shadow stage is left, so we can
+                                         * safely remove the item from the todo set */
+                                        i->todo_user = false;
+                                        hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
                                 }
 
                                 errno = 0;
@@ -640,7 +647,6 @@ static int write_files(void) {
                         goto finish;
                 }
 
-                lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
                 HASHMAP_FOREACH(i, todo_uids, iterator) {
                         struct spwd n = {
                                 .sp_namp = i->name,
@@ -877,7 +883,6 @@ static int add_user(Item *i) {
 
         if (!arg_root) {
                 struct passwd *p;
-                struct spwd *sp;
 
                 /* Also check NSS */
                 errno = 0;
@@ -893,16 +898,6 @@ static int add_user(Item *i) {
                 }
                 if (!IN_SET(errno, 0, ENOENT))
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
-
-                /* And shadow too, just to be sure */
-                errno = 0;
-                sp = getspnam(i->name);
-                if (sp) {
-                        log_error("User %s already exists in shadow database, but not in user database.", i->name);
-                        return -EBADMSG;
-                }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return log_error_errno(errno, "Failed to check if user %s already exists in shadow database: %m", i->name);
         }
 
         /* Try to use the suggested numeric uid */
