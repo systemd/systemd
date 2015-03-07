@@ -506,7 +506,7 @@ static void swap_set_state(Swap *s, SwapState state) {
                         job_add_to_run_queue(UNIT(other)->job);
 }
 
-static int swap_coldplug(Unit *u) {
+static int swap_coldplug(Unit *u, Hashmap *deferred_work) {
         Swap *s = SWAP(u);
         SwapState new_state = SWAP_DEAD;
         int r;

@@ -75,7 +75,7 @@ static int snapshot_load(Unit *u) {
         return 0;
 }
 
-static int snapshot_coldplug(Unit *u) {
+static int snapshot_coldplug(Unit *u, Hashmap *deferred_work) {
         Snapshot *s = SNAPSHOT(u);
 
         assert(s);

@@ -233,7 +233,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], true);
 }
 
-static int automount_coldplug(Unit *u) {
+static int automount_coldplug(Unit *u, Hashmap *deferred_work) {
         Automount *a = AUTOMOUNT(u);
         int r;
 
