@@ -440,7 +440,7 @@ int bus_message_from_header(
                 size_t extra,
                 sd_bus_message **ret) {
 
-        sd_bus_message *m;
+        _cleanup_free_ sd_bus_message *m = NULL;
         struct bus_header *h;
         size_t a, label_sz;
 
@@ -459,15 +459,13 @@ int bus_message_from_header(
                 return -EBADMSG;
 
         h = header;
-        if (h->version != 1 &&
-            h->version != 2)
+        if (!IN_SET(h->version, 1, 2))
                 return -EBADMSG;
 
         if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
                 return -EBADMSG;
 
-        if (h->endian != BUS_LITTLE_ENDIAN &&
-            h->endian != BUS_BIG_ENDIAN)
+        if (!IN_SET(h->endian, BUS_LITTLE_ENDIAN, BUS_BIG_ENDIAN))
                 return -EBADMSG;
 
         /* Note that we are happy with unknown flags in the flags header! */
@@ -556,6 +554,7 @@ int bus_message_from_header(
 
         m->bus = sd_bus_ref(bus);
         *ret = m;
+        m = NULL;
 
         return 0;
 }
