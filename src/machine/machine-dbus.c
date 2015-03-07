@@ -471,6 +471,7 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
         _cleanup_close_ int master = -1;
         Machine *m = userdata;
         const char *p;
+        char *address;
         int r;
 
         if (m->class != MACHINE_CONTAINER)
@@ -509,13 +510,14 @@ int bus_machine_method_open_login(sd_bus *bus, sd_bus_message *message, void *us
                 return r;
 
 #ifdef ENABLE_KDBUS
-        asprintf(&container_bus->address, "x-machine-kernel:pid=" PID_FMT ";x-machine-unix:pid=" PID_FMT, m->leader, m->leader);
+#  define ADDRESS_FMT "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI
 #else
-        asprintf(&container_bus->address, "x-machine-unix:pid=" PID_FMT, m->leader);
+#  define ADDRESS_FMT "x-machine-unix:pid=%1$" PID_PRI
 #endif
-        if (!container_bus->address)
+        if (asprintf(&address, ADDRESS_FMT, m->leader) < 0)
                 return log_oom();
 
+        container_bus->address = address;
         container_bus->bus_client = true;
         container_bus->trusted = false;
         container_bus->is_system = true;
