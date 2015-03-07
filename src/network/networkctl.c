@@ -965,14 +965,14 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                         continue;
 
                                 if (streq(a, "_Chassis")) {
-                                        chassis = strdup(b);
-                                        if (!chassis)
-                                                return -ENOMEM;
+                                        r = free_and_strdup(&chassis, b);
+                                        if (r < 0)
+                                                return r;
 
                                 } else if (streq(a, "_Port")) {
-                                        port = strdup(b);
-                                        if (!port)
-                                                return -ENOMEM;
+                                        r = free_and_strdup(&port, b);
+                                        if (r < 0)
+                                                return r;
 
                                 } else if (streq(a, "_TTL")) {
                                         long long unsigned x;
