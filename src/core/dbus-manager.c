@@ -675,9 +675,6 @@ static int transient_aux_units_from_message(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', "sa(sv)")) > 0) {
-                if (r <= 0)
-                        return r;
-
                 r = sd_bus_message_read(message, "s", &name);
                 if (r < 0)
                         return r;
