@@ -4547,7 +4547,7 @@ static int cat(sd_bus *bus, char **args) {
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         bool first = true, avoid_bus_cache;
-        int r = 0;
+        int r;
 
         assert(args);
 
@@ -4597,7 +4597,7 @@ static int cat(sd_bus *bus, char **args) {
                 }
         }
 
-        return r < 0 ? r : 0;
+        return 0;
 }
 
 static int set_property(sd_bus *bus, char **args) {
