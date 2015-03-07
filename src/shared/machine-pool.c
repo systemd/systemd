@@ -151,8 +151,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         return r;
 
 fail:
-        if (tmp)
-                unlink_noerrno(tmp);
+        unlink_noerrno(tmp);
 
         if (pid > 1)
                 kill_and_sigcont(pid, SIGKILL);
