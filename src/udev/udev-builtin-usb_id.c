@@ -153,15 +153,15 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
         int pos = 0;
         unsigned strpos = 0;
         struct usb_interface_descriptor {
-                u_int8_t        bLength;
-                u_int8_t        bDescriptorType;
-                u_int8_t        bInterfaceNumber;
-                u_int8_t        bAlternateSetting;
-                u_int8_t        bNumEndpoints;
-                u_int8_t        bInterfaceClass;
-                u_int8_t        bInterfaceSubClass;
-                u_int8_t        bInterfaceProtocol;
-                u_int8_t        iInterface;
+                uint8_t        bLength;
+                uint8_t        bDescriptorType;
+                uint8_t        bInterfaceNumber;
+                uint8_t        bAlternateSetting;
+                uint8_t        bNumEndpoints;
+                uint8_t        bInterfaceClass;
+                uint8_t        bInterfaceSubClass;
+                uint8_t        bInterfaceProtocol;
+                uint8_t        iInterface;
         } _packed_;
 
         if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0)
