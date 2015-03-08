@@ -1248,7 +1248,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         r = add_any_file(j, path);
         if (r == -ENOENT)
                 return 0;
-        return 0;
+        return r;
 }
 
 static int remove_file(sd_journal *j, const char *prefix, const char *filename) {
