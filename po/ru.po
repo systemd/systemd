@@ -79,10 +79,18 @@ msgid "Authentication is required to set local machine information."
 msgstr "Чтобы настроить информацию о компьютере, необходимо пройти аутентификацию."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Импортировать образ виртуальной машины или контейнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr "Чтобы импортировать образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
 msgid "Download a VM or container image"
 msgstr "Загрузить образ виртуальной машины или контейнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
 msgid "Authentication is required to download a VM or container image"
 msgstr "Чтобы загрузить образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
 
