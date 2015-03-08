@@ -1539,10 +1539,17 @@ static int access_check_var_log_journal(sd_journal *j) {
         have_access = in_group("systemd-journal") > 0;
 
         if (!have_access) {
+                const char* dir;
+
+                if (access("/run/log/journal", F_OK) >= 0)
+                        dir = "/run/log/journal";
+                else
+                        dir = "/var/log/journal";
+
                 /* Let's enumerate all groups from the default ACL of
                  * the directory, which generally should allow access
                  * to most journal files too */
-                r = search_acl_groups(&g, "/var/log/journal/", &have_access);
+                r = search_acl_groups(&g, dir, &have_access);
                 if (r < 0)
                         return r;
         }
@@ -1568,7 +1575,7 @@ static int access_check_var_log_journal(sd_journal *j) {
                                 return log_oom();
 
                         log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
-                                   "      Users in the groups '%s' can see all messages.\n"
+                                   "      Users in groups '%s' can see all messages.\n"
                                    "      Pass -q to turn off this notice.", s);
                 }
         }
@@ -1592,18 +1599,8 @@ static int access_check(sd_journal *j) {
 
         if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
 #ifdef HAVE_ACL
-                /* If /var/log/journal doesn't even exist,
-                 * unprivileged users have no access at all */
-                if (access("/var/log/journal", F_OK) < 0 &&
-                    geteuid() != 0 &&
-                    in_group("systemd-journal") <= 0) {
-                        log_error("Unprivileged users cannot access messages, unless persistent log storage is\n"
-                                  "enabled. Users in the 'systemd-journal' group may always access messages.");
-                        return -EACCES;
-                }
-
-                /* If /var/log/journal exists, try to pring a nice
-                   notice if the user lacks access to it */
+                /* If /run/log/journal or /var/log/journal exist, try
+                   to pring a nice notice if the user lacks access to it. */
                 if (!arg_quiet && geteuid() != 0) {
                         r = access_check_var_log_journal(j);
                         if (r < 0)
