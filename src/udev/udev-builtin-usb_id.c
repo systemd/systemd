@@ -162,7 +162,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
                 u_int8_t        bInterfaceSubClass;
                 u_int8_t        bInterfaceProtocol;
                 u_int8_t        iInterface;
-        } __attribute__((packed));
+        } _packed_;
 
         if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0)
                 return log_oom();

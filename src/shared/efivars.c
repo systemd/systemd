@@ -42,7 +42,7 @@ struct boot_option {
         uint32_t attr;
         uint16_t path_len;
         uint16_t title[];
-} __attribute__((packed));
+} _packed_;
 
 struct drive_path {
         uint32_t part_nr;
@@ -51,7 +51,7 @@ struct drive_path {
         char signature[16];
         uint8_t mbr_type;
         uint8_t signature_type;
-} __attribute__((packed));
+} _packed_;
 
 struct device_path {
         uint8_t type;
@@ -61,7 +61,7 @@ struct device_path {
                 uint16_t path[0];
                 struct drive_path drive;
         };
-} __attribute__((packed));
+} _packed_;
 
 bool is_efi_boot(void) {
         return access("/sys/firmware/efi", F_OK) >= 0;
@@ -169,7 +169,7 @@ int efi_set_variable(
         struct var {
                 uint32_t attr;
                 char buf[];
-        } __attribute__((packed)) *buf = NULL;
+        } _packed_ *buf = NULL;
         char *p = NULL;
         int fd = -1;
         int r;
@@ -404,7 +404,7 @@ struct guid {
         uint16_t u2;
         uint16_t u3;
         uint8_t u4[8];
-} __attribute__((packed));
+} _packed_;
 
 static void id128_to_efi_guid(sd_id128_t id, void *guid) {
         struct guid *uuid = guid;

@@ -16,7 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
-#include "mtd_probe.h"
+
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <mtd/mtd-user.h>
@@ -25,6 +25,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+
+#include "mtd_probe.h"
 
 int main(int argc, char** argv)
 {
