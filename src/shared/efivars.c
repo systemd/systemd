@@ -504,6 +504,7 @@ int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
         _cleanup_free_ uint16_t *list = NULL;
+        size_t alloc = 0;
         int count = 0;
 
         assert(options);
@@ -514,7 +515,6 @@ int efi_get_boot_options(uint16_t **options) {
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 int id;
-                uint16_t *t;
 
                 if (strncmp(de->d_name, "Boot", 4) != 0)
                         continue;
@@ -529,12 +529,10 @@ int efi_get_boot_options(uint16_t **options) {
                 if (id < 0)
                         continue;
 
-                t = realloc(list, (count + 1) * sizeof(uint16_t));
-                if (!t)
+                if (!GREEDY_REALLOC(list, alloc, count + 1))
                         return -ENOMEM;
 
-                list = t;
-                list[count ++] = id;
+                list[count++] = id;
         }
 
         qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
