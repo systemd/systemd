@@ -105,7 +105,7 @@ int efi_get_variable(
         uint32_t a;
         ssize_t n;
         struct stat st;
-        void *r;
+        _cleanup_free_ void *buf;
 
         assert(name);
         assert(value);
@@ -133,25 +133,22 @@ int efi_get_variable(
         if (n != sizeof(a))
                 return -EIO;
 
-        r = malloc(st.st_size - 4 + 2);
-        if (!r)
+        buf = malloc(st.st_size - 4 + 2);
+        if (!buf)
                 return -ENOMEM;
 
-        n = read(fd, r, (size_t) st.st_size - 4);
-        if (n < 0) {
-                free(r);
+        n = read(fd, buf, (size_t) st.st_size - 4);
+        if (n < 0)
                 return -errno;
-        }
-        if (n != (ssize_t) st.st_size - 4) {
-                free(r);
+        if (n != (ssize_t) st.st_size - 4)
                 return -EIO;
-        }
 
         /* Always NUL terminate (2 bytes, to protect UTF-16) */
-        ((char*) r)[st.st_size - 4] = 0;
-        ((char*) r)[st.st_size - 4 + 1] = 0;
+        ((char*) buf)[st.st_size - 4] = 0;
+        ((char*) buf)[st.st_size - 4 + 1] = 0;
 
-        *value = r;
+        *value = buf;
+        buf = NULL;
         *size = (size_t) st.st_size - 4;
 
         if (attribute)
@@ -458,7 +455,7 @@ int efi_remove_boot_option(uint16_t id) {
 }
 
 int efi_get_boot_order(uint16_t **order) {
-        void *buf;
+        _cleanup_free_ void *buf = NULL;
         size_t l;
         int r;
 
@@ -466,18 +463,15 @@ int efi_get_boot_order(uint16_t **order) {
         if (r < 0)
                 return r;
 
-        if (l <= 0) {
-                free(buf);
+        if (l <= 0)
                 return -ENOENT;
-        }
 
-        if ((l % sizeof(uint16_t) > 0) ||
-            (l / sizeof(uint16_t) > INT_MAX)) {
-                free(buf);
+        if (l % sizeof(uint16_t) > 0 ||
+            l / sizeof(uint16_t) > INT_MAX)
                 return -EINVAL;
-        }
 
         *order = buf;
+        buf = NULL;
         return (int) (l / sizeof(uint16_t));
 }
 
