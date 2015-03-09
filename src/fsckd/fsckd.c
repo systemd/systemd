@@ -520,12 +520,12 @@ int main(int argc, char *argv[]) {
         if (n > 1) {
                 log_error("Too many file descriptors received.");
                 return EXIT_FAILURE;
-        } else if (n == 1) {
+        } else if (n == 1)
                 fd = SD_LISTEN_FDS_START + 0;
-        } else {
+        else {
                 fd = make_socket_fd(LOG_DEBUG, FSCKD_SOCKET_PATH, SOCK_STREAM | SOCK_CLOEXEC);
                 if (fd < 0) {
-                        log_error_errno(r, "Couldn't create listening socket fd on %s: %m", FSCKD_SOCKET_PATH);
+                        log_error_errno(fd, "Couldn't create listening socket fd on %s: %m", FSCKD_SOCKET_PATH);
                         return EXIT_FAILURE;
                 }
         }
