@@ -160,7 +160,7 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
 
 static int send_message_plymouth_socket(int plymouth_fd, const char *message, bool update) {
         _cleanup_free_ char *packet = NULL;
-        int r, n;
+        int n;
         char mode = 'M';
 
         if (update)
@@ -168,10 +168,9 @@ static int send_message_plymouth_socket(int plymouth_fd, const char *message, bo
 
         if (asprintf(&packet, "%c\002%c%s%n", mode, (int) (strlen(message) + 1), message, &n) < 0)
                 return log_oom();
-        r = loop_write(plymouth_fd, packet, n + 1, true);
-        return r;
-}
 
+        return loop_write(plymouth_fd, packet, n + 1, true);
+}
 
 static int send_message_plymouth(Manager *m, const char *message) {
         int r;
