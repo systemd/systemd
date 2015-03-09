@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-03-06 21:16+0100\n"
+"POT-Creation-Date: 2015-03-09 18:30+0100\n"
 "PO-Revision-Date: 2014-12-28 13:04+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -103,14 +103,24 @@ msgstr "Importer une image de machine virtuelle (VM) ou de conteneur"
 #: ../src/import/org.freedesktop.import1.policy.in.h:2
 msgid "Authentication is required to import a VM or container image"
 msgstr ""
-"Authentification requise pour importer une image de machine virtuelle "
-"(VM) ou de conteneur."
+"Authentification requise pour importer une image de machine virtuelle (VM) "
+"ou de conteneur."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Exporter une image de machine virtuelle (VM) ou de conteneur"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr ""
+"Authentification requise pour exporter une image de machine virtuelle (VM) "
+"ou de conteneur."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
 msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
 "Authentification requise pour télécharger une image de machine virtuelle "
