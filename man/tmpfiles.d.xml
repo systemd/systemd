@@ -118,6 +118,8 @@
     d    /run/user   0755 root root 10d -
     L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
+    <para>Fields may be enclosed within quotes and contain C-style escapes.</para>
+
     <refsect2>
       <title>Type</title>
 

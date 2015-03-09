@@ -1506,23 +1506,25 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_(item_free_contents) Item i = {};
         ItemArray *existing;
         Hashmap *h;
-        int r, c = -1, pos;
+        int r, pos;
         bool force = false, boot = false;
 
         assert(fname);
         assert(line >= 1);
         assert(buffer);
 
-        r = sscanf(buffer,
-                   "%ms %ms %ms %ms %ms %ms %n",
+        r = unquote_many_words(&buffer,
                    &action,
                    &path,
                    &mode,
                    &user,
                    &group,
                    &age,
-                   &c);
-        if (r < 2) {
+                   &i.argument,
+                   NULL);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
+        else if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
         }
@@ -1557,15 +1559,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (r < 0) {
                 log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, path);
                 return r;
-        }
-
-        if (c >= 0)  {
-                c += strspn(buffer+c, WHITESPACE);
-                if (buffer[c] != 0 && (buffer[c] != '-' || buffer[c+1] != 0)) {
-                        i.argument = unquote(buffer+c, "\"");
-                        if (!i.argument)
-                                return log_oom();
-                }
         }
 
         switch (i.type) {

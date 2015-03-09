@@ -232,8 +232,6 @@ Features:
 
 * exponential backoff in timesyncd and resolved when we cannot reach a server
 
-* tmpfiles: port to unquote_many_words(), similar to sysusers
-
 * unquote_many_words() should probably be used by a lot of code that
   currently uses FOREACH_WORD and friends. For example, most conf
   parsing callbacks should use it.
