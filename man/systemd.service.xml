@@ -334,6 +334,11 @@
         <para>If any of those commands (not prefixed with
         <literal>-</literal>) fail, the rest are not executed and the
         unit is considered failed.</para>
+
+        <para>Note that <varname>ExecStartPre=</varname> may not be
+        used to start long-running processes. All processes forked
+        off by processes invoked via <varname>ExecStartPre=</varname> will
+        be killed before the next service process is run.</para>
         </listitem>
       </varlistentry>
 
