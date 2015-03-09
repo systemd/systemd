@@ -72,7 +72,10 @@ typedef struct Manager {
         FILE *console;
         double percent;
         int numdevices;
+
         int plymouth_fd;
+        sd_event_source *plymouth_event_source;
+
         bool plymouth_cancel_sent;
         bool cancel_requested;
 } Manager;
@@ -126,7 +129,10 @@ static void remove_client(Client **first, Client *item) {
         free(item);
 }
 
-static void on_plymouth_disconnect(Manager *m) {
+static void plymouth_disconnect(Manager *m) {
+        assert(m);
+
+        m->plymouth_event_source = sd_event_source_unref(m->plymouth_event_source);
         m->plymouth_fd = safe_close(m->plymouth_fd);
         m->plymouth_cancel_sent = false;
 }
@@ -135,24 +141,31 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
         Manager *m = userdata;
         Client *current;
         char buffer[6];
-        int r;
+        ssize_t l;
 
         assert(m);
 
-        r = read(m->plymouth_fd, buffer, sizeof(buffer));
-        if (r <= 0)
-                on_plymouth_disconnect(m);
-        else {
-               if (buffer[0] == '\15')
-                       log_error("Message update to plymouth wasn't delivered successfully");
+        l = read(m->plymouth_fd, buffer, sizeof(buffer));
+        if (l < 0) {
+                log_warning_errno(errno, "Got error while reading from plymouth: %m");
+                plymouth_disconnect(m);
+                return -errno;
+        }
+        if (l == 0) {
+                plymouth_disconnect(m);
+                return 0;
+        }
 
-               /* the only answer support type we requested is a key interruption */
-               if (buffer[0] == '\2' && buffer[5] == '\3') {
-                       m->cancel_requested = true;
-                       /* cancel all connected clients */
-                       LIST_FOREACH(clients, current, m->clients)
-                               request_cancel_client(current);
-               }
+        if (buffer[0] == '\15')
+                log_error("Message update to plymouth wasn't delivered successfully");
+
+        /* the only answer support type we requested is a key interruption */
+        if (buffer[0] == '\2' && buffer[5] == '\3') {
+                m->cancel_requested = true;
+
+                /* cancel all connected clients */
+                LIST_FOREACH(clients, current, m->clients)
+                        request_cancel_client(current);
         }
 
         return 0;
@@ -276,7 +289,7 @@ static int connect_plymouth(Manager *m) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, NULL, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
+        r = sd_event_add_io(m->event, &m->plymouth_event_source, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
         if (r < 0) {
                 log_warning_errno(r, "Can't listen to plymouth socket: %m");
                 goto fail;
@@ -285,7 +298,7 @@ static int connect_plymouth(Manager *m) {
         return 0;
 
 fail:
-        on_plymouth_disconnect(m);
+        plymouth_disconnect(m);
         return r;
 }
 
@@ -395,8 +408,10 @@ static void manager_free(Manager *m) {
                 fflush(m->console);
         }
 
+        plymouth_disconnect(m);
+
         safe_close(m->connection_fd);
-        safe_close(m->plymouth_fd);
+
         if (m->console)
                 fclose(m->console);
 
