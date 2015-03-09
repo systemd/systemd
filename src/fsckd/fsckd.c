@@ -64,6 +64,8 @@ typedef struct Client {
         size_t buflen;
         bool cancelled;
 
+        sd_event_source *event_source;
+
         LIST_FIELDS(struct Client, clients);
 } Client;
 
@@ -86,7 +88,10 @@ typedef struct Manager {
         bool cancel_requested;
 } Manager;
 
+static void client_free(Client *c);
 static void manager_free(Manager *m);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Client*, client_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 static double compute_percent(int pass, size_t cur, size_t max) {
@@ -136,6 +141,8 @@ static void client_free(Client *c) {
 
         if (c->manager)
                 LIST_REMOVE(clients, c->manager->clients, c);
+
+        sd_event_source_unref(c->event_source);
 
         safe_close(c->fd);
         free(c);
@@ -372,8 +379,8 @@ static int client_progress_handler(sd_event_source *s, int fd, uint32_t revents,
 }
 
 static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(client_freep) Client *c = NULL;
         Manager *m = userdata;
-        Client *client = NULL;
         int new_client_fd, r;
 
         assert(m);
@@ -385,21 +392,28 @@ static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t r
 
         log_debug("New fsck client connected to fd: %d", new_client_fd);
 
-        client = new0(Client, 1);
-        if (!client)
-                return log_oom();
-        client->fd = new_client_fd;
-        client->manager = m;
-        LIST_PREPEND(clients, m->clients, client);
-        r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, client_progress_handler, client);
-        if (r < 0) {
-                client_free(client);
-                return r;
+        c = new0(Client, 1);
+        if (!c) {
+                safe_close(new_client_fd);
+                log_oom();
+                return 0;
         }
+
+        c->fd = new_client_fd;
+        r = sd_event_add_io(m->event, &c->event_source, c->fd, EPOLLIN, client_progress_handler, c);
+        if (r < 0) {
+                log_oom();
+                return 0;
+        }
+
+        LIST_PREPEND(clients, m->clients, c);
+        c->manager = m;
+
         /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
         if (m->cancel_requested)
-                client_request_cancel(client);
+                client_request_cancel(c);
 
+        c = NULL;
         return 0;
 }
 
