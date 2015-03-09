@@ -2651,10 +2651,8 @@ int journal_file_open(
         }
 
         r = mmap_cache_get(f->mmap, f->fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
-        if (r < 0) {
-                r = -errno;
+        if (r < 0)
                 goto fail;
-        }
 
         f->header = h;
 
