@@ -48,7 +48,7 @@ void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
 char **udev_device_get_properties_envp(struct udev_device *udev_device);
 ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
-int udev_device_read_db(struct udev_device *udev_device, const char *dbfile);
+int udev_device_read_db(struct udev_device *udev_device);
 int udev_device_read_uevent_file(struct udev_device *udev_device);
 int udev_device_set_action(struct udev_device *udev_device, const char *action);
 const char *udev_device_get_devpath_old(struct udev_device *udev_device);

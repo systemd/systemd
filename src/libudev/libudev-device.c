@@ -565,30 +565,27 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
         return udev_list_entry_get_value(list_entry);
 }
 
-int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
+int udev_device_read_db(struct udev_device *udev_device)
 {
         char filename[UTIL_PATH_SIZE];
         char line[UTIL_LINE_SIZE];
+        const char *id;
         FILE *f;
 
-        /* providing a database file will always force-load it */
-        if (dbfile == NULL) {
-                const char *id;
+        if (udev_device->db_loaded)
+                return 0;
 
-                if (udev_device->db_loaded)
-                        return 0;
-                udev_device->db_loaded = true;
+        udev_device->db_loaded = true;
 
-                id = udev_device_get_id_filename(udev_device);
-                if (id == NULL)
-                        return -1;
-                strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
-                dbfile = filename;
-        }
+        id = udev_device_get_id_filename(udev_device);
+        if (id == NULL)
+                return -1;
 
-        f = fopen(dbfile, "re");
+        strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
+
+        f = fopen(filename, "re");
         if (f == NULL)
-                return log_debug_errno(errno, "no db file to read %s: %m", dbfile);
+                return log_debug_errno(errno, "no db file to read %s: %m", filename);
 
         /* devices with a database entry are initialized */
         udev_device->is_initialized = true;
@@ -1306,7 +1303,7 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
         if (udev_device == NULL)
                 return NULL;
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         return udev_list_get_entry(&udev_device->devlinks_list);
 }
 
@@ -1334,7 +1331,7 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                 return NULL;
         if (!udev_device->info_loaded) {
                 udev_device_read_uevent_file(udev_device);
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         }
         if (!udev_device->devlinks_uptodate) {
                 char symlinks[UTIL_PATH_SIZE];
@@ -1407,7 +1404,7 @@ _public_ unsigned long long int udev_device_get_usec_since_initialized(struct ud
         if (udev_device == NULL)
                 return 0;
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         if (udev_device->usec_initialized == 0)
                 return 0;
         now_ts = now(CLOCK_MONOTONIC);
@@ -1736,7 +1733,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
 _public_ int udev_device_get_is_initialized(struct udev_device *udev_device)
 {
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         return udev_device->is_initialized;
 }
 
@@ -1796,7 +1793,7 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
         if (udev_device == NULL)
                 return NULL;
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         return udev_list_get_entry(&udev_device->tags_list);
 }
 
@@ -1816,7 +1813,7 @@ _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *ta
         if (udev_device == NULL)
                 return false;
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         list_entry = udev_device_get_tags_list_entry(udev_device);
         if (udev_list_entry_get_by_name(list_entry, tag) != NULL)
                 return true;
@@ -1905,7 +1902,7 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action)
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         return udev_device->devlink_priority;
 }
 
@@ -1918,7 +1915,7 @@ int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 int udev_device_get_watch_handle(struct udev_device *udev_device)
 {
         if (!udev_device->info_loaded)
-                udev_device_read_db(udev_device, NULL);
+                udev_device_read_db(udev_device);
         return udev_device->watch_handle;
 }
 
