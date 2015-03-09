@@ -227,6 +227,7 @@ static int update_global_progress(Manager *m) {
                                       "Checking in progress on %d disks (%3.1f%% complete)", m->numdevices),
                                       m->numdevices, m->percent) < 0)
                         return -ENOMEM;
+
                 if (asprintf(&fsck_message, "fsckd:%d:%3.1f:%s", m->numdevices, m->percent, console_message) < 0)
                         return -ENOMEM;
 
@@ -260,17 +261,21 @@ static int connect_plymouth(Manager *m) {
                 return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
 
         if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
-                on_plymouth_disconnect(m);
-                return log_warning_errno(errno, "Couldn't connect to plymouth: %m");
+                r = log_warning_errno(errno, "Couldn't connect to plymouth: %m");
+                goto fail;
         }
 
         r = sd_event_add_io(m->event, NULL, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
         if (r < 0) {
-                on_plymouth_disconnect(m);
-                return log_warning_errno(r, "Can't listen to plymouth socket: %m");
+                log_warning_errno(r, "Can't listen to plymouth socket: %m");
+                goto fail;
         }
 
         return 0;
+
+fail:
+        on_plymouth_disconnect(m);
+        return r;
 }
 
 static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
