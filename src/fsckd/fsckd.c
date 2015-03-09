@@ -77,7 +77,9 @@ typedef struct Manager {
         unsigned n_clients;
 
         int clear;
+
         int connection_fd;
+        sd_event_source *connection_event_source;
 
         FILE *console;
         double percent;
@@ -444,6 +446,7 @@ static void manager_free(Manager *m) {
                 fflush(m->console);
         }
 
+        sd_event_source_unref(m->connection_event_source);
         safe_close(m->connection_fd);
 
         while (m->clients)
@@ -483,7 +486,7 @@ static int manager_new(Manager **ret, int fd) {
                         return -errno;
         }
 
-        r = sd_event_add_io(m->event, NULL, fd, EPOLLIN, manager_new_connection_handler, m);
+        r = sd_event_add_io(m->event, &m->connection_event_source, fd, EPOLLIN, manager_new_connection_handler, m);
         if (r < 0)
                 return r;
 
