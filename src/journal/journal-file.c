@@ -2818,9 +2818,9 @@ int journal_file_open_reliably(
         /* The file is corrupted. Rotate it away and try it again (but only once) */
 
         l = strlen(fname);
-        if (asprintf(&p, "%.*s@%016llx-%016" PRIx64 ".journal~",
+        if (asprintf(&p, "%.*s@%016"PRIx64 "-%016"PRIx64 ".journal~",
                      (int) l - 8, fname,
-                     (unsigned long long) now(CLOCK_REALTIME),
+                     now(CLOCK_REALTIME),
                      random_u64()) < 0)
                 return -ENOMEM;
 
