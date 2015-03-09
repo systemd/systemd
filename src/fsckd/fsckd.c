@@ -82,6 +82,7 @@ typedef struct Manager {
         sd_event_source *connection_event_source;
 
         FILE *console;
+
         double percent;
         int numdevices;
 

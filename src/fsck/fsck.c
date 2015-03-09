@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
         _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
         const char *device, *type;
         bool root_directory;
-        int progress_pipe[2] = { -1, -1 };
+        _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
         char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
         struct stat st;
 
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (pid == 0) {
                 /* Child */
-                safe_close(progress_pipe[0]);
+                progress_pipe[0] = safe_close(progress_pipe[0]);
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
@@ -373,7 +373,5 @@ int main(int argc, char *argv[]) {
                 touch("/run/systemd/quotacheck");
 
 finish:
-        safe_close_pair(progress_pipe);
-
         return r;
 }
