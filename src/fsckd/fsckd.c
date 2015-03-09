@@ -47,6 +47,7 @@
 
 #define IDLE_TIME_SECONDS 30
 #define PLYMOUTH_REQUEST_KEY "K\2\2\3"
+#define CLIENTS_MAX 128
 
 struct Manager;
 
@@ -73,6 +74,7 @@ typedef struct Manager {
         sd_event *event;
 
         LIST_HEAD(Client, clients);
+        unsigned n_clients;
 
         int clear;
         int connection_fd;
@@ -139,8 +141,10 @@ static int client_request_cancel(Client *c) {
 static void client_free(Client *c) {
         assert(c);
 
-        if (c->manager)
+        if (c->manager) {
                 LIST_REMOVE(clients, c->manager->clients, c);
+                c->manager->n_clients--;
+        }
 
         sd_event_source_unref(c->event_source);
 
@@ -380,8 +384,9 @@ static int client_progress_handler(sd_event_source *s, int fd, uint32_t revents,
 
 static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(client_freep) Client *c = NULL;
+        _cleanup_close_ int new_client_fd = -1;
         Manager *m = userdata;
-        int new_client_fd, r;
+        int r;
 
         assert(m);
 
@@ -390,16 +395,22 @@ static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t r
         if (new_client_fd < 0)
                 return log_error_errno(errno, "Couldn't accept a new connection: %m");
 
+        if (m->n_clients >= CLIENTS_MAX) {
+                log_error("Too many clients, refusing connection.");
+                return 0;
+        }
+
         log_debug("New fsck client connected to fd: %d", new_client_fd);
 
         c = new0(Client, 1);
         if (!c) {
-                safe_close(new_client_fd);
                 log_oom();
                 return 0;
         }
 
         c->fd = new_client_fd;
+        new_client_fd = -1;
+
         r = sd_event_add_io(m->event, &c->event_source, c->fd, EPOLLIN, client_progress_handler, c);
         if (r < 0) {
                 log_oom();
@@ -407,6 +418,7 @@ static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t r
         }
 
         LIST_PREPEND(clients, m->clients, c);
+        m->n_clients++;
         c->manager = m;
 
         /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
