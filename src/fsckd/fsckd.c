@@ -171,11 +171,11 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
                 return 0;
         }
 
-        if (buffer[0] == '\15')
+        if (l > 1 && buffer[0] == '\15')
                 log_error("Message update to plymouth wasn't delivered successfully");
 
         /* the only answer support type we requested is a key interruption */
-        if (buffer[0] == '\2' && buffer[5] == '\3') {
+        if (l > 2 && buffer[0] == '\2' && buffer[5] == '\3') {
                 m->cancel_requested = true;
 
                 /* cancel all connected clients */
