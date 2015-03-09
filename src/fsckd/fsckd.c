@@ -516,41 +516,43 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
         n = sd_listen_fds(0);
         if (n > 1) {
                 log_error("Too many file descriptors received.");
-                return EXIT_FAILURE;
+                r = -EINVAL;
+                goto finish;
         } else if (n == 1)
                 fd = SD_LISTEN_FDS_START + 0;
         else {
                 fd = make_socket_fd(LOG_DEBUG, FSCKD_SOCKET_PATH, SOCK_STREAM | SOCK_CLOEXEC);
                 if (fd < 0) {
-                        log_error_errno(fd, "Couldn't create listening socket fd on %s: %m", FSCKD_SOCKET_PATH);
-                        return EXIT_FAILURE;
+                        r = log_error_errno(fd, "Couldn't create listening socket fd on %s: %m", FSCKD_SOCKET_PATH);
+                        goto finish;
                 }
         }
 
         r = manager_new(&m, fd);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate manager: %m");
-                return EXIT_FAILURE;
+                goto finish;
         }
 
         r = sd_event_add_io(m->event, NULL, fd, EPOLLIN, new_connection_handler, m);
         if (r < 0) {
                 log_error_errno(r, "Can't listen to connection socket: %m");
-                return EXIT_FAILURE;
+                goto finish;
         }
 
         r = run_event_loop_with_timeout(m->event, IDLE_TIME_SECONDS * USEC_PER_SEC);
         if (r < 0) {
                 log_error_errno(r, "Failed to run event loop: %m");
-                return EXIT_FAILURE;
+                goto finish;
         }
 
         sd_event_get_exit_code(m->event, &r);
 
+finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
