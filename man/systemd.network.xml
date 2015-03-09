@@ -568,7 +568,7 @@
           <listitem>
             <para>DHCP client identifier to use. Either <literal>mac</literal>
             to use the MAC address of the link or <literal>duid</literal>
-            (the default) to use a RFC4361-complient Client ID.</para>
+            (the default) to use a RFC4361-compliant Client ID.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

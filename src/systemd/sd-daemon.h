@@ -168,7 +168,7 @@ int sd_is_mq(int fd, const char *path);
                   value daemons should send is "READY=1".
 
      STATUS=...   Passes a single-line status string back to systemd
-                  that describes the daemon state. This is free-from
+                  that describes the daemon state. This is free-form
                   and can be used for various purposes: general state
                   feedback, fsck-like programs could pass completion
                   percentages and failing programs could pass a human
