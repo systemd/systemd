@@ -173,25 +173,32 @@ static int send_message_plymouth_socket(int plymouth_fd, const char *message, bo
 }
 
 static int send_message_plymouth(Manager *m, const char *message) {
-        int r;
         const char *plymouth_cancel_message = NULL;
+        int r;
 
         r = connect_plymouth(m);
         if (r < 0)
                 return r;
 
         if (!m->plymouth_cancel_sent) {
-                /* indicate to plymouth that we listen to Ctrl+C */
+
+                /* Indicate to plymouth that we listen to Ctrl+C */
                 r = loop_write(m->plymouth_fd, PLYMOUTH_REQUEST_KEY, sizeof(PLYMOUTH_REQUEST_KEY), true);
                 if (r < 0)
-                        return log_warning_errno(errno, "Can't send to plymouth cancel key: %m");
+                        return log_warning_errno(r, "Can't send to plymouth cancel key: %m");
+
                 m->plymouth_cancel_sent = true;
+
                 plymouth_cancel_message = strjoina("fsckd-cancel-msg:", _("Press Ctrl+C to cancel all filesystem checks in progress"));
+
                 r = send_message_plymouth_socket(m->plymouth_fd, plymouth_cancel_message, false);
                 if (r < 0)
                         log_warning_errno(r, "Can't send filesystem cancel message to plymouth: %m");
+
         } else if (m->numdevices == 0) {
+
                 m->plymouth_cancel_sent = false;
+
                 r = send_message_plymouth_socket(m->plymouth_fd, "", false);
                 if (r < 0)
                         log_warning_errno(r, "Can't clear plymouth filesystem cancel message: %m");
@@ -199,7 +206,7 @@ static int send_message_plymouth(Manager *m, const char *message) {
 
         r = send_message_plymouth_socket(m->plymouth_fd,  message, true);
         if (r < 0)
-                return log_warning_errno(errno, "Couldn't send \"%s\" to plymouth: %m", message);
+                return log_warning_errno(r, "Couldn't send \"%s\" to plymouth: %m", message);
 
         return 0;
 }
