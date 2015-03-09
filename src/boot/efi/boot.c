@@ -809,14 +809,11 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
                         idx_last = idx_highlight;
                         idx_first = 1 + idx_highlight - visible_max;
                         refresh = TRUE;
-                }
-                if (idx_highlight < idx_first) {
+                } else if (idx_highlight < idx_first) {
                         idx_first = idx_highlight;
                         idx_last = idx_highlight + visible_max-1;
                         refresh = TRUE;
                 }
-
-                idx_last = idx_first + visible_max-1;
 
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = TRUE;
