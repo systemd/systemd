@@ -86,11 +86,8 @@ typedef struct Manager {
         bool cancel_requested;
 } Manager;
 
-static int connect_plymouth(Manager *m);
-static int update_global_progress(Manager *m);
 static void manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
-#define _cleanup_manager_free_ _cleanup_(manager_freep)
 
 static double compute_percent(int pass, size_t cur, size_t max) {
         /* Values stolen from e2fsck */
@@ -144,7 +141,7 @@ static void client_free(Client *c) {
         free(c);
 }
 
-static void plymouth_disconnect(Manager *m) {
+static void manager_disconnect_plymouth(Manager *m) {
         assert(m);
 
         m->plymouth_event_source = sd_event_source_unref(m->plymouth_event_source);
@@ -152,7 +149,7 @@ static void plymouth_disconnect(Manager *m) {
         m->plymouth_cancel_sent = false;
 }
 
-static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int manager_plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         Client *current;
         char buffer[6];
@@ -163,11 +160,11 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
         l = read(m->plymouth_fd, buffer, sizeof(buffer));
         if (l < 0) {
                 log_warning_errno(errno, "Got error while reading from plymouth: %m");
-                plymouth_disconnect(m);
+                manager_disconnect_plymouth(m);
                 return -errno;
         }
         if (l == 0) {
-                plymouth_disconnect(m);
+                manager_disconnect_plymouth(m);
                 return 0;
         }
 
@@ -186,7 +183,37 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
         return 0;
 }
 
-static int send_message_plymouth_socket(int plymouth_fd, const char *message, bool update) {
+static int manager_connect_plymouth(Manager *m) {
+        union sockaddr_union sa = PLYMOUTH_SOCKET;
+        int r;
+
+        /* try to connect or reconnect if sending a message */
+        if (m->plymouth_fd >= 0)
+                return 0;
+
+        m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (m->plymouth_fd < 0)
+                return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
+
+        if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+                r = log_warning_errno(errno, "Couldn't connect to plymouth: %m");
+                goto fail;
+        }
+
+        r = sd_event_add_io(m->event, &m->plymouth_event_source, m->plymouth_fd, EPOLLIN, manager_plymouth_feedback_handler, m);
+        if (r < 0) {
+                log_warning_errno(r, "Can't listen to plymouth socket: %m");
+                goto fail;
+        }
+
+        return 1;
+
+fail:
+        manager_disconnect_plymouth(m);
+        return r;
+}
+
+static int plymouth_send_message(int plymouth_fd, const char *message, bool update) {
         _cleanup_free_ char *packet = NULL;
         int n;
         char mode = 'M';
@@ -200,11 +227,11 @@ static int send_message_plymouth_socket(int plymouth_fd, const char *message, bo
         return loop_write(plymouth_fd, packet, n + 1, true);
 }
 
-static int send_message_plymouth(Manager *m, const char *message) {
+static int manager_send_plymouth_message(Manager *m, const char *message) {
         const char *plymouth_cancel_message = NULL;
         int r;
 
-        r = connect_plymouth(m);
+        r = manager_connect_plymouth(m);
         if (r < 0)
                 return r;
 
@@ -219,7 +246,7 @@ static int send_message_plymouth(Manager *m, const char *message) {
 
                 plymouth_cancel_message = strjoina("fsckd-cancel-msg:", _("Press Ctrl+C to cancel all filesystem checks in progress"));
 
-                r = send_message_plymouth_socket(m->plymouth_fd, plymouth_cancel_message, false);
+                r = plymouth_send_message(m->plymouth_fd, plymouth_cancel_message, false);
                 if (r < 0)
                         log_warning_errno(r, "Can't send filesystem cancel message to plymouth: %m");
 
@@ -227,19 +254,19 @@ static int send_message_plymouth(Manager *m, const char *message) {
 
                 m->plymouth_cancel_sent = false;
 
-                r = send_message_plymouth_socket(m->plymouth_fd, "", false);
+                r = plymouth_send_message(m->plymouth_fd, "", false);
                 if (r < 0)
                         log_warning_errno(r, "Can't clear plymouth filesystem cancel message: %m");
         }
 
-        r = send_message_plymouth_socket(m->plymouth_fd,  message, true);
+        r = plymouth_send_message(m->plymouth_fd,  message, true);
         if (r < 0)
                 return log_warning_errno(r, "Couldn't send \"%s\" to plymouth: %m", message);
 
         return 0;
 }
 
-static int update_global_progress(Manager *m) {
+static int manager_update_global_progress(Manager *m) {
         Client *current = NULL;
         _cleanup_free_ char *console_message = NULL;
         _cleanup_free_ char *fsck_message = NULL;
@@ -277,7 +304,7 @@ static int update_global_progress(Manager *m) {
                 }
 
                 /* try to connect to plymouth and send message */
-                r = send_message_plymouth(m, fsck_message);
+                r = manager_send_plymouth_message(m, fsck_message);
                 if (r < 0)
                         log_debug("Couldn't send message to plymouth");
 
@@ -287,44 +314,15 @@ static int update_global_progress(Manager *m) {
         return 0;
 }
 
-static int connect_plymouth(Manager *m) {
-        union sockaddr_union sa = PLYMOUTH_SOCKET;
-        int r;
-
-        /* try to connect or reconnect if sending a message */
-        if (m->plymouth_fd >= 0)
-                return 0;
-
-        m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (m->plymouth_fd < 0)
-                return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
-
-        if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
-                r = log_warning_errno(errno, "Couldn't connect to plymouth: %m");
-                goto fail;
-        }
-
-        r = sd_event_add_io(m->event, &m->plymouth_event_source, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
-        if (r < 0) {
-                log_warning_errno(r, "Can't listen to plymouth socket: %m");
-                goto fail;
-        }
-
-        return 0;
-
-fail:
-        plymouth_disconnect(m);
-        return r;
-}
-
-static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int client_progress_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Client *client = userdata;
-        Manager *m = NULL;
         FsckProgress fsck_data;
         size_t buflen;
+        Manager *m;
         int r;
 
         assert(client);
+
         m = client->manager;
 
         /* check first if we need to cancel this client */
@@ -340,7 +338,7 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
                 else {
                         log_warning("Closing bad behaving fsck client connection at fd %d", client->fd);
                         client_free(client);
-                        r = update_global_progress(m);
+                        r = manager_update_global_progress(m);
                         if (r < 0)
                                 log_warning_errno(r, "Couldn't update global progress: %m");
                 }
@@ -366,14 +364,14 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
         } else
                 log_error_errno(r, "Unknown error while trying to read fsck data: %m");
 
-        r = update_global_progress(m);
+        r = manager_update_global_progress(m);
         if (r < 0)
                 log_warning_errno(r, "Couldn't update global progress: %m");
 
         return 0;
 }
 
-static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int manager_new_connection_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         Client *client = NULL;
         int new_client_fd, r;
@@ -393,7 +391,7 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
         client->fd = new_client_fd;
         client->manager = m;
         LIST_PREPEND(clients, m->clients, client);
-        r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, progress_handler, client);
+        r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, client_progress_handler, client);
         if (r < 0) {
                 client_free(client);
                 return r;
@@ -420,15 +418,15 @@ static void manager_free(Manager *m) {
                 fflush(m->console);
         }
 
-        plymouth_disconnect(m);
-
         safe_close(m->connection_fd);
-
-        if (m->console)
-                fclose(m->console);
 
         while (m->clients)
                 client_free(m->clients);
+
+        manager_disconnect_plymouth(m);
+
+        if (m->console)
+                fclose(m->console);
 
         sd_event_unref(m->event);
 
@@ -436,7 +434,7 @@ static void manager_free(Manager *m) {
 }
 
 static int manager_new(Manager **ret, int fd) {
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -445,19 +443,24 @@ static int manager_new(Manager **ret, int fd) {
         if (!m)
                 return -ENOMEM;
 
+        m->plymouth_fd = -1;
+        m->connection_fd = fd;
+        m->percent = 100;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 
-        m->connection_fd = fd;
         if (access("/run/systemd/show-status", F_OK) >= 0) {
                 m->console = fopen("/dev/console", "we");
                 if (!m->console)
-                        return log_warning_errno(errno, "Can't connect to /dev/console: %m");
+                        return -errno;
         }
-        m->percent = 100;
 
-        m->plymouth_fd = -1;
+        r = sd_event_add_io(m->event, NULL, fd, EPOLLIN, manager_new_connection_handler, m);
+        if (r < 0)
+                return r;
+
         *ret = m;
         m = NULL;
 
@@ -548,7 +551,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int fd = -1;
         int r, n;
 
@@ -579,12 +582,6 @@ int main(int argc, char *argv[]) {
         r = manager_new(&m, fd);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate manager: %m");
-                goto finish;
-        }
-
-        r = sd_event_add_io(m->event, NULL, fd, EPOLLIN, new_connection_handler, m);
-        if (r < 0) {
-                log_error_errno(r, "Can't listen to connection socket: %m");
                 goto finish;
         }
 
