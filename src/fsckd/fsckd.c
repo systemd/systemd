@@ -338,24 +338,25 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
 
         /* Initialize and list new clients */
         new_client_fd = accept4(m->connection_fd, NULL, NULL, SOCK_CLOEXEC);
-        if (new_client_fd > 0) {
-                log_debug("New fsck client connected to fd: %d", new_client_fd);
-                client = new0(Client, 1);
-                if (!client)
-                        return log_oom();
-                client->fd = new_client_fd;
-                client->manager = m;
-                LIST_PREPEND(clients, m->clients, client);
-                r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, progress_handler, client);
-                if (r < 0) {
-                        remove_client(&(m->clients), client);
-                        return r;
-                }
-                /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
-                if (m->cancel_requested)
-                        request_cancel_client(client);
-        } else
+        if (new_client_fd < 0)
                 return log_error_errno(errno, "Couldn't accept a new connection: %m");
+
+        log_debug("New fsck client connected to fd: %d", new_client_fd);
+
+        client = new0(Client, 1);
+        if (!client)
+                return log_oom();
+        client->fd = new_client_fd;
+        client->manager = m;
+        LIST_PREPEND(clients, m->clients, client);
+        r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, progress_handler, client);
+        if (r < 0) {
+                remove_client(&(m->clients), client);
+                return r;
+        }
+        /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
+        if (m->cancel_requested)
+                request_cancel_client(client);
 
         return 0;
 }
