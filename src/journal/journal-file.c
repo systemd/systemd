@@ -2795,14 +2795,15 @@ int journal_file_open_reliably(
 
         r = journal_file_open(fname, flags, mode, compress, seal,
                               metrics, mmap_cache, template, ret);
-        if (r != -EBADMSG && /* corrupted */
-            r != -ENODATA && /* truncated */
-            r != -EHOSTDOWN && /* other machine */
-            r != -EPROTONOSUPPORT && /* incompatible feature */
-            r != -EBUSY && /* unclean shutdown */
-            r != -ESHUTDOWN && /* already archived */
-            r != -EIO && /* IO error, including SIGBUS on mmap */
-            r != -EIDRM /* File has been deleted */)
+        if (!IN_SET(r,
+                    -EBADMSG,           /* corrupted */
+                    -ENODATA,           /* truncated */
+                    -EHOSTDOWN,         /* other machine */
+                    -EPROTONOSUPPORT,   /* incompatible feature */
+                    -EBUSY,             /* unclean shutdown */
+                    -ESHUTDOWN,         /* already archived */
+                    -EIO,               /* IO error, including SIGBUS on mmap */
+                    -EIDRM              /* File has been deleted */))
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
