@@ -252,20 +252,22 @@ static int connect_plymouth(Manager *m) {
         int r;
 
         /* try to connect or reconnect if sending a message */
-        if (m->plymouth_fd <= 0) {
-                m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-                if (m->plymouth_fd < 0) {
-                        return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
-                }
-                if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
-                        on_plymouth_disconnect(m);
-                        return log_warning_errno(errno, "Couldn't connect to plymouth: %m");
-                }
-                r = sd_event_add_io(m->event, NULL, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
-                if (r < 0) {
-                        on_plymouth_disconnect(m);
-                        return log_warning_errno(r, "Can't listen to plymouth socket: %m");
-                }
+        if (m->plymouth_fd >= 0)
+                return 0;
+
+        m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (m->plymouth_fd < 0)
+                return log_warning_errno(errno, "Connection to plymouth socket failed: %m");
+
+        if (connect(m->plymouth_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+                on_plymouth_disconnect(m);
+                return log_warning_errno(errno, "Couldn't connect to plymouth: %m");
+        }
+
+        r = sd_event_add_io(m->event, NULL, m->plymouth_fd, EPOLLIN, plymouth_feedback_handler, m);
+        if (r < 0) {
+                on_plymouth_disconnect(m);
+                return log_warning_errno(r, "Can't listen to plymouth socket: %m");
         }
 
         return 0;
