@@ -54,10 +54,13 @@ typedef struct Client {
         struct Manager *manager;
         int fd;
         dev_t devnum;
+
         size_t cur;
         size_t max;
         int pass;
+
         double percent;
+
         size_t buflen;
         bool cancelled;
 
@@ -66,17 +69,20 @@ typedef struct Client {
 
 typedef struct Manager {
         sd_event *event;
-        Client *clients;
+
+        LIST_HEAD(Client, clients);
+
         int clear;
         int connection_fd;
+
         FILE *console;
         double percent;
         int numdevices;
 
         int plymouth_fd;
         sd_event_source *plymouth_event_source;
-
         bool plymouth_cancel_sent;
+
         bool cancel_requested;
 } Manager;
 
@@ -123,10 +129,14 @@ static int request_cancel_client(Client *current) {
         return 0;
 }
 
-static void remove_client(Client **first, Client *item) {
-        LIST_REMOVE(clients, *first, item);
-        safe_close(item->fd);
-        free(item);
+static void client_free(Client *c) {
+        assert(c);
+
+        if (c->manager)
+                LIST_REMOVE(clients, c->manager->clients, c);
+
+        safe_close(c->fd);
+        free(c);
 }
 
 static void plymouth_disconnect(Manager *m) {
@@ -326,7 +336,7 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
                 /* we got twice the same size from a bad behaving client, kick it off the list */
                 else {
                         log_warning("Closing bad behaving fsck client connection at fd %d", client->fd);
-                        remove_client(&(m->clients), client);
+                        client_free(client);
                         r = update_global_progress(m);
                         if (r < 0)
                                 log_warning_errno(r, "Couldn't update global progress: %m");
@@ -338,7 +348,7 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
         r = recv(fd, &fsck_data, sizeof(FsckProgress), 0);
         if (r == 0) {
                 log_debug("Fsck client connected to fd %d disconnected", client->fd);
-                remove_client(&(m->clients), client);
+                client_free(client);
         } else if (r > 0 && r != sizeof(FsckProgress))
                 log_warning("Unexpected data structure sent to fsckd socket from fd: %d. Ignoring", client->fd);
         else if (r > 0 && r == sizeof(FsckProgress)) {
@@ -382,7 +392,7 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
         LIST_PREPEND(clients, m->clients, client);
         r = sd_event_add_io(m->event, NULL, client->fd, EPOLLIN, progress_handler, client);
         if (r < 0) {
-                remove_client(&(m->clients), client);
+                client_free(client);
                 return r;
         }
         /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
@@ -393,7 +403,6 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
 }
 
 static void manager_free(Manager *m) {
-        Client *current = NULL, *l = NULL;
         if (!m)
                 return;
 
@@ -415,8 +424,8 @@ static void manager_free(Manager *m) {
         if (m->console)
                 fclose(m->console);
 
-        LIST_FOREACH_SAFE(clients, current, l, m->clients)
-                remove_client(&(m->clients), current);
+        while (m->clients)
+                client_free(m->clients);
 
         sd_event_unref(m->event);
 
