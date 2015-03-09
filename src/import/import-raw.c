@@ -117,7 +117,7 @@ int raw_import_new(
         i->on_finished = on_finished;
         i->userdata = userdata;
 
-        RATELIMIT_INIT(i->progress_rate_limit, 500 * USEC_PER_MSEC, 1);
+        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
         i->last_percent = (unsigned) -1;
 
         i->image_root = strdup(image_root ?: "/var/lib/machines");
@@ -343,6 +343,9 @@ static int raw_import_process(RawImport *i) {
 
         l = read(i->input_fd, i->buffer + i->buffer_size, sizeof(i->buffer) - i->buffer_size);
         if (l < 0) {
+                if (errno == EAGAIN)
+                        return 0;
+
                 r = log_error_errno(errno, "Failed to read input file: %m");
                 goto finish;
         }
@@ -427,6 +430,10 @@ int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, 
 
         if (i->input_fd >= 0)
                 return -EBUSY;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return r;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)

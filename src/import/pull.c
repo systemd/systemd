@@ -319,7 +319,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Download container or virtual machine image.\n\n"
+               "Download container or virtual machine images.\n\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --force                  Force creation of image\n"

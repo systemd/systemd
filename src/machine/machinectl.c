@@ -71,6 +71,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_dkr_index_url = NULL;
+static const char* arg_format = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -1551,7 +1552,7 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
         return 0;
 }
 
-static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
+static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_slot_unref_ sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -1598,7 +1599,7 @@ static int pull_image_common(sd_bus *bus, sd_bus_message *m) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed acquire image: %s", bus_error_message(&error, -r));
+                log_error("Failed transfer image: %s", bus_error_message(&error, -r));
                 return r;
         }
 
@@ -1685,7 +1686,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return pull_image_common(bus, m);
+        return transfer_image_common(bus, m);
 }
 
 static int import_raw(int argc, char *argv[], void *userdata) {
@@ -1752,7 +1753,124 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return pull_image_common(bus, m);
+        return transfer_image_common(bus, m);
+}
+
+static void determine_compression_from_filename(const char *p) {
+        if (arg_format)
+                return;
+
+        if (!p)
+                return;
+
+        if (endswith(p, ".xz"))
+                arg_format = "xz";
+        else if (endswith(p, ".gz"))
+                arg_format = "gzip";
+        else if (endswith(p, ".bz2"))
+                arg_format = "bzip2";
+}
+
+static int export_tar(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *local = NULL, *path = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        local = argv[1];
+        if (!machine_name_is_valid(local)) {
+                log_error("Machine name %s is not valid.", local);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                path = argv[2];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (path) {
+                determine_compression_from_filename(path);
+
+                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "ExportTar");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "shs",
+                        local,
+                        fd >= 0 ? fd : STDOUT_FILENO,
+                        arg_format);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return transfer_image_common(bus, m);
+}
+
+static int export_raw(int argc, char *argv[], void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_free_ char *ll = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *local = NULL, *path = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        local = argv[1];
+        if (!machine_name_is_valid(local)) {
+                log_error("Machine name %s is not valid.", local);
+                return -EINVAL;
+        }
+
+        if (argc >= 3)
+                path = argv[2];
+        if (isempty(path) || streq(path, "-"))
+                path = NULL;
+
+        if (path) {
+                determine_compression_from_filename(path);
+
+                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "ExportRaw");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "shs",
+                        local,
+                        fd >= 0 ? fd : STDOUT_FILENO,
+                        arg_format);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return transfer_image_common(bus, m);
 }
 
 static int pull_tar(int argc, char *argv[], void *userdata) {
@@ -1816,7 +1934,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return pull_image_common(bus, m);
+        return transfer_image_common(bus, m);
 }
 
 static int pull_raw(int argc, char *argv[], void *userdata) {
@@ -1880,7 +1998,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return pull_image_common(bus, m);
+        return transfer_image_common(bus, m);
 }
 
 static int pull_dkr(int argc, char *argv[], void *userdata) {
@@ -1952,7 +2070,7 @@ static int pull_dkr(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return pull_image_common(bus, m);
+        return transfer_image_common(bus, m);
 }
 
 typedef struct TransferInfo {
@@ -2199,11 +2317,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n\n"
                "Image Transfer Commands:\n"
-               "  import-tar FILE [NAME]      Import a local TAR container image\n"
-               "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  pull-dkr REMOTE [NAME]      Download a DKR container image\n"
+               "  import-tar FILE [NAME]      Import a local TAR container image\n"
+               "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
+               "  export-tar FILE [NAME]      Export a TAR container image locally\n"
+               "  export-raw FILE [NAME]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
                , program_invocation_short_name);
@@ -2224,6 +2344,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY,
                 ARG_FORCE,
                 ARG_DKR_INDEX_URL,
+                ARG_FORMAT,
         };
 
         static const struct option options[] = {
@@ -2247,6 +2368,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "dkr-index-url",   required_argument, NULL, ARG_DKR_INDEX_URL   },
+                { "format",          required_argument, NULL, ARG_FORMAT          },
                 {}
         };
 
@@ -2368,6 +2490,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_dkr_index_url = optarg;
                         break;
 
+                case ARG_FORMAT:
+                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2")) {
+                                log_error("Unknown format: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_format = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2405,6 +2536,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "disable",         2,        VERB_ANY, 0,            enable_machine    },
                 { "import-tar",      2,        3,        0,            import_tar        },
                 { "import-raw",      2,        3,        0,            import_raw        },
+                { "export-tar",      2,        3,        0,            export_tar        },
+                { "export-raw",      2,        3,        0,            export_raw        },
                 { "pull-tar",        2,        3,        0,            pull_tar          },
                 { "pull-raw",        2,        3,        0,            pull_raw          },
                 { "pull-dkr",        2,        3,        0,            pull_dkr          },

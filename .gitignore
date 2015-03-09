@@ -75,6 +75,7 @@
 /systemd-efi-boot-generator
 /systemd-escape
 /systemd-evcat
+/systemd-export
 /systemd-firstboot
 /systemd-fsck
 /systemd-fsckd

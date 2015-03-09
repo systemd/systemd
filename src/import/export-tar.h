@@ -21,8 +21,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int import_make_read_only_fd(int fd);
-int import_make_read_only(const char *path);
+#include "sd-event.h"
+#include "macro.h"
+#include "import-compress.h"
 
-int import_fork_tar_c(const char *path, pid_t *ret);
-int import_fork_tar_x(const char *path, pid_t *ret);
+typedef struct TarExport TarExport;
+
+typedef void (*TarExportFinished)(TarExport *export, int error, void *userdata);
+
+int tar_export_new(TarExport **export, sd_event *event, TarExportFinished on_finished, void *userdata);
+TarExport* tar_export_unref(TarExport *export);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TarExport*, tar_export_unref);
+
+int tar_export_start(TarExport *export, const char *path, int fd, ImportCompressType compress);

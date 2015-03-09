@@ -335,7 +335,7 @@ static int tar_pull_job_on_open_disk(PullJob *j) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        j->disk_fd = import_fork_tar(i->temp_path, &i->tar_pid);
+        j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 

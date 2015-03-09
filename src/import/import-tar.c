@@ -78,7 +78,7 @@ TarImport* tar_import_unref(TarImport *i) {
         if (!i)
                 return NULL;
 
-        sd_event_unref(i->event);
+        sd_event_source_unref(i->input_event_source);
 
         if (i->tar_pid > 1) {
                 (void) kill_and_sigcont(i->tar_pid, SIGKILL);
@@ -93,7 +93,7 @@ TarImport* tar_import_unref(TarImport *i) {
 
         import_compress_free(&i->compress);
 
-        sd_event_source_unref(i->input_event_source);
+        sd_event_unref(i->event);
 
         safe_close(i->tar_fd);
 
@@ -125,7 +125,7 @@ int tar_import_new(
         i->on_finished = on_finished;
         i->userdata = userdata;
 
-        RATELIMIT_INIT(i->progress_rate_limit, 500 * USEC_PER_MSEC, 1);
+        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
         i->last_percent = (unsigned) -1;
 
         i->image_root = strdup(image_root ?: "/var/lib/machines");
@@ -236,7 +236,7 @@ static int tar_import_fork_tar(TarImport *i) {
         } else if (r < 0)
                 return log_error_errno(errno, "Failed to create subvolume %s: %m", i->temp_path);
 
-        i->tar_fd = import_fork_tar(i->temp_path, &i->tar_pid);
+        i->tar_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (i->tar_fd < 0)
                 return i->tar_fd;
 
@@ -271,6 +271,9 @@ static int tar_import_process(TarImport *i) {
 
         l = read(i->input_fd, i->buffer + i->buffer_size, sizeof(i->buffer) - i->buffer_size);
         if (l < 0) {
+                if (errno == EAGAIN)
+                        return 0;
+
                 r = log_error_errno(errno, "Failed to read input file: %m");
                 goto finish;
         }
@@ -347,6 +350,10 @@ int tar_import_start(TarImport *i, int fd, const char *local, bool force_local, 
 
         if (i->input_fd >= 0)
                 return -EBUSY;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return r;
 
         r = free_and_strdup(&i->local, local);
         if (r < 0)

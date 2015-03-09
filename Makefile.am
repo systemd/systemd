@@ -5371,7 +5371,8 @@ if HAVE_GCRYPT
 rootlibexec_PROGRAMS += \
 	systemd-importd \
 	systemd-pull \
-	systemd-import
+	systemd-import \
+	systemd-export
 
 systemd_importd_SOURCES = \
 	src/import/importd.c
@@ -5379,7 +5380,8 @@ systemd_importd_SOURCES = \
 systemd_importd_CFLAGS = \
 	$(AM_CFLAGS) \
 	-D SYSTEMD_PULL_PATH=\"$(rootlibexecdir)/systemd-pull\" \
-	-D SYSTEMD_IMPORT_PATH=\"$(rootlibexecdir)/systemd-import\"
+	-D SYSTEMD_IMPORT_PATH=\"$(rootlibexecdir)/systemd-import\" \
+	-D SYSTEMD_EXPORT_PATH=\"$(rootlibexecdir)/systemd-export\"
 
 systemd_importd_LDADD = \
 	libsystemd-internal.la \
@@ -5447,6 +5449,30 @@ systemd_import_CFLAGS = \
 	$(ZLIB_CFLAGS)
 
 systemd_import_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	$(XZ_LIBS) \
+	$(ZLIB_LIBS) \
+	-lbz2
+
+systemd_export_SOURCES = \
+	src/import/export.c \
+	src/import/export-tar.c \
+	src/import/export-tar.h \
+	src/import/export-raw.c \
+	src/import/export-raw.h \
+	src/import/import-common.c \
+	src/import/import-common.h \
+	src/import/import-compress.c \
+	src/import/import-compress.h
+
+systemd_export_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(XZ_CFLAGS) \
+	$(ZLIB_CFLAGS)
+
+systemd_export_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \

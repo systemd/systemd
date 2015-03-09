@@ -41,6 +41,8 @@ typedef struct Manager Manager;
 typedef enum TransferType {
         TRANSFER_IMPORT_TAR,
         TRANSFER_IMPORT_RAW,
+        TRANSFER_EXPORT_TAR,
+        TRANSFER_EXPORT_RAW,
         TRANSFER_PULL_TAR,
         TRANSFER_PULL_RAW,
         TRANSFER_PULL_DKR,
@@ -63,6 +65,7 @@ struct Transfer {
         bool read_only;
 
         char *dkr_index_url;
+        char *format;
 
         pid_t pid;
 
@@ -78,6 +81,7 @@ struct Transfer {
         unsigned progress_percent;
 
         int stdin_fd;
+        int stdout_fd;
 };
 
 struct Manager {
@@ -99,6 +103,8 @@ struct Manager {
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_IMPORT_TAR] = "import-tar",
         [TRANSFER_IMPORT_RAW] = "import-raw",
+        [TRANSFER_EXPORT_TAR] = "export-tar",
+        [TRANSFER_EXPORT_RAW] = "export-raw",
         [TRANSFER_PULL_TAR] = "pull-tar",
         [TRANSFER_PULL_RAW] = "pull-raw",
         [TRANSFER_PULL_DKR] = "pull-dkr",
@@ -119,6 +125,7 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->remote);
         free(t->local);
         free(t->dkr_index_url);
+        free(t->format);
         free(t->object_path);
 
         if (t->pid > 0) {
@@ -128,6 +135,7 @@ static Transfer *transfer_unref(Transfer *t) {
 
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
+        safe_close(t->stdout_fd);
 
         free(t);
         return NULL;
@@ -363,14 +371,16 @@ static int transfer_start(Transfer *t) {
                 return -errno;
         if (t->pid == 0) {
                 const char *cmd[] = {
-                        NULL, /* systemd-import or systemd-pull */
+                        NULL, /* systemd-import, systemd-export or systemd-pull */
                         NULL, /* tar, raw, dkr */
                         NULL, /* --verify= */
                         NULL, /* verify argument */
                         NULL, /* maybe --force */
                         NULL, /* maybe --read-only */
                         NULL, /* maybe --dkr-index-url */
-                        NULL, /* the actual URL */
+                        NULL, /* if so: the actual URL */
+                        NULL, /* maybe --format= */
+                        NULL, /* if so: the actual format */
                         NULL, /* remote */
                         NULL, /* local */
                         NULL
@@ -385,14 +395,24 @@ static int transfer_start(Transfer *t) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                if (dup2(pipefd[1], STDOUT_FILENO) != STDOUT_FILENO) {
+                if (dup2(pipefd[1], STDERR_FILENO) != STDERR_FILENO) {
                         log_error_errno(errno, "Failed to dup2() fd: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                if (dup2(pipefd[1], STDERR_FILENO) != STDERR_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
-                        _exit(EXIT_FAILURE);
+                if (t->stdout_fd >= 0) {
+                        if (dup2(t->stdout_fd, STDOUT_FILENO) != STDOUT_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (t->stdout_fd != STDOUT_FILENO)
+                                safe_close(t->stdout_fd);
+                } else {
+                        if (dup2(pipefd[1], STDOUT_FILENO) != STDOUT_FILENO) {
+                                log_error_errno(errno, "Failed to dup2() fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (pipefd[1] != STDOUT_FILENO && pipefd[1] != STDERR_FILENO)
@@ -433,12 +453,14 @@ static int transfer_start(Transfer *t) {
 
                 if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW))
                         cmd[k++] = SYSTEMD_IMPORT_PATH;
+                else if (IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW))
+                        cmd[k++] = SYSTEMD_EXPORT_PATH;
                 else
                         cmd[k++] = SYSTEMD_PULL_PATH;
 
-                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_PULL_TAR))
+                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_EXPORT_TAR, TRANSFER_PULL_TAR))
                         cmd[k++] = "tar";
-                else if (IN_SET(t->type, TRANSFER_IMPORT_RAW, TRANSFER_PULL_RAW))
+                else if (IN_SET(t->type, TRANSFER_IMPORT_RAW, TRANSFER_EXPORT_RAW, TRANSFER_PULL_RAW))
                         cmd[k++] = "raw";
                 else
                         cmd[k++] = "dkr";
@@ -458,10 +480,17 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = t->dkr_index_url;
                 }
 
-                if (t->remote)
-                        cmd[k++] = t->remote;
-                else
-                        cmd[k++] = "-";
+                if (t->format) {
+                        cmd[k++] = "--format";
+                        cmd[k++] = t->format;
+                }
+
+                if (!IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW)) {
+                        if (t->remote)
+                                cmd[k++] = t->remote;
+                        else
+                                cmd[k++] = "-";
+                }
 
                 if (t->local)
                         cmd[k++] = t->local;
@@ -738,6 +767,67 @@ static int method_import_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *user
 
         t->stdin_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (t->stdin_fd < 0)
+                return -errno;
+
+        r = transfer_start(t);
+        if (r < 0)
+                return r;
+
+        object = t->object_path;
+        id = t->id;
+        t = NULL;
+
+        return sd_bus_reply_method_return(msg, "uo", id, object);
+}
+
+static int method_export_tar_or_raw(sd_bus *bus, sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        int fd, r;
+        const char *local, *object, *format;
+        Manager *m = userdata;
+        TransferType type;
+        uint32_t id;
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.import1.export",
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = sd_bus_message_read(msg, "shs", &local, &fd, &format);
+        if (r < 0)
+                return r;
+
+        if (!machine_name_is_valid(local))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
+
+        r = transfer_new(m, &t);
+        if (r < 0)
+                return r;
+
+        t->type = type;
+
+        if (!isempty(format)) {
+                t->format = strdup(format);
+                if (!t->format)
+                        return -ENOMEM;
+        }
+
+        t->local = strdup(local);
+        if (!t->local)
+                return -ENOMEM;
+
+        t->stdout_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (t->stdout_fd < 0)
                 return -errno;
 
         r = transfer_start(t);
@@ -1080,6 +1170,8 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("ImportTar", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ImportRaw", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ExportTar", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullRaw", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullDkr", "sssssb", "uo", method_pull_dkr, SD_BUS_VTABLE_UNPRIVILEGED),

@@ -101,48 +101,42 @@ int btrfs_is_snapshot(int fd) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy) {
+int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, bool fallback_copy) {
         struct btrfs_ioctl_vol_args_v2 args = {
                 .flags = read_only ? BTRFS_SUBVOL_RDONLY : 0,
         };
-        _cleanup_close_ int old_fd = -1, new_fd = -1;
+        _cleanup_close_ int new_fd = -1;
         const char *subvolume;
         int r;
 
-        assert(old_path);
-
-        old_fd = open(old_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (old_fd < 0)
-                return -errno;
+        assert(new_path);
 
         r = btrfs_is_snapshot(old_fd);
         if (r < 0)
                 return r;
         if (r == 0) {
+                if (!fallback_copy)
+                        return -EISDIR;
 
-                if (fallback_copy) {
-                        r = btrfs_subvol_make(new_path);
-                        if (r < 0)
-                                return r;
+                r = btrfs_subvol_make(new_path);
+                if (r < 0)
+                        return r;
 
-                        r = copy_directory_fd(old_fd, new_path, true);
+                r = copy_directory_fd(old_fd, new_path, true);
+                if (r < 0) {
+                        btrfs_subvol_remove(new_path);
+                        return r;
+                }
+
+                if (read_only) {
+                        r = btrfs_subvol_set_read_only(new_path, true);
                         if (r < 0) {
                                 btrfs_subvol_remove(new_path);
                                 return r;
                         }
-
-                        if (read_only) {
-                                r = btrfs_subvol_set_read_only(new_path, true);
-                                if (r < 0) {
-                                        btrfs_subvol_remove(new_path);
-                                        return r;
-                                }
-                        }
-
-                        return 0;
                 }
 
-                return -EISDIR;
+                return 0;
         }
 
         r = extract_subvolume_name(new_path, &subvolume);
@@ -160,6 +154,19 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_
                 return -errno;
 
         return 0;
+}
+
+int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy) {
+        _cleanup_close_ int old_fd = -1;
+
+        assert(old_path);
+        assert(new_path);
+
+        old_fd = open(old_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (old_fd < 0)
+                return -errno;
+
+        return btrfs_subvol_snapshot_fd(old_fd, new_path, read_only, fallback_copy);
 }
 
 int btrfs_subvol_make(const char *path) {

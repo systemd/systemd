@@ -48,6 +48,8 @@ int btrfs_is_snapshot(int fd);
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_make_label(const char *path);
 int btrfs_subvol_remove(const char *path);
+
+int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, bool fallback_copy);
 int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy);
 
 int btrfs_subvol_set_read_only_fd(int fd, bool b);
