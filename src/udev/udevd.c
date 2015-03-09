@@ -904,14 +904,17 @@ static void handle_signal(struct udev *udev, int signo) {
 }
 
 static void event_queue_update(void) {
-        if (!udev_list_node_is_empty(&event_list)) {
-                int fd;
+        int r;
 
-                fd = open("/run/udev/queue", O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                if (fd >= 0)
-                       close(fd);
-        } else
-                unlink("/run/udev/queue");
+        if (!udev_list_node_is_empty(&event_list)) {
+                r = touch("/run/udev/queue");
+                if (r < 0)
+                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
+        } else {
+                r = unlink("/run/udev/queue");
+                if (r < 0 && errno != ENOENT)
+                        log_warning("could not unlink /run/udev/queue: %m");
+        }
 }
 
 static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
