@@ -34,16 +34,16 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "build.h"
 #include "def.h"
 #include "event-util.h"
-#include "fsckd.h"
 #include "log.h"
 #include "list.h"
 #include "macro.h"
-#include "sd-daemon.h"
 #include "socket-util.h"
 #include "util.h"
+#include "fsckd.h"
 
 #define IDLE_TIME_SECONDS 30
 #define PLYMOUTH_REQUEST_KEY "K\2\2\3"
@@ -102,16 +102,21 @@ static double compute_percent(int pass, size_t cur, size_t max) {
 }
 
 static int request_cancel_client(Client *current) {
-        FsckdMessage cancel_msg;
+        FsckdMessage cancel_msg = {
+                .cancel = 1,
+        };
+
         ssize_t n;
-        cancel_msg.cancel = 1;
 
         n = send(current->fd, &cancel_msg, sizeof(FsckdMessage), 0);
-        if (n < 0 || (size_t) n < sizeof(FsckdMessage))
-                return log_warning_errno(n, "Cannot send cancel to fsck on (%u, %u): %m",
-                                         major(current->devnum), minor(current->devnum));
-        else
-                current->cancelled = true;
+        if (n < 0)
+                return log_warning_errno(errno, "Cannot send cancel to fsck on (%u:%u): %m", major(current->devnum), minor(current->devnum));
+        if ((size_t) n < sizeof(FsckdMessage)) {
+                log_warning("Short send when sending cancel to fsck on (%u:%u).", major(current->devnum), minor(current->devnum));
+                return -EIO;
+        }
+
+        current->cancelled = true;
         return 0;
 }
 
