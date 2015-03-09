@@ -333,7 +333,8 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_VXLAN_LOCAL6,
                 IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
                 IFLA_BRIDGE_VLAN_INFO,
-                IFLA_BRPORT_UNICAST_FLOOD],
+                IFLA_BRPORT_UNICAST_FLOOD,
+                NDA_IFINDEX],
 [], [], [[
 #include <inttypes.h>
 #include <netinet/in.h>
@@ -344,6 +345,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
 #include <linux/if_tunnel.h>
 #include <linux/if_link.h>
 #include <linux/if_bridge.h>
+#include <linux/neighbour.h>
 ]])
 
 # This makes sure pkg.m4 is available.

@@ -35,6 +35,7 @@
 #include <linux/loop.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
+#include <linux/neighbour.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -621,6 +622,21 @@ static inline int setns(int fd, int nstype) {
 #define __IFLA_BRPORT_MAX 10
 
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+#endif
+
+#if !HAVE_DECL_NDA_IFINDEX
+#define NDA_UNSPEC 0
+#define NDA_DST 1
+#define NDA_LLADDR 2
+#define NDA_CACHEINFO 3
+#define NDA_PROBES 4
+#define NDA_VLAN 5
+#define NDA_PORT 6
+#define NDA_VNI 7
+#define NDA_IFINDEX 8
+#define __NDA_MAX 9
+
+#define NDA_MAX (__NDA_MAX - 1)
 #endif
 
 #ifndef IPV6_UNICAST_IF
