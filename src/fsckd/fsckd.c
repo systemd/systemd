@@ -110,23 +110,28 @@ static double compute_percent(int pass, size_t cur, size_t max) {
                 (double) cur / max;
 }
 
-static int request_cancel_client(Client *current) {
+static int client_request_cancel(Client *c) {
         FsckdMessage cancel_msg = {
                 .cancel = 1,
         };
 
         ssize_t n;
 
-        n = send(current->fd, &cancel_msg, sizeof(FsckdMessage), 0);
+        assert(c);
+
+        if (c->cancelled)
+                return 0;
+
+        n = send(c->fd, &cancel_msg, sizeof(FsckdMessage), 0);
         if (n < 0)
-                return log_warning_errno(errno, "Cannot send cancel to fsck on (%u:%u): %m", major(current->devnum), minor(current->devnum));
+                return log_warning_errno(errno, "Cannot send cancel to fsck on (%u:%u): %m", major(c->devnum), minor(c->devnum));
         if ((size_t) n < sizeof(FsckdMessage)) {
-                log_warning("Short send when sending cancel to fsck on (%u:%u).", major(current->devnum), minor(current->devnum));
+                log_warning("Short send when sending cancel to fsck on (%u:%u).", major(c->devnum), minor(c->devnum));
                 return -EIO;
         }
 
-        current->cancelled = true;
-        return 0;
+        c->cancelled = true;
+        return 1;
 }
 
 static void client_free(Client *c) {
@@ -175,7 +180,7 @@ static int plymouth_feedback_handler(sd_event_source *s, int fd, uint32_t revent
 
                 /* cancel all connected clients */
                 LIST_FOREACH(clients, current, m->clients)
-                        request_cancel_client(current);
+                        client_request_cancel(current);
         }
 
         return 0;
@@ -323,10 +328,8 @@ static int progress_handler(sd_event_source *s, int fd, uint32_t revents, void *
         m = client->manager;
 
         /* check first if we need to cancel this client */
-        if (m->cancel_requested) {
-                if (!client->cancelled)
-                        request_cancel_client(client);
-        }
+        if (m->cancel_requested)
+                client_request_cancel(client);
 
         /* ensure we have enough data to read */
         r = ioctl(fd, FIONREAD, &buflen);
@@ -397,7 +400,7 @@ static int new_connection_handler(sd_event_source *s, int fd, uint32_t revents, 
         }
         /* only request the client to cancel now in case the request is dropped by the client (chance to recancel) */
         if (m->cancel_requested)
-                request_cancel_client(client);
+                client_request_cancel(client);
 
         return 0;
 }
