@@ -1316,19 +1316,16 @@ static int setup_keys(void) {
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return log_oom();
 
-        if (access(p, F_OK) >= 0) {
-                if (arg_force) {
-                        r = unlink(p);
-                        if (r < 0) {
-                                log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
-                                r = -errno;
-                                goto finish;
-                        }
-                } else {
-                        log_error("Sealing key file %s exists already. (--force to recreate)", p);
-                        r = -EEXIST;
+        if (arg_force) {
+                r = unlink(p);
+                if (r < 0 && errno != ENOENT) {
+                        r = log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
                         goto finish;
                 }
+        } else if (access(p, F_OK) >= 0) {
+                log_error("Sealing key file %s exists already. Use --force to recreate.", p);
+                r = -EEXIST;
+                goto finish;
         }
 
         if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
