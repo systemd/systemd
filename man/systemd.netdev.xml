@@ -665,7 +665,174 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LearnPacketIntvSec,=</varname></term>
+        <listitem>
+          <para>Specifies the number of seconds between instances where the bonding
+          driver sends learning packets to each slaves peer switch.
+          The valid range is 1 - 0x7fffffff; the default value is 1. This Option
+          has effect only in balance-tlb and balance-alb modes.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AdSelect=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad aggregation selection logic to use. Possible values are
+          <literal>stable</literal>,
+          <literal>bandwidth</literal>,
+          <literal>count</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FailOverMac=</varname></term>
+        <listitem>
+          <para>Specifies whether active-backup mode should set all slaves to
+          the same MAC address at enslavement or, when enabled, perform special handling of the
+          bond's MAC address in accordance with the selected policy. The default policy is none.
+          Possible values are
+          <literal>none</literal>,
+          <literal>active</literal>,
+          <literal>follow</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ArpValidate=</varname></term>
+        <listitem>
+          <para>Specifies whether or not ARP probes and replies should be
+          validated in any mode that supports arp monitoring, or whether
+          non-ARP traffic should be filtered (disregarded) for link
+          monitoring purposes. Possible values are
+          <literal>none</literal>,
+          <literal>active</literal>,
+          <literal>backup</literal>,
+          <literal>all</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ArpIntervalSec=</varname></term>
+        <listitem>
+          <para>Specifies the ARP link monitoring frequency in milliseconds.
+          A value of 0 disables ARP monitoring. The default value is 0.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ArpIpTargets=</varname></term>
+        <listitem>
+          <para>Specifies the IP addresses to use as ARP monitoring peers when
+          ArpIntervalSec is greater than 0. These are the targets of the ARP request
+          sent to determine the health of the link to the targets.
+          Specify these values in ipv4 dotted decimal format. At least one IP
+          address must be given for ARP monitoring to function. The
+          maximum number of targets that can be specified is 16. The
+          default value is no IP addresses.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ArpAllTargets=</varname></term>
+        <listitem>
+          <para>Specifies the quantity of ArpIpTargets that must be reachable
+          in order for the ARP monitor to consider a slave as being up.
+          This option affects only active-backup mode for slaves with
+          ArpValidate enabled. Possible values are
+          <literal>any</literal>,
+          <literal>all</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrimaryReselect=</varname></term>
+        <listitem>
+          <para>Specifies the reselection policy for the primary slave.  This
+          affects how the primary slave is chosen to become the active slave
+          when failure of the active slave or recovery of the primary slave
+          occurs. This option is designed to prevent flip-flopping between
+          the primary slave and other slaves.  Possible values are
+          <literal>always</literal>,
+          <literal>better</literal>,
+          <literal>failure</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ResendIGMP=</varname></term>
+        <listitem>
+          <para>Specifies the number of IGMP membership reports to be issued after
+          a failover event. One membership report is issued immediately after
+          the failover, subsequent packets are sent in each 200ms interval.
+          The valid range is (0 - 255). Defaults to 1. A value of 0
+          prevents the IGMP membership report from being issued in response
+          to the failover event.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketsPerSlave=</varname></term>
+        <listitem>
+          <para> Specify the number of packets to transmit through a slave before
+            moving to the next one. When set to 0 then a slave is chosen at
+            random.The valid range is (0 - 65535). Defaults to 1. This option
+            has effect only in balance-rr mode.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NumGratuitousARP=</varname></term>
+        <listitem>
+          <para>Specify the number of peer notifications (gratuitous ARPs and
+            unsolicited IPv6 Neighbor Advertisements) to be issued after a
+            failover event.  As soon as the link is up on the new slave
+            a peer notification is sent on the  bonding device and each
+            VLAN sub-device.  This is repeated at each link monitor interval
+            (ArpIntervalSec or MIIMonitorSec, whichever is active) if the number is
+            greater than 1. The valid range is (0 - 255). Default value is 1.
+            These options affect only the active-backup mode
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AllSlavesActive=</varname></term>
+        <listitem>
+          <para> A boolean. Specifies that duplicate frames (received on inactive ports)
+          should be dropped false or delivered true. Normally, bonding will drop
+          duplicate frames (received on inactive ports), which is desirable for
+          most users. But there are some times it is nice to allow duplicate
+          frames to be delivered. The default value is false (drop duplicate frames
+          received on inactive ports).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinLinks=</varname></term>
+        <listitem>
+          <para>Specifies the minimum number of links that must be active before
+          asserting carrier. The default value is 0.
+          </para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
+
+    <para>For more detail information see
+    <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">
+    Linux Ethernet Bonding Driver HOWTO</ulink></para>
+
   </refsect1>
 
   <refsect1>

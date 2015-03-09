@@ -90,6 +90,30 @@ static const NLType rtnl_link_info_data_vxlan_types[IFLA_VXLAN_MAX+1] = {
         [IFLA_VXLAN_L3MISS] = { .type = NLA_U8 },
 };
 
+static const NLType rtnl_bond_arp_target_types[BOND_ARP_TARGETS_MAX + 1] = {
+        [BOND_ARP_TARGETS_0]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_1]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_2]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_3]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_4]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_5]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_6]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_7]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_8]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_9]        = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_10]       = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_11]       = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_12]       = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_13]       = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_14]       = { .type = NLA_U32 },
+        [BOND_ARP_TARGETS_MAX]      = { .type = NLA_U32 },
+};
+
+static const NLTypeSystem rtnl_bond_arp_type_system = {
+        .max = ELEMENTSOF(rtnl_bond_arp_target_types) - 1,
+        .types = rtnl_bond_arp_target_types,
+};
+
 static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
         [IFLA_BOND_MODE]                = { .type = NLA_U8 },
         [IFLA_BOND_ACTIVE_SLAVE]        = { .type = NLA_U32 },
@@ -98,7 +122,7 @@ static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
         [IFLA_BOND_DOWNDELAY]           = { .type = NLA_U32 },
         [IFLA_BOND_USE_CARRIER]         = { .type = NLA_U8 },
         [IFLA_BOND_ARP_INTERVAL]        = { .type = NLA_U32 },
-        [IFLA_BOND_ARP_IP_TARGET]       = { .type = NLA_NESTED },
+        [IFLA_BOND_ARP_IP_TARGET]       = { .type = NLA_NESTED, .type_system = &rtnl_bond_arp_type_system },
         [IFLA_BOND_ARP_VALIDATE]        = { .type = NLA_U32 },
         [IFLA_BOND_ARP_ALL_TARGETS]     = { .type = NLA_U32 },
         [IFLA_BOND_PRIMARY]             = { .type = NLA_U32 },
