@@ -122,8 +122,7 @@ static void remove_client(Client **first, Client *item) {
 }
 
 static void on_plymouth_disconnect(Manager *m) {
-        safe_close(m->plymouth_fd);
-        m->plymouth_fd = -1;
+        m->plymouth_fd = safe_close(m->plymouth_fd);
         m->plymouth_cancel_sent = false;
 }
 
