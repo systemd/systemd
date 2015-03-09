@@ -32,6 +32,14 @@ External:
 * When lz4 gets an API for lz4 command output, make use of it to
   compress coredumps in a way compatible with /usr/bin/lz4.
 
+Before 220:
+
+* rework fsckd/fsck's connection logic or remove fsck entirely
+
+* fix userns support in nspawn, or remove it entirely
+
+* make unmount-on-eject work again
+
 Features:
 
 * create a btrfs qgroup for /var/lib/machines, and add all container
@@ -113,8 +121,6 @@ Features:
 * import-dkr: support tarsum checksum verification, if it becomes reality one day...
 
 * import-dkr: convert json bits to nspawn configuration
-
-* import: support import from local files, and export to local files
 
 * core/cgroup: support net_cls modules, and support automatically allocating class ids, then add support for making firewall changes depending on it, to implement a per-service firewall
 
