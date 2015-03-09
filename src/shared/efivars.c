@@ -169,10 +169,9 @@ int efi_set_variable(
         struct var {
                 uint32_t attr;
                 char buf[];
-        } _packed_ *buf = NULL;
-        char *p = NULL;
-        int fd = -1;
-        int r;
+        } _packed_ * _cleanup_free_ buf = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
 
         assert(name);
 
@@ -182,42 +181,23 @@ int efi_set_variable(
                 return -ENOMEM;
 
         if (size == 0) {
-                r = unlink(p);
-                goto finish;
+                if (unlink(p) < 0)
+                        return -errno;
+                return 0;
         }
 
         fd = open(p, O_WRONLY|O_CREAT|O_NOCTTY|O_CLOEXEC, 0644);
-        if (fd < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fd < 0)
+                return -errno;
 
         buf = malloc(sizeof(uint32_t) + size);
-        if (!buf) {
-                r = -errno;
-                goto finish;
-        }
+        if (!buf)
+                return -ENOMEM;
 
         buf->attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         memcpy(buf->buf, value, size);
 
-        r = write(fd, buf, sizeof(uint32_t) + size);
-        if (r < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        if ((size_t)r != sizeof(uint32_t) + size) {
-                r = -EIO;
-                goto finish;
-        }
-
-finish:
-        if (fd >= 0)
-                close(fd);
-        free(buf);
-        free(p);
-        return r;
+        return loop_write(fd, buf, sizeof(uint32_t) + size, false);
 }
 
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
@@ -273,42 +253,17 @@ int efi_get_boot_option(
                 sd_id128_t *part_uuid,
                 char **path,
                 bool *active) {
-        struct boot_option {
-                uint32_t attr;
-                uint16_t path_len;
-                uint16_t title[];
-        } _packed_;
-
-        struct drive_path {
-                uint32_t part_nr;
-                uint64_t part_start;
-                uint64_t part_size;
-                char signature[16];
-                uint8_t mbr_type;
-                uint8_t signature_type;
-        } _packed_;
-
-        struct device_path {
-                uint8_t type;
-                uint8_t sub_type;
-                uint16_t length;
-                union {
-                        uint16_t path[0];
-                        struct drive_path drive;
-                };
-        } _packed_;
 
         char boot_id[9];
         _cleanup_free_ uint8_t *buf = NULL;
         size_t l;
         struct boot_option *header;
         size_t title_size;
-        char *s = NULL;
-        char *p = NULL;
+        _cleanup_free_ char *s = NULL, *p = NULL;
         sd_id128_t p_uuid = SD_ID128_NULL;
         int err;
 
-        snprintf(boot_id, sizeof(boot_id), "Boot%04X", id);
+        xsprintf(boot_id, "Boot%04X", id);
         err = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
         if (err < 0)
                 return err;
@@ -322,10 +277,8 @@ int efi_get_boot_option(
 
         if (title) {
                 s = utf16_to_utf8(header->title, title_size);
-                if (!s) {
-                        err = -ENOMEM;
-                        goto err;
-                }
+                if (!s)
+                        return -ENOMEM;
         }
 
         if (header->path_len > 0) {
@@ -375,20 +328,20 @@ int efi_get_boot_option(
                 }
         }
 
-        if (title)
+        if (title) {
                 *title = s;
+                s = NULL;
+        }
         if (part_uuid)
                 *part_uuid = p_uuid;
-        if (path)
+        if (path) {
                 *path = p;
+                p = NULL;
+        }
         if (active)
                 *active = !!header->attr & LOAD_OPTION_ACTIVE;
 
         return 0;
-err:
-        free(s);
-        free(p);
-        return err;
 }
 
 static void to_utf16(uint16_t *dest, const char *src) {
@@ -439,13 +392,12 @@ int efi_add_boot_option(uint16_t id, const char *title,
                         uint32_t part, uint64_t pstart, uint64_t psize,
                         sd_id128_t part_uuid, const char *path) {
         char boot_id[9];
-        char *buf;
         size_t size;
         size_t title_len;
         size_t path_len;
         struct boot_option *option;
         struct device_path *devicep;
-        int err;
+        _cleanup_free_ char *buf = NULL;
 
         title_len = (strlen(title)+1) * 2;
         path_len = (strlen(path)+1) * 2;
@@ -453,10 +405,8 @@ int efi_add_boot_option(uint16_t id, const char *title,
         buf = calloc(sizeof(struct boot_option) + title_len +
                      sizeof(struct drive_path) +
                      sizeof(struct device_path) + path_len, 1);
-        if (!buf) {
-                err = -ENOMEM;
-                goto finish;
-        }
+        if (!buf)
+                return -ENOMEM;
 
         /* header */
         option = (struct boot_option *)buf;
@@ -496,18 +446,14 @@ int efi_add_boot_option(uint16_t id, const char *title,
         devicep->length = offsetof(struct device_path, path);
         size += devicep->length;
 
-        snprintf(boot_id, sizeof(boot_id), "Boot%04X", id);
-        err = efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, buf, size);
-
-finish:
-        free(buf);
-        return err;
+        xsprintf(boot_id, "Boot%04X", id);
+        return efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, buf, size);
 }
 
 int efi_remove_boot_option(uint16_t id) {
         char boot_id[9];
 
-        snprintf(boot_id, sizeof(boot_id), "Boot%04X", id);
+        xsprintf(boot_id, "Boot%04X", id);
         return efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, 0);
 }
 
@@ -563,8 +509,8 @@ static int cmp_uint16(const void *_a, const void *_b) {
 int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
-        uint16_t *list = NULL;
-        int count = 0, r;
+        _cleanup_free_ uint16_t *list = NULL;
+        int count = 0;
 
         assert(options);
 
@@ -572,7 +518,7 @@ int efi_get_boot_options(uint16_t **options) {
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT(de, dir, r = -errno; goto fail) {
+        FOREACH_DIRENT(de, dir, return -errno) {
                 int id;
                 uint16_t *t;
 
@@ -590,10 +536,8 @@ int efi_get_boot_options(uint16_t **options) {
                         continue;
 
                 t = realloc(list, (count + 1) * sizeof(uint16_t));
-                if (!t) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!t)
+                        return -ENOMEM;
 
                 list = t;
                 list[count ++] = id;
@@ -602,11 +546,8 @@ int efi_get_boot_options(uint16_t **options) {
         qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
 
         *options = list;
+        list = NULL;
         return count;
-
-fail:
-        free(list);
-        return r;
 }
 
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
