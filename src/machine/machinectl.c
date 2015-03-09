@@ -1773,7 +1773,6 @@ static void determine_compression_from_filename(const char *p) {
 
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = userdata;
@@ -1824,7 +1823,6 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
 static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = userdata;
