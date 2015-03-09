@@ -261,12 +261,12 @@ int efi_get_boot_option(
         size_t title_size;
         _cleanup_free_ char *s = NULL, *p = NULL;
         sd_id128_t p_uuid = SD_ID128_NULL;
-        int err;
+        int r;
 
         xsprintf(boot_id, "Boot%04X", id);
-        err = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
-        if (err < 0)
-                return err;
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
+        if (r < 0)
+                return r;
         if (l < sizeof(struct boot_option))
                 return -ENOENT;
 
