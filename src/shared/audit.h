@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdint.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 

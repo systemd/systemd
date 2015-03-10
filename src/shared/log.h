@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <syslog.h>
 #include <sys/signalfd.h>
 #include <errno.h>
