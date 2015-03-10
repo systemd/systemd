@@ -348,8 +348,7 @@ static int manager_update_global_progress(Manager *m) {
                 /* try to connect to plymouth and send message */
                 r = manager_send_plymouth_message(m, fsck_message);
                 if (r < 0)
-                        log_debug("Couldn't send message to plymouth");
-
+                        return r;
         }
         return 0;
 }
@@ -378,9 +377,7 @@ static int client_progress_handler(sd_event_source *s, int fd, uint32_t revents,
                 else {
                         log_warning("Closing bad behaving fsck client connection at fd %d", client->fd);
                         client_free(client);
-                        r = manager_update_global_progress(m);
-                        if (r < 0)
-                                log_warning_errno(r, "Couldn't update global progress: %m");
+                        manager_update_global_progress(m);
                 }
                 return 0;
         }
@@ -404,9 +401,7 @@ static int client_progress_handler(sd_event_source *s, int fd, uint32_t revents,
         } else
                 log_error_errno(r, "Unknown error while trying to read fsck data: %m");
 
-        r = manager_update_global_progress(m);
-        if (r < 0)
-                log_warning_errno(r, "Couldn't update global progress: %m");
+        manager_update_global_progress(m);
 
         return 0;
 }
