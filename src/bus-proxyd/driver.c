@@ -49,9 +49,6 @@ static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bu
         if (r < 0)
                 return r;
 
-        if ((c->mask & mask) != mask)
-                return -ENOTSUP;
-
         *_creds = c;
         c = NULL;
 
@@ -108,6 +105,10 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         "  </method>\n"
                         "  <method name=\"RemoveMatch\">\n"
                         "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "  </method>\n"
+                        "  <method name=\"GetConnectionCredentials\">\n"
+                        "   <arg type=\"s\" direction=\"in\"/>\n"
+                        "   <arg type=\"a{sv}\" direction=\"out\"/>\n"
                         "  </method>\n"
                         "  <method name=\"GetConnectionSELinuxSecurityContext\">\n"
                         "   <arg type=\"s\" direction=\"in\"/>\n"
@@ -212,6 +213,72 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
 
                 return synthetic_reply_method_return(m, NULL);
 
+        } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionCredentials")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!sd_bus_message_has_signature(m, "s"))
+                        return synthetic_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid parameters"));
+
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, &error);
+
+                r = sd_bus_message_new_method_return(m, &reply);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                r = sd_bus_message_open_container(reply, 'a', "{sv}");
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                /* Due to i.e. namespace translations some data might be missing */
+
+                if (creds->mask & SD_BUS_CREDS_PID) {
+                        r = sd_bus_message_append(reply, "{sv}", "ProcessID", "u", (uint32_t) creds->pid);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                if (creds->mask & SD_BUS_CREDS_EUID) {
+                        r = sd_bus_message_append(reply, "{sv}", "UnixUserID", "u", (uint32_t) creds->euid);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                if (creds->mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                        r = sd_bus_message_open_container(reply, 'e', "sv");
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_append(reply, "s", "LinuxSecurityLabel");
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_open_container(reply, 'v', "ay");
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_append_array(reply, 'y', creds->label, strlen(creds->label));
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_close_container(reply);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+
+                        r = sd_bus_message_close_container(reply);
+                        if (r < 0)
+                                return synthetic_reply_method_errno(m, r, NULL);
+                }
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
+
+                return synthetic_driver_send(m->bus, reply);
+
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -222,6 +289,9 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
+
+                if (!(creds->mask & SD_BUS_CREDS_SELINUX_CONTEXT))
+                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
 
                 return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
 
@@ -236,6 +306,9 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
 
+                if (!(creds->mask & SD_BUS_CREDS_PID))
+                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
+
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
@@ -248,6 +321,9 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 r = get_creds_by_message(a, m, SD_BUS_CREDS_EUID, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
+
+                if (!(creds->mask & SD_BUS_CREDS_EUID))
+                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->euid);
 
@@ -282,6 +358,9 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                 r = get_creds_by_name(a, name, SD_BUS_CREDS_UNIQUE_NAME, &creds, &error);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, &error);
+
+                if (!(creds->mask & SD_BUS_CREDS_UNIQUE_NAME))
+                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
 
                 return synthetic_reply_method_return(m, "s", creds->unique_name);
 

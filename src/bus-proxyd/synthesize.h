@@ -23,6 +23,8 @@
 
 #include "sd-bus.h"
 
+int synthetic_driver_send(sd_bus *b, sd_bus_message *m);
+
 int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...);
 int synthetic_reply_method_return_strv(sd_bus_message *call, char **l);
 
