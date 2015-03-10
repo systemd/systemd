@@ -245,8 +245,9 @@ static int raw_import_finish(RawImport *i) {
                 (void) rm_rf_dangerous(i->final_path, false, true, false);
         }
 
-        if (renameat2(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path, RENAME_NOREPLACE) < 0)
-                return log_error_errno(errno, "Failed to move image into place: %m");
+        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move image into place: %m");
 
         free(i->temp_path);
         i->temp_path = NULL;

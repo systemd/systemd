@@ -440,8 +440,9 @@ int image_rename(Image *i, const char *new_name) {
         if (!nn)
                 return -ENOMEM;
 
-        if (renameat2(AT_FDCWD, i->path, AT_FDCWD, new_path, RENAME_NOREPLACE) < 0)
-                return -errno;
+        r = rename_noreplace(AT_FDCWD, i->path, AT_FDCWD, new_path);
+        if (r < 0)
+                return r;
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)

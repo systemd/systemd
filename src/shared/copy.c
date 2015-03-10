@@ -404,9 +404,15 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
         if (r < 0)
                 return r;
 
-        if (renameat2(AT_FDCWD, t, AT_FDCWD, to, replace ? 0 : RENAME_NOREPLACE) < 0) {
-                unlink_noerrno(t);
-                return -errno;
+        if (replace) {
+                r = renameat(AT_FDCWD, t, AT_FDCWD, to);
+                if (r < 0)
+                        r = -errno;
+        } else
+                r = rename_noreplace(AT_FDCWD, t, AT_FDCWD, to);
+        if (r < 0) {
+                (void) unlink_noerrno(t);
+                return r;
         }
 
         return 0;

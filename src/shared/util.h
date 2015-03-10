@@ -1081,3 +1081,5 @@ void sigkill_wait(pid_t *pid);
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);
 
 void cmsg_close_all(struct msghdr *mh);
+
+int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);

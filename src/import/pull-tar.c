@@ -281,8 +281,9 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 if (r < 0)
                         goto finish;
 
-                if (renameat2(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path, RENAME_NOREPLACE) < 0) {
-                        r = log_error_errno(errno, "Failed to rename to final image name: %m");
+                r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to rename to final image name: %m");
                         goto finish;
                 }
 

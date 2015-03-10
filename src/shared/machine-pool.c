@@ -140,8 +140,9 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        if (renameat2(AT_FDCWD, tmp, AT_FDCWD, "/var/lib/machines.raw", RENAME_NOREPLACE) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to move /var/lib/machines.raw into place: %m");
+        r = rename_noreplace(AT_FDCWD, tmp, AT_FDCWD, "/var/lib/machines.raw");
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to move /var/lib/machines.raw into place: %m");
                 goto fail;
         }
 
