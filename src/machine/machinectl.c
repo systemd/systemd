@@ -2320,8 +2320,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  pull-dkr REMOTE [NAME]      Download a DKR container image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
                "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
-               "  export-tar FILE [NAME]      Export a TAR container image locally\n"
-               "  export-raw FILE [NAME]      Export a RAW container or VM image locally\n"
+               "  export-tar NAME [FILE]      Export a TAR container image locally\n"
+               "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
                , program_invocation_short_name);

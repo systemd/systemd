@@ -214,6 +214,18 @@
         URL.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--format=</option></term>
+
+        <listitem><para>When used with the <option>export-tar</option>
+        or <option>export-raw</option> commands specifies the
+        compression format to use for the resulting file. Takes one of
+        <literal>uncompressed</literal>, <literal>xz</literal>,
+        <literal>gzip</literal>, <literal>bzip2</literal>. By default
+        the format is determined automatically from the image file
+        name passed.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -701,19 +713,45 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>export-tar</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
+        <term><command>export-raw</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
+        <listitem><para>Exports a TAR or RAW container or VM image and
+        stores it in the specified file. The first parameter should be
+        a VM or container image name. The second parameter should be a
+        file path the TAR or RAW image is written to. If the path ends
+        in <literal>.gz</literal> the file is compressed with gzip, if
+        it ends in <literal>.xz</literal> with xz, and if it ends in
+        <literal>.bz2</literal> with bzip2. If the path ends in
+        neither the file is left uncompressed. If the second argument
+        is missing the image is written to standard output. The
+        compression may also be explicitly selected with the
+        <option>--format=</option> switch. This is in particular
+        useful if the second parameter is left unspecified.</para>
+
+        <para>Much like image downloads and imports, ongoing exports
+        may be listed with <command>list-transfers</command> and
+        aborted with
+        <command>cancel-transfer</command>.</para>
+
+        <para>Note that currently only directory and subvolume images
+        may be exported as TAR images, and only raw disk images as RAW
+        images.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>list-transfers</command></term>
 
         <listitem><para>Shows a list of container or VM image
-        downloads and imports that are currently in
+        downloads, imports and exports that are currently in
         progress.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>cancel-transfers</command> <replaceable>ID</replaceable>...</term>
 
-        <listitem><para>Aborts a download or import of the container
-        or VM image with the specified ID. To list ongoing transfers
-        and their IDs, use
+        <listitem><para>Aborts a download, import or export of the
+        container or VM image with the specified ID. To list ongoing
+        transfers and their IDs, use
         <command>list-transfers</command>. </para></listitem>
       </varlistentry>
 
@@ -817,6 +855,17 @@
       index server to be specified with the
       <literal>--dkr-index-url=</literal>.</para>
     </example>
+
+    <example>
+      <title>Exports a container image as tar file</title>
+
+      <programlisting># machinectl export-tar fedora myfedora.tar.xz</programlisting>
+
+      <para>Exports the container <literal>fedora</literal> in an
+      xz-compress tar file <filename>myfedora.tar.xz</filename> in the
+      current directory.</para>
+    </example>
+
   </refsect1>
 
   <refsect1>
@@ -833,7 +882,11 @@
     <para>
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
