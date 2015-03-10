@@ -76,12 +76,12 @@ typedef struct Manager {
         LIST_HEAD(Client, clients);
         unsigned n_clients;
 
-        int clear;
+        size_t clear;
 
         int connection_fd;
         sd_event_source *connection_event_source;
 
-        FILE *console;
+        bool show_status_console;
 
         double percent;
         int numdevices;
@@ -98,6 +98,36 @@ static void manager_free(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Client*, client_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+static int manager_write_console(Manager *m, const char *message) {
+        _cleanup_fclose_ FILE *console = NULL;
+        int l;
+        size_t j;
+
+        assert(m);
+
+        if (!m->show_status_console)
+                return 0;
+
+        /* Reduce the SAK window by opening and closing console on every request */
+        console = fopen("/dev/console", "we");
+        if (!console)
+                return -errno;
+
+        if (message) {
+                fprintf(console, "\r%s\r%n", message, &l);
+                if (m->clear  < (size_t)l)
+                        m->clear = (size_t)l;
+        } else {
+                fputc('\r', console);
+                for (j = 0; j < m->clear; j++)
+                        fputc(' ', console);
+                fputc('\r', console);
+        }
+        fflush(console);
+
+        return 0;
+}
 
 static double compute_percent(int pass, size_t cur, size_t max) {
         /* Values stolen from e2fsck */
@@ -284,7 +314,7 @@ static int manager_update_global_progress(Manager *m) {
         Client *current = NULL;
         _cleanup_free_ char *console_message = NULL;
         _cleanup_free_ char *fsck_message = NULL;
-        int current_numdevices = 0, l = 0, r;
+        int current_numdevices = 0, r;
         double current_percent = 100;
 
         /* get the overall percentage */
@@ -311,19 +341,15 @@ static int manager_update_global_progress(Manager *m) {
                 if (asprintf(&fsck_message, "fsckd:%d:%3.1f:%s", m->numdevices, m->percent, console_message) < 0)
                         return -ENOMEM;
 
-                /* write to console */
-                if (m->console) {
-                        fprintf(m->console, "\r%s\r%n", console_message, &l);
-                        fflush(m->console);
-                }
+                r = manager_write_console(m, console_message);
+                if (r < 0)
+                        return r;
 
                 /* try to connect to plymouth and send message */
                 r = manager_send_plymouth_message(m, fsck_message);
                 if (r < 0)
                         log_debug("Couldn't send message to plymouth");
 
-                if (l > m->clear)
-                        m->clear = l;
         }
         return 0;
 }
@@ -437,15 +463,7 @@ static void manager_free(Manager *m) {
                 return;
 
         /* clear last line */
-        if (m->console && m->clear > 0) {
-                unsigned j;
-
-                fputc('\r', m->console);
-                for (j = 0; j < (unsigned) m->clear; j++)
-                        fputc(' ', m->console);
-                fputc('\r', m->console);
-                fflush(m->console);
-        }
+        manager_write_console(m, NULL);
 
         sd_event_source_unref(m->connection_event_source);
         safe_close(m->connection_fd);
@@ -454,9 +472,6 @@ static void manager_free(Manager *m) {
                 client_free(m->clients);
 
         manager_disconnect_plymouth(m);
-
-        if (m->console)
-                fclose(m->console);
 
         sd_event_unref(m->event);
 
@@ -481,11 +496,8 @@ static int manager_new(Manager **ret, int fd) {
         if (r < 0)
                 return r;
 
-        if (access("/run/systemd/show-status", F_OK) >= 0) {
-                m->console = fopen("/dev/console", "we");
-                if (!m->console)
-                        return -errno;
-        }
+        if (access("/run/systemd/show-status", F_OK) >= 0)
+                m->show_status_console = true;
 
         r = sd_event_add_io(m->event, &m->connection_event_source, fd, EPOLLIN, manager_new_connection_handler, m);
         if (r < 0)
