@@ -212,3 +212,17 @@
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in src/systemd/sd-*.h) use integers after all, as "bool"
   is C99 and in our public APIs we try to stick to C89 (with a few extension).
+
+- When you invoke certain calls like unlink(), or mkdir_p() and you
+  know it is safe to ignore the error it might return (because a later
+  call would detect the failure anyway, or because the error is in an
+  error path and you thus couldn't do anything about it anyway), then
+  make this clear by casting the invocation explicitly to (void). Code
+  checks like Coverity understand that, and will not complain about
+  ignored error codes. Hence, please use this:
+
+      (void) unlink("/foo/bar/baz");
+
+  instead of just this:
+
+      unlink("/foo/bar/baz");
