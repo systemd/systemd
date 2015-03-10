@@ -46,7 +46,7 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
         for (i = ai; i; i = i->ai_next) {
                 _cleanup_free_ char *addr = NULL;
 
-                assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, false, &addr) == 0);
+                assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, false, true, &addr) == 0);
                 puts(addr);
         }
 

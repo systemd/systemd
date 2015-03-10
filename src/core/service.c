@@ -1095,7 +1095,7 @@ static int service_spawn(
         if (r < 0)
                 goto fail;
 
-        our_env = new0(char*, 4);
+        our_env = new0(char*, 6);
         if (!our_env) {
                 r = -ENOMEM;
                 goto fail;
@@ -1118,6 +1118,46 @@ static int service_spawn(
                         r = -ENOMEM;
                         goto fail;
                 }
+
+        if (UNIT_DEREF(s->accept_socket)) {
+                union sockaddr_union sa;
+                socklen_t salen = sizeof(sa);
+
+                r = getpeername(s->socket_fd, &sa.sa, &salen);
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                if (IN_SET(sa.sa.sa_family, AF_INET, AF_INET6)) {
+                        _cleanup_free_ char *addr = NULL;
+                        char *t;
+                        int port;
+
+                        r = sockaddr_pretty(&sa.sa, salen, true, false, &addr);
+                        if (r < 0)
+                                goto fail;
+
+                        t = strappend("REMOTE_ADDR=", addr);
+                        if (!t) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                        our_env[n_env++] = t;
+
+                        port = sockaddr_port(&sa.sa);
+                        if (port < 0) {
+                                r = port;
+                                goto fail;
+                        }
+
+                        if (asprintf(&t, "REMOTE_PORT=%u", port) < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                        our_env[n_env++] = t;
+                }
+        }
 
         final_env = strv_env_merge(2, UNIT(s)->manager->environment, our_env, NULL);
         if (!final_env) {

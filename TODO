@@ -171,8 +171,6 @@ Features:
 * as soon as we have kdbus, and sender timestamps, revisit coalescing multiple parallel daemon reloads:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
-* set $REMOTE_IP (or $REMOTE_ADDR/$REMOTE_PORT) environment variable when doing per-connection socket activation. use format introduced by xinetd or CGI for this
-
 * the install state probably shouldn't get confused by generated units, think dbus1/kdbus compat!
 
 * in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column

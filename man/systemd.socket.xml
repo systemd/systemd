@@ -357,7 +357,12 @@
         daemons designed for usage with
         <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         to work unmodified with systemd socket
-        activation.</para></listitem>
+        activation.</para>
+
+        <para>For IPv4 and IPv6 connections the <varname>REMOTE_ADDR</varname>
+        environment variable will contain the remote IP, and <varname>REMOTE_PORT</varname>
+        will contain the remote port. This is the same as the format used by CGI.
+        For SOCK_RAW the port is the IP protocol.</para></listitem>
       </varlistentry>
 
       <varlistentry>

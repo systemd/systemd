@@ -297,7 +297,7 @@ int socket_address_print(const SocketAddress *a, char **ret) {
                 return 0;
         }
 
-        return sockaddr_pretty(&a->sockaddr.sa, a->size, false, ret);
+        return sockaddr_pretty(&a->sockaddr.sa, a->size, false, true, ret);
 }
 
 bool socket_address_can_accept(const SocketAddress *a) {
@@ -466,7 +466,20 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return socket_address_equal(a, &b);
 }
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, char **ret) {
+int sockaddr_port(const struct sockaddr *_sa) {
+        union sockaddr_union *sa = (union sockaddr_union*) _sa;
+
+        assert(sa);
+
+        if (!IN_SET(sa->sa.sa_family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        return ntohs(sa->sa.sa_family == AF_INET6 ?
+                       sa->in6.sin6_port :
+                       sa->in.sin_port);
+}
+
+int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
         union sockaddr_union *sa = (union sockaddr_union*) _sa;
         char *p;
 
@@ -480,11 +493,18 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
                 a = ntohl(sa->in.sin_addr.s_addr);
 
-                if (asprintf(&p,
-                             "%u.%u.%u.%u:%u",
-                             a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
-                             ntohs(sa->in.sin_port)) < 0)
-                        return -ENOMEM;
+                if (include_port) {
+                        if (asprintf(&p,
+                                     "%u.%u.%u.%u:%u",
+                                     a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                                     ntohs(sa->in.sin_port)) < 0)
+                                return -ENOMEM;
+                } else {
+                        if (asprintf(&p,
+                                     "%u.%u.%u.%u",
+                                     a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF) < 0)
+                                return -ENOMEM;
+                }
 
                 break;
         }
@@ -496,20 +516,34 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
                 if (translate_ipv6 && memcmp(&sa->in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
                         const uint8_t *a = sa->in6.sin6_addr.s6_addr+12;
-
-                        if (asprintf(&p,
-                                     "%u.%u.%u.%u:%u",
-                                     a[0], a[1], a[2], a[3],
-                                     ntohs(sa->in6.sin6_port)) < 0)
-                                return -ENOMEM;
+                        if (include_port) {
+                                if (asprintf(&p,
+                                             "%u.%u.%u.%u:%u",
+                                             a[0], a[1], a[2], a[3],
+                                             ntohs(sa->in6.sin6_port)) < 0)
+                                        return -ENOMEM;
+                        } else {
+                                if (asprintf(&p,
+                                             "%u.%u.%u.%u",
+                                             a[0], a[1], a[2], a[3]) < 0)
+                                        return -ENOMEM;
+                        }
                 } else {
                         char a[INET6_ADDRSTRLEN];
 
-                        if (asprintf(&p,
-                                     "[%s]:%u",
-                                     inet_ntop(AF_INET6, &sa->in6.sin6_addr, a, sizeof(a)),
-                                     ntohs(sa->in6.sin6_port)) < 0)
-                                return -ENOMEM;
+                        inet_ntop(AF_INET6, &sa->in6.sin6_addr, a, sizeof(a));
+
+                        if (include_port) {
+                                if (asprintf(&p,
+                                             "[%s]:%u",
+                                             a,
+                                             ntohs(sa->in6.sin6_port)) < 0)
+                                        return -ENOMEM;
+                        } else {
+                                p = strdup(a);
+                                if (!p)
+                                        return -ENOMEM;
+                        }
                 }
 
                 break;
@@ -584,7 +618,7 @@ int getpeername_pretty(int fd, char **ret) {
         /* For remote sockets we translate IPv6 addresses back to IPv4
          * if applicable, since that's nicer. */
 
-        return sockaddr_pretty(&sa.sa, salen, true, ret);
+        return sockaddr_pretty(&sa.sa, salen, true, true, ret);
 }
 
 int getsockname_pretty(int fd, char **ret) {
@@ -602,7 +636,7 @@ int getsockname_pretty(int fd, char **ret) {
          * listening sockets where the difference between IPv4 and
          * IPv6 matters. */
 
-        return sockaddr_pretty(&sa.sa, salen, false, ret);
+        return sockaddr_pretty(&sa.sa, salen, false, true, ret);
 }
 
 int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) {
@@ -616,7 +650,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
         if (r != 0) {
                 int saved_errno = errno;
 
-                r = sockaddr_pretty(&sa->sa, salen, true, &ret);
+                r = sockaddr_pretty(&sa->sa, salen, true, true, &ret);
                 if (r < 0)
                         return log_error_errno(r, "sockadd_pretty() failed: %m");
 
