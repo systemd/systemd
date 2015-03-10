@@ -76,7 +76,7 @@ static int property_get_pool_usage(
                 BtrfsQuotaInfo q;
 
                 if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
-                        usage = q.referred;
+                        usage = q.referenced;
         }
 
         if (stat("/var/lib/machines.raw", &st) >= 0) {
@@ -112,7 +112,7 @@ static int property_get_pool_limit(
                 BtrfsQuotaInfo q;
 
                 if (btrfs_subvol_get_quota_fd(fd, &q) >= 0)
-                        size = q.referred_max;
+                        size = q.referenced_max;
         }
 
         if (stat("/var/lib/machines.raw", &st) >= 0) {

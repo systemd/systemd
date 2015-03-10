@@ -284,7 +284,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
 
                 r = btrfs_subvol_get_quota_fd(sfd, &q);
                 if (r >= 0)
-                        e->quota_referenced = q.referred;
+                        e->quota_referenced = q.referenced;
 
                 free(e->temp_path);
                 e->temp_path = NULL;

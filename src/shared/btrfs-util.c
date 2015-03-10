@@ -599,7 +599,7 @@ int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *ret) {
                         if (sh->type == BTRFS_QGROUP_INFO_KEY) {
                                 const struct btrfs_qgroup_info_item *qii = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
 
-                                ret->referred = le64toh(qii->rfer);
+                                ret->referenced = le64toh(qii->rfer);
                                 ret->exclusive = le64toh(qii->excl);
 
                                 found_info = true;
@@ -607,11 +607,11 @@ int btrfs_subvol_get_quota_fd(int fd, BtrfsQuotaInfo *ret) {
                         } else if (sh->type == BTRFS_QGROUP_LIMIT_KEY) {
                                 const struct btrfs_qgroup_limit_item *qli = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
 
-                                ret->referred_max = le64toh(qli->max_rfer);
+                                ret->referenced_max = le64toh(qli->max_rfer);
                                 ret->exclusive_max = le64toh(qli->max_excl);
 
-                                if (ret->referred_max == 0)
-                                        ret->referred_max = (uint64_t) -1;
+                                if (ret->referenced_max == 0)
+                                        ret->referenced_max = (uint64_t) -1;
                                 if (ret->exclusive_max == 0)
                                         ret->exclusive_max = (uint64_t) -1;
 
@@ -632,12 +632,12 @@ finish:
                 return -ENODATA;
 
         if (!found_info) {
-                ret->referred = (uint64_t) -1;
+                ret->referenced = (uint64_t) -1;
                 ret->exclusive = (uint64_t) -1;
         }
 
         if (!found_limit) {
-                ret->referred_max = (uint64_t) -1;
+                ret->referenced_max = (uint64_t) -1;
                 ret->exclusive_max = (uint64_t) -1;
         }
 
@@ -686,11 +686,11 @@ int btrfs_quota_enable(const char *path, bool b) {
         return btrfs_quota_enable_fd(fd, b);
 }
 
-int btrfs_quota_limit_fd(int fd, uint64_t referred_max) {
+int btrfs_quota_limit_fd(int fd, uint64_t referenced_max) {
         struct btrfs_ioctl_qgroup_limit_args args = {
                 .lim.max_rfer =
-                        referred_max == (uint64_t) -1 ? 0 :
-                        referred_max == 0 ? 1 : referred_max,
+                        referenced_max == (uint64_t) -1 ? 0 :
+                        referenced_max == 0 ? 1 : referenced_max,
                 .lim.flags = BTRFS_QGROUP_LIMIT_MAX_RFER,
         };
 
@@ -702,14 +702,14 @@ int btrfs_quota_limit_fd(int fd, uint64_t referred_max) {
         return 0;
 }
 
-int btrfs_quota_limit(const char *path, uint64_t referred_max) {
+int btrfs_quota_limit(const char *path, uint64_t referenced_max) {
         _cleanup_close_ int fd = -1;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
-        return btrfs_quota_limit_fd(fd, referred_max);
+        return btrfs_quota_limit_fd(fd, referenced_max);
 }
 
 int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {

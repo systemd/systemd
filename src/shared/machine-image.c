@@ -163,10 +163,10 @@ static int image_make(
 
                                 r = btrfs_subvol_get_quota_fd(fd, &quota);
                                 if (r >= 0) {
-                                        (*ret)->usage = quota.referred;
+                                        (*ret)->usage = quota.referenced;
                                         (*ret)->usage_exclusive = quota.exclusive;
 
-                                        (*ret)->limit = quota.referred_max;
+                                        (*ret)->limit = quota.referenced_max;
                                         (*ret)->limit_exclusive = quota.exclusive_max;
                                 }
 
@@ -613,7 +613,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         return 0;
 }
 
-int image_set_limit(Image *i, uint64_t referred_max) {
+int image_set_limit(Image *i, uint64_t referenced_max) {
         assert(i);
 
         if (path_equal(i->path, "/") ||
@@ -623,7 +623,7 @@ int image_set_limit(Image *i, uint64_t referred_max) {
         if (i->type != IMAGE_SUBVOLUME)
                 return -ENOTSUP;
 
-        return btrfs_quota_limit(i->path, referred_max);
+        return btrfs_quota_limit(i->path, referenced_max);
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {

@@ -71,4 +71,4 @@ bool image_name_is_valid(const char *s) _pure_;
 int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
-int image_set_limit(Image *i, uint64_t referred_max);
+int image_set_limit(Image *i, uint64_t referenced_max);

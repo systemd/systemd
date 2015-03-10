@@ -50,9 +50,9 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_error_errno(r, "Failed to get quota info: %m");
                 else {
-                        log_info("referred: %s", strna(format_bytes(bs, sizeof(bs), quota.referred)));
+                        log_info("referenced: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced)));
                         log_info("exclusive: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive)));
-                        log_info("referred_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referred_max)));
+                        log_info("referenced_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced_max)));
                         log_info("exclusive_max: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive_max)));
                 }
 
