@@ -272,7 +272,7 @@ static int plymouth_send_message(int plymouth_fd, const char *message, bool upda
 }
 
 static int manager_send_plymouth_message(Manager *m, const char *message) {
-        const char *plymouth_cancel_message = NULL;
+        const char *plymouth_cancel_message = NULL, *l10n_cancel_message = NULL;
         int r;
 
         r = manager_connect_plymouth(m);
@@ -288,7 +288,8 @@ static int manager_send_plymouth_message(Manager *m, const char *message) {
 
                 m->plymouth_cancel_sent = true;
 
-                plymouth_cancel_message = strjoina("fsckd-cancel-msg:", _("Press Ctrl+C to cancel all filesystem checks in progress"));
+                l10n_cancel_message = _("Press Ctrl+C to cancel all filesystem checks in progress");
+                plymouth_cancel_message = strjoina("fsckd-cancel-msg:", l10n_cancel_message);
 
                 r = plymouth_send_message(m->plymouth_fd, plymouth_cancel_message, false);
                 if (r < 0)
