@@ -1163,9 +1163,9 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
                 if (fd < 0)
                         _exit(EXIT_FAILURE);
 
-                k = loop_read(fd, buf, 36, false);
+                r = loop_read_exact(fd, buf, 36, false);
                 safe_close(fd);
-                if (k != 36)
+                if (k < 0)
                         _exit(EXIT_FAILURE);
 
                 k = send(pair[1], buf, 36, MSG_NOSIGNAL);

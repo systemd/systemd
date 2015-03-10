@@ -1286,7 +1286,6 @@ static int setup_keys(void) {
 #ifdef HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size, i;
         uint8_t *mpk, *seed, *state;
-        ssize_t l;
         int fd = -1, r;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
@@ -1351,10 +1350,9 @@ static int setup_keys(void) {
         }
 
         log_info("Generating seed...");
-        l = loop_read(fd, seed, seed_size, true);
-        if (l < 0 || (size_t) l != seed_size) {
-                log_error_errno(EIO, "Failed to read random seed: %m");
-                r = -EIO;
+        r = loop_read_exact(fd, seed, seed_size, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read random seed: %m");
                 goto finish;
         }
 

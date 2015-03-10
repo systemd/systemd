@@ -2326,6 +2326,17 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         return n;
 }
 
+int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
+        ssize_t n;
+
+        n = loop_read(fd, buf, nbytes, do_poll);
+        if (n < 0)
+                return n;
+        if ((size_t) n != nbytes)
+                return -EIO;
+        return 0;
+}
+
 int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         const uint8_t *p = buf;
 
@@ -2580,8 +2591,9 @@ char* dirname_malloc(const char *path) {
 
 int dev_urandom(void *p, size_t n) {
         static int have_syscall = -1;
-        int r, fd;
-        ssize_t k;
+
+        _cleanup_close_ fd = -1;
+        int r;
 
         /* Gathers some randomness from the kernel. This call will
          * never block, and will always return some data from the
@@ -2616,22 +2628,14 @@ int dev_urandom(void *p, size_t n) {
                                 return -errno;
                 } else
                         /* too short read? */
-                        return -EIO;
+                        return -ENODATA;
         }
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return errno == ENOENT ? -ENOSYS : -errno;
 
-        k = loop_read(fd, p, n, true);
-        safe_close(fd);
-
-        if (k < 0)
-                return (int) k;
-        if ((size_t) k != n)
-                return -EIO;
-
-        return 0;
+        return loop_read_exact(fd, p, n, true);
 }
 
 void initialize_srand(void) {

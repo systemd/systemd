@@ -589,14 +589,12 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                 return log_oom();
 
         for (;;) {
-                ssize_t n, m;
+                ssize_t m;
                 int r;
 
-                n = read(fdf, &header, sizeof(header));
-                if (n < 0)
-                        return -errno;
-                if (n != sizeof(header))
-                        return errno ? -errno : -EIO;
+                r = loop_read_exact(fdf, &header, sizeof(header), false);
+                if (r < 0)
+                        return r;
 
                 m = le32toh(header);
                 if (m == 0)
@@ -618,12 +616,9 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                 if (!GREEDY_REALLOC(buf, buf_size, m))
                         return log_oom();
 
-                errno = 0;
-                n = loop_read(fdf, buf, m, false);
-                if (n < 0)
-                        return n;
-                if (n != m)
-                        return errno ? -errno : -EIO;
+                r = loop_read_exact(fdf, buf, m, false);
+                if (r < 0)
+                        return r;
 
                 r = LZ4_decompress_safe_continue(&lz4_data, buf, out, m, 4*LZ4_BUFSIZE);
                 if (r <= 0)
@@ -636,9 +631,9 @@ int decompress_stream_lz4(int fdf, int fdt, off_t max_bytes) {
                         return -EFBIG;
                 }
 
-                n = loop_write(fdt, out, r, false);
-                if (n < 0)
-                        return n;
+                r = loop_write(fdt, out, r, false);
+                if (r < 0)
+                        return r;
         }
 
         log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",

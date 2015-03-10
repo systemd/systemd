@@ -432,6 +432,7 @@ int sigaction_many(const struct sigaction *sa, ...);
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
+int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
 int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
 bool is_device_path(const char *path);

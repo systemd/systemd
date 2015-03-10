@@ -64,7 +64,6 @@ static int generate(char id[34], const char *root) {
         unsigned char *p;
         sd_id128_t buf;
         char  *q;
-        ssize_t k;
         const char *vm_id, *dbus_machine_id;
 
         assert(id);
@@ -77,11 +76,10 @@ static int generate(char id[34], const char *root) {
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
-                k = loop_read(fd, id, 33, false);
+                r = loop_read_exact(fd, id, 33, false);
                 safe_close(fd);
 
-                if (k == 33 && id[32] == '\n') {
-
+                if (r >= 0 && id[32] == '\n') {
                         id[32] = 0;
                         if (id128_is_valid(id)) {
                                 id[32] = '\n';
@@ -119,14 +117,14 @@ static int generate(char id[34], const char *root) {
 
                         r = detect_vm(&vm_id);
                         if (r > 0 && streq(vm_id, "kvm")) {
-                                char uuid[37];
+                                char uuid[36];
 
                                 fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
                                 if (fd >= 0) {
-                                        k = loop_read(fd, uuid, 36, false);
+                                        r = loop_read_exact(fd, uuid, 36, false);
                                         safe_close(fd);
 
-                                        if (k >= 36) {
+                                        if (r >= 0) {
                                                 r = shorten_uuid(id, uuid);
                                                 if (r >= 0) {
                                                         log_info("Initializing machine ID from KVM UUID.");
@@ -162,7 +160,8 @@ static int get_valid_machine_id(int fd, char id[34]) {
         assert(fd >= 0);
         assert(id);
 
-        if (loop_read(fd, id_to_validate, 33, false) == 33 && id_to_validate[32] == '\n') {
+        if (loop_read_exact(fd, id_to_validate, 33, false) >= 0 &&
+            id_to_validate[32] == '\n') {
                 id_to_validate[32] = 0;
 
                 if (id128_is_valid(id_to_validate)) {
