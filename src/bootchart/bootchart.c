@@ -272,7 +272,7 @@ static void do_journal_append(char *file) {
         ssize_t n;
         _cleanup_free_ char *bootchart_file = NULL, *bootchart_message = NULL,
                 *p = NULL;
-        _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
 
         bootchart_file = strappend("BOOTCHART_FILE=", file);
         if (bootchart_file)

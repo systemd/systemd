@@ -2592,7 +2592,7 @@ char* dirname_malloc(const char *path) {
 int dev_urandom(void *p, size_t n) {
         static int have_syscall = -1;
 
-        _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         int r;
 
         /* Gathers some randomness from the kernel. This call will
