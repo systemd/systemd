@@ -231,9 +231,12 @@ static int manager_connect_plymouth(Manager *m) {
         union sockaddr_union sa = PLYMOUTH_SOCKET;
         int r;
 
+        if (!plymouth_running())
+                return 0;
+
         /* try to connect or reconnect if sending a message */
         if (m->plymouth_fd >= 0)
-                return 0;
+                return 1;
 
         m->plymouth_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (m->plymouth_fd < 0)
@@ -278,6 +281,9 @@ static int manager_send_plymouth_message(Manager *m, const char *message) {
         r = manager_connect_plymouth(m);
         if (r < 0)
                 return r;
+        /* 0 means that plymouth isn't running, do not send any message yet */
+        else if (r == 0)
+                return 0;
 
         if (!m->plymouth_cancel_sent) {
 
