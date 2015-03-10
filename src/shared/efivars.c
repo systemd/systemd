@@ -105,7 +105,7 @@ int efi_get_variable(
         uint32_t a;
         ssize_t n;
         struct stat st;
-        _cleanup_free_ void *buf;
+        _cleanup_free_ void *buf = NULL;
 
         assert(name);
         assert(value);
