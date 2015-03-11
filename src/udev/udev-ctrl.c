@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "socket-util.h"
 #include "udev.h"
 
 /* wire protocol magic must match */
@@ -55,7 +56,7 @@ struct udev_ctrl {
         int refcount;
         struct udev *udev;
         int sock;
-        struct sockaddr_un saddr;
+        union sockaddr_union saddr;
         socklen_t addrlen;
         bool bound;
         bool cleanup_socket;
@@ -94,9 +95,9 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         if (r < 0)
                 log_warning_errno(errno, "could not set SO_PASSCRED: %m");
 
-        uctrl->saddr.sun_family = AF_LOCAL;
-        strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
-        uctrl->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(uctrl->saddr.sun_path);
+        uctrl->saddr.un.sun_family = AF_LOCAL;
+        strscpy(uctrl->saddr.un.sun_path, sizeof(uctrl->saddr.un.sun_path), "/run/udev/control");
+        uctrl->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(uctrl->saddr.un.sun_path);
         return uctrl;
 }
 
@@ -108,10 +109,10 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
         int err;
 
         if (!uctrl->bound) {
-                err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+                err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
                 if (err < 0 && errno == EADDRINUSE) {
-                        unlink(uctrl->saddr.sun_path);
-                        err = bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+                        unlink(uctrl->saddr.un.sun_path);
+                        err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
                 }
 
                 if (err < 0) {
@@ -160,7 +161,7 @@ int udev_ctrl_cleanup(struct udev_ctrl *uctrl) {
         if (uctrl == NULL)
                 return 0;
         if (uctrl->cleanup_socket)
-                unlink(uctrl->saddr.sun_path);
+                unlink(uctrl->saddr.un.sun_path);
         return 0;
 }
 
@@ -249,7 +250,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
                 ctrl_msg_wire.intval = intval;
 
         if (!uctrl->connected) {
-                if (connect(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen) < 0) {
+                if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0) {
                         err = -errno;
                         goto out;
                 }
