@@ -317,8 +317,8 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
  * the JOB_RELOAD_OR_START, which lies outside the lookup function's domain),
  * the following properties hold:
  *
- * Merging is associative! A merged with B merged with C is the same as
- * A merged with C merged with B.
+ * Merging is associative! A merged with B, and then merged with C is the same
+ * A merged with the result B merged with C.
  *
  * Mergeability is transitive! If A can be merged with B and B with C then
  * A also with C.
