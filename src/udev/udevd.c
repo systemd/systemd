@@ -83,6 +83,7 @@ struct event {
         struct udev_list_node node;
         struct udev *udev;
         struct udev_device *dev;
+        struct udev_device *dev_kernel;
         enum event_state state;
         int exitcode;
         unsigned long long int delaying_seqnum;
@@ -133,6 +134,7 @@ static inline struct worker *node_to_worker(struct udev_list_node *node) {
 static void event_queue_delete(struct event *event) {
         udev_list_node_remove(&event->node);
         udev_device_unref(event->dev);
+        udev_device_unref(event->dev_kernel);
         free(event);
 }
 
@@ -459,6 +461,8 @@ static int event_queue_insert(struct udev_device *dev) {
 
         event->udev = udev_device_get_udev(dev);
         event->dev = dev;
+        event->dev_kernel = udev_device_shallow_clone(dev);
+        udev_device_copy_properties(event->dev_kernel, dev);
         event->seqnum = udev_device_get_seqnum(dev);
         event->devpath = udev_device_get_devpath(dev);
         event->devpath_len = strlen(event->devpath);
@@ -886,6 +890,11 @@ static void handle_signal(struct udev *udev, int signo) {
                                                 log_error("worker ["PID_FMT"] failed while handling '%s'",
                                                           pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
+                                                /* delete state from disk */
+                                                udev_device_delete_db(worker->event->dev);
+                                                udev_device_tag_index(worker->event->dev, NULL, false);
+                                                /* forward kernel event without ammending it */
+                                                udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
                                                 event_queue_delete(worker->event);
 
                                                 /* drop reference taken for state 'running' */
