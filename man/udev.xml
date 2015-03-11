@@ -193,6 +193,11 @@
             value itself contains trailing whitespace.
             </para>
           </listitem>
+          <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
+          <listitem>
+            <para>Match a kernel parameter value.
+            </para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -371,6 +376,13 @@
           <listitem>
             <para>The value that should be written to a sysfs attribute of the
             event device.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
+          <listitem>
+            <para>The value that should be written to kernel parameter.</para>
           </listitem>
         </varlistentry>
 
