@@ -447,7 +447,7 @@ static int display(Hashmap *a) {
         Group *g;
         Group **array;
         signed path_columns;
-        unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 0;
+        unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
         char buffer[MAX3(21, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX)];
 
         assert(a);
