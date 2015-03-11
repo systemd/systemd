@@ -69,6 +69,26 @@ UINT64 time_usec(VOID) {
         return 1000 * 1000 * ticks / freq;
 }
 
+EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b) {
+        if (strcmpa(v, (CHAR8 *)"1") == 0 ||
+            strcmpa(v, (CHAR8 *)"yes") == 0 ||
+            strcmpa(v, (CHAR8 *)"y") == 0 ||
+            strcmpa(v, (CHAR8 *)"true") == 0) {
+                *b = TRUE;
+                return EFI_SUCCESS;
+        }
+
+        if (strcmpa(v, (CHAR8 *)"0") == 0 ||
+            strcmpa(v, (CHAR8 *)"no") == 0 ||
+            strcmpa(v, (CHAR8 *)"n") == 0 ||
+            strcmpa(v, (CHAR8 *)"false") == 0) {
+                *b = FALSE;
+                return EFI_SUCCESS;
+        }
+
+        return EFI_INVALID_PARAMETER;
+}
+
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent) {
         UINT32 flags;
 

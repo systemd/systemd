@@ -66,6 +66,7 @@ typedef struct {
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
+        BOOLEAN no_editor;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first)
@@ -375,7 +376,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"console size:           %d x %d\n", x, y);
 
         if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS) {
-                Print(L"SecureBoot:             %s\n", *b > 0 ? L"enabled" : L"disabled");
+                Print(L"SecureBoot:             %s\n", yes_no(*b > 0));
                 FreePool(b);
         }
 
@@ -396,6 +397,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"timeout (config):       %d\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
+        Print(L"editor:                 %s\n", yes_no(!config->no_editor));
         Print(L"\n");
 
         Print(L"config entry count:     %d\n", config->entry_count);
@@ -452,7 +454,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                         Print(L"loader                  '%s'\n", entry->loader);
                 if (entry->options)
                         Print(L"options                 '%s'\n", entry->options);
-                Print(L"auto-select             %s\n", entry->no_autoselect ? L"no" : L"yes");
+                Print(L"auto-select             %s\n", yes_no(!entry->no_autoselect));
                 if (entry->call)
                         Print(L"internal call           yes\n");
 
@@ -769,7 +771,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
 
                 case KEYPRESS(0, 0, 'e'):
                         /* only the options of configured entries can be edited */
-                        if (config->entries[idx_highlight]->type == LOADER_UNDEFINED)
+                        if (config->no_editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
@@ -997,6 +999,14 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         config->entry_default_pattern = stra_to_str(value);
                         StrLwr(config->entry_default_pattern);
                         continue;
+                }
+
+                if (strcmpa((CHAR8 *)"editor", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+                        config->no_editor = !on;
                 }
         }
 }

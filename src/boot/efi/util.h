@@ -23,6 +23,12 @@
 
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 
+static inline const CHAR16 *yes_no(BOOLEAN b) {
+        return b ? L"yes" : L"no";
+}
+
+EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b);
+
 UINT64 ticks_read(void);
 UINT64 ticks_freq(void);
 UINT64 time_usec(void);
