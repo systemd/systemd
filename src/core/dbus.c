@@ -852,22 +852,19 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
-        if (m->running_as == SYSTEMD_SYSTEM)
-                return 0;
-
-        /* If we are a user instance we get the Released message via
-         * the system bus */
-        r = sd_bus_add_match(
-                        bus,
-                        NULL,
-                        "type='signal',"
-                        "interface='org.freedesktop.systemd1.Agent',"
-                        "member='Released',"
-                        "path='/org/freedesktop/systemd1/agent'",
-                        signal_agent_released, m);
-
-        if (r < 0)
-                log_warning_errno(r, "Failed to register Released match on system bus: %m");
+        /* On kdbus or if we are a user instance we get the Released message via the system bus */
+        if (m->running_as == SYSTEMD_USER || m->kdbus_fd >= 0) {
+                r = sd_bus_add_match(
+                                bus,
+                                NULL,
+                                "type='signal',"
+                                "interface='org.freedesktop.systemd1.Agent',"
+                                "member='Released',"
+                                "path='/org/freedesktop/systemd1/agent'",
+                                signal_agent_released, m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to register Released match on system bus: %m");
+        }
 
         log_debug("Successfully connected to system bus.");
         return 0;
