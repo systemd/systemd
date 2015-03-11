@@ -1414,12 +1414,8 @@ int main(int argc, char *argv[]) {
                                                 kill(worker->pid, SIGKILL);
                                                 worker->state = WORKER_KILLED;
 
-                                                /* drop reference taken for state 'running' */
-                                                worker_unref(worker);
                                                 log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
                                                 worker->event->exitcode = -64;
-                                                event_queue_delete(worker->event);
-                                                worker->event = NULL;
                                         } else if (!worker->event_warned) {
                                                 log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, worker->event->devpath);
                                                 worker->event_warned = true;
