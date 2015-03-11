@@ -719,13 +719,21 @@ static int proxy_process_destination_to_local(Proxy *p) {
 
                 /* Return the error to the client, if we can */
                 synthetic_reply_method_errnof(m, r, "Failed to forward message we got from destination: %m");
-                log_error_errno(r,
-                         "Failed to forward message we got from destination: uid=" UID_FMT " gid=" GID_FMT" message=%s destination=%s path=%s interface=%s member=%s: %m",
-                         p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
-                         strna(m->destination), strna(m->path), strna(m->interface), strna(m->member));
+                if (r == -ENOBUFS) {
+                        /* if local dbus1 peer does not dispatch its queue, warn only once */
+                        if (!p->queue_overflow)
+                                log_error("Dropped messages due to queue overflow of local peer (pid: "PID_FMT" uid: "UID_FMT")", p->local_creds.pid, p->local_creds.uid);
+                        p->queue_overflow = true;
+                } else
+                        log_error_errno(r,
+                                 "Failed to forward message we got from destination: uid=" UID_FMT " gid=" GID_FMT" message=%s destination=%s path=%s interface=%s member=%s: %m",
+                                 p->local_creds.uid, p->local_creds.gid, bus_message_type_to_string(m->header->type),
+                                 strna(m->destination), strna(m->path), strna(m->interface), strna(m->member));
+
                 return 1;
         }
 
+        p->queue_overflow = false;
         return 1;
 }
 
