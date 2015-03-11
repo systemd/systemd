@@ -1523,15 +1523,27 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
 }
 
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
+        bool remarshal = false;
+
         assert(b);
 
-        /* Do packet version and endianness already match? */
-        if ((b->message_version == 0 || b->message_version == (*m)->header->version) &&
-            (b->message_endian == 0 || b->message_endian == (*m)->header->endian))
-                return 0;
+        /* wrong packet version */
+        if (b->message_version != 0 && b->message_version != (*m)->header->version)
+                remarshal = true;
 
-        /* No? Then remarshal! */
-        return bus_message_remarshal(b, m);
+        /* wrong packet endianness */
+        if (b->message_endian != 0 && b->message_endian != (*m)->header->endian)
+                remarshal = true;
+
+        /* TODO: kdbus-messages received from the kernel contain data which is
+         * not allowed to be passed to KDBUS_CMD_SEND. Therefore, we have to
+         * force remarshaling of the message. Technically, we could just
+         * recreate the kdbus message, but that is non-trivial as other parts of
+         * the message refer to m->kdbus already. This should be fixed! */
+        if ((*m)->kdbus && (*m)->release_kdbus)
+                remarshal = true;
+
+        return remarshal ? bus_message_remarshal(b, m) : 0;
 }
 
 int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
