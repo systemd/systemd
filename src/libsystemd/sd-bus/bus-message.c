@@ -3489,8 +3489,6 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         return r;
         } else {
 
-                rindex = m->rindex;
-
                 if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH)) {
                         uint32_t l;
                         bool ok;
