@@ -27,7 +27,6 @@ SUBSYSTEM=="input", GROUP="input"
 SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
 
 SUBSYSTEM=="video4linux", GROUP="video"
-SUBSYSTEM=="misc", KERNEL=="agpgart", GROUP="video"
 SUBSYSTEM=="graphics", GROUP="video"
 SUBSYSTEM=="drm", GROUP="video"
 SUBSYSTEM=="dvb", GROUP="video"
