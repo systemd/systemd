@@ -318,7 +318,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
  * the following properties hold:
  *
  * Merging is associative! A merged with B, and then merged with C is the same
- * A merged with the result B merged with C.
+ * as A merged with the result of B merged with C.
  *
  * Mergeability is transitive! If A can be merged with B and B with C then
  * A also with C.
