@@ -3701,8 +3701,7 @@ dist_udevrules_DATA += \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
-	rules/80-net-setup-link.rules \
-	rules/95-udev-late.rules
+	rules/80-net-setup-link.rules
 
 nodist_udevrules_DATA += \
 	rules/99-systemd.rules
