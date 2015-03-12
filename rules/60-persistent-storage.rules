@@ -3,14 +3,6 @@
 # persistent storage links: /dev/disk/{by-id,by-uuid,by-label,by-path}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
-# forward scsi device event to corresponding block device
-ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
-
-ACTION=="remove", GOTO="persistent_storage_end"
-
-# enable in-kernel media-presence polling
-ACTION=="add", SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_poll_msecs}=="0", ATTR{parameters/events_dfl_poll_msecs}="2000"
-
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 KERNEL!="loop*|mmcblk[0-9]|mspblk[0-9]|nvme*|sd*|sr*|vd*", GOTO="persistent_storage_end"
 
@@ -36,12 +28,12 @@ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", ATTR{removable}=="0", SUBSYSTEMS=
 # Fall back usb_id for USB devices
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
 
-# scsi devices
+# SCSI devices
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted -d $devnode", ENV{ID_BUS}="scsi"
 KERNEL=="sd*|sr*", ENV{DEVTYPE}=="disk", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*", ENV{DEVTYPE}=="partition", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
-# firewire
+# FireWire
 KERNEL=="sd*[!0-9]|sr*", ATTRS{ieee1394_id}=="?*", SYMLINK+="disk/by-id/ieee1394-$attr{ieee1394_id}"
 KERNEL=="sd*[0-9]", ATTRS{ieee1394_id}=="?*", SYMLINK+="disk/by-id/ieee1394-$attr{ieee1394_id}-part%n"
 
@@ -69,9 +61,6 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 
 # probe filesystem metadata of disks
 KERNEL!="sr*", IMPORT{builtin}="blkid"
-
-# watch metadata changes by tools closing the device after writing
-KERNEL!="sr*", OPTIONS+="watch"
 
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"

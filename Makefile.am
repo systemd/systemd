@@ -3687,6 +3687,7 @@ dist_network_DATA = \
 dist_udevrules_DATA += \
 	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
+	rules/60-block.rules \
 	rules/60-drm.rules \
 	rules/60-keyboard.rules \
 	rules/60-persistent-storage-tape.rules \
