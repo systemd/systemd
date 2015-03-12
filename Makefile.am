@@ -3691,15 +3691,14 @@ dist_udevrules_DATA += \
 	rules/60-drm.rules \
 	rules/60-keyboard.rules \
 	rules/60-persistent-storage-tape.rules \
-	rules/60-persistent-serial.rules \
 	rules/60-persistent-input.rules \
 	rules/60-persistent-alsa.rules \
 	rules/60-persistent-storage.rules \
+	rules/60-tty.rules \
 	rules/64-btrfs.rules \
 	rules/70-mouse.rules \
 	rules/70-touchpad.rules \
 	rules/75-net-description.rules \
-	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
 	rules/80-net-setup-link.rules
 
