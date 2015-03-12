@@ -61,8 +61,6 @@ Features:
   written to as FAIL, but instead show that their are being written
   to.
 
-* add udev rule construct SYSCTL{} to write to sysctls
-
 * assign MESSAGE_ID to log messages about failed services
 
 * coredump: make the handler check /proc/$PID/rlimits for RLIMIT_CORE,
@@ -704,7 +702,6 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
-  - don't keep stale db in case event processing fails (also notify userspace about the failure)
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
