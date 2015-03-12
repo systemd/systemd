@@ -61,6 +61,11 @@ static int sd_rtnl_new(sd_rtnl **ret) {
                             sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
 
+        /* Change notification responses have sequence 0, so we must
+         * start our request sequence numbers at 1, or we may confuse our
+         * responses with notifications from the kernel */
+        rtnl->serial = 1;
+
         *ret = rtnl;
         rtnl = NULL;
 
