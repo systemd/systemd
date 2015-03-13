@@ -428,9 +428,6 @@ static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
         assert(rtnl);
         assert(m);
 
-        if (sd_rtnl_message_is_broadcast(m))
-                return 0;
-
         serial = rtnl_message_get_serial(m);
         c = hashmap_remove(rtnl->reply_callbacks, &serial);
         if (!c)
@@ -495,13 +492,15 @@ static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         if (!m)
                 goto null_message;
 
-        r = process_reply(rtnl, m);
-        if (r != 0)
-                goto null_message;
-
-        r = process_match(rtnl, m);
-        if (r != 0)
-                goto null_message;
+        if (sd_rtnl_message_is_broadcast(m)) {
+                r = process_match(rtnl, m);
+                if (r != 0)
+                        goto null_message;
+        } else {
+                r = process_reply(rtnl, m);
+                if (r != 0)
+                        goto null_message;
+        }
 
         if (ret) {
                 *ret = m;
