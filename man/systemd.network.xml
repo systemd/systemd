@@ -515,6 +515,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>UseNTP=</varname></term>
+          <listitem>
+            <para>When true (the default), the NTP servers received
+            from the DHCP server will be used by systemd-timesyncd
+            and take precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseMTU=</varname></term>
           <listitem>
             <para>When true, the interface maximum transmission unit
