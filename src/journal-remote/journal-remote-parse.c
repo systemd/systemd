@@ -443,7 +443,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 return r;
 
         /* We have a full event */
-        log_trace("Received a full event from source@%p fd:%d (%s)",
+        log_trace("Received full event from source@%p fd:%d (%s)",
                   source, source->fd, source->name);
 
         if (!source->iovw.count) {

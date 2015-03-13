@@ -178,7 +178,7 @@ static int verify_cert_authorized(gnutls_session_t session) {
         if (r < 0)
                 return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
-        log_info("Certificate status: %s", out.data);
+        log_debug("Certificate status: %s", out.data);
         gnutls_free(out.data);
 
         return status == 0 ? 0 : -EPERM;
@@ -280,7 +280,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
                 return -EPERM;
         }
 
-        log_info("Connection from %s", buf);
+        log_debug("Connection from %s", buf);
 
         if (hostname) {
                 *hostname = buf;

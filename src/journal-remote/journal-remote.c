@@ -203,7 +203,7 @@ static int open_output(Writer *w, const char* host) {
                 log_error_errno(r, "Failed to open output journal %s: %m",
                                 output);
         else
-                log_info("Opened output file %s", w->journal->path);
+                log_debug("Opened output file %s", w->journal->path);
         return r;
 }
 
@@ -743,7 +743,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *trust) {
         int fd;
 
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM | SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM | SOCK_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -840,7 +840,7 @@ static int remoteserver_init(RemoteServer *s,
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
         else
-                log_info("Received %d descriptors", n);
+                log_debug("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n) {
                 log_error("Received fewer sockets than expected");
@@ -849,7 +849,7 @@ static int remoteserver_init(RemoteServer *s,
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
-                        log_info("Received a listening socket (fd:%d)", fd);
+                        log_debug("Received a listening socket (fd:%d)", fd);
 
                         if (fd == http_socket)
                                 r = setup_microhttpd_server(s, fd, NULL, NULL, NULL);
@@ -864,7 +864,7 @@ static int remoteserver_init(RemoteServer *s,
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 
-                        log_info("Received a connection socket (fd:%d) from %s", fd, hostname);
+                        log_debug("Received a connection socket (fd:%d) from %s", fd, hostname);
 
                         r = add_source(s, fd, hostname, true);
                 } else {
@@ -904,7 +904,7 @@ static int remoteserver_init(RemoteServer *s,
         }
 
         if (arg_listen_raw) {
-                log_info("Listening on a socket...");
+                log_debug("Listening on a socket...");
                 r = setup_raw_socket(s, arg_listen_raw);
                 if (r < 0)
                         return r;
@@ -926,12 +926,12 @@ static int remoteserver_init(RemoteServer *s,
                 const char *output_name;
 
                 if (streq(*file, "-")) {
-                        log_info("Using standard input as source.");
+                        log_debug("Using standard input as source.");
 
                         fd = STDIN_FILENO;
                         output_name = "stdin";
                 } else {
-                        log_info("Reading file %s...", *file);
+                        log_debug("Reading file %s...", *file);
 
                         fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                         if (fd < 0)
@@ -1010,22 +1010,22 @@ static int dispatch_raw_source_event(sd_event_source *event,
         if (source->state == STATE_EOF) {
                 size_t remaining;
 
-                log_info("EOF reached with source fd:%d (%s)",
-                         source->fd, source->name);
+                log_debug("EOF reached with source fd:%d (%s)",
+                          source->fd, source->name);
 
                 remaining = source_non_empty(source);
                 if (remaining > 0)
-                        log_warning("Premature EOF. %zu bytes lost.", remaining);
+                        log_notice("Premature EOF. %zu bytes lost.", remaining);
                 remove_source(s, source->fd);
-                log_info("%zu active sources remaining", s->active);
+                log_debug("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
-                log_error("Entry too big, skipped");
+                log_notice_errno(E2BIG, "Entry too big, skipped");
                 return 1;
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
-                log_info_errno(r, "Closing connection: %m");
+                log_debug_errno(r, "Closing connection: %m");
                 remove_source(server, fd);
                 return 0;
         } else
@@ -1067,10 +1067,10 @@ static int accept_connection(const char* type, int fd,
                         return r;
                 }
 
-                log_info("Accepted %s %s connection from %s",
-                         type,
-                         socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
-                         a);
+                log_debug("Accepted %s %s connection from %s",
+                          type,
+                          socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
+                          a);
 
                 *hostname = b;
 

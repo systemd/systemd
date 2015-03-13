@@ -156,7 +156,7 @@ int writer_write(Writer *w,
         if (r < 0)
                 return r;
         else
-                log_info("%s: Successfully rotated journal", w->journal->path);
+                log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
