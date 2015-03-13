@@ -1474,7 +1474,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 return 0;
         }
 
-        if (group)
+        if (_group)
                 *_group = group;
 
         return r;
@@ -1500,7 +1500,7 @@ int socket_read_message(sd_rtnl *rtnl) {
         assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
 
         /* read nothing, just get the pending message size */
-        r = socket_recv_message(rtnl->fd, &iov, &group, true);
+        r = socket_recv_message(rtnl->fd, &iov, NULL, true);
         if (r <= 0)
                 return r;
         else
