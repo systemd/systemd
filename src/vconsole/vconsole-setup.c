@@ -96,16 +96,14 @@ static int enable_utf8(int fd) {
         return r;
 }
 
-static int keymap_load(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
+static bool keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
         const char *args[8];
         int i = 0;
         pid_t pid;
 
-        if (isempty(map)) {
-                /* An empty map means kernel map */
-                *_pid = 0;
-                return 0;
-        }
+        /* An empty map means kernel map */
+        if (isempty(map))
+                return true;
 
         args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
@@ -119,27 +117,25 @@ static int keymap_load(const char *vc, const char *map, const char *map_toggle, 
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
+        if (pid < 0) {
+                log_error_errno(errno, "Failed to fork: %m");
+                return false;
+        } else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        *_pid = pid;
-        return 0;
+        return wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true) == 0;
 }
 
-static int font_load(const char *vc, const char *font, const char *map, const char *unimap, pid_t *_pid) {
+static bool font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
         const char *args[9];
         int i = 0;
         pid_t pid;
 
-        if (isempty(font)) {
-                /* An empty font means kernel font */
-                *_pid = 0;
-                return 0;
-        }
+        /* An empty font means kernel font */
+        if (isempty(font))
+                return true;
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
@@ -156,15 +152,15 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
+        if (pid < 0) {
+                log_error_errno(errno, "Failed to fork: %m");
+                return false;
+        } else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        *_pid = pid;
-        return 0;
+        return wait_for_terminate_and_warn(KBD_SETFONT, pid, true) == 0;
 }
 
 /*
@@ -238,8 +234,7 @@ int main(int argc, char **argv) {
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
         bool utf8;
-        pid_t font_pid = 0, keymap_pid = 0;
-        bool font_copy = false;
+        bool font_copy = false, font_ok, keyboard_ok;
         int r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -298,27 +293,12 @@ int main(int argc, char **argv) {
         else
                 disable_utf8(fd);
 
-        r = font_load(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start " KBD_SETFONT ": %m");
-                return EXIT_FAILURE;
-        }
+        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
+        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8);
 
-        if (font_pid > 0)
-                wait_for_terminate_and_warn(KBD_SETFONT, font_pid, true);
-
-        r = keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start " KBD_LOADKEYS ": %m");
-                return EXIT_FAILURE;
-        }
-
-        if (keymap_pid > 0)
-                wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid, true);
-
-        /* Only copy the font when we started setfont successfully */
-        if (font_copy && font_pid > 0)
+        /* Only copy the font when we executed setfont successfully */
+        if (font_copy && font_ok)
                 font_copy_to_all_vcs(fd);
 
-        return EXIT_SUCCESS;
+        return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
