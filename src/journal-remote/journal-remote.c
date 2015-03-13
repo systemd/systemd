@@ -516,7 +516,7 @@ static int process_http_upload(
 
         while (true) {
                 r = process_source(source, arg_compress, arg_seal);
-                if (r == -EAGAIN || r == -EWOULDBLOCK)
+                if (r == -EAGAIN)
                         break;
                 else if (r < 0) {
                         log_warning("Failed to process data for connection %p", connection);
@@ -1034,7 +1034,7 @@ static int handle_raw_source(sd_event_source *event,
         } else if (r == -E2BIG) {
                 log_notice_errno(E2BIG, "Entry too big, skipped");
                 return 1;
-        } else if (r == -EAGAIN || r == -EWOULDBLOCK) {
+        } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
                 log_debug_errno(r, "Closing connection: %m");

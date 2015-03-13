@@ -112,7 +112,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
 
                 if (source->passive_fd)
                         /* we have to wait for some data to come to us */
-                        return -EWOULDBLOCK;
+                        return -EAGAIN;
 
                 if (source->size - source->filled < LINE_CHUNK &&
                     !realloc_buffer(source,
@@ -125,7 +125,7 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                 n = read(source->fd, source->buf + source->filled,
                          source->size - source->filled);
                 if (n < 0) {
-                        if (errno != EAGAIN && errno != EWOULDBLOCK)
+                        if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m", source->fd,
                                                 source->size - source->filled);
                         return -errno;
@@ -178,7 +178,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
 
                 if (source->passive_fd)
                         /* we have to wait for some data to come to us */
-                        return -EWOULDBLOCK;
+                        return -EAGAIN;
 
                 if (!realloc_buffer(source, source->offset + size))
                         return log_oom();
@@ -186,7 +186,7 @@ static int fill_fixed_size(RemoteSource *source, void **data, size_t size) {
                 n = read(source->fd, source->buf + source->filled,
                          source->size - source->filled);
                 if (n < 0) {
-                        if (errno != EAGAIN && errno != EWOULDBLOCK)
+                        if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m", source->fd,
                                                 source->size - source->filled);
                         return -errno;
