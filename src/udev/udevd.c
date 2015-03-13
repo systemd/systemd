@@ -291,7 +291,7 @@ static void worker_new(struct event *event) {
                                         fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
                                                 log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
-                                                err = -EWOULDBLOCK;
+                                                err = -EAGAIN;
                                                 fd_lock = safe_close(fd_lock);
                                                 goto skip;
                                         }
