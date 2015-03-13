@@ -654,7 +654,7 @@ int sd_rtnl_message_get_family(sd_rtnl_message *m, int *family) {
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m) {
         assert_return(m, -EINVAL);
 
-        return !m->hdr->nlmsg_pid;
+        return m->broadcast;
 }
 
 int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex) {
@@ -1576,6 +1576,8 @@ int socket_read_message(sd_rtnl *rtnl) {
                 r = message_new_empty(rtnl, &m);
                 if (r < 0)
                         return r;
+
+                m->broadcast = !!group;
 
                 m->hdr = memdup(new_msg, new_msg->nlmsg_len);
                 if (!m->hdr)
