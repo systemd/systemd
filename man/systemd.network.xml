@@ -662,7 +662,7 @@ Gateway=192.168.0.1</programlisting>
 Name=en*
 
 [Network]
-DHCP=both</programlisting>
+DHCP=yes</programlisting>
     </example>
 
     <example>
