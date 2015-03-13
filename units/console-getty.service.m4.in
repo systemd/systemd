@@ -9,6 +9,7 @@
 Description=Console Getty
 Documentation=man:agetty(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service
+ConditionPathExists=/dev/console
 m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
 )m4_dnl
