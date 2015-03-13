@@ -61,6 +61,18 @@ int main(int argc, const char *argv[]) {
 
         assert_se(!LIST_JUST_US(item, head));
 
+        i = 0;
+        LIST_FOREACH(item, cursor, &items[0]) {
+                assert_se(cursor == &items[i]);
+                i++;
+        }
+
+        i = ELEMENTSOF(items) - 1;
+        LIST_FOREACH_REVERSE(item, cursor, &items[3]) {
+                assert_se(cursor == &items[i]);
+                i--;
+        }
+
         assert_se(items[0].item_next == NULL);
         assert_se(items[1].item_next == &items[0]);
         assert_se(items[2].item_next == &items[1]);

@@ -129,6 +129,9 @@
 #define LIST_FOREACH(name,i,head)                                       \
         for ((i) = (head); (i); (i) = (i)->name##_next)
 
+#define LIST_FOREACH_REVERSE(name,i,tail)                               \
+        for ((i) = (tail); (i); (i) = (i)->name##_prev)
+
 #define LIST_FOREACH_SAFE(name,i,n,head)                                \
         for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
 
