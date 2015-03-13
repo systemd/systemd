@@ -419,7 +419,7 @@ static void device_update_found_one(Device *d, bool add, DeviceFound found, bool
         if (now) {
                 if (d->found & DEVICE_FOUND_UDEV)
                         device_set_state(d, DEVICE_PLUGGED);
-                else if (d->found != DEVICE_NOT_FOUND)
+                else if (add && d->found != DEVICE_NOT_FOUND)
                         device_set_state(d, DEVICE_TENTATIVE);
                 else
                         device_set_state(d, DEVICE_DEAD);
