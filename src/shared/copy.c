@@ -285,7 +285,7 @@ static int fd_copy_directory(
                 else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode))
                         q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else
-                        q = -ENOTSUP;
+                        q = -EOPNOTSUPP;
 
                 if (q == -EEXIST && merge)
                         q = 0;
@@ -317,7 +317,7 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, bool merge)
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode))
                 return fd_copy_node(fdf, from, &st, fdt, to);
         else
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 }
 
 int copy_tree(const char *from, const char *to, bool merge) {

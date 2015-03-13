@@ -223,7 +223,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>-ENOTSUP</constant></term>
+        <term><constant>-EOPNOTSUPP</constant></term>
 
         <listitem><para>The selected clock is not supported by the event loop implementation.</para></listitem>
 

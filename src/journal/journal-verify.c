@@ -817,7 +817,7 @@ int journal_file_verify(
                         return r;
                 }
 #else
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 #endif
         } else if (f->seal)
                 return -ENOKEY;
@@ -845,7 +845,7 @@ int journal_file_verify(
 
         if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
                 log_error("Cannot verify file with unknown extensions.");
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto fail;
         }
 

@@ -443,12 +443,12 @@ int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, ui
         assert(type_system->types);
 
         if (type > type_system->max)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         nl_type = &type_system->types[type];
 
         if (nl_type->type == NLA_UNSPEC)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         *ret = nl_type;
 
@@ -503,7 +503,7 @@ int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union
 
         type = type_system_union->lookup(key);
         if (type < 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         assert(type < type_system_union->num);
 
@@ -521,11 +521,11 @@ int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_sys
         assert(ret);
 
         if (protocol >= type_system_union->num)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         type_system = &type_system_union->type_systems[protocol];
         if (type_system->max == 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         *ret = type_system;
 

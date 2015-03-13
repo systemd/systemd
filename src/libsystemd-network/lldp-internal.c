@@ -54,7 +54,7 @@ int lldp_read_chassis_id(tlv_packet *tlv,
 
                 break;
         default:
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 break;
         }
 
@@ -106,7 +106,7 @@ int lldp_read_port_id(tlv_packet *tlv,
 
                 break;
         default:
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 break;
         }
 

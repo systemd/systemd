@@ -648,7 +648,7 @@ int sd_rtnl_message_get_family(sd_rtnl_message *m, int *family) {
                 return 0;
         }
 
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 }
 
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m) {
@@ -1560,7 +1560,7 @@ int socket_read_message(sd_rtnl *rtnl) {
                 /* check that we support this message type */
                 r = type_system_get_type(NULL, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
-                        if (r == -ENOTSUP)
+                        if (r == -EOPNOTSUPP)
                                 log_debug("sd-rtnl: ignored message with unknown type: %i",
                                           new_msg->nlmsg_type);
 

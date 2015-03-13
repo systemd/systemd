@@ -6668,7 +6668,7 @@ int getpeersec(int fd, char **ret) {
 
         if (isempty(s)) {
                 free(s);
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         *ret = s;

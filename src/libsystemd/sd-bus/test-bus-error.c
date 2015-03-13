@@ -35,11 +35,11 @@ static void test_error(void) {
         };
 
         assert_se(!sd_bus_error_is_set(&error));
-        assert_se(sd_bus_error_set(&error, SD_BUS_ERROR_NOT_SUPPORTED, "xxx") == -ENOTSUP);
+        assert_se(sd_bus_error_set(&error, SD_BUS_ERROR_NOT_SUPPORTED, "xxx") == -EOPNOTSUPP);
         assert_se(streq(error.name, SD_BUS_ERROR_NOT_SUPPORTED));
         assert_se(streq(error.message, "xxx"));
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
-        assert_se(sd_bus_error_get_errno(&error) == ENOTSUP);
+        assert_se(sd_bus_error_get_errno(&error) == EOPNOTSUPP);
         assert_se(sd_bus_error_is_set(&error));
         sd_bus_error_free(&error);
 

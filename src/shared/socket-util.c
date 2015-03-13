@@ -580,7 +580,7 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
 

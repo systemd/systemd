@@ -234,7 +234,7 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         c->encoding = true;
@@ -365,7 +365,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         return 0;
@@ -453,7 +453,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         return 0;

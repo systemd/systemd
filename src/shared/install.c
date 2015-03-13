@@ -1535,7 +1535,7 @@ int unit_file_add_dependency(
 
                 if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
                         log_error("Failed to enable unit: Unit %s is masked", *i);
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
                 }
 
                 r = install_info_add_auto(&c, *i);
@@ -1613,7 +1613,7 @@ int unit_file_enable(
                 state = unit_file_get_state(scope, root_dir, *i);
                 if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
                         log_error("Failed to enable unit: Unit %s is masked", *i);
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
                 }
 
                 r = install_info_add_auto(&c, *i);

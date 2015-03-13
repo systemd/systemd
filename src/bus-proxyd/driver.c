@@ -291,7 +291,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         return synthetic_reply_method_errno(m, r, &error);
 
                 if (!(creds->mask & SD_BUS_CREDS_SELINUX_CONTEXT))
-                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
+                        return synthetic_reply_method_errno(m, -EOPNOTSUPP, NULL);
 
                 return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
 
@@ -307,7 +307,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         return synthetic_reply_method_errno(m, r, &error);
 
                 if (!(creds->mask & SD_BUS_CREDS_PID))
-                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
+                        return synthetic_reply_method_errno(m, -EOPNOTSUPP, NULL);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
@@ -323,7 +323,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         return synthetic_reply_method_errno(m, r, &error);
 
                 if (!(creds->mask & SD_BUS_CREDS_EUID))
-                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
+                        return synthetic_reply_method_errno(m, -EOPNOTSUPP, NULL);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->euid);
 
@@ -360,7 +360,7 @@ int bus_proxy_process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m, SharedPoli
                         return synthetic_reply_method_errno(m, r, &error);
 
                 if (!(creds->mask & SD_BUS_CREDS_UNIQUE_NAME))
-                        return synthetic_reply_method_errno(m, -ENOTSUP, NULL);
+                        return synthetic_reply_method_errno(m, -EOPNOTSUPP, NULL);
 
                 return synthetic_reply_method_return(m, "s", creds->unique_name);
 

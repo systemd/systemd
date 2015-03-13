@@ -177,7 +177,7 @@ static int normalize_offset(
                 uint64_t sz, csize_shift, csize_mask;
 
                 if (!compressed)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 csize_shift = 64 - 2 - (HEADER_CLUSTER_BITS(header) - 8);
                 csize_mask = (1ULL << (HEADER_CLUSTER_BITS(header) - 8)) - 1;
@@ -216,10 +216,10 @@ static int verify_header(const Header *header) {
 
         if (HEADER_VERSION(header) != 2 &&
             HEADER_VERSION(header) != 3)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (HEADER_CRYPT_METHOD(header) != 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (HEADER_CLUSTER_BITS(header) < 9) /* 512K */
                 return -EBADMSG;
@@ -236,7 +236,7 @@ static int verify_header(const Header *header) {
         if (HEADER_VERSION(header) == 3) {
 
                 if (header->incompatible_features != 0)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 if (HEADER_HEADER_LENGTH(header) < sizeof(Header))
                         return -EBADMSG;

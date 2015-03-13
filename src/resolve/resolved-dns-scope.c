@@ -144,7 +144,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
                 DnsServer *srv;
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 srv = dns_scope_get_dns_server(s);
                 if (!srv)
@@ -172,7 +172,7 @@ int dns_scope_emit(DnsScope *s, DnsPacket *p) {
         } else if (s->protocol == DNS_PROTOCOL_LLMNR) {
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 if (!ratelimit_test(&s->ratelimit))
                         return -EBUSY;

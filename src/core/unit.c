@@ -1456,7 +1456,7 @@ int unit_start(Unit *u) {
         }
 
         if (UNIT_VTABLE(u)->supported && !UNIT_VTABLE(u)->supported(u->manager))
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
@@ -3016,7 +3016,7 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
         assert(signo < _NSIG);
 
         if (!UNIT_VTABLE(u)->kill)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         return UNIT_VTABLE(u)->kill(u, w, signo, error);
 }

@@ -369,7 +369,7 @@ int image_remove(Image *i) {
                 return rm_rf_dangerous(i->path, false, true, false);
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 }
 
@@ -430,7 +430,7 @@ int image_rename(Image *i, const char *new_name) {
         }
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (!new_path)
@@ -498,7 +498,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 break;
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (r < 0)
@@ -563,7 +563,7 @@ int image_read_only(Image *i, bool b) {
         }
 
         default:
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         return 0;
@@ -622,7 +622,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
                 return -EROFS;
 
         if (i->type != IMAGE_SUBVOLUME)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         return btrfs_quota_limit(i->path, referenced_max);
 }

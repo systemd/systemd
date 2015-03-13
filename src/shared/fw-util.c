@@ -91,10 +91,10 @@ int fw_add_masquerade(
         int r;
 
         if (af != AF_INET)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (protocol != 0 && protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         h = iptc_init("nat");
         if (!h)
@@ -175,10 +175,10 @@ int fw_add_local_dnat(
         assert(add || !previous_remote);
 
         if (af != AF_INET)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (local_port <= 0)
                 return -EINVAL;

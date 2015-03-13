@@ -698,7 +698,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
                 log_error("µhttp returned NULL daemon info");
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto error;
         }
 

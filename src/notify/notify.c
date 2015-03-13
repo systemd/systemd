@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (r == 0)
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

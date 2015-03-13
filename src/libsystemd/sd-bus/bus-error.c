@@ -40,7 +40,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NoReply",                          ETIMEDOUT),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.IOError",                          EIO),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.BadAddress",                       EADDRNOTAVAIL),
-        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NotSupported",                     ENOTSUP),
+        SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.NotSupported",                     EOPNOTSUPP),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.LimitsExceeded",                   ENOBUFS),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.AccessDenied",                     EACCES),
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.AuthFailed",                       EACCES),
@@ -168,7 +168,7 @@ static sd_bus_error errno_to_bus_error_const(int error) {
         case ECONNRESET:
                 return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_DISCONNECTED, "Disconnected");
 
-        case ENOTSUP:
+        case EOPNOTSUPP:
                 return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NOT_SUPPORTED, "Not supported");
 
         case EADDRNOTAVAIL:

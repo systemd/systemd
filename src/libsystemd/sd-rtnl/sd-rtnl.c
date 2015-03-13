@@ -998,7 +998,7 @@ int sd_rtnl_add_match(sd_rtnl *rtnl,
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
         assert_return(rtnl_message_type_is_link(type) ||
                       rtnl_message_type_is_addr(type) ||
-                      rtnl_message_type_is_route(type), -ENOTSUP);
+                      rtnl_message_type_is_route(type), -EOPNOTSUPP);
 
         c = new0(struct match_callback, 1);
         if (!c)

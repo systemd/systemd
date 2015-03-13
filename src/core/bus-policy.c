@@ -160,7 +160,7 @@ int bus_kernel_make_starter(
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         return fd;
 }

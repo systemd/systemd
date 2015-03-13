@@ -3125,7 +3125,7 @@ static int dissect_image(
         return 0;
 #else
         log_error("--image= is not supported, compiled without blkid support.");
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 #endif
 }
 
@@ -3180,7 +3180,7 @@ static int mount_device(const char *what, const char *where, const char *directo
 
         if (streq(fstype, "crypto_LUKS")) {
                 log_error("nspawn currently does not support LUKS disk images.");
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (mount(what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL) < 0)
@@ -3189,7 +3189,7 @@ static int mount_device(const char *what, const char *where, const char *directo
         return 0;
 #else
         log_error("--image= is not supported, compiled without blkid support.");
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 #endif
 }
 

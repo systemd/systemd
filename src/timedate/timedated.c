@@ -43,7 +43,7 @@
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
 static BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map timedated_errors[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.timedate1.NoNTPSupport", ENOTSUP),
+        SD_BUS_ERROR_MAP("org.freedesktop.timedate1.NoNTPSupport", EOPNOTSUPP),
         SD_BUS_ERROR_MAP_END
 };
 

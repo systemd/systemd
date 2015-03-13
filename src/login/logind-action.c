@@ -112,7 +112,7 @@ int manager_handle_action(
 
         if (!supported) {
                 log_warning("Requested operation not supported, ignoring.");
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         if (m->action_what) {

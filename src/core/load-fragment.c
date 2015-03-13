@@ -373,7 +373,7 @@ int config_parse_socket_listen(const char *unit,
                 }
 
                 if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET) {
-                        log_syntax(unit, LOG_ERR, filename, line, ENOTSUP,
+                        log_syntax(unit, LOG_ERR, filename, line, EOPNOTSUPP,
                                    "Address family not supported, ignoring: %s", rvalue);
                         return 0;
                 }

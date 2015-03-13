@@ -972,7 +972,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         /* The higher 32bit of the bus_flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
         if (hello->bus_flags > 0xFFFFFFFFULL) {
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto fail;
         }
 
@@ -987,7 +987,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         }
 
         if (!bloom || !bloom_validate_parameters((size_t) bloom->size, (unsigned) bloom->n_hash)) {
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
                 goto fail;
         }
 
@@ -1395,7 +1395,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *al
         assert(allocated);
 
         if (!bus || !bus->is_kernel)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 

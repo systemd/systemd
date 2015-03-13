@@ -576,7 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_INTERVAL:
                 case ARG_FORCE:
                         log_error("Forward-secure sealing not available.");
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 #endif
 
                 case 'p': {
@@ -1472,7 +1472,7 @@ finish:
         return r;
 #else
         log_error("Forward-secure sealing not available.");
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 #endif
 }
 

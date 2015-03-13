@@ -919,7 +919,7 @@ _public_ int sd_event_add_time(
                 callback = time_exit_callback;
 
         type = clock_to_event_source_type(clock);
-        assert_return(type >= 0, -ENOTSUP);
+        assert_return(type >= 0, -EOPNOTSUPP);
 
         d = event_get_clock_data(e, type);
         assert(d);

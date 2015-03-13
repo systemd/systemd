@@ -81,7 +81,7 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
         assert(u);
 
         if (!u->instance)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         n = unit_name_unescape(u->instance);
         if (!n)
@@ -164,7 +164,7 @@ static int specifier_runtime(char specifier, void *data, void *userdata, char **
         else {
                 e = getenv("XDG_RUNTIME_DIR");
                 if (!e)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
         }
 
         n = strdup(e);
@@ -185,7 +185,7 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
 
         c = unit_get_exec_context(u);
         if (!c)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
@@ -248,7 +248,7 @@ static int specifier_user_home(char specifier, void *data, void *userdata, char 
 
         c = unit_get_exec_context(u);
         if (!c)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
@@ -258,7 +258,7 @@ static int specifier_user_home(char specifier, void *data, void *userdata, char 
                 if (!c->user || streq(c->user, "root") || streq(c->user, "0"))
                         n = strdup("/root");
                 else
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
         } else {
 
@@ -296,7 +296,7 @@ static int specifier_user_shell(char specifier, void *data, void *userdata, char
 
         c = unit_get_exec_context(u);
         if (!c)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
@@ -306,7 +306,7 @@ static int specifier_user_shell(char specifier, void *data, void *userdata, char
                 if (!c->user || streq(c->user, "root") || streq(c->user, "0"))
                         n = strdup("/bin/sh");
                 else
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
         } else {
 

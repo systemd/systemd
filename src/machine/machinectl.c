@@ -1155,7 +1155,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL &&
             arg_transport != BUS_TRANSPORT_MACHINE) {
                 log_error("Login only supported on local machines.");
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
         }
 
         polkit_agent_open_if_enabled();

@@ -573,7 +573,7 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_INVALID, true);
                 else if (r == -EPROTO)
                         r = job_finish_and_invalidate(j, JOB_ASSERT, true);
-                else if (r == -ENOTSUP)
+                else if (r == -EOPNOTSUPP)
                         r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true);
                 else if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING);

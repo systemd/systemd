@@ -1706,7 +1706,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
         }
 
         /* If the cookie number isn't kept, then we know that no reply
@@ -3398,7 +3398,7 @@ _public_ int sd_bus_try_close(sd_bus *bus) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!bus->is_kernel)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;

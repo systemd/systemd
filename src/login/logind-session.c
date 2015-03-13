@@ -461,7 +461,7 @@ int session_activate(Session *s) {
         assert(s->user);
 
         if (!s->seat)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (s->seat->active == s)
                 return 0;
@@ -469,7 +469,7 @@ int session_activate(Session *s) {
         /* on seats with VTs, we let VTs manage session-switching */
         if (seat_has_vts(s->seat)) {
                 if (!s->vtnr)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 return chvt(s->vtnr);
         }

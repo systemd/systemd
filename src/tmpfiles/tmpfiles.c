@@ -753,7 +753,7 @@ static int path_set_acls(Item *item, const char *path) {
 
         if (r > 0)
                 return -r; /* already warned */
-        else if (r == -ENOTSUP) {
+        else if (r == -EOPNOTSUPP) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         } else if (r < 0)

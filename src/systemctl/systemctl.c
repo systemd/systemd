@@ -2618,7 +2618,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
                 if (!bus)
-                        return log_error_errno(ENOTSUP, "Unit name globbing without bus is not implemented.");
+                        return log_error_errno(EOPNOTSUPP, "Unit name globbing without bus is not implemented.");
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
@@ -2956,7 +2956,7 @@ static int start_special(sd_bus *bus, char **args) {
              a == ACTION_HIBERNATE ||
              a == ACTION_HYBRID_SLEEP)) {
                 r = reboot_with_logind(bus, a);
-                if (r >= 0 || IN_SET(r, -ENOTSUP, -EINPROGRESS))
+                if (r >= 0 || IN_SET(r, -EOPNOTSUPP, -EINPROGRESS))
                         return r;
         }
 

@@ -420,7 +420,7 @@ static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
         else {
                 /* 64bit cookies are not supported on dbus1 */
                 if (cookie > 0xffffffffUL)
-                        return -ENOTSUP;
+                        return -EOPNOTSUPP;
 
                 return message_append_field_uint32(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) cookie);
         }
@@ -750,7 +750,7 @@ static int message_new_reply(
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = BUS_MESSAGE_COOKIE(call);
         if (t->reply_cookie == 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
@@ -1463,7 +1463,7 @@ static int message_push_fd(sd_bus_message *m, int fd) {
                 return -EINVAL;
 
         if (!m->allow_fds)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
         if (copy < 0)
@@ -2942,7 +2942,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
         if (cookie > 0xffffffffULL &&
             !BUS_MESSAGE_IS_GVARIANT(m))
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         /* In vtables the return signature of method calls is listed,
          * let's check if they match if this is a response */
@@ -4796,7 +4796,7 @@ _public_ int sd_bus_message_read_array(
         assert_return(bus_type_is_trivial(type), -EINVAL);
         assert_return(ptr, -EINVAL);
         assert_return(size, -EINVAL);
-        assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -ENOTSUP);
+        assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -EOPNOTSUPP);
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
         if (r <= 0)

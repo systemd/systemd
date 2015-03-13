@@ -146,7 +146,7 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
         int r;
 
         assert_return(pid >= 0, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
 
         if (pid == 0)
@@ -941,7 +941,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                 r = audit_session_from_pid(pid, &c->audit_session_id);
                 if (r < 0) {
-                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                        if (r != -EOPNOTSUPP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
@@ -950,7 +950,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 r = audit_loginuid_from_pid(pid, &c->audit_login_uid);
                 if (r < 0) {
-                        if (r != -ENOTSUP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
+                        if (r != -EOPNOTSUPP && r != -ENXIO && r != -ENOENT && r != -EPERM && r != -EACCES)
                                 return r;
                 } else
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;

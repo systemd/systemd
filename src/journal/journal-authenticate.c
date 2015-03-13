@@ -106,7 +106,7 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
 
         if (f->fss_start_usec == 0 ||
             f->fss_interval_usec == 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         if (realtime < f->fss_start_usec)
                 return -ESTALE;
@@ -446,7 +446,7 @@ int journal_file_hmac_setup(JournalFile *f) {
 
         e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
         if (e != 0)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         return 0;
 }

@@ -115,7 +115,7 @@ static int print_home(const char *n) {
         }
 
         log_error("Path %s not known.", n);
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 }
 
 static void help(void) {

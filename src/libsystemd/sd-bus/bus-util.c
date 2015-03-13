@@ -132,7 +132,7 @@ int bus_event_loop_with_idle(
                         /* Fallback for dbus1 connections: we
                          * unregister the name and wait for the
                          * response to come through for it */
-                        if (r == -ENOTSUP) {
+                        if (r == -EOPNOTSUPP) {
 
                                 /* Inform the service manager that we
                                  * are going down, so that it will
@@ -1170,7 +1170,7 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
         assert(bus);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -ENOTSUP);
+        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
 
         switch (transport) {
 
@@ -1205,7 +1205,7 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
         assert(bus);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -ENOTSUP);
+        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
 
         switch (transport) {
 
@@ -1764,7 +1764,7 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
         else if (streq(d->result, "assert"))
                 r = -EPROTO;
         else if (streq(d->result, "unsupported"))
-                r = -ENOTSUP;
+                r = -EOPNOTSUPP;
         else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
                 r = -EIO;
 

@@ -323,7 +323,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
         }
 
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 }
 
 _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
@@ -552,7 +552,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
         }
 
-        return -ENOTSUP;
+        return -EOPNOTSUPP;
 }
 
 _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
