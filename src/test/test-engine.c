@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
-        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, false, NULL, &j) == -EDEADLOCK);
+        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, false, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test3: (Cyclic Order, Fixable, Garbage Collector)\n");
@@ -81,14 +81,14 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
-        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, false, NULL, &j) == -EDEADLOCK);
+        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, false, NULL, &j) == -EDEADLK);
 
         printf("Test6: (Colliding transaction, replace)\n");
         assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, false, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Test7: (Unmergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, false, NULL, &j) == -EDEADLOCK);
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, false, NULL, &j) == -EDEADLK);
 
         printf("Test8: (Mergeable job type, fail)\n");
         assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, false, NULL, &j) == 0);
