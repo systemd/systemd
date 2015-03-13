@@ -546,7 +546,7 @@ static int enumerate_partitions(dev_t devnum) {
                         srv_rw = !(flags & GPT_FLAG_READ_ONLY),
 
                         free(srv);
-                        srv = strdup(node);
+                        srv = strdup(subnode);
                         if (!srv)
                                 return log_oom();
                 }
