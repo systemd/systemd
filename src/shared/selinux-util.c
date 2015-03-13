@@ -116,6 +116,7 @@ void mac_selinux_finish(void) {
                 return;
 
         selabel_close(label_hnd);
+        label_hnd = NULL;
 #endif
 }
 
