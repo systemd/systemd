@@ -873,10 +873,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 }
 
                 /* preserve old, or get new initialization timestamp */
-                if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
-                        udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
-                else if (udev_device_get_usec_initialized(event->dev) == 0)
-                        udev_device_set_usec_initialized(event->dev, now(CLOCK_MONOTONIC));
+                udev_device_ensure_usec_initialized(event->dev, event->dev_db);
 
                 /* (re)write database file */
                 udev_device_update_db(dev);

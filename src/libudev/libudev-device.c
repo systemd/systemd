@@ -445,6 +445,23 @@ static int udev_device_set_syspath(struct udev_device *udev_device, const char *
         return 0;
 }
 
+static void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t usec_initialized)
+{
+        char num[DECIMAL_STR_MAX(usec_t)];
+
+        udev_device->usec_initialized = usec_initialized;
+        snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
+        udev_device_add_property_internal(udev_device, "USEC_INITIALIZED", num);
+}
+
+void udev_device_ensure_usec_initialized(struct udev_device *udev_device, struct udev_device *old_device)
+{
+        if (old_device && old_device->usec_initialized != 0)
+                udev_device_set_usec_initialized(udev_device, old_device->usec_initialized);
+        else
+                udev_device_set_usec_initialized(udev_device, now(CLOCK_MONOTONIC));
+}
+
 /*
  * parse property string, and if needed, update internal values accordingly
  *
@@ -1416,15 +1433,6 @@ _public_ unsigned long long int udev_device_get_usec_since_initialized(struct ud
 usec_t udev_device_get_usec_initialized(struct udev_device *udev_device)
 {
         return udev_device->usec_initialized;
-}
-
-void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t usec_initialized)
-{
-        char num[32];
-
-        udev_device->usec_initialized = usec_initialized;
-        snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
-        udev_device_add_property_internal(udev_device, "USEC_INITIALIZED", num);
 }
 
 /**

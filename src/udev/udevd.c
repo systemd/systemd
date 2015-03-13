@@ -1474,8 +1474,8 @@ int main(int argc, char *argv[]) {
                         struct udev_device *dev;
 
                         dev = udev_monitor_receive_device(monitor);
-                        if (dev != NULL) {
-                                udev_device_set_usec_initialized(dev, now(CLOCK_MONOTONIC));
+                        if (dev) {
+                                udev_device_ensure_usec_initialized(dev, NULL);
                                 if (event_queue_insert(dev) < 0)
                                         udev_device_unref(dev);
                         }
