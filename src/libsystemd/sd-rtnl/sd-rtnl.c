@@ -262,7 +262,7 @@ static void rtnl_seal_message(sd_rtnl *rtnl, sd_rtnl_message *m) {
         assert(m);
         assert(m->hdr);
 
-        m->hdr->nlmsg_seq = rtnl->serial++;
+        m->hdr->nlmsg_seq = rtnl->serial++ ? : rtnl->serial++;
 
         rtnl_message_seal(m);
 
