@@ -1022,7 +1022,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         } else if (r == -E2BIG) {
                 log_notice_errno(E2BIG, "Entry too big, skipped");
                 return 1;
-        } else if (r == -EAGAIN) {
+        } else if (r == -EAGAIN || r == -EWOULDBLOCK) {
                 return 0;
         } else if (r < 0) {
                 log_debug_errno(r, "Closing connection: %m");
