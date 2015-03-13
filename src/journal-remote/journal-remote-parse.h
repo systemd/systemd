@@ -54,6 +54,7 @@ typedef struct RemoteSource {
         Writer *writer;
 
         sd_event_source *event;
+        sd_event_source *buffer_event;
 } RemoteSource;
 
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
