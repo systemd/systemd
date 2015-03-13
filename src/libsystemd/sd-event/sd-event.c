@@ -461,7 +461,7 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
 static bool event_pid_changed(sd_event *e) {
         assert(e);
 
-        /* We don't support people creating am event loop and keeping
+        /* We don't support people creating an event loop and keeping
          * it around over a fork(). Let's complain. */
 
         return e->original_pid != getpid();
