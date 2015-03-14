@@ -626,8 +626,6 @@ int config_parse_exec(const char *unit,
 
                 n[k] = NULL;
 
-                log_debug("path: %s", path ?: n[0]);
-
                 if (!n[0])
                         reason = "Empty executable name or zeroeth argument";
                 else if (!string_is_safe(path ?: n[0]))
