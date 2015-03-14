@@ -724,8 +724,12 @@ static void swap_enter_activating(Swap *s) {
                                      NULL, &discard, NULL);
 
                 priority = s->parameters_fragment.priority;
-                if (priority < 0)
-                        fstab_find_pri(s->parameters_fragment.options, &priority);
+                if (priority < 0) {
+                        r = fstab_find_pri(s->parameters_fragment.options, &priority);
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m",
+                                                 s->parameters_fragment.options);
+                }
         }
 
         r = exec_command_set(s->control_command, "/sbin/swapon", NULL);
