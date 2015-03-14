@@ -130,6 +130,8 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
 
 static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen)
 {
+        assert(*descpos >= 0);
+
         while (*descpos < *desclen) {
                 switch(descoption[*descpos]) {
                 case DHCP_OPTION_PAD:
