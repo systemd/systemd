@@ -449,7 +449,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry project='man-pages'><refentrytitle>credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.journald-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 
