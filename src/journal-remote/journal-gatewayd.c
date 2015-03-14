@@ -982,10 +982,9 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-#ifdef HAVE_GNUTLS
-        gnutls_global_set_log_function(log_func_gnutls);
-        log_reset_gnutls_level();
-#endif
+        r = setup_gnutls_logger(NULL);
+        if (r < 0)
+                return EXIT_FAILURE;
 
         n = sd_listen_fds(1);
         if (n < 0) {

@@ -1503,31 +1503,6 @@ static int load_certificates(char **key, char **cert, char **trust) {
         return 0;
 }
 
-static int setup_gnutls_logger(char **categories) {
-        if (!arg_listen_http && !arg_listen_https)
-                return 0;
-
-#ifdef HAVE_GNUTLS
-        {
-                char **cat;
-                int r;
-
-                gnutls_global_set_log_function(log_func_gnutls);
-
-                if (categories) {
-                        STRV_FOREACH(cat, categories) {
-                                r = log_enable_gnutls_category(*cat);
-                                if (r < 0)
-                                        return r;
-                        }
-                } else
-                        log_reset_gnutls_level();
-        }
-#endif
-
-        return 0;
-}
-
 int main(int argc, char **argv) {
         RemoteServer s = {};
         int r;
@@ -1544,9 +1519,12 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-        r = setup_gnutls_logger(arg_gnutls_log);
-        if (r < 0)
-                return EXIT_FAILURE;
+
+        if (arg_listen_http || arg_listen_https) {
+                r = setup_gnutls_logger(arg_gnutls_log);
+                if (r < 0)
+                        return EXIT_FAILURE;
+        }
 
         if (arg_listen_https || https_socket >= 0)
                 if (load_certificates(&key, &cert, &trust) < 0)

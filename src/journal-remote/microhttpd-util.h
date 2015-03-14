@@ -43,13 +43,11 @@ int mhd_respond_oom(struct MHD_Connection *connection);
 
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname);
 
-#ifdef HAVE_GNUTLS
-void log_func_gnutls(int level, const char *message);
-int log_enable_gnutls_category(const char *cat);
-void log_reset_gnutls_level(void);
-
-/* This is additionally filtered by our internal log level, so it
- * should be set fairly high to capture all potentially interesting
- * events without overwhelming detail.
+/* Set gnutls internal logging function to a callback which uses our
+ * own logging framework.
+ *
+ * gnutls categories are additionally filtered by our internal log
+ * level, so it should be set fairly high to capture all potentially
+ * interesting events without overwhelming detail.
  */
-#endif
+int setup_gnutls_logger(char **categories);

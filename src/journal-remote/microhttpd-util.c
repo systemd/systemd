@@ -121,7 +121,7 @@ static struct {
         { {"9", "enc", "int"},    LOG_DEBUG },
 };
 
-void log_func_gnutls(int level, const char *message) {
+static void log_func_gnutls(int level, const char *message) {
         assert_se(message);
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
@@ -133,7 +133,18 @@ void log_func_gnutls(int level, const char *message) {
         }
 }
 
-int log_enable_gnutls_category(const char *cat) {
+static void log_reset_gnutls_level(void) {
+        int i;
+
+        for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
+                if (gnutls_log_map[i].enabled) {
+                        log_debug("Setting gnutls log level to %d", i);
+                        gnutls_global_set_log_level(i);
+                        break;
+                }
+}
+
+static int log_enable_gnutls_category(const char *cat) {
         unsigned i;
 
         if (streq(cat, "all")) {
@@ -152,15 +163,22 @@ int log_enable_gnutls_category(const char *cat) {
         return -EINVAL;
 }
 
-void log_reset_gnutls_level(void) {
-        int i;
+int setup_gnutls_logger(char **categories) {
+        char **cat;
+        int r;
 
-        for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
-                if (gnutls_log_map[i].enabled) {
-                        log_debug("Setting gnutls log level to %d", i);
-                        gnutls_global_set_log_level(i);
-                        break;
+        gnutls_global_set_log_function(log_func_gnutls);
+
+        if (categories) {
+                STRV_FOREACH(cat, categories) {
+                        r = log_enable_gnutls_category(*cat);
+                        if (r < 0)
+                                return r;
                 }
+        } else
+                log_reset_gnutls_level();
+
+        return 0;
 }
 
 static int verify_cert_authorized(gnutls_session_t session) {
@@ -299,5 +317,11 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 #else
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         return -EPERM;
+}
+
+int setup_gnutls_logger(char **categories) {
+        if (categories)
+                log_notice("Ignoring specified gnutls logging categories — gnutls not available.");
+        return 0;
 }
 #endif
