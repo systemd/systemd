@@ -2823,7 +2823,7 @@ static int dissect_image(
                 return -errno;
         }
 
-        blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
 
         is_gpt = streq_ptr(pttype, "gpt");
         is_mbr = streq_ptr(pttype, "dos");
