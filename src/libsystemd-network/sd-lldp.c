@@ -519,7 +519,7 @@ int sd_lldp_save(sd_lldp *lldp, const char *lldp_file) {
                         free(s);
                         s = k;
 
-                        (void)lldp_read_system_capability(p->packet, &data);
+                        (void) lldp_read_system_capability(p->packet, &data);
 
                         sprintf(buf, "'_CAP=%x'", data);
 

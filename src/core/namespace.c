@@ -150,14 +150,14 @@ static int mount_dev(BindMount *m) {
                 return -errno;
 
         dev = strjoina(temporary_mount, "/dev");
-        (void)mkdir(dev, 0755);
+        (void) mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755") < 0) {
                 r = -errno;
                 goto fail;
         }
 
         devpts = strjoina(temporary_mount, "/dev/pts");
-        (void)mkdir(devpts, 0755);
+        (void) mkdir(devpts, 0755);
         if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
                 r = -errno;
                 goto fail;
@@ -167,7 +167,7 @@ static int mount_dev(BindMount *m) {
         symlink("pts/ptmx", devptmx);
 
         devshm = strjoina(temporary_mount, "/dev/shm");
-        (void)mkdir(devshm, 01777);
+        (void) mkdir(devshm, 01777);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
                 r = -errno;
@@ -175,11 +175,11 @@ static int mount_dev(BindMount *m) {
         }
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
-        (void)mkdir(devmqueue, 0755);
+        (void) mkdir(devmqueue, 0755);
         mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
-        (void)mkdir(devhugepages, 0755);
+        (void) mkdir(devhugepages, 0755);
         mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strjoina(temporary_mount, "/dev/log");
@@ -273,7 +273,7 @@ static int mount_kdbus(BindMount *m) {
                 return log_error_errno(errno, "Failed create temp dir: %m");
 
         root = strjoina(temporary_mount, "/kdbus");
-        (void)mkdir(root, 0755);
+        (void) mkdir(root, 0755);
         if (mount("tmpfs", root, "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=777") < 0) {
                 r = -errno;
                 goto fail;

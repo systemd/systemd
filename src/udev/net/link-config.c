@@ -255,7 +255,7 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
 
                                 attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
                                 if (attr_value)
-                                        (void)safe_atou8(attr_value, &name_assign_type);
+                                        (void) safe_atou8(attr_value, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM) {
                                         log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",

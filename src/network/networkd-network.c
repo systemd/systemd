@@ -294,7 +294,7 @@ int network_get(Manager *manager, struct udev_device *device,
 
                                 attr = udev_device_get_sysattr_value(device, "name_assign_type");
                                 if (attr)
-                                        (void)safe_atou8(attr, &name_assign_type);
+                                        (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)
                                         log_warning("%-*s: found matching network '%s', based on potentially unpredictable ifname",

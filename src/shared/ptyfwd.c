@@ -342,7 +342,7 @@ int pty_forward_new(
         f->master = master;
 
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                (void)ioctl(master, TIOCSWINSZ, &ws);
+                (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!read_only) {
                 if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {

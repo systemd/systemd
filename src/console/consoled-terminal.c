@@ -98,7 +98,7 @@ Terminal *terminal_free(Terminal *t) {
         assert(t->workspace);
 
         if (t->pty) {
-                (void)pty_signal(t->pty, SIGHUP);
+                (void) pty_signal(t->pty, SIGHUP);
                 pty_close(t->pty);
                 pty_unref(t->pty);
         }

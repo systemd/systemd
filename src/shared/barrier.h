@@ -86,6 +86,6 @@ static inline bool barrier_is_aborted(Barrier *b) {
 }
 
 static inline bool barrier_place_and_sync(Barrier *b) {
-        (void)barrier_place(b);
+        (void) barrier_place(b);
         return barrier_sync(b);
 }

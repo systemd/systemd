@@ -739,7 +739,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        (void)sd_bus_negotiate_timestamp(bus, true);
+        (void) sd_bus_negotiate_timestamp(bus, true);
 
         r = context_read_data(&context);
         if (r < 0) {
