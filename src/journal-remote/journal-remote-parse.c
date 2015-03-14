@@ -114,19 +114,24 @@ static int get_line(RemoteSource *source, char **line, size_t *size) {
                         /* we have to wait for some data to come to us */
                         return -EAGAIN;
 
+                /* We know that source->filled is at most DATA_SIZE_MAX, so if
+                   we reallocate it, we'll increase the size at least a bit. */
+                assert_cc(DATA_SIZE_MAX < ENTRY_SIZE_MAX);
                 if (source->size - source->filled < LINE_CHUNK &&
-                    !realloc_buffer(source,
-                                    MIN(source->filled + LINE_CHUNK, ENTRY_SIZE_MAX)))
+                    !realloc_buffer(source, MIN(source->filled + LINE_CHUNK, ENTRY_SIZE_MAX)))
                                 return log_oom();
 
+                assert(source->buf);
                 assert(source->size - source->filled >= LINE_CHUNK ||
                        source->size == ENTRY_SIZE_MAX);
 
-                n = read(source->fd, source->buf + source->filled,
+                n = read(source->fd,
+                         source->buf + source->filled,
                          source->size - source->filled);
                 if (n < 0) {
                         if (errno != EAGAIN)
-                                log_error_errno(errno, "read(%d, ..., %zu): %m", source->fd,
+                                log_error_errno(errno, "read(%d, ..., %zu): %m",
+                                                source->fd,
                                                 source->size - source->filled);
                         return -errno;
                 } else if (n == 0)
