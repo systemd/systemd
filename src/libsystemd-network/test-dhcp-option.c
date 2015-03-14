@@ -1,3 +1,4 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -50,8 +51,7 @@ static struct option_desc option_tests[] = {
             DHCP_OVERLOAD_FILE|DHCP_OVERLOAD_SNAME }, 3, true, },
 };
 
-static const char *dhcp_type(int type)
-{
+static const char *dhcp_type(int type) {
         switch(type) {
         case DHCP_DISCOVER:
                 return "DHCPDISCOVER";
@@ -72,8 +72,7 @@ static const char *dhcp_type(int type)
         }
 }
 
-static void test_invalid_buffer_length(void)
-{
+static void test_invalid_buffer_length(void) {
         DHCPMessage message;
 
         assert_se(dhcp_option_parse(&message, 0, NULL, NULL) == -EINVAL);
@@ -81,8 +80,7 @@ static void test_invalid_buffer_length(void)
                == -EINVAL);
 }
 
-static void test_message_init(void)
-{
+static void test_message_init(void) {
         _cleanup_free_ DHCPMessage *message = NULL;
         size_t optlen = 4, optoffset;
         size_t len = sizeof(DHCPMessage) + optlen;
@@ -108,8 +106,7 @@ static void test_message_init(void)
 
 static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
                 uint8_t *file, uint8_t filelen,
-                uint8_t *sname, uint8_t snamelen)
-{
+                uint8_t *sname, uint8_t snamelen) {
         DHCPMessage *message;
         size_t len = sizeof(DHCPMessage) + optlen;
 
@@ -128,8 +125,7 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
         return message;
 }
 
-static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen)
-{
+static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
         assert(*descpos >= 0);
 
         while (*descpos < *desclen) {
@@ -149,9 +145,7 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen)
         }
 }
 
-static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option,
-                           void *user_data)
-{
+static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option, void *user_data) {
         struct option_desc *desc = user_data;
         uint8_t *descoption = NULL;
         int *desclen = NULL, *descpos = NULL;
@@ -238,8 +232,7 @@ static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option,
         return 0;
 }
 
-static void test_options(struct option_desc *desc)
-{
+static void test_options(struct option_desc *desc) {
         uint8_t *options = NULL;
         uint8_t *file = NULL;
         uint8_t *sname = NULL;
@@ -300,8 +293,7 @@ static uint8_t options[64] = {
         255
 };
 
-static void test_option_set(void)
-{
+static void test_option_set(void) {
         _cleanup_free_ DHCPMessage *result = NULL;
         size_t offset = 0, len, pos;
         unsigned i;
@@ -373,9 +365,8 @@ static void test_option_set(void)
                 printf ("\n");
 }
 
-int main(int argc, char *argv[])
-{
-        unsigned int i;
+int main(int argc, char *argv[]) {
+        unsigned i;
 
         test_invalid_buffer_length();
         test_message_init();
