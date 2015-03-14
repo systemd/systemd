@@ -527,7 +527,7 @@ fail:
         if (n > 0) {
                 for (m = mounts; m < mounts + n; ++m)
                         if (m->done)
-                                umount2(m->path, MNT_DETACH);
+                                (void) umount2(m->path, MNT_DETACH);
         }
 
         return r;
