@@ -336,7 +336,7 @@
         service was activated from, which is primarily useful for
         compatibility with daemons designed for use with the
         traditional
-        <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         daemon.</para>
 
         <para>This setting defaults to
