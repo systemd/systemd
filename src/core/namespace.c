@@ -164,7 +164,10 @@ static int mount_dev(BindMount *m) {
         }
 
         devptmx = strjoina(temporary_mount, "/dev/ptmx");
-        symlink("pts/ptmx", devptmx);
+        if (symlink("pts/ptmx", devptmx) < 0) {
+                r = -errno;
+                goto fail;
+        }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
         (void) mkdir(devshm, 01777);
@@ -176,14 +179,14 @@ static int mount_dev(BindMount *m) {
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
         (void) mkdir(devmqueue, 0755);
-        mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
+        (void) mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
         (void) mkdir(devhugepages, 0755);
-        mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
+        (void) mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strjoina(temporary_mount, "/dev/log");
-        symlink("/run/systemd/journal/dev-log", devlog);
+        (void) symlink("/run/systemd/journal/dev-log", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
                 _cleanup_free_ char *dn = NULL;
