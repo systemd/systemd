@@ -85,16 +85,16 @@ static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_run_generators(Manager *m);
 static void manager_undo_generators(Manager *m);
 
-static int manager_watch_jobs_in_progress(Manager *m) {
+static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
 
         assert(m);
 
         if (m->jobs_in_progress_event_source)
-                return 0;
+                return;
 
         next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
-        return sd_event_add_time(
+        (void) sd_event_add_time(
                         m->event,
                         &m->jobs_in_progress_event_source,
                         CLOCK_MONOTONIC,
@@ -2707,7 +2707,9 @@ void manager_check_finished(Manager *m) {
         if (hashmap_size(m->jobs) > 0) {
 
                 if (m->jobs_in_progress_event_source)
-                        sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
+                        /* Ignore any failure, this is only for feedback */
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
+                                                        now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
 
                 return;
         }
