@@ -100,6 +100,19 @@
   </a>
 </xsl:template>
 
+<xsl:template match="citerefentry[@project='dbus']">
+  <a>
+    <xsl:attribute name="href">
+      <xsl:text>http://dbus.freedesktop.org/doc/</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+      <xsl:text>.</xsl:text>
+      <xsl:value-of select="manvolnum"/>
+      <xsl:text>.html</xsl:text>
+    </xsl:attribute>
+    <xsl:call-template name="inline.charseq"/>
+  </a>
+</xsl:template>
+
 <xsl:template match="refsect1/title|refsect1/info/title">
   <!-- the ID is output in the block.object call for refsect1 -->
   <h2>

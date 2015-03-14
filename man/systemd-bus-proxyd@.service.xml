@@ -73,7 +73,7 @@
 
     <para>
       <citerefentry><refentrytitle>systemd-bus-proxyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='dbus'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <ulink url="http://freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
       <ulink url="https://code.google.com/p/d-bus/">kdbus</ulink>
     </para>
