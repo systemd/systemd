@@ -97,7 +97,7 @@ EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
                 return EFI_UNSUPPORTED;
         }
 
-        row_size = (((dib->depth * dib->x) + 31) / 32) * 4;
+        row_size = ((UINTN) dib->depth * dib->x + 31) / 32 * 4;
         if (file->size - file->offset <  dib->y * row_size)
                 return EFI_INVALID_PARAMETER;
         if (row_size * dib->y > 64 * 1024 * 1024)
