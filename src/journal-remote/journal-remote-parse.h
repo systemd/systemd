@@ -66,6 +66,5 @@ static inline size_t source_non_empty(RemoteSource *source) {
 }
 
 void source_free(RemoteSource *source);
-int process_data(RemoteSource *source);
 int push_data(RemoteSource *source, const char *data, size_t size);
 int process_source(RemoteSource *source, bool compress, bool seal);

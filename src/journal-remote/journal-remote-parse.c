@@ -310,7 +310,7 @@ static int process_dunder(RemoteSource *source, char *line, size_t n) {
         return 0;
 }
 
-int process_data(RemoteSource *source) {
+static int process_data(RemoteSource *source) {
         int r;
 
         switch(source->state) {
