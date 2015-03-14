@@ -450,7 +450,7 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                  assert(length >= sizeof(ResRequest));
                  assert(length == sizeof(ResRequest) + res_req->dname_len);
 
-                 dname = (const char *) req + sizeof(ResRequest);
+                 dname = (const char *) res_req + sizeof(ResRequest);
 
                  if (req->type == REQUEST_RES_QUERY)
                          ret = res_query(dname, res_req->class, res_req->type, (unsigned char *) &answer, BUFSIZE);
