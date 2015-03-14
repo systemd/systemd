@@ -51,8 +51,8 @@ enum {
 };
 
 enum {
-        SD_EVENT_PASSIVE,
-        SD_EVENT_PREPARED,
+        SD_EVENT_INITIAL,
+        SD_EVENT_ARMED,
         SD_EVENT_PENDING,
         SD_EVENT_RUNNING,
         SD_EVENT_EXITING,
