@@ -568,7 +568,7 @@ static int device_enumerate(Manager *m) {
                 /* This will fail if we are unprivileged, but that
                  * should not matter much, as user instances won't run
                  * during boot. */
-                udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024);
+                (void) udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024);
 
                 r = udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd");
                 if (r < 0)
