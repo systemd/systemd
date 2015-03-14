@@ -1039,15 +1039,15 @@ void session_restore_vt(Session *s) {
         if (vt < 0)
                 return;
 
-        ioctl(vt, KDSETMODE, KD_TEXT);
+        (void) ioctl(vt, KDSETMODE, KD_TEXT);
 
         if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
                 kb = K_UNICODE;
 
-        ioctl(vt, KDSKBMODE, kb);
+        (void) ioctl(vt, KDSKBMODE, kb);
 
         mode.mode = VT_AUTO;
-        ioctl(vt, VT_SETMODE, &mode);
+        (void) ioctl(vt, VT_SETMODE, &mode);
 
         fchown(vt, 0, -1);
 
