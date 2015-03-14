@@ -3092,9 +3092,10 @@ void manager_update_failed_units(Manager *m, Unit *u, bool failed) {
 
         size = set_size(m->failed_units);
 
-        if (failed)
-                set_put(m->failed_units, u);
-        else
+        if (failed) {
+                if (set_put(m->failed_units, u) < 0)
+                        log_oom();
+        } else
                 set_remove(m->failed_units, u);
 
         if (set_size(m->failed_units) != size)
