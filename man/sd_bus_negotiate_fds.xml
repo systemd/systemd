@@ -105,7 +105,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     this is disabled,
     <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_bus_message_get_seqno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     fail with <constant>-ENODATA</constant> on incoming messages. Note
     that not all transports support timestamping of messages. On local
     transports, the timestamping is applied by the kernel and cannot
