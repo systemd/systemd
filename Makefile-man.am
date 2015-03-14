@@ -810,7 +810,9 @@ MANPAGES += \
 	man/sd_event_add_time.3 \
 	man/sd_event_get_fd.3 \
 	man/sd_event_new.3 \
+	man/sd_event_run.3 \
 	man/sd_event_set_name.3 \
+	man/sd_event_wait.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
 MANPAGES_ALIAS += \
@@ -871,7 +873,10 @@ MANPAGES_ALIAS += \
 	man/sd_event_add_exit.3 \
 	man/sd_event_add_post.3 \
 	man/sd_event_default.3 \
+	man/sd_event_dispatch.3 \
 	man/sd_event_get_name.3 \
+	man/sd_event_loop.3 \
+	man/sd_event_prepare.3 \
 	man/sd_event_ref.3 \
 	man/sd_event_source_get_child_pid.3 \
 	man/sd_event_source_get_signal.3 \
@@ -939,7 +944,10 @@ man/sd_bus_unref.3: man/sd_bus_new.3
 man/sd_event_add_exit.3: man/sd_event_add_defer.3
 man/sd_event_add_post.3: man/sd_event_add_defer.3
 man/sd_event_default.3: man/sd_event_new.3
+man/sd_event_dispatch.3: man/sd_event_wait.3
 man/sd_event_get_name.3: man/sd_event_set_name.3
+man/sd_event_loop.3: man/sd_event_run.3
+man/sd_event_prepare.3: man/sd_event_wait.3
 man/sd_event_ref.3: man/sd_event_new.3
 man/sd_event_source_get_child_pid.3: man/sd_event_add_child.3
 man/sd_event_source_get_signal.3: man/sd_event_add_signal.3
@@ -1121,7 +1129,16 @@ man/sd_event_add_post.html: man/sd_event_add_defer.html
 man/sd_event_default.html: man/sd_event_new.html
 	$(html-alias)
 
+man/sd_event_dispatch.html: man/sd_event_wait.html
+	$(html-alias)
+
 man/sd_event_get_name.html: man/sd_event_set_name.html
+	$(html-alias)
+
+man/sd_event_loop.html: man/sd_event_run.html
+	$(html-alias)
+
+man/sd_event_prepare.html: man/sd_event_wait.html
 	$(html-alias)
 
 man/sd_event_ref.html: man/sd_event_new.html
@@ -1693,7 +1710,9 @@ EXTRA_DIST += \
 	man/sd_event_add_time.xml \
 	man/sd_event_get_fd.xml \
 	man/sd_event_new.xml \
+	man/sd_event_run.xml \
 	man/sd_event_set_name.xml \
+	man/sd_event_wait.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
 	man/sd_id128_randomize.xml \
