@@ -5507,7 +5507,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
         /* Try to read the error message, but if we can't it's a non-issue */
         if (m->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
-                sd_bus_message_read(m, "s", &m->error.message);
+                (void) sd_bus_message_read(m, "s", &m->error.message);
 
         return 0;
 }
