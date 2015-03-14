@@ -145,7 +145,7 @@
     <para><command>systemd-analyze dot</command> generates textual
     dependency graph description in dot format for further processing
     with the GraphViz
-    <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry project='die-net'><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     tool. Use a command line like <command>systemd-analyze dot | dot
     -Tsvg > systemd.svg</command> to generate a graphical dependency
     tree. Unless <option>--order</option> or
@@ -229,7 +229,7 @@
         <command>dot</command> command (see above), this selects which
         relationships are shown in the dependency graph. Both options
         require a
-        <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         pattern as an argument, which will be matched against the
         left-hand and the right-hand, respectively, nodes of a
         relationship.</para>

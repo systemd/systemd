@@ -626,7 +626,7 @@
 
         <listitem><para>Control the architecture ("personality")
         reported by
-        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         in the container. Currently, only <literal>x86</literal> and
         <literal>x86-64</literal> are supported. This is useful when
         running a 32-bit container on a 64-bit host. If this setting
@@ -763,7 +763,7 @@
       <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

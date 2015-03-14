@@ -56,11 +56,11 @@
 
     <para><filename>systemd-sysctl.service</filename> is an early-boot
     service that configures
-    <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     kernel parameters.</para>
 
     <para>See
-    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
   </refsect1>
 
@@ -68,8 +68,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     </para>
   </refsect1>
 

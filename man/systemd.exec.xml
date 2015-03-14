@@ -663,7 +663,7 @@
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details. Takes a whitespace-separated list of capability
         names as read by
-        <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         e.g. <constant>CAP_SYS_ADMIN</constant>,
         <constant>CAP_DAC_OVERRIDE</constant>,
         <constant>CAP_SYS_PTRACE</constant>. Capabilities listed will
@@ -711,7 +711,7 @@
         set for the executed process. Take a capability string
         describing the effective, permitted and inherited capability
         sets as documented in
-        <citerefentry><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <citerefentry project='mankier'><refentrytitle>cap_from_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Note that these capability sets are usually influenced (and
         filtered) by the capabilities attached to the executed file.
         Due to that <varname>CapabilityBoundingSet=</varname> is
@@ -881,7 +881,7 @@
         <option>private</option>, which control whether mounts in the
         file system namespace set up for this unit's processes will
         receive or propagate mounts or unmounts. See
-        <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. Defaults to <option>shared</option>. Use
         <option>shared</option> to ensure that mounts and unmounts are
         propagated from the host to the container and vice versa. Use
@@ -929,7 +929,7 @@
         authorize the transition. This directive is ignored if SELinux
         is disabled. If prefixed by <literal>-</literal>, all errors
         will be ignored. See
-        <citerefentry><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
 
@@ -1076,7 +1076,7 @@
         prefixed with <constant>~</constant> the listed address
         families will be applied as blacklist, otherwise as whitelist.
         Note that this restricts access to the
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call only. Sockets passed into the process by other
         means (for example, by using socket activation with socket
         units, see
@@ -1104,7 +1104,7 @@
         <term><varname>Personality=</varname></term>
 
         <listitem><para>Controls which kernel architecture
-        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         shall report, when invoked by unit processes. Takes one of
         <constant>x86</constant> and <constant>x86-64</constant>. This
         is useful when running 32-bit services on a 64-bit host
@@ -1166,7 +1166,7 @@
         <term><varname>$LANG</varname></term>
 
         <listitem><para>Locale. Can be set in
-        <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         or on the kernel command line (see
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         and
@@ -1184,7 +1184,7 @@
         login shell. The variables are set for the units that have
         <varname>User=</varname> set, which includes user
         <command>systemd</command> instances. See
-        <citerefentry><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 

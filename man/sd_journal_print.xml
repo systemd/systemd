@@ -119,7 +119,7 @@
     <function>sd_journal_print()</function> but takes a variable
     argument list encapsulated in an object of type
     <varname>va_list</varname> (see
-    <citerefentry><refentrytitle>stdarg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>stdarg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for more information) instead of the format string. It is
     otherwise equivalent in behavior.</para>
 
@@ -145,7 +145,7 @@
     <function>sd_journal_send()</function> but takes an array of
     <varname>struct iovec</varname> (as defined in
     <filename>uio.h</filename>, see
-    <citerefentry><refentrytitle>readv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>readv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for details) instead of the format string. Each structure should
     reference one field of the entry to submit. The second argument
     specifies the number of structures in the array.
@@ -154,7 +154,7 @@
     necessary.</para>
 
     <para><function>sd_journal_perror()</function> is a similar to
-    <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='die-net'><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and writes a message to the journal that consists of the passed
     string, suffixed with ": " and a human readable representation of
     the current error code stored in
@@ -219,7 +219,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
     <title>Async signal safety</title>
     <para><function>sd_journal_sendv()</function> is "async signal
     safe" in the meaning of
-    <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
     <para><function>sd_journal_print</function>,
@@ -249,11 +249,11 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

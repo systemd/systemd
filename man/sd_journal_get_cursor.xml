@@ -84,7 +84,7 @@
     time) available entry. The call takes two arguments: a journal
     context object and a pointer to a string pointer where the cursor
     string will be placed. The string is allocated via libc
-    <citerefentry><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and should be freed after use with
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 

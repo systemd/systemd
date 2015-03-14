@@ -165,7 +165,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>cat</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>cat</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

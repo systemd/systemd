@@ -62,7 +62,7 @@
     does not communicate the used ESP to the OS, on systems where
     <filename>/boot</filename> is an explicitly configured mount (for
     example, listed in
-    <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
     or where the <filename>/boot</filename> mount point is non-empty.
     Since this generator creates an automount unit, the mount will
     only be activated on-demand, when accessed.</para>
@@ -78,7 +78,7 @@
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

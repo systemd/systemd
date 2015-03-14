@@ -75,7 +75,7 @@
     globally unique ID in the network, which does not change even if
     the local network configuration changes. Due to this and its
     greater length, it is a more useful replacement for the
-    <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call that POSIX specifies.</para>
 
     <para>The
@@ -127,7 +127,7 @@ id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry project='man-pages'><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

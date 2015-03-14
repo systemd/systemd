@@ -397,7 +397,7 @@
         <term><filename>/dev/shm</filename></term>
         <listitem><para>Place for POSIX shared memory segments, as
         created via
-        <citerefentry><refentrytitle>shm_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <citerefentry project='die-net'><refentrytitle>shm_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         This directory is flushed on boot, and is a
         <literal>tmpfs</literal> file system. Since all users have
         write access to this directory, special care should be taken

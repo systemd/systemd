@@ -241,7 +241,7 @@
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
       <command>pydoc systemd.journal</command>.
     </para>

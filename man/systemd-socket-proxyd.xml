@@ -72,7 +72,7 @@
     to a configured server for each client, and then bidirectionally
     forwards data between the two.</para>
     <para>This utility's behavior is similar to
-    <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     The main differences for <command>systemd-socket-proxyd</command>
     are support for socket activation with
     <literal>Accept=false</literal> and an event-driven
@@ -183,9 +183,9 @@ $ curl http://localhost:80/]]></programlisting>
       <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

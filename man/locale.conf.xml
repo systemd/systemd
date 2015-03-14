@@ -91,7 +91,7 @@
     might be checked for locale configuration as well, however only as
     fallback.</para>
 
-    <para><citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para><citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to alter the settings in this file during runtime from
     the command line. Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -121,7 +121,7 @@
     Note that <varname>LC_ALL</varname> may not be configured in this
     file. For details about the meaning and semantics of these
     settings, refer to
-    <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+    <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -142,8 +142,8 @@ LC_MESSAGES=en_US.UTF-8</programlisting>
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>

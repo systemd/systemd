@@ -75,7 +75,7 @@
 
     <para>Setting up encrypted block devices using this file supports
     three encryption modes: LUKS, TrueCrypt and plain. See
-    <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for more information about each mode. When no mode is specified in
     the options field and the block device contains a LUKS signature,
     it is opened as a LUKS device; otherwise, it is assumed to be in
@@ -117,7 +117,7 @@
         <term><option>cipher=</option></term>
 
         <listitem><para>Specifies the cipher to use. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this option. A
         cipher with unpredictable IV values, such as
         <literal>aes-cbc-essiv:sha256</literal>, is
@@ -129,7 +129,7 @@
 
         <listitem><para>Specifies the hash to use for password
         hashing. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>
       </varlistentry>
@@ -140,7 +140,7 @@
         <listitem><para>Use a detached (separated) metadata device or
         file where the LUKS header is stored. This option is only
         relevant for LUKS devices. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>
       </varlistentry>
@@ -150,7 +150,7 @@
 
         <listitem><para>Specifies the number of bytes to skip at the
         start of the key file. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>
       </varlistentry>
@@ -160,7 +160,7 @@
 
         <listitem><para>Specifies the maximum number of bytes to read
         from the key file. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this option. This
         option is ignored in plain encryption mode, as the key file
         size is then given by the key size.</para></listitem>
@@ -174,7 +174,7 @@
         given passphrase or key, but another would, the setup of the
         device will fail regardless. This option implies
         <option>luks</option>. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values. The default is to try all key slots in
         sequential order.</para></listitem>
       </varlistentry>
@@ -221,7 +221,7 @@
         <term><option>size=</option></term>
 
         <listitem><para>Specifies the key size in bits. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>
       </varlistentry>
@@ -278,7 +278,7 @@
         volume provided in the second field. Please note that there is
         no protection for the hidden volume if the outer volume is
         mounted instead. See
-        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for more information on this limitation.</para></listitem>
       </varlistentry>
 
@@ -383,7 +383,7 @@ hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfil
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>

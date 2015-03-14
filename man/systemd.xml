@@ -1012,9 +1012,9 @@
         <listitem><para>Set the system locale to use. This overrides
         the settings in <filename>/etc/locale.conf</filename>. For
         more information see
-        <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         and
-        <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
     </variablelist>
@@ -1077,7 +1077,7 @@
     <para>
       The <ulink url="http://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

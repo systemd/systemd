@@ -126,7 +126,7 @@
 
         <para>Note that setting <varname>KillUserProcesses=1</varname>
         will break tools like
-        <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

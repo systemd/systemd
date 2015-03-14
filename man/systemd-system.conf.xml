@@ -172,7 +172,7 @@
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details. Takes a whitespace-separated list of capability
         names as read by
-        <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         Capabilities listed will be included in the bounding set, all
         others are removed. If the list of capabilities is prefixed
         with ~, all but the listed capabilities will be included, the

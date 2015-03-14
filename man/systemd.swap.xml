@@ -69,7 +69,7 @@
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the execution environment the
-    <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     binary is executed in, and in
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the way the processes are terminated, and in
@@ -100,7 +100,7 @@
 
     <para>Swap units may either be configured via unit files, or via
     <filename>/etc/fstab</filename> (see
-    <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details). Swaps listed in <filename>/etc/fstab</filename> will
     be converted into native units dynamically at boot and when the
     configuration of the system manager is reloaded. See
@@ -161,7 +161,7 @@
         <term><varname>What=</varname></term>
         <listitem><para>Takes an absolute path of a device node or
         file to use for paging. See
-        <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details. If this refers to a device node, a dependency on
         the respective device unit is automatically created. (See
         <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -187,7 +187,7 @@
         device. This may be used for controlling discard options among
         other functionality, if the swap backing device supports the
         discard or trim operation. (See
-        <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for more information.) </para></listitem>
       </varlistentry>
 
@@ -229,7 +229,7 @@
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       </para>

@@ -57,9 +57,9 @@
     <para><filename>systemd-vconsole-setup.service</filename> is an
     early-boot service that configures the virtual console font and
     console keymap. Internally it calls
-    <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>See
     <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -105,8 +105,8 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>

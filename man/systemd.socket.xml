@@ -265,7 +265,7 @@
         <listitem><para>Takes a one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls
         the IPV6_V6ONLY socket option (see
-        <citerefentry><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). If <option>both</option>, IPv6 sockets bound
         will be accessible via both IPv4 and IPv6. If
         <option>ipv6-only</option>, they will be accessible via IPv6
@@ -294,7 +294,7 @@
         this socket to. If set, traffic will only be accepted from the
         specified network interfaces. This controls the
         SO_BINDTODEVICE socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details). If this option is used, an automatic dependency
         from this socket unit on the network interface device unit
         (<citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -385,7 +385,7 @@
         <filename>/proc/sys/net/ipv4/tcp_keepalive_time</filename>)
         for all TCP streams accepted on this socket. This controls the
         SO_KEEPALIVE socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.) Defaults to
@@ -397,7 +397,7 @@
         <listitem><para>Takes time (in seconds) as argument . The connection needs to remain
         idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
         socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.)
@@ -410,7 +410,7 @@
         individual keepalive probes, if the socket option SO_KEEPALIVE
         has been set on this socket seconds as argument. This controls
         the TCP_KEEPINTVL socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.) Defaults value is 75
@@ -423,7 +423,7 @@
         unacknowledged probes to send before considering the
         connection dead and notifying the application layer. This
         controls the TCP_KEEPCNT socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.) Defaults value is
@@ -436,7 +436,7 @@
         algorithm works by combining a number of small outgoing
         messages, and sending them all at once. This controls the
         TCP_NODELAY socket option (see
-        <citerefentry><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
@@ -445,7 +445,7 @@
         <listitem><para>Takes an integer argument controlling the
         priority for all traffic sent from this socket. This controls
         the SO_PRIORITY socket option (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.).</para></listitem>
       </varlistentry>
 
@@ -458,7 +458,7 @@
         established. When this option is set, the
         <constant>TCP_DEFER_ACCEPT</constant> socket option will be
         used (see
-        <citerefentry><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+        <citerefentry project='die-net'><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
         and the kernel will ignore initial ACK packets without any
         data. The argument specifies the approximate amount of time
         the kernel should wait for incoming data before falling back
@@ -485,7 +485,7 @@
         <listitem><para>Takes an integer argument controlling the
         receive or send buffer sizes of this socket, respectively.
         This controls the SO_RCVBUF and SO_SNDBUF socket options (see
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.). The usual suffixes K, M, G are supported and
         are understood to the base of 1024.</para></listitem>
       </varlistentry>
@@ -495,7 +495,7 @@
         <listitem><para>Takes an integer argument controlling the IP
         Type-Of-Service field for packets generated from this socket.
         This controls the IP_TOS socket option (see
-        <citerefentry><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.). Either a numeric string or one of
         <option>low-delay</option>, <option>throughput</option>,
         <option>reliability</option> or <option>low-cost</option> may
@@ -508,9 +508,9 @@
         Time-To-Live/IPv6 Hop-Count field for packets generated from
         this socket. This sets the IP_TTL/IPV6_UNICAST_HOPS socket
         options (see
-        <citerefentry><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and
-        <citerefentry><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.)</para></listitem>
       </varlistentry>
 
@@ -520,7 +520,7 @@
         mark of packets generated by this socket. This can be used in
         the firewall logic to filter packets from this socket. This
         sets the SO_MARK socket option. See
-        <citerefentry><refentrytitle>iptables</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>iptables</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
 
@@ -531,7 +531,7 @@
         <citerefentry><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>s
         to this TCP or UDP port. This controls the SO_REUSEPORT socket
         option. See
-        <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
 
@@ -583,7 +583,7 @@
         control the mq_maxmsg field or the mq_msgsize field,
         respectively, when creating the message queue. Note that
         either none or both of these variables need to be set. See
-        <citerefentry><refentrytitle>mq_setattr</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>mq_setattr</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
 

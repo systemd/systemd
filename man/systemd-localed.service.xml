@@ -64,7 +64,7 @@
     unused.</para>
 
     <para>The tool
-    <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     is a command line client to this service.</para>
 
     <para>See the <ulink
@@ -77,10 +77,10 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

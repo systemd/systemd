@@ -66,7 +66,7 @@
     Partitions Specification</ulink>. Note that this generator has no
     effect on non-GPT systems, on systems where the units are
     explicitly configured (for example, listed in
-    <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
     or where the mount points are non-empty.</para>
 
     <para>This generator will only look for root partitions on the
@@ -169,9 +169,9 @@
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

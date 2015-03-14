@@ -134,7 +134,7 @@
           derived from glibc's
           <varname>program_invocation_short_name</varname> variable,
           see
-          <citerefentry><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
+          <citerefentry project='die-net'><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
         </listitem>
 
       </varlistentry>

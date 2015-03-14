@@ -130,7 +130,7 @@
       <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>malloc</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

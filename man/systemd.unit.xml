@@ -826,7 +826,7 @@
         <varname>cris</varname> to test
         against a specific architecture. The architecture is
         determined from the information returned by
-        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         and is thus subject to
         <citerefentry><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
         Note that a <varname>Personality=</varname> setting in the
@@ -1438,7 +1438,7 @@ PrivateTmp=yes</programlisting>
       <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

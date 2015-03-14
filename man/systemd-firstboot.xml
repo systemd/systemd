@@ -91,7 +91,7 @@
 
     <para>Note that this tool operates directly on the file system and
     does not involve any running system services, unlike
-    <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     or
     <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
@@ -125,7 +125,7 @@
         <varname>LANG=</varname> and <varname>LC_MESSAGES</varname>
         settings. The argument should be a valid locale identifier,
         such as <literal>de_DE.UTF-8</literal>. This controls the
-        <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         configuration file.</para></listitem>
       </varlistentry>
 
@@ -163,7 +163,7 @@
 
         <listitem><para>Sets the password of the system's root user.
         This creates a
-        <citerefentry><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         file. This setting exists in two forms:
         <option>--root-password=</option> accepts the password to set
         directly on the command line,
@@ -171,7 +171,7 @@
         Note that it is not recommended specifying passwords on the
         command line as other users might be able to see them simply
         by invoking
-        <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -244,13 +244,13 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>

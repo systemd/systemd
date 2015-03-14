@@ -316,7 +316,7 @@ BUG_REPORT_URL="https://bugzilla.redhat.com/"</programlisting>
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>

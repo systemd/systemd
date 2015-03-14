@@ -135,7 +135,7 @@
         of shutting down a unit (see above), and is usually followed
         by <constant>SIGKILL</constant> (see above and below). For a
         list of valid signals, see
-        <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to <constant>SIGTERM</constant>. </para></listitem>
       </varlistentry>
 
@@ -176,7 +176,7 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       </para>
   </refsect1>
 
