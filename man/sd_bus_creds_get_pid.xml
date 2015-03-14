@@ -352,7 +352,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     retrieve a descriptive name of the bus connection of the
     peer. This name is useful to discern multiple bus connections by
     the same peer, and may be altered by the peer with the
-    <citerefentry><refentrytitle>sd_bus_set_name()</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_set_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call.</para>
 
     <para>All functions that take a <parameter>const
