@@ -77,7 +77,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
         }
 
-        log_debug("parse: %s", path);
+        log_debug("Parsing %s", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;
