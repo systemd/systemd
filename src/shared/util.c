@@ -2926,30 +2926,29 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
 
                 /* This is an ugly hack */
                 if (major(devnr) == 136) {
-                        asprintf(&b, "pts/%u", minor(devnr));
-                        goto finish;
+                        if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
+                                return -ENOMEM;
+                } else {
+                        /* Probably something like the ptys which have no
+                         * symlink in /dev/char. Let's return something
+                         * vaguely useful. */
+
+                        b = strdup(fn + 5);
+                        if (!b)
+                                return -ENOMEM;
                 }
+        } else {
+                if (startswith(s, "/dev/"))
+                        p = s + 5;
+                else if (startswith(s, "../"))
+                        p = s + 3;
+                else
+                        p = s;
 
-                /* Probably something like the ptys which have no
-                 * symlink in /dev/char. Let's return something
-                 * vaguely useful. */
-
-                b = strdup(fn + 5);
-                goto finish;
+                b = strdup(p);
+                if (!b)
+                        return -ENOMEM;
         }
-
-        if (startswith(s, "/dev/"))
-                p = s + 5;
-        else if (startswith(s, "../"))
-                p = s + 3;
-        else
-                p = s;
-
-        b = strdup(p);
-
-finish:
-        if (!b)
-                return -ENOMEM;
 
         *r = b;
         if (_devnr)
