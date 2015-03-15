@@ -827,7 +827,9 @@ static int method_release_session(sd_bus *bus, sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        session_release(session);
+        r = session_release(session);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }

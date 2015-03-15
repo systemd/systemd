@@ -137,7 +137,7 @@ int session_create_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
-void session_release(Session *s);
+int session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);

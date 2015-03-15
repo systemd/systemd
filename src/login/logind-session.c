@@ -701,18 +701,20 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
         return 0;
 }
 
-void session_release(Session *s) {
+int session_release(Session *s) {
         assert(s);
 
         if (!s->started || s->stopping)
-                return;
+                return 0;
 
-        if (!s->timer_event_source)
-                sd_event_add_time(s->manager->event,
-                                  &s->timer_event_source,
-                                  CLOCK_MONOTONIC,
-                                  now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
-                                  release_timeout_callback, s);
+        if (s->timer_event_source)
+                return 0;
+
+        return sd_event_add_time(s->manager->event,
+                                 &s->timer_event_source,
+                                 CLOCK_MONOTONIC,
+                                 now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
+                                 release_timeout_callback, s);
 }
 
 bool session_is_active(Session *s) {
