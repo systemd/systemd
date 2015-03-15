@@ -4122,8 +4122,7 @@ static int do_execute(char **directories, usec_t timeout, char *argv[]) {
                         if (null_or_empty_path(path)) {
                                 log_debug("%s is empty (a mask).", path);
                                 continue;
-                        } else
-                                log_debug("%s will be executed.", path);
+                        }
 
                         pid = fork();
                         if (pid < 0) {
