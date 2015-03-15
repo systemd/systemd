@@ -121,6 +121,26 @@ static int open_journal(RequestMeta *m) {
         return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
 }
 
+static int request_meta_ensure_tmp(RequestMeta *m) {
+        if (m->tmp)
+                rewind(m->tmp);
+        else {
+                int fd;
+
+                fd = open_tmpfile("/tmp", O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                m->tmp = fdopen(fd, "rw");
+                if (!m->tmp) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        return 0;
+}
+
 static ssize_t request_reader_entries(
                 void *cls,
                 uint64_t pos,
@@ -194,14 +214,10 @@ static ssize_t request_reader_entries(
 
                 m->n_skip = 0;
 
-                if (m->tmp)
-                        rewind(m->tmp);
-                else {
-                        m->tmp = tmpfile();
-                        if (!m->tmp) {
-                                log_error_errno(errno, "Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;
-                        }
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
                 r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL);
@@ -555,14 +571,10 @@ static ssize_t request_reader_fields(
                 if (m->n_fields_set)
                         m->n_fields -= 1;
 
-                if (m->tmp)
-                        rewind(m->tmp);
-                else {
-                        m->tmp = tmpfile();
-                        if (!m->tmp) {
-                                log_error_errno(errno, "Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;
-                        }
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
                 r = output_field(m->tmp, m->mode, d, l);
