@@ -1205,8 +1205,6 @@ static int create_item(Item *i) {
                 break;
         }
 
-        log_debug("%s created successfully.", i->path);
-
         return 0;
 }
 
