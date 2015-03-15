@@ -642,7 +642,7 @@ int udev_device_read_db(struct udev_device *udev_device)
         }
         fclose(f);
 
-        log_debug("device %p filled with db file data", udev_device);
+        log_trace("device %p filled with db file data", udev_device);
         return 0;
 }
 
@@ -804,7 +804,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         udev_device_set_syspath(udev_device, path);
-        log_debug("device %p has devpath '%s'", udev_device, udev_device_get_devpath(udev_device));
+        log_trace("device %p has devpath '%s'", udev_device, udev_device_get_devpath(udev_device));
 
         return udev_device;
 }
