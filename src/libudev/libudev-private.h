@@ -38,6 +38,7 @@ int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
 
 /* libudev-device.c */
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen);
+struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action);
 struct udev_device *udev_device_shallow_clone(struct udev_device *old_device);
 struct udev_device *udev_device_clone_with_db(struct udev_device *old_device);
 int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src);
@@ -50,9 +51,6 @@ void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
 char **udev_device_get_properties_envp(struct udev_device *udev_device);
 ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
-int udev_device_read_db(struct udev_device *udev_device);
-int udev_device_read_uevent_file(struct udev_device *udev_device);
-int udev_device_set_action(struct udev_device *udev_device, const char *action);
 const char *udev_device_get_devpath_old(struct udev_device *udev_device);
 const char *udev_device_get_id_filename(struct udev_device *udev_device);
 void udev_device_set_is_initialized(struct udev_device *udev_device);

@@ -110,13 +110,12 @@ int main(int argc, char *argv[]) {
         rules = udev_rules_new(udev, 1);
 
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
-        dev = udev_device_new_from_syspath(udev, syspath);
+        dev = udev_device_new_from_synthetic_event(udev, syspath, action);
         if (dev == NULL) {
                 log_debug("unknown device '%s'", devpath);
                 goto out;
         }
 
-        udev_device_set_action(dev, action);
         event = udev_event_new(dev);
 
         sigfillset(&mask);

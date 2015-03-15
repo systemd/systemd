@@ -36,6 +36,8 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+static int udev_device_read_uevent_file(struct udev_device *udev_device);
+static int udev_device_read_db(struct udev_device *udev_device);
 static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 static struct udev_list_entry *udev_device_add_property_internal(struct udev_device *udev_device, const char *key, const char *value);
 
@@ -462,6 +464,16 @@ void udev_device_ensure_usec_initialized(struct udev_device *udev_device, struct
                 udev_device_set_usec_initialized(udev_device, now(CLOCK_MONOTONIC));
 }
 
+static int udev_device_set_action(struct udev_device *udev_device, const char *action)
+{
+        free(udev_device->action);
+        udev_device->action = strdup(action);
+        if (udev_device->action == NULL)
+                return -ENOMEM;
+        udev_device_add_property_internal(udev_device, "ACTION", udev_device->action);
+        return 0;
+}
+
 /*
  * parse property string, and if needed, update internal values accordingly
  *
@@ -582,7 +594,7 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
         return udev_list_entry_get_value(list_entry);
 }
 
-int udev_device_read_db(struct udev_device *udev_device)
+static int udev_device_read_db(struct udev_device *udev_device)
 {
         char filename[UTIL_PATH_SIZE];
         char line[UTIL_LINE_SIZE];
@@ -646,7 +658,7 @@ int udev_device_read_db(struct udev_device *udev_device)
         return 0;
 }
 
-int udev_device_read_uevent_file(struct udev_device *udev_device)
+static int udev_device_read_uevent_file(struct udev_device *udev_device)
 {
         char filename[UTIL_PATH_SIZE];
         FILE *f;
@@ -1897,16 +1909,6 @@ ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, 
         return udev_device->monitor_buf_len;
 }
 
-int udev_device_set_action(struct udev_device *udev_device, const char *action)
-{
-        free(udev_device->action);
-        udev_device->action = strdup(action);
-        if (udev_device->action == NULL)
-                return -ENOMEM;
-        udev_device_add_property_internal(udev_device, "ACTION", udev_device->action);
-        return 0;
-}
-
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
         if (!udev_device->info_loaded)
@@ -2051,6 +2053,36 @@ struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr,
         }
 
         return device;
+}
+
+struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action) {
+        struct udev_device *ret;
+        int r;
+
+        if (!action) {
+                errno = EINVAL;
+                return NULL;
+        }
+
+        ret = udev_device_new_from_syspath(udev, syspath);
+        if (!ret)
+                return NULL;
+
+        r = udev_device_read_uevent_file(ret);
+        if (r < 0) {
+                udev_device_unref(ret);
+                errno = -r;
+                return NULL;
+        }
+
+        r = udev_device_set_action(ret, action);
+        if (r < 0) {
+                udev_device_unref(ret);
+                errno = -r;
+                return NULL;
+        }
+
+        return ret;
 }
 
 int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src) {
