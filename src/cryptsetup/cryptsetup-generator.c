@@ -374,13 +374,6 @@ static int add_crypttab_devices(void) {
                 return 0;
         }
 
-        /* If we readd support for specifying passphrases
-         * directly in crypttab we should upgrade the warning
-         * below, though possibly only if a passphrase is
-         * specified directly. */
-        if (st.st_mode & 0005)
-                log_debug("/etc/crypttab is world-readable. This is usually not a good idea.");
-
         for (;;) {
                 int r, k;
                 char line[LINE_MAX], *l, *uuid;
