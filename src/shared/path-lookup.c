@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "path-util.h"
 #include "path-lookup.h"
+#include "install.h"
 
 int user_config_home(char **config_home) {
         const char *e;

@@ -22,7 +22,8 @@
 ***/
 
 #include "macro.h"
-#include "install.h"
+
+typedef enum UnitFileScope UnitFileScope;
 
 typedef struct LookupPaths {
         char **unit_path;

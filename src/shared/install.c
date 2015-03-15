@@ -1083,7 +1083,7 @@ static int unit_file_load(
 static int unit_file_search(
                 InstallContext *c,
                 InstallInfo *info,
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 const char *root_dir,
                 bool allow_symlink,
                 bool load,
@@ -1152,7 +1152,7 @@ static int unit_file_search(
 }
 
 static int unit_file_can_install(
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 const char *root_dir,
                 const char *name,
                 bool allow_symlink,
@@ -1316,7 +1316,7 @@ static int install_info_symlink_wants(
 
 static int install_info_symlink_link(
                 InstallInfo *i,
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 const char *config_path,
                 const char *root_dir,
                 bool force,
@@ -1344,7 +1344,7 @@ static int install_info_symlink_link(
 
 static int install_info_apply(
                 InstallInfo *i,
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 const char *config_path,
                 const char *root_dir,
                 bool force,
@@ -1376,7 +1376,7 @@ static int install_info_apply(
 
 static int install_context_apply(
                 InstallContext *c,
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 const char *config_path,
                 const char *root_dir,
                 bool force,
@@ -1423,7 +1423,7 @@ static int install_context_apply(
 
 static int install_context_mark_for_removal(
                 InstallContext *c,
-                LookupPaths *paths,
+                const LookupPaths *paths,
                 Set **remove_symlinks_to,
                 const char *config_path,
                 const char *root_dir) {
@@ -1784,39 +1784,28 @@ int unit_file_get_default(
         return -ENOENT;
 }
 
-UnitFileState unit_file_get_state(
+UnitFileState unit_file_lookup_state(
                 UnitFileScope scope,
                 const char *root_dir,
+                const LookupPaths *paths,
                 const char *name) {
 
-        _cleanup_lookup_paths_free_ LookupPaths paths = {};
         UnitFileState state = _UNIT_FILE_STATE_INVALID;
         char **i;
         _cleanup_free_ char *path = NULL;
         int r;
 
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(name);
-
-        if (root_dir && scope != UNIT_FILE_SYSTEM)
-                return -EINVAL;
+        assert(paths);
 
         if (!unit_name_is_valid(name, TEMPLATE_VALID))
                 return -EINVAL;
 
-        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, paths.unit_path) {
+        STRV_FOREACH(i, paths->unit_path) {
                 struct stat st;
                 char *partial;
                 bool also = false;
 
                 free(path);
-                path = NULL;
-
                 path = path_join(root_dir, *i, name);
                 if (!path)
                         return -ENOMEM;
@@ -1857,7 +1846,7 @@ UnitFileState unit_file_get_state(
                 else if (r > 0)
                         return state;
 
-                r = unit_file_can_install(&paths, root_dir, partial, true, &also);
+                r = unit_file_can_install(paths, root_dir, partial, true, &also);
                 if (r < 0 && errno != ENOENT)
                         return r;
                 else if (r > 0)
@@ -1870,6 +1859,28 @@ UnitFileState unit_file_get_state(
         }
 
         return r < 0 ? r : state;
+}
+
+UnitFileState unit_file_get_state(
+                UnitFileScope scope,
+                const char *root_dir,
+                const char *name) {
+
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(name);
+
+        if (root_dir && scope != UNIT_FILE_SYSTEM)
+                return -EINVAL;
+
+        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+        if (r < 0)
+                return r;
+
+        return unit_file_lookup_state(scope, root_dir, &paths, name);
 }
 
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
