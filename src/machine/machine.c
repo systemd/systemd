@@ -212,9 +212,9 @@ int machine_save(Machine *m) {
 
                 /* Create a symlink from the unit name to the machine
                  * name, so that we can quickly find the machine for
-                 * each given unit */
+                 * each given unit. Ignore error. */
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
-                symlink(m->name, sl);
+                (void) symlink(m->name, sl);
         }
 
 finish:

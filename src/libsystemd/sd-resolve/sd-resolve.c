@@ -653,7 +653,7 @@ static void resolve_free(sd_resolve *resolve) {
 
                 /* Send one termination packet for each worker */
                 for (i = 0; i < resolve->n_valid_workers; i++)
-                        send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
+                        (void) send(resolve->fds[REQUEST_SEND_FD], &req, req.length, MSG_NOSIGNAL);
         }
 
         /* Now terminate them and wait until they are gone. */

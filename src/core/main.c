@@ -156,7 +156,7 @@ noreturn static void crash(int sig) {
                         setrlimit(RLIMIT_CORE, &rl);
 
                         /* Just to be sure... */
-                        chdir("/");
+                        (void) chdir("/");
 
                         /* Raise the signal again */
                         pid = raw_getpid();
