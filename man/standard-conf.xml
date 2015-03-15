@@ -54,7 +54,7 @@
     directories, and has the lowest precedence; entries in a file in
     any configuration directory override entries in the single
     configuration file. Files in the
-    <filename>logind.conf.d/</filename> configuration subdirectories
+    <filename>*.conf.d/</filename> configuration subdirectories
     are sorted by their filename in lexicographic order, regardless of
     which of the subdirectories they reside in. If multiple files
     specify the same option, the entry in the file with the
