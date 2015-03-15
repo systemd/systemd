@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-02-19 16:14+0100\n"
-"PO-Revision-Date: 2015-02-19 16:15+0100\n"
+"POT-Creation-Date: 2015-03-15 22:59+0100\n"
+"PO-Revision-Date: 2015-03-15 23:00+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -99,10 +99,30 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Import obrazu maszyny wirtualnej lub kontenera"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zaimportować obraz maszyny wirtualnej "
+"lub kontenera"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Eksport obrazu maszyny wirtualnej lub kontenera"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wyeksportować obraz maszyny wirtualnej "
+"lub kontenera"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
 msgstr "Pobranie obrazu maszyny wirtualnej lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby pobrać obraz maszyny wirtualnej lub "
@@ -470,13 +490,13 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: ../src/fsckd/fsckd.c:186
+#: ../src/fsckd/fsckd.c:291
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 msgstr ""
 "Naciśnięcie klawiszy Ctrl+C anuluje wszystkie trwające procesy sprawdzania "
 "systemów plików"
 
-#: ../src/fsckd/fsckd.c:227
+#: ../src/fsckd/fsckd.c:336
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
