@@ -838,7 +838,8 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
                 if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
                     u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
-                        log_unit_debug(u->id, "Collecting %s", u->id);
+                        if (u->id)
+                                log_unit_debug(u->id, "Collecting %s", u->id);
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(u);
                 }
