@@ -85,7 +85,7 @@ keyboard:name:*:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_f8=fn
  KEYBOARD_KEY_f9=prog1                                  # Launch NTI shadow
 
-# Acer platform kernel driver
+# Acer kernel driver
 keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
  KEYBOARD_KEY_82=f21                                    # Touchpad toggle
 
