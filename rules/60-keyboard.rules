@@ -13,7 +13,7 @@ DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # import key mapping for platform input device
-KERNELS=="input*", IMPORT{builtin}="hwdb 'keyboard:name:$attr{name}:$attr{[dmi/id]modalias}'", \
+IMPORT{builtin}="hwdb 'keyboard:name:$attr{name}:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 LABEL="keyboard_end"
