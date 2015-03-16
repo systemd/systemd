@@ -41,10 +41,8 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkd
             (st.st_mode & 0700) > (mode & 0700) ||
             (uid != UID_INVALID && st.st_uid != uid) ||
             (gid != GID_INVALID && st.st_gid != gid) ||
-            !S_ISDIR(st.st_mode)) {
-                errno = EEXIST;
-                return -errno;
-        }
+            !S_ISDIR(st.st_mode))
+                return -EEXIST;
 
         return 0;
 }
