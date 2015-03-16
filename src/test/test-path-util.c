@@ -27,23 +27,37 @@
 #include "macro.h"
 #include "strv.h"
 
+#define test_path_compare(a, b, result) {                 \
+                assert_se(path_compare(a, b) == result);  \
+                assert_se(path_compare(b, a) == -result); \
+                assert_se(path_equal(a, b) == !result);   \
+                assert_se(path_equal(b, a) == !result);   \
+        }
 
 static void test_path(void) {
-        assert_se(path_equal("/goo", "/goo"));
-        assert_se(path_equal("//goo", "/goo"));
-        assert_se(path_equal("//goo/////", "/goo"));
-        assert_se(path_equal("goo/////", "goo"));
+        test_path_compare("/goo", "/goo", 0);
+        test_path_compare("/goo", "/goo", 0);
+        test_path_compare("//goo", "/goo", 0);
+        test_path_compare("//goo/////", "/goo", 0);
+        test_path_compare("goo/////", "goo", 0);
 
-        assert_se(path_equal("/goo/boo", "/goo//boo"));
-        assert_se(path_equal("//goo/boo", "/goo/boo//"));
+        test_path_compare("/goo/boo", "/goo//boo", 0);
+        test_path_compare("//goo/boo", "/goo/boo//", 0);
 
-        assert_se(path_equal("/", "///"));
+        test_path_compare("/", "///", 0);
 
-        assert_se(!path_equal("/x", "x/"));
-        assert_se(!path_equal("x/", "/"));
+        test_path_compare("/x", "x/", 1);
+        test_path_compare("x/", "/", -1);
 
-        assert_se(!path_equal("/x/./y", "x/y"));
-        assert_se(!path_equal("x/.y", "x/y"));
+        test_path_compare("/x/./y", "x/y", 1);
+        test_path_compare("x/.y", "x/y", -1);
+
+        test_path_compare("foo", "/foo", -1);
+        test_path_compare("/foo", "/foo/bar", -1);
+        test_path_compare("/foo/aaa", "/foo/b", -1);
+        test_path_compare("/foo/aaa", "/foo/b/a", -1);
+        test_path_compare("/foo/a", "/foo/aaa", -1);
+        test_path_compare("/foo/a/b", "/foo/aaa", -1);
 
         assert_se(path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
