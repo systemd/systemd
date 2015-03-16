@@ -83,9 +83,11 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
 
 static int mount_path_compare(const void *a, const void *b) {
         const BindMount *p = a, *q = b;
+        int d;
 
-        if (path_equal(p->path, q->path)) {
+        d = path_compare(p->path, q->path);
 
+        if (!d) {
                 /* If the paths are equal, check the mode */
                 if (p->mode < q->mode)
                         return -1;
@@ -97,13 +99,7 @@ static int mount_path_compare(const void *a, const void *b) {
         }
 
         /* If the paths are not equal, then order prefixes first */
-        if (path_startswith(p->path, q->path))
-                return 1;
-
-        if (path_startswith(q->path, p->path))
-                return -1;
-
-        return 0;
+        return d;
 }
 
 static void drop_duplicates(BindMount *m, unsigned *n) {
