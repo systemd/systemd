@@ -3877,7 +3877,9 @@ dist_udevhwdb_DATA = \
 	hwdb/70-touchpad.hwdb
 
 EXTRA_DIST += \
-	units/systemd-hwdb-update.service.in
+	units/systemd-hwdb-update.service.in \
+	hwdb/ids-update.pl \
+	hwdb/sdio.ids
 
 SYSINIT_TARGET_WANTS += \
 	systemd-hwdb-update.service
