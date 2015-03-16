@@ -781,6 +781,7 @@ else
         AUDIT_LIBS=
 fi
 AC_SUBST(AUDIT_LIBS)
+AM_CONDITIONAL([HAVE_AUDIT], [test "x$have_audit" != xno])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([elfutils],

@@ -218,6 +218,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/network \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
+	-I $(top_builddir)/src/journal \
 	-I $(top_srcdir)/src/timedate \
 	-I $(top_srcdir)/src/timesync \
 	-I $(top_srcdir)/src/resolve \
@@ -1313,13 +1314,25 @@ src/shared/cap-from-name.gperf: src/shared/cap-list.txt
 src/shared/cap-from-name.h: src/shared/cap-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_capability -H hash_capability_name -p -C <$< >$@
 
+audit_list_includes = -include linux/audit.h missing.h
+if HAVE_AUDIT
+audit_list_includes += -include libaudit.h
+endif
+
+src/journal/audit_type-list.txt:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/audit.h -include missing.h - </dev/null | grep -vE 'AUDIT_.*(FIRST|LAST)_' | $(SED) -r -n 's/^#define\s+AUDIT_(\w+)\s+([0-9]{4})\s*$$/\1\t\2/p' | sort -k2 >$@
+
+src/journal/audit_type-to-name.h: src/journal/audit_type-list.txt
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char *audit_type_to_string(int type) {\n\tswitch(type) {" } {printf "        case AUDIT_%s: return \"%s\";\n", $$1, $$1 } END{ print "        default: return NULL;\n\t}\n}\n" }' <$< >$@
+
 
 src/resolve/dns_type-list.txt: src/resolve/dns-type.h
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(SED) -n -r 's/.* DNS_TYPE_(\w+).*/\1/p' <$< >$@
 
 src/resolve/dns_type-to-name.h: src/resolve/dns_type-list.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char *dns_type_to_string(int type) {\n\tswitch(type) {" } {printf "        case DNS_TYPE_%s: return ", $$1; sub(/_/, "-"); printf "\"%s\";\n", $$1 } END{ print "\ndefault: return NULL;\n\t}\n}\n" }' <$< >$@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char *dns_type_to_string(int type) {\n\tswitch(type) {" } {printf "        case DNS_TYPE_%s: return ", $$1; sub(/_/, "-"); printf "\"%s\";\n", $$1 } END{ print "        default: return NULL;\n\t}\n}\n" }' <$< >$@
 
 src/resolve/dns_type-from-name.gperf: src/resolve/dns_type-list.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct dns_type_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { s=$$1; sub(/_/, "-", s); printf "%s, ", $$s; printf "DNS_TYPE_%s\n", $$1 }' <$< >$@
@@ -4634,7 +4647,13 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/journal/catalog.h \
 	src/journal/mmap-cache.c \
 	src/journal/mmap-cache.h \
-	src/journal/compress.c
+	src/journal/compress.c \
+	src/journal/audit-type.h \
+	src/journal/audit-type.c \
+	src/journal/audit_type-to-name.h
+
+gperf_txt_sources += \
+	src/journal/audit_type-list.txt
 
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 libsystemd_journal_internal_la_CFLAGS = \
