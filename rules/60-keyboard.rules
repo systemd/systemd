@@ -9,7 +9,7 @@ IMPORT{builtin}="hwdb --subsystem=input --lookup-prefix=keyboard:", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # AT keyboard matching by the machine's DMI data
-DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:$attr{[dmi/id]modalias}'", \
+DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:atkbd:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # device matching the input device name and the machine's DMI data
