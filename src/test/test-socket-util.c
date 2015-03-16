@@ -231,6 +231,24 @@ static void test_in_addr_prefix_next(void) {
 
 }
 
+static void test_in_addr_to_string_one(int f, const char *addr) {
+        union in_addr_union ua;
+        _cleanup_free_ char *r = NULL;
+
+        assert_se(in_addr_from_string(f, addr, &ua) >= 0);
+        assert_se(in_addr_to_string(f, &ua, &r) >= 0);
+        printf("test_in_addr_to_string_one: %s == %s\n", addr, r);
+        assert_se(streq(addr, r));
+}
+
+static void test_in_addr_to_string(void) {
+        test_in_addr_to_string_one(AF_INET, "192.168.0.1");
+        test_in_addr_to_string_one(AF_INET, "10.11.12.13");
+        test_in_addr_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_to_string_one(AF_INET6, "::1");
+        test_in_addr_to_string_one(AF_INET6, "fe80::");
+}
+
 static void *connect_thread(void *arg) {
         union sockaddr_union *sa = arg;
         _cleanup_close_ int fd = -1;
@@ -324,6 +342,7 @@ int main(int argc, char *argv[]) {
 
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
+        test_in_addr_to_string();
 
         test_nameinfo_pretty();
 
