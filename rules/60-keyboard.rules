@@ -8,6 +8,10 @@ ENV{ID_INPUT_KEY}=="", GOTO="keyboard_end"
 IMPORT{builtin}="hwdb --lookup-prefix=keyboard:", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
+# import key mapping for AT keyboard from DMI data
+DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:$attr{[dmi/id]modalias}'", \
+  RUN{builtin}+="keyboard", GOTO="keyboard_end"
+
 # lookup entries matching the machine's DMI data
 IMPORT{builtin}="hwdb 'keyboard:name:$attr{name}:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
