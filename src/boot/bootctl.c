@@ -1285,10 +1285,6 @@ static int bootctl_main(int argc, char*argv[]) {
         int q;
         int r;
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                goto finish;
-
         if (argv[optind]) {
                 for (i = 0; i < ELEMENTSOF(verbs); i++) {
                         if (!streq(argv[optind], verbs[i].verb))
