@@ -549,6 +549,8 @@ int kill_and_sigcont(pid_t pid, int sig);
 
 bool nulstr_contains(const char*nulstr, const char *needle);
 
+bool plymouth_running(void);
+
 bool hostname_is_valid(const char *s) _pure_;
 char* hostname_cleanup(char *s, bool lowercase);
 
