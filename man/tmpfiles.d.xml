@@ -305,6 +305,41 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>h</varname></term>
+          <listitem><para>Set file/directory attributes. Lines of this type
+          accept shell-style globs in place of normal path names.</para>
+
+          <para>The format of the argument field is <varname>[+-=][aAcCdDeijsStTu]
+          </varname></para>
+
+          <para>The prefix <varname>+</varname> (the default one) causes the
+          attribute(s) to be added; <varname>-</varname> causes the
+          attribute(s) to be removed; <varname>=</varname>
+          causes the attributes to set exactly as the following letters.</para>
+          <para>The letters <literal>aAcCdDeijsStTu</literal> select the new
+          attributes for the files, see
+          <citerefentry><refentrytitle>chattr</refentrytitle>
+          <manvolnum>1</manvolnum></citerefentry> for further information.
+          </para>
+          <para>Passing only <varname>=</varname> as argument,
+          resets all the file attributes listed above. It has to be pointed
+          out that the <varname>=</varname> prefix, limits itself to the
+          attributes corresponding to the letters listed here. All other
+          attributes will be left untouched.
+          </para>
+
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>H</varname></term>
+          <listitem><para>Recursively set file/directory attributes. Lines
+          of this type accept shell-style globs in place of normal
+          path names.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists). If
@@ -529,7 +564,8 @@
       <citerefentry project='man-pages'><refentrytitle>getfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>setfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
