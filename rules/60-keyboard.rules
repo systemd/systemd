@@ -7,8 +7,8 @@ ENV{ID_INPUT_KEY}=="", GOTO="keyboard_end"
 # ignore all bluetooth devices
 SUBSYSTEMS=="bluetooth", GOTO="keyboard_end"
 
-# import key mapping for USB device
-SUBSYSTEMS=="usb", IMPORT{builtin}="hwdb --subsystem=usb --lookup-prefix=keyboard:", \
+# import key mapping for input device
+IMPORT{builtin}="hwdb --lookup-prefix=keyboard:", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # import key mapping for AT keyboard from DMI data

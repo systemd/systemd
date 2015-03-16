@@ -12,10 +12,12 @@
 # is not necessarily expected to be a stable ABI.
 #
 # Supported hardware matches are:
-#  - USB keyboards identified by the usb kernel modalias:
-#      keyboard:usb:vXXXXpYYYY*
-#    XXXX is the 4-digit hex uppercase vendor, and YYYY
-#    the 4-digit hex uppercase product.
+#  - Generic input devices match:
+#      keyboard:input:bZZZZvYYYYpXXXXeWWWW-VVVV
+#    This matches on the kernel modalias of the input-device, mainly:
+#    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
+#    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
+#    is an arbitrary length input-modalias describing the device capabilities.
 #
 #  - AT keyboard DMI data matches:
 #      keyboard:dmi:bvn*:bvr*:bd*:svn<vendor>:pn<product>:pvr*
@@ -181,7 +183,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:pvr*
  KEYBOARD_KEY_9e=email
  KEYBOARD_KEY_9f=homepage
 
-keyboard:usb:v049Fp0051d*dc*dsc*dp*ic*isc*ip*in01*
+keyboard:input:b0003v049Fp0051*
  KEYBOARD_KEY_0c0011=presentation
  KEYBOARD_KEY_0c0012=addressbook
  KEYBOARD_KEY_0c0013=info
@@ -346,7 +348,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnGIGABYTE:pnU2442:*
 ###########################################################
 
 # Slimstar 320
-keyboard:usb:v0458p0708d*dc*dsc*dp*ic*isc*ip*in01*
+keyboard:input:b0003v0458p0708*
  KEYBOARD_KEY_0900f0=scrollup
  KEYBOARD_KEY_0900f1=scrolldown
  KEYBOARD_KEY_0900f3=back
@@ -505,7 +507,7 @@ keyboard:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnIBM*:pn*:pvr*
  KEYBOARD_KEY_17=prog1                                  # ThinkPad/ThinkVantage button (high keycode: "vendor")
 
 # IBM Thinkpad USB Keyboard Trackpoint
-keyboard:usb:v04B3p301[89]*
+keyboard:input:b0003v04B3p301[89]*
  KEYBOARD_KEY_900f0=screenlock
  KEYBOARD_KEY_900f1=wlan
  KEYBOARD_KEY_900f2=switchvideomode
@@ -548,7 +550,7 @@ keyboard:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
 
 # ThinkPad Keyboard with TrackPoint
-keyboard:usb:v17EFp6009*
+keyboard:input:b0003v17EFp6009*
  KEYBOARD_KEY_090012=screenlock                         # Fn+F2
  KEYBOARD_KEY_090013=battery                            # Fn+F3
  KEYBOARD_KEY_090014=wlan                               # Fn+F5
@@ -635,7 +637,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
 # enhanced USB keyboard
-keyboard:usb:v04B3p301B*
+keyboard:input:b0003v04B3p301B*
  KEYBOARD_KEY_90001=prog1 # ThinkVantage
  KEYBOARD_KEY_90002=screenlock
  KEYBOARD_KEY_90003=file
@@ -651,7 +653,7 @@ keyboard:usb:v04B3p301B*
 ###########################################################
 
 # iTouch
-keyboard:usb:v046DpC308*
+keyboard:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
  KEYBOARD_KEY_90002=config                              # iTouch
  KEYBOARD_KEY_90003=finance                             # Finance
@@ -660,12 +662,12 @@ keyboard:usb:v046DpC308*
  KEYBOARD_KEY_C0183=media                               # Media
 
 # Cordless Desktop S510
-keyboard:usb:v046DpC50C*
+keyboard:input:b0003v046DpC50C*
  KEYBOARD_KEY_d4=zoomin
  KEYBOARD_KEY_cc=zoomout
 
 # Wave cordless
-keyboard:usb:v046DpC317*
+keyboard:input:b0003v046DpC317*
  KEYBOARD_KEY_9001c=scale                               # expo
  KEYBOARD_KEY_9001f=zoomout
  KEYBOARD_KEY_90020=zoomin
@@ -684,7 +686,7 @@ keyboard:usb:v046DpC317*
  KEYBOARD_KEY_9004c=ejectclosecd
 
 # Wave cordless
-keyboard:usb:v046DpC517*
+keyboard:input:b0003v046DpC517*
  KEYBOARD_KEY_c101f=zoomout
  KEYBOARD_KEY_c1020=zoomin
  KEYBOARD_KEY_c1005=camera
@@ -700,7 +702,7 @@ keyboard:usb:v046DpC517*
  KEYBOARD_KEY_c104c=ejectclosecd
 
 # Cordless Wave Pro
-keyboard:usb:v046DpC52[9B]*
+keyboard:input:b0003v046DpC52[9B]*
  KEYBOARD_KEY_0c01b6=camera
  KEYBOARD_KEY_0c0183=media
  KEYBOARD_KEY_0c0184=wordprocessor
@@ -715,13 +717,13 @@ keyboard:usb:v046DpC52[9B]*
  KEYBOARD_KEY_0c022e=zoomout
 
 # Logitech Presenter R400
-keyboard:usb:v046DpC52Dd*dc*dsc*dp*ic*isc*ip*in00*
+keyboard:input:b0003v046DpC52D*
  KEYBOARD_KEY_070029=presentation
  KEYBOARD_KEY_07003e=presentation
  KEYBOARD_KEY_070037=displaytoggle
 
 # Internet Navigator
-keyboard:usb:v046DpC309*
+keyboard:input:b0003v046DpC309*
   KEYBOARD_KEY_90001=chat         # Messenger/SMS
   KEYBOARD_KEY_90002=camera       # webcam
   KEYBOARD_KEY_90003=prog1        # iTouch
@@ -777,7 +779,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
 ###########################################################
 
 # Microsoft Natural Ergonomic Keyboard 4000
-keyboard:usb:v045Ep00DB*
+keyboard:input:b0003v045Ep00DB*
  KEYBOARD_KEY_c022d=zoomin
  KEYBOARD_KEY_c022e=zoomout
 
@@ -926,7 +928,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:pvr*
 ###########################################################
 
 # Plantronics .Audio 626 DSP
-keyboard:usb:v047FpC006*
+keyboard:input:b0003v047FpC006*
  KEYBOARD_KEY_b002f=f20                                # Microphone mute button; should be micmute
 
 ###########################################################
