@@ -5611,7 +5611,7 @@ dist_dbussystemservice_DATA += \
 	src/resolve/org.freedesktop.resolve1.service
 
 EXTRA_DIST += \
-	units/systemd-resolved.service.in
+	units/systemd-resolved.service.m4.in
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-resolved.service dbus-org.freedesktop.resolve1.service

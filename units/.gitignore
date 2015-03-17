@@ -56,6 +56,7 @@
 /systemd-reboot.service
 /systemd-remount-fs.service
 /systemd-resolved.service
+/systemd-resolved.service.m4
 /systemd-hibernate-resume@.service
 /systemd-rfkill@.service
 /systemd-shutdownd.service
