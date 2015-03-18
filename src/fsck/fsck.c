@@ -159,7 +159,7 @@ static int process_progress(int fd, pid_t fsck_pid, dev_t device_num) {
                 FsckProgress progress;
                 FsckdMessage fsckd_message;
 
-                if (fscanf(f, "%i %lu %lu %ms", &pass, &cur, &max, &device) != 4)
+                if (fscanf(f, "%i %zu %zu %ms", &pass, &cur, &max, &device) != 4)
                         break;
 
                 /* Only update once every 50ms */
