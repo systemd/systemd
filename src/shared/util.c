@@ -148,6 +148,27 @@ char* endswith(const char *s, const char *postfix) {
         return (char*) s + sl - pl;
 }
 
+char* endswith_no_case(const char *s, const char *postfix) {
+        size_t sl, pl;
+
+        assert(s);
+        assert(postfix);
+
+        sl = strlen(s);
+        pl = strlen(postfix);
+
+        if (pl == 0)
+                return (char*) s + sl;
+
+        if (sl < pl)
+                return NULL;
+
+        if (strcasecmp(s + sl - pl, postfix) != 0)
+                return NULL;
+
+        return (char*) s + sl - pl;
+}
+
 char* first_word(const char *s, const char *word) {
         size_t sl, wl;
         const char *p;

@@ -41,70 +41,53 @@
 #include "build.h"
 #include "util.h"
 #include "rm-rf.h"
+#include "blkid-util.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         struct statfs sfs;
         struct stat st, st2;
-        char *t;
-        blkid_probe b = NULL;
+        _cleanup_free_ char *t = NULL;
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
         int r;
-        const char *v;
+        const char *v, *t2;
 
-        if (statfs(p, &sfs) < 0) {
-                fprintf(stderr, "Failed to check file system type of %s: %m\n", p);
-                return -errno;
-        }
+        if (statfs(p, &sfs) < 0)
+                return log_error_errno(errno, "Failed to check file system type of \"%s\": %m", p);
 
         if (sfs.f_type != 0x4d44) {
-                fprintf(stderr, "File system %s is not a FAT EFI System Partition (ESP) file system.\n", p);
+                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
                 return -ENODEV;
         }
 
-        if (stat(p, &st) < 0) {
-                fprintf(stderr, "Failed to determine block device node of %s: %m\n", p);
-                return -errno;
-        }
+        if (stat(p, &st) < 0)
+                return log_error_errno(errno, "Failed to determine block device node of \"%s\": %m", p);
 
         if (major(st.st_dev) == 0) {
-                fprintf(stderr, "Block device node of %p is invalid.\n", p);
+                log_error("Block device node of %p is invalid.", p);
                 return -ENODEV;
         }
 
-        r = asprintf(&t, "%s/..", p);
-        if (r < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
-        r = stat(t, &st2);
-        free(t);
-        if (r < 0) {
-                fprintf(stderr, "Failed to determine block device node of parent of %s: %m\n", p);
-                return -errno;
-        }
+        t2 = strjoina(p, "/..");
+        r = stat(t2, &st2);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to determine block device node of parent of \"%s\": %m", p);
 
         if (st.st_dev == st2.st_dev) {
-                fprintf(stderr, "Directory %s is not the root of the EFI System Partition (ESP) file system.\n", p);
+                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
                 return -ENODEV;
         }
 
         r = asprintf(&t, "/dev/block/%u:%u", major(st.st_dev), minor(st.st_dev));
-        if (r < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
+        if (r < 0)
+                return log_oom();
 
         errno = 0;
         b = blkid_new_probe_from_filename(t);
-        free(t);
         if (!b) {
-                if (errno != 0) {
-                        fprintf(stderr, "Failed to open file system %s: %m\n", p);
-                        return -errno;
-                }
+                if (errno == 0)
+                        return log_oom();
 
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
+                return log_error_errno(errno, "Failed to open file system \"%s\": %m", p);
         }
 
         blkid_probe_enable_superblocks(b, 1);
@@ -115,82 +98,70 @@ static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t 
         errno = 0;
         r = blkid_do_safeprobe(b);
         if (r == -2) {
-                fprintf(stderr, "File system %s is ambigious.\n", p);
-                r = -ENODEV;
-                goto fail;
+                log_error("File system \"%s\" is ambigious.", p);
+                return -ENODEV;
         } else if (r == 1) {
-                fprintf(stderr, "File system %s does not contain a label.\n", p);
-                r = -ENODEV;
-                goto fail;
+                log_error("File system \"%s\" does not contain a label.", p);
+                return -ENODEV;
         } else if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe file system %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe file system \"%s\": %m", p);
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe file system type %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe file system type \"%s\": %m", p);
         }
 
-        if (strcmp(v, "vfat") != 0) {
-                fprintf(stderr, "File system %s is not a FAT EFI System Partition (ESP) file system after all.\n", p);
-                r = -ENODEV;
-                goto fail;
+        if (!streq(v, "vfat")) {
+                log_error("File system \"%s\" is not FAT.", p);
+                return -ENODEV;
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition scheme %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition scheme \"%s\": %m", p);
         }
 
-        if (strcmp(v, "gpt") != 0) {
-                fprintf(stderr, "File system %s is not on a GPT partition table.\n", p);
-                r = -ENODEV;
-                goto fail;
+        if (!streq(v, "gpt")) {
+                log_error("File system \"%s\" is not on a GPT partition table.", p);
+                return -ENODEV;
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition type UUID %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition type UUID \"%s\": %m", p);
         }
 
-        if (strcmp(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b") != 0) {
-                r = -ENODEV;
-                fprintf(stderr, "File system %s is not an EFI System Partition (ESP).\n", p);
-                goto fail;
+        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")) {
+                log_error("File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
+                return -ENODEV;
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition entry UUID %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition entry UUID \"%s\": %m", p);
         }
 
         r = sd_id128_from_string(v, uuid);
         if (r < 0) {
-                fprintf(stderr, "Partition %s has invalid UUID: %s\n", p, v);
-                r = -EIO;
-                goto fail;
+                log_error("Partition \"%s\" has invalid UUID \"%s\".", p, v);
+                return -EIO;
         }
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition number %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition number \"%s\": m", p);
         }
         *part = strtoul(v, NULL, 10);
 
@@ -198,8 +169,7 @@ static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t 
         r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition offset %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition offset \"%s\": %m", p);
         }
         *pstart = strtoul(v, NULL, 10);
 
@@ -207,37 +177,31 @@ static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t 
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
         if (r != 0) {
                 r = errno ? -errno : -EIO;
-                fprintf(stderr, "Failed to probe partition size %s: %s\n", p, strerror(-r));
-                goto fail;
+                return log_error_errno(r, "Failed to probe partition size \"%s\": %m", p);
         }
         *psize = strtoul(v, NULL, 10);
 
-        blkid_free_probe(b);
         return 0;
-fail:
-        if (b)
-                blkid_free_probe(b);
-        return r;
 }
 
 /* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
-static int get_file_version(FILE *f, char **v) {
+static int get_file_version(int fd, char **v) {
         struct stat st;
         char *buf;
         const char *s, *e;
         char *x = NULL;
         int r = 0;
 
-        assert(f);
+        assert(fd >= 0);
         assert(v);
 
-        if (fstat(fileno(f), &st) < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (st.st_size < 27)
                 return 0;
 
-        buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fileno(f), 0);
+        buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (buf == MAP_FAILED)
                 return -errno;
 
@@ -248,15 +212,14 @@ static int get_file_version(FILE *f, char **v) {
 
         e = memmem(s, st.st_size - (s - buf), " ####", 5);
         if (!e || e - s < 3) {
-                fprintf(stderr, "Malformed version string.\n");
+                log_error("Malformed version string.");
                 r = -EINVAL;
                 goto finish;
         }
 
         x = strndup(s, e - s);
         if (!x) {
-                fprintf(stderr, "Out of memory.\n");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
         r = 1;
@@ -268,83 +231,48 @@ finish:
 }
 
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
+        char *p;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        char *p = NULL, *q = NULL;
-        DIR *d = NULL;
         int r = 0, c = 0;
 
-        if (asprintf(&p, "%s/%s", esp_path, path) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                r = -ENOMEM;
-                goto finish;
-        }
-
+        p = strjoina(esp_path, "/", path);
         d = opendir(p);
         if (!d) {
-                if (errno == ENOENT) {
-                        r = 0;
-                        goto finish;
-                }
+                if (errno == ENOENT)
+                        return 0;
 
-                fprintf(stderr, "Failed to read %s: %m\n", p);
-                r = -errno;
-                goto finish;
+                return log_error_errno(errno, "Failed to read \"%s\": %m", p);
         }
 
         while ((de = readdir(d))) {
-                char *v;
-                size_t n;
-                FILE *f;
+                _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *v = NULL;
 
                 if (de->d_name[0] == '.')
                         continue;
 
-                n = strlen(de->d_name);
-                if (n < 4 || strcasecmp(de->d_name + n - 4, ".efi") != 0)
+                if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (prefix && strncasecmp(de->d_name, prefix, strlen(prefix)) != 0)
+                if (prefix && !startswith_no_case(de->d_name, prefix))
                         continue;
 
-                free(q);
-                q = NULL;
-                if (asprintf(&q, "%s/%s/%s", esp_path, path, de->d_name) < 0) {
-                        fprintf(stderr, "Out of memory.\n");
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
-                f = fopen(q, "re");
-                if (!f) {
-                        fprintf(stderr, "Failed to open %s for reading: %m\n", q);
-                        r = -errno;
-                        goto finish;
-                }
-
-                r = get_file_version(f, &v);
-                fclose(f);
-
+                r = get_file_version(fd, &v);
                 if (r < 0)
-                        goto finish;
-
+                        return r;
                 if (r > 0)
                         printf("         File: └─/%s/%s (%s)\n", path, de->d_name, v);
                 else
                         printf("         File: └─/%s/%s\n", path, de->d_name);
-
                 c++;
-                free(v);
         }
 
-        r = c;
-
-finish:
-        if (d)
-                closedir(d);
-
-        free(p);
-        free(q);
-        return r;
+        return c;
 }
 
 static int status_binaries(const char *esp_path, sd_id128_t partition) {
@@ -356,17 +284,16 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
         if (r == 0)
-                fprintf(stderr, "systemd-boot not installed in ESP.\n");
+                log_error("systemd-boot not installed in ESP.");
         else if (r < 0)
                 return r;
 
         r = enumerate_binaries(esp_path, "EFI/Boot", "boot");
         if (r == 0)
-                fprintf(stderr, "No default/fallback boot loader installed in ESP.\n");
+                log_error("No default/fallback boot loader installed in ESP.");
         else if (r < 0)
                 return r;
 
-        printf("\n");
         return 0;
 }
 
@@ -399,62 +326,46 @@ static int print_efi_option(uint16_t id, bool in_order) {
 
 static int status_variables(void) {
         int n_options, n_order;
-        uint16_t *options = NULL, *order = NULL;
-        int r, i;
+        _cleanup_free_ uint16_t *options = NULL, *order = NULL;
+        int i;
 
         if (!is_efi_boot()) {
-                fprintf(stderr, "Not booted with EFI, not showing EFI variables.\n");
+                log_notice("Not booted with EFI, not showing EFI variables.");
                 return 0;
         }
 
         n_options = efi_get_boot_options(&options);
-        if (n_options < 0) {
-                if (n_options == -ENOENT)
-                        fprintf(stderr, "Failed to access EFI variables, "
-                                "efivarfs needs to be available at /sys/firmware/efi/efivars/.\n");
-                else
-                        fprintf(stderr, "Failed to read EFI boot entries: %s\n", strerror(-n_options));
-                r = n_options;
-                goto finish;
-        }
+        if (n_options == -ENOENT)
+                return log_error_errno(ENOENT, "Failed to access EFI variables, efivarfs"
+                                       " needs to be available at /sys/firmware/efi/efivars/.");
+        else if (n_options < 0)
+                return log_error_errno(n_options, "Failed to read EFI boot entries: %m");
 
-        printf("Boot Loader Entries in EFI Variables:\n");
         n_order = efi_get_boot_order(&order);
-        if (n_order == -ENOENT) {
+        if (n_order == -ENOENT)
                 n_order = 0;
-        } else if (n_order < 0) {
-                fprintf(stderr, "Failed to read EFI boot order.\n");
-                r = n_order;
-                goto finish;
-        }
+        else if (n_order < 0)
+                return log_error_errno(n_order, "Failed to read EFI boot order.");
 
         /* print entries in BootOrder first */
+        printf("Boot Loader Entries in EFI Variables:\n");
         for (i = 0; i < n_order; i++)
                 print_efi_option(order[i], true);
 
         /* print remaining entries */
         for (i = 0; i < n_options; i++) {
                 int j;
-                bool found = false;
 
                 for (j = 0; j < n_order; j++)
-                        if (options[i] == order[j]) {
-                                found = true;
-                                break;
-                        }
-
-                if (found)
-                        continue;
+                        if (options[i] == order[j])
+                                goto next;
 
                 print_efi_option(options[i], false);
+        next:
+                continue;
         }
 
-        r = 0;
-finish:
-        free(options);
-        free(order);
-
-        return r;
+        return 0;
 }
 
 static int compare_product(const char *a, const char *b) {
@@ -483,64 +394,50 @@ static int compare_version(const char *a, const char *b) {
         return strverscmp(a, b);
 }
 
-static int version_check(FILE *f, const char *from, const char *to) {
-        FILE *g = NULL;
-        char *a = NULL, *b = NULL;
+static int version_check(int fd, const char *from, const char *to) {
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        _cleanup_close_ int fd2 = -1;
         int r;
 
-        assert(f);
+        assert(fd >= 0);
         assert(from);
         assert(to);
 
-        r = get_file_version(f, &a);
+        r = get_file_version(fd, &a);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
-                r = -EINVAL;
-                fprintf(stderr, "Source file %s does not carry version information!\n", from);
-                goto finish;
+                log_error("Source file \"%s\" does not carry version information!", from);
+                return -EINVAL;
         }
 
-        g = fopen(to, "re");
-        if (!g) {
-                if (errno == ENOENT) {
-                        r = 0;
-                        goto finish;
-                }
+        fd2 = open(to, O_RDONLY|O_CLOEXEC);
+        if (fd2 < 0) {
+                if (errno == ENOENT)
+                        return 0;
 
-                r = -errno;
-                fprintf(stderr, "Failed to open %s for reading: %m\n", to);
-                goto finish;
+                return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
         }
 
-        r = get_file_version(g, &b);
+        r = get_file_version(fd2, &b);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0 || compare_product(a, b) != 0) {
-                r = -EEXIST;
-                fprintf(stderr, "Skipping %s, since it's owned by another boot loader.\n", to);
-                goto finish;
+                log_notice("Skipping \"%s\", since it's owned by another boot loader.", to);
+                return -EEXIST;
         }
 
         if (compare_version(a, b) < 0) {
-                r = -EEXIST;
-                fprintf(stderr, "Skipping %s, since it's a newer boot loader version already.\n", to);
-                goto finish;
+                log_warning("Skipping \"%s\", since a newer boot loader version exists already.", to);
+                return -ESTALE;
         }
 
-        r = 0;
-
-finish:
-        free(a);
-        free(b);
-        if (g)
-                fclose(g);
-        return r;
+        return 0;
 }
 
 static int copy_file(const char *from, const char *to, bool force) {
-        FILE *f = NULL, *g = NULL;
-        char *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
+        char *p;
         int r;
         struct timespec t[2];
         struct stat st;
@@ -549,35 +446,24 @@ static int copy_file(const char *from, const char *to, bool force) {
         assert(to);
 
         f = fopen(from, "re");
-        if (!f) {
-                fprintf(stderr, "Failed to open %s for reading: %m\n", from);
-                return -errno;
-        }
+        if (!f)
+                return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", from);
 
         if (!force) {
                 /* If this is an update, then let's compare versions first */
-                r = version_check(f, from, to);
+                r = version_check(fileno(f), from, to);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        if (asprintf(&p, "%s~", to) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                r = -ENOMEM;
-                goto finish;
-        }
-
+        p = strjoina(to, "~");
         g = fopen(p, "wxe");
         if (!g) {
                 /* Directory doesn't exist yet? Then let's skip this... */
-                if (!force && errno == ENOENT) {
-                        r = 0;
-                        goto finish;
-                }
+                if (!force && errno == ENOENT)
+                        return 0;
 
-                fprintf(stderr, "Failed to open %s for writing: %m\n", to);
-                r = -errno;
-                goto finish;
+                return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", to);
         }
 
         rewind(f);
@@ -587,33 +473,30 @@ static int copy_file(const char *from, const char *to, bool force) {
 
                 k = fread(buf, 1, sizeof(buf), f);
                 if (ferror(f)) {
-                        fprintf(stderr, "Failed to read %s: %m\n", from);
-                        r = -errno;
-                        goto finish;
+                        r = log_error_errno(EIO, "Failed to read \"%s\": %m", from);
+                        goto error;
                 }
+
                 if (k == 0)
                         break;
 
                 fwrite(buf, 1, k, g);
                 if (ferror(g)) {
-                        fprintf(stderr, "Failed to write %s: %m\n", to);
-                        r = -errno;
-                        goto finish;
+                        r = log_error_errno(EIO, "Failed to write \"%s\": %m", to);
+                        goto error;
                 }
         } while (!feof(f));
 
         fflush(g);
         if (ferror(g)) {
-                fprintf(stderr, "Failed to write %s: %m\n", to);
-                r = -errno;
-                goto finish;
+                r = log_error_errno(EIO, "Failed to write \"%s\": %m", to);
+                goto error;
         }
 
         r = fstat(fileno(f), &st);
         if (r < 0) {
-                fprintf(stderr, "Failed to get file timestamps of %s: %m", from);
-                r = -errno;
-                goto finish;
+                r = log_error_errno(errno, "Failed to get file timestamps of \"%s\": %m", from);
+                goto error;
         }
 
         t[0] = st.st_atim;
@@ -621,32 +504,20 @@ static int copy_file(const char *from, const char *to, bool force) {
 
         r = futimens(fileno(g), t);
         if (r < 0) {
-                fprintf(stderr, "Failed to change file timestamps for %s: %m", p);
-                r = -errno;
-                goto finish;
+                r = log_error_errno(errno, "Failed to set file timestamps on \"%s\": %m", p);
+                goto error;
         }
 
         if (rename(p, to) < 0) {
-                fprintf(stderr, "Failed to rename %s to %s: %m\n", p, to);
-                r = -errno;
-                goto finish;
+                r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", p, to);
+                goto error;
         }
 
-        fprintf(stderr, "Copied %s to %s.\n", from, to);
+        log_info("Copied \"%s\" to \"%s\".", from, to);
+        return 0;
 
-        free(p);
-        p = NULL;
-        r = 0;
-
-finish:
-        if (f)
-                fclose(f);
-        if (g)
-                fclose(g);
-        if (p) {
-                unlink(p);
-                free(p);
-        }
+error:
+        unlink(p);
         return r;
 }
 
@@ -662,81 +533,56 @@ static char* strupper(char *s) {
 static int mkdir_one(const char *prefix, const char *suffix) {
         char *p;
 
-        if (asprintf(&p, "%s/%s", prefix, suffix) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(prefix, "/", suffix);
         if (mkdir(p, 0700) < 0) {
-                if (errno != EEXIST) {
-                        fprintf(stderr, "Failed to create %s: %m\n", p);
-                        free(p);
-                        return -errno;
-                }
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create \"%s\": %m", p);
         } else
-                fprintf(stderr, "Created %s.\n", p);
+                log_info("Created \"%s\".", p);
 
-        free(p);
         return 0;
 }
 
+static const char *efi_subdirs[] = {
+        "EFI",
+        "EFI/systemd",
+        "EFI/Boot",
+        "loader",
+        "loader/entries"
+};
+
 static int create_dirs(const char *esp_path) {
         int r;
+        unsigned i;
 
-        r = mkdir_one(esp_path, "EFI");
-        if (r < 0)
-                return r;
-
-        r = mkdir_one(esp_path, "EFI/systemd");
-        if (r < 0)
-                return r;
-
-        r = mkdir_one(esp_path, "EFI/Boot");
-        if (r < 0)
-                return r;
-
-        r = mkdir_one(esp_path, "loader");
-        if (r < 0)
-                return r;
-
-        r = mkdir_one(esp_path, "loader/entries");
-        if (r < 0)
-                return r;
+        for (i = 0; i < ELEMENTSOF(efi_subdirs); i++) {
+                r = mkdir_one(esp_path, efi_subdirs[i]);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_free_ char *q = NULL;
-        _cleanup_free_ char *v = NULL;
+        char *p, *q;
         int r;
 
-        if (asprintf(&p, BOOTLIBDIR "/%s", name) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
-        if (asprintf(&q, "%s/EFI/systemd/%s", esp_path, name) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(BOOTLIBDIR "/", name);
+        q = strjoina(esp_path, "/EFI/systemd/", name);
         r = copy_file(p, q, force);
 
         if (startswith(name, "systemd-boot")) {
                 int k;
+                char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                if (asprintf(&v, "%s/EFI/Boot/BOOT%s", esp_path, name + strlen("systemd-boot")) < 0) {
-                        fprintf(stderr, "Out of memory.\n");
-                        return -ENOMEM;
-                }
+                v = strjoina(esp_path, "/EFI/Boot/BOOT", name + strlen("systemd-boot"));
                 strupper(strrchr(v, '/') + 1);
 
                 k = copy_file(p, v, force);
                 if (k < 0 && r == 0)
-                        return k;
+                        r = k;
         }
 
         return r;
@@ -744,7 +590,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
 static int install_binaries(const char *esp_path, bool force) {
         struct dirent *de;
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
 
         if (force) {
@@ -759,20 +605,16 @@ static int install_binaries(const char *esp_path, bool force) {
         }
 
         d = opendir(BOOTLIBDIR);
-        if (!d) {
-                fprintf(stderr, "Failed to open "BOOTLIBDIR": %m\n");
-                return -errno;
-        }
+        if (!d)
+                return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
         while ((de = readdir(d))) {
-                size_t n;
                 int k;
 
                 if (de->d_name[0] == '.')
                         continue;
 
-                n = strlen(de->d_name);
-                if (n < 4 || strcmp(de->d_name + n - 4, ".efi") != 0)
+                if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
                 k = copy_one_file(esp_path, de->d_name, force);
@@ -780,347 +622,239 @@ static int install_binaries(const char *esp_path, bool force) {
                         r = k;
         }
 
-        closedir(d);
         return r;
 }
 
 static bool same_entry(uint16_t id, const sd_id128_t uuid, const char *path) {
-        char *opath = NULL;
+        _cleanup_free_ char *opath = NULL;
         sd_id128_t ouuid;
-        int err;
-        bool same = false;
+        int r;
 
-        err = efi_get_boot_option(id, NULL, &ouuid, &opath, NULL);
-        if (err < 0)
+        r = efi_get_boot_option(id, NULL, &ouuid, &opath, NULL);
+        if (r < 0)
                 return false;
         if (!sd_id128_equal(uuid, ouuid))
-                goto finish;
-
+                return false;
         if (!streq_ptr(path, opath))
-                goto finish;
+                return false;
 
-        same = true;
-
-finish:
-        return same;
+        return true;
 }
 
 static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
-        uint16_t *options = NULL;
-        int n_options;
-        int i;
-        uint16_t new_id = 0;
-        bool existing = false;
+        _cleanup_free_ uint16_t *options = NULL;
+        int n, i;
 
-        n_options = efi_get_boot_options(&options);
-        if (n_options < 0)
-                return n_options;
+        n = efi_get_boot_options(&options);
+        if (n < 0)
+                return n;
 
         /* find already existing systemd-boot entry */
-        for (i = 0; i < n_options; i++)
+        for (i = 0; i < n; i++)
                 if (same_entry(options[i], uuid, path)) {
-                        new_id = options[i];
-                        existing = true;
-                        goto finish;
+                        *id = options[i];
+                        return 1;
                 }
 
         /* find free slot in the sorted BootXXXX variable list */
-        for (i = 0; i < n_options; i++)
+        for (i = 0; i < n; i++)
                 if (i != options[i]) {
-                        new_id = i;
-                        goto finish;
+                        *id = i;
+                        return 1;
                 }
 
         /* use the next one */
         if (i == 0xffff)
                 return -ENOSPC;
-        new_id = i;
-
-finish:
-        *id = new_id;
-        free(options);
-        return existing;
+        *id = i;
+        return 0;
 }
 
 static int insert_into_order(uint16_t slot, bool first) {
-        uint16_t *order = NULL;
-        uint16_t *new_order;
-        int n_order;
-        int i;
-        int err = 0;
+        _cleanup_free_ uint16_t *order = NULL;
+        uint16_t *t;
+        int n, i;
 
-        n_order = efi_get_boot_order(&order);
-        if (n_order <= 0) {
+        n = efi_get_boot_order(&order);
+        if (n <= 0)
                 /* no entry, add us */
-                err = efi_set_boot_order(&slot, 1);
-                goto finish;
-        }
+                return efi_set_boot_order(&slot, 1);
 
         /* are we the first and only one? */
-        if (n_order == 1 && order[0] == slot)
-                goto finish;
+        if (n == 1 && order[0] == slot)
+                return 0;
 
         /* are we already in the boot order? */
-        for (i = 0; i < n_order; i++) {
+        for (i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
                 /* we do not require to be the first one, all is fine */
                 if (!first)
-                        goto finish;
+                        return 0;
 
                 /* move us to the first slot */
-                memmove(&order[1], order, i * sizeof(uint16_t));
+                memmove(order + 1, order, i * sizeof(uint16_t));
                 order[0] = slot;
-                efi_set_boot_order(order, n_order);
-                goto finish;
+                return efi_set_boot_order(order, n);
         }
 
         /* extend array */
-        new_order = realloc(order, (n_order+1) * sizeof(uint16_t));
-        if (!new_order) {
-                err = -ENOMEM;
-                goto finish;
-        }
-        order = new_order;
+        t = realloc(order, (n + 1) * sizeof(uint16_t));
+        if (!t)
+                return -ENOMEM;
+        order = t;
 
         /* add us to the top or end of the list */
         if (first) {
-                memmove(&order[1], order, n_order * sizeof(uint16_t));
+                memmove(order + 1, order, n * sizeof(uint16_t));
                 order[0] = slot;
         } else
-                order[n_order] = slot;
+                order[n] = slot;
 
-        efi_set_boot_order(order, n_order+1);
-
-finish:
-        free(order);
-        return err;
+        return efi_set_boot_order(order, n + 1);
 }
 
 static int remove_from_order(uint16_t slot) {
         _cleanup_free_ uint16_t *order = NULL;
-        int n_order;
-        int i;
-        int err = 0;
+        int n, i;
 
-        n_order = efi_get_boot_order(&order);
-        if (n_order < 0)
-                return n_order;
-        if (n_order == 0)
-                return 0;
+        n = efi_get_boot_order(&order);
+        if (n <= 0)
+                return n;
 
-        for (i = 0; i < n_order; i++) {
+        for (i = 0; i < n; i++) {
                 if (order[i] != slot)
                         continue;
 
-                if (i+1 < n_order)
-                        memmove(&order[i], &order[i+1], (n_order - i) * sizeof(uint16_t));
-                efi_set_boot_order(order, n_order-1);
-                break;
+                if (i + 1 < n)
+                        memmove(order + i, order + i+1, (n - i) * sizeof(uint16_t));
+                return efi_set_boot_order(order, n - 1);
         }
 
-        return err;
+        return 0;
 }
 
 static int install_variables(const char *esp_path,
                              uint32_t part, uint64_t pstart, uint64_t psize,
                              sd_id128_t uuid, const char *path,
                              bool first) {
-        char *p = NULL;
-        uint16_t *options = NULL;
+        char *p;
         uint16_t slot;
         int r;
 
         if (!is_efi_boot()) {
-                fprintf(stderr, "Not booted with EFI, skipping EFI variable setup.\n");
+                log_warning("Not booted with EFI, skipping EFI variable setup.");
                 return 0;
         }
 
-        if (asprintf(&p, "%s%s", esp_path, path) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(esp_path, path);
         if (access(p, F_OK) < 0) {
                 if (errno == ENOENT)
-                        r = 0;
+                        return 0;
                 else
-                        r = -errno;
-                goto finish;
+                        return log_error_errno(errno, "Cannot access \"%s\": %m", p);
         }
 
         r = find_slot(uuid, path, &slot);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        fprintf(stderr, "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?\n");
-                else
-                        fprintf(stderr, "Failed to determine current boot order: %s\n", strerror(-r));
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r,
+                                       r == -ENOENT ?
+                                       "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
+                                       "Failed to determine current boot order: %m");
 
         if (first || r == false) {
                 r = efi_add_boot_option(slot, "Linux Boot Manager",
                                         part, pstart, psize,
                                         uuid, path);
-                if (r < 0) {
-                        fprintf(stderr, "Failed to create EFI Boot variable entry: %s\n", strerror(-r));
-                        goto finish;
-                }
-                fprintf(stderr, "Created EFI boot entry \"Linux Boot Manager\".\n");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create EFI Boot variable entry: %m");
+
+                log_info("Created EFI boot entry \"Linux Boot Manager\".");
         }
 
-        insert_into_order(slot, first);
-
-finish:
-        free(p);
-        free(options);
-        return r;
+        return insert_into_order(slot, first);
 }
 
 static int remove_boot_efi(const char *esp_path) {
+        char *p;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        char *p = NULL, *q = NULL;
-        DIR *d = NULL;
-        int r = 0, c = 0;
+        int r, c = 0;
 
-        if (asprintf(&p, "%s/EFI/Boot", esp_path) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(esp_path, "/EFI/Boot");
         d = opendir(p);
         if (!d) {
-                if (errno == ENOENT) {
-                        r = 0;
-                        goto finish;
-                }
+                if (errno == ENOENT)
+                        return 0;
 
-                fprintf(stderr, "Failed to read %s: %m\n", p);
-                r = -errno;
-                goto finish;
+                return log_error_errno(errno, "Failed to open directory \"%s\": %m", p);
         }
 
         while ((de = readdir(d))) {
-                char *v;
-                size_t n;
-                FILE *f;
+                _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *v = NULL;
 
                 if (de->d_name[0] == '.')
                         continue;
 
-                n = strlen(de->d_name);
-                if (n < 4 || strcasecmp(de->d_name + n - 4, ".EFI") != 0)
+                if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (strncasecmp(de->d_name, "Boot", 4) != 0)
+                if (!startswith_no_case(de->d_name, "Boot"))
                         continue;
 
-                free(q);
-                q = NULL;
-                if (asprintf(&q, "%s/%s", p, de->d_name) < 0) {
-                        fprintf(stderr, "Out of memory.\n");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                f = fopen(q, "re");
-                if (!f) {
-                        fprintf(stderr, "Failed to open %s for reading: %m\n", q);
-                        r = -errno;
-                        goto finish;
-                }
-
-                r = get_file_version(f, &v);
-                fclose(f);
-
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
                 if (r < 0)
-                        goto finish;
+                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
-                if (r > 0 && strncmp(v, "systemd-boot ", 10) == 0) {
+                r = get_file_version(fd, &v);
+                if (r < 0)
+                        return r;
+                if (r > 0 && startswith(v, "systemd-boot ")) {
+                        r = unlinkat(dirfd(d), de->d_name, 0);
+                        if (r < 0)
+                                return log_error_errno(errno, "Failed to remove \"%s/%s\": %m", p, de->d_name);
 
-                        r = unlink(q);
-                        if (r < 0) {
-                                fprintf(stderr, "Failed to remove %s: %m\n", q);
-                                r = -errno;
-                                free(v);
-                                goto finish;
-                        } else
-                                fprintf(stderr, "Removed %s.\n", q);
+                        log_info("Removed \"%s/\%s\".", p, de->d_name);
                 }
 
                 c++;
-                free(v);
         }
 
-        r = c;
-
-finish:
-        if (d)
-                closedir(d);
-        free(p);
-        free(q);
-
-        return r;
+        return c;
 }
 
 static int rmdir_one(const char *prefix, const char *suffix) {
         char *p;
 
-        if (asprintf(&p, "%s/%s", prefix, suffix) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(prefix, "/", suffix);
         if (rmdir(p) < 0) {
-                if (errno != ENOENT && errno != ENOTEMPTY) {
-                        fprintf(stderr, "Failed to remove %s: %m\n", p);
-                        free(p);
-                        return -errno;
-                }
+                if (!IN_SET(errno, ENOENT, ENOTEMPTY))
+                        return log_error_errno(errno, "Failed to remove \"%s\": %m", p);
         } else
-                fprintf(stderr, "Removed %s.\n", p);
+                log_info("Removed \"%s\".", p);
 
-        free(p);
         return 0;
 }
-
 
 static int remove_binaries(const char *esp_path) {
         char *p;
         int r, q;
+        unsigned i;
 
-        if (asprintf(&p, "%s/EFI/systemd-boot", esp_path) < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(esp_path, "/EFI/systemd");
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
-        free(p);
 
         q = remove_boot_efi(esp_path);
         if (q < 0 && r == 0)
                 r = q;
 
-        q = rmdir_one(esp_path, "loader/entries");
-        if (q < 0 && r == 0)
-                r = q;
-
-        q = rmdir_one(esp_path, "loader");
-        if (q < 0 && r == 0)
-                r = q;
-
-        q = rmdir_one(esp_path, "EFI/Boot");
-        if (q < 0 && r == 0)
-                r = q;
-
-        q = rmdir_one(esp_path, "EFI/systemd-boot");
-        if (q < 0 && r == 0)
-                r = q;
-
-        q = rmdir_one(esp_path, "EFI");
-        if (q < 0 && r == 0)
-                r = q;
+        for (i = ELEMENTSOF(efi_subdirs); i > 0; i--) {
+                q = rmdir_one(esp_path, efi_subdirs[i-1]);
+                if (q < 0 && r == 0)
+                        r = q;
+        }
 
         return r;
 }
@@ -1141,13 +875,13 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
                 return r;
 
         if (in_order)
-                remove_from_order(slot);
-
-        return 0;
+                return remove_from_order(slot);
+        else
+                return 0;
 }
 
 static int install_loader_config(const char *esp_path) {
-        char *p = NULL;
+        char *p;
         char line[64];
         char *machine = NULL;
         FILE *f;
@@ -1165,25 +899,21 @@ static int install_loader_config(const char *esp_path) {
                 if (strlen(line) == 32)
                         machine = line;
         }
-
         fclose(f);
 
         if (!machine)
                 return -ESRCH;
 
-        if (asprintf(&p, "%s/%s", esp_path, "loader/loader.conf") < 0) {
-                fprintf(stderr, "Out of memory.\n");
-                return -ENOMEM;
-        }
-
+        p = strjoina(esp_path, "/loader/loader.conf");
         f = fopen(p, "wxe");
         if (f) {
                 fprintf(f, "#timeout 3\n");
                 fprintf(f, "default %s-*\n", machine);
                 fclose(f);
+                if (ferror(f))
+                        return log_error_errno(EIO, "Failed to write \"%s\": %m", p);
         }
 
-        free(p);
         return 0;
 }
 
@@ -1206,7 +936,7 @@ static int help(void) {
         return 0;
 }
 
-static const char *arg_path = NULL;
+static const char *arg_path = "/boot";
 static bool arg_touch_variables = true;
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1229,7 +959,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -1252,10 +982,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        fprintf(stderr, "Unknown option code '%c'.\n", c);
-                        return -EINVAL;
+                        assert_not_reached("Unknown option");
                 }
-        }
 
         return 1;
 }
@@ -1279,13 +1007,12 @@ static int bootctl_main(int argc, char*argv[]) {
 
         sd_id128_t uuid = {};
         uint32_t part = 0;
-        uint64_t pstart = 0;
-        uint64_t psize = 0;
-        unsigned int i;
-        int q;
-        int r;
+        uint64_t pstart = 0, psize = 0;
+        int r, q;
 
         if (argv[optind]) {
+                unsigned i;
+
                 for (i = 0; i < ELEMENTSOF(verbs); i++) {
                         if (!streq(argv[optind], verbs[i].verb))
                                 continue;
@@ -1293,26 +1020,19 @@ static int bootctl_main(int argc, char*argv[]) {
                         break;
                 }
                 if (i >= ELEMENTSOF(verbs)) {
-                        fprintf(stderr, "Unknown operation %s\n", argv[optind]);
-                        r = -EINVAL;
-                        goto finish;
+                        log_error("Unknown operation \"%s\"", argv[optind]);
+                        return -EINVAL;
                 }
         }
 
-        if (!arg_path)
-                arg_path = "/boot";
-
-        if (geteuid() != 0) {
-                fprintf(stderr, "Need to be root.\n");
-                r = -EPERM;
-                goto finish;
-        }
+        if (geteuid() != 0)
+                return log_error_errno(EPERM, "Need to be root.");
 
         r = verify_esp(arg_path, &part, &pstart, &psize, &uuid);
         if (r == -ENODEV && !arg_path)
-                fprintf(stderr, "You might want to use --path= to indicate the path to your ESP, in case it is not mounted to /boot.\n");
+                log_notice("You might want to use --path= to indicate the path to your ESP, in case it is not mounted on /boot.");
         if (r < 0)
-                goto finish;
+                return r;
 
         switch (arg_action) {
         case ACTION_STATUS: {
@@ -1347,7 +1067,7 @@ static int bootctl_main(int argc, char*argv[]) {
 
                 r = status_binaries(arg_path, uuid);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 if (arg_touch_variables)
                         r = status_variables();
@@ -1360,10 +1080,13 @@ static int bootctl_main(int argc, char*argv[]) {
 
                 r = install_binaries(arg_path, arg_action == ACTION_INSTALL);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
-                if (arg_action == ACTION_INSTALL)
-                        install_loader_config(arg_path);
+                if (arg_action == ACTION_INSTALL) {
+                        r = install_loader_config(arg_path);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (arg_touch_variables)
                         r = install_variables(arg_path,
@@ -1383,8 +1106,7 @@ static int bootctl_main(int argc, char*argv[]) {
                 break;
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
 
 int main(int argc, char *argv[]) {

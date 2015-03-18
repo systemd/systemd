@@ -134,6 +134,7 @@ static inline char *startswith_no_case(const char *s, const char *prefix) {
 }
 
 char *endswith(const char *s, const char *postfix) _pure_;
+char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
