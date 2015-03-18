@@ -1554,7 +1554,9 @@ int socket_read_message(sd_rtnl *rtnl) {
                         /* finished reading multi-part message */
                         done = true;
 
-                        continue;
+                        /* if first is not defined, put NLMSG_DONE into the receive queue. */
+                        if (first)
+                                continue;
                 }
 
                 /* check that we support this message type */

@@ -411,6 +411,7 @@ static const NLTypeSystem rtnl_neigh_type_system = {
 };
 
 static const NLType rtnl_types[RTM_MAX + 1] = {
+        [NLMSG_DONE]   = { .type = NLA_META, .size = 0 },
         [NLMSG_ERROR]  = { .type = NLA_META, .size = sizeof(struct nlmsgerr) },
         [RTM_NEWLINK]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_DELLINK]  = { .type = NLA_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },

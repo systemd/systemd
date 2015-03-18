@@ -421,8 +421,9 @@ static int process_timeout(sd_rtnl *rtnl) {
 }
 
 static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
-        struct reply_callback *c;
+        _cleanup_free_ struct reply_callback *c = NULL;
         uint64_t serial;
+        uint16_t type;
         int r;
 
         assert(rtnl);
@@ -436,11 +437,16 @@ static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
         if (c->timeout != 0)
                 prioq_remove(rtnl->reply_callbacks_prioq, c, &c->prioq_idx);
 
+        r = sd_rtnl_message_get_type(m, &type);
+        if (r < 0)
+                return 0;
+
+        if (type == NLMSG_DONE)
+                m = NULL;
+
         r = c->callback(rtnl, m, c->userdata);
         if (r < 0)
                 log_debug_errno(r, "sd-rtnl: callback failed: %m");
-
-        free(c);
 
         return 1;
 }
@@ -702,7 +708,6 @@ int sd_rtnl_call(sd_rtnl *rtnl,
                 sd_rtnl_message **ret) {
         usec_t timeout;
         uint32_t serial;
-        unsigned i = 0;
         int r;
 
         assert_return(rtnl, -EINVAL);
@@ -717,36 +722,44 @@ int sd_rtnl_call(sd_rtnl *rtnl,
 
         for (;;) {
                 usec_t left;
+                unsigned i;
 
-                while (i < rtnl->rqueue_size) {
-                        sd_rtnl_message *incoming;
+                for (i = 0; i < rtnl->rqueue_size; i++) {
                         uint32_t received_serial;
 
-                        incoming = rtnl->rqueue[i];
-                        received_serial = rtnl_message_get_serial(incoming);
+                        received_serial = rtnl_message_get_serial(rtnl->rqueue[i]);
 
                         if (received_serial == serial) {
+                                _cleanup_rtnl_message_unref_ sd_rtnl_message *incoming = NULL;
+                                uint16_t type;
+
+                                incoming = rtnl->rqueue[i];
+
                                 /* found a match, remove from rqueue and return it */
                                 memmove(rtnl->rqueue + i,rtnl->rqueue + i + 1,
                                         sizeof(sd_rtnl_message*) * (rtnl->rqueue_size - i - 1));
                                 rtnl->rqueue_size--;
 
                                 r = sd_rtnl_message_get_errno(incoming);
-                                if (r < 0) {
-                                        sd_rtnl_message_unref(incoming);
+                                if (r < 0)
                                         return r;
+
+                                r = sd_rtnl_message_get_type(incoming, &type);
+                                if (r < 0)
+                                        return r;
+
+                                if (type == NLMSG_DONE) {
+                                        *ret = NULL;
+                                        return 0;
                                 }
 
                                 if (ret) {
                                         *ret = incoming;
-                                } else
-                                        sd_rtnl_message_unref(incoming);
+                                        incoming = NULL;
+                                }
 
                                 return 1;
                         }
-
-                        /* Try to read more, right away */
-                        i ++;
                 }
 
                 r = socket_read_message(rtnl);
