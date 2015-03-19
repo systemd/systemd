@@ -95,6 +95,69 @@ static void map_keycode(int fd, const char *devnode, int scancode, const char *k
                 log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", devnode, map.scan, map.key);
 }
 
+static inline char* parse_token(const char *current, int32_t *val_out) {
+        char *next;
+        int32_t val;
+
+        if (!current)
+                return NULL;
+
+        val = strtol(current, &next, 0);
+        if (*next && *next != ':')
+                return NULL;
+
+        if (next != current)
+                *val_out = val;
+
+        if (*next)
+                next++;
+
+        return next;
+}
+
+static void override_abs(int fd, const char *devnode,
+                         unsigned evcode, const char *value) {
+        struct input_absinfo absinfo;
+        int rc;
+        char *next;
+
+        rc = ioctl(fd, EVIOCGABS(evcode), &absinfo);
+        if (rc < 0) {
+                log_error_errno(errno, "Error, unable to EVIOCGABS device '%s'",
+                                devnode);
+                return;
+        }
+
+        next = parse_token(value, &absinfo.minimum);
+        next = parse_token(next, &absinfo.maximum);
+        next = parse_token(next, &absinfo.resolution);
+        next = parse_token(next, &absinfo.fuzz);
+        next = parse_token(next, &absinfo.flat);
+        if (!next) {
+                log_error("Error, unable to parse EV_ABS override '%s' for '%s'\n",
+                          value, devnode);
+                return;
+        }
+
+        log_debug("keyboard: override %x with %d/%d/%d/%d/%d", evcode,
+                  absinfo.minimum, absinfo.maximum, absinfo.resolution,
+                  absinfo.fuzz, absinfo.flat);
+        rc = ioctl(fd, EVIOCSABS(evcode), &absinfo);
+        if (rc < 0)
+                log_error_errno(errno, "Error, unable to update device '%s'",
+                                devnode);
+}
+
+static int open_device(const char *devnode) {
+        int fd;
+
+        fd = open(devnode, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                log_error_errno(errno, "Error, opening device '%s': %m", devnode);
+
+        return fd < 0 ? -errno : fd;
+}
+
 static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
         struct udev_list_entry *entry;
         unsigned release[1024];
@@ -139,14 +202,29 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         }
 
                         if (fd == -1) {
-                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                                if (fd < 0) {
-                                        log_error_errno(errno, "Error, opening device '%s': %m", node);
+                                fd = open_device(node);
+                                if (fd < 0)
                                         return EXIT_FAILURE;
-                                }
                         }
 
                         map_keycode(fd, node, scancode, keycode);
+                } else if (startswith(key, "EVDEV_ABS_")) {
+                        unsigned evcode;
+
+                        /* EVDEV_ABS_<EV_ABS code>=<min>:<max>:<res>:<fuzz>:<flat> */
+                        evcode = strtoul(key + 10, &endptr, 16);
+                        if (endptr[0] != '\0') {
+                                log_error("Error, unable to parse EV_ABS code from '%s'", key);
+                                continue;
+                        }
+
+                        if (fd == -1) {
+                                fd = open_device(node);
+                                if (fd < 0)
+                                        return EXIT_FAILURE;
+                        }
+
+                        override_abs(fd, node, evcode, udev_list_entry_get_value(entry));
                 }
         }
 
