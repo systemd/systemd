@@ -67,10 +67,10 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         struct {
                 unsigned scan;
                 unsigned key;
-        } map[1024];
-        unsigned map_count = 0;
+        } map;
         unsigned release[1024];
         unsigned release_count = 0;
+        _cleanup_close_ int fd = -1;
         const char *node;
 
         node = udev_device_get_devnode(dev);
@@ -124,36 +124,27 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         }
                 }
 
-                map[map_count].scan = scancode;
-                map[map_count].key = keycode_num;
-                if (map_count < ELEMENTSOF(map)-1)
-                        map_count++;
-        }
-
-        if (map_count > 0 || release_count > 0) {
-                int fd;
-                unsigned i;
-
-                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                if (fd < 0) {
-                        log_error_errno(errno, "Error, opening device '%s': %m", node);
-                        return EXIT_FAILURE;
+                if (fd == -1) {
+                        fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        if (fd < 0) {
+                                log_error_errno(errno, "Error, opening device '%s': %m", node);
+                                return EXIT_FAILURE;
+                        }
                 }
 
-                /* install list of map codes */
-                for (i = 0; i < map_count; i++) {
-                        log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
-                                  map[i].scan, map[i].scan, map[i].key, map[i].key);
-                        if (ioctl(fd, EVIOCSKEYCODE, &map[i]) < 0)
-                                log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map[i].scan, map[i].key);
-                }
+                map.scan = scancode;
+                map.key = keycode_num;
 
-                /* install list of force-release codes */
-                if (release_count > 0)
-                        install_force_release(dev, release, release_count);
+                log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
+                          map.scan, map.scan, map.key, map.key);
 
-                close(fd);
+                if (ioctl(fd, EVIOCSKEYCODE, &map) < 0)
+                        log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map.scan, map.key);
         }
+
+        /* install list of force-release codes */
+        if (release_count > 0)
+                install_force_release(dev, release, release_count);
 
         return EXIT_SUCCESS;
 }
