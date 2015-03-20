@@ -2,21 +2,70 @@
 # Copyright © 2015 systemd's COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
 # Josef Andersson <josef.andersson@fripost.org>, 2015.
+# Sebastian Rasmussen <sebras@gmail.com>, 2015.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?product=sys"
-"temd&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2015-01-04 11:43+0000\n"
-"PO-Revision-Date: 2015-01-05 13:38+0200\n"
-"Last-Translator: Josef Andersson <josef.andersson@fripost.org>\n"
+"Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
+"product=systemd&keywords=I18N+L10N&component=general\n"
+"POT-Creation-Date: 2015-03-13 23:56+0000\n"
+"PO-Revision-Date: 2015-03-14 11:09+0100\n"
+"Last-Translator: Sebastian Rasmussen <sebras@gmail.com>\n"
 "Language-Team: Swedish\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Virtaal 0.7.1\n"
+"X-Generator: Poedit 1.6.10\n"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Skicka tillbaka lösenfras till system"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Autentisering krävs för att skicka tillbaka den angivna lösenfrasen till "
+"systemet."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Manage system services or other units"
+msgstr "Hantera systemtjänster eller andra enheter"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Autentisering krävs för att hantera systemtjänster eller andra enheter."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+msgid "Manage system service or unit files"
+msgstr "Hantera systemtjänster eller enhetsfiler"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+msgid "Authentication is required to manage system service or unit files."
+msgstr "Autentisering krävs för att hantera systemtjänster eller enhetsfiler."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+msgid "Set or unset system and service manager environment variables"
+msgstr "Ställ in eller ta bort miljövariabler för system- och servicehanterare"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Autentisering krävs för att ställa in eller ta bort miljövariabler för "
+"system- och servicehanterare."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+msgid "Reload the systemd state"
+msgstr "Läs om tillståndet för systemd"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+msgid "Authentication is required to reload the systemd state."
+msgstr "Autentisering krävs för att läsa om tillståndet för systemd."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
 msgid "Set host name"
@@ -45,6 +94,30 @@ msgstr "Ange datorinformation"
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
 msgid "Authentication is required to set local machine information."
 msgstr "Autentisering krävs för att ange lokal datorinformation."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:1
+msgid "Import a VM or container image"
+msgstr "Importera en VM eller behållaravbildning"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:2
+msgid "Authentication is required to import a VM or container image"
+msgstr "Autentisering krävs för att importera en VM eller behållaravbildning"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Exportera en VM eller behållaravbildning"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr "Autentisering krävs för att exportera en VM eller behållaravbildning"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
+msgid "Download a VM or container image"
+msgstr "Hämta ner en VM eller behållaravbildning"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
+msgid "Authentication is required to download a VM or container image"
+msgstr "Autentisering krävs för att hämta ner en VM eller behållaravbildning"
 
 #: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
@@ -243,7 +316,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
 msgid "Reboot the system while an application asked to inhibit it"
-msgstr "Starta om systemet även då ett program hindrar det."
+msgstr "Starta om systemet även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
@@ -317,13 +390,53 @@ msgstr ""
 "Autentisering krävs för att försätta ett program i viloläge även då ett "
 "program hindrar det."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:49
+msgid "Manage active sessions, users and seats"
+msgstr "Hantera aktiva sessioner, användare och platser"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:50
+msgid ""
+"Authentication is required for managing active sessions, users and seats."
+msgstr ""
+"Autentisering krävs för att hantera aktiva sessioner, användare och platser."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:51
+msgid "Lock or unlock active sessions"
+msgstr "Lås eller lås upp aktiva sessioner"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:52
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "Autentisering krävs för att låsa eller låsa upp aktiva sessioner."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Logga till en lokal behållare"
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:2
-msgid "Authentication is required to log into a local container"
-msgstr "Autentisering krävs för att tillåta loggning till en lokal behållare."
+msgid "Authentication is required to log into a local container."
+msgstr "Autentisering krävs för att logga till en lokal behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+msgid "Manage local virtual machines and containers"
+msgstr "Hantera lokala virtuella maskiner och behållare"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Autentisering krävs för att hantera lokala virtuella maskiner och behållare."
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+msgid "Manage local virtual machine and container images"
+msgstr "Hantera lokala virtuella maskin- och behållaravbildningar"
+
+#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Autentisering krävs för att hantera lokala virtuella maskin- och "
+"behållaravbildningar."
 
 #: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
 msgid "Set system time"
@@ -367,48 +480,13 @@ msgstr ""
 "Autentisering krävs för att kontrollera huruvida synkronisering av "
 "nätverkstid ska vara aktiverat."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
-msgid "Send passphrase back to system"
-msgstr "Skicka tillbaka lösenfras till system"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Autentisering krävs för att skicka tillbaka den angivna lösenfrasen till "
-"systemet."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
-msgid "Manage system services or units"
-msgstr "Hantera systemtjänster eller enheter"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
-msgid "Authentication is required to manage system services or units."
-msgstr "Autentisering krävs för att hantera systemtjänster eller enheter."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
-msgid "Manage system service or unit files"
-msgstr "Hantera systemtjänster eller enhetsfiler"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
-msgid "Authentication is required to manage system service or unit files."
-msgstr "Autentisering krävs för att hantera systemtjänster eller enhetsfiler."
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
-msgid "Reload the systemd state"
-msgstr "Läs om tillståndet för systemd"
-
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
-msgid "Authentication is required to reload the systemd state."
-msgstr "Autentisering krävs för att läsa om tillståndet för systemd."
-
-#: ../src/fsckd/fsckd.c:186
+#: ../src/fsckd/fsckd.c:291
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-msgstr ""
+msgstr "Tryck Ctrl+C för att avbryta alla pågående filsystemskontroller."
 
-#: ../src/fsckd/fsckd.c:227
+#: ../src/fsckd/fsckd.c:336
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Kontroll pågår på %d disk (%3.1f%% klart)"
+msgstr[1] "Kontroll pågår på %d diskar (%3.1f%% klart)"
