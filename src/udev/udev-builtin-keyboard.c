@@ -62,12 +62,41 @@ static int install_force_release(struct udev_device *dev, const unsigned *releas
         return ret;
 }
 
-static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
-        struct udev_list_entry *entry;
+static void map_keycode(int fd, const char *devnode, int scancode, const char *keycode)
+{
         struct {
                 unsigned scan;
                 unsigned key;
         } map;
+        char *endptr;
+        const struct key *k;
+        unsigned keycode_num;
+
+        /* translate identifier to key code */
+        k = keyboard_lookup_key(keycode, strlen(keycode));
+        if (k) {
+                keycode_num = k->id;
+        } else {
+                /* check if it's a numeric code already */
+                keycode_num = strtoul(keycode, &endptr, 0);
+                if (endptr[0] !='\0') {
+                        log_error("Error, unknown key identifier '%s'", keycode);
+                        return;
+                }
+        }
+
+        map.scan = scancode;
+        map.key = keycode_num;
+
+        log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
+                  map.scan, map.scan, map.key, map.key);
+
+        if (ioctl(fd, EVIOCSKEYCODE, &map) < 0)
+                log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", devnode, map.scan, map.key);
+}
+
+static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
+        struct udev_list_entry *entry;
         unsigned release[1024];
         unsigned release_count = 0;
         _cleanup_close_ int fd = -1;
@@ -81,10 +110,9 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
 
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
                 const char *key;
-                unsigned scancode, keycode_num;
                 char *endptr;
+                unsigned scancode;
                 const char *keycode;
-                const struct key *k;
 
                 key = udev_list_entry_get_name(entry);
                 if (!startswith(key, "KEYBOARD_KEY_"))
@@ -111,19 +139,6 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                                 continue;
                 }
 
-                /* translate identifier to key code */
-                k = keyboard_lookup_key(keycode, strlen(keycode));
-                if (k) {
-                        keycode_num = k->id;
-                } else {
-                        /* check if it's a numeric code already */
-                        keycode_num = strtoul(keycode, &endptr, 0);
-                        if (endptr[0] !='\0') {
-                                log_error("Error, unknown key identifier '%s'", keycode);
-                                continue;
-                        }
-                }
-
                 if (fd == -1) {
                         fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0) {
@@ -132,14 +147,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         }
                 }
 
-                map.scan = scancode;
-                map.key = keycode_num;
-
-                log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
-                          map.scan, map.scan, map.key, map.key);
-
-                if (ioctl(fd, EVIOCSKEYCODE, &map) < 0)
-                        log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map.scan, map.key);
+                map_keycode(fd, node, scancode, keycode);
         }
 
         /* install list of force-release codes */
