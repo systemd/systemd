@@ -13,7 +13,7 @@ DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:atkbd:$attr{[dmi/id]modalias}'
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # device matching the input device name and the machine's DMI data
-IMPORT{builtin}="hwdb 'keyboard:name:$attr{name}:$attr{[dmi/id]modalias}'", \
+IMPORT{builtin}="hwdb 'keyboard:name:$attr{device/name}:$attr{[dmi/id]modalias}'", \
   RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 LABEL="keyboard_end"
