@@ -71,6 +71,13 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         unsigned map_count = 0;
         unsigned release[1024];
         unsigned release_count = 0;
+        const char *node;
+
+        node = udev_device_get_devnode(dev);
+        if (!node) {
+                log_error("Error, no device node for '%s'", udev_device_get_syspath(dev));
+                return EXIT_FAILURE;
+        }
 
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
                 const char *key;
@@ -124,17 +131,10 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         }
 
         if (map_count > 0 || release_count > 0) {
-                const char *node;
                 int fd;
                 unsigned i;
 
-                node = udev_device_get_devnode(dev);
-                if (!node) {
-                        log_error("Error, no device node for '%s'", udev_device_get_syspath(dev));
-                        return EXIT_FAILURE;
-                }
-
-                fd = open(udev_device_get_devnode(dev), O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0) {
                         log_error_errno(errno, "Error, opening device '%s': %m", node);
                         return EXIT_FAILURE;
