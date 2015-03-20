@@ -111,43 +111,43 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
                 const char *key;
                 char *endptr;
-                unsigned scancode;
-                const char *keycode;
 
                 key = udev_list_entry_get_name(entry);
-                if (!startswith(key, "KEYBOARD_KEY_"))
-                        continue;
+                if (startswith(key, "KEYBOARD_KEY_")) {
+                        const char *keycode;
+                        unsigned scancode;
 
-                /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
-                scancode = strtoul(key + 13, &endptr, 16);
-                if (endptr[0] != '\0') {
-                        log_error("Error, unable to parse scan code from '%s'", key);
-                        continue;
-                }
-
-                keycode = udev_list_entry_get_value(entry);
-
-                /* a leading '!' needs a force-release entry */
-                if (keycode[0] == '!') {
-                        keycode++;
-
-                        release[release_count] = scancode;
-                        if (release_count <  ELEMENTSOF(release)-1)
-                                release_count++;
-
-                        if (keycode[0] == '\0')
+                        /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
+                        scancode = strtoul(key + 13, &endptr, 16);
+                        if (endptr[0] != '\0') {
+                                log_error("Error, unable to parse scan code from '%s'", key);
                                 continue;
-                }
-
-                if (fd == -1) {
-                        fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                        if (fd < 0) {
-                                log_error_errno(errno, "Error, opening device '%s': %m", node);
-                                return EXIT_FAILURE;
                         }
-                }
 
-                map_keycode(fd, node, scancode, keycode);
+                        keycode = udev_list_entry_get_value(entry);
+
+                        /* a leading '!' needs a force-release entry */
+                        if (keycode[0] == '!') {
+                                keycode++;
+
+                                release[release_count] = scancode;
+                                if (release_count <  ELEMENTSOF(release)-1)
+                                        release_count++;
+
+                                if (keycode[0] == '\0')
+                                        continue;
+                        }
+
+                        if (fd == -1) {
+                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                if (fd < 0) {
+                                        log_error_errno(errno, "Error, opening device '%s': %m", node);
+                                        return EXIT_FAILURE;
+                                }
+                        }
+
+                        map_keycode(fd, node, scancode, keycode);
+                }
         }
 
         /* install list of force-release codes */
