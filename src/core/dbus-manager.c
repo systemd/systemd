@@ -1799,15 +1799,15 @@ static int method_disable_unit_files_generic(
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, verb, error);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
                 return r;
 
         r = sd_bus_message_read(message, "b", &runtime);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check_strv(l, message, m, verb, error);
         if (r < 0)
                 return r;
 
