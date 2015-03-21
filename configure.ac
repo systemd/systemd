@@ -164,7 +164,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wundef \
         "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
         -Wlogical-op \
-        -Wsign-compare \
         -Wmissing-include-dirs \
         -Wold-style-definition \
         -Wpointer-arith \
