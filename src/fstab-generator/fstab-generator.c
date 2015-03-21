@@ -53,9 +53,10 @@ static int add_swap(
                 bool noauto,
                 bool nofail) {
 
-        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL, *filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r, pri = -1;
+        const char *opts;
 
         assert(what);
         assert(me);
@@ -70,9 +71,17 @@ static int add_swap(
                 return 0;
         }
 
-        r = fstab_find_pri(me->mnt_opts, &pri);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse priority: %m");
+        opts = me->mnt_opts;
+        r = fstab_find_pri(opts, &pri);
+        if (r < 0) {
+                log_error_errno(r, "Failed to parse priority, ignoring: %m");
+
+                /* Remove invalid pri field */
+                r = fstab_filter_options(opts, "pri\0", NULL, NULL, &filtered);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse options: %m");
+                opts = filtered;
+        }
 
         name = unit_name_from_path(what, ".swap");
         if (!name)
@@ -105,15 +114,15 @@ static int add_swap(
         if (pri >= 0)
                 fprintf(f, "Priority=%i\n", pri);
 
-        if (!isempty(me->mnt_opts) && !streq(me->mnt_opts, "defaults"))
-                fprintf(f, "Options=%s\n", me->mnt_opts);
+        if (!isempty(opts) && !streq(opts, "defaults"))
+                fprintf(f, "Options=%s\n", opts);
 
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", unit);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
+        r = generator_write_timeouts(arg_dest, what, what, opts, NULL);
         if (r < 0)
                 return r;
 
