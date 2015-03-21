@@ -988,6 +988,14 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static void read_loader_efi_var(const char *name, char **var) {
+        int r;
+
+        r = efi_get_variable_string(EFI_VENDOR_LOADER, name, var);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
+}
+
 static int bootctl_main(int argc, char*argv[]) {
         enum action {
                 ACTION_STATUS,
@@ -1042,28 +1050,44 @@ static int bootctl_main(int argc, char*argv[]) {
                 _cleanup_free_ char *loader_path = NULL;
                 sd_id128_t loader_part_uuid = {};
 
-                efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareType", &fw_type);
-                efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo", &fw_info);
-                efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &loader);
-                if (efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &loader_path) > 0)
-                        efi_tilt_backslashes(loader_path);
-                efi_loader_get_device_part_uuid(&loader_part_uuid);
+                if (is_efi_boot()) {
+                        read_loader_efi_var("LoaderFirmwareType", &fw_type);
+                        read_loader_efi_var("LoaderFirmwareInfo", &fw_info);
+                        read_loader_efi_var("LoaderInfo", &loader);
+                        read_loader_efi_var("LoaderImageIdentifier", &loader_path);
+                        if (loader_path)
+                                efi_tilt_backslashes(loader_path);
+                        r = efi_loader_get_device_part_uuid(&loader_part_uuid);
+                        if (r < 0 && r == -ENOENT)
+                                log_warning_errno(r, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
-                printf("System:\n");
-                printf("     Firmware: %s (%s)\n", fw_type, strna(fw_info));
-                printf("  Secure Boot: %s\n", is_efi_secure_boot() ? "enabled" : "disabled");
-                printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
-                printf("\n");
+                        printf("System:\n");
+                        printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
 
-                printf("Loader:\n");
-                printf("      Product: %s\n", strna(loader));
-                if (!sd_id128_equal(loader_part_uuid, SD_ID128_NULL))
-                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
-                               SD_ID128_FORMAT_VAL(loader_part_uuid));
-                else
-                        printf("    Partition: n/a\n");
-                printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(loader_path));
-                printf("\n");
+                        r = is_efi_secure_boot();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to query secure boot status: %m");
+                        else
+                                printf("  Secure Boot: %s\n", r ? "enabled" : "disabled");
+
+                        r = is_efi_secure_boot_setup_mode();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to query secure boot mode: %m");
+                        else
+                                printf("   Setup Mode: %s\n", r ? "setup" : "user");
+                        printf("\n");
+
+                        printf("Loader:\n");
+                        printf("      Product: %s\n", strna(loader));
+                        if (!sd_id128_equal(loader_part_uuid, SD_ID128_NULL))
+                                printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                                       SD_ID128_FORMAT_VAL(loader_part_uuid));
+                        else
+                                printf("    Partition: n/a\n");
+                        printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(loader_path));
+                        printf("\n");
+                } else
+                        printf("System:\n    Not booted with EFI\n");
 
                 r = status_binaries(arg_path, uuid);
                 if (r < 0)
