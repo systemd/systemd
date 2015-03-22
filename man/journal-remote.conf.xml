@@ -1,0 +1,114 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2015 Chris Morgan
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="journal-remote.conf" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>journal-remote.conf</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Chris</firstname>
+        <surname>Morgan</surname>
+        <email>chmorgan@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>journal-remote.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>journal-remote.conf</refname>
+    <refname>journal-remote.conf.d</refname>
+    <refpurpose>Journal remote service configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/journal-remote.conf</filename></para>
+    <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure various parameters of the systemd-remote-journal
+    application,
+    <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    <literal>[Remote]</literal> section:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><varname>SplitMode=</varname></term>
+
+        <listitem><para>One of <literal>host</literal> or <literal>none</literal>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerKeyFile=</varname></term>
+
+        <listitem><para>SSL key in PEM format</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerCertificateFile=</varname></term>
+
+        <listitem><para>SSL CA certificate in PEM format.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TrustedCertificateFile=</varname></term>
+
+        <listitem><para>SSL CA certificate.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+
+</refentry>

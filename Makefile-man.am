@@ -1358,14 +1358,20 @@ endif
 
 if HAVE_MICROHTTPD
 MANPAGES += \
+	man/journal-remote.conf.5 \
 	man/systemd-journal-gatewayd.service.8 \
 	man/systemd-journal-remote.8 \
 	man/systemd-journal-upload.8
 MANPAGES_ALIAS += \
+	man/journal-remote.conf.d.5 \
 	man/systemd-journal-gatewayd.8 \
 	man/systemd-journal-gatewayd.socket.8
+man/journal-remote.conf.d.5: man/journal-remote.conf.5
 man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
+man/journal-remote.conf.d.html: man/journal-remote.conf.html
+	$(html-alias)
+
 man/systemd-journal-gatewayd.html: man/systemd-journal-gatewayd.service.html
 	$(html-alias)
 
@@ -1662,6 +1668,7 @@ EXTRA_DIST += \
 	man/hostname.xml \
 	man/hostnamectl.xml \
 	man/hwdb.xml \
+	man/journal-remote.conf.xml \
 	man/journalctl.xml \
 	man/journald.conf.xml \
 	man/kernel-command-line.xml \
