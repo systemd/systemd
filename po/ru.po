@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: 0comffdiz@inbox.ru\n"
 "POT-Creation-Date: 2013-03-24 19:22+0300\n"
-"PO-Revision-Date: 2015-03-08 17:15+0300\n"
+"PO-Revision-Date: 2015-03-22 21:53+0300\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -88,10 +88,18 @@ msgid "Authentication is required to import a VM or container image"
 msgstr "Чтобы импортировать образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
 
 #: ../src/import/org.freedesktop.import1.policy.in.h:3
+msgid "Export a VM or container image"
+msgstr "Экспортировать образ виртуальной машины или контейнера"
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:4
+msgid "Authentication is required to export a VM or container image"
+msgstr "Чтобы экспортировать образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
+
+#: ../src/import/org.freedesktop.import1.policy.in.h:5
 msgid "Download a VM or container image"
 msgstr "Загрузить образ виртуальной машины или контейнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#: ../src/import/org.freedesktop.import1.policy.in.h:6
 msgid "Authentication is required to download a VM or container image"
 msgstr "Чтобы загрузить образ виртуальной машины или контейнера, необходимо пройти аутентификацию."
 
@@ -375,12 +383,12 @@ msgstr "Включить или выключить синхронизацию в
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Чтобы включить или выключить синхронизацию времени по сети, необходимо пройти аутентификацию."
 
-#: ../src/fsckd/fsckd.c:186
+#: ../src/fsckd/fsckd.c:297
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 msgstr "Чтобы прервать все запущенные проверки файловых систем, нажмите Ctrl+C"
 
 # There is no difference between "на 2 дисках" (plural==1) and "на 5 дисках" (plural==2)
-#: ../src/fsckd/fsckd.c:227
+#: ../src/fsckd/fsckd.c:343
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
