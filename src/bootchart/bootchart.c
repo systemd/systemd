@@ -395,15 +395,6 @@ int main(int argc, char *argv[]) {
                 sampledata->sampletime = gettime_ns();
                 sampledata->counter = samples;
 
-                if (!of && (access(arg_output_path, R_OK|W_OK|X_OK) == 0)) {
-                        t = time(NULL);
-                        r = strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
-                        assert_se(r > 0);
-
-                        snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                        of = fopen(output_file, "we");
-                }
-
                 if (sysfd < 0)
                         sysfd = open("/sys", O_RDONLY|O_CLOEXEC);
 
