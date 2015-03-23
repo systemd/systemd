@@ -35,3 +35,43 @@
 # fields of the struct input_absinfo as listed in linux/input.h.
 # If a field is missing the field will be left as-is. Not all fields need to
 # be present. e.g. ::45 sets the resolution to 45 units/mm.
+
+# Macbook5,1 (unibody), aka wellspring3
+evdev:input:b0003v05ACp0236*
+evdev:input:b0003v05ACp0237*
+evdev:input:b0003v05ACp0238*
+ EVDEV_ABS_00=::92
+ EVDEV_ABS_01=::90
+ EVDEV_ABS_35=::92
+ EVDEV_ABS_36=::90
+
+# Macbook8 (unibody, March 2011)
+evdev:input:b0003v05ACp0245*
+evdev:input:b0003v05ACp0246*
+evdev:input:b0003v05ACp0247*
+ EVDEV_ABS_00=::92
+ EVDEV_ABS_01=::91
+ EVDEV_ABS_35=::92
+ EVDEV_ABS_36=::91
+
+# Macbook8,2 (unibody)
+evdev:input:b0003v05ACp0252*
+evdev:input:b0003v05ACp0253*
+evdev:input:b0003v05ACp0254*
+ EVDEV_ABS_00=::94
+ EVDEV_ABS_01=::92
+ EVDEV_ABS_35=::94
+ EVDEV_ABS_36=::92
+
+# MacbookPro10,1 (unibody, June 2012)
+evdev:input:b0003v05ACp0259*
+evdev:input:b0003v05ACp025a*
+evdev:input:b0003v05ACp025b*
+# MacbookPro10,2 (unibody, October 2012)
+evdev:input:b0003v05ACp0259*
+evdev:input:b0003v05ACp025a*
+evdev:input:b0003v05ACp025b*
+ EVDEV_ABS_00=::94
+ EVDEV_ABS_01=::92
+ EVDEV_ABS_35=::94
+ EVDEV_ABS_36=::92
