@@ -246,7 +246,7 @@ static void transfer_send_logs(Transfer *t, bool flush) {
                 n = strndup(t->log_message, e - t->log_message);
 
                 /* Skip over NUL and newlines */
-                while (e < t->log_message + t->log_message_size && (*e == 0 || *e == '\n'))
+                while ((e < t->log_message + t->log_message_size) && (*e == 0 || *e == '\n'))
                         e++;
 
                 memmove(t->log_message, e, t->log_message + sizeof(t->log_message) - e);
