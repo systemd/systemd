@@ -106,14 +106,21 @@ static void print_status_info(const StatusInfo *i) {
 
         /* Enforce the values of /etc/localtime */
         if (getenv("TZ")) {
-                fprintf(stderr, "Warning: Ignoring the TZ variable. Reading the system's time zone setting only.\n\n");
+                fprintf(stderr, "Warning: Ignoring the TZ variable.\n\n");
                 unsetenv("TZ");
         }
+
+        r = setenv("TZ", i->timezone, false);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to set TZ environment variable: %m");
+                exit(EXIT_FAILURE);
+        }
+        tzset();
 
         if (i->time != 0) {
                 sec = (time_t) (i->time / USEC_PER_SEC);
                 have_time = true;
-        } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
+        } else if (IN_SET(arg_transport, BUS_TRANSPORT_REMOTE, BUS_TRANSPORT_MACHINE)) {
                 sec = time(NULL);
                 have_time = true;
         } else
