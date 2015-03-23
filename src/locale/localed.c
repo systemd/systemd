@@ -227,7 +227,7 @@ static int x11_read_data(Context *c) {
                 if (in_section && first_word(l, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_quoted(&a, l, false);
+                        r = strv_split_quoted(&a, l, 0);
                         if (r < 0)
                                 return r;
 
@@ -250,7 +250,7 @@ static int x11_read_data(Context *c) {
                 } else if (!in_section && first_word(l, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_quoted(&a, l, false);
+                        r = strv_split_quoted(&a, l, 0);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -539,7 +539,7 @@ static int read_next_mapping(const char* filename,
                 if (l[0] == 0 || l[0] == '#')
                         continue;
 
-                r = strv_split_quoted(&b, l, false);
+                r = strv_split_quoted(&b, l, 0);
                 if (r < 0)
                         return r;
 

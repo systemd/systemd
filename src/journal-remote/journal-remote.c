@@ -143,7 +143,7 @@ static int spawn_getter(const char *getter, const char *url) {
         _cleanup_strv_free_ char **words = NULL;
 
         assert(getter);
-        r = strv_split_quoted(&words, getter, false);
+        r = strv_split_quoted(&words, getter, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to split getter option: %m");
 

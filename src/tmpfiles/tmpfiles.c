@@ -620,7 +620,6 @@ static int path_set_perms(Item *i, const char *path) {
 }
 
 static int get_xattrs_from_arg(Item *i) {
-        char *xattr;
         const char *p;
         int r;
 
@@ -629,35 +628,33 @@ static int get_xattrs_from_arg(Item *i) {
 
         p = i->argument;
 
-        while ((r = unquote_first_word(&p, &xattr, false)) > 0) {
-                _cleanup_free_ char *tmp = NULL, *name = NULL,
-                        *value = NULL, *value2 = NULL, *_xattr = xattr;
+        for (;;) {
+                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
+
+                r = unquote_first_word(&p, &xattr, UNQUOTE_CUNESCAPE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", p);
+                if (r <= 0)
+                        break;
 
                 r = split_pair(xattr, "=", &name, &value);
                 if (r < 0) {
-                        log_warning("Illegal xattr found: \"%s\" - ignoring.", xattr);
+                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
                         continue;
                 }
 
-                if (strempty(name) || strempty(value)) {
-                        log_warning("Malformed xattr found: \"%s\" - ignoring.", xattr);
+                if (isempty(name) || isempty(value)) {
+                        log_warning("Malformed xattr found, ignoring: %s", xattr);
                         continue;
                 }
 
-                tmp = unquote(value, "\"");
-                if (!tmp)
+                if (strv_push_pair(&i->xattrs, name, value) < 0)
                         return log_oom();
 
-                value2 = cunescape(tmp);
-                if (!value2)
-                        return log_oom();
-
-                if (strv_push_pair(&i->xattrs, name, value2) < 0)
-                        return log_oom();
-                name = value2 = NULL;
+                name = value = NULL;
         }
 
-        return r;
+        return 0;
 }
 
 static int path_set_xattrs(Item *i, const char *path) {
@@ -690,8 +687,7 @@ static int get_acls_from_arg(Item *item) {
          * afterwards, so the mask can be added now if necessary. */
         r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring",
-                                  item->argument);
+                log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
         log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
 #endif
@@ -918,8 +914,7 @@ static int write_one_file(Item *i, const char *path) {
         if (i->argument) {
                 _cleanup_free_ char *unescaped;
 
-                log_debug("%s to \"%s\".",
-                          i->type == CREATE_FILE ? "Appending" : "Writing", path);
+                log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
                 unescaped = cunescape(i->argument);
                 if (!unescaped)
@@ -1651,20 +1646,27 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(line >= 1);
         assert(buffer);
 
-        r = unquote_many_words(&buffer,
-                   &action,
-                   &path,
-                   &mode,
-                   &user,
-                   &group,
-                   &age,
-                   &i.argument,
-                   NULL);
+        r = unquote_many_words(
+                        &buffer,
+                        0,
+                        &action,
+                        &path,
+                        &mode,
+                        &user,
+                        &group,
+                        &age,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
         else if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
+        }
+
+        if (!isempty(buffer)) {
+                i.argument = strdup(buffer);
+                if (!i.argument)
+                        return log_oom();
         }
 
         if (isempty(action)) {

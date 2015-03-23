@@ -1017,8 +1017,13 @@ int take_password_lock(const char *root);
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 
-int unquote_first_word(const char **p, char **ret, bool relax);
-int unquote_many_words(const char **p, ...) _sentinel_;
+typedef enum UnquoteFlags{
+        UNQUOTE_RELAX     = 1,
+        UNQUOTE_CUNESCAPE = 2,
+} UnquoteFlags;
+
+int unquote_first_word(const char **p, char **ret, UnquoteFlags flags);
+int unquote_many_words(const char **p, UnquoteFlags flags, ...) _sentinel_;
 
 int free_and_strdup(char **p, const char *s);
 

@@ -165,7 +165,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         assert_se(p);
         assert_se(streq(p, quoted));
 
-        r = strv_split_quoted(&s, quoted, false);
+        r = strv_split_quoted(&s, quoted, 0);
         assert_se(r == 0);
         assert_se(s);
         STRV_FOREACH(t, s) {
@@ -182,7 +182,7 @@ static void test_strv_unquote(const char *quoted, char **list) {
         char **t;
         int r;
 
-        r = strv_split_quoted(&s, quoted, false);
+        r = strv_split_quoted(&s, quoted, 0);
         assert_se(r == 0);
         assert_se(s);
         j = strv_join(s, " | ");
@@ -199,7 +199,7 @@ static void test_invalid_unquote(const char *quoted) {
         char **s = NULL;
         int r;
 
-        r = strv_split_quoted(&s, quoted, false);
+        r = strv_split_quoted(&s, quoted, 0);
         assert_se(s == NULL);
         assert_se(r == -EINVAL);
 }

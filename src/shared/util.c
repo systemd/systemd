@@ -1347,6 +1347,125 @@ char *cescape(const char *s) {
         return r;
 }
 
+static int cunescape_one(const char *p, size_t length, char *ret) {
+        int r = 1;
+
+        assert(p);
+        assert(*p);
+        assert(ret);
+
+        if (length != (size_t) -1 && length < 1)
+                return -EINVAL;
+
+        switch (p[0]) {
+
+        case 'a':
+                *ret = '\a';
+                break;
+        case 'b':
+                *ret = '\b';
+                break;
+        case 'f':
+                *ret = '\f';
+                break;
+        case 'n':
+                *ret = '\n';
+                break;
+        case 'r':
+                *ret = '\r';
+                break;
+        case 't':
+                *ret = '\t';
+                break;
+        case 'v':
+                *ret = '\v';
+                break;
+        case '\\':
+                *ret = '\\';
+                break;
+        case '"':
+                *ret = '"';
+                break;
+        case '\'':
+                *ret = '\'';
+                break;
+
+        case 's':
+                /* This is an extension of the XDG syntax files */
+                *ret = ' ';
+                break;
+
+        case 'x': {
+                /* hexadecimal encoding */
+                int a, b;
+
+                if (length != (size_t) -1 && length < 3)
+                        return -EINVAL;
+
+                a = unhexchar(p[1]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unhexchar(p[2]);
+                if (b < 0)
+                        return -EINVAL;
+
+                /* don't allow NUL bytes */
+                if (a == 0 && b == 0)
+                        return -EINVAL;
+
+                *ret = (char) ((a << 4) | b);
+                r = 3;
+                break;
+        }
+
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7': {
+                /* octal encoding */
+                int a, b, c, m;
+
+                if (length != (size_t) -1 && length < 4)
+                        return -EINVAL;
+
+                a = unoctchar(p[0]);
+                if (a < 0)
+                        return -EINVAL;
+
+                b = unoctchar(p[1]);
+                if (b < 0)
+                        return -EINVAL;
+
+                c = unoctchar(p[2]);
+                if (c < 0)
+                        return -EINVAL;
+
+                /* don't allow NUL bytes */
+                if (a == 0 && b == 0 && c == 0)
+                        return -EINVAL;
+
+                /* Don't allow bytes above 255 */
+                m = (a << 6) | (b << 3) | c;
+                if (m > 255)
+                        return -EINVAL;
+
+                *ret = (char) m;
+                r = 3;
+                break;
+        }
+
+        default:
+                return -EINVAL;
+        }
+
+        return r;
+}
+
 char *cunescape_length_with_prefix(const char *s, size_t length, const char *prefix) {
         char *r, *t;
         const char *f;
@@ -1366,115 +1485,27 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 memcpy(r, prefix, pl);
 
         for (f = s, t = r + pl; f < s + length; f++) {
-                size_t remaining = s + length - f;
+                size_t remaining;
+                int k;
+
+                remaining = s + length - f;
                 assert(remaining > 0);
 
-                if (*f != '\\') {        /* a literal literal */
+                if (*f != '\\' || remaining == 1) {
+                        /* a literal literal, or a trailing backslash, copy verbatim */
                         *(t++) = *f;
                         continue;
                 }
 
-                if (--remaining == 0) {  /* copy trailing backslash verbatim */
-                        *(t++) = *f;
-                        break;
-                }
-
-                f++;
-
-                switch (*f) {
-
-                case 'a':
-                        *(t++) = '\a';
-                        break;
-                case 'b':
-                        *(t++) = '\b';
-                        break;
-                case 'f':
-                        *(t++) = '\f';
-                        break;
-                case 'n':
-                        *(t++) = '\n';
-                        break;
-                case 'r':
-                        *(t++) = '\r';
-                        break;
-                case 't':
-                        *(t++) = '\t';
-                        break;
-                case 'v':
-                        *(t++) = '\v';
-                        break;
-                case '\\':
-                        *(t++) = '\\';
-                        break;
-                case '"':
-                        *(t++) = '"';
-                        break;
-                case '\'':
-                        *(t++) = '\'';
-                        break;
-
-                case 's':
-                        /* This is an extension of the XDG syntax files */
-                        *(t++) = ' ';
-                        break;
-
-                case 'x': {
-                        /* hexadecimal encoding */
-                        int a = -1, b = -1;
-
-                        if (remaining >= 2) {
-                                a = unhexchar(f[1]);
-                                b = unhexchar(f[2]);
-                        }
-
-                        if (a < 0 || b < 0 || (a == 0 && b == 0)) {
-                                /* Invalid escape code, let's take it literal then */
-                                *(t++) = '\\';
-                                *(t++) = 'x';
-                        } else {
-                                *(t++) = (char) ((a << 4) | b);
-                                f += 2;
-                        }
-
-                        break;
-                }
-
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7': {
-                        /* octal encoding */
-                        int a = -1, b = -1, c = -1;
-
-                        if (remaining >= 3) {
-                                a = unoctchar(f[0]);
-                                b = unoctchar(f[1]);
-                                c = unoctchar(f[2]);
-                        }
-
-                        if (a < 0 || b < 0 || c < 0 || (a == 0 && b == 0 && c == 0)) {
-                                /* Invalid escape code, let's take it literal then */
-                                *(t++) = '\\';
-                                *(t++) = f[0];
-                        } else {
-                                *(t++) = (char) ((a << 6) | (b << 3) | c);
-                                f += 2;
-                        }
-
-                        break;
-                }
-
-                default:
+                k = cunescape_one(f + 1, remaining - 1, t);
+                if (k < 0) {
                         /* Invalid escape code, let's take it literal then */
                         *(t++) = '\\';
-                        *(t++) = *f;
-                        break;
+                        continue;
                 }
+
+                f += k;
+                t++;
         }
 
         *t = 0;
@@ -3411,7 +3442,7 @@ char **replace_env_argv(char **argv, char **env) {
                         if (e) {
                                 int r;
 
-                                r = strv_split_quoted(&m, e, true);
+                                r = strv_split_quoted(&m, e, UNQUOTE_RELAX);
                                 if (r < 0) {
                                         ret[k] = NULL;
                                         strv_free(ret);
@@ -6382,7 +6413,7 @@ int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
                 _cleanup_free_ char *word = NULL;
                 char *value = NULL;
 
-                r = unquote_first_word(&p, &word, true);
+                r = unquote_first_word(&p, &word, UNQUOTE_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -6422,7 +6453,7 @@ int get_proc_cmdline_key(const char *key, char **value) {
                 _cleanup_free_ char *word = NULL;
                 const char *e;
 
-                r = unquote_first_word(&p, &word, true);
+                r = unquote_first_word(&p, &word, UNQUOTE_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -7275,9 +7306,10 @@ int is_dir(const char* path, bool follow) {
         return !!S_ISDIR(st.st_mode);
 }
 
-int unquote_first_word(const char **p, char **ret, bool relax) {
+int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
+        int r;
 
         enum {
                 START,
@@ -7335,13 +7367,21 @@ int unquote_first_word(const char **p, char **ret, bool relax) {
 
                 case VALUE_ESCAPE:
                         if (c == 0) {
-                                if (relax)
+                                if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
+
+                        if (flags & UNQUOTE_CUNESCAPE) {
+                                r = cunescape_one(*p, (size_t) -1, &c);
+                                if (r < 0)
+                                        return -EINVAL;
+
+                                (*p) += r - 1;
+                        }
 
                         s[sz++] = c;
                         state = VALUE;
@@ -7350,7 +7390,7 @@ int unquote_first_word(const char **p, char **ret, bool relax) {
 
                 case SINGLE_QUOTE:
                         if (c == 0) {
-                                if (relax)
+                                if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         } else if (c == '\'')
@@ -7368,13 +7408,21 @@ int unquote_first_word(const char **p, char **ret, bool relax) {
 
                 case SINGLE_QUOTE_ESCAPE:
                         if (c == 0) {
-                                if (relax)
+                                if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
+
+                        if (flags & UNQUOTE_CUNESCAPE) {
+                                r = cunescape_one(*p, (size_t) -1, &c);
+                                if (r < 0)
+                                        return -EINVAL;
+
+                                (*p) += r - 1;
+                        }
 
                         s[sz++] = c;
                         state = SINGLE_QUOTE;
@@ -7398,13 +7446,21 @@ int unquote_first_word(const char **p, char **ret, bool relax) {
 
                 case DOUBLE_QUOTE_ESCAPE:
                         if (c == 0) {
-                                if (relax)
+                                if (flags & UNQUOTE_RELAX)
                                         goto finish;
                                 return -EINVAL;
                         }
 
                         if (!GREEDY_REALLOC(s, allocated, sz+2))
                                 return -ENOMEM;
+
+                        if (flags & UNQUOTE_CUNESCAPE) {
+                                r = cunescape_one(*p, (size_t) -1, &c);
+                                if (r < 0)
+                                        return -EINVAL;
+
+                                (*p) += r - 1;
+                        }
 
                         s[sz++] = c;
                         state = DOUBLE_QUOTE;
@@ -7435,7 +7491,7 @@ finish:
         return 1;
 }
 
-int unquote_many_words(const char **p, ...) {
+int unquote_many_words(const char **p, UnquoteFlags flags, ...) {
         va_list ap;
         char **l;
         int n = 0, i, c, r;
@@ -7446,7 +7502,7 @@ int unquote_many_words(const char **p, ...) {
         assert(p);
 
         /* Count how many words are expected */
-        va_start(ap, p);
+        va_start(ap, flags);
         for (;;) {
                 if (!va_arg(ap, char **))
                         break;
@@ -7461,7 +7517,7 @@ int unquote_many_words(const char **p, ...) {
         l = newa0(char*, n);
         for (c = 0; c < n; c++) {
 
-                r = unquote_first_word(p, &l[c], false);
+                r = unquote_first_word(p, &l[c], flags);
                 if (r < 0) {
                         int j;
 
@@ -7477,7 +7533,7 @@ int unquote_many_words(const char **p, ...) {
 
         /* If we managed to parse all words, return them in the passed
          * in parameters */
-        va_start(ap, p);
+        va_start(ap, flags);
         for (i = 0; i < n; i++) {
                 char **v;
 

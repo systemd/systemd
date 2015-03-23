@@ -278,7 +278,7 @@ char **strv_split_newlines(const char *s) {
         return l;
 }
 
-int strv_split_quoted(char ***t, const char *s, bool relax) {
+int strv_split_quoted(char ***t, const char *s, UnquoteFlags flags) {
         size_t n = 0, allocated = 0;
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -289,7 +289,7 @@ int strv_split_quoted(char ***t, const char *s, bool relax) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = unquote_first_word(&s, &word, relax);
+                r = unquote_first_word(&s, &word, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)
