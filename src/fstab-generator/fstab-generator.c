@@ -397,15 +397,20 @@ static int add_root_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts;
 
-        if (isempty(arg_root_what)) {
-                log_debug("Could not find a root= entry on the kernel command line.");
-                return 0;
-        }
+        if (fstype_is_deviceless(arg_root_fstype)) {
+                if (free_and_strdup(&what, arg_root_what) < 0)
+                        return log_oom();
+        } else {
+                if (isempty(arg_root_what)) {
+                        log_debug("Could not find a root= entry on the kernel command line.");
+                        return 0;
+                }
 
-        what = fstab_node_to_udev_node(arg_root_what);
-        if (!path_is_absolute(what)) {
-                log_debug("Skipping entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
-                return 0;
+                what = fstab_node_to_udev_node(arg_root_what);
+                if (!path_is_absolute(what)) {
+                        log_debug("Skipping entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
+                        return 0;
+                }
         }
 
         if (!arg_root_options)

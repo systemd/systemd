@@ -409,6 +409,7 @@ int fd_cloexec(int fd, bool cloexec);
 int close_all_fds(const int except[], unsigned n_except);
 
 bool fstype_is_network(const char *fstype);
+bool fstype_is_deviceless(const char *fstype);
 
 int chvt(int vt);
 
