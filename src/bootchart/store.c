@@ -176,7 +176,7 @@ vmstat_next:
                 /* overall CPU utilization */
                 schedstat = openat(procfd, "schedstat", O_RDONLY);
                 if (schedstat == -1) {
-                        log_error_errno(errno, "Failed to open /proc/schedstat: %m");
+                        log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
                         exit(EXIT_FAILURE);
                 }
         }
