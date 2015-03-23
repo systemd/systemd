@@ -174,7 +174,6 @@ static bool takes_ownership(ItemType t) {
                       CREATE_CHAR_DEVICE,
                       CREATE_BLOCK_DEVICE,
                       COPY_FILES,
-
                       WRITE_FILE,
                       IGNORE_PATH,
                       IGNORE_DIRECTORY_PATH,
@@ -314,16 +313,16 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
         DIR *dir;
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW|O_NOATIME);
-        if (!dir) {
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
-                                dirfd == AT_FDCWD ? "" : "sub", path);
-                if (errno == EPERM) {
-                        dir = xopendirat(dirfd, path, O_NOFOLLOW);
-                        if (!dir)
-                                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m",
-                                                dirfd == AT_FDCWD ? "" : "sub", path);
-                }
-        }
+        if (dir)
+                return dir;
+
+        log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (errno != EPERM)
+                return NULL;
+
+        dir = xopendirat(dirfd, path, O_NOFOLLOW);
+        if (!dir)
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
