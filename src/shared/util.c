@@ -1713,35 +1713,6 @@ bool fstype_is_network(const char *fstype) {
         return nulstr_contains(table, fstype);
 }
 
-bool fstype_is_deviceless(const char *fstype) {
-        static const char table[] =
-                "autofs\0"
-                "bdev\0"
-                "cgroup\0"
-                "configfs\0"
-                "cpuset\0"
-                "debugfs\0"
-                "devpts\0"
-                "devtmpfs\0"
-                "efivarfs\0"
-                "hugetlbfs\0"
-                "mqueue\0"
-                "overlayfs\0"
-                "pipefs\0"
-                "proc\0"
-                "pstore\0"
-                "ramfs\0"
-                "rootfs\0"
-                "rpc_pipefs\0"
-                "securityfs\0"
-                "sockfs\0"
-                "sysfs\0"
-                "tmpfs\0";
-
-        return !isempty(fstype) && (
-                nulstr_contains(table, fstype) || fstype_is_network(fstype));
-}
-
 int chvt(int vt) {
         _cleanup_close_ int fd;
 

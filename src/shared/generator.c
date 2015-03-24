@@ -42,11 +42,6 @@ int generator_write_fsck_deps(
         assert(what);
         assert(where);
 
-        if (fstype_is_deviceless(fstype)) {
-                log_debug("Not checking deviceless filesystem \"%s\".", fstype);
-                return 0;
-        }
-
         if (!is_device_path(what)) {
                 log_warning("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
