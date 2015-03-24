@@ -3,6 +3,8 @@
 # persistent storage links: /dev/disk/{by-id,by-uuid,by-label,by-path}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
+ACTION=="remove", GOTO="persistent_storage_end"
+
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 KERNEL!="loop*|mmcblk[0-9]|mspblk[0-9]|nvme*|sd*|sr*|vd*", GOTO="persistent_storage_end"
 
