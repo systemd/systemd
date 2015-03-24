@@ -830,7 +830,7 @@ static int get_attrib_from_arg(Item *item) {
                 return -EINVAL;
         }
         for (; *p ; p++) {
-                if ((uint8_t)*p > ELEMENTSOF(attributes) || attributes[(uint8_t)*p] == 0) {
+                if ((uint8_t)*p >= ELEMENTSOF(attributes) || attributes[(uint8_t)*p] == 0) {
                         log_error("\"%s\": setting ATTR: unknown attr '%c'", item->path, *p);
                         return -EINVAL;
                 }
