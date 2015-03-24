@@ -77,7 +77,6 @@ static void print_status_info(const StatusInfo *i) {
         struct tm tm;
         time_t sec;
         bool have_time = false;
-        _cleanup_free_ char *zc = NULL, *zn = NULL;
         int r;
 
         assert(i);
