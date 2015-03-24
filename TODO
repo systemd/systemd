@@ -239,6 +239,9 @@ Features:
 * systemd.show_status= should probably have a mode where only failed
   units are shown.
 
+* add systemd.abort_on_kill or some other such flag to send SIGABRT instead of SIGKILL
+  (throughout the codebase, not only PID1)
+
 * networkd:
   - add LLDP client side support
   - the DHCP lease data (such as NTP/DNS) is still made available when
