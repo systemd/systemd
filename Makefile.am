@@ -6443,9 +6443,6 @@ man/%: man/%.in
 sysctl.d/%: sysctl.d/%.in
 	$(SED_PROCESS)
 
-%.pc: %.pc.in
-	$(SED_PROCESS)
-
 %.conf: %.conf.in
 	$(SED_PROCESS)
 

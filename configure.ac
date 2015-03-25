@@ -1510,6 +1510,16 @@ AC_CONFIG_FILES([
         docs/libudev/version.xml
         docs/gudev/Makefile
         docs/gudev/version.xml
+        src/libudev/libudev.pc
+        src/compat-libs/libsystemd-id128.pc
+        src/compat-libs/libsystemd-daemon.pc
+        src/compat-libs/libsystemd-login.pc
+        src/compat-libs/libsystemd-journal.pc
+        src/libsystemd/sd-id128/libsystemd-id128.pc
+        src/libsystemd/libsystemd.pc
+        src/udev/udev.pc
+        src/core/systemd.pc
+        src/gudev/gudev-1.0.pc
 ])
 
 AC_OUTPUT
