@@ -358,9 +358,7 @@ static const NLType rtnl_address_types[IFA_MAX + 1] = {
         [IFA_ANYCAST],
         [IFA_MULTICAST],
 */
-#ifdef IFA_FLAGS
         [IFA_FLAGS]             = { .type = NLA_U32 },
-#endif
 };
 
 static const NLTypeSystem rtnl_address_type_system = {
