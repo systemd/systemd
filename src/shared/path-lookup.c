@@ -34,7 +34,7 @@ int user_config_home(char **config_home) {
         const char *e;
         char *r;
 
-        e = getenv("XDG_CONFIG_HOME");
+        e = secure_getenv("XDG_CONFIG_HOME");
         if (e) {
                 r = strappend(e, "/systemd/user");
                 if (!r)
@@ -45,7 +45,7 @@ int user_config_home(char **config_home) {
         } else {
                 const char *home;
 
-                home = getenv("HOME");
+                home = secure_getenv("HOME");
                 if (home) {
                         r = strappend(home, "/.config/systemd/user");
                         if (!r)
@@ -63,7 +63,7 @@ int user_runtime_dir(char **runtime_dir) {
         const char *e;
         char *r;
 
-        e = getenv("XDG_RUNTIME_DIR");
+        e = secure_getenv("XDG_RUNTIME_DIR");
         if (e) {
                 r = strappend(e, "/systemd/user");
                 if (!r)
@@ -84,13 +84,13 @@ static int user_data_home_dir(char **dir, const char *suffix) {
          * suggests because we assume that that is a link to
          * /etc/systemd/ anyway. */
 
-        e = getenv("XDG_DATA_HOME");
+        e = secure_getenv("XDG_DATA_HOME");
         if (e)
                 res = strappend(e, suffix);
         else {
                 const char *home;
 
-                home = getenv("HOME");
+                home = secure_getenv("HOME");
                 if (home)
                         res = strjoin(home, "/.local/share", suffix, NULL);
                 else
@@ -147,7 +147,7 @@ static char** user_dirs(
         if (user_runtime_dir(&runtime_dir) < 0)
                 return NULL;
 
-        e = getenv("XDG_CONFIG_DIRS");
+        e = secure_getenv("XDG_CONFIG_DIRS");
         if (e) {
                 config_dirs = strv_split(e, ":");
                 if (!config_dirs)
@@ -158,7 +158,7 @@ static char** user_dirs(
         if (r < 0)
                 return NULL;
 
-        e = getenv("XDG_DATA_DIRS");
+        e = secure_getenv("XDG_DATA_DIRS");
         if (e)
                 data_dirs = strv_split(e, ":");
         else
@@ -249,7 +249,7 @@ int lookup_paths_init(
 
         /* First priority is whatever has been passed to us via env
          * vars */
-        e = getenv("SYSTEMD_UNIT_PATH");
+        e = secure_getenv("SYSTEMD_UNIT_PATH");
         if (e) {
                 if (endswith(e, ":")) {
                         e = strndupa(e, strlen(e) - 1);
@@ -341,7 +341,7 @@ int lookup_paths_init(
 #ifdef HAVE_SYSV_COMPAT
                 /* /etc/init.d/ compatibility does not matter to users */
 
-                e = getenv("SYSTEMD_SYSVINIT_PATH");
+                e = secure_getenv("SYSTEMD_SYSVINIT_PATH");
                 if (e) {
                         p->sysvinit_path = path_split_and_make_absolute(e);
                         if (!p->sysvinit_path)
@@ -359,7 +359,7 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                e = getenv("SYSTEMD_SYSVRCND_PATH");
+                e = secure_getenv("SYSTEMD_SYSVRCND_PATH");
                 if (e) {
                         p->sysvrcnd_path = path_split_and_make_absolute(e);
                         if (!p->sysvrcnd_path)
