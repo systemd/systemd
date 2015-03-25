@@ -26,7 +26,7 @@ def is_socket(fileobj, family=_AF_UNSPEC, type=0, listening=-1):
 
 def is_socket_inet(fileobj, family=_AF_UNSPEC, type=0, listening=-1, port=0):
     fd = _convert_fileobj(fileobj)
-    return _is_socket_inet(fd, family, type, listening)
+    return _is_socket_inet(fd, family, type, listening, port)
 
 def is_socket_unix(fileobj, type=0, listening=-1, path=None):
     fd = _convert_fileobj(fileobj)
