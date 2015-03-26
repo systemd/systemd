@@ -131,6 +131,7 @@ static void test_pointers (struct udev_device *dev,
                            const unsigned long* bitmask_abs,
                            const unsigned long* bitmask_key,
                            const unsigned long* bitmask_rel,
+                           const unsigned long* bitmask_props,
                            bool test) {
         int is_mouse = 0;
         int is_touchpad = 0;
@@ -172,6 +173,9 @@ static void test_pointers (struct udev_device *dev,
                          test_bit (ABS_BRAKE, bitmask_abs))
                         udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
         }
+
+        if (test_bit (INPUT_PROP_POINTING_STICK, bitmask_props))
+                udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
 
         if (test_bit (EV_REL, bitmask_ev) &&
             test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel) &&
@@ -232,6 +236,7 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
         unsigned long bitmask_abs[NBITS(ABS_MAX)];
         unsigned long bitmask_key[NBITS(KEY_MAX)];
         unsigned long bitmask_rel[NBITS(REL_MAX)];
+        unsigned long bitmask_props[NBITS(INPUT_PROP_MAX)];
         const char *sysname, *devnode;
 
         /* walk up the parental chain until we find the real input device; the
@@ -248,7 +253,9 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
                 get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
                 get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
                 get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
-                test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, test);
+                get_cap_mask(dev, pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
+                test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key,
+                              bitmask_rel, bitmask_props, test);
                 test_key(dev, bitmask_ev, bitmask_key, test);
         }
 
