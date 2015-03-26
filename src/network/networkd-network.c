@@ -272,9 +272,24 @@ int network_get(Manager *manager, struct udev_device *device,
                 const char *ifname, const struct ether_addr *address,
                 Network **ret) {
         Network *network;
+        struct udev_device *parent;
+        const char *path, *parent_driver, *driver, *devtype;
 
         assert(manager);
         assert(ret);
+        assert(device);
+
+        path = udev_device_get_property_value(device, "ID_PATH");
+
+        parent = udev_device_get_parent(device);
+        if (parent)
+                parent_driver = udev_device_get_driver(parent);
+        else
+                parent_driver = NULL;
+
+        driver = udev_device_get_property_value(device, "ID_NET_DRIVER");
+
+        devtype = udev_device_get_devtype(device);
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
@@ -282,12 +297,8 @@ int network_get(Manager *manager, struct udev_device *device,
                                      network->match_name, network->match_host,
                                      network->match_virt, network->match_kernel,
                                      network->match_arch,
-                                     address,
-                                     udev_device_get_property_value(device, "ID_PATH"),
-                                     udev_device_get_driver(udev_device_get_parent(device)),
-                                     udev_device_get_property_value(device, "ID_NET_DRIVER"),
-                                     udev_device_get_devtype(device),
-                                     ifname)) {
+                                     address, path, parent_driver, driver,
+                                     devtype, ifname)) {
                         if (network->match_name) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
