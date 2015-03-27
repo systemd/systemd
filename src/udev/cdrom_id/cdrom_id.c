@@ -650,8 +650,8 @@ static int cd_media_info(struct udev *udev, int fd)
          * write protected; we need to check the contents if it is blank */
         if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
                 unsigned char buffer[32 * 2048];
-                unsigned char result, len;
-                int block, offset;
+                unsigned char len;
+                int offset;
 
                 if (cd_media_dvd_ram) {
                         /* a write protected dvd-ram may report "complete" status */
@@ -732,22 +732,23 @@ static int cd_media_info(struct udev *udev, int fd)
                 /* if any non-zero data is found in sector 16 (iso and udf) or
                  * eventually 0 (fat32 boot sector, ext2 superblock, etc), disc
                  * is assumed non-blank */
-                result = 0;
 
-                for (block = 32768; block >= 0 && !result; block -= 32768) {
-                        offset = block;
-                        while (offset < (block + 2048) && !result) {
-                                result = buffer [offset];
-                                offset++;
+                for (offset = 32768; offset < (32768 + 2048); offset++) {
+                        if (buffer [offset]) {
+                                log_debug("data in block 16, assuming complete");
+                                goto determined;
                         }
                 }
 
-                if (!result) {
-                        cd_media_state = media_status[0];
-                        log_debug("no data in blocks 0 or 16, assuming blank");
-                } else {
-                        log_debug("data in blocks 0 or 16, assuming complete");
+                for (offset = 0; offset < 2048; offset++) {
+                        if (buffer [offset]) {
+                                log_debug("data in block 0, assuming complete");
+                                goto determined;
+                        }
                 }
+
+                cd_media_state = media_status[0];
+                log_debug("no data in blocks 0 or 16, assuming blank");
         }
 
 determined:
