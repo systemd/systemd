@@ -339,7 +339,7 @@ static int pppoe_timeout(sd_event_source *s, uint64_t usec, void *userdata);
 
 static int pppoe_arm_timeout(sd_pppoe *ppp) {
         _cleanup_event_source_unref_ sd_event_source *timeout = NULL;
-        usec_t next_timeout;
+        usec_t next_timeout = 0;
         int r;
 
         assert(ppp);

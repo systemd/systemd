@@ -349,7 +349,7 @@ static int remove_source(RemoteServer *s, int fd) {
 
 static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 
-        RemoteSource *source;
+        RemoteSource *source = NULL;
         int r;
 
         /* This takes ownership of name, even on failure, if own_name is true. */
@@ -1144,7 +1144,7 @@ static int dispatch_raw_connection_event(sd_event_source *event,
                 .size = sizeof(union sockaddr_union),
                 .type = SOCK_STREAM,
         };
-        char *hostname;
+        char *hostname = NULL;
 
         fd2 = accept_connection("raw", fd, &addr, &hostname);
         if (fd2 < 0)

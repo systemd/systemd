@@ -73,7 +73,7 @@ static void patch_realtime(
                 unsigned long long *realtime) {
 
         _cleanup_free_ const char *path = NULL;
-        usec_t x, crtime;
+        usec_t x, crtime = 0;
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name

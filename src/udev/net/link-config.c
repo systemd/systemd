@@ -469,7 +469,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
 int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret) {
         const char *name;
-        char *driver;
+        char *driver = NULL;
         int r;
 
         name = udev_device_get_sysname(device);

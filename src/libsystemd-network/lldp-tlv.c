@@ -156,7 +156,7 @@ static inline int tlv_packet_read_internal(tlv_section *m, void **data) {
 }
 
 int tlv_packet_read_u8(tlv_packet *m, uint8_t *data) {
-        void *val;
+        void *val = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -174,7 +174,7 @@ int tlv_packet_read_u8(tlv_packet *m, uint8_t *data) {
 
 int tlv_packet_read_u16(tlv_packet *m, uint16_t *data) {
         uint16_t t;
-        void *val;
+        void *val = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -211,7 +211,7 @@ int tlv_packet_read_u32(tlv_packet *m, uint32_t *data) {
 }
 
 int tlv_packet_read_string(tlv_packet *m, char **data, uint16_t *data_length) {
-        void *val;
+        void *val = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -229,7 +229,7 @@ int tlv_packet_read_string(tlv_packet *m, char **data, uint16_t *data_length) {
 }
 
 int tlv_packet_read_bytes(tlv_packet *m, uint8_t **data, uint16_t *data_length) {
-        void *val;
+        void *val = NULL;
         int r;
 
         assert_return(m, -EINVAL);

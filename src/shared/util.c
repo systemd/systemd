@@ -2882,7 +2882,7 @@ int getttyname_malloc(int fd, char **ret) {
 
 int getttyname_harder(int fd, char **r) {
         int k;
-        char *s;
+        char *s = NULL;
 
         k = getttyname_malloc(fd, &s);
         if (k < 0)
@@ -3435,7 +3435,7 @@ char **replace_env_argv(char **argv, char **env) {
                 /* If $FOO appears as single word, replace it by the split up variable */
                 if ((*i)[0] == '$' && (*i)[1] != '{') {
                         char *e;
-                        char **w, **m;
+                        char **w, **m = NULL;
                         unsigned q;
 
                         e = strv_env_get(env, *i+1);

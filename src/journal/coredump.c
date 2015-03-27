@@ -242,7 +242,7 @@ static int maybe_remove_external_coredump(const char *filename, off_t size) {
 
 static int make_filename(const char *info[_INFO_LEN], char **ret) {
         _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
-        sd_id128_t boot;
+        sd_id128_t boot = {};
         int r;
 
         assert(info);
@@ -841,7 +841,7 @@ log:
         /* Optionally store the entire coredump in the journal */
         if (IN_SET(arg_storage, COREDUMP_STORAGE_JOURNAL, COREDUMP_STORAGE_BOTH) &&
             coredump_size <= (off_t) arg_journal_size_max) {
-                size_t sz;
+                size_t sz = 0;
 
                 /* Store the coredump itself in the journal */
 

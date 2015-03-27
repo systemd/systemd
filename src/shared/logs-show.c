@@ -990,7 +990,7 @@ static int show_journal(FILE *f,
 
                 if (warn_cutoff && line < how_many && not_before > 0) {
                         sd_id128_t boot_id;
-                        usec_t cutoff;
+                        usec_t cutoff = 0;
 
                         /* Check whether the cutoff line is too early */
 

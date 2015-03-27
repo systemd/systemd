@@ -33,7 +33,7 @@ static int setup_test(Manager **m) {
         char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
                                       "directorynotempty", "makedirectory");
         char **test_path;
-        Manager *tmp;
+        Manager *tmp = NULL;
         int r;
 
         assert_se(m);

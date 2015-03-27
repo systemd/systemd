@@ -748,7 +748,7 @@ static int request_handler_machine(
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
-        uint64_t cutoff_from = 0, cutoff_to = 0, usage;
+        uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
         char *json;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL;

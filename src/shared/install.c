@@ -1793,7 +1793,7 @@ UnitFileState unit_file_lookup_state(
         UnitFileState state = _UNIT_FILE_STATE_INVALID;
         char **i;
         _cleanup_free_ char *path = NULL;
-        int r;
+        int r = 0;
 
         assert(paths);
 

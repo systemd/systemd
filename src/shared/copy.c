@@ -360,7 +360,7 @@ int copy_file_fd(const char *from, int fdt, bool try_reflink) {
 }
 
 int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned chattr_flags) {
-        int fdt, r;
+        int fdt = -1, r;
 
         assert(from);
         assert(to);
@@ -390,7 +390,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
 }
 
 int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace, unsigned chattr_flags) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(from);
@@ -421,7 +421,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, bool replace
 int copy_times(int fdf, int fdt) {
         struct timespec ut[2];
         struct stat st;
-        usec_t crtime;
+        usec_t crtime = 0;
 
         assert(fdf >= 0);
         assert(fdt >= 0);

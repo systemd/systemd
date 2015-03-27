@@ -775,7 +775,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 if (pool_offset >= 0 &&
                     server->bound_leases[pool_offset] == existing_lease) {
                         DHCPLease *lease;
-                        usec_t time_now;
+                        usec_t time_now = 0;
 
                         if (!existing_lease) {
                                 lease = new0(DHCPLease, 1);

@@ -717,7 +717,7 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         _cleanup_free_ char *p = NULL, *loop = NULL, *backing = NULL;
         _cleanup_close_ int loop_fd = -1, backing_fd = -1;
         struct stat st;
-        dev_t dev;
+        dev_t dev = 0;
         int r;
 
         /* btrfs cannot handle file systems < 16M, hence use this as minimum */

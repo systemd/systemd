@@ -82,7 +82,7 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 }
 
 _public_ int sd_peer_get_session(int fd, char **session) {
-        struct ucred ucred;
+        struct ucred ucred = {};
         int r;
 
         assert_return(fd >= 0, -EINVAL);

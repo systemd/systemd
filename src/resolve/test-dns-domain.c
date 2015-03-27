@@ -161,7 +161,7 @@ static void test_dns_name_single_label(void) {
 
 static void test_dns_name_reverse_one(const char *address, const char *name) {
         _cleanup_free_ char *p = NULL;
-        union in_addr_union a, b;
+        union in_addr_union a, b = {};
         int familya, familyb;
 
         assert_se(in_addr_from_string_auto(address, &familya, &a) >= 0);

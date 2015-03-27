@@ -50,7 +50,7 @@ static const BaseFilesystem table[] = {
 int base_filesystem_create(const char *root) {
         _cleanup_close_ int fd = -1;
         unsigned i;
-        int r;
+        int r = 0;
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)

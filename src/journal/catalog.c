@@ -558,7 +558,7 @@ static const char *find_id(void *p, sd_id128_t id) {
 int catalog_get(const char* database, sd_id128_t id, char **_text) {
         _cleanup_close_ int fd = -1;
         void *p = NULL;
-        struct stat st;
+        struct stat st = {};
         char *text = NULL;
         int r;
         const char *s;

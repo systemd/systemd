@@ -95,7 +95,7 @@ static void run_parent(Pty *pty) {
 
 static void test_pty(void) {
         pid_t pid;
-        Pty *pty;
+        Pty *pty = NULL;
 
         rcvsiz = 0;
         zero(rcvbuf);

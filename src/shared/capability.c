@@ -50,7 +50,7 @@ unsigned long cap_last_cap(void) {
         static thread_local unsigned long saved;
         static thread_local bool valid = false;
         _cleanup_free_ char *content = NULL;
-        unsigned long p;
+        unsigned long p = 0;
         int r;
 
         if (valid)

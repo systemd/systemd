@@ -1487,7 +1487,7 @@ static int verify(sd_journal *j) {
 
         ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                 int k;
-                usec_t first, validated, last;
+                usec_t first = 0, validated = 0, last = 0;
 
 #ifdef HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))

@@ -42,7 +42,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
                 const void *d;
                 char *k, *c;
                 size_t l;
-                unsigned u;
+                unsigned u = 0;
 
                 assert_se(sd_journal_get_cursor(j, &k) >= 0);
                 printf("cursor: %s\n", k);
