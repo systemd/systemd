@@ -448,9 +448,9 @@ int main(int argc, char *argv[]) {
         ps = ps_first;
         while (ps->next_ps) {
                 ps = ps->next_ps;
-                if (ps->schedstat)
+                if (ps->schedstat >= 0)
                         close(ps->schedstat);
-                if (ps->sched)
+                if (ps->sched >= 0)
                         close(ps->sched);
                 if (ps->smaps)
                         fclose(ps->smaps);

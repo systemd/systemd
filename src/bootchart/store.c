@@ -108,8 +108,8 @@ static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
 }
 
 void log_sample(int sample, struct list_sample_data **ptr) {
-        static int vmstat;
-        static int schedstat;
+        static int vmstat = -1;
+        static int schedstat = -1;
         char buf[4096];
         char key[256];
         char val[256];
@@ -140,7 +140,7 @@ void log_sample(int sample, struct list_sample_data **ptr) {
                 rewinddir(proc);
         }
 
-        if (!vmstat) {
+        if (vmstat < 0) {
                 /* block stuff */
                 vmstat = openat(procfd, "vmstat", O_RDONLY);
                 if (vmstat == -1) {
@@ -152,6 +152,7 @@ void log_sample(int sample, struct list_sample_data **ptr) {
         n = pread(vmstat, buf, sizeof(buf) - 1, 0);
         if (n <= 0) {
                 close(vmstat);
+                vmstat = -1;
                 return;
         }
         buf[n] = '\0';
@@ -172,7 +173,7 @@ vmstat_next:
                         break;
         }
 
-        if (!schedstat) {
+        if (schedstat < 0) {
                 /* overall CPU utilization */
                 schedstat = openat(procfd, "schedstat", O_RDONLY);
                 if (schedstat == -1) {
@@ -184,6 +185,7 @@ vmstat_next:
         n = pread(schedstat, buf, sizeof(buf) - 1, 0);
         if (n <= 0) {
                 close(schedstat);
+                schedstat = -1;
                 return;
         }
         buf[n] = '\0';
@@ -260,6 +262,8 @@ schedstat_next:
                         }
                         ps = ps->next_ps;
                         ps->pid = pid;
+                        ps->sched = -1;
+                        ps->schedstat = -1;
 
                         ps->sample = new0(struct ps_sched_struct, 1);
                         if (!ps->sample) {
@@ -276,7 +280,7 @@ schedstat_next:
                         ps->sample->waittime = atoll(wt);
 
                         /* get name, start time */
-                        if (!ps->sched) {
+                        if (ps->sched < 0) {
                                 sprintf(filename, "%d/sched", pid);
                                 ps->sched = openat(procfd, filename, O_RDONLY);
                                 if (ps->sched == -1)
@@ -286,6 +290,7 @@ schedstat_next:
                         s = pread(ps->sched, buf, sizeof(buf) - 1, 0);
                         if (s <= 0) {
                                 close(ps->sched);
+                                ps->sched = -1;
                                 continue;
                         }
                         buf[s] = '\0';
@@ -377,7 +382,7 @@ schedstat_next:
                  * iteration */
 
                 /* rt, wt */
-                if (!ps->schedstat) {
+                if (ps->schedstat < 0) {
                         sprintf(filename, "%d/schedstat", pid);
                         ps->schedstat = openat(procfd, filename, O_RDONLY);
                         if (ps->schedstat == -1)
@@ -387,8 +392,11 @@ schedstat_next:
                 if (s <= 0) {
                         /* clean up our file descriptors - assume that the process exited */
                         close(ps->schedstat);
-                        if (ps->sched)
+                        ps->schedstat = -1;
+                        if (ps->sched) {
                                 close(ps->sched);
+                                ps->sched = -1;
+                        }
                         //if (ps->smaps)
                         //        fclose(ps->smaps);
                         continue;
@@ -488,8 +496,11 @@ catch_rename:
                         if (s <= 0) {
                                 /* clean up file descriptors */
                                 close(ps->sched);
-                                if (ps->schedstat)
+                                ps->sched = -1;
+                                if (ps->schedstat) {
                                         close(ps->schedstat);
+                                        ps->schedstat = -1;
+                                }
                                 //if (ps->smaps)
                                 //        fclose(ps->smaps);
                                 continue;
