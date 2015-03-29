@@ -330,9 +330,13 @@ schedstat_next:
                         /* ppid */
                         sprintf(filename, "%d/stat", pid);
                         fd = openat(procfd, filename, O_RDONLY);
-                        st = fdopen(fd, "r");
-                        if (!st)
+                        if (fd == -1)
                                 continue;
+                        st = fdopen(fd, "r");
+                        if (!st) {
+                                close(fd);
+                                continue;
+                        }
                         if (!fscanf(st, "%*s %*s %*s %i", &p)) {
                                 continue;
                         }
@@ -432,9 +436,13 @@ schedstat_next:
                 if (!ps->smaps) {
                         sprintf(filename, "%d/smaps", pid);
                         fd = openat(procfd, filename, O_RDONLY);
-                        ps->smaps = fdopen(fd, "r");
-                        if (!ps->smaps)
+                        if (fd == -1)
                                 continue;
+                        ps->smaps = fdopen(fd, "r");
+                        if (!ps->smaps) {
+                                close(fd);
+                                continue;
+                        }
                         setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
                 }
                 else {

@@ -170,6 +170,9 @@ static void svg_title(const char *build) {
                 if (!fgets(cmdline, 255, f))
                         sprintf(cmdline, "Unknown");
                 fclose(f);
+        } else {
+                if (fd >= 0)
+                        close(fd);
         }
 
         /* extract root fs so we can find disk model name in sysfs */
@@ -185,6 +188,9 @@ static void svg_title(const char *build) {
                         if (!fgets(model, 255, f))
                                 fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
                         fclose(f);
+                } else {
+                        if (fd >= 0)
+                                close(fd);
                 }
         }
 
@@ -208,6 +214,9 @@ static void svg_title(const char *build) {
                         }
                 }
                 fclose(f);
+        } else {
+                if (fd >= 0)
+                        close(fd);
         }
 
         svg("<text class=\"t1\" x=\"0\" y=\"30\">Bootchart for %s - %s</text>\n",
