@@ -119,7 +119,7 @@ void log_sample(int sample, struct list_sample_data **ptr) {
         int c;
         int p;
         int mod;
-        static int e_fd;
+        static int e_fd = -1;
         ssize_t s;
         ssize_t n;
         struct dirent *ent;
@@ -215,16 +215,21 @@ schedstat_next:
         }
 
         if (arg_entropy) {
-                if (!e_fd) {
+                if (e_fd < 0) {
                         e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY);
+                        if (e_fd == -1) {
+                                log_error_errno(errno, "Failed to open /proc/sys/kernel/random/entropy_avail: %m");
+                                exit(EXIT_FAILURE);
+                        }
                 }
 
-                if (e_fd) {
-                        n = pread(e_fd, buf, sizeof(buf) - 1, 0);
-                        if (n > 0) {
-                                buf[n] = '\0';
-                                sampledata->entropy_avail = atoi(buf);
-                        }
+                n = pread(e_fd, buf, sizeof(buf) - 1, 0);
+                if (n <= 0) {
+                        close(e_fd);
+                        e_fd = -1;
+                } else {
+                        buf[n] = '\0';
+                        sampledata->entropy_avail = atoi(buf);
                 }
         }
 
