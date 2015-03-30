@@ -102,7 +102,9 @@ static bool mount_is_auto(const MountParameters *p) {
 static bool needs_quota(const MountParameters *p) {
         assert(p);
 
-        if (mount_is_network(p))
+        /* Quotas are not enabled on network filesystems,
+         * but we them, for example, on storages connected via iscsi */
+        if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
         if (mount_is_bind(p))
