@@ -528,5 +528,5 @@ msgstr ""
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-msgstr[0] "Comprobando progreso en %d disco (%3.1f%% completado)"
-msgstr[1] "Comprobando progreso en %d discos (%3.1f%% completado)"
+msgstr[0] "Comprobando progreso en %d disco (%3.1f %% completado)"
+msgstr[1] "Comprobando progreso en %d discos (%3.1f %% completado)"
