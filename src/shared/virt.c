@@ -106,7 +106,7 @@ static int detect_vm_devicetree(const char **_id) {
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
-        r = read_one_line_file("/sys/firmware/devicetree/base/hypervisor/compatible", &hvtype);
+        r = read_one_line_file("/proc/device-tree/hypervisor/compatible", &hvtype);
         if (r >= 0) {
                 if (streq(hvtype, "linux,kvm")) {
                         *_id = "kvm";
