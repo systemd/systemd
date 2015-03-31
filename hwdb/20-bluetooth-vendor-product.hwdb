@@ -1472,3 +1472,39 @@ bluetooth:v01E7*
 
 bluetooth:v01E8*
  ID_VENDOR_FROM_DATABASE=STIR
+
+bluetooth:v01E9*
+ ID_VENDOR_FROM_DATABASE=Sano, Inc
+
+bluetooth:v01EA*
+ ID_VENDOR_FROM_DATABASE=Advanced Application Design, Inc.
+
+bluetooth:v01EB*
+ ID_VENDOR_FROM_DATABASE=AutoMap LLC
+
+bluetooth:v01EC*
+ ID_VENDOR_FROM_DATABASE=Spreadtrum Communications Shanghai Ltd
+
+bluetooth:v01ED*
+ ID_VENDOR_FROM_DATABASE=CuteCircuit LTD
+
+bluetooth:v01EE*
+ ID_VENDOR_FROM_DATABASE=Valeo Service
+
+bluetooth:v01EF*
+ ID_VENDOR_FROM_DATABASE=Fullpower Technologies, Inc.
+
+bluetooth:v01F0*
+ ID_VENDOR_FROM_DATABASE=KloudNation
+
+bluetooth:v01F1*
+ ID_VENDOR_FROM_DATABASE=Zebra Technologies Corporation
+
+bluetooth:v01F2*
+ ID_VENDOR_FROM_DATABASE=Itron, Inc.
+
+bluetooth:v01F3*
+ ID_VENDOR_FROM_DATABASE=The University of Tokyo
+
+bluetooth:v01F4*
+ ID_VENDOR_FROM_DATABASE=UTC Fire and Security
