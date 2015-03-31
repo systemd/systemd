@@ -1449,8 +1449,18 @@ static int copy_devnodes(const char *dest) {
                                 return -r;
                         }
 
-                        if (mknod(to, st.st_mode, st.st_rdev) < 0)
-                                return log_error_errno(errno, "mknod(%s) failed: %m", to);
+                        if (mknod(to, st.st_mode, st.st_rdev) < 0) {
+                                if (errno != EPERM)
+                                        return log_error_errno(errno, "mknod(%s) failed: %m", to);
+
+                                /* Some systems abusively restrict mknod but
+                                 * allow bind mounts. */
+                                r = touch(to);
+                                if (r < 0)
+                                        return log_error_errno(r, "touch (%s) failed: %m", to);
+                                if (mount(from, to, NULL, MS_BIND, NULL) < 0)
+                                        return log_error_errno(errno, "Both mknod and bind mount (%s) failed: %m", to);
+                        }
 
                         if (arg_userns && arg_uid_shift != UID_INVALID)
                                 if (lchown(to, arg_uid_shift, arg_uid_shift) < 0)
@@ -1481,7 +1491,6 @@ static int setup_ptmx(const char *dest) {
 static int setup_dev_console(const char *dest, const char *console) {
         _cleanup_umask_ mode_t u;
         const char *to;
-        struct stat st;
         int r;
 
         assert(dest);
@@ -1489,24 +1498,18 @@ static int setup_dev_console(const char *dest, const char *console) {
 
         u = umask(0000);
 
-        if (stat("/dev/null", &st) < 0)
-                return log_error_errno(errno, "Failed to stat /dev/null: %m");
-
         r = chmod_and_chown(console, 0600, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to correct access mode for TTY: %m");
 
         /* We need to bind mount the right tty to /dev/console since
          * ptys can only exist on pts file systems. To have something
-         * to bind mount things on we create a device node first, and
-         * use /dev/null for that since we the cgroups device policy
-         * allows us to create that freely, while we cannot create
-         * /dev/console. (Note that the major minor doesn't actually
-         * matter here, since we mount it over anyway). */
+         * to bind mount things on we create a empty regular file. */
 
         to = strjoina(dest, "/dev/console");
-        if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0)
-                return log_error_errno(errno, "mknod() for /dev/console failed: %m");
+        r = touch(to);
+        if (r < 0)
+                return log_error_errno(r, "touch() for /dev/console failed: %m");
 
         if (mount(console, to, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Bind mount for /dev/console failed: %m");
