@@ -115,6 +115,23 @@ static int detect_vm_devicetree(const char **_id) {
                         *_id = "xen";
                         return 1;
                 }
+        } else if (r == -ENOENT) {
+                _cleanup_closedir_ DIR *dir = NULL;
+                struct dirent *dent;
+
+                dir = opendir("/proc/device-tree");
+                if (!dir) {
+                        if (errno == ENOENT)
+                                return 0;
+                        return -errno;
+                }
+
+                FOREACH_DIRENT(dent, dir, return -errno) {
+                        if (strstr(dent->d_name, "fw-cfg")) {
+                                *_id = "qemu";
+                                return 1;
+                        }
+                }
         }
 #endif
         return 0;
