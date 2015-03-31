@@ -1007,7 +1007,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
                                 return log_error_errno(r, "Failed to create mount point %s: %m", where);
                 }
 
-                if (mount(*x, where, "bind", MS_BIND, NULL) < 0)
+                if (mount(*x, where, NULL, MS_BIND, NULL) < 0)
                         return log_error_errno(errno, "mount(%s) failed: %m", where);
 
                 if (ro) {
@@ -1323,7 +1323,7 @@ static int setup_volatile(const char *directory) {
                 goto fail;
         }
 
-        if (mount(f, t, "bind", MS_BIND|MS_REC, NULL) < 0) {
+        if (mount(f, t, NULL, MS_BIND|MS_REC, NULL) < 0) {
                 log_error_errno(errno, "Failed to create /usr bind mount: %m");
                 r = -errno;
                 goto fail;
@@ -1394,10 +1394,10 @@ static int setup_boot_id(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
-        if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
+        if (mount(from, to, NULL, MS_BIND, NULL) < 0) {
                 log_error_errno(errno, "Failed to bind mount boot id: %m");
                 r = -errno;
-        } else if (mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL))
+        } else if (mount(from, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL))
                 log_warning_errno(errno, "Failed to make boot id read-only: %m");
 
         unlink(from);
@@ -1508,7 +1508,7 @@ static int setup_dev_console(const char *dest, const char *console) {
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0)
                 return log_error_errno(errno, "mknod() for /dev/console failed: %m");
 
-        if (mount(console, to, "bind", MS_BIND, NULL) < 0)
+        if (mount(console, to, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Bind mount for /dev/console failed: %m");
 
         return 0;
@@ -1551,7 +1551,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         if (r < 0)
                 return log_error_errno(r, "Failed to correct access mode for /dev/kmsg: %m");
 
-        if (mount(from, to, "bind", MS_BIND, NULL) < 0)
+        if (mount(from, to, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Bind mount for /proc/kmsg failed: %m");
 
         fd = open(from, O_RDWR|O_NDELAY|O_CLOEXEC);
@@ -1926,7 +1926,7 @@ static int setup_journal(const char *directory) {
                 return r;
         }
 
-        if (mount(p, q, "bind", MS_BIND, NULL) < 0)
+        if (mount(p, q, NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
 
         return 0;
@@ -4034,7 +4034,7 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
 
                         /* Turn directory into bind mount */
-                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
+                        if (mount(arg_directory, arg_directory, NULL, MS_BIND|MS_REC, NULL) < 0) {
                                 log_error_errno(errno, "Failed to make bind mount: %m");
                                 _exit(EXIT_FAILURE);
                         }

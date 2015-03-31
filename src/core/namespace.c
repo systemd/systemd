@@ -293,7 +293,7 @@ static int mount_kdbus(BindMount *m) {
                 goto fail;
         }
 
-        r = mount(m->path, busnode, "bind", MS_BIND, NULL);
+        r = mount(m->path, busnode, NULL, MS_BIND, NULL);
         if (r < 0) {
                 log_error_errno(errno, "bind mount of %s failed: %m", m->path);
                 r = -errno;
