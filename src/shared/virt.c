@@ -102,7 +102,7 @@ static int detect_vm_cpuid(const char **_id) {
 }
 
 static int detect_vm_devicetree(const char **_id) {
-#if defined(__powerpc__) || defined(__powerpc64__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
@@ -110,6 +110,9 @@ static int detect_vm_devicetree(const char **_id) {
         if (r >= 0) {
                 if (streq(hvtype, "linux,kvm")) {
                         *_id = "kvm";
+                        return 1;
+                } else if (strstr(hvtype, "xen")) {
+                        *_id = "xen";
                         return 1;
                 }
         }
