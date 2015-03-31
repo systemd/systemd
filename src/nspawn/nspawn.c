@@ -3707,12 +3707,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (sd_booted() <= 0) {
-                log_error("Not running on a systemd system.");
-                r = -EINVAL;
-                goto finish;
-        }
-
         log_close();
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
