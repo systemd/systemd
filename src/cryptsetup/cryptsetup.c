@@ -32,8 +32,8 @@
 #include "path-util.h"
 #include "strv.h"
 #include "ask-password-api.h"
-#include "libudev.h"
-#include "udev-util.h"
+#include "sd-device.h"
+#include "device-util.h"
 
 static const char *arg_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
@@ -224,10 +224,10 @@ static char* disk_description(const char *path) {
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
 
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_device_unref_ sd_device *device = NULL;
         struct stat st;
         const char *i;
+        int r;
 
         assert(path);
 
@@ -237,19 +237,15 @@ static char* disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        udev = udev_new();
-        if (!udev)
-                return NULL;
-
-        device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!device)
+        r = sd_device_new_from_devnum(&device, 'b', st.st_rdev);
+        if (r < 0)
                 return NULL;
 
         NULSTR_FOREACH(i, name_fields) {
                 const char *name;
 
-                name = udev_device_get_property_value(device, i);
-                if (!isempty(name))
+                r = sd_device_get_property_value(device, i, &name);
+                if (r >= 0 && !isempty(name))
                         return strdup(name);
         }
 
