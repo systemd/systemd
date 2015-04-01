@@ -57,7 +57,7 @@ static inline bool set_contains(Set *s, const void *key) {
         return internal_hashmap_contains(HASHMAP_BASE(s), key);
 }
 
-static inline void *set_remove(Set *s, void *key) {
+static inline void *set_remove(Set *s, const void *key) {
         return internal_hashmap_remove(HASHMAP_BASE(s), key);
 }
 
