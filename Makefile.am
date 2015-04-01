@@ -231,6 +231,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/libsystemd/sd-rtnl \
 	-I $(top_srcdir)/src/libsystemd/sd-network \
 	-I $(top_srcdir)/src/libsystemd/sd-hwdb \
+	-I $(top_srcdir)/src/libsystemd/sd-device \
 	-I $(top_srcdir)/src/libsystemd-network \
 	-I $(top_srcdir)/src/libsystemd-terminal \
 	$(OUR_CPPFLAGS)
@@ -2918,6 +2919,7 @@ libsystemd_internal_la_SOURCES = \
 	src/systemd/sd-path.h \
 	src/systemd/sd-network.h \
 	src/systemd/sd-hwdb.h \
+	src/systemd/sd-device.h \
 	src/libsystemd/sd-bus/sd-bus.c \
 	src/libsystemd/sd-bus/bus-control.c \
 	src/libsystemd/sd-bus/bus-control.h \
@@ -2981,7 +2983,12 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-network/network-util.c \
 	src/libsystemd/sd-hwdb/sd-hwdb.c \
 	src/libsystemd/sd-hwdb/hwdb-util.h \
-	src/libsystemd/sd-hwdb/hwdb-internal.h
+	src/libsystemd/sd-hwdb/hwdb-intenal.h \
+	src/libsystemd/sd-device/device-internal.h \
+	src/libsystemd/sd-device/device-util.h \
+	src/libsystemd/sd-device/sd-device.c \
+	src/libsystemd/sd-device/device-private.c \
+	src/libsystemd/sd-device/device-private.h
 
 nodist_libsystemd_internal_la_SOURCES = \
 	src/libsystemd/libsystemd.sym
