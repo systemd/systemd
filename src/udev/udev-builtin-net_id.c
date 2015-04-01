@@ -35,7 +35,7 @@
  * Type of names:
  *   b<number>                             -- BCMA bus core number
  *   ccw<name>                             -- CCW bus group name
- *   o<index>                              -- on-board device index number
+ *   o<index>[d<dev_port>]                 -- on-board device index number
  *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
  *   x<MAC>                                -- MAC address
  *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
@@ -128,22 +128,39 @@ struct netnames {
 
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
-        const char *index;
+        unsigned dev_port = 0;
+        size_t l;
+        char *s;
+        const char *attr;
         int idx;
 
         /* ACPI _DSM  -- device specific method for naming a PCI or PCI Express device */
-        index = udev_device_get_sysattr_value(names->pcidev, "acpi_index");
+        attr = udev_device_get_sysattr_value(names->pcidev, "acpi_index");
         /* SMBIOS type 41 -- Onboard Devices Extended Information */
-        if (!index)
-                index = udev_device_get_sysattr_value(names->pcidev, "index");
-        if (!index)
+        if (!attr)
+                attr = udev_device_get_sysattr_value(names->pcidev, "index");
+        if (!attr)
                 return -ENOENT;
-        idx = strtoul(index, NULL, 0);
+
+        idx = strtoul(attr, NULL, 0);
         if (idx <= 0)
                 return -EINVAL;
-        snprintf(names->pci_onboard, sizeof(names->pci_onboard), "o%d", idx);
+
+        /* kernel provided multi-device index */
+        attr = udev_device_get_sysattr_value(dev, "dev_port");
+        if (attr)
+                dev_port = strtol(attr, NULL, 10);
+
+        s = names->pci_onboard;
+        l = sizeof(names->pci_onboard);
+        l = strpcpyf(&s, l, "o%d", idx);
+        if (dev_port > 0)
+                l = strpcpyf(&s, l, "d%d", dev_port);
+        if (l == 0)
+                names->pci_onboard[0] = '\0';
 
         names->pci_onboard_label = udev_device_get_sysattr_value(names->pcidev, "label");
+
         return 0;
 }
 
