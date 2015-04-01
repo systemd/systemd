@@ -103,7 +103,7 @@ static bool needs_quota(const MountParameters *p) {
         assert(p);
 
         /* Quotas are not enabled on network filesystems,
-         * but we them, for example, on storages connected via iscsi */
+         * but we want them, for example, on storage connected via iscsi */
         if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
