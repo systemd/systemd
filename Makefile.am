@@ -2144,6 +2144,7 @@ systemd_shutdown_SOURCES = \
 systemd_shutdown_LDADD = \
 	libsystemd-label.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -2345,6 +2346,7 @@ systemd_fsck_SOURCES = \
 systemd_fsck_LDADD = \
 	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -2380,6 +2382,7 @@ systemd_ac_power_SOURCES = \
 
 systemd_ac_power_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -2651,8 +2654,8 @@ systemd_gpt_auto_generator_SOURCES = \
 
 systemd_gpt_auto_generator_LDADD = \
 	libsystemd-label.la \
-	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS)
 
@@ -2804,8 +2807,8 @@ systemd_nspawn_CFLAGS = \
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
-	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS)
 
@@ -3618,10 +3621,12 @@ lib_LTLIBRARIES += \
 libudev_la_SOURCES =\
 	src/libudev/libudev.sym \
 	src/libudev/libudev-private.h \
+	src/libudev/libudev-device-internal.h \
 	src/libudev/libudev.c \
 	src/libudev/libudev-list.c \
 	src/libudev/libudev-util.c \
 	src/libudev/libudev-device.c \
+	src/libudev/libudev-device-private.c \
 	src/libudev/libudev-enumerate.c \
 	src/libudev/libudev-monitor.c \
 	src/libudev/libudev-queue.c \
@@ -3673,8 +3678,7 @@ noinst_LTLIBRARIES += \
 	libudev-internal.la
 
 libudev_internal_la_SOURCES =\
-	$(libudev_la_SOURCES) \
-	src/libudev/libudev-device-private.c
+	$(libudev_la_SOURCES)
 
 libudev_internal_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3859,9 +3863,9 @@ systemd_hwdb_SOURCES = \
 	src/hwdb/hwdb.c
 
 systemd_hwdb_LDADD = \
+	libudev-internal.la \
 	libsystemd-shared.la \
-	libsystemd-internal.la \
-	libudev-internal.la
+	libsystemd-internal.la
 
 rootbin_PROGRAMS += \
 	systemd-hwdb
@@ -3971,6 +3975,7 @@ ata_id_SOURCES = \
 
 ata_id_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -3982,6 +3987,7 @@ cdrom_id_SOURCES = \
 
 cdrom_id_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -3996,6 +4002,7 @@ collect_SOURCES = \
 
 collect_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -4010,6 +4017,7 @@ scsi_id_SOURCES =\
 
 scsi_id_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -4024,6 +4032,7 @@ v4l_id_SOURCES = \
 
 v4l_id_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -4038,6 +4047,7 @@ accelerometer_SOURCES = \
 
 accelerometer_LDADD = \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
@@ -4937,6 +4947,7 @@ systemd_backlight_SOURCES = \
 systemd_backlight_LDADD = \
 	libsystemd-label.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 endif
 
@@ -4957,6 +4968,7 @@ systemd_rfkill_SOURCES = \
 systemd_rfkill_LDADD = \
 	libsystemd-label.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 endif
 
@@ -4985,6 +4997,7 @@ systemd_cryptsetup_CFLAGS = \
 systemd_cryptsetup_LDADD = \
 	libsystemd-label.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(LIBCRYPTSETUP_LIBS)
 
@@ -5280,8 +5293,8 @@ libsystemd_machine_core_la_SOURCES = \
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
-	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 noinst_LTLIBRARIES += \
@@ -5797,8 +5810,8 @@ networkctl_SOURCES = \
 	src/network/networkctl.c
 
 networkctl_LDADD = \
-	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	libsystemd-network.la
 
@@ -5905,8 +5918,8 @@ libsystemd_logind_core_la_SOURCES = \
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
-	libsystemd-internal.la \
 	libudev-internal.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la
 
 if HAVE_ACL
@@ -5929,10 +5942,10 @@ loginctl_SOURCES = \
 	src/login/sysfs-show.c
 
 loginctl_LDADD = \
+	libudev-internal.la \
 	libsystemd-internal.la \
 	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
-	libudev-internal.la \
 	libsystemd-shared.la
 
 rootbin_PROGRAMS += \

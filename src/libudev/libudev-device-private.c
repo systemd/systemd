@@ -2,6 +2,7 @@
   This file is part of systemd.
 
   Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright 2015 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -17,172 +18,392 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <string.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-
 #include "libudev.h"
 #include "libudev-private.h"
+#include "libudev-device-internal.h"
 
-static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
-{
-        const char *id;
-        char filename[UTIL_PATH_SIZE];
+#include "device-private.h"
 
-        id = udev_device_get_id_filename(dev);
-        if (id == NULL)
-                return;
-        strscpyl(filename, sizeof(filename), "/run/udev/tags/", tag, "/", id, NULL);
+int udev_device_tag_index(struct udev_device *udev_device, struct udev_device *udev_device_old, bool add) {
+        sd_device *device_old = NULL;
+        int r;
 
-        if (add) {
-                int fd;
+        assert(udev_device);
 
-                mkdir_parents(filename, 0755);
-                fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                if (fd >= 0)
-                        close(fd);
-        } else {
-                unlink(filename);
-        }
-}
+        if (udev_device_old)
+                device_old = udev_device_old->device;
 
-int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, bool add)
-{
-        struct udev_list_entry *list_entry;
-        bool found;
-
-        if (add && dev_old != NULL) {
-                /* delete possible left-over tags */
-                udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(dev_old)) {
-                        const char *tag_old = udev_list_entry_get_name(list_entry);
-                        struct udev_list_entry *list_entry_current;
-
-                        found = false;
-                        udev_list_entry_foreach(list_entry_current, udev_device_get_tags_list_entry(dev)) {
-                                const char *tag = udev_list_entry_get_name(list_entry_current);
-
-                                if (streq(tag, tag_old)) {
-                                        found = true;
-                                        break;
-                                }
-                        }
-                        if (!found)
-                                udev_device_tag(dev_old, tag_old, false);
-                }
-        }
-
-        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(dev))
-                udev_device_tag(dev, udev_list_entry_get_name(list_entry), add);
+        r = device_tag_index(udev_device->device, device_old, add);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
-static bool device_has_info(struct udev_device *udev_device)
-{
-        struct udev_list_entry *list_entry;
-
-        if (udev_device_get_devlinks_list_entry(udev_device) != NULL)
-                return true;
-        if (udev_device_get_devlink_priority(udev_device) != 0)
-                return true;
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
-                if (udev_list_entry_get_num(list_entry))
-                        return true;
-        if (udev_device_get_tags_list_entry(udev_device) != NULL)
-                return true;
-        if (udev_device_get_watch_handle(udev_device) >= 0)
-                return true;
-        return false;
-}
-
-int udev_device_update_db(struct udev_device *udev_device)
-{
-        bool has_info;
-        const char *id;
-        char filename[UTIL_PATH_SIZE];
-        char filename_tmp[UTIL_PATH_SIZE];
-        FILE *f;
+int udev_device_update_db(struct udev_device *udev_device) {
         int r;
 
-        id = udev_device_get_id_filename(udev_device);
-        if (id == NULL)
-                return -1;
+        assert(udev_device);
 
-        has_info = device_has_info(udev_device);
-        strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
+        r = device_update_db(udev_device->device);
+        if (r < 0)
+                return r;
 
-        /* do not store anything for otherwise empty devices */
-        if (!has_info &&
-            major(udev_device_get_devnum(udev_device)) == 0 &&
-            udev_device_get_ifindex(udev_device) == 0) {
-                unlink(filename);
+        return 0;
+}
+
+int udev_device_delete_db(struct udev_device *udev_device) {
+        int r;
+
+        assert(udev_device);
+
+        r = device_delete_db(udev_device->device);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int udev_device_get_ifindex(struct udev_device *udev_device) {
+        int r, ifindex;
+
+        assert(udev_device);
+
+        r = sd_device_get_ifindex(udev_device->device, &ifindex);
+        if (r < 0)
+                return r;
+
+        return ifindex;
+}
+
+const char *udev_device_get_devpath_old(struct udev_device *udev_device) {
+        const char *devpath_old = NULL;
+        int r;
+
+        assert(udev_device);
+
+        r = sd_device_get_property_value(udev_device->device, "DEVPATH_OLD", &devpath_old);
+        if (r < 0 && r != -ENOENT) {
+                errno = -r;
+                return NULL;
+        }
+
+        return devpath_old;
+}
+
+mode_t udev_device_get_devnode_mode(struct udev_device *udev_device) {
+        mode_t mode;
+        int r;
+
+        assert(udev_device);
+
+        r = device_get_devnode_mode(udev_device->device, &mode);
+        if (r < 0) {
+                errno = -r;
                 return 0;
         }
 
-        /* write a database file */
-        strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
-        mkdir_parents(filename_tmp, 0755);
-        f = fopen(filename_tmp, "we");
-        if (f == NULL)
-                return log_debug_errno(errno, "unable to create temporary db file '%s': %m", filename_tmp);
+        return mode;
+}
 
-        /*
-         * set 'sticky' bit to indicate that we should not clean the
-         * database when we transition from initramfs to the real root
-         */
-        if (udev_device_get_db_persist(udev_device))
-                fchmod(fileno(f), 01644);
+uid_t udev_device_get_devnode_uid(struct udev_device *udev_device) {
+        uid_t uid;
+        int r;
 
-        if (has_info) {
-                struct udev_list_entry *list_entry;
+        assert(udev_device);
 
-                if (major(udev_device_get_devnum(udev_device)) > 0) {
-                        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
-                                fprintf(f, "S:%s\n", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
-                        if (udev_device_get_devlink_priority(udev_device) != 0)
-                                fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
-                        if (udev_device_get_watch_handle(udev_device) >= 0)
-                                fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
-                }
-
-                if (udev_device_get_usec_initialized(udev_device) > 0)
-                        fprintf(f, "I:"USEC_FMT"\n", udev_device_get_usec_initialized(udev_device));
-
-                udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-                        if (!udev_list_entry_get_num(list_entry))
-                                continue;
-                        fprintf(f, "E:%s=%s\n",
-                                udev_list_entry_get_name(list_entry),
-                                udev_list_entry_get_value(list_entry));
-                }
-
-                udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
-                        fprintf(f, "G:%s\n", udev_list_entry_get_name(list_entry));
+        r = device_get_devnode_uid(udev_device->device, &uid);
+        if (r < 0) {
+                errno = -r;
+                return 0;
         }
 
-        fclose(f);
-        r = rename(filename_tmp, filename);
+        return uid;
+}
+
+gid_t udev_device_get_devnode_gid(struct udev_device *udev_device) {
+        gid_t gid;
+        int r;
+
+        assert(udev_device);
+
+        r = device_get_devnode_gid(udev_device->device, &gid);
+        if (r < 0) {
+                errno = -r;
+                return 0;
+        }
+
+        return gid;
+}
+
+void udev_device_ensure_usec_initialized(struct udev_device *udev_device, struct udev_device *udev_device_old) {
+        sd_device *device_old = NULL;
+
+        assert(udev_device);
+
+        if (udev_device_old)
+                device_old = udev_device_old->device;
+
+        device_ensure_usec_initialized(udev_device->device, device_old);
+}
+
+char **udev_device_get_properties_envp(struct udev_device *udev_device) {
+        char **envp;
+        int r;
+
+        assert(udev_device);
+
+        r = device_get_properties_strv(udev_device->device, &envp);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        return envp;
+}
+
+ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf) {
+        const char *nulstr;
+        size_t len;
+        int r;
+
+        assert(udev_device);
+        assert(buf);
+
+        r = device_get_properties_nulstr(udev_device->device, (const uint8_t **)&nulstr, &len);
         if (r < 0)
-                return -1;
-        log_debug("created %s file '%s' for '%s'", has_info ? "db" : "empty",
-             filename, udev_device_get_devpath(udev_device));
+                return r;
+
+        *buf = nulstr;
+
+        return len;
+}
+
+int udev_device_get_devlink_priority(struct udev_device *udev_device) {
+        int priority, r;
+
+        assert(udev_device);
+
+        r = device_get_devlink_priority(udev_device->device, &priority);
+        if (r < 0)
+                return r;
+
+        return priority;
+}
+
+int udev_device_get_watch_handle(struct udev_device *udev_device) {
+        int handle, r;
+
+        assert(udev_device);
+
+        r = device_get_watch_handle(udev_device->device, &handle);
+        if (r < 0)
+                return r;
+
+        return handle;
+}
+
+void udev_device_set_is_initialized(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_set_is_initialized(udev_device->device);
+}
+
+int udev_device_rename(struct udev_device *udev_device, const char *name) {
+        int r;
+
+        assert(udev_device);
+
+        r = device_rename(udev_device->device, name);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
-int udev_device_delete_db(struct udev_device *udev_device)
-{
-        const char *id;
-        char filename[UTIL_PATH_SIZE];
+struct udev_device *udev_device_shallow_clone(struct udev_device *old_device) {
+        struct udev_device *device;
+        int r;
 
-        id = udev_device_get_id_filename(udev_device);
-        if (id == NULL)
-                return -1;
-        strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
+        assert(old_device);
 
-        unlink(filename);
+        device = udev_device_new(old_device->udev);
+        if (!device)
+                return NULL;
+
+        r = device_shallow_clone(old_device->device, &device->device);
+        if (r < 0) {
+                udev_device_unref(device);
+                errno = -r;
+                return NULL;
+        }
+
+        return device;
+}
+
+struct udev_device *udev_device_clone_with_db(struct udev_device *udev_device_old) {
+        struct udev_device *udev_device;
+        int r;
+
+        assert(udev_device_old);
+
+        udev_device = udev_device_new(udev_device_old->udev);
+        if (!udev_device)
+                return NULL;
+
+        r = device_clone_with_db(udev_device_old->device, &udev_device->device);
+        if (r < 0) {
+                udev_device_unref(udev_device);
+                errno = -r;
+                return NULL;
+        }
+
+        return udev_device;
+}
+
+struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
+        struct udev_device *device;
+        int r;
+
+        device = udev_device_new(udev);
+        if (!device)
+                return NULL;
+
+        r = device_new_from_nulstr(&device->device, (uint8_t*)nulstr, buflen);
+        if (r < 0) {
+                udev_device_unref(device);
+                errno = -r;
+                return NULL;
+        }
+
+        return device;
+}
+
+struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action) {
+        struct udev_device *device;
+        int r;
+
+        device = udev_device_new(udev);
+        if (!device)
+                return NULL;
+
+        r = device_new_from_synthetic_event(&device->device, syspath, action);
+        if (r < 0) {
+                udev_device_unref(device);
+                errno = -r;
+                return NULL;
+        }
+
+        return device;
+}
+
+int udev_device_copy_properties(struct udev_device *udev_device_dst, struct udev_device *udev_device_src) {
+        int r;
+
+        assert(udev_device_dst);
+        assert(udev_device_src);
+
+        r = device_copy_properties(udev_device_dst->device, udev_device_src->device);
+        if (r < 0)
+                return r;
+
         return 0;
+}
+
+const char *udev_device_get_id_filename(struct udev_device *udev_device) {
+        const char *filename;
+        int r;
+
+        assert(udev_device);
+
+        r = device_get_id_filename(udev_device->device, &filename);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        return filename;
+}
+
+int udev_device_set_watch_handle(struct udev_device *udev_device, int handle) {
+
+        assert(udev_device);
+
+        device_set_watch_handle(udev_device->device, handle);
+
+        return 0;
+}
+
+void udev_device_set_db_persist(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_set_db_persist(udev_device->device);
+}
+
+int udev_device_set_devlink_priority(struct udev_device *udev_device, int priority) {
+        assert(udev_device);
+
+        device_set_devlink_priority(udev_device->device, priority);
+
+        return 0;
+}
+
+int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink) {
+        int r;
+
+        assert(udev_device);
+
+        r = device_add_devlink(udev_device->device, devlink);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int udev_device_add_property(struct udev_device *udev_device, const char *property, const char *value) {
+        int r;
+
+        assert(udev_device);
+
+        r = device_add_property(udev_device->device, property, value);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int udev_device_add_tag(struct udev_device *udev_device, const char *tag) {
+        int r;
+
+        assert(udev_device);
+
+        r = device_add_tag(udev_device->device, tag);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+void udev_device_remove_tag(struct udev_device *udev_device, const char *tag) {
+        assert(udev_device);
+
+        device_remove_tag(udev_device->device, tag);
+}
+
+void udev_device_cleanup_tags_list(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_cleanup_tags(udev_device->device);
+}
+
+void udev_device_cleanup_devlinks_list(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_cleanup_devlinks(udev_device->device);
+}
+
+void udev_device_set_info_loaded(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_seal(udev_device->device);
 }
