@@ -29,14 +29,14 @@
 #include <sys/stat.h>
 
 #include "sd-bus.h"
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "util.h"
 #include "special.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "bus-common-errors.h"
-#include "udev-util.h"
+#include "device-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "fsckd/fsckd.h"
@@ -199,8 +199,7 @@ int main(int argc, char *argv[]) {
         pid_t pid;
         int progress_rc;
         siginfo_t status;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
+        _cleanup_device_unref_ sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
         _cleanup_close_pair_ int progress_pipe[2] = { -1, -1 };
@@ -229,12 +228,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        udev = udev_new();
-        if (!udev) {
-                r = log_oom();
-                goto finish;
-        }
-
         if (argc > 1) {
                 device = argv[1];
                 root_directory = false;
@@ -244,9 +237,9 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-                if (!udev_device) {
-                        r = log_error_errno(errno, "Failed to detect device %s", device);
+                r = sd_device_new_from_devnum(&dev, 'b', st.st_rdev);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to detect device %s: %m", device);
                         goto finish;
                 }
         } else {
@@ -275,15 +268,15 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
-                if (!udev_device) {
-                        r = log_error_errno(errno, "Failed to detect root device.");
+                r = sd_device_new_from_devnum(&dev, 'b', st.st_dev);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to detect root device: %m");
                         goto finish;
                 }
 
-                device = udev_device_get_devnode(udev_device);
-                if (!device) {
-                        log_error("Failed to detect device node of root directory.");
+                r = sd_device_get_devname(dev, &device);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to detect device node of root directory: %m");
                         r = -ENXIO;
                         goto finish;
                 }
@@ -291,8 +284,8 @@ int main(int argc, char *argv[]) {
                 root_directory = true;
         }
 
-        type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
-        if (type) {
+        r = sd_device_get_property_value(dev, "ID_FS_TYPE", &type);
+        if (r >= 0) {
                 r = fsck_exists(type);
                 if (r == -ENOENT) {
                         log_info("fsck.%s doesn't exist, not checking file system on %s", type, device);
