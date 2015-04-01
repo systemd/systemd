@@ -248,7 +248,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%d", dev_port);
                 if (l == 0)
-                        names->pci_path[0] = '\0';
+                        names->pci_slot[0] = '\0';
         }
 out:
         udev_device_unref(pci);
