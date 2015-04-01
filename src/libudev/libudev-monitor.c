@@ -643,6 +643,8 @@ retry:
                         return NULL;
                 }
                 if (buf.nlh.properties_off+32 > (size_t)buflen) {
+                        log_debug("message smaller than expected (%u > %zd)",
+                                  buf.nlh.properties_off+32, buflen);
                         return NULL;
                 }
 
@@ -666,8 +668,10 @@ retry:
         }
 
         udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
-        if (!udev_device)
+        if (!udev_device) {
+                log_debug("could not create device: %m");
                 return NULL;
+        }
 
         if (is_initialized)
                 udev_device_set_is_initialized(udev_device);
@@ -712,8 +716,10 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         uint64_t tag_bloom_bits;
 
         blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
-        if (blen < 32)
+        if (blen < 32) {
+                log_debug("device buffer is too small to contain a valid device");
                 return -EINVAL;
+        }
 
         /* fill in versioned header */
         val = udev_device_get_subsystem(udev_device);
