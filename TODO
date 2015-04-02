@@ -44,6 +44,12 @@ Before 220:
 
 Features:
 
+* .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
+
+* rm_rf() should be able to remove subvolumes
+
+* systemd-run should support a mode where we wait for the unit to be started up
+
 * create a btrfs qgroup for /var/lib/machines, and add all container
   subvolumes we create to it.
 
