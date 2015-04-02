@@ -143,10 +143,8 @@ void log_sample(int sample, struct list_sample_data **ptr) {
         if (vmstat < 0) {
                 /* block stuff */
                 vmstat = openat(procfd, "vmstat", O_RDONLY);
-                if (vmstat == -1) {
-                        log_error_errno(errno, "Failed to open /proc/vmstat: %m");
-                        exit(EXIT_FAILURE);
-                }
+                if (vmstat == -1)
+                        return log_error_errno(errno, "Failed to open /proc/vmstat: %m");
         }
 
         n = pread(vmstat, buf, sizeof(buf) - 1, 0);

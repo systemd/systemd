@@ -135,31 +135,30 @@ static void parse_conf(void) {
 }
 
 static void help(void) {
-        fprintf(stdout,
-                "Usage: %s [OPTIONS]\n\n"
-                "Options:\n"
-                "  -r, --rel             Record time relative to recording\n"
-                "  -f, --freq=FREQ       Sample frequency [%g]\n"
-                "  -n, --samples=N       Stop sampling at [%d] samples\n"
-                "  -x, --scale-x=N       Scale the graph horizontally [%g] \n"
-                "  -y, --scale-y=N       Scale the graph vertically [%g] \n"
-                "  -p, --pss             Enable PSS graph (CPU intensive)\n"
-                "  -e, --entropy         Enable the entropy_avail graph\n"
-                "  -o, --output=PATH     Path to output files [%s]\n"
-                "  -i, --init=PATH       Path to init executable [%s]\n"
-                "  -F, --no-filter       Disable filtering of unimportant or ephemeral processes\n"
-                "  -C, --cmdline         Display full command lines with arguments\n"
-                "  -c, --control-group   Display process control group\n"
-                "      --per-cpu         Draw each CPU utilization and wait bar also\n"
-                "  -h, --help            Display this message\n\n"
-                "See bootchart.conf for more information.\n",
-                program_invocation_short_name,
-                DEFAULT_HZ,
-                DEFAULT_SAMPLES_LEN,
-                DEFAULT_SCALE_X,
-                DEFAULT_SCALE_Y,
-                DEFAULT_OUTPUT,
-                DEFAULT_INIT);
+        printf("Usage: %s [OPTIONS]\n\n"
+               "Options:\n"
+               "  -r --rel             Record time relative to recording\n"
+               "  -f --freq=FREQ       Sample frequency [%g]\n"
+               "  -n --samples=N       Stop sampling at [%d] samples\n"
+               "  -x --scale-x=N       Scale the graph horizontally [%g] \n"
+               "  -y --scale-y=N       Scale the graph vertically [%g] \n"
+               "  -p --pss             Enable PSS graph (CPU intensive)\n"
+               "  -e --entropy         Enable the entropy_avail graph\n"
+               "  -o --output=PATH     Path to output files [%s]\n"
+               "  -i --init=PATH       Path to init executable [%s]\n"
+               "  -F --no-filter       Disable filtering of unimportant or ephemeral processes\n"
+               "  -C --cmdline         Display full command lines with arguments\n"
+               "  -c --control-group   Display process control group\n"
+               "     --per-cpu         Draw each CPU utilization and wait bar also\n"
+               "  -h --help            Display this message\n\n"
+               "See bootchart.conf for more information.\n",
+               program_invocation_short_name,
+               DEFAULT_HZ,
+               DEFAULT_SAMPLES_LEN,
+               DEFAULT_SCALE_X,
+               DEFAULT_SCALE_Y,
+               DEFAULT_OUTPUT,
+               DEFAULT_INIT);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -365,10 +364,9 @@ int main(int argc, char *argv[]) {
         log_uptime();
 
         if (graph_start < 0.0) {
-                fprintf(stderr,
-                        "Failed to setup graph start time.\n\nThe system uptime "
-                        "probably includes time that the system was suspended. "
-                        "Use --rel to bypass this issue.\n");
+                log_error("Failed to setup graph start time.\n\n"
+                          "The system uptime probably includes time that the system was suspended. "
+                          "Use --rel to bypass this issue.");
                 exit (EXIT_FAILURE);
         }
 
@@ -514,7 +512,7 @@ int main(int argc, char *argv[]) {
         free(sampledata);
         /* don't complain when overrun once, happens most commonly on 1st sample */
         if (overrun > 1)
-                fprintf(stderr, "systemd-boochart: Warning: sample time overrun %i times\n", overrun);
+                log_warning("systemd-boochart: sample time overrun %i times\n", overrun);
 
         return 0;
 }

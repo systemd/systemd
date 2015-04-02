@@ -186,7 +186,7 @@ static void svg_title(const char *build) {
                 f = fdopen(fd, "r");
                 if (f) {
                         if (!fgets(model, 255, f))
-                                fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
+                                log_error("Error reading disk model for %s: %m\n", rootbdev);
                         fclose(f);
                 } else {
                         if (fd >= 0)
@@ -196,7 +196,7 @@ static void svg_title(const char *build) {
 
         /* various utsname parameters */
         if (uname(&uts))
-                fprintf(stderr, "Error getting uname info\n");
+                log_error("Error getting uname info\n");
 
         /* date */
         t = time(NULL);
