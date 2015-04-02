@@ -85,8 +85,6 @@ char arg_init_path[PATH_MAX] = DEFAULT_INIT;
 char arg_output_path[PATH_MAX] = DEFAULT_OUTPUT;
 
 static void signal_handler(int sig) {
-        if (sig++)
-                sig--;
         exiting = 1;
 }
 
@@ -253,43 +251,41 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void do_journal_append(char *file) {
+static int do_journal_append(char *file) {
+        _cleanup_free_ char *bootchart_message = NULL;
+        _cleanup_free_ char *bootchart_file = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
         struct iovec iovec[5];
         int r, j = 0;
         ssize_t n;
-        _cleanup_free_ char *bootchart_file = NULL, *bootchart_message = NULL,
-                *p = NULL;
-        _cleanup_close_ int fd = -1;
 
         bootchart_file = strappend("BOOTCHART_FILE=", file);
-        if (bootchart_file)
-                IOVEC_SET_STRING(iovec[j++], bootchart_file);
+        if (!bootchart_file)
+                return log_oom();
 
+        IOVEC_SET_STRING(iovec[j++], bootchart_file);
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=9f26aa562cf440c2b16c773d0479b518");
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=7");
         bootchart_message = strjoin("MESSAGE=Bootchart created: ", file, NULL);
-        if (bootchart_message)
-                IOVEC_SET_STRING(iovec[j++], bootchart_message);
+        if (!bootchart_message)
+                return log_oom();
 
-        p = malloc(9 + BOOTCHART_MAX);
-        if (!p) {
-                log_oom();
-                return;
-        }
+        IOVEC_SET_STRING(iovec[j++], bootchart_message);
+
+        p = malloc(10 + BOOTCHART_MAX);
+        if (!p)
+                return log_oom();
 
         memcpy(p, "BOOTCHART=", 10);
 
         fd = open(file, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_error_errno(errno, "Failed to open bootchart data \"%s\": %m", file);
-                return;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open bootchart data \"%s\": %m", file);
 
         n = loop_read(fd, p + 10, BOOTCHART_MAX, false);
-        if (n < 0) {
-                log_error_errno(n, "Failed to read bootchart data: %m");
-                return;
-        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to read bootchart data: %m");
 
         iovec[j].iov_base = p;
         iovec[j].iov_len = 10 + n;
@@ -298,32 +294,33 @@ static void do_journal_append(char *file) {
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
                 log_error_errno(r, "Failed to send bootchart: %m");
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *build = NULL;
-        _cleanup_close_ int sysfd = -1;
+        static struct list_sample_data *sampledata;
         _cleanup_closedir_ DIR *proc = NULL;
+        _cleanup_free_ char *build = NULL;
         _cleanup_fclose_ FILE *of = NULL;
+        _cleanup_close_ int sysfd = -1;
+        struct ps_struct *ps_first;
         double graph_start;
         double log_start;
         double interval;
-        struct ps_struct *ps_first;
-        struct sigaction sig = {
-                .sa_handler = signal_handler,
-        };
-        struct ps_struct *ps;
         char output_file[PATH_MAX];
         char datestr[200];
-        time_t t = 0;
-        int r;
         int pscount = 0;
         int n_cpus = 0;
         int overrun = 0;
-        int samples;
+        time_t t = 0;
+        int r, samples;
+        struct ps_struct *ps;
         struct rlimit rlim;
         struct list_sample_data *head;
-        static struct list_sample_data *sampledata;
+        struct sigaction sig = {
+                .sa_handler = signal_handler,
+        };
 
         parse_conf();
 
@@ -464,12 +461,12 @@ int main(int argc, char *argv[]) {
         ps = ps_first;
         while (ps->next_ps) {
                 ps = ps->next_ps;
-                if (ps->schedstat >= 0)
-                        close(ps->schedstat);
-                if (ps->sched >= 0)
-                        close(ps->sched);
-                if (ps->smaps)
+                ps->schedstat = safe_close(ps->schedstat);
+                ps->sched = safe_close(ps->sched);
+                if (ps->smaps) {
                         fclose(ps->smaps);
+                        ps->smaps = NULL;
+                }
         }
 
         if (!of) {
@@ -486,17 +483,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = svg_do(of,
-                   strna(build),
-                   head,
-                   ps_first,
-                   samples,
-                   pscount,
-                   n_cpus,
-                   graph_start,
-                   log_start,
-                   interval,
-                   overrun);
+        r = svg_do(of, strna(build), head, ps_first,
+                   samples, pscount, n_cpus, graph_start,
+                   log_start, interval, overrun);
 
         if (r < 0) {
                 log_error_errno(r, "Error generating svg file: %m\n");
@@ -505,7 +494,9 @@ int main(int argc, char *argv[]) {
 
         log_info("systemd-bootchart wrote %s\n", output_file);
 
-        do_journal_append(output_file);
+        r = do_journal_append(output_file);
+        if (r < 0)
+                return EXIT_FAILURE;
 
         /* nitpic cleanups */
         ps = ps_first->next_ps;
@@ -525,6 +516,7 @@ int main(int argc, char *argv[]) {
                 free(old->sample);
                 free(old);
         }
+
         free(ps->cgroup);
         free(ps->sample);
         free(ps);
@@ -536,6 +528,7 @@ int main(int argc, char *argv[]) {
                 free(old_sampledata);
         }
         free(sampledata);
+
         /* don't complain when overrun once, happens most commonly on 1st sample */
         if (overrun > 1)
                 log_warning("systemd-boochart: sample time overrun %i times\n", overrun);

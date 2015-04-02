@@ -63,16 +63,17 @@ static char *bufgetline(char *buf) {
         c = strchr(buf, '\n');
         if (c)
                 c++;
+
         return c;
 }
 
 static int pid_cmdline_strscpy(int procfd, char *buffer, size_t buf_len, int pid) {
         char filename[PATH_MAX];
-        _cleanup_close_ int fd=-1;
+        _cleanup_close_ int fd = -1;
         ssize_t n;
 
         sprintf(filename, "%d/cmdline", pid);
-        fd = openat(procfd, filename, O_RDONLY);
+        fd = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -84,6 +85,7 @@ static int pid_cmdline_strscpy(int procfd, char *buffer, size_t buf_len, int pid
                                 buffer[i] = ' ';
                 buffer[n] = '\0';
         }
+
         return 0;
 }
 
@@ -122,8 +124,8 @@ int log_sample(DIR *proc,
 
         if (vmstat < 0) {
                 /* block stuff */
-                vmstat = openat(procfd, "vmstat", O_RDONLY);
-                if (vmstat == -1)
+                vmstat = openat(procfd, "vmstat", O_RDONLY|O_CLOEXEC);
+                if (vmstat < 0)
                         return log_error_errno(errno, "Failed to open /proc/vmstat: %m");
         }
 
@@ -134,6 +136,7 @@ int log_sample(DIR *proc,
                         return -errno;
                 return -ENODATA;
         }
+
         buf[n] = '\0';
 
         m = buf;
@@ -154,8 +157,8 @@ vmstat_next:
 
         if (schedstat < 0) {
                 /* overall CPU utilization */
-                schedstat = openat(procfd, "schedstat", O_RDONLY);
-                if (schedstat == -1)
+                schedstat = openat(procfd, "schedstat", O_RDONLY|O_CLOEXEC);
+                if (schedstat < 0)
                         return log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
         }
 
@@ -166,6 +169,7 @@ vmstat_next:
                         return -errno;
                 return -ENODATA;
         }
+
         buf[n] = '\0';
 
         m = buf;
@@ -194,15 +198,14 @@ schedstat_next:
 
         if (arg_entropy) {
                 if (e_fd < 0) {
-                        e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY);
-                        if (e_fd == -1)
+                        e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY|O_CLOEXEC);
+                        if (e_fd < 0)
                                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/random/entropy_avail: %m");
                 }
 
                 n = pread(e_fd, buf, sizeof(buf) - 1, 0);
                 if (n <= 0) {
-                        close(e_fd);
-                        e_fd = -1;
+                        e_fd = safe_close(e_fd);
                 } else {
                         buf[n] = '\0';
                         sampledata->entropy_avail = atoi(buf);
@@ -261,15 +264,14 @@ schedstat_next:
                         /* get name, start time */
                         if (ps->sched < 0) {
                                 sprintf(filename, "%d/sched", pid);
-                                ps->sched = openat(procfd, filename, O_RDONLY);
-                                if (ps->sched == -1)
+                                ps->sched = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
+                                if (ps->sched < 0)
                                         continue;
                         }
 
                         s = pread(ps->sched, buf, sizeof(buf) - 1, 0);
                         if (s <= 0) {
-                                close(ps->sched);
-                                ps->sched = -1;
+                                ps->sched = safe_close(ps->sched);
                                 continue;
                         }
                         buf[s] = '\0';
@@ -308,17 +310,19 @@ schedstat_next:
 
                         /* ppid */
                         sprintf(filename, "%d/stat", pid);
-                        fd = openat(procfd, filename, O_RDONLY);
-                        if (fd == -1)
+                        fd = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
+                        if (fd < 0)
                                 continue;
-                        st = fdopen(fd, "r");
+
+                        st = fdopen(fd, "re");
                         if (!st) {
                                 close(fd);
                                 continue;
                         }
-                        if (!fscanf(st, "%*s %*s %*s %i", &p)) {
+
+                        if (!fscanf(st, "%*s %*s %*s %i", &p))
                                 continue;
-                        }
+
                         ps->ppid = p;
 
                         /*
@@ -355,6 +359,7 @@ schedstat_next:
                                 children = parent->children;
                                 while (children->next)
                                         children = children->next;
+
                                 children->next = ps;
                         }
                 }
@@ -367,23 +372,20 @@ schedstat_next:
                 /* rt, wt */
                 if (ps->schedstat < 0) {
                         sprintf(filename, "%d/schedstat", pid);
-                        ps->schedstat = openat(procfd, filename, O_RDONLY);
-                        if (ps->schedstat == -1)
+                        ps->schedstat = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
+                        if (ps->schedstat < 0)
                                 continue;
                 }
+
                 s = pread(ps->schedstat, buf, sizeof(buf) - 1, 0);
                 if (s <= 0) {
                         /* clean up our file descriptors - assume that the process exited */
                         close(ps->schedstat);
                         ps->schedstat = -1;
-                        if (ps->sched) {
-                                close(ps->sched);
-                                ps->sched = -1;
-                        }
-                        //if (ps->smaps)
-                        //        fclose(ps->smaps);
+                        ps->sched = safe_close(ps->sched);
                         continue;
                 }
+
                 buf[s] = '\0';
 
                 if (!sscanf(buf, "%s %s %*s", rt, wt))
@@ -400,9 +402,9 @@ schedstat_next:
                 ps->sample->waittime = atoll(wt);
                 ps->sample->sampledata = sampledata;
                 ps->sample->ps_new = ps;
-                if (ps_prev) {
+                if (ps_prev)
                         ps_prev->cross = ps->sample;
-                }
+
                 ps_prev = ps->sample;
                 ps->total = (ps->last->runtime - ps->first->runtime)
                             / 1000000000.0;
@@ -413,19 +415,19 @@ schedstat_next:
                 /* Pss */
                 if (!ps->smaps) {
                         sprintf(filename, "%d/smaps", pid);
-                        fd = openat(procfd, filename, O_RDONLY);
-                        if (fd == -1)
+                        fd = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
+                        if (fd < 0)
                                 continue;
-                        ps->smaps = fdopen(fd, "r");
+                        ps->smaps = fdopen(fd, "re");
                         if (!ps->smaps) {
                                 close(fd);
                                 continue;
                         }
                         setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
-                }
-                else {
+                } else {
                         rewind(ps->smaps);
                 }
+
                 /* test to see if we need to skip another field */
                 if (skip == 0) {
                         if (fgets(buf, sizeof(buf), ps->smaps) == NULL) {
@@ -442,6 +444,7 @@ schedstat_next:
                         }
                         rewind(ps->smaps);
                 }
+
                 while (1) {
                         int pss_kb;
 
@@ -462,6 +465,7 @@ schedstat_next:
                                        break;
                         }
                 }
+
                 if (ps->sample->pss > ps->pss_max)
                         ps->pss_max = ps->sample->pss;
 
@@ -474,23 +478,19 @@ catch_rename:
                         /* get name, start time */
                         if (!ps->sched) {
                                 sprintf(filename, "%d/sched", pid);
-                                ps->sched = openat(procfd, filename, O_RDONLY);
-                                if (ps->sched == -1)
+                                ps->sched = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
+                                if (ps->sched < 0)
                                         continue;
                         }
+
                         s = pread(ps->sched, buf, sizeof(buf) - 1, 0);
                         if (s <= 0) {
                                 /* clean up file descriptors */
-                                close(ps->sched);
-                                ps->sched = -1;
-                                if (ps->schedstat) {
-                                        close(ps->schedstat);
-                                        ps->schedstat = -1;
-                                }
-                                //if (ps->smaps)
-                                //        fclose(ps->smaps);
+                                ps->sched = safe_close(ps->sched);
+                                ps->schedstat = safe_close(ps->schedstat);
                                 continue;
                         }
+
                         buf[s] = '\0';
 
                         if (!sscanf(buf, "%s %*s %*s", key))
