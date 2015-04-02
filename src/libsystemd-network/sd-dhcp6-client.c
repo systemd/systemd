@@ -760,6 +760,14 @@ static int client_parse_message(sd_dhcp6_client *client,
                                 return r;
 
                         break;
+
+                case DHCP6_OPTION_DOMAIN_LIST:
+                        r = dhcp6_lease_set_domains(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 }
         }
 

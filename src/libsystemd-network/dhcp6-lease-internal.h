@@ -44,6 +44,8 @@ struct sd_dhcp6_lease {
         struct in6_addr *dns;
         size_t dns_count;
         size_t dns_allocated;
+        char **domains;
+        size_t domains_count;
 };
 
 int dhcp6_lease_clear_timers(DHCP6IA *ia);
@@ -61,6 +63,8 @@ int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *rapid_commit);
 int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen);
+int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
+                            size_t optlen);
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_lease*, sd_dhcp6_lease_unref);

@@ -34,6 +34,7 @@ int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease,
                                uint32_t *lifetime_valid);
 
 int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs);
+int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains);
 
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);

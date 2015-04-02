@@ -1,8 +1,10 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /***
   This file is part of systemd.
 
   Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +22,7 @@
 
 #include <errno.h>
 
+#include "strv.h"
 #include "util.h"
 
 #include "dhcp6-lease-internal.h"
@@ -209,6 +212,40 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs) {
         return -ENOENT;
 }
 
+int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
+                            size_t optlen) {
+        int r;
+        char **domains;
+
+        assert_return(lease, -EINVAL);
+        assert_return(optval, -EINVAL);
+
+        if (!optlen)
+                return 0;
+
+        r = dhcp6_option_parse_domainname(optval, optlen, &domains);
+        if (r < 0)
+                return 0;
+
+        free(lease->domains);
+        lease->domains = domains;
+        lease->domains_count = r;
+
+        return r;
+}
+
+int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains) {
+        assert_return(lease, -EINVAL);
+        assert_return(domains, -EINVAL);
+
+        if (lease->domains_count) {
+                *domains = lease->domains;
+                return lease->domains_count;
+        }
+
+        return -ENOENT;
+}
+
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease) {
         if (lease)
                 assert_se(REFCNT_INC(lease->n_ref) >= 2);
@@ -222,6 +259,9 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
                 dhcp6_lease_free_ia(&lease->ia);
 
                 free(lease->dns);
+
+                lease->domains = strv_free(lease->domains);
+
                 free(lease);
         }
 
