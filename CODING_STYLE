@@ -226,3 +226,9 @@
   instead of just this:
 
       unlink("/foo/bar/baz");
+
+- Don't invoke exit(), ever. It is not replacement for proper error
+  handling. Please escalate errors up your call chain, and use normal
+  "return" to exit from the main function of a process. If you
+  fork()ed off a child process, please use _exit() instead of exit(),
+  so that the exit handlers are not run.
