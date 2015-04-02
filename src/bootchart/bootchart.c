@@ -328,8 +328,11 @@ int main(int argc, char *argv[]) {
         parse_conf();
 
         r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        if (r < 0)
+                return EXIT_FAILURE;
+
+        if (r == 0)
+                return EXIT_SUCCESS;
 
         /*
          * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then
@@ -367,7 +370,7 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to setup graph start time.\n\n"
                           "The system uptime probably includes time that the system was suspended. "
                           "Use --rel to bypass this issue.");
-                exit (EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         has_procfs = access("/proc/vmstat", F_OK) == 0;
@@ -401,11 +404,14 @@ int main(int argc, char *argv[]) {
                                 parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &build, NULL);
                 }
 
-                if (has_procfs)
-                        log_sample(samples, &sampledata);
-                else
+                if (has_procfs) {
+                        r = log_sample(samples, &sampledata);
+                        if (r < 0)
+                                return EXIT_FAILURE;
+                } else {
                         /* wait for /proc to become available, discarding samples */
                         has_procfs = access("/proc/vmstat", F_OK) == 0;
+                }
 
                 sample_stop = gettime_ns();
 
@@ -432,7 +438,7 @@ int main(int argc, char *argv[]) {
                                         break;
                                 }
                                 log_error_errno(errno, "nanosleep() failed: %m");
-                                exit(EXIT_FAILURE);
+                                return EXIT_FAILURE;
                         }
                 } else {
                         overrun++;

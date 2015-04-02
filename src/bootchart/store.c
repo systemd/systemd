@@ -107,7 +107,7 @@ static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
         return 0;
 }
 
-void log_sample(int sample, struct list_sample_data **ptr) {
+int log_sample(int sample, struct list_sample_data **ptr) {
         static int vmstat = -1;
         static int schedstat = -1;
         char buf[4096];
@@ -134,7 +134,7 @@ void log_sample(int sample, struct list_sample_data **ptr) {
                 /* find all processes */
                 proc = opendir("/proc");
                 if (!proc)
-                        return;
+                        return -errno;
                 procfd = dirfd(proc);
         } else {
                 rewinddir(proc);
@@ -149,9 +149,10 @@ void log_sample(int sample, struct list_sample_data **ptr) {
 
         n = pread(vmstat, buf, sizeof(buf) - 1, 0);
         if (n <= 0) {
-                close(vmstat);
-                vmstat = -1;
-                return;
+                vmstat = safe_close(vmstat);
+                if (n < 0)
+                        return -errno;
+                return -ENODATA;
         }
         buf[n] = '\0';
 
@@ -174,17 +175,16 @@ vmstat_next:
         if (schedstat < 0) {
                 /* overall CPU utilization */
                 schedstat = openat(procfd, "schedstat", O_RDONLY);
-                if (schedstat == -1) {
-                        log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
-                        exit(EXIT_FAILURE);
-                }
+                if (schedstat == -1)
+                        return log_error_errno(errno, "Failed to open /proc/schedstat (requires CONFIG_SCHEDSTATS=y in kernel config): %m");
         }
 
         n = pread(schedstat, buf, sizeof(buf) - 1, 0);
         if (n <= 0) {
-                close(schedstat);
-                schedstat = -1;
-                return;
+                schedstat = safe_close(schedstat);
+                if (n < 0)
+                        return -errno;
+                return -ENODATA;
         }
         buf[n] = '\0';
 
@@ -215,10 +215,8 @@ schedstat_next:
         if (arg_entropy) {
                 if (e_fd < 0) {
                         e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY);
-                        if (e_fd == -1) {
-                                log_error_errno(errno, "Failed to open /proc/sys/kernel/random/entropy_avail: %m");
-                                exit(EXIT_FAILURE);
-                        }
+                        if (e_fd == -1)
+                                return log_error_errno(errno, "Failed to open /proc/sys/kernel/random/entropy_avail: %m");
                 }
 
                 n = pread(e_fd, buf, sizeof(buf) - 1, 0);
@@ -259,20 +257,18 @@ schedstat_next:
                         int r;
 
                         ps->next_ps = new0(struct ps_struct, 1);
-                        if (!ps->next_ps) {
-                                log_oom();
-                                exit (EXIT_FAILURE);
-                        }
+                        if (!ps->next_ps)
+                                return log_oom();
+
                         ps = ps->next_ps;
                         ps->pid = pid;
                         ps->sched = -1;
                         ps->schedstat = -1;
 
                         ps->sample = new0(struct ps_sched_struct, 1);
-                        if (!ps->sample) {
-                                log_oom();
-                                exit (EXIT_FAILURE);
-                        }
+                        if (!ps->sample)
+                                return log_oom();
+
                         ps->sample->sampledata = sampledata;
 
                         pscount++;
@@ -414,10 +410,9 @@ schedstat_next:
                         continue;
 
                 ps->sample->next = new0(struct ps_sched_struct, 1);
-                if (!ps->sample->next) {
-                        log_oom();
-                        exit(EXIT_FAILURE);
-                }
+                if (!ps->sample->next)
+                        return log_oom();
+
                 ps->sample->next->prev = ps->sample;
                 ps->sample = ps->sample->next;
                 ps->last = ps->sample;
@@ -528,4 +523,6 @@ catch_rename:
                                 pid_cmdline_strscpy(ps->name, sizeof(ps->name), pid);
                 }
         }
+
+        return 0;
 }
