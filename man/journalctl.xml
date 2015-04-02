@@ -817,11 +817,6 @@
 
     <programlisting>journalctl /usr/bin/dbus-daemon</programlisting>
 
-    <para>Show all logs of the kernel device node
-    <filename noindex='true'>/dev/sda</filename>:</para>
-
-    <programlisting>journalctl /dev/sda</programlisting>
-
     <para>Show all kernel logs from previous boot:</para>
 
     <programlisting>journalctl -k -b -1</programlisting>
