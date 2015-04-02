@@ -45,8 +45,6 @@
  */
 static char smaps_buf[4096];
 static int skip = 0;
-DIR *proc;
-int procfd = -1;
 
 double gettime_ns(void) {
         struct timespec n;
@@ -86,7 +84,7 @@ static char *bufgetline(char *buf) {
         return c;
 }
 
-static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
+static int pid_cmdline_strscpy(int procfd, char *buffer, size_t buf_len, int pid) {
         char filename[PATH_MAX];
         _cleanup_close_ int fd=-1;
         ssize_t n;
@@ -107,7 +105,7 @@ static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
         return 0;
 }
 
-int log_sample(int sample, struct list_sample_data **ptr) {
+int log_sample(DIR *proc, int sample, struct list_sample_data **ptr) {
         static int vmstat = -1;
         static int schedstat = -1;
         char buf[4096];
@@ -126,19 +124,13 @@ int log_sample(int sample, struct list_sample_data **ptr) {
         int fd;
         struct list_sample_data *sampledata;
         struct ps_sched_struct *ps_prev = NULL;
+        int procfd;
 
         sampledata = *ptr;
 
-        /* all the per-process stuff goes here */
-        if (!proc) {
-                /* find all processes */
-                proc = opendir("/proc");
-                if (!proc)
-                        return -errno;
-                procfd = dirfd(proc);
-        } else {
-                rewinddir(proc);
-        }
+        procfd = dirfd(proc);
+        if (procfd < 0)
+                return -errno;
 
         if (vmstat < 0) {
                 /* block stuff */
@@ -301,7 +293,7 @@ schedstat_next:
 
                         /* cmdline */
                         if (arg_show_cmdline)
-                                pid_cmdline_strscpy(ps->name, sizeof(ps->name), pid);
+                                pid_cmdline_strscpy(procfd, ps->name, sizeof(ps->name), pid);
 
                         /* discard line 2 */
                         m = bufgetline(buf);
@@ -520,7 +512,7 @@ catch_rename:
 
                         /* cmdline */
                         if (arg_show_cmdline)
-                                pid_cmdline_strscpy(ps->name, sizeof(ps->name), pid);
+                                pid_cmdline_strscpy(procfd, ps->name, sizeof(ps->name), pid);
                 }
         }
 

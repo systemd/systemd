@@ -67,7 +67,6 @@ double interval;
 FILE *of = NULL;
 int overrun = 0;
 static int exiting = 0;
-int sysfd=-1;
 
 #define DEFAULT_SAMPLES_LEN 500
 #define DEFAULT_HZ 25.0
@@ -314,6 +313,8 @@ static void do_journal_append(char *file) {
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *build = NULL;
+        _cleanup_close_ int sysfd = -1;
+        _cleanup_closedir_ DIR *proc = NULL;
         struct sigaction sig = {
                 .sa_handler = signal_handler,
         };
@@ -323,7 +324,6 @@ int main(int argc, char *argv[]) {
         time_t t = 0;
         int r;
         struct rlimit rlim;
-        bool has_procfs = false;
 
         parse_conf();
 
@@ -373,8 +373,6 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        has_procfs = access("/proc/vmstat", F_OK) == 0;
-
         LIST_HEAD_INIT(head);
 
         /* main program loop */
@@ -404,13 +402,16 @@ int main(int argc, char *argv[]) {
                                 parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &build, NULL);
                 }
 
-                if (has_procfs) {
-                        r = log_sample(samples, &sampledata);
+                if (proc)
+                        rewinddir(proc);
+                else
+                        proc = opendir("/proc");
+
+                /* wait for /proc to become available, discarding samples */
+                if (proc) {
+                        r = log_sample(proc, samples, &sampledata);
                         if (r < 0)
                                 return EXIT_FAILURE;
-                } else {
-                        /* wait for /proc to become available, discarding samples */
-                        has_procfs = access("/proc/vmstat", F_OK) == 0;
                 }
 
                 sample_stop = gettime_ns();
@@ -470,22 +471,22 @@ int main(int argc, char *argv[]) {
         }
 
         if (!of) {
-                fprintf(stderr, "opening output file '%s': %m\n", output_file);
-                exit (EXIT_FAILURE);
+                log_error("Error opening output file '%s': %m\n", output_file);
+                return EXIT_FAILURE;
         }
 
-        svg_do(strna(build));
+        r = svg_do(strna(build));
+        if (r < 0) {
+                log_error_errno(r, "Error generating svg file: %m\n");
+                return EXIT_FAILURE;
+        }
 
-        fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
+        log_info("systemd-bootchart wrote %s\n", output_file);
 
         do_journal_append(output_file);
 
         if (of)
                 fclose(of);
-
-        closedir(proc);
-        if (sysfd >= 0)
-                close(sysfd);
 
         /* nitpic cleanups */
         ps = ps_first->next_ps;

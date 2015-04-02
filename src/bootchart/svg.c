@@ -31,6 +31,7 @@
 #include <fcntl.h>
 
 #include "util.h"
+#include "fileio.h"
 #include "macro.h"
 #include "store.h"
 #include "svg.h"
@@ -149,54 +150,47 @@ static void svg_header(void) {
         svg("    ]]>\n   </style>\n</defs>\n\n");
 }
 
-static void svg_title(const char *build) {
-        char cmdline[256] = "";
-        char filename[PATH_MAX];
-        char buf[256];
-        char rootbdev[16] = "Unknown";
-        char model[256] = "Unknown";
+static int svg_title(const char *build) {
+        _cleanup_free_ char *cmdline = NULL;
+        _cleanup_free_ char *model = NULL;
+        _cleanup_free_ char *buf = NULL;
         char date[256] = "Unknown";
-        char cpu[256] = "Unknown";
+        char *cpu;
         char *c;
-        FILE *f;
         time_t t;
-        int fd, r;
+        int r;
         struct utsname uts;
 
-        /* grab /proc/cmdline */
-        fd = openat(procfd, "cmdline", O_RDONLY);
-        f = fdopen(fd, "r");
-        if (f) {
-                if (!fgets(cmdline, 255, f))
-                        sprintf(cmdline, "Unknown");
-                fclose(f);
-        } else {
-                if (fd >= 0)
-                        close(fd);
+        r = read_one_line_file("/proc/cmdline", &cmdline);
+        if (r < 0) {
+                log_error_errno(r, "Unable to read cmdline: %m\n");
+                return r;
         }
 
         /* extract root fs so we can find disk model name in sysfs */
         /* FIXME: this works only in the simple case */
         c = strstr(cmdline, "root=/dev/");
         if (c) {
-                strncpy(rootbdev, &c[10], 3);
+                char rootbdev[4];
+                char filename[32];
+
+                strncpy(rootbdev, &c[10], sizeof(rootbdev) - 1);
                 rootbdev[3] = '\0';
-                sprintf(filename, "block/%s/device/model", rootbdev);
-                fd = openat(sysfd, filename, O_RDONLY);
-                f = fdopen(fd, "r");
-                if (f) {
-                        if (!fgets(model, 255, f))
-                                log_error("Error reading disk model for %s: %m\n", rootbdev);
-                        fclose(f);
-                } else {
-                        if (fd >= 0)
-                                close(fd);
+                snprintf(filename, sizeof(filename), "/sys/block/%s/device/model", rootbdev);
+
+                r = read_one_line_file(filename, &model);
+                if (r < 0) {
+                        log_error("Error reading disk model for %s: %m\n", rootbdev);
+                        return r;
                 }
         }
 
         /* various utsname parameters */
-        if (uname(&uts))
+        r = uname(&uts);
+        if (r < 0) {
                 log_error("Error getting uname info\n");
+                return -errno;
+        }
 
         /* date */
         t = time(NULL);
@@ -204,20 +198,22 @@ static void svg_title(const char *build) {
         assert_se(r > 0);
 
         /* CPU type */
-        fd = openat(procfd, "cpuinfo", O_RDONLY);
-        f = fdopen(fd, "r");
-        if (f) {
-                while (fgets(buf, 255, f)) {
-                        if (strstr(buf, "model name")) {
-                                strncpy(cpu, &buf[13], 255);
-                                break;
-                        }
-                }
-                fclose(f);
-        } else {
-                if (fd >= 0)
-                        close(fd);
+        r = read_full_file("/proc/cpuinfo", &buf, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Unable to read cpuinfo: %m\n");
+                return r;
         }
+
+        cpu = strstr(buf, "model name");
+        if (!cpu) {
+                log_error("Unable to read module name from cpuinfo.\n");
+                return -ENOENT;
+        }
+
+        cpu += 13;
+        c = strchr(cpu, '\n');
+        if (c)
+                *c = '\0';
 
         svg("<text class=\"t1\" x=\"0\" y=\"30\">Bootchart for %s - %s</text>\n",
             uts.nodename, date);
@@ -241,6 +237,8 @@ static void svg_title(const char *build) {
         svg("</text>\n");
         svg("<text class=\"sec\" x=\"20\" y=\"155\">Graph data: %.03f samples/sec, recorded %i total, dropped %i samples, %i processes, %i filtered</text>\n",
             arg_hz, arg_samples_len, overrun, pscount, pfiltered);
+
+        return 0;
 }
 
 static void svg_graph_box(int height) {
@@ -1273,10 +1271,10 @@ static void svg_top_ten_pss(void) {
                     top[n]->pid);
 }
 
-void svg_do(const char *build) {
+int svg_do(const char *build) {
         struct ps_struct *ps;
         double offset = 7;
-        int c;
+        int r, c;
 
         memzero(&str, sizeof(str));
 
@@ -1334,8 +1332,11 @@ void svg_do(const char *build) {
         svg("</g>\n\n");
 
         svg("<g transform=\"translate(10,  0)\">\n");
-        svg_title(build);
+        r = svg_title(build);
         svg("</g>\n\n");
+
+        if (r < 0)
+                return r;
 
         svg("<g transform=\"translate(10,200)\">\n");
         svg_top_ten_cpu();
@@ -1359,4 +1360,6 @@ void svg_do(const char *build) {
 
         /* svg footer */
         svg("\n</svg>\n");
+
+        return 0;
 }

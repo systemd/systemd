@@ -24,4 +24,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void svg_do(const char *build);
+int svg_do(const char *build);

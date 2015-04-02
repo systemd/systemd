@@ -132,4 +132,3 @@ extern char arg_output_path[PATH_MAX];
 extern char arg_init_path[PATH_MAX];
 
 extern FILE *of;
-extern int sysfd;
