@@ -173,6 +173,42 @@ void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
                 lease->addr_iter = lease->ia.addresses;
 }
 
+int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert_return(optval, -EINVAL);
+
+        if (!optlen)
+                return 0;
+
+        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns,
+                                        lease->dns_count,
+                                        &lease->dns_allocated);
+        if (r < 0) {
+                log_dhcp6_client(client, "Invalid DNS server option: %s",
+                                 strerror(-r));
+
+                return r;
+        }
+
+        lease->dns_count = r;
+
+        return 0;
+}
+
+int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs) {
+        assert_return(lease, -EINVAL);
+        assert_return(addrs, -EINVAL);
+
+        if (lease->dns_count) {
+                *addrs = lease->dns;
+                return lease->dns_count;
+        }
+
+        return -ENOENT;
+}
+
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease) {
         if (lease)
                 assert_se(REFCNT_INC(lease->n_ref) >= 2);
@@ -185,6 +221,7 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
                 free(lease->serverid);
                 dhcp6_lease_free_ia(&lease->ia);
 
+                free(lease->dns);
                 free(lease);
         }
 

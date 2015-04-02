@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -749,6 +749,13 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                 case DHCP6_OPTION_RAPID_COMMIT:
                         r = dhcp6_lease_set_rapid_commit(lease);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_DNS_SERVERS:
+                        r = dhcp6_lease_set_dns(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 
