@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -316,4 +316,22 @@ error:
         *buflen = 0;
 
         return r;
+}
+
+int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
+                                struct in6_addr **addrs, size_t count,
+                                size_t *allocated) {
+
+        if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
+                return -EINVAL;
+
+        if (!GREEDY_REALLOC(*addrs, *allocated,
+                            count * sizeof(struct in6_addr) + optlen))
+                return -ENOMEM;
+
+        memcpy(*addrs + count, optval, optlen);
+
+        count += optlen / sizeof(struct in6_addr);
+
+        return count;
 }
