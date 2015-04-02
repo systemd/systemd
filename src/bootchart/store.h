@@ -29,4 +29,9 @@
 
 double gettime_ns(void);
 void log_uptime(void);
-int log_sample(DIR *proc, int sample, struct list_sample_data **ptr);
+int log_sample(DIR *proc,
+               int sample,
+               struct ps_struct *ps_first,
+               struct list_sample_data **ptr,
+               int *pscount,
+               int *cpus);

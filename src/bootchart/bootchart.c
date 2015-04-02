@@ -58,14 +58,6 @@
 #include "bootchart.h"
 #include "list.h"
 
-double graph_start;
-double log_start;
-struct ps_struct *ps_first;
-int pscount;
-int cpus;
-double interval;
-FILE *of = NULL;
-int overrun = 0;
 static int exiting = 0;
 
 #define DEFAULT_SAMPLES_LEN 500
@@ -77,20 +69,17 @@ static int exiting = 0;
 
 /* graph defaults */
 bool arg_entropy = false;
-bool initcall = true;
+bool arg_initcall = true;
 bool arg_relative = false;
 bool arg_filter = true;
 bool arg_show_cmdline = false;
 bool arg_show_cgroup = false;
 bool arg_pss = false;
 bool arg_percpu = false;
-int samples;
 int arg_samples_len = DEFAULT_SAMPLES_LEN; /* we record len+1 (1 start sample) */
 double arg_hz = DEFAULT_HZ;
 double arg_scale_x = DEFAULT_SCALE_X;
 double arg_scale_y = DEFAULT_SCALE_Y;
-static struct list_sample_data *sampledata;
-struct list_sample_data *head;
 
 char arg_init_path[PATH_MAX] = DEFAULT_INIT;
 char arg_output_path[PATH_MAX] = DEFAULT_OUTPUT;
@@ -315,6 +304,11 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *build = NULL;
         _cleanup_close_ int sysfd = -1;
         _cleanup_closedir_ DIR *proc = NULL;
+        _cleanup_fclose_ FILE *of = NULL;
+        double graph_start;
+        double log_start;
+        double interval;
+        struct ps_struct *ps_first;
         struct sigaction sig = {
                 .sa_handler = signal_handler,
         };
@@ -323,7 +317,13 @@ int main(int argc, char *argv[]) {
         char datestr[200];
         time_t t = 0;
         int r;
+        int pscount = 0;
+        int n_cpus = 0;
+        int overrun = 0;
+        int samples;
         struct rlimit rlim;
+        struct list_sample_data *head;
+        static struct list_sample_data *sampledata;
 
         parse_conf();
 
@@ -364,7 +364,18 @@ int main(int argc, char *argv[]) {
 
         interval = (1.0 / arg_hz) * 1000000000.0;
 
-        log_uptime();
+        if (arg_relative)
+                graph_start = log_start = gettime_ns();
+        else {
+                struct timespec n;
+                double uptime;
+
+                clock_gettime(CLOCK_BOOTTIME, &n);
+                uptime = (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
+
+                log_start = gettime_ns();
+                graph_start = log_start - uptime;
+        }
 
         if (graph_start < 0.0) {
                 log_error("Failed to setup graph start time.\n\n"
@@ -409,7 +420,7 @@ int main(int argc, char *argv[]) {
 
                 /* wait for /proc to become available, discarding samples */
                 if (proc) {
-                        r = log_sample(proc, samples, &sampledata);
+                        r = log_sample(proc, samples, ps_first, &sampledata, &pscount, &n_cpus);
                         if (r < 0)
                                 return EXIT_FAILURE;
                 }
@@ -475,7 +486,18 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = svg_do(strna(build));
+        r = svg_do(of,
+                   strna(build),
+                   head,
+                   ps_first,
+                   samples,
+                   pscount,
+                   n_cpus,
+                   graph_start,
+                   log_start,
+                   interval,
+                   overrun);
+
         if (r < 0) {
                 log_error_errno(r, "Error generating svg file: %m\n");
                 return EXIT_FAILURE;
@@ -484,9 +506,6 @@ int main(int argc, char *argv[]) {
         log_info("systemd-bootchart wrote %s\n", output_file);
 
         do_journal_append(output_file);
-
-        if (of)
-                fclose(of);
 
         /* nitpic cleanups */
         ps = ps_first->next_ps;

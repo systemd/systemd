@@ -103,14 +103,6 @@ struct ps_struct {
         struct ps_sched_struct *sample;
 };
 
-extern int entropy_avail[];
-
-extern double graph_start;
-extern double log_start;
-extern double sampletime[];
-extern struct ps_struct *ps_first;
-extern struct block_stat_struct blockstat[];
-extern int pscount;
 extern bool arg_relative;
 extern bool arg_filter;
 extern bool arg_show_cmdline;
@@ -118,17 +110,11 @@ extern bool arg_show_cgroup;
 extern bool arg_pss;
 extern bool arg_entropy;
 extern bool arg_percpu;
-extern bool initcall;
-extern int samples;
-extern int cpus;
-extern int arg_samples_len;
+extern bool arg_initcall;
+extern int  arg_samples_len;
 extern double arg_hz;
 extern double arg_scale_x;
 extern double arg_scale_y;
-extern int overrun;
-extern double interval;
 
 extern char arg_output_path[PATH_MAX];
 extern char arg_init_path[PATH_MAX];
-
-extern FILE *of;

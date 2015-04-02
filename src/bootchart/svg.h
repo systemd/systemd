@@ -24,4 +24,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int svg_do(const char *build);
+int svg_do(FILE *of,
+           const char *build,
+           struct list_sample_data *head,
+           struct ps_struct *ps_first,
+           int n_samples,
+           int pscount,
+           int n_cpus,
+           double graph_start,
+           double log_start,
+           double interval,
+           int overrun);

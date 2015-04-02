@@ -54,24 +54,6 @@ double gettime_ns(void) {
         return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
 }
 
-static double gettime_up(void) {
-        struct timespec n;
-
-        clock_gettime(CLOCK_BOOTTIME, &n);
-        return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
-}
-
-void log_uptime(void) {
-        if (arg_relative)
-                graph_start = log_start = gettime_ns();
-        else {
-                double uptime = gettime_up();
-
-                log_start = gettime_ns();
-                graph_start = log_start - uptime;
-        }
-}
-
 static char *bufgetline(char *buf) {
         char *c;
 
@@ -105,7 +87,13 @@ static int pid_cmdline_strscpy(int procfd, char *buffer, size_t buf_len, int pid
         return 0;
 }
 
-int log_sample(DIR *proc, int sample, struct list_sample_data **ptr) {
+int log_sample(DIR *proc,
+               int sample,
+               struct ps_struct *ps_first,
+               struct list_sample_data **ptr,
+               int *pscount,
+               int *cpus) {
+
         static int vmstat = -1;
         static int schedstat = -1;
         char buf[4096];
@@ -195,8 +183,8 @@ vmstat_next:
                         sampledata->runtime[c] = atoll(rt);
                         sampledata->waittime[c] = atoll(wt);
 
-                        if (c == cpus)
-                                cpus = c + 1;
+                        if (c == *cpus)
+                                *cpus = c + 1;
                 }
 schedstat_next:
                 m = bufgetline(m);
@@ -263,7 +251,7 @@ schedstat_next:
 
                         ps->sample->sampledata = sampledata;
 
-                        pscount++;
+                        (*pscount)++;
 
                         /* mark our first sample */
                         ps->first = ps->last = ps->sample;
@@ -480,7 +468,7 @@ schedstat_next:
 catch_rename:
                 /* catch process rename, try to randomize time */
                 mod = (arg_hz < 4.0) ? 4.0 : (arg_hz / 4.0);
-                if (((samples - ps->pid) + pid) % (int)(mod) == 0) {
+                if (((sample - ps->pid) + pid) % (int)(mod) == 0) {
 
                         /* re-fetch name */
                         /* get name, start time */
