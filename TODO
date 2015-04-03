@@ -49,6 +49,12 @@ Before 220:
 
 Features:
 
+* Maybe add support for the equivalent of "ethtool advertise" to .link files?
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
+
+* fstab-generator should generate systemd-fsck-root.service when
+  running in the initrd, and operate on the right device.
+
 * the default stop timeout for units is not documented anywhere.
 
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
