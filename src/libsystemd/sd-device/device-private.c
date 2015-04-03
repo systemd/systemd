@@ -643,6 +643,9 @@ static int device_update_properties_bufs(sd_device *device) {
 
         assert(device);
 
+        if (!device->properties_buf_outdated)
+                return 0;
+
         FOREACH_DEVICE_PROPERTY(device, prop, val) {
                 size_t len = 0;
 
@@ -679,11 +682,9 @@ int device_get_properties_nulstr(sd_device *device, const uint8_t **nulstr, size
         assert(nulstr);
         assert(len);
 
-        if (device->properties_buf_outdated) {
-                r = device_update_properties_bufs(device);
-                if (r < 0)
-                        return r;
-        }
+        r = device_update_properties_bufs(device);
+        if (r < 0)
+                return r;
 
         *nulstr = device->properties_nulstr;
         *len = device->properties_nulstr_len;
