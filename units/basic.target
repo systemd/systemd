@@ -8,8 +8,10 @@
 [Unit]
 Description=Basic System
 Documentation=man:systemd.special(7)
-
 Requires=sysinit.target
-After=sysinit.target
 Wants=sockets.target timers.target paths.target slices.target
-After=sockets.target paths.target slices.target
+After=sysinit.target sockets.target paths.target slices.target
+
+# We support /var, /tmp, /var/tmp, being on NFS, but we don't pull in
+# remote-fs.target by default, hence explicitly pull /var in here.
+RequiresMountsFor=/var /tmp /var/tmp
