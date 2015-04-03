@@ -23,7 +23,7 @@ use strict;
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
 my $gdb                 = 0;
-my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";
+my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --track-origins=yes --quiet $udev_bin";
 my $udev_bin_gdb        = "gdb --args $udev_bin";
 my $udev_dev            = "test/dev";
 my $udev_run            = "test/run";
