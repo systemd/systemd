@@ -295,7 +295,7 @@
       <varlistentry>
         <term><varname>root=</varname></term>
         <term><varname>rootfstype=</varname></term>
-        <term><varname>rootfsflags=</varname></term>
+        <term><varname>rootflags=</varname></term>
         <term><varname>ro</varname></term>
         <term><varname>rw</varname></term>
 
