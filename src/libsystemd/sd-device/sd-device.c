@@ -930,7 +930,7 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
 
 static int device_set_sysname(sd_device *device) {
         _cleanup_free_ char *sysname = NULL;
-        const char *sysnum;
+        const char *sysnum = NULL;
         const char *pos;
         size_t len = 0;
 
