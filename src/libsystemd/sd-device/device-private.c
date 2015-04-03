@@ -419,32 +419,30 @@ static int device_ammend(sd_device *device, const char *key, const char *value) 
                 if (r < 0)
                         return log_debug_errno(r, "sd-device: could not set devgid to '%s': %m", value);
         } else if (streq(key, "DEVLINKS")) {
-                char *devlinks, *next;
+                const char *word, *state;
+                size_t l;
 
-                devlinks = strdupa(value);
+                FOREACH_WORD(word, l, value, state) {
+                        char *devlink;
 
-                while ((next = strchr(devlinks, ' '))) {
-                        next[0] = '\0';
+                        devlink = strndupa(word, l);
 
-                        r = device_add_devlink(device, devlinks);
+                        r = device_add_devlink(device, devlink);
                         if (r < 0)
-                                return log_debug_errno(r, "sd-device: could not add devlink '%s': %m", devlinks);
-
-                        devlinks = next + 1;
+                                return log_debug_errno(r, "sd-device: could not add devlink '%s': %m", devlink);
                 }
         } else if (streq(key, "TAGS")) {
-                char *tags, *next;
+                const char *word, *state;
+                size_t l;
 
-                tags = strdupa(value);
+                FOREACH_WORD_SEPARATOR(word, l, value, ":", state) {
+                        char *tag;
 
-                while ((next = strchr(tags, ':'))) {
-                        next[0] = '\0';
+                        tag = strndupa(word, l);
 
-                        r = device_add_tag(device, tags);
+                        r = device_add_tag(device, tag);
                         if (r < 0)
-                                return log_debug_errno(r, "sd-device: could not add tag '%s': %m", tags);
-
-                        tags = next + 1;
+                                return log_debug_errno(r, "sd-device: could not add tag '%s': %m", tag);
                 }
         } else {
                 r = device_add_property_internal(device, key, value);
