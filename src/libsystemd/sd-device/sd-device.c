@@ -1593,9 +1593,9 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
 }
 
 /* replaces the value if it already exists */
-static int device_add_sysattr_value(sd_device *device, const char *_key, const char *_value) {
+static int device_add_sysattr_value(sd_device *device, const char *_key, char *value) {
         _cleanup_free_ char *key = NULL;
-        _cleanup_free_ char *value = NULL;
+        _cleanup_free_ char *value_old = NULL;
         int r;
 
         assert(device);
@@ -1605,19 +1605,10 @@ static int device_add_sysattr_value(sd_device *device, const char *_key, const c
         if (r < 0)
                 return r;
 
-        value = hashmap_remove2(device->sysattr_values, _key, (void **)&key);
+        value_old = hashmap_remove2(device->sysattr_values, _key, (void **)&key);
         if (!key) {
                 key = strdup(_key);
                 if (!key)
-                        return -ENOMEM;
-        }
-
-        free(value);
-        value = NULL;
-
-        if (_value) {
-                value = strdup(_value);
-                if (!value)
                         return -ENOMEM;
         }
 
@@ -1626,7 +1617,6 @@ static int device_add_sysattr_value(sd_device *device, const char *_key, const c
                 return r;
 
         key = NULL;
-        value = NULL;
 
         return 0;
 }
@@ -1740,8 +1730,9 @@ static void device_remove_sysattr_value(sd_device *device, const char *_key) {
 
 /* set the attribute and save it in the cache. If a NULL value is passed the
  * attribute is cleared from the cache */
-_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *value) {
+_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *_value) {
         _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *value = NULL;
         const char *syspath;
         char *path;
         struct stat statbuf;
@@ -1752,7 +1743,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
 
-        if (!value) {
+        if (!_value) {
                 device_remove_sysattr_value(device, sysattr);
 
                 return 0;
@@ -1765,7 +1756,11 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         path = strjoina(syspath, "/", sysattr);
         r = lstat(path, &statbuf);
         if (r < 0) {
-                r = device_add_sysattr_value(device, sysattr, "");
+                value = strdup("");
+                if (!value)
+                        return -ENOMEM;
+
+                r = device_add_sysattr_value(device, sysattr, value);
                 if (r < 0)
                         return r;
 
@@ -1783,11 +1778,11 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         if ((statbuf.st_mode & S_IRUSR) == 0)
                 return -EACCES;
 
-        value_len = strlen(value);
+        value_len = strlen(_value);
 
         /* drop trailing newlines */
-        while (value_len > 0 && value[--value_len] == '\n')
-                value[value_len] = '\0';
+        while (value_len > 0 && _value[--value_len] == '\n')
+                _value[value_len] = '\0';
 
         /* value length is limited to 4k */
         if (value_len > 4096)
@@ -1796,6 +1791,10 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         fd = open(path, O_WRONLY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
+
+        value = strdup(_value);
+        if (!value)
+                return -ENOMEM;
 
         size = write(fd, value, value_len);
         if (size < 0)
@@ -1807,6 +1806,8 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
+
+        value = NULL;
 
         return 0;
 }
