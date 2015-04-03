@@ -527,6 +527,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--firmware-setup</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command,
+          indicate to the system's firmware to boot into setup
+          mode. Note that this is currently only supported on some EFI
+          systems and only if the system was booted in EFI
+          mode.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--plain</option></term>
 
         <listitem>

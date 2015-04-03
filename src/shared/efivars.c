@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "utf8.h"
+#include "virt.h"
 #include "efivars.h"
 
 #ifdef ENABLE_EFI
@@ -37,6 +38,7 @@
 #define MBR_TYPE_EFI_PARTITION_TABLE_HEADER 0x02
 #define END_DEVICE_PATH_TYPE                0x7f
 #define END_ENTIRE_DEVICE_PATH_SUBTYPE      0xff
+#define EFI_OS_INDICATIONS_BOOT_TO_FW_UI    0x0000000000000001
 
 struct boot_option {
         uint32_t attr;
@@ -91,6 +93,76 @@ int is_efi_secure_boot(void) {
 
 int is_efi_secure_boot_setup_mode(void) {
         return read_flag("SetupMode");
+}
+
+int efi_reboot_to_firmware_supported(void) {
+        int r;
+        size_t s;
+        uint64_t b;
+        _cleanup_free_ void *v = NULL;
+
+        if (!is_efi_boot() || detect_container(NULL) > 0)
+                return -EOPNOTSUPP;
+
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
+        if (r < 0)
+                return r;
+        else if (s != sizeof(uint64_t))
+                return -EINVAL;
+
+        b = *(uint64_t *)v;
+        b &= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+        return b > 0 ? 0 : -EOPNOTSUPP;
+}
+
+static int get_os_indications(uint64_t *os_indication) {
+        int r;
+        size_t s;
+        _cleanup_free_ void *v = NULL;
+
+        r = efi_reboot_to_firmware_supported();
+        if (r < 0)
+                return r;
+
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
+        if (r < 0)
+                return r;
+        else if (s != sizeof(uint64_t))
+                return -EINVAL;
+
+        *os_indication = *(uint64_t *)v;
+        return 0;
+}
+
+int efi_get_reboot_to_firmware(void) {
+        int r;
+        uint64_t b;
+
+        r = get_os_indications(&b);
+        if (r < 0)
+                return r;
+
+        return !!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI);
+}
+
+int efi_set_reboot_to_firmware(bool value) {
+        int r;
+        uint64_t b, b_new;
+
+        r = get_os_indications(&b);
+        if (r < 0)
+                return r;
+
+        if (value)
+                b_new = b | EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+        else
+                b_new = b & ~EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+
+        /* Avoid writing to efi vars store if we can due to firmware bugs. */
+        if (b != b_new)
+                return efi_set_variable(EFI_VENDOR_GLOBAL, "OsIndications", &b_new, sizeof(uint64_t));
+
+        return 0;
 }
 
 int efi_get_variable(

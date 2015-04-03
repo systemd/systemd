@@ -290,4 +290,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
+                <_description>Allow indication to the firmware to boot to setup interface</_description>
+                <_message>Authentication is required to indicate to the firmware to boot to setup interface.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

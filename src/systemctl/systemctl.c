@@ -68,6 +68,7 @@
 #include "bus-common-errors.h"
 #include "mkdir.h"
 #include "dropin.h"
+#include "efivars.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -132,6 +133,7 @@ static char *arg_host = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
+static bool arg_firmware_setup = false;
 
 static bool original_stdout_is_tty;
 
@@ -2926,6 +2928,12 @@ static int start_special(sd_bus *bus, char **args) {
         if (arg_force >= 2 && geteuid() != 0) {
                 log_error("Must be root.");
                 return -EPERM;
+        }
+
+        if (arg_firmware_setup) {
+                r = efi_set_reboot_to_firmware(true);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot indicate to EFI to boot into setup mode: %m");
         }
 
         if (a == ACTION_REBOOT && args[1]) {
@@ -5971,6 +5979,7 @@ static void systemctl_help(void) {
                "  -o --output=STRING  Change journal output mode (short, short-iso,\n"
                "                              short-precise, short-monotonic, verbose,\n"
                "                              export, json, json-pretty, json-sse, cat)\n"
+               "     --firmware-setup Tell the firmware to show the setup menu on next boot\n"
                "     --plain          Print unit dependencies as a list instead of a tree\n\n"
                "Unit Commands:\n"
                "  list-units [PATTERN...]         List loaded units\n"
@@ -6150,6 +6159,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_STATE,
                 ARG_JOB_MODE,
                 ARG_PRESET_MODE,
+                ARG_FIRMWARE_SETUP,
         };
 
         static const struct option options[] = {
@@ -6192,6 +6202,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "state",               required_argument, NULL, ARG_STATE               },
                 { "recursive",           no_argument,       NULL, 'r'                     },
                 { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
+                { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
                 {}
         };
 
@@ -6430,6 +6441,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_PLAIN:
                         arg_plain = true;
+                        break;
+
+                case ARG_FIRMWARE_SETUP:
+                        arg_firmware_setup = true;
                         break;
 
                 case ARG_STATE: {

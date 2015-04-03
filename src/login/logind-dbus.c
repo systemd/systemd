@@ -38,6 +38,7 @@
 #include "bus-common-errors.h"
 #include "udev-util.h"
 #include "selinux-util.h"
+#include "efivars.h"
 #include "logind.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
@@ -1850,6 +1851,104 @@ static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *u
                         error);
 }
 
+static int property_get_reboot_to_firmware_setup(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        r = efi_get_reboot_to_firmware();
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        return sd_bus_message_append(reply, "b", r > 0);
+}
+
+static int method_set_reboot_to_firmware_setup(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int b, r;
+        int interactive;
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "bb", &b, &interactive);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                                    interactive,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = efi_set_reboot_to_firmware(b);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_can_reboot_to_firmware_setup(
+                sd_bus *bus,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+        bool challenge;
+        const char *result;
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = efi_reboot_to_firmware_supported();
+        if (r == -EOPNOTSUPP)
+                return sd_bus_reply_method_return(message, "s", "na");
+        else if (r < 0)
+                return r;
+
+        r = bus_test_polkit(message,
+                            CAP_SYS_ADMIN,
+                            "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                            UID_INVALID,
+                            &challenge,
+                            error);
+        if (r < 0)
+                return r;
+
+        if (r > 0)
+                result = "yes";
+        else if (challenge)
+                result = "challenge";
+        else
+                result = "no";
+
+        return sd_bus_reply_method_return(message, "s", result);
+}
+
 static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *who, *why, *what, *mode;
@@ -1970,6 +2069,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillUserProcesses", "b", NULL, offsetof(Manager, kill_user_processes), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RebootToFirmwareSetup", "b", property_get_reboot_to_firmware_setup, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -2023,6 +2123,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("CanHibernate", NULL, "s", method_can_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHybridSleep", NULL, "s", method_can_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanRebootToFirmwareSetup", NULL, "s", method_can_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetRebootToFirmwareSetup", "bb", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("SessionNew", "so", 0),
         SD_BUS_SIGNAL("SessionRemoved", "so", 0),

@@ -92,7 +92,7 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --fail --ignore-dependencies --failed --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
-                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r'
+                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup'
                       [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --root'
         )
 
