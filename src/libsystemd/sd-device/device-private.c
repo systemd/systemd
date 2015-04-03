@@ -366,7 +366,7 @@ static int device_set_devgid(sd_device *device, const char *gid) {
         return 0;
 }
 
-static int device_ammend(sd_device *device, const char *key, const char *value) {
+static int device_amend(sd_device *device, const char *key, const char *value) {
         int r;
 
         assert(device);
@@ -507,7 +507,7 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
                                 return -EINVAL;
                 }
 
-                r = device_ammend(device, key, value);
+                r = device_amend(device, key, value);
                 if (r < 0)
                         return r;
         }

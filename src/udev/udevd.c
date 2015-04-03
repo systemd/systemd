@@ -893,7 +893,7 @@ static void handle_signal(struct udev *udev, int signo) {
                                                 /* delete state from disk */
                                                 udev_device_delete_db(worker->event->dev);
                                                 udev_device_tag_index(worker->event->dev, NULL, false);
-                                                /* forward kernel event without ammending it */
+                                                /* forward kernel event without amending it */
                                                 udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
                                                 event_queue_delete(worker->event);
 
