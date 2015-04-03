@@ -42,7 +42,14 @@ Before 220:
 
 * bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
+* logind: make sure the syncrhonous polkit checks are not interactive, i.e. supporess client side interactive bus message header flag for them
+
+* timer units triggering services with failing conditions run busy:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
+
 Features:
+
+* the default stop timeout for units is not documented anywhere.
 
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
 
