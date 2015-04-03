@@ -10,7 +10,7 @@ Description=udev Coldplug all Devices
 Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
 Wants=systemd-udevd.service
-After=systemd-udevd-kernel.socket systemd-udevd-control.socket
+After=systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-hwdb-update.service
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
