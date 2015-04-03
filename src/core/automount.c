@@ -729,7 +729,8 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         assert(fd == a->pipe_fd);
 
         if (events != EPOLLIN) {
-                log_unit_error(UNIT(a)->id, "Got invalid poll event on pipe.");
+                log_unit_error(UNIT(a)->id, "%s: got invalid poll event %"PRIu32" on pipe (fd=%d)",
+                               UNIT(a)->id, events, fd);
                 goto fail;
         }
 
