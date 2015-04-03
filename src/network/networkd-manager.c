@@ -299,11 +299,14 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type: %m");
                 return 0;
+        } else if (type != RTM_NEWLINK && type != RTM_DELLINK) {
+                log_warning("rtnl: received unexpected message type when processing link");
+                return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex: %m");
+                log_warning_errno(r, "rtnl: could not get ifindex from link: %m");
                 return 0;
         } else if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);

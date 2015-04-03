@@ -1853,11 +1853,14 @@ int link_rtnl_process_address(sd_rtnl *rtnl, sd_rtnl_message *message, void *use
         if (r < 0) {
                 log_warning("rtnl: could not get message type");
                 return 0;
+        } else if (type != RTM_NEWADDR && type != RTM_DELADDR) {
+                log_warning("rtnl: received unexpected message type when processing address");
+                return 0;
         }
 
         r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex: %m");
+                log_warning_errno(r, "rtnl: could not get ifindex from address: %m");
                 return 0;
         } else if (ifindex <= 0) {
                 log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
