@@ -59,6 +59,7 @@
     "reboot:Shut down and reboot the system"
     "kexec:Shut down and reboot the system with kexec"
     "exit:Ask for user instance termination"
+    "switch-root:Change root directory"
   )
 
   if (( CURRENT == 1 )); then
@@ -295,6 +296,10 @@ done
 
 (( $+functions[_systemctl_link] )) || _systemctl_link() {
    _sd_unit_files
+}
+
+(( $+functions[_systemctl_switch-root] )) || _systemctl_switch-root() {
+   _files
 }
 
 # no systemctl completion for:

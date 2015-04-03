@@ -160,7 +160,7 @@ _systemctl () {
                              reboot rescue show-environment suspend get-default
                              is-system-running'
                      [NAME]='snapshot'
-                     [FILE]='link'
+                     [FILE]='link switch-root'
                   [TARGETS]='set-default'
         )
 
