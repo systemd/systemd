@@ -136,6 +136,11 @@ static void test_pointers (struct udev_device *dev,
         int is_mouse = 0;
         int is_touchpad = 0;
 
+        if (test_bit (INPUT_PROP_ACCELEROMETER, bitmask_props)) {
+                udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
+                return;
+        }
+
         if (!test_bit (EV_KEY, bitmask_ev)) {
                 if (test_bit (EV_ABS, bitmask_ev) &&
                     test_bit (ABS_X, bitmask_abs) &&

@@ -952,3 +952,7 @@ static inline int kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, uns
 #ifndef INPUT_PROP_POINTING_STICK
 #define INPUT_PROP_POINTING_STICK 0x05
 #endif
+
+#ifndef INPUT_PROP_ACCELEROMETER
+#define INPUT_PROP_ACCELEROMETER  0x06
+#endif
