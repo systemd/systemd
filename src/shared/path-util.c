@@ -515,7 +515,12 @@ int fd_is_mount_point(int fd) {
                                 return 1;
                 } else
                         return -errno;
-        } else
+        } else if (nosupp)
+                /* The parent can do name_to_handle_at() but the
+                 * directory we are interested in can't? If so, it
+                 * must be a mount point. */
+                return 1;
+        else
                 return mount_id != mount_id_parent;
 
 fallback:
