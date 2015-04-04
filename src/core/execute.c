@@ -49,6 +49,7 @@
 #include <sys/apparmor.h>
 #endif
 
+#include "rm-rf.h"
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
@@ -2020,7 +2021,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
                 /* We execute this synchronously, since we need to be
                  * sure this is gone when we start the service
                  * next. */
-                rm_rf(p, false, true, false);
+                (void) rm_rf(p, REMOVE_ROOT);
         }
 
         return 0;
@@ -2846,7 +2847,7 @@ int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, co
 static void *remove_tmpdir_thread(void *p) {
         _cleanup_free_ char *path = p;
 
-        rm_rf_dangerous(path, false, true, false);
+        (void) rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL);
         return NULL;
 }
 

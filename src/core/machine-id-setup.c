@@ -313,7 +313,7 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
 
-        r = is_fd_on_temporary_fs(fd);
+        r = fd_is_temporary_fs(fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
         if (r == 0) {

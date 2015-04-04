@@ -52,6 +52,7 @@
 #include "specifier.h"
 #include "build.h"
 #include "copy.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "btrfs-util.h"
 #include "acl-util.h"
@@ -1359,7 +1360,7 @@ static int remove_item_instance(Item *i, const char *instance) {
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
                 log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
+                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT : 0) | REMOVE_PHYSICAL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 

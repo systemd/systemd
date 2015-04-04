@@ -26,6 +26,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -47,7 +48,12 @@ static int setup_test(Manager **m) {
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {
-               rm_rf_dangerous(strjoina("/tmp/test-path_", *test_path), false, true, false);
+                _cleanup_free_ char *p = NULL;
+
+                p = strjoin("/tmp/test-path_", *test_path, NULL);
+                assert_se(p);
+
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
         *m = tmp;
@@ -104,7 +110,7 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
         }
 
         assert_se(UNIT_VTABLE(unit)->stop(unit) >= 0);
-        rm_rf_dangerous(test_path, false, true, false);
+        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_path_exists(Manager *m) {
@@ -228,7 +234,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         assert_se((s.st_mode & S_IRWXO) == 0004);
 
         assert_se(UNIT_VTABLE(unit)->stop(unit) >= 0);
-        rm_rf_dangerous(test_path, false, true, false);
+        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 int main(int argc, char *argv[]) {

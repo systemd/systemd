@@ -41,6 +41,7 @@
 #include "efivars.h"
 #include "build.h"
 #include "util.h"
+#include "rm-rf.h"
 
 static int verify_esp(const char *p, uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
         struct statfs sfs;
@@ -1095,7 +1096,7 @@ static int remove_binaries(const char *esp_path) {
                 return -ENOMEM;
         }
 
-        r = rm_rf(p, false, false, false);
+        r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         free(p);
 
         q = remove_boot_efi(esp_path);

@@ -59,6 +59,7 @@
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "macro.h"
 #include "missing.h"
 #include "cgroup-util.h"
@@ -4467,7 +4468,7 @@ finish:
                 const char *p;
 
                 p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
-                (void) rm_rf(p, false, true, false);
+                (void) rm_rf(p, REMOVE_ROOT);
         }
 
         free(arg_directory);

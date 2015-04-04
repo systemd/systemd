@@ -22,6 +22,7 @@
 #include <ftw.h>
 
 #include "util.h"
+#include "rm-rf.h"
 #include "aufs-util.h"
 
 static int nftw_cb(
@@ -43,7 +44,7 @@ static int nftw_cb(
                 return FTW_CONTINUE;
 
         log_debug("Removing whiteout indicator %s.", fpath);
-        r = rm_rf_dangerous(fpath, false, true, false);
+        r = rm_rf(fpath, REMOVE_ROOT|REMOVE_PHYSICAL);
         if (r < 0)
                 return FTW_STOP;
 
@@ -53,7 +54,7 @@ static int nftw_cb(
                 strcpy(mempcpy(p, fpath, ftwbuf->base), original);
 
                 log_debug("Removing deleted file %s.", p);
-                r = rm_rf_dangerous(p, false, true, false);
+                r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
                 if (r < 0)
                         return FTW_STOP;
         }

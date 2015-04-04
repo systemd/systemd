@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "log.h"
+#include "rm-rf.h"
 #include "journal-file.h"
 #include "journal-verify.h"
 
@@ -144,7 +145,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Exiting...");
 
-        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

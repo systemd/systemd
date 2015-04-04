@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "hashmap.h"
 #include "fileio.h"
 #include "path-util.h"
@@ -521,7 +522,7 @@ static int user_remove_runtime_path(User *u) {
         if (!u->runtime_path)
                 return 0;
 
-        r = rm_rf(u->runtime_path, false, false, false);
+        r = rm_rf(u->runtime_path, 0);
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
 
@@ -532,7 +533,7 @@ static int user_remove_runtime_path(User *u) {
         if (r < 0 && errno != EINVAL && errno != ENOENT)
                 log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", u->runtime_path);
 
-        r = rm_rf(u->runtime_path, false, true, false);
+        r = rm_rf(u->runtime_path, REMOVE_ROOT);
         if (r < 0)
                 log_error_errno(r, "Failed to remove runtime directory %s: %m", u->runtime_path);
 

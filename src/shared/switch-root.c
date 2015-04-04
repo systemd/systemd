@@ -29,10 +29,11 @@
 
 #include "util.h"
 #include "path-util.h"
-#include "switch-root.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "base-filesystem.h"
 #include "missing.h"
+#include "switch-root.h"
 
 int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,  unsigned long mountflags) {
 
@@ -142,7 +143,7 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, 
                 if (fstat(old_root_fd, &rb) < 0)
                         log_warning_errno(errno, "Failed to stat old root directory, leaving: %m");
                 else {
-                        rm_rf_children(old_root_fd, false, false, &rb);
+                        (void) rm_rf_children(old_root_fd, 0, &rb);
                         old_root_fd = -1;
                 }
         }

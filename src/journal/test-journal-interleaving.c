@@ -23,12 +23,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "systemd/sd-journal.h"
-
+#include "sd-journal.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "util.h"
 #include "log.h"
+#include "rm-rf.h"
 
 /* This program tests skipping around in a multi-file journal.
  */
@@ -190,7 +190,7 @@ static void test_skip(void (*setup)(void)) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
-                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");
@@ -275,7 +275,7 @@ static void test_sequence_numbers(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
-                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 }
 

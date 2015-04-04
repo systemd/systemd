@@ -23,6 +23,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "rm-rf.h"
 
 int main(int argc, char *argv[]) {
         sd_journal *j;
@@ -58,7 +59,7 @@ int main(int argc, char *argv[]) {
                 assert_se(j == NULL);
         }
 
-        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

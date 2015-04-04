@@ -31,6 +31,7 @@
 #include "sd-messages.h"
 #include "sd-daemon.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "hashmap.h"
 #include "journal-file.h"
 #include "socket-util.h"
@@ -1088,7 +1089,7 @@ finish:
         s->runtime_journal = NULL;
 
         if (r >= 0)
-                rm_rf("/run/log/journal", false, true, false);
+                (void) rm_rf("/run/log/journal", REMOVE_ROOT);
 
         sd_journal_close(j);
 

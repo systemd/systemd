@@ -28,6 +28,7 @@
 #include "path-util.h"
 #include "copy.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "machine-image.h"
 
 static const char image_search_path[] =
@@ -366,7 +367,7 @@ int image_remove(Image *i) {
                 /* fall through */
 
         case IMAGE_RAW:
-                return rm_rf_dangerous(i->path, false, true, false);
+                return rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         default:
                 return -EOPNOTSUPP;

@@ -24,6 +24,7 @@
 #include "path-lookup.h"
 #include "log.h"
 #include "strv.h"
+#include "rm-rf.h"
 
 static void test_paths(SystemdRunningAs running_as, bool personal) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
@@ -42,7 +43,7 @@ static void test_paths(SystemdRunningAs running_as, bool personal) {
         assert_se(strv_contains(lp.unit_path, exists));
         assert_se(strv_contains(lp.unit_path, not));
 
-        assert_se(rm_rf_dangerous(template, false, true, false) >= 0);
+        assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 static void print_generator_paths(SystemdRunningAs running_as) {

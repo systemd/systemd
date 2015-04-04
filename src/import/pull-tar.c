@@ -30,6 +30,7 @@
 #include "util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "path-util.h"
 #include "import-util.h"
 #include "import-common.h"
@@ -88,7 +89,7 @@ TarPull* tar_pull_unref(TarPull *i) {
 
         if (i->temp_path) {
                 (void) btrfs_subvol_remove(i->temp_path);
-                (void) rm_rf_dangerous(i->temp_path, false, true, false);
+                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL);
                 free(i->temp_path);
         }
 

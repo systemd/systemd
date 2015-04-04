@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "macro.h"
 #include "util.h"
+#include "rm-rf.h"
 
 static void test_copy_file(void) {
         _cleanup_free_ char *buf = NULL;
@@ -86,8 +87,8 @@ static void test_copy_tree(void) {
                                  "link2", "dir1/file");
         char **p, **link;
 
-        rm_rf_dangerous(copy_dir, false, true, false);
-        rm_rf_dangerous(original_dir, false, true, false);
+        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         STRV_FOREACH(p, files) {
                 char *f = strjoina(original_dir, *p);
@@ -128,8 +129,8 @@ static void test_copy_tree(void) {
         assert_se(copy_tree(original_dir, copy_dir, false) < 0);
         assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, false) < 0);
 
-        rm_rf_dangerous(copy_dir, false, true, false);
-        rm_rf_dangerous(original_dir, false, true, false);
+        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 int main(int argc, char *argv[]) {

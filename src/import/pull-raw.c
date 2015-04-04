@@ -31,6 +31,7 @@
 #include "util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "path-util.h"
 #include "import-util.h"
 #include "import-common.h"
@@ -278,7 +279,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         if (i->force_local) {
                 (void) btrfs_subvol_remove(p);
-                (void) rm_rf_dangerous(p, false, true, false);
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
         r = tempfn_random(p, &tp);

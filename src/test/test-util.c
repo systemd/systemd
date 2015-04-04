@@ -31,6 +31,7 @@
 
 #include "util.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "strv.h"
 #include "def.h"
 #include "fileio.h"
@@ -1017,7 +1018,7 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
-        assert_se(rm_rf_dangerous(tempdir, false, true, false) >= 0);
+        assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_read_one_char(void) {
@@ -1274,8 +1275,8 @@ static void test_execute_directory(void) {
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        rm_rf_dangerous(template_lo, false, true, false);
-        rm_rf_dangerous(template_hi, false, true, false);
+        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_unquote_first_word(void) {

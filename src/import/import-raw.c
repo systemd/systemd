@@ -28,6 +28,7 @@
 #include "btrfs-util.h"
 #include "copy.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "ratelimit.h"
 #include "machine-pool.h"
 #include "qcow2-util.h"
@@ -242,7 +243,7 @@ static int raw_import_finish(RawImport *i) {
 
         if (i->force_local) {
                 (void) btrfs_subvol_remove(i->final_path);
-                (void) rm_rf_dangerous(i->final_path, false, true, false);
+                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
         r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);

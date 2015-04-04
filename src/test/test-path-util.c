@@ -26,6 +26,7 @@
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
+#include "rm-rf.h"
 
 #define test_path_compare(a, b, result) {                 \
                 assert_se(path_compare(a, b) == result);  \
@@ -256,7 +257,7 @@ static void test_strv_resolve(void) {
         assert_se(streq(search_dirs[1], "/dir2"));
         assert_se(streq(search_dirs[2], "/dir2"));
 
-        assert_se(rm_rf_dangerous(tmp_dir, false, true, false) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
 static void test_path_startswith(void) {

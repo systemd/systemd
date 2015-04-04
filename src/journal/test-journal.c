@@ -22,8 +22,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
 #include "log.h"
+#include "rm-rf.h"
 #include "journal-file.h"
 #include "journal-authenticate.h"
 #include "journal-vacuum.h"
@@ -118,7 +118,7 @@ static void test_non_empty(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
-                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");
@@ -157,7 +157,7 @@ static void test_empty(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, NULL, true);
 
-                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
         }
 
         journal_file_close(f1);

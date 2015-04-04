@@ -52,6 +52,7 @@
 #include "locale-setup.h"
 #include "unit-name.h"
 #include "missing.h"
+#include "rm-rf.h"
 #include "path-lookup.h"
 #include "special.h"
 #include "exit-status.h"
@@ -2881,7 +2882,7 @@ static void remove_generator_dir(Manager *m, char **generator) {
                 return;
 
         strv_remove(m->lookup_paths.unit_path, *generator);
-        rm_rf(*generator, false, true, false);
+        (void) rm_rf(*generator, REMOVE_ROOT);
 
         free(*generator);
         *generator = NULL;

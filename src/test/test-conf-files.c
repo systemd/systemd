@@ -26,7 +26,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "util.h"
-
+#include "rm-rf.h"
 
 static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         va_list ap;
@@ -74,7 +74,7 @@ static void test_conf_files_list(bool use_root) {
         assert_se(streq_ptr(found_files[1], expect_b));
         assert_se(found_files[2] == NULL);
 
-        assert_se(rm_rf_dangerous(tmp_dir, false, true, false) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
 int main(int argc, char **argv) {

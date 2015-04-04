@@ -24,6 +24,7 @@
 #include "util.h"
 #include "strv.h"
 #include "copy.h"
+#include "rm-rf.h"
 #include "btrfs-util.h"
 #include "capability.h"
 #include "pull-job.h"
@@ -125,7 +126,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
 
         if (force_local) {
                 (void) btrfs_subvol_remove(p);
-                (void) rm_rf_dangerous(p, false, true, false);
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
         r = btrfs_subvol_snapshot(final, p, false, false);
@@ -418,7 +419,7 @@ finish:
                 unlink(sig_file_path);
 
         if (gpg_home_created)
-                rm_rf_dangerous(gpg_home, false, true, false);
+                (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         return r;
 }
