@@ -89,7 +89,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 if (is_dir) {
                         int subdir_fd;
 
-                        /* if root_dev is set, remove subdirectories only, if device is same as dir */
+                        /* if root_dev is set, remove subdirectories only if device is same */
                         if (root_dev && st.st_dev != root_dev->st_dev)
                                 continue;
 
@@ -97,6 +97,20 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         if (subdir_fd < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
+                                continue;
+                        }
+
+                        /* Stop at mount points */
+                        r = fd_is_mount_point(subdir_fd);
+                        if (r < 0) {
+                                if (ret == 0 && r != -ENOENT)
+                                        ret = r;
+
+                                safe_close(subdir_fd);
+                                continue;
+                        }
+                        if (r) {
+                                safe_close(subdir_fd);
                                 continue;
                         }
 
@@ -162,7 +176,6 @@ int rm_rf(const char *path, RemoveFlags flags) {
         r = rm_rf_children(fd, flags, NULL);
 
         if (flags & REMOVE_ROOT) {
-
                 if (rmdir(path) < 0 && errno != ENOENT) {
                         if (r == 0)
                                 r = -errno;

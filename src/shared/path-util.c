@@ -470,18 +470,73 @@ char* path_join(const char *root, const char *path, const char *rest) {
                                NULL);
 }
 
-int path_is_mount_point(const char *t, bool allow_symlink) {
-
+int fd_is_mount_point(int fd) {
         union file_handle_union h = FILE_HANDLE_INIT;
         int mount_id = -1, mount_id_parent = -1;
+        bool nosupp = false;
         struct stat a, b;
         int r;
-        _cleanup_close_ int fd = -1;
-        bool nosupp = false;
 
         /* We are not actually interested in the file handles, but
          * name_to_handle_at() also passes us the mount ID, hence use
          * it but throw the handle away */
+
+        r = name_to_handle_at(fd, "", &h.handle, &mount_id, AT_EMPTY_PATH);
+        if (r < 0) {
+                if (errno == ENOSYS)
+                        /* This kernel does not support name_to_handle_at()
+                         * fall back to the traditional stat() logic. */
+                        goto fallback;
+                else if (errno == EOPNOTSUPP)
+                        /* This kernel or file system does not support
+                         * name_to_handle_at(), hence let's see if the
+                         * upper fs supports it (in which case it is a
+                         * mount point), otherwise fallback to the
+                         * traditional stat() logic */
+                        nosupp = true;
+                else if (errno == ENOENT)
+                        return 0;
+                else
+                        return -errno;
+        }
+
+        h.handle.handle_bytes = MAX_HANDLE_SZ;
+        r = name_to_handle_at(fd, "..", &h.handle, &mount_id_parent, 0);
+        if (r < 0) {
+                if (errno == EOPNOTSUPP) {
+                        if (nosupp)
+                                /* Neither parent nor child do name_to_handle_at()?
+                                   We have no choice but to fall back. */
+                                goto fallback;
+                        else
+                                /* The parent can't do name_to_handle_at() but the
+                                 * directory we are interested in can?
+                                 * If so, it must be a mount point. */
+                                return 1;
+                } else
+                        return -errno;
+        } else
+                return mount_id != mount_id_parent;
+
+fallback:
+        r = fstatat(fd, "", &a, AT_EMPTY_PATH);
+        if (r < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = fstatat(fd, "..", &b, 0);
+        if (r < 0)
+                return -errno;
+
+        return a.st_dev != b.st_dev;
+}
+
+int path_is_mount_point(const char *t, bool allow_symlink) {
+        _cleanup_close_ int fd = -1;
+        assert(t);
 
         if (path_equal(t, "/"))
                 return 1;
@@ -494,59 +549,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
                 return -errno;
         }
 
-        r = name_to_handle_at(fd, "", &h.handle, &mount_id, AT_EMPTY_PATH);
-        if (r < 0) {
-                if (errno == ENOSYS)
-                        /* This kernel does not support name_to_handle_at()
-                         * fall back to the traditional stat() logic. */
-                        goto fallback;
-                else if (errno == EOPNOTSUPP)
-                        /* This kernel or file system does not support
-                         * name_to_handle_at(), hence fallback to the
-                         * traditional stat() logic */
-                        nosupp = true;
-                else if (errno == ENOENT)
-                        return 0;
-                else
-                        return -errno;
-        }
-
-
-        h.handle.handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(fd, "..", &h.handle, &mount_id_parent, 0);
-        if (r < 0)
-                if (errno == EOPNOTSUPP)
-                        if (nosupp)
-                                /* Neither parent nor child do name_to_handle_at()?
-                                   We have no choice but to fall back. */
-                                goto fallback;
-                        else
-                                /* The parent can't do name_to_handle_at() but
-                                 * the directory we are interested in can?
-                                 * Or the other way around?
-                                 * If so, it must be a mount point. */
-                                return 1;
-                else
-                        return -errno;
-        else
-                return mount_id != mount_id_parent;
-
-fallback:
-        r = fstatat(fd, "", &a, AT_EMPTY_PATH);
-
-        if (r < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-
-        r = fstatat(fd, "..", &b, 0);
-        if (r < 0)
-                return -errno;
-
-        return a.st_dev != b.st_dev;
+        return fd_is_mount_point(fd);
 }
 
 int path_is_read_only_fs(const char *path) {
