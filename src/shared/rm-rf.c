@@ -75,7 +75,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 if (streq(de->d_name, ".") || streq(de->d_name, ".."))
                         continue;
 
-                if (de->d_type == DT_UNKNOWN || (de->d_type == DT_DIR && root_dev)) {
+                if (de->d_type == DT_UNKNOWN ||
+                    (de->d_type == DT_DIR && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
                         if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
@@ -112,6 +113,30 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         if (r) {
                                 safe_close(subdir_fd);
                                 continue;
+                        }
+
+                        if ((flags & REMOVE_SUBVOLUME) && st.st_ino == 256) {
+                                struct btrfs_ioctl_vol_args args = {};
+
+                                /* This could be a subvolume, try to remove it */
+
+                                strncpy(args.name, de->d_name, sizeof(args.name)-1);
+                                if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &args) < 0) {
+
+                                        if (errno != ENOTTY && errno != EINVAL) {
+                                                if (ret == 0)
+                                                        ret = -errno;
+
+                                                safe_close(subdir_fd);
+                                                continue;
+                                        }
+
+                                        /* ENOTTY, then it wasn't a btrfs subvolume */
+                                } else {
+                                        /* It was a subvolume, continue. */
+                                        safe_close(subdir_fd);
+                                        continue;
+                                }
                         }
 
                         /* We pass REMOVE_PHYSICAL here, to avoid
