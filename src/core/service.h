@@ -216,8 +216,6 @@ struct Service {
 
 extern const UnitVTable service_vtable;
 
-struct Socket;
-
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
 
 const char* service_state_to_string(ServiceState i) _const_;
