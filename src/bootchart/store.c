@@ -476,7 +476,7 @@ catch_rename:
 
                         /* re-fetch name */
                         /* get name, start time */
-                        if (!ps->sched) {
+                        if (ps->sched < 0) {
                                 sprintf(filename, "%d/sched", pid);
                                 ps->sched = openat(procfd, filename, O_RDONLY|O_CLOEXEC);
                                 if (ps->sched < 0)
