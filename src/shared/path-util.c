@@ -471,11 +471,13 @@ char* path_join(const char *root, const char *path, const char *rest) {
 }
 
 int fd_is_mount_point(int fd) {
-        union file_handle_union h = FILE_HANDLE_INIT;
+        union file_handle_union h = FILE_HANDLE_INIT, h_parent = FILE_HANDLE_INIT;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false;
         struct stat a, b;
         int r;
+
+        assert(fd >= 0);
 
         /* We are not actually interested in the file handles, but
          * name_to_handle_at() also passes us the mount ID, hence use
@@ -500,8 +502,7 @@ int fd_is_mount_point(int fd) {
                         return -errno;
         }
 
-        h.handle.handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(fd, "..", &h.handle, &mount_id_parent, 0);
+        r = name_to_handle_at(fd, "..", &h_parent.handle, &mount_id_parent, 0);
         if (r < 0) {
                 if (errno == EOPNOTSUPP) {
                         if (nosupp)
@@ -520,8 +521,19 @@ int fd_is_mount_point(int fd) {
                  * directory we are interested in can't? If so, it
                  * must be a mount point. */
                 return 1;
-        else
+        else {
+                /* If the file handle for the directory we are
+                 * interested in and its parent are identical, we
+                 * assume this is the root directory, which is a mount
+                 * point. */
+
+                if (h.handle.handle_bytes == h_parent.handle.handle_bytes &&
+                    h.handle.handle_type == h_parent.handle.handle_type &&
+                    memcmp(h.handle.f_handle, h_parent.handle.f_handle, h.handle.handle_bytes) == 0)
+                        return 1;
+
                 return mount_id != mount_id_parent;
+        }
 
 fallback:
         r = fstatat(fd, "", &a, AT_EMPTY_PATH);
@@ -535,6 +547,12 @@ fallback:
         r = fstatat(fd, "..", &b, 0);
         if (r < 0)
                 return -errno;
+
+        /* A directory with same device and inode as its parent? Must
+         * be the root directory */
+        if (a.st_dev == b.st_dev &&
+            a.st_ino == b.st_ino)
+                return 1;
 
         return a.st_dev != b.st_dev;
 }
