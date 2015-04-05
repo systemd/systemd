@@ -216,7 +216,7 @@ int util_replace_whitespace(const char *str, char *to, size_t len)
 
         /* strip leading whitespace */
         i = 0;
-        while (isspace(str[i]) && (i < len))
+        while ((i < len) && isspace(str[i]))
                 i++;
 
         j = 0;
