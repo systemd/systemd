@@ -496,8 +496,6 @@ int fd_is_mount_point(int fd) {
                          * mount point), otherwise fallback to the
                          * traditional stat() logic */
                         nosupp = true;
-                else if (errno == ENOENT)
-                        return 0;
                 else
                         return -errno;
         }
@@ -537,12 +535,8 @@ int fd_is_mount_point(int fd) {
 
 fallback:
         r = fstatat(fd, "", &a, AT_EMPTY_PATH);
-        if (r < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
+        if (r < 0)
                 return -errno;
-        }
 
         r = fstatat(fd, "..", &b, 0);
         if (r < 0)
@@ -559,18 +553,15 @@ fallback:
 
 int path_is_mount_point(const char *t, bool allow_symlink) {
         _cleanup_close_ int fd = -1;
+
         assert(t);
 
         if (path_equal(t, "/"))
                 return 1;
 
         fd = openat(AT_FDCWD, t, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|(allow_symlink ? 0 : O_PATH));
-        if (fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
+        if (fd < 0)
                 return -errno;
-        }
 
         return fd_is_mount_point(fd);
 }
