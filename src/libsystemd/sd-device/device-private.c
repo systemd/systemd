@@ -423,9 +423,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 size_t l;
 
                 FOREACH_WORD(word, l, value, state) {
-                        char *devlink;
+                        char devlink[l + 1];
 
-                        devlink = strndupa(word, l);
+                        strncpy(devlink, word, l);
+                        devlink[l] = '\0';
 
                         r = device_add_devlink(device, devlink);
                         if (r < 0)
@@ -436,9 +437,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 size_t l;
 
                 FOREACH_WORD_SEPARATOR(word, l, value, ":", state) {
-                        char *tag;
+                        char tag[l + 1];
 
-                        tag = strndupa(word, l);
+                        (void)strncpy(tag, word, l);
+                        tag[l] = '\0';
 
                         r = device_add_tag(device, tag);
                         if (r < 0)
