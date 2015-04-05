@@ -363,11 +363,13 @@ int image_remove(Image *i) {
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
                 (void) chattr_path(i->path, false, FS_IMMUTABLE_FL);
-
-                /* fall through */
+                return rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         case IMAGE_RAW:
-                return rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
+                if (unlink(i->path) < 0)
+                        return -errno;
+
+                return 0;
 
         default:
                 return -EOPNOTSUPP;
