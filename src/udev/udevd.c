@@ -1505,8 +1505,21 @@ int main(int argc, char *argv[]) {
                         continue;
 
                 /* device node watch */
-                if (is_inotify)
+                if (is_inotify) {
                         handle_inotify(udev);
+
+                        /*
+                         * settle might be waiting on us to determine the queue
+                         * state. If we just handled an inotify event, we might have
+                         * generated a "change" event, but we won't have queued up
+                         * the resultant uevent yet.
+                         *
+                         * Before we go ahead and potentially tell settle that the
+                         * queue is empty, lets loop one more time to update the
+                         * queue state again before deciding.
+                         */
+                        continue;
+                }
 
                 /* tell settle that we are busy or idle, this needs to be before the
                  * PING handling
