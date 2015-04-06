@@ -849,7 +849,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
                         zero(ino_args);
                         ino_args.treeid = subvol_id;
-                        ino_args.objectid = ref->dirid;
+                        ino_args.objectid = htole64(ref->dirid);
 
                         if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
