@@ -428,6 +428,10 @@ struct btrfs_ioctl_clone_range_args {
 #define BTRFS_FIRST_FREE_OBJECTID 256
 #endif
 
+#ifndef BTRFS_LAST_FREE_OBJECTID
+#define BTRFS_LAST_FREE_OBJECTID -256ULL
+#endif
+
 #ifndef BTRFS_ROOT_TREE_OBJECTID
 #define BTRFS_ROOT_TREE_OBJECTID 1
 #endif
@@ -450,6 +454,10 @@ struct btrfs_ioctl_clone_range_args {
 
 #ifndef BTRFS_QGROUP_LIMIT_KEY
 #define BTRFS_QGROUP_LIMIT_KEY 244
+#endif
+
+#ifndef BTRFS_ROOT_BACKREF_KEY
+#define BTRFS_ROOT_BACKREF_KEY 144
 #endif
 
 #ifndef BTRFS_SUPER_MAGIC

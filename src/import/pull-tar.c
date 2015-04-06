@@ -88,8 +88,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         sd_event_unref(i->event);
 
         if (i->temp_path) {
-                (void) btrfs_subvol_remove(i->temp_path);
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 free(i->temp_path);
         }
 

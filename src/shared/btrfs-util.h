@@ -47,7 +47,6 @@ int btrfs_is_snapshot(int fd);
 
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_make_label(const char *path);
-int btrfs_subvol_remove(const char *path);
 
 int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, bool fallback_copy);
 int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy);
@@ -76,3 +75,6 @@ int btrfs_quota_limit(const char *path, uint64_t referenced_max);
 
 int btrfs_resize_loopback_fd(int fd, uint64_t size, bool grow_only);
 int btrfs_resize_loopback(const char *path, uint64_t size, bool grow_only);
+
+int btrfs_subvol_remove(const char *path, bool recursive);
+int btrfs_subvol_remove_fd(int fd, const char *subvolume, bool recursive);

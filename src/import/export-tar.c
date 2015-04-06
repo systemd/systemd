@@ -77,7 +77,7 @@ TarExport *tar_export_unref(TarExport *e) {
         }
 
         if (e->temp_path) {
-                (void) btrfs_subvol_remove(e->temp_path);
+                (void) btrfs_subvol_remove(e->temp_path, false);
                 free(e->temp_path);
         }
 

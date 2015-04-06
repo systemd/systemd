@@ -771,8 +771,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/device-nodes.h \
 	src/shared/util.c \
 	src/shared/util.h \
-	src/shared/rm-rf.c \
-	src/shared/rm-rf.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
 	src/shared/architecture.c \
@@ -980,6 +978,8 @@ libsystemd_label_la_SOURCES = \
 	src/shared/btrfs-util.c \
 	src/shared/btrfs-util.h \
 	src/shared/btrfs-ctree.h \
+	src/shared/rm-rf.c \
+	src/shared/rm-rf.h \
 	src/shared/machine-image.c \
 	src/shared/machine-image.h \
 	src/shared/machine-pool.c \
@@ -1660,6 +1660,7 @@ test_util_SOURCES = \
 	src/test/test-util.c
 
 test_util_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_path_lookup_SOURCES = \
@@ -1668,6 +1669,7 @@ test_path_lookup_SOURCES = \
 test_path_lookup_LDADD = \
 	-lm \
 	libsystemd-units.la \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_uid_range_SOURCES = \
@@ -1967,6 +1969,7 @@ test_path_util_SOURCES = \
 	src/test/test-path-util.c
 
 test_path_util_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_path_SOURCES = \
@@ -2026,6 +2029,7 @@ test_conf_files_SOURCES = \
 	src/test/test-conf-files.c
 
 test_conf_files_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_bus_policy_SOURCES = \
@@ -2501,6 +2505,7 @@ bootctl_CFLAGS = \
 	$(BLKID_CFLAGS)
 
 bootctl_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-internal.la \
 	$(BLKID_LIBS)

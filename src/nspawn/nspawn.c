@@ -4459,7 +4459,7 @@ finish:
         if (remove_subvol && arg_directory) {
                 int k;
 
-                k = btrfs_subvol_remove(arg_directory);
+                k = btrfs_subvol_remove(arg_directory, true);
                 if (k < 0)
                         log_warning_errno(k, "Cannot remove subvolume '%s', ignoring: %m", arg_directory);
         }

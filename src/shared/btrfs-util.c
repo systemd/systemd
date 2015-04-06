@@ -124,14 +124,14 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, b
 
                 r = copy_directory_fd(old_fd, new_path, true);
                 if (r < 0) {
-                        btrfs_subvol_remove(new_path);
+                        btrfs_subvol_remove(new_path, false);
                         return r;
                 }
 
                 if (read_only) {
                         r = btrfs_subvol_set_read_only(new_path, true);
                         if (r < 0) {
-                                btrfs_subvol_remove(new_path);
+                                btrfs_subvol_remove(new_path, false);
                                 return r;
                         }
                 }
@@ -209,30 +209,6 @@ int btrfs_subvol_make_label(const char *path) {
                 return r;
 
         return mac_smack_fix(path, false, false);
-}
-
-int btrfs_subvol_remove(const char *path) {
-        struct btrfs_ioctl_vol_args args = {};
-        _cleanup_close_ int fd = -1;
-        const char *subvolume;
-        int r;
-
-        assert(path);
-
-        r = extract_subvolume_name(path, &subvolume);
-        if (r < 0)
-                return r;
-
-        fd = open_parent(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return fd;
-
-        strncpy(args.name, subvolume, sizeof(args.name)-1);
-
-        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &args) < 0)
-                return -errno;
-
-        return 0;
 }
 
 int btrfs_subvol_set_read_only_fd(int fd, bool b) {
@@ -797,4 +773,139 @@ int btrfs_resize_loopback(const char *p, uint64_t new_size, bool grow_only) {
                 return -errno;
 
         return btrfs_resize_loopback_fd(fd, new_size, grow_only);
+}
+
+static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol_id, bool recursive) {
+        struct btrfs_ioctl_search_args args = {
+                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
+
+                .key.min_objectid = BTRFS_FIRST_FREE_OBJECTID,
+                .key.max_objectid = BTRFS_LAST_FREE_OBJECTID,
+
+                .key.min_type = BTRFS_ROOT_BACKREF_KEY,
+                .key.max_type = BTRFS_ROOT_BACKREF_KEY,
+
+                .key.min_transid = 0,
+                .key.max_transid = (uint64_t) -1,
+        };
+
+        struct btrfs_ioctl_vol_args vol_args = {};
+        _cleanup_close_ int subvol_fd = -1;
+        int r;
+
+        assert(fd >= 0);
+        assert(subvolume);
+
+        /* First, try to remove the subvolume. If it happens to be
+         * already empty, this will just work. */
+        strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
+        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
+                return 0;
+        if (!recursive || errno != ENOTEMPTY)
+                return -errno;
+
+        /* OK, the subvolume is not empty, let's look for child
+         * subvolumes, and remove them, first */
+        subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (subvol_fd < 0)
+                return -errno;
+
+        if (subvol_id == 0) {
+                r = btrfs_subvol_get_id_fd(subvol_fd, &subvol_id);
+                if (r < 0)
+                        return r;
+        }
+
+        args.key.min_offset = args.key.max_offset = subvol_id;
+
+        while (btrfs_ioctl_search_args_compare(&args) <= 0) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
+
+                args.key.nr_items = 256;
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                        return -errno;
+
+                if (args.key.nr_items <= 0)
+                        break;
+
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                        _cleanup_free_ char *p = NULL;
+                        const struct btrfs_root_ref *ref;
+                        struct btrfs_ioctl_ino_lookup_args ino_args;
+
+                        btrfs_ioctl_search_args_set(&args, sh);
+
+                        if (sh->type != BTRFS_ROOT_BACKREF_KEY)
+                                continue;
+                        if (sh->offset != subvol_id)
+                                continue;
+
+                        ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+
+                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        if (!p)
+                                return -ENOMEM;
+
+                        zero(ino_args);
+                        ino_args.treeid = subvol_id;
+                        ino_args.objectid = ref->dirid;
+
+                        if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
+                                return -errno;
+
+                        if (isempty(ino_args.name))
+                                /* Subvolume is in the top-level
+                                 * directory of the subvolume. */
+                                r = subvol_remove_children(subvol_fd, p, sh->objectid, recursive);
+                        else {
+                                _cleanup_close_ int child_fd = -1;
+
+                                /* Subvolume is somewhere further down,
+                                 * hence we need to open the
+                                 * containing directory first */
+
+                                child_fd = openat(subvol_fd, ino_args.name, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                                if (child_fd < 0)
+                                        return -errno;
+
+                                r = subvol_remove_children(child_fd, p, sh->objectid, recursive);
+                        }
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Increase search key by one, to read the next item, if we can. */
+                if (!btrfs_ioctl_search_args_inc(&args))
+                        break;
+        }
+
+        /* OK, the child subvolumes should all be gone now, let's try
+         * again to remove the subvolume */
+        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_subvol_remove(const char *path, bool recursive) {
+        _cleanup_close_ int fd = -1;
+        const char *subvolume;
+        int r;
+
+        assert(path);
+
+        r = extract_subvolume_name(path, &subvolume);
+        if (r < 0)
+                return r;
+
+        fd = open_parent(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return fd;
+
+        return subvol_remove_children(fd, subvolume, 0, recursive);
+}
+
+int btrfs_subvol_remove_fd(int fd, const char *subvolume, bool recursive) {
+        return subvol_remove_children(fd, subvolume, 0, recursive);
 }

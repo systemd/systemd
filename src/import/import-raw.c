@@ -241,10 +241,8 @@ static int raw_import_finish(RawImport *i) {
                         return r;
         }
 
-        if (i->force_local) {
-                (void) btrfs_subvol_remove(i->final_path);
-                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL);
-        }
+        if (i->force_local)
+                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
         if (r < 0)

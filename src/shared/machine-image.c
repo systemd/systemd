@@ -358,7 +358,7 @@ int image_remove(Image *i) {
         switch (i->type) {
 
         case IMAGE_SUBVOLUME:
-                return btrfs_subvol_remove(i->path);
+                return btrfs_subvol_remove(i->path, true);
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */

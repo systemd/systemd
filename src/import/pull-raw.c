@@ -277,10 +277,8 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         p = strjoina(i->image_root, "/", i->local, ".raw");
 
-        if (i->force_local) {
-                (void) btrfs_subvol_remove(p);
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
-        }
+        if (i->force_local)
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         r = tempfn_random(p, &tp);
         if (r < 0)

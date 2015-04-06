@@ -124,10 +124,8 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
 
         p = strjoina(image_root, "/", local);
 
-        if (force_local) {
-                (void) btrfs_subvol_remove(p);
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
-        }
+        if (force_local)
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         r = btrfs_subvol_snapshot(final, p, false, false);
         if (r == -ENOTTY) {

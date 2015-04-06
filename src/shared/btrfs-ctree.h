@@ -90,3 +90,9 @@ struct btrfs_qgroup_limit_item {
         le64_t rsv_rfer;
         le64_t rsv_excl;
 } _packed_;
+
+struct btrfs_root_ref {
+        le64_t dirid;
+        le64_t sequence;
+        le16_t name_len;
+} _packed_;
