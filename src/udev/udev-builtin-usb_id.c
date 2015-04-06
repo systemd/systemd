@@ -229,17 +229,17 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
  *     is concatenated with the identification with an underscore '_'.
  */
 static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool test) {
-        char vendor_str[64];
+        char vendor_str[64] = "";
         char vendor_str_enc[256];
         const char *vendor_id;
-        char model_str[64];
+        char model_str[64] = "";
         char model_str_enc[256];
         const char *product_id;
-        char serial_str[UTIL_NAME_SIZE];
-        char packed_if_str[UTIL_NAME_SIZE];
-        char revision_str[64];
-        char type_str[64];
-        char instance_str[64];
+        char serial_str[UTIL_NAME_SIZE] = "";
+        char packed_if_str[UTIL_NAME_SIZE] = "";
+        char revision_str[64] = "";
+        char type_str[64] = "";
+        char instance_str[64] = "";
         const char *ifnum = NULL;
         const char *driver = NULL;
         char serial[256];
@@ -251,14 +251,6 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         int protocol = 0;
         size_t l;
         char *s;
-
-        vendor_str[0] = '\0';
-        model_str[0] = '\0';
-        serial_str[0] = '\0';
-        packed_if_str[0] = '\0';
-        revision_str[0] = '\0';
-        type_str[0] = '\0';
-        instance_str[0] = '\0';
 
         /* shortcut, if we are called directly for a "usb_device" type */
         if (udev_device_get_devtype(dev) != NULL && streq(udev_device_get_devtype(dev), "usb_device")) {
@@ -310,7 +302,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         dev_if_packed_info(dev_usb, packed_if_str, sizeof(packed_if_str));
 
         /* mass storage : SCSI or ATAPI */
-        if ((protocol == 6 || protocol == 2)) {
+        if (protocol == 6 || protocol == 2) {
                 struct udev_device *dev_scsi;
                 const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
                 int host, bus, target, lun;
@@ -438,10 +430,10 @@ fallback:
 
         s = serial;
         l = strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
-        if (serial_str[0] != '\0')
+        if (isempty(serial_str))
                 l = strpcpyl(&s, l, "_", serial_str, NULL);
 
-        if (instance_str[0] != '\0')
+        if (isempty(instance_str))
                 strpcpyl(&s, l, "-", instance_str, NULL);
 
         udev_builtin_add_property(dev, test, "ID_VENDOR", vendor_str);
@@ -452,14 +444,14 @@ fallback:
         udev_builtin_add_property(dev, test, "ID_MODEL_ID", product_id);
         udev_builtin_add_property(dev, test, "ID_REVISION", revision_str);
         udev_builtin_add_property(dev, test, "ID_SERIAL", serial);
-        if (serial_str[0] != '\0')
+        if (isempty(serial_str))
                 udev_builtin_add_property(dev, test, "ID_SERIAL_SHORT", serial_str);
-        if (type_str[0] != '\0')
+        if (isempty(type_str))
                 udev_builtin_add_property(dev, test, "ID_TYPE", type_str);
-        if (instance_str[0] != '\0')
+        if (isempty(instance_str))
                 udev_builtin_add_property(dev, test, "ID_INSTANCE", instance_str);
         udev_builtin_add_property(dev, test, "ID_BUS", "usb");
-        if (packed_if_str[0] != '\0')
+        if (isempty(packed_if_str))
                 udev_builtin_add_property(dev, test, "ID_USB_INTERFACES", packed_if_str);
         if (ifnum != NULL)
                 udev_builtin_add_property(dev, test, "ID_USB_INTERFACE_NUM", ifnum);
