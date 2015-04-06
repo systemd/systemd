@@ -486,7 +486,7 @@ static int dkr_pull_job_on_open_disk(PullJob *j) {
                 const char *base_path;
 
                 base_path = strjoina(i->image_root, "/.dkr-", base);
-                r = btrfs_subvol_snapshot(base_path, i->temp_path, false, true);
+                r = btrfs_subvol_snapshot(base_path, i->temp_path, BTRFS_SNAPSHOT_FALLBACK_COPY);
         } else
                 r = btrfs_subvol_make(i->temp_path);
         if (r < 0)

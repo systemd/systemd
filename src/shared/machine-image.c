@@ -491,7 +491,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_DIRECTORY:
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path, new_path, read_only, true);
+                r = btrfs_subvol_snapshot(i->path, new_path, (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY);
                 break;
 
         case IMAGE_RAW:

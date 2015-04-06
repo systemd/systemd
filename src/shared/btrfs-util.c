@@ -101,9 +101,9 @@ int btrfs_is_snapshot(int fd) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, bool fallback_copy) {
+int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
         struct btrfs_ioctl_vol_args_v2 args = {
-                .flags = read_only ? BTRFS_SUBVOL_RDONLY : 0,
+                .flags = flags & BTRFS_SNAPSHOT_READ_ONLY ? BTRFS_SUBVOL_RDONLY : 0,
         };
         _cleanup_close_ int new_fd = -1;
         const char *subvolume;
@@ -115,7 +115,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, b
         if (r < 0)
                 return r;
         if (r == 0) {
-                if (!fallback_copy)
+                if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
                         return -EISDIR;
 
                 r = btrfs_subvol_make(new_path);
@@ -128,7 +128,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, b
                         return r;
                 }
 
-                if (read_only) {
+                if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
                         r = btrfs_subvol_set_read_only(new_path, true);
                         if (r < 0) {
                                 btrfs_subvol_remove(new_path, false);
@@ -156,7 +156,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, bool read_only, b
         return 0;
 }
 
-int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_only, bool fallback_copy) {
+int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
         _cleanup_close_ int old_fd = -1;
 
         assert(old_path);
@@ -166,7 +166,7 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, bool read_
         if (old_fd < 0)
                 return -errno;
 
-        return btrfs_subvol_snapshot_fd(old_fd, new_path, read_only, fallback_copy);
+        return btrfs_subvol_snapshot_fd(old_fd, new_path, flags);
 }
 
 int btrfs_subvol_make(const char *path) {

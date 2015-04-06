@@ -294,7 +294,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                         return r;
 
                 /* Let's try to make a snapshot, if we can, so that the export is atomic */
-                r = btrfs_subvol_snapshot_fd(sfd, e->temp_path, true, false);
+                r = btrfs_subvol_snapshot_fd(sfd, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY);
                 if (r < 0) {
                         log_debug_errno(r, "Couldn't create snapshot %s of %s, not exporting atomically: %m", e->temp_path, path);
                         free(e->temp_path);

@@ -72,11 +72,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 
-        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest2", false, false);
+        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest2", 0);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
-        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest3", true, false);
+        r = btrfs_subvol_snapshot("/xxxtest", "/xxxtest3", BTRFS_SNAPSHOT_READ_ONLY);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_snapshot("/etc", "/etc2", true, true);
+        r = btrfs_subvol_snapshot("/etc", "/etc2", BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_FALLBACK_COPY);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 

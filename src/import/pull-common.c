@@ -127,7 +127,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        r = btrfs_subvol_snapshot(final, p, false, false);
+        r = btrfs_subvol_snapshot(final, p, 0);
         if (r == -ENOTTY) {
                 r = copy_tree(final, p, false);
                 if (r < 0)
