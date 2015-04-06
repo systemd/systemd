@@ -1099,8 +1099,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                         continue;
                 }
 
-                d = cunescape(dev);
-                if (!d)
+                if (cunescape(dev, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
                 device_found_node(m, d, true, DEVICE_FOUND_SWAP, set_flags);

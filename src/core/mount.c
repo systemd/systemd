@@ -1579,7 +1579,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         r = 0;
         for (;;) {
                 const char *device, *path, *options, *fstype;
-                _cleanup_free_ const char *d = NULL, *p = NULL;
+                _cleanup_free_ char *d = NULL, *p = NULL;
                 struct libmnt_fs *fs;
                 int k;
 
@@ -1594,12 +1594,10 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 options = mnt_fs_get_options(fs);
                 fstype = mnt_fs_get_fstype(fs);
 
-                d = cunescape(device);
-                if (!d)
+                if (cunescape(device, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
-                p = cunescape(path);
-                if (!p)
+                if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
                         return log_oom();
 
                 (void) device_found_node(m, d, true, DEVICE_FOUND_MOUNT, set_flags);

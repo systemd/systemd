@@ -417,23 +417,40 @@ static void test_cescape(void) {
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
 
-        unescaped = cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00");
-        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
+        const char *x = "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00";
+        assert_se(streq_ptr(unescaped, x));
+        free(unescaped);
+        unescaped = NULL;
 
         /* incomplete sequences */
-        unescaped = cunescape("\\x0");
+        assert_se(cunescape("\\x0", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x0"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\x");
+        assert_se(cunescape("\\x", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\x"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\");
+        assert_se(cunescape("\\", 0, &unescaped) < 0);
+        assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\11");
+        assert_se(cunescape("\\11", 0, &unescaped) < 0);
+        assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\11"));
+        free(unescaped);
+        unescaped = NULL;
 
-        unescaped = cunescape("\\1");
+        assert_se(cunescape("\\1", 0, &unescaped) < 0);
+        assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\1"));
 }
 

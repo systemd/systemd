@@ -253,8 +253,7 @@ int devnode_acl_all(struct udev *udev,
                 FOREACH_DIRENT(dent, dir, return -errno) {
                         _cleanup_free_ char *unescaped_devname = NULL;
 
-                        unescaped_devname = cunescape(dent->d_name);
-                        if (!unescaped_devname)
+                        if (cunescape(dent->d_name, UNESCAPE_RELAX, &unescaped_devname) < 0)
                                 return -ENOMEM;
 
                         n = strappend("/dev/", unescaped_devname);

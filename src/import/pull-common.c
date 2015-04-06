@@ -92,9 +92,9 @@ int pull_find_old_etags(const char *url, const char *image_root, int dt, const c
                 if (a >= b)
                         continue;
 
-                u = cunescape_length(a, b - a);
-                if (!u)
-                        return -ENOMEM;
+                r = cunescape_length(a, b - a, 0, &u);
+                if (r < 0)
+                        return r;
 
                 if (!http_etag_is_valid(u)) {
                         free(u);

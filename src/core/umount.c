@@ -62,6 +62,7 @@ static void mount_points_list_free(MountPoint **head) {
 static int mount_points_list_get(MountPoint **head) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         unsigned int i;
+        int r;
 
         assert(head);
 
@@ -97,9 +98,9 @@ static int mount_points_list_get(MountPoint **head) {
                         continue;
                 }
 
-                p = cunescape(path);
-                if (!p)
-                        return -ENOMEM;
+                r = cunescape(path, UNESCAPE_RELAX, &p);
+                if (r < 0)
+                        return r;
 
                 /* Ignore mount points we can't unmount because they
                  * are API or because we are keeping them open (like
@@ -133,10 +134,12 @@ static int mount_points_list_get(MountPoint **head) {
 static int swap_list_get(MountPoint **head) {
         _cleanup_fclose_ FILE *proc_swaps = NULL;
         unsigned int i;
+        int r;
 
         assert(head);
 
-        if (!(proc_swaps = fopen("/proc/swaps", "re")))
+        proc_swaps = fopen("/proc/swaps", "re");
+        if (!proc_swaps)
                 return (errno == ENOENT) ? 0 : -errno;
 
         (void) fscanf(proc_swaps, "%*s %*s %*s %*s %*s\n");
@@ -146,19 +149,19 @@ static int swap_list_get(MountPoint **head) {
                 char *dev = NULL, *d;
                 int k;
 
-                if ((k = fscanf(proc_swaps,
-                                "%ms " /* device/file */
-                                "%*s " /* type of swap */
-                                "%*s " /* swap size */
-                                "%*s " /* used */
-                                "%*s\n", /* priority */
-                                &dev)) != 1) {
+                k = fscanf(proc_swaps,
+                           "%ms " /* device/file */
+                           "%*s " /* type of swap */
+                           "%*s " /* swap size */
+                           "%*s " /* used */
+                           "%*s\n", /* priority */
+                           &dev);
 
+                if (k != 1) {
                         if (k == EOF)
                                 break;
 
                         log_warning("Failed to parse /proc/swaps:%u.", i);
-
                         free(dev);
                         continue;
                 }
@@ -168,14 +171,13 @@ static int swap_list_get(MountPoint **head) {
                         continue;
                 }
 
-                d = cunescape(dev);
+                r = cunescape(dev, UNESCAPE_RELAX, &d);
                 free(dev);
+                if (r < 0)
+                        return r;
 
-                if (!d) {
-                        return -ENOMEM;
-                }
-
-                if (!(swap = new0(MountPoint, 1))) {
+                swap = new0(MountPoint, 1);
+                if (!swap) {
                         free(d);
                         return -ENOMEM;
                 }

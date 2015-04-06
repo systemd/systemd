@@ -2426,11 +2426,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         _cleanup_free_ char *uce = NULL;
                         char **e;
 
-                        uce = cunescape(l+4);
-                        if (!uce) {
-                                r = -ENOMEM;
+                        r = cunescape(l + 4, UNESCAPE_RELAX, &uce);
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         e = strv_env_set(m->environment, uce);
                         if (!e) {

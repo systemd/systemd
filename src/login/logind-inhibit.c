@@ -231,18 +231,18 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (who) {
-                cc = cunescape(who);
-                if (!cc)
-                        return -ENOMEM;
+                r = cunescape(who, 0, &cc);
+                if (r < 0)
+                        return r;
 
                 free(i->who);
                 i->who = cc;
         }
 
         if (why) {
-                cc = cunescape(why);
-                if (!cc)
-                        return -ENOMEM;
+                r = cunescape(why, 0, &cc);
+                if (r < 0)
+                        return r;
 
                 free(i->why);
                 i->why = cc;

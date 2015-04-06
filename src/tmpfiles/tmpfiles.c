@@ -913,13 +913,13 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (i->argument) {
-                _cleanup_free_ char *unescaped;
+                _cleanup_free_ char *unescaped = NULL;
 
                 log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
-                unescaped = cunescape(i->argument);
-                if (!unescaped)
-                        return log_oom();
+                r = cunescape(i->argument, 0, &unescaped);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
 
                 r = loop_write(fd, unescaped, strlen(unescaped), false);
                 if (r < 0)

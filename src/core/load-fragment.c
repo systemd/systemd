@@ -507,16 +507,17 @@ int config_parse_exec_oom_score_adjust(const char* unit,
         return 0;
 }
 
-int config_parse_exec(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_exec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecCommand **e = data, *nce;
         char *path, **n;
@@ -568,15 +569,13 @@ int config_parse_exec(const char *unit,
                                                 word ++;
                                         }
                                 }
-                        } else
-                                if (strneq(word, ";", MAX(l, 1U)))
+                        } else if (strneq(word, ";", MAX(l, 1U)))
                                         goto found;
 
                         k++;
                 }
                 if (!isempty(state)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Trailing garbage, ignoring.");
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Trailing garbage, ignoring.");
                         return 0;
                 }
 
@@ -605,9 +604,10 @@ int config_parse_exec(const char *unit,
                         else
                                 skip = strneq(word, "\\;", MAX(l, 1U));
 
-                        c = cunescape_length(word + skip, l - skip);
-                        if (!c) {
-                                r = log_oom();
+                        r = cunescape_length(word + skip, l - skip, 0, &c);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to unescape command line, ignoring: %s", rvalue);
+                                r = 0;
                                 goto fail;
                         }
 
@@ -637,8 +637,7 @@ int config_parse_exec(const char *unit,
                 else
                         goto ok;
 
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "%s, ignoring: %s", reason, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "%s, ignoring: %s", reason, rvalue);
                 r = 0;
                 goto fail;
 
@@ -1976,8 +1975,7 @@ int config_parse_environ(const char *unit,
         if (u) {
                 r = unit_full_printf(u, rvalue, &k);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                   "Failed to resolve specifiers, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
         }
 
         if (!k)
@@ -1989,13 +1987,14 @@ int config_parse_environ(const char *unit,
                 _cleanup_free_ char *n;
                 char **x;
 
-                n = cunescape_length(word, l);
-                if (!n)
-                        return log_oom();
+                r = cunescape_length(word, l, 0, &n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Couldn't unescape assignment, ignoring: %s", rvalue);
+                        continue;
+                }
 
                 if (!env_assignment_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid environment assignment, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid environment assignment, ignoring: %s", rvalue);
                         continue;
                 }
 

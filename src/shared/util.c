@@ -1466,12 +1466,13 @@ static int cunescape_one(const char *p, size_t length, char *ret) {
         return r;
 }
 
-char *cunescape_length_with_prefix(const char *s, size_t length, const char *prefix) {
+int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret) {
         char *r, *t;
         const char *f;
         size_t pl;
 
         assert(s);
+        assert(ret);
 
         /* Undoes C style string escaping, and optionally prefixes it. */
 
@@ -1479,7 +1480,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
         r = new(char, pl+length+1);
         if (!r)
-                return NULL;
+                return -ENOMEM;
 
         if (prefix)
                 memcpy(r, prefix, pl);
@@ -1491,17 +1492,31 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
                 remaining = s + length - f;
                 assert(remaining > 0);
 
-                if (*f != '\\' || remaining == 1) {
-                        /* a literal literal, or a trailing backslash, copy verbatim */
+                if (*f != '\\') {
+                        /* A literal literal, copy verbatim */
                         *(t++) = *f;
                         continue;
                 }
 
+                if (remaining == 1) {
+                        if (flags & UNESCAPE_RELAX) {
+                                /* A trailing backslash, copy verbatim */
+                                *(t++) = *f;
+                                continue;
+                        }
+
+                        return -EINVAL;
+                }
+
                 k = cunescape_one(f + 1, remaining - 1, t);
                 if (k < 0) {
-                        /* Invalid escape code, let's take it literal then */
-                        *(t++) = '\\';
-                        continue;
+                        if (flags & UNESCAPE_RELAX) {
+                                /* Invalid escape code, let's take it literal then */
+                                *(t++) = '\\';
+                                continue;
+                        }
+
+                        return k;
                 }
 
                 f += k;
@@ -1509,17 +1524,17 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
         }
 
         *t = 0;
-        return r;
+
+        *ret = r;
+        return t - r;
 }
 
-char *cunescape_length(const char *s, size_t length) {
-        return cunescape_length_with_prefix(s, length, NULL);
+int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
+        return cunescape_length_with_prefix(s, length, NULL, flags, ret);
 }
 
-char *cunescape(const char *s) {
-        assert(s);
-
-        return cunescape_length(s, strlen(s));
+int cunescape(const char *s, UnescapeFlags flags, char **ret) {
+        return cunescape_length(s, strlen(s), flags, ret);
 }
 
 char *xescape(const char *s, const char *bad) {
@@ -6731,9 +6746,9 @@ int umount_recursive(const char *prefix, int flags) {
                                 continue;
                         }
 
-                        p = cunescape(path);
-                        if (!p)
-                                return -ENOMEM;
+                        r = cunescape(path, UNESCAPE_RELAX, &p);
+                        if (r < 0)
+                                return r;
 
                         if (!path_startswith(p, prefix))
                                 continue;
@@ -6833,9 +6848,9 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                                 continue;
                         }
 
-                        p = cunescape(path);
-                        if (!p)
-                                return -ENOMEM;
+                        r = cunescape(path, UNESCAPE_RELAX, &p);
+                        if (r < 0)
+                                return r;
 
                         /* Let's ignore autofs mounts.  If they aren't
                          * triggered yet, we want to avoid triggering

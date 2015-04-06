@@ -311,9 +311,14 @@ char decchar(int x) _const_;
 int undecchar(char c) _const_;
 
 char *cescape(const char *s);
-char *cunescape(const char *s);
-char *cunescape_length(const char *s, size_t length);
-char *cunescape_length_with_prefix(const char *s, size_t length, const char *prefix);
+
+typedef enum UnescapeFlags {
+        UNESCAPE_RELAX = 1,
+} UnescapeFlags;
+
+int cunescape(const char *s, UnescapeFlags flags, char **ret);
+int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);
+int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
 
 char *xescape(const char *s, const char *bad);
 
@@ -1014,7 +1019,7 @@ int take_password_lock(const char *root);
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
 
-typedef enum UnquoteFlags{
+typedef enum UnquoteFlags {
         UNQUOTE_RELAX     = 1,
         UNQUOTE_CUNESCAPE = 2,
 } UnquoteFlags;

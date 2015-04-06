@@ -496,9 +496,9 @@ _public_ int sd_session_get_desktop(const char *session, char **desktop) {
         if (r < 0)
                 return r;
 
-        t = cunescape(escaped);
-        if (!t)
-                return -ENOMEM;
+        r = cunescape(escaped, 0, &t);
+        if (r < 0)
+                return r;
 
         *desktop = t;
         return 0;
