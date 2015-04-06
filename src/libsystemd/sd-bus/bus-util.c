@@ -211,11 +211,10 @@ static int check_good_user(sd_bus_message *m, uid_t good_user) {
         return sender_uid == good_user;
 }
 
-int bus_verify_polkit(
+int bus_test_polkit(
                 sd_bus_message *call,
                 int capability,
                 const char *action,
-                bool interactive,
                 uid_t good_user,
                 bool *_challenge,
                 sd_bus_error *e) {
@@ -224,6 +223,8 @@ int bus_verify_polkit(
 
         assert(call);
         assert(action);
+
+        /* Tests non-interactively! */
 
         r = check_good_user(call, good_user);
         if (r != 0)
@@ -237,18 +238,12 @@ int bus_verify_polkit(
 #ifdef ENABLE_POLKIT
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                int authorized = false, challenge = false, c;
+                int authorized = false, challenge = false;
                 const char *sender;
 
                 sender = sd_bus_message_get_sender(call);
                 if (!sender)
                         return -EBADMSG;
-
-                c = sd_bus_message_get_allow_interactive_authorization(call);
-                if (c < 0)
-                        return c;
-                if (c > 0)
-                        interactive = true;
 
                 r = sd_bus_call_method(
                                 call->bus,
@@ -262,7 +257,7 @@ int bus_verify_polkit(
                                 "system-bus-name", 1, "name", "s", sender,
                                 action,
                                 0,
-                                !!interactive,
+                                0,
                                 "");
 
                 if (r < 0) {
