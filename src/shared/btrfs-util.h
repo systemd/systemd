@@ -46,6 +46,7 @@ typedef struct BtrfsQuotaInfo {
 typedef enum BtrfsSnapshotFlags {
         BTRFS_SNAPSHOT_FALLBACK_COPY = 1,
         BTRFS_SNAPSHOT_READ_ONLY = 2,
+        BTRFS_SNAPSHOT_RECURSIVE = 4,
 } BtrfsSnapshotFlags;
 
 int btrfs_is_snapshot(int fd);

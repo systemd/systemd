@@ -101,74 +101,6 @@ int btrfs_is_snapshot(int fd) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
-        struct btrfs_ioctl_vol_args_v2 args = {
-                .flags = flags & BTRFS_SNAPSHOT_READ_ONLY ? BTRFS_SUBVOL_RDONLY : 0,
-        };
-        _cleanup_close_ int new_fd = -1;
-        const char *subvolume;
-        int r;
-
-        assert(new_path);
-
-        r = btrfs_is_snapshot(old_fd);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
-                        return -EISDIR;
-
-                r = btrfs_subvol_make(new_path);
-                if (r < 0)
-                        return r;
-
-                r = copy_directory_fd(old_fd, new_path, true);
-                if (r < 0) {
-                        btrfs_subvol_remove(new_path, false);
-                        return r;
-                }
-
-                if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
-                        r = btrfs_subvol_set_read_only(new_path, true);
-                        if (r < 0) {
-                                btrfs_subvol_remove(new_path, false);
-                                return r;
-                        }
-                }
-
-                return 0;
-        }
-
-        r = extract_subvolume_name(new_path, &subvolume);
-        if (r < 0)
-                return r;
-
-        new_fd = open_parent(new_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (new_fd < 0)
-                return new_fd;
-
-        strncpy(args.name, subvolume, sizeof(args.name)-1);
-        args.fd = old_fd;
-
-        if (ioctl(new_fd, BTRFS_IOC_SNAP_CREATE_V2, &args) < 0)
-                return -errno;
-
-        return 0;
-}
-
-int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
-        _cleanup_close_ int old_fd = -1;
-
-        assert(old_path);
-        assert(new_path);
-
-        old_fd = open(old_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (old_fd < 0)
-                return -errno;
-
-        return btrfs_subvol_snapshot_fd(old_fd, new_path, flags);
-}
-
 int btrfs_subvol_make(const char *path) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_close_ int fd = -1;
@@ -908,4 +840,184 @@ int btrfs_subvol_remove(const char *path, bool recursive) {
 
 int btrfs_subvol_remove_fd(int fd, const char *subvolume, bool recursive) {
         return subvol_remove_children(fd, subvolume, 0, recursive);
+}
+
+static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolume, uint64_t subvol_id, BtrfsSnapshotFlags flags) {
+
+        struct btrfs_ioctl_search_args args = {
+                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
+
+                .key.min_objectid = BTRFS_FIRST_FREE_OBJECTID,
+                .key.max_objectid = BTRFS_LAST_FREE_OBJECTID,
+
+                .key.min_type = BTRFS_ROOT_BACKREF_KEY,
+                .key.max_type = BTRFS_ROOT_BACKREF_KEY,
+
+                .key.min_transid = 0,
+                .key.max_transid = (uint64_t) -1,
+        };
+
+        struct btrfs_ioctl_vol_args_v2 vol_args = {
+                .flags = flags & BTRFS_SNAPSHOT_READ_ONLY ? BTRFS_SUBVOL_RDONLY : 0,
+                .fd = old_fd,
+        };
+        int r;
+
+        assert(old_fd >= 0);
+        assert(new_fd >= 0);
+        assert(subvolume);
+
+        strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
+        vol_args.fd = old_fd;
+
+        if (ioctl(new_fd, BTRFS_IOC_SNAP_CREATE_V2, &vol_args) < 0)
+                return -errno;
+
+        if (!(flags & BTRFS_SNAPSHOT_RECURSIVE))
+                return 0;
+
+        if (subvol_id == 0) {
+                r = btrfs_subvol_get_id_fd(old_fd, &subvol_id);
+                if (r < 0)
+                        return r;
+        }
+
+        args.key.min_offset = args.key.max_offset = subvol_id;
+
+        while (btrfs_ioctl_search_args_compare(&args) <= 0) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
+
+                args.key.nr_items = 256;
+                if (ioctl(old_fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+                        return -errno;
+
+                if (args.key.nr_items <= 0)
+                        break;
+
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                        _cleanup_free_ char *p = NULL, *c = NULL, *np = NULL;
+                        struct btrfs_ioctl_ino_lookup_args ino_args;
+                        const struct btrfs_root_ref *ref;
+                        _cleanup_close_ int old_child_fd = -1, new_child_fd = -1;
+
+                        btrfs_ioctl_search_args_set(&args, sh);
+
+                        if (sh->type != BTRFS_ROOT_BACKREF_KEY)
+                                continue;
+                        if (sh->offset != subvol_id)
+                                continue;
+
+                        ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+
+                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        if (!p)
+                                return -ENOMEM;
+
+                        zero(ino_args);
+                        ino_args.treeid = subvol_id;
+                        ino_args.objectid = htole64(ref->dirid);
+
+                        if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
+                                return -errno;
+
+                        /* The kernel returns an empty name if the
+                         * subvolume is in the top-level directory,
+                         * and otherwise appends a slash, so that we
+                         * can just concatenate easily here, without
+                         * adding a slash. */
+                        c = strappend(ino_args.name, p);
+                        if (!c)
+                                return -ENOMEM;
+
+                        old_child_fd = openat(old_fd, c, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                        if (old_child_fd < 0)
+                                return -errno;
+
+                        np = strjoin(subvolume, "/", ino_args.name, NULL);
+                        if (!np)
+                                return -ENOMEM;
+
+                        new_child_fd = openat(new_fd, np, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                        if (new_child_fd < 0)
+                                return -errno;
+
+                        /* When btrfs clones the subvolumes, child
+                         * subvolumes appear as directories. Remove
+                         * them, so that we can create a new snapshot
+                         * in their place */
+                        if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0)
+                                return -errno;
+
+                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid, flags & ~BTRFS_SNAPSHOT_FALLBACK_COPY);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Increase search key by one, to read the next item, if we can. */
+                if (!btrfs_ioctl_search_args_inc(&args))
+                        break;
+        }
+
+        return 0;
+}
+
+int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
+        _cleanup_close_ int new_fd = -1;
+        const char *subvolume;
+        int r;
+
+        assert(old_fd >= 0);
+        assert(new_path);
+
+        r = btrfs_is_snapshot(old_fd);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
+                        return -EISDIR;
+
+                r = btrfs_subvol_make(new_path);
+                if (r < 0)
+                        return r;
+
+                r = copy_directory_fd(old_fd, new_path, true);
+                if (r < 0) {
+                        btrfs_subvol_remove(new_path, false);
+                        return r;
+                }
+
+                if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
+                        r = btrfs_subvol_set_read_only(new_path, true);
+                        if (r < 0) {
+                                btrfs_subvol_remove(new_path, false);
+                                return r;
+                        }
+                }
+
+                return 0;
+        }
+
+        r = extract_subvolume_name(new_path, &subvolume);
+        if (r < 0)
+                return r;
+
+        new_fd = open_parent(new_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (new_fd < 0)
+                return new_fd;
+
+        return subvol_snapshot_children(old_fd, new_fd, subvolume, 0, flags);
+}
+
+int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
+        _cleanup_close_ int old_fd = -1;
+
+        assert(old_path);
+        assert(new_path);
+
+        old_fd = open(old_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (old_fd < 0)
+                return -errno;
+
+        return btrfs_subvol_snapshot_fd(old_fd, new_path, flags);
 }

@@ -133,7 +133,15 @@ int main(int argc, char *argv[]) {
         if (mkdir("/xxxrectest/mnt", 0755) < 0)
                 log_error_errno(errno, "Failed to make directory: %m");
 
+        r = btrfs_subvol_snapshot("/xxxrectest", "/xxxrectest2", BTRFS_SNAPSHOT_RECURSIVE);
+        if (r < 0)
+                log_error_errno(r, "Failed to snapshot subvolume: %m");
+
         r = btrfs_subvol_remove("/xxxrectest", true);
+        if (r < 0)
+                log_error_errno(r, "Failed to recursively remove subvolume: %m");
+
+        r = btrfs_subvol_remove("/xxxrectest2", true);
         if (r < 0)
                 log_error_errno(r, "Failed to recursively remove subvolume: %m");
 
