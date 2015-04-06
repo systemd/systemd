@@ -260,7 +260,11 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings). For non-service units,
         <varname>DefaultTimeoutStartSec=</varname> sets the default
-        <varname>TimeoutSec=</varname> value. </para></listitem>
+        <varname>TimeoutSec=</varname>
+        value. <varname>DefaultTimeoutStartSec=</varname> and
+        <varname>DefaultTimeoutStopSec=</varname> default to
+        90s. <varname>DefaultRestartSec=</varname> defaults to
+        100ms.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -272,7 +276,10 @@
         <varname>StartLimitInterval=</varname> and
         <varname>StartLimitBurst=</varname>. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-service settings.</para></listitem>
+        for details on the per-service settings.
+        <varname>DefaultStartLimitInterval=</varname> defaults to
+        10s. <varname>DefaultStartLimitBurst=</varname> defaults to
+        5.</para></listitem>
       </varlistentry>
 
       <varlistentry>
