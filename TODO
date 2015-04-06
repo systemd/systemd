@@ -12,10 +12,6 @@ Bugfixes:
           Environment=ONE='one' "TWO='two two' too" THREE=
           ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
 
-* MEMORY return code is overloaded for syntax errors in the command line.
-  str_split_quoted() should return a real return code, so spawn_child can
-  report the failure properly.
-
 * When systemctl --host is used, underlying ssh connection can remain open.
   bus_close does not kill children?
 
@@ -42,8 +38,6 @@ Before 220:
 
 * bus-proxy: GetConnectionSELinuxSecurityContext() is completely broken
 
-* logind: make sure the syncrhonous polkit checks are not interactive, i.e. supporess client side interactive bus message header flag for them
-
 * timer units triggering services with failing conditions run busy:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
 
@@ -54,8 +48,6 @@ Features:
 
 * fstab-generator should generate systemd-fsck-root.service when
   running in the initrd, and operate on the right device.
-
-* the default stop timeout for units is not documented anywhere.
 
 * .timer units should optionally support CLOCK_BOOTTIME in addition to CLOCK_MONOTONIC
 
