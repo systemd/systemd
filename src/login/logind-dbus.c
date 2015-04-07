@@ -1879,21 +1879,20 @@ static int method_set_reboot_to_firmware_setup(
                 sd_bus_error *error) {
 
         int b, r;
-        int interactive;
         Manager *m = userdata;
 
         assert(bus);
         assert(message);
         assert(m);
 
-        r = sd_bus_message_read(message, "bb", &b, &interactive);
+        r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
                 return r;
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
                                     "org.freedesktop.login1.set-reboot-to-firmware-setup",
-                                    interactive,
+                                    false,
                                     UID_INVALID,
                                     &m->polkit_registry,
                                     error);
@@ -2124,7 +2123,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("CanHybridSleep", NULL, "s", method_can_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanRebootToFirmwareSetup", NULL, "s", method_can_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetRebootToFirmwareSetup", "bb", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetRebootToFirmwareSetup", "b", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("SessionNew", "so", 0),
         SD_BUS_SIGNAL("SessionRemoved", "so", 0),
