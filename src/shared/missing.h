@@ -859,6 +859,10 @@ static inline int setns(int fd, int nstype) {
 #define LOOPBACK_IFINDEX 1
 #endif
 
+#if !HAVE_DECL_IFA_FLAGS
+#define IFA_FLAGS 8
+#endif
+
 #ifndef MAX_AUDIT_MESSAGE_LENGTH
 #define MAX_AUDIT_MESSAGE_LENGTH 8970
 #endif

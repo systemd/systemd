@@ -334,7 +334,8 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
                 IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
                 IFLA_BRIDGE_VLAN_INFO,
                 IFLA_BRPORT_UNICAST_FLOOD,
-                NDA_IFINDEX],
+                NDA_IFINDEX,
+                IFA_FLAGS],
 [], [], [[
 #include <inttypes.h>
 #include <netinet/in.h>
@@ -345,6 +346,7 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
 #include <linux/if_tunnel.h>
 #include <linux/if_link.h>
 #include <linux/if_bridge.h>
+#include <linux/if_addr.h>
 #include <linux/neighbour.h>
 ]])
 
