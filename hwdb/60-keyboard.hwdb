@@ -1013,6 +1013,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*7[34]0U3E*:pvr
  KEYBOARD_KEY_b3=!prog3                                 # Fn+F11 fan/cooling mode changer
  KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 wlan/airplane switch
 
+# ATIV Book 6 / 8
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*[68][78]0Z*:pvr*
+ KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
+ KEYBOARD_KEY_96=!kbdillumup                            # Fn+F10 keyboard backlight up
+ KEYBOARD_KEY_97=!kbdillumdown                          # Fn+F9 keyboard backlight down
+
 # SQ1US
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pnSQ1US:pvr*
  KEYBOARD_KEY_d4=menu
