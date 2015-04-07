@@ -109,8 +109,8 @@ udevrulesdir=$(udevlibexecdir)/rules.d
 udevhwdbdir=$(udevlibexecdir)/hwdb.d
 catalogdir=$(prefix)/lib/systemd/catalog
 kernelinstalldir = $(prefix)/lib/kernel/install.d
-factory_etcdir = $(prefix)/share/factory/etc
-factory_pamdir = $(prefix)/share/factory/etc/pam.d
+factory_etcdir = $(datadir)/factory/etc
+factory_pamdir = $(datadir)/factory/etc/pam.d
 bootlibdir = $(prefix)/lib/systemd/boot/efi
 
 # And these are the special ones for /
