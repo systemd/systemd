@@ -76,6 +76,7 @@ _arguments -s \
     {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
+    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     {-D+,--directory=}'[Show journal files from directory]:directories:_directories' \
     '--file=[Operate on specified journal files]:file:_files' \
     '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
