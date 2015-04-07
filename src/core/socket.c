@@ -2315,8 +2315,7 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                                 if (errno == EINTR)
                                         continue;
 
-                                log_unit_error(UNIT(p->socket)->id,
-                                               "Failed to accept socket: %m");
+                                log_unit_error(UNIT(p->socket)->id, "Failed to accept socket: %m");
                                 goto fail;
                         }
 
@@ -2523,7 +2522,8 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 return 0;
         }
 
-        if (!(rfds = new(int, rn_fds)))
+        rfds = new(int, rn_fds);
+        if (!rfds)
                 return -ENOMEM;
 
         k = 0;
