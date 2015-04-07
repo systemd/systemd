@@ -384,6 +384,7 @@ static const struct bus_properties_map kbdctx_locale_map[] = {
         { "X11Layout",  "s",    NULL, offsetof(kbdctx, locale_x11_layout) },
         { "X11Variant", "s",    NULL, offsetof(kbdctx, locale_x11_variant) },
         { "X11Options", "s",    NULL, offsetof(kbdctx, locale_x11_options) },
+        { },
 };
 
 static int kbdctx_locale_get_all_fn(sd_bus *bus,
