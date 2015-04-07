@@ -86,8 +86,14 @@ static void test_path(void) {
         test_parent("/aa///file...", "/aa///");
         test_parent("file.../", NULL);
 
-        assert_se(path_is_mount_point("/", true));
-        assert_se(path_is_mount_point("/", false));
+        assert_se(path_is_mount_point("/", true) > 0);
+        assert_se(path_is_mount_point("/", false) > 0);
+
+        assert_se(path_is_mount_point("/proc", true) > 0);
+        assert_se(path_is_mount_point("/proc", false) > 0);
+
+        assert_se(path_is_mount_point("/sys", true) > 0);
+        assert_se(path_is_mount_point("/sys", false) > 0);
 
         {
                 char p1[] = "aaa/bbb////ccc";
