@@ -104,10 +104,13 @@
         <term><command>status</command></term>
 
         <listitem><para>Show current settings of the system clock and
-        RTC, including whether NTP is enabled. Note that the NTP state
+        RTC, including whether network time synchronization is
+        enabled. Note that the network time synchronization state
         simply reflects whether the
         <filename>systemd-timesyncd.service</filename> unit is
-        enabled.</para></listitem>
+        enabled. Even if the status is shown as off with this command
+        another service might still synchronize the network over the
+        network.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -162,11 +165,13 @@
       <varlistentry>
         <term><command>set-ntp [BOOL]</command></term>
 
-        <listitem><para>Takes a boolean argument. Controls whether NTP
-        based network time synchronization is enabled (if
-        available). This enables or disables the
-        <filename>systemd-timesyncd.service</filename>
-        unit.</para></listitem>
+        <listitem><para>Takes a boolean argument. Controls whether
+        network time synchronous is enabled (if available). This
+        enables or disables the
+        <filename>systemd-timesyncd.service</filename> unit. Note that
+        even if time synchronization is turned off with this command
+        another system service might still synchronize the clock with
+        the network.</para></listitem>
       </varlistentry>
 
     </variablelist>

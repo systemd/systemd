@@ -136,7 +136,7 @@ static void print_status_info(const StatusInfo *i) {
                 tzset();
 
         printf("       Time zone: %s (%.*s)\n"
-               "     NTP enabled: %s\n"
+               " Network Time on: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
                strna(i->timezone), (int) sizeof(a), have_time ? a : "n/a",
@@ -331,7 +331,7 @@ static void help(void) {
                "  set-timezone ZONE        Set system time zone\n"
                "  list-timezones           Show known time zones\n"
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
-               "  set-ntp BOOL             Control whether NTP is enabled\n",
+               "  set-ntp BOOL             Control whether network time synchronization is enabled\n",
                program_invocation_short_name);
 }
 
