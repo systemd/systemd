@@ -43,6 +43,8 @@ Before 220:
 
 Features:
 
+* logind should set EFI firmware flag via logind
+
 * mounting and unmounting mount points manually with different source
   devices will result in collected collected on all devices used.
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030225.html
