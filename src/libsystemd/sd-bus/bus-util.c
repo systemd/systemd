@@ -946,7 +946,6 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         switch (type) {
         case SD_BUS_TYPE_STRING: {
                 const char *s;
-                char *str;
                 char **p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &s);
@@ -956,14 +955,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                 if (isempty(s))
                         break;
 
-                str = strdup(s);
-                if (!str) {
-                        r = -ENOMEM;
-                        break;
-                }
-                free(*p);
-                *p = str;
-
+                r = free_and_strdup(p, s);
                 break;
         }
 
