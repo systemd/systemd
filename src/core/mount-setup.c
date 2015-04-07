@@ -157,12 +157,8 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 label_fix(p->where, true, true);
 
         r = path_is_mount_point(p->where, true);
-        if (r == -ENOENT)
-                return 0;
-
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return r;
-
         if (r > 0)
                 return 0;
 
