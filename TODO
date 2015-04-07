@@ -43,6 +43,11 @@ Before 220:
 
 Features:
 
+* add a job mode that will fail if a transaction would mean stopping
+  running units. Use this in timedated to manage the NTP service
+  state.
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
+
 * Maybe add support for the equivalent of "ethtool advertise" to .link files?
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
 
