@@ -102,10 +102,11 @@ _arguments -s \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
     {-s+,--signal=}'[Which signal to send]:signal:_signals' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machine' \
-    {-P,--privileged}'[Acquire privileges before execution]' \
+    {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
     {-l,--full}'[Do not ellipsize output]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not show the headers and footers]' \
     '--no-ask-password[Do not ask for system passwords]' \
+    {-n+,--lines=}'[Number of journal entries to show]' \
+    {-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
     '*::loginctl command:_loginctl_command'
