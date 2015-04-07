@@ -562,7 +562,7 @@
         <literal>https://</literal>, and must refer to a
         <filename>.tar</filename>, <filename>.tar.gz</filename>,
         <filename>.tar.xz</filename> or <filename>.tar.bz2</filename>
-        archive file. If the local machine name is omitted the name it
+        archive file. If the local machine name is omitted it
         is automatically derived from the last component of the URL,
         with its suffix removed.</para>
 
@@ -615,7 +615,7 @@
         be a <filename>.qcow2</filename> or raw disk image, optionally
         compressed as <filename>.gz</filename>,
         <filename>.xz</filename>, or <filename>.bz2</filename>. If the
-        local machine name is omitted the name it is automatically
+        local machine name is omitted it is automatically
         derived from the last component of the URL, with its suffix
         removed.</para>
 
