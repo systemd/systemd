@@ -103,9 +103,10 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current settings
-        of the system clock and
-        RTC.</para></listitem>
+        <listitem><para>Show current settings of the system clock and
+        RTC, including whether NTP is enabled. Note that the NTP state
+        simply reflects whether the
+        <filename>systemd-timesyncd.service</filename> unit is enabled.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -162,7 +163,9 @@
 
         <listitem><para>Takes a boolean argument. Controls whether NTP
         based network time synchronization is enabled (if
-        available).</para></listitem>
+        available). This enables or disables the
+        <filename>systemd-timesyncd.service</filename>
+        unit.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -225,6 +228,7 @@ chronyd.service - NTP client/server
       <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
