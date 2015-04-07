@@ -331,7 +331,7 @@ static void help(void) {
                "  set-timezone ZONE        Set system time zone\n"
                "  list-timezones           Show known time zones\n"
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
-               "  set-ntp BOOL             Control whether network time synchronization is enabled\n",
+               "  set-ntp BOOL             Enable or disable network time synchronization\n",
                program_invocation_short_name);
 }
 
