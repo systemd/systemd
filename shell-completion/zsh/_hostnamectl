@@ -33,6 +33,14 @@ _hostnamectl_set-deployment() {
     fi
 }
 
+_hostnamectl_set-location() {
+    if (( CURRENT <= 3 )); then
+        _message "new location"
+    else
+        _message "no more options"
+    fi
+}
+
 _hostnamectl_command() {
     local -a _hostnamectl_cmds
     _hostnamectl_cmds=(
@@ -40,7 +48,8 @@ _hostnamectl_command() {
         "set-hostname:Set system hostname"
         "set-icon-name:Set icon name for host"
         "set-chassis:Set chassis type for host"
-        "set-deployment:Set deployment environment"
+        "set-deployment:Set deployment environment for host"
+        "set-location:Set location for host"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"
@@ -67,4 +76,5 @@ _arguments -s \
     '--pretty[Only set pretty hostname]' \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     '*::hostnamectl commands:_hostnamectl_command'
