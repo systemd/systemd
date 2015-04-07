@@ -43,6 +43,10 @@ Before 220:
 
 Features:
 
+* whe should apply a stop limit (similar to the existing start limit),
+  so that we don't enter unbounded umount loops:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030224.html
+
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service
   state.
