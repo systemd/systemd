@@ -22,7 +22,6 @@
 
 #include <stdio.h>
 #include <getopt.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <sys/statfs.h>

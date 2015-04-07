@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <libintl.h>
-#include <locale.h>
 #include <stdio.h>
 #include <syslog.h>
 #include <sched.h>
