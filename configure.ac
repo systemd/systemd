@@ -1177,7 +1177,7 @@ AS_IF([test "x$enable_gnuefi" != "xno"], [
                        [AC_MSG_ERROR([*** gnuefi support requested but headers not found])])
         ])
 
-        efiroot=$(echo $(cd /usr/lib/$(gcc -print-multi-os-directory); pwd))
+        efiroot=$(echo $(cd /usr/lib/$(${EFI_CC} -print-multi-os-directory); pwd))
 
         EFI_LIB_DIR="$efiroot"
         AC_ARG_WITH(efi-libdir,
