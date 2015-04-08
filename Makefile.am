@@ -792,6 +792,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/siphash24.c \
 	src/shared/siphash24.h \
 	src/shared/set.h \
+	src/shared/ordered-set.h \
 	src/shared/fdset.c \
 	src/shared/fdset.h \
 	src/shared/prioq.c \
