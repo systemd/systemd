@@ -1149,8 +1149,7 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
-EFI_CC=gcc
-AC_SUBST([EFI_CC])
+AC_CHECK_TOOL(EFI_CC, gcc)
 
 EFI_ARCH=`echo $host | sed "s/\(-\).*$//"`
 
