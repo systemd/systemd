@@ -49,6 +49,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 { "quiet",          no_argument,       NULL, 'q' }, /* removed */
                 {}
         };
+        usec_t deadline;
         const char *exists = NULL;
         unsigned int timeout = 120;
         struct pollfd pfd[1] = { {.fd = -1}, };
@@ -98,6 +99,8 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        deadline = now(CLOCK_MONOTONIC) + timeout * USEC_PER_SEC;
+
         /* guarantee that the udev daemon isn't pre-processing */
         if (getuid() == 0) {
                 struct udev_ctrl *uctrl;
@@ -138,6 +141,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                         rc = EXIT_SUCCESS;
                         break;
                 }
+
+                if (timeout > 0 && now(CLOCK_MONOTONIC) >= deadline)
+                        break;
 
                 /* wake up when queue is empty */
                 if (poll(pfd, 1, MSEC_PER_SEC) > 0 && pfd[0].revents & POLLIN)
