@@ -5550,6 +5550,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 }
 
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
+        const char *s;
         int r;
 
         assert(m);
@@ -5559,19 +5560,13 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         if (r <= 0)
                 return r;
 
-        for (;;) {
-                const char *s;
-
-                r = sd_bus_message_read_basic(m, 's', &s);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
+        while ((r = sd_bus_message_read_basic(m, 's', &s)) > 0) {
                 r = strv_extend(l, s);
                 if (r < 0)
                         return r;
         }
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_exit_container(m);
         if (r < 0)
