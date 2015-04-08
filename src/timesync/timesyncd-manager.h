@@ -55,6 +55,7 @@ struct Manager {
         int missed_replies;
         uint64_t packet_count;
         sd_event_source *event_timeout;
+        bool good;
 
         /* last sent packet */
         struct timespec trans_time_mon;
