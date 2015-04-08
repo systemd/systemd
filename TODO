@@ -43,6 +43,8 @@ Before 220:
 
 Features:
 
+* docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
+
 * systemctl should set EFI firmware flag via logind
 
 * mounting and unmounting mount points manually with different source
