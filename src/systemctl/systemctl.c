@@ -2913,6 +2913,46 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
 #endif
 }
 
+static int prepare_firmware_setup(sd_bus *bus) {
+#ifdef HAVE_LOGIND
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+#endif
+        int r;
+
+        if (!arg_firmware_setup)
+                return 0;
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+
+                r = efi_set_reboot_to_firmware(true);
+                if (r < 0)
+                        log_debug_errno(r, "Cannot indicate to EFI to boot into setup mode, will retry via logind: %m");
+                else
+                        return r;
+        }
+
+#ifdef HAVE_LOGIND
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToFirmwareSetup",
+                        &error,
+                        NULL,
+                        "b", true);
+        if (r < 0) {
+                log_error("Cannot indicate to EFI to boot into setup mode: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        return 0;
+#else
+        log_error("Cannot remotely indicate to EFI to boot into setup mode.");
+        return -EINVAL;
+#endif
+}
+
 static int start_special(sd_bus *bus, char **args) {
         enum action a;
         int r;
@@ -2930,11 +2970,9 @@ static int start_special(sd_bus *bus, char **args) {
                 return -EPERM;
         }
 
-        if (arg_firmware_setup) {
-                r = efi_set_reboot_to_firmware(true);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot indicate to EFI to boot into setup mode: %m");
-        }
+        r = prepare_firmware_setup(bus);
+        if (r < 0)
+                return r;
 
         if (a == ACTION_REBOOT && args[1]) {
                 r = update_reboot_param_file(args[1]);
