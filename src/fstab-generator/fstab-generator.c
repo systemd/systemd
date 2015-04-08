@@ -404,7 +404,7 @@ static int add_root_mount(void) {
 
         what = fstab_node_to_udev_node(arg_root_what);
         if (!what)
-                log_oom();
+                return log_oom();
 
         if (!arg_root_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
