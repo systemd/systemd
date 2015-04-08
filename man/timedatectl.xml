@@ -105,11 +105,11 @@
 
         <listitem><para>Show current settings of the system clock and
         RTC, including whether network time synchronization is
-        enabled. Note that the network time synchronization state
+        on. Note that whether network time synchronization is on
         simply reflects whether the
         <filename>systemd-timesyncd.service</filename> unit is
-        enabled. Even if the status is shown as off with this command
-        another service might still synchronize the network over the
+        enabled. Even if this command shows the status as off a
+        different service might still synchronize the clock with the
         network.</para></listitem>
       </varlistentry>
 
@@ -166,12 +166,12 @@
         <term><command>set-ntp [BOOL]</command></term>
 
         <listitem><para>Takes a boolean argument. Controls whether
-        network time synchronous is enabled (if available). This
+        network time synchronization is enabled (if available). This
         enables or disables the
         <filename>systemd-timesyncd.service</filename> unit. Note that
-        even if time synchronization is turned off with this command
-        another system service might still synchronize the clock with
-        the network.</para></listitem>
+        even if this command turns time synchronization off a
+        different system service might still synchronize the clock
+        with the network.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -195,12 +195,12 @@
   Universal time: Di 2015-04-07 14:26:56 UTC
         RTC time: Di 2015-04-07 14:26:56
        Time zone: Europe/Berlin (CEST, +0200)
-     NTP enabled: yes
+ Network time on: yes
 NTP synchronized: yes
  RTC in local TZ: no</programlisting>
     </para>
 
-    <para>Enable an NTP daemon:
+    <para>Enable network time synchronization:
     <programlisting>$ timedatectl set-ntp true
 ==== AUTHENTICATING FOR org.freedesktop.timedate1.set-ntp ===
 Authentication is required to control whether network time synchronization shall be enabled.

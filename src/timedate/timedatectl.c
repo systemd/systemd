@@ -136,7 +136,7 @@ static void print_status_info(const StatusInfo *i) {
                 tzset();
 
         printf("       Time zone: %s (%.*s)\n"
-               " Network Time on: %s\n"
+               " Network time on: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
                strna(i->timezone), (int) sizeof(a), have_time ? a : "n/a",
