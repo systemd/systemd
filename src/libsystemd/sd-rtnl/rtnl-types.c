@@ -348,7 +348,9 @@ static const NLTypeSystem rtnl_link_type_system = {
         .types = rtnl_link_types,
 };
 
-static const NLType rtnl_address_types[IFA_MAX + 1] = {
+/* IFA_FLAGS was defined in kernel 3.14, but we still support older
+ * kernels where IFA_MAX is lower. */
+static const NLType rtnl_address_types[CONST_MAX(IFA_MAX, IFA_FLAGS) + 1] = {
         [IFA_ADDRESS]           = { .type = NLA_IN_ADDR },
         [IFA_LOCAL]             = { .type = NLA_IN_ADDR },
         [IFA_LABEL]             = { .type = NLA_STRING, .size = IFNAMSIZ - 1 },
