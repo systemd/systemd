@@ -570,7 +570,7 @@ int config_parse_exec(
                                         }
                                 }
                         } else if (strneq(word, ";", MAX(l, 1U)))
-                                        goto found;
+                                goto found;
 
                         k++;
                 }
