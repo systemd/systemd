@@ -41,7 +41,13 @@ Before 220:
 * timer units triggering services with failing conditions run busy:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
 
+* figure out what to do about systemd.pc
+
 Features:
+
+* check for the various fs-specific ioctls we call that we do so only
+  after verifying they are regular files or directories, and not
+  device files, so that we don't confuse drivers.
 
 * docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
 
