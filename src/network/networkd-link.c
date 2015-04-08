@@ -2420,7 +2420,6 @@ int link_save(Link *link) {
                 bool space = false;
 
                 fputs("CARRIER_BOUND_BY=", f);
-                space = false;
                 HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
                         if (space)
                                 fputc(' ', f);
