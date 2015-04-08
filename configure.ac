@@ -120,6 +120,7 @@ GOBJECT_INTROSPECTION_CHECK([1.31.1])
    AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
    enable_introspection=no])
 
+AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
 AC_CHECK_TOOL(GPERF, gperf)
 if test -z "$GPERF" ; then

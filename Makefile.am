@@ -2632,7 +2632,7 @@ $(systemd_boot_solib): $(systemd_boot_objects)
 	nm -D -u $@ | grep ' U ' && exit 1 || :
 
 $(systemd_boot): $(systemd_boot_solib)
-	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
+	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 
 # ------------------------------------------------------------------------------
@@ -2669,7 +2669,7 @@ $(stub_solib): $(stub_objects)
 	nm -D -u $@ | grep ' U ' && exit 1 || :
 
 $(stub): $(stub_solib)
-	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
+	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 
 # ------------------------------------------------------------------------------
