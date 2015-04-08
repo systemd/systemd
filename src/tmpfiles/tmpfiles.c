@@ -88,8 +88,8 @@ typedef enum ItemType {
         ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
         RELABEL_PATH = 'z',
         RECURSIVE_RELABEL_PATH = 'Z',
-        SET_ATTRIB = 'h',
-        RECURSIVE_SET_ATTRIB = 'H',
+        SET_ATTRIBUTE = 'h',
+        RECURSIVE_SET_ATTRIBUTE = 'H',
 } ItemType;
 
 typedef struct Item {
@@ -108,15 +108,15 @@ typedef struct Item {
         usec_t age;
 
         dev_t major_minor;
-        unsigned long attrib_value;
-        unsigned long attrib_mask;
+        unsigned attribute_value;
+        unsigned attribute_mask;
 
         bool uid_set:1;
         bool gid_set:1;
         bool mode_set:1;
         bool age_set:1;
         bool mask_perms:1;
-        bool attrib_set:1;
+        bool attribute_set:1;
 
         bool keep_first_level:1;
 
@@ -764,122 +764,143 @@ static int path_set_acls(Item *item, const char *path) {
         return r;
 }
 
-#define ALL_ATTRIBS          \
-        FS_NOATIME_FL      | \
-        FS_SYNC_FL         | \
-        FS_DIRSYNC_FL      | \
-        FS_APPEND_FL       | \
-        FS_COMPR_FL        | \
-        FS_NODUMP_FL       | \
-        FS_EXTENT_FL       | \
-        FS_IMMUTABLE_FL    | \
-        FS_JOURNAL_DATA_FL | \
-        FS_SECRM_FL        | \
-        FS_UNRM_FL         | \
-        FS_NOTAIL_FL       | \
-        FS_TOPDIR_FL       | \
-        FS_NOCOW_FL
+#define ATTRIBUTES_ALL                          \
+        (FS_NOATIME_FL      |                   \
+         FS_SYNC_FL         |                   \
+         FS_DIRSYNC_FL      |                   \
+         FS_APPEND_FL       |                   \
+         FS_COMPR_FL        |                   \
+         FS_NODUMP_FL       |                   \
+         FS_EXTENT_FL       |                   \
+         FS_IMMUTABLE_FL    |                   \
+         FS_JOURNAL_DATA_FL |                   \
+         FS_SECRM_FL        |                   \
+         FS_UNRM_FL         |                   \
+         FS_NOTAIL_FL       |                   \
+         FS_TOPDIR_FL       |                   \
+         FS_NOCOW_FL)
 
-static int get_attrib_from_arg(Item *item) {
-        static const unsigned attributes[] = {
-                [(uint8_t)'A'] = FS_NOATIME_FL,      /* do not update atime */
-                [(uint8_t)'S'] = FS_SYNC_FL,         /* Synchronous updates */
-                [(uint8_t)'D'] = FS_DIRSYNC_FL,      /* dirsync behaviour (directories only) */
-                [(uint8_t)'a'] = FS_APPEND_FL,       /* writes to file may only append */
-                [(uint8_t)'c'] = FS_COMPR_FL,        /* Compress file */
-                [(uint8_t)'d'] = FS_NODUMP_FL,       /* do not dump file */
-                [(uint8_t)'e'] = FS_EXTENT_FL,       /* Top of directory hierarchies*/
-                [(uint8_t)'i'] = FS_IMMUTABLE_FL,    /* Immutable file */
-                [(uint8_t)'j'] = FS_JOURNAL_DATA_FL, /* Reserved for ext3 */
-                [(uint8_t)'s'] = FS_SECRM_FL,        /* Secure deletion */
-                [(uint8_t)'u'] = FS_UNRM_FL,         /* Undelete */
-                [(uint8_t)'t'] = FS_NOTAIL_FL,       /* file tail should not be merged */
-                [(uint8_t)'T'] = FS_TOPDIR_FL,       /* Top of directory hierarchies*/
-                [(uint8_t)'C'] = FS_NOCOW_FL,        /* Do not cow file */
+static int get_attribute_from_arg(Item *item) {
+
+        static const struct {
+                char character;
+                unsigned value;
+        } attributes[] = {
+                { 'A', FS_NOATIME_FL },      /* do not update atime */
+                { 'S', FS_SYNC_FL },         /* Synchronous updates */
+                { 'D', FS_DIRSYNC_FL },      /* dirsync behaviour (directories only) */
+                { 'a', FS_APPEND_FL },       /* writes to file may only append */
+                { 'c', FS_COMPR_FL },        /* Compress file */
+                { 'd', FS_NODUMP_FL },       /* do not dump file */
+                { 'e', FS_EXTENT_FL },       /* Top of directory hierarchies*/
+                { 'i', FS_IMMUTABLE_FL },    /* Immutable file */
+                { 'j', FS_JOURNAL_DATA_FL }, /* Reserved for ext3 */
+                { 's', FS_SECRM_FL },        /* Secure deletion */
+                { 'u', FS_UNRM_FL },         /* Undelete */
+                { 't', FS_NOTAIL_FL },       /* file tail should not be merged */
+                { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies*/
+                { 'C', FS_NOCOW_FL },        /* Do not cow file */
         };
-        char *p = item->argument;
+
         enum {
                 MODE_ADD,
                 MODE_DEL,
                 MODE_SET
         } mode = MODE_ADD;
-        unsigned long value = 0, mask = 0;
 
-        if (!p) {
-                log_error("\"%s\": setting ATTR need an argument", item->path);
+        unsigned value = 0, mask = 0;
+        const char *p;
+
+        assert(item);
+
+        p = item->argument;
+        if (p) {
+                if (*p == '+') {
+                        mode = MODE_ADD;
+                        p++;
+                } else if (*p == '-') {
+                        mode = MODE_DEL;
+                        p++;
+                } else  if (*p == '=') {
+                        mode = MODE_SET;
+                        p++;
+                }
+        }
+
+        if (isempty(p) && mode != MODE_SET) {
+                log_error("Setting file attribute on '%s' needs an attribute specification.", item->path);
                 return -EINVAL;
         }
 
-        if (*p == '+') {
-                mode = MODE_ADD;
-                p++;
-        } else if (*p == '-') {
-                mode = MODE_DEL;
-                p++;
-        } else  if (*p == '=') {
-                mode = MODE_SET;
-                p++;
-        }
+        for (; p && *p ; p++) {
+                unsigned i, v;
 
-        if (!*p && mode != MODE_SET) {
-                log_error("\"%s\": setting ATTR: argument is empty", item->path);
-                return -EINVAL;
-        }
-        for (; *p ; p++) {
-                if ((uint8_t)*p >= ELEMENTSOF(attributes) || attributes[(uint8_t)*p] == 0) {
-                        log_error("\"%s\": setting ATTR: unknown attr '%c'", item->path, *p);
+                for (i = 0; i < ELEMENTSOF(attributes); i++)
+                        if (*p == attributes[i].character)
+                                break;
+
+                if (i >= ELEMENTSOF(attributes)) {
+                        log_error("Unknown file attribute '%c' on '%s'.", *p, item->path);
                         return -EINVAL;
                 }
+
+                v = attributes[i].value;
+
                 if (mode == MODE_ADD || mode == MODE_SET)
-                        value |= attributes[(uint8_t)*p];
+                        value |= v;
                 else
-                        value &= ~attributes[(uint8_t)*p];
-                mask |= attributes[(uint8_t)*p];
+                        value &= ~v;
+
+                mask |= v;
         }
 
         if (mode == MODE_SET)
-                mask |= ALL_ATTRIBS;
+                mask |= ATTRIBUTES_ALL;
 
-        assert(mask);
+        assert(mask != 0);
 
-        item->attrib_mask = mask;
-        item->attrib_value = value;
-        item->attrib_set = true;
+        item->attribute_mask = mask;
+        item->attribute_value = value;
+        item->attribute_set = true;
 
         return 0;
-
 }
 
-static int path_set_attrib(Item *item, const char *path) {
+static int path_set_attribute(Item *item, const char *path) {
         _cleanup_close_ int fd = -1;
-        int r;
-        unsigned f;
         struct stat st;
+        unsigned f;
+        int r;
 
-        /* do nothing */
-        if (item->attrib_mask == 0 || !item->attrib_set)
+        if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
-        /*
-         * It is OK to ignore an lstat() error, because the error
-         * will be catch by the open() below anyway
-         */
-        if (lstat(path, &st) == 0 &&
-            !S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
-                return 0;
-        }
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(errno, "Cannot open \"%s\": %m", path);
+                return log_error_errno(errno, "Cannot open '%s': %m", path);
 
-        f = item->attrib_value & item->attrib_mask;
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Cannot stat '%s': %m", path);
+
+        /* Issuing the file attribute ioctls on device nodes is not
+         * safe, as that will be delivered to the drivers, not the
+         * file system containing the device node. */
+        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+                log_error("Setting file flags is only supported on regular files and directories, cannot set on '%s'.", path);
+                return -EINVAL;
+        }
+
+        f = item->attribute_value & item->attribute_mask;
+
+        /* Mask away directory-specific flags */
         if (!S_ISDIR(st.st_mode))
                 f &= ~FS_DIRSYNC_FL;
-        r = chattr_fd(fd, f, item->attrib_mask);
+
+        r = chattr_fd(fd, f, item->attribute_mask);
         if (r < 0)
-                return log_error_errno(errno,
-                        "Cannot set attrib for \"%s\", value=0x%08lx, mask=0x%08lx: %m",
-                        path, item->attrib_value, item->attrib_mask);
+                return log_error_errno(r,
+                        "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                        path, item->attribute_value, item->attribute_mask);
 
         return 0;
 }
@@ -1325,14 +1346,14 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
-        case SET_ATTRIB:
-                r = glob_item(i, path_set_attrib, false);
+        case SET_ATTRIBUTE:
+                r = glob_item(i, path_set_attribute, false);
                 if (r < 0)
                         return r;
                 break;
 
-        case RECURSIVE_SET_ATTRIB:
-                r = glob_item(i, path_set_attrib, true);
+        case RECURSIVE_SET_ATTRIBUTE:
+                r = glob_item(i, path_set_attribute, true);
                 if (r < 0)
                         return r;
                 break;
@@ -1400,8 +1421,8 @@ static int remove_item(Item *i) {
         case RECURSIVE_SET_XATTR:
         case SET_ACL:
         case RECURSIVE_SET_ACL:
-        case SET_ATTRIB:
-        case RECURSIVE_SET_ATTRIB:
+        case SET_ATTRIBUTE:
+        case RECURSIVE_SET_ATTRIBUTE:
                 break;
 
         case REMOVE_PATH:
@@ -1786,13 +1807,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return r;
                 break;
 
-        case SET_ATTRIB:
-        case RECURSIVE_SET_ATTRIB:
+        case SET_ATTRIBUTE:
+        case RECURSIVE_SET_ATTRIBUTE:
                 if (!i.argument) {
-                        log_error("[%s:%u] Set attrib requires argument.", fname, line);
+                        log_error("[%s:%u] Set file attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_attrib_from_arg(&i);
+                r = get_attribute_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
