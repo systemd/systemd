@@ -372,7 +372,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
         }
 
         if (chattr_flags != 0)
-                (void) chattr_fd(fdt, true, chattr_flags);
+                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
 
         r = copy_file_fd(from, fdt, true);
         if (r < 0) {

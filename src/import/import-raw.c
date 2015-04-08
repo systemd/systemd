@@ -188,7 +188,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, true, FS_NOCOW_FL);
+        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 log_warning_errno(errno, "Failed to set file attributes on %s: %m", t);
 
@@ -277,7 +277,7 @@ static int raw_import_open_disk(RawImport *i) {
         if (i->output_fd < 0)
                 return log_error_errno(errno, "Failed to open destination %s: %m", i->temp_path);
 
-        r = chattr_fd(i->output_fd, true, FS_NOCOW_FL);
+        r = chattr_fd(i->output_fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 log_warning_errno(errno, "Failed to set file attributes on %s: %m", i->temp_path);
 

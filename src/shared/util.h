@@ -1058,9 +1058,8 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
 
 int same_fd(int a, int b);
 
-int chattr_fd(int fd, bool b, unsigned mask);
-int chattr_path(const char *p, bool b, unsigned mask);
-int change_attr_fd(int fd, unsigned value, unsigned mask);
+int chattr_fd(int fd, unsigned value, unsigned mask);
+int chattr_path(const char *p, unsigned value, unsigned mask);
 
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);

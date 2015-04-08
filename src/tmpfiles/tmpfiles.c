@@ -869,14 +869,13 @@ static int path_set_attrib(Item *item, const char *path) {
         }
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
-
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open \"%s\": %m", path);
 
         f = item->attrib_value & item->attrib_mask;
         if (!S_ISDIR(st.st_mode))
                 f &= ~FS_DIRSYNC_FL;
-        r = change_attr_fd(fd, f, item->attrib_mask);
+        r = chattr_fd(fd, f, item->attrib_mask);
         if (r < 0)
                 return log_error_errno(errno,
                         "Cannot set attrib for \"%s\", value=0x%08lx, mask=0x%08lx: %m",

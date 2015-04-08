@@ -149,7 +149,7 @@ void journal_file_close(JournalFile *f) {
                  * reenable all the good bits COW usually provides
                  * (such as data checksumming). */
 
-                (void) chattr_fd(f->fd, false, FS_NOCOW_FL);
+                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
                 (void) btrfs_defrag_fd(f->fd);
         }
 
@@ -2608,7 +2608,7 @@ int journal_file_open(
                  * the expense of data integrity features (which
                  * shouldn't be too bad, given that we do our own
                  * checksumming). */
-                r = chattr_fd(f->fd, true, FS_NOCOW_FL);
+                r = chattr_fd(f->fd, FS_NOCOW_FL, FS_NOCOW_FL);
                 if (r < 0 && r != -ENOTTY)
                         log_warning_errno(r, "Failed to set file attributes: %m");
 
