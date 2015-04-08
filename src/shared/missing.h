@@ -863,6 +863,10 @@ static inline int setns(int fd, int nstype) {
 #define IFA_FLAGS 8
 #endif
 
+#ifndef IFA_F_NOPREFIXROUTE
+#define IFA_F_NOPREFIXROUTE 0x200
+#endif
+
 #ifndef MAX_AUDIT_MESSAGE_LENGTH
 #define MAX_AUDIT_MESSAGE_LENGTH 8970
 #endif
