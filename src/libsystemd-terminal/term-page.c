@@ -798,11 +798,9 @@ static inline void line_insert(term_line *line, unsigned int from, unsigned int 
                                  age);
 
                 /* adjust fill-state */
-                DISABLE_WARNING_SHADOW;
                 line->fill = MIN(line->width,
                                  MAX(line->fill + num,
                                      from + num));
-                REENABLE_WARNING;
         } else {
                 /* modify head-cell */
                 term_cell_set(line->cells + from,
@@ -871,11 +869,9 @@ void term_line_write(term_line *line, unsigned int pos_x, term_char_t ch, unsign
                                   age);
 
                 /* adjust fill-state */
-                DISABLE_WARNING_SHADOW;
                 line->fill = MIN(line->width,
                                  MAX(line->fill,
                                      pos_x + len));
-                REENABLE_WARNING;
         }
 }
 
