@@ -160,7 +160,9 @@ static bool needs_glob(ItemType t) {
                       SET_XATTR,
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
-                      RECURSIVE_SET_ACL);
+                      RECURSIVE_SET_ACL,
+                      SET_ATTRIBUTE,
+                      RECURSIVE_SET_ATTRIBUTE);
 }
 
 static bool takes_ownership(ItemType t) {
