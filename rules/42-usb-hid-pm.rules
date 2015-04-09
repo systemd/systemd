@@ -28,9 +28,9 @@ ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="14dd", ATTR{idProduct}=="0002"
 
 # USB HID devices that are internal to the machine should also be safe to autosuspend
 
-ACTION=="add", SUBSYSTEM=="usb", SUBSYSTEMS=="usb", ATTRS{removable}=="removable", GOTO="usb_hid_pm_end"
-ACTION=="add", SUBSYSTEM=="usb", SUBSYSTEMS=="usb", ATTRS{removable}=="unknown", GOTO="usb_hid_pm_end"
+ACTION=="add", SUBSYSTEM=="usb", SUBSYSTEMS=="usb", ATTR{../removable}=="removable", GOTO="usb_hid_pm_end"
+ACTION=="add", SUBSYSTEM=="usb", SUBSYSTEMS=="usb", ATTR{../removable}=="unknown", GOTO="usb_hid_pm_end"
 
-ACTION=="add", SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="03", ATTRS{removable}=="fixed", TEST=="../power/control", ATTR{../power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="03", ATTR{../removable}=="fixed", TEST=="../power/control", ATTR{../power/control}="auto"
 
 LABEL="usb_hid_pm_end"
