@@ -734,10 +734,10 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
 
         r = acl_set_file(path, type, dup);
         if (r < 0)
-                return -log_error_errno(errno,
-                                        "Setting %s ACL \"%s\" on %s failed: %m",
-                                        type == ACL_TYPE_ACCESS ? "access" : "default",
-                                        strna(t), path);
+                return log_error_errno(errno,
+                                       "Setting %s ACL \"%s\" on %s failed: %m",
+                                       type == ACL_TYPE_ACCESS ? "access" : "default",
+                                       strna(t), path);
 
         return 0;
 }
