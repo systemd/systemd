@@ -96,14 +96,14 @@ static int enable_utf8(int fd) {
         return r;
 }
 
-static bool keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
+static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
         const char *args[8];
-        int i = 0;
+        int i = 0, r;
         pid_t pid;
 
         /* An empty map means kernel map */
         if (isempty(map))
-                return true;
+                return 1;
 
         args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
@@ -117,25 +117,28 @@ static bool keyboard_load_and_wait(const char *vc, const char *map, const char *
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return false;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true) == 0;
+        r = wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
-static bool font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
+static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
         const char *args[9];
-        int i = 0;
+        int i = 0, r;
         pid_t pid;
 
         /* An empty font means kernel font */
         if (isempty(font))
-                return true;
+                return 1;
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
@@ -152,15 +155,18 @@ static bool font_load_and_wait(const char *vc, const char *font, const char *map
         args[i++] = NULL;
 
         pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return false;
-        } else if (pid == 0) {
+        if (pid < 0)
+                return log_error_errno(errno, "Failed to fork: %m");
+        else if (pid == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_SETFONT, pid, true) == 0;
+        r = wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
 /*
@@ -293,8 +299,8 @@ int main(int argc, char **argv) {
         else
                 disable_utf8(fd);
 
-        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
-        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8);
+        font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
+        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
 
         /* Only copy the font when we executed setfont successfully */
         if (font_copy && font_ok)
