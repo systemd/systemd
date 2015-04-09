@@ -185,11 +185,13 @@ static void font_copy_to_all_vcs(int fd) {
 
         /* get active, and 16 bit mask of used VT numbers */
         r = ioctl(fd, VT_GETSTATE, &vcs);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(errno, "VT_GETSTATE failed, ignoring: %m");
                 return;
+        }
 
         for (i = 1; i <= 15; i++) {
-                char vcname[16];
+                char vcname[strlen("/dev/vcs") + DECIMAL_STR_MAX(int)];
                 _cleanup_close_ int vcfd = -1;
                 struct console_font_op cfo = {};
 
@@ -213,11 +215,11 @@ static void font_copy_to_all_vcs(int fd) {
 
                 /* copy map of 8bit chars */
                 if (ioctl(fd, GIO_SCRNMAP, map8) >= 0)
-                    (void) ioctl(vcfd, PIO_SCRNMAP, map8);
+                        (void) ioctl(vcfd, PIO_SCRNMAP, map8);
 
                 /* copy map of 8bit chars -> 16bit Unicode values */
                 if (ioctl(fd, GIO_UNISCRNMAP, map16) >= 0)
-                    (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
+                        (void) ioctl(vcfd, PIO_UNISCRNMAP, map16);
 
                 /* copy unicode translation table */
                 /* unimapd is a ushort count and a pointer to an
@@ -239,8 +241,7 @@ int main(int argc, char **argv) {
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
-        bool utf8;
-        bool font_copy = false, font_ok, keyboard_ok;
+        bool utf8, font_copy = false, font_ok, keyboard_ok;
         int r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -295,16 +296,16 @@ int main(int argc, char **argv) {
         }
 
         if (utf8)
-                enable_utf8(fd);
+                (void) enable_utf8(fd);
         else
-                disable_utf8(fd);
+                (void) disable_utf8(fd);
 
         font_ok = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap) > 0;
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) > 0;
 
         /* Only copy the font when we executed setfont successfully */
         if (font_copy && font_ok)
-                font_copy_to_all_vcs(fd);
+                (void) font_copy_to_all_vcs(fd);
 
         return font_ok && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
