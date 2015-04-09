@@ -1505,6 +1505,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                                 continue;
                         }
 
+                        free(r);
                         return -EINVAL;
                 }
 
@@ -1516,6 +1517,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                                 continue;
                         }
 
+                        free(r);
                         return k;
                 }
 
