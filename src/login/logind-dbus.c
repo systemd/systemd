@@ -1541,7 +1541,6 @@ static int method_do_shutdown_or_sleep(
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_verb,
-                sd_bus_message_handler_t method,
                 sd_bus_error *error) {
 
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -1557,7 +1556,6 @@ static int method_do_shutdown_or_sleep(
         assert(action);
         assert(action_multiple_sessions);
         assert(action_ignore_inhibit);
-        assert(method);
 
         r = sd_bus_message_read(message, "b", &interactive);
         if (r < 0)
@@ -1633,7 +1631,6 @@ static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata,
                         "org.freedesktop.login1.power-off-multiple-sessions",
                         "org.freedesktop.login1.power-off-ignore-inhibit",
                         NULL,
-                        method_poweroff,
                         error);
 }
 
@@ -1648,7 +1645,6 @@ static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata, s
                         "org.freedesktop.login1.reboot-multiple-sessions",
                         "org.freedesktop.login1.reboot-ignore-inhibit",
                         NULL,
-                        method_reboot,
                         error);
 }
 
@@ -1663,7 +1659,6 @@ static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata, 
                         "org.freedesktop.login1.suspend-multiple-sessions",
                         "org.freedesktop.login1.suspend-ignore-inhibit",
                         "suspend",
-                        method_suspend,
                         error);
 }
 
@@ -1678,7 +1673,6 @@ static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hibernate",
-                        method_hibernate,
                         error);
 }
 
@@ -1693,7 +1687,6 @@ static int method_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userd
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hybrid-sleep",
-                        method_hybrid_sleep,
                         error);
 }
 
