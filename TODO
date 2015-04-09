@@ -45,6 +45,8 @@ Before 220:
 
 Features:
 
+* fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
+
 * check for the various fs-specific ioctls we call that we do so only
   after verifying they are regular files or directories, and not
   device files, so that we don't confuse drivers.
