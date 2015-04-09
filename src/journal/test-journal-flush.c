@@ -27,8 +27,8 @@
 #include "journal-internal.h"
 
 int main(int argc, char *argv[]) {
-
-        char dn[] = "/var/tmp/test-journal-flush.XXXXXX", *fn;
+        _cleanup_free_ char *fn = NULL;
+        char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
         JournalFile *new_journal = NULL;
         sd_journal *j = NULL;
         unsigned n = 0;
