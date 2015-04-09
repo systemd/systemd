@@ -1735,16 +1735,15 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                 else if (streq(d->result, "unsupported"))
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
-                        if (d->name) {
-                                bool quotes;
+                        _cleanup_free_ char *quoted = NULL;
 
-                                quotes = chars_intersect(d->name, SHELL_NEED_QUOTES);
+                        if (d->name)
+                                quoted = shell_maybe_quote(d->name);
 
-                                log_error("Job for %s failed. See \"systemctl status %s%s%s\" and \"journalctl -xe\" for details.",
-                                          d->name,
-                                          quotes ? "'" : "", d->name, quotes ? "'" : "");
-                        } else
-                                log_error("Job failed. See \"journalctl -xe\" for details.");
+                        if (quoted)
+                                log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl -xe' for details.", d->name, quoted);
+                        else
+                                log_error("Job failed. See 'journalctl -xe' for details.");
                 }
         }
 

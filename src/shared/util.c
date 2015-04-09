@@ -1332,7 +1332,8 @@ char *cescape(const char *s) {
 
         assert(s);
 
-        /* Does C style string escaping. */
+        /* Does C style string escaping. May be be reversed with
+         * cunescape(). */
 
         r = new(char, strlen(s)*4 + 1);
         if (!r)
@@ -1542,7 +1543,7 @@ char *xescape(const char *s, const char *bad) {
 
         /* Escapes all chars in bad, in addition to \ and all special
          * chars, in \xFF style escaping. May be reversed with
-         * cunescape. */
+         * cunescape(). */
 
         r = new(char, strlen(s) * 4 + 1);
         if (!r)
@@ -8034,4 +8035,44 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         }
 
         return 0;
+}
+
+char *shell_maybe_quote(const char *s) {
+        const char *p;
+        char *r, *t;
+
+        assert(s);
+
+        /* Encloses a string in double quotes if necessary to make it
+         * OK as shell string. */
+
+        for (p = s; *p; p++)
+                if (*p <= ' ' ||
+                    *p >= 127 ||
+                    strchr(SHELL_NEED_QUOTES, *p))
+                        break;
+
+        if (!*p)
+                return strdup(s);
+
+        r = new(char, 1+strlen(s)*2+1+1);
+        if (!r)
+                return NULL;
+
+        t = r;
+        *(t++) = '"';
+        t = mempcpy(t, s, p - s);
+
+        for (; *p; p++) {
+
+                if (strchr(SHELL_NEED_ESCAPE, *p))
+                        *(t++) = '\\';
+
+                *(t++) = *p;
+        }
+
+        *(t++)= '"';
+        *t = 0;
+
+        return r;
 }
