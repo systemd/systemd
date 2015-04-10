@@ -73,6 +73,7 @@ static const uint16_t default_req_opts[] = {
         DHCP6_OPTION_DNS_SERVERS,
         DHCP6_OPTION_DOMAIN_LIST,
         DHCP6_OPTION_NTP_SERVER,
+        DHCP6_OPTION_SNTP_SERVERS,
 };
 
 const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
@@ -770,6 +771,13 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                 case DHCP6_OPTION_NTP_SERVER:
                         r = dhcp6_lease_set_ntp(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case DHCP6_OPTION_SNTP_SERVERS:
+                        r = dhcp6_lease_set_sntp(lease, optval, optlen);
                         if (r < 0)
                                 return r;
 

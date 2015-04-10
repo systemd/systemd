@@ -257,6 +257,10 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen)
         assert_return(lease, -EINVAL);
         assert_return(optval, -EINVAL);
 
+        free(lease->ntp);
+        lease->ntp_count = 0;
+        lease->ntp_allocated = 0;
+
         while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen,
                                        &subval)) >= 0) {
                 int s;
@@ -295,6 +299,38 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen)
 
         if (r != -ENOMSG)
                 return r;
+
+        return 0;
+}
+
+int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert_return(optval, -EINVAL);
+
+        if (!optlen)
+                return 0;
+
+        if (lease->ntp || lease->ntp_fqdn) {
+                log_dhcp6_client(client, "NTP information already provided");
+
+                return 0;
+        }
+
+        log_dhcp6_client(client, "Using deprecated SNTP information");
+
+        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp,
+                                        lease->ntp_count,
+                                        &lease->ntp_allocated);
+        if (r < 0) {
+                log_dhcp6_client(client, "Invalid SNTP server option: %s",
+                                 strerror(-r));
+
+                return r;
+        }
+
+        lease->ntp_count = r;
 
         return 0;
 }
