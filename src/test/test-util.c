@@ -1376,6 +1376,17 @@ static void test_unquote_first_word(void) {
         assert_se(streq(t, "foobax6ar"));
         free(t);
         assert_se(p == original + 13);
+
+        p = original = "    f\\u00f6o \"pi\\U0001F4A9le\"   ";
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "föo"));
+        free(t);
+        assert_se(p == original + 13);
+
+        assert_se(unquote_first_word(&p, &t, UNQUOTE_CUNESCAPE) > 0);
+        assert_se(streq(t, "pi\360\237\222\251le"));
+        free(t);
+        assert_se(p == original + 32);
 }
 
 static void test_unquote_many_words(void) {

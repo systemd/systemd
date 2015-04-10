@@ -7284,7 +7284,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -EINVAL;
                         }
 
-                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                        if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
@@ -7299,7 +7299,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 if (c != 0)
                                         s[sz++] = c; /* normal explicit char */
                                 else
-                                        sz += utf8_encode_unichar(s, u); /* unicode chars we'll encode as utf8 */
+                                        sz += utf8_encode_unichar(s + sz, u); /* unicode chars we'll encode as utf8 */
                         } else
                                 s[sz++] = c;
 
@@ -7331,7 +7331,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -EINVAL;
                         }
 
-                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                        if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
@@ -7346,7 +7346,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 if (c != 0)
                                         s[sz++] = c;
                                 else
-                                        sz += utf8_encode_unichar(s, u);
+                                        sz += utf8_encode_unichar(s + sz, u);
                         } else
                                 s[sz++] = c;
 
@@ -7376,7 +7376,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -EINVAL;
                         }
 
-                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                        if (!GREEDY_REALLOC(s, allocated, sz+7))
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
@@ -7391,7 +7391,7 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 if (c != 0)
                                         s[sz++] = c;
                                 else
-                                        sz += utf8_encode_unichar(s, u);
+                                        sz += utf8_encode_unichar(s + sz, u);
                         } else
                                 s[sz++] = c;
 
