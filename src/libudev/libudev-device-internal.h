@@ -51,12 +51,3 @@ struct udev_device {
 };
 
 struct udev_device *udev_device_new(struct udev *udev);
-
-#define assert_return_errno(expr, r, err)                               \
-        do {                                                            \
-                if (_unlikely_(!(expr))) {                              \
-                        log_assert_failed_return(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
-                        errno = err;                                    \
-                        return (r);                                     \
-                }                                                       \
-        } while (false)

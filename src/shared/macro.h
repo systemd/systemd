@@ -256,6 +256,15 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 }                                                       \
         } while (false)
 
+#define assert_return_errno(expr, r, err)                               \
+        do {                                                            \
+                if (_unlikely_(!(expr))) {                              \
+                        log_assert_failed_return(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        errno = err;                                    \
+                        return (r);                                     \
+                }                                                       \
+        } while (false)
+
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
