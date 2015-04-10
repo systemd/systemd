@@ -25,6 +25,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "process-util.h"
 #include "spawn-ask-password-agent.h"
 
 static pid_t agent_pid = 0;

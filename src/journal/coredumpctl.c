@@ -37,6 +37,7 @@
 #include "journal-internal.h"
 #include "compress.h"
 #include "sigbus.h"
+#include "process-util.h"
 
 static enum {
         ACTION_NONE,

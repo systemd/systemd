@@ -899,6 +899,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/base-filesystem.h \
 	src/shared/memfd-util.c \
 	src/shared/memfd-util.h \
+	src/shared/process-util.c \
+	src/shared/process-util.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
 	src/shared/nss-util.h \
@@ -1389,6 +1391,7 @@ tests += \
 	test-utf8 \
 	test-ellipsize \
 	test-util \
+	test-process-util \
 	test-path-lookup \
 	test-ring \
 	test-barrier \
@@ -1662,6 +1665,12 @@ test_util_SOURCES = \
 
 test_util_LDADD = \
 	libsystemd-label.la \
+	libsystemd-shared.la
+
+test_process_util_SOURCES = \
+	src/test/test-process-util.c
+
+test_process_util_LDADD = \
 	libsystemd-shared.la
 
 test_path_lookup_SOURCES = \

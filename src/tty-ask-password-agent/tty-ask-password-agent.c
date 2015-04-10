@@ -42,6 +42,7 @@
 #include "strv.h"
 #include "build.h"
 #include "def.h"
+#include "process-util.h"
 
 static enum {
         ACTION_LIST,

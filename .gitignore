@@ -234,6 +234,7 @@
 /test-path-util
 /test-pppoe
 /test-prioq
+/test-process-util
 /test-pty
 /test-qcow2
 /test-ratelimit

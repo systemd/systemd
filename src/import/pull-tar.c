@@ -38,6 +38,7 @@
 #include "pull-job.h"
 #include "pull-common.h"
 #include "pull-tar.h"
+#include "process-util.h"
 
 typedef enum TarProgress {
         TAR_DOWNLOADING,

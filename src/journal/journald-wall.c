@@ -23,6 +23,7 @@
 #include "journald-server.h"
 #include "journald-wall.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 void server_forward_wall(
                 Server *s,

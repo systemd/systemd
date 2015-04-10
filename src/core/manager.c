@@ -71,6 +71,7 @@
 #include "dbus-manager.h"
 #include "bus-kernel.h"
 #include "time-util.h"
+#include "process-util.h"
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)

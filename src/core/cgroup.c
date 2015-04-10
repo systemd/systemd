@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "process-util.h"
 #include "path-util.h"
 #include "special.h"
 #include "cgroup-util.h"

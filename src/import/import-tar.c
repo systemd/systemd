@@ -35,6 +35,7 @@
 #include "import-compress.h"
 #include "import-common.h"
 #include "import-tar.h"
+#include "process-util.h"
 
 struct TarImport {
         sd_event *event;

@@ -31,6 +31,7 @@
 #include "event-util.h"
 #include "sd-rtnl.h"
 #include "sd-pppoe.h"
+#include "process-util.h"
 
 static void pppoe_handler(sd_pppoe *ppp, int event, void *userdata) {
         static int pppoe_state = -1;

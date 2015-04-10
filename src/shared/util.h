@@ -227,8 +227,6 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
 #define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
-pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
-
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
 
@@ -252,17 +250,6 @@ char *file_in_same_dir(const char *path, const char *filename);
 
 int rmdir_parents(const char *path, const char *stop);
 
-int get_process_state(pid_t pid);
-int get_process_comm(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
-int get_process_exe(pid_t pid, char **name);
-int get_process_uid(pid_t pid, uid_t *uid);
-int get_process_gid(pid_t pid, gid_t *gid);
-int get_process_capeff(pid_t pid, char **capeff);
-int get_process_cwd(pid_t pid, char **cwd);
-int get_process_root(pid_t pid, char **root);
-int get_process_environ(pid_t pid, char **environ);
-
 char hexchar(int x) _const_;
 int unhexchar(char c) _const_;
 char octchar(int x) _const_;
@@ -271,6 +258,7 @@ char decchar(int x) _const_;
 int undecchar(char c) _const_;
 
 char *cescape(const char *s);
+size_t cescape_char(char c, char *buf);
 
 typedef enum UnescapeFlags {
         UNESCAPE_RELAX = 1,
@@ -406,8 +394,6 @@ bool is_device_path(const char *path);
 int dir_is_empty(const char *path);
 char* dirname_malloc(const char *path);
 
-void rename_process(const char name[8]);
-
 void sigset_add_many(sigset_t *ss, ...);
 int sigprocmask_many(int how, ...);
 
@@ -482,9 +468,6 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
-int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
-
 noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
@@ -503,8 +486,6 @@ int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
 void execute_directories(const char* const* directories, usec_t timeout, char *argv[]);
-
-int kill_and_sigcont(pid_t pid, int sig);
 
 bool nulstr_contains(const char*nulstr, const char *needle);
 
@@ -604,16 +585,12 @@ int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 void* memdup(const void *p, size_t l) _alloc_(2);
 
-int is_kernel_thread(pid_t pid);
-
 int fd_inc_sndbuf(int fd, size_t n);
 int fd_inc_rcvbuf(int fd, size_t n);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
 
 int setrlimit_closest(int resource, const struct rlimit *rlim);
-
-int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
 bool http_url_is_valid(const char *url) _pure_;
 bool documentation_url_is_valid(const char *url) _pure_;
@@ -891,19 +868,6 @@ int unlink_noerrno(const char *path);
                 _d_;                                                    \
         })
 
-#define procfs_file_alloca(pid, field)                                  \
-        ({                                                              \
-                pid_t _pid_ = (pid);                                    \
-                const char *_r_;                                        \
-                if (_pid_ == 0) {                                       \
-                        _r_ = ("/proc/self/" field);                    \
-                } else {                                                \
-                        _r_ = alloca(strlen("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
-                }                                                       \
-                _r_;                                                    \
-        })
-
 bool id128_is_valid(const char *s) _pure_;
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
@@ -930,9 +894,6 @@ int container_get_leader(const char *machine, pid_t *pid);
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
-
-bool pid_is_alive(pid_t pid);
-bool pid_is_unwaited(pid_t pid);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);

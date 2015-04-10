@@ -23,6 +23,7 @@
 
 #include "namespace.h"
 #include "util.h"
+#include "process-util.h"
 
 static void test_tmpdir(const char *id, const char *A, const char *B) {
         _cleanup_free_ char *a, *b;

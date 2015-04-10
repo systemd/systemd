@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "process-util.h"
 #include "fileio.h"
 #include "strv.h"
 #include "env-util.h"

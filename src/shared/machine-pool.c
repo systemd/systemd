@@ -25,6 +25,7 @@
 #include <sys/mount.h>
 
 #include "util.h"
+#include "process-util.h"
 #include "mkdir.h"
 #include "btrfs-util.h"
 #include "path-util.h"

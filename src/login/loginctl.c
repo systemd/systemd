@@ -41,6 +41,7 @@
 #include "cgroup-util.h"
 #include "spawn-polkit-agent.h"
 #include "verbs.h"
+#include "process-util.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;

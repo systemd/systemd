@@ -32,6 +32,7 @@
 #include "hashmap.h"
 #include "journal-internal.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 /* up to three lines (each up to 100 characters),
    or 300 characters, whichever is less */

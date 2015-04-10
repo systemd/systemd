@@ -48,6 +48,7 @@
 #include "capability.h"
 #include "journald-native.h"
 #include "coredump-vacuum.h"
+#include "process-util.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))

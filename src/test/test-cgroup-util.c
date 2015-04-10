@@ -24,6 +24,7 @@
 #include "cgroup-util.h"
 #include "test-helper.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;

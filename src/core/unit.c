@@ -47,6 +47,7 @@
 #include "execute.h"
 #include "dropin.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,

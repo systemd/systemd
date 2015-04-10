@@ -36,6 +36,7 @@
 #include "virt.h"
 #include "fileio.h"
 #include "path-util.h"
+#include "process-util.h"
 
 static int shorten_uuid(char destination[34], const char source[36]) {
         unsigned i, j;

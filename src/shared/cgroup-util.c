@@ -34,6 +34,7 @@
 #include "macro.h"
 #include "util.h"
 #include "formats-util.h"
+#include "process-util.h"
 #include "path-util.h"
 #include "unit-name.h"
 #include "fileio.h"

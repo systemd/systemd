@@ -73,6 +73,7 @@
 #include "smack-setup.h"
 #include "kmod-setup.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 static enum {
         ACTION_RUN,

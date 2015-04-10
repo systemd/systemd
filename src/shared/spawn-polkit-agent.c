@@ -27,6 +27,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "process-util.h"
 #include "spawn-polkit-agent.h"
 
 #ifdef ENABLE_POLKIT

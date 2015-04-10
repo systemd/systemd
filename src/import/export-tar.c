@@ -27,6 +27,7 @@
 #include "btrfs-util.h"
 #include "import-common.h"
 #include "export-tar.h"
+#include "process-util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)
 

@@ -29,6 +29,7 @@
 #include "capability.h"
 #include "pull-job.h"
 #include "pull-common.h"
+#include "process-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
 

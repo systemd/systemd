@@ -32,6 +32,7 @@
 #include "sd-device.h"
 
 #include "util.h"
+#include "process-util.h"
 #include "special.h"
 #include "bus-util.h"
 #include "bus-error.h"

@@ -92,6 +92,7 @@
 #include "fw-util.h"
 #include "local-addresses.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

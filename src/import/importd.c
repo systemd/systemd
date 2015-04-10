@@ -33,6 +33,7 @@
 #include "machine-pool.h"
 #include "path-util.h"
 #include "import-util.h"
+#include "process-util.h"
 
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;

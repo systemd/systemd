@@ -28,6 +28,7 @@
 #include "killall.h"
 #include "set.h"
 #include "formats-util.h"
+#include "process-util.h"
 
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 

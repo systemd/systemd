@@ -32,6 +32,7 @@
 #include "pager.h"
 #include "build.h"
 #include "strv.h"
+#include "process-util.h"
 
 static const char prefixes[] =
         "/etc\0"
