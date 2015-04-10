@@ -39,10 +39,8 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
 
         r = acpi_get_boot_usec(&x, &y);
         if (r < 0) {
-#ifdef ENABLE_EFI
                 r = efi_loader_get_boot_usec(&x, &y);
                 if (r < 0)
-#endif
                         return r;
         }
 
