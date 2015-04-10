@@ -3655,14 +3655,15 @@ int touch(const char *path) {
         return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0);
 }
 
-char *unquote(const char *s, const char* quotes) {
+static char *unquote(const char *s, const char* quotes) {
         size_t l;
         assert(s);
 
         /* This is rather stupid, simply removes the heading and
          * trailing quotes if there is one. Doesn't care about
-         * escaping or anything. We should make this smarter one
-         * day... */
+         * escaping or anything.
+         *
+         * DON'T USE THIS FOR NEW CODE ANYMORE!*/
 
         l = strlen(s);
         if (l < 2)
@@ -3851,7 +3852,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         _cleanup_free_ char *t = NULL, *u = NULL;
         size_t enc_len;
 
-        u = unquote(tagvalue, "\"\'");
+        u = unquote(tagvalue, QUOTES);
         if (!u)
                 return NULL;
 
