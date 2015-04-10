@@ -1635,17 +1635,6 @@ static int item_compare(const void *a, const void *b) {
         return (int) x->type - (int) y->type;
 }
 
-static void item_array_sort(ItemArray *a) {
-
-        /* Sort an item array, to enforce stable ordering in which we
-         * apply things. */
-
-        if (a->count <= 1)
-                return;
-
-        qsort(a->items, a->count, sizeof(Item), item_compare);
-}
-
 static bool item_compatible(Item *a, Item *b) {
         assert(a);
         assert(b);
@@ -1980,7 +1969,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return log_oom();
 
         memcpy(existing->items + existing->count++, &i, sizeof(i));
-        item_array_sort(existing);
+
+        /* Sort item array, to enforce stable ordering of application */
+        qsort_safe(existing->items, existing->count, sizeof(Item), item_compare);
 
         zero(i);
         return 0;
