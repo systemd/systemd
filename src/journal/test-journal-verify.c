@@ -28,6 +28,7 @@
 #include "rm-rf.h"
 #include "journal-file.h"
 #include "journal-verify.h"
+#include "terminal-util.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77

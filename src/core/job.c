@@ -33,6 +33,7 @@
 #include "async.h"
 #include "virt.h"
 #include "dbus.h"
+#include "terminal-util.h"
 
 Job* job_new_raw(Unit *unit) {
         Job *j;

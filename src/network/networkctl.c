@@ -41,6 +41,7 @@
 #include "socket-util.h"
 #include "ether-addr-util.h"
 #include "verbs.h"
+#include "terminal-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;

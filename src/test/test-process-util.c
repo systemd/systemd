@@ -28,6 +28,7 @@
 #include "util.h"
 #include "macro.h"
 #include "virt.h"
+#include "terminal-util.h"
 
 static void test_get_process_comm(void) {
         struct stat st;

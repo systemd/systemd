@@ -522,21 +522,6 @@ static void test_foreach_word_quoted(void) {
               true);
 }
 
-static void test_default_term_for_tty(void) {
-        puts(default_term_for_tty("/dev/tty23"));
-        puts(default_term_for_tty("/dev/ttyS23"));
-        puts(default_term_for_tty("/dev/tty0"));
-        puts(default_term_for_tty("/dev/pty0"));
-        puts(default_term_for_tty("/dev/pts/0"));
-        puts(default_term_for_tty("/dev/console"));
-        puts(default_term_for_tty("tty23"));
-        puts(default_term_for_tty("ttyS23"));
-        puts(default_term_for_tty("tty0"));
-        puts(default_term_for_tty("pty0"));
-        puts(default_term_for_tty("pts/0"));
-        puts(default_term_for_tty("console"));
-}
-
 static void test_memdup_multiply(void) {
         int org[] = {1, 2, 3};
         int *dup;
@@ -979,38 +964,6 @@ static void test_readlink_and_make_absolute(void) {
         assert_se(unlink(name_alias) >= 0);
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-}
-
-static void test_read_one_char(void) {
-        _cleanup_fclose_ FILE *file = NULL;
-        char r;
-        bool need_nl;
-        char name[] = "/tmp/test-read_one_char.XXXXXX";
-        int fd;
-
-        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
-        file = fdopen(fd, "r+");
-        assert_se(file);
-        assert_se(fputs("c\n", file) >= 0);
-        rewind(file);
-
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
-        assert_se(!need_nl);
-        assert_se(r == 'c');
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        rewind(file);
-        assert_se(fputs("foobar\n", file) >= 0);
-        rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        rewind(file);
-        assert_se(fputs("\n", file) >= 0);
-        rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        unlink(name);
 }
 
 static void test_ignore_signals(void) {
@@ -1525,7 +1478,6 @@ int main(int argc, char *argv[]) {
         test_cunescape();
         test_foreach_word();
         test_foreach_word_quoted();
-        test_default_term_for_tty();
         test_memdup_multiply();
         test_hostname_is_valid();
         test_u64log2();
@@ -1552,7 +1504,6 @@ int main(int argc, char *argv[]) {
         test_close_nointr();
         test_unlink_noerrno();
         test_readlink_and_make_absolute();
-        test_read_one_char();
         test_ignore_signals();
         test_strshorten();
         test_strjoina();

@@ -30,6 +30,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "utmp-wtmp.h"
+#include "terminal-util.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {
         struct utmpx *found, lookup = { .ut_type = RUN_LVL };

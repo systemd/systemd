@@ -38,6 +38,7 @@
 #include "compress.h"
 #include "sigbus.h"
 #include "process-util.h"
+#include "terminal-util.h"
 
 static enum {
         ACTION_NONE,

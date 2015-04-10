@@ -36,6 +36,7 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "busctl-introspect.h"
+#include "terminal-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;

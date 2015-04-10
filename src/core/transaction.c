@@ -25,6 +25,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "transaction.h"
+#include "terminal-util.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 

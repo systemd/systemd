@@ -903,6 +903,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/process-util.h \
 	src/shared/random-util.c \
 	src/shared/random-util.h \
+	src/shared/terminal-util.c \
+	src/shared/terminal-util.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
 	src/shared/nss-util.h \
@@ -1394,6 +1396,7 @@ tests += \
 	test-ellipsize \
 	test-util \
 	test-process-util \
+	test-terminal-util \
 	test-path-lookup \
 	test-ring \
 	test-barrier \
@@ -1673,6 +1676,12 @@ test_process_util_SOURCES = \
 	src/test/test-process-util.c
 
 test_process_util_LDADD = \
+	libsystemd-shared.la
+
+test_terminal_util_SOURCES = \
+	src/test/test-terminal-util.c
+
+test_terminal_util_LDADD = \
 	libsystemd-shared.la
 
 test_path_lookup_SOURCES = \

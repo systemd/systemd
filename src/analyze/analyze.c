@@ -38,6 +38,7 @@
 #include "hashmap.h"
 #include "pager.h"
 #include "analyze-verify.h"
+#include "terminal-util.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)

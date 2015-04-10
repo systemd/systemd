@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include "util.h"
+#include "terminal-util.h"
 #include "def.h"
 
 static void test_one(const char *p) {

@@ -25,6 +25,7 @@
 #include "macro.h"
 #include "cap-list.h"
 #include "formats-util.h"
+#include "terminal-util.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"

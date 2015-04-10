@@ -38,6 +38,7 @@
 #include "bus-error.h"
 #include "logind-session.h"
 #include "formats-util.h"
+#include "terminal-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 

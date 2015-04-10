@@ -256,6 +256,7 @@
 /test-tables
 /test-term-page
 /test-term-parser
+/test-terminal-util
 /test-time
 /test-tmpfiles
 /test-udev

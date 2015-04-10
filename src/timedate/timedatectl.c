@@ -33,6 +33,7 @@
 #include "build.h"
 #include "strv.h"
 #include "pager.h"
+#include "terminal-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;

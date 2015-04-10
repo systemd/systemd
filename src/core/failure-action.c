@@ -27,6 +27,7 @@
 #include "bus-error.h"
 #include "special.h"
 #include "failure-action.h"
+#include "terminal-util.h"
 
 static void log_and_status(Manager *m, const char *message) {
         log_warning("%s", message);

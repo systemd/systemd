@@ -43,6 +43,7 @@
 #include "build.h"
 #include "def.h"
 #include "process-util.h"
+#include "terminal-util.h"
 
 static enum {
         ACTION_LIST,

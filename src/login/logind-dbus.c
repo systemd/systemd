@@ -42,6 +42,7 @@
 #include "logind.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "terminal-util.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;

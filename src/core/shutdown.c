@@ -43,6 +43,7 @@
 #include "def.h"
 #include "switch-root.h"
 #include "process-util.h"
+#include "terminal-util.h"
 
 #define FINALIZE_ATTEMPTS 50
 
