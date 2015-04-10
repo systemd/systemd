@@ -713,7 +713,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = set_put(m->private_buses, bus);
         if (r < 0) {
-                log_warning_errno(r, "Failed to add new conenction bus to set: %m");
+                log_warning_errno(r, "Failed to add new connection bus to set: %m");
                 return 0;
         }
 

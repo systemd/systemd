@@ -550,7 +550,7 @@ static void busname_enter_running(BusName *n) {
         if (!n->activating)
                 return;
 
-        /* We don't take conenctions anymore if we are supposed to
+        /* We don't take connections anymore if we are supposed to
          * shut down anyway */
 
         if (unit_stop_pending(UNIT(n))) {
