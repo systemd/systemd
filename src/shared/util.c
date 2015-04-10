@@ -8159,3 +8159,24 @@ char *shell_maybe_quote(const char *s) {
 
         return r;
 }
+
+int parse_mode(const char *s, mode_t *ret) {
+        char *x;
+        long l;
+
+        assert(s);
+        assert(ret);
+
+        errno = 0;
+        l = strtol(s, &x, 8);
+        if (errno != 0)
+                return -errno;
+
+        if (!x || x == s || *x)
+                return -EINVAL;
+        if (l < 0 || l  > 07777)
+                return -ERANGE;
+
+        *ret = (mode_t) l;
+        return 0;
+}

@@ -1879,9 +1879,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         mm++;
                 }
 
-                if (sscanf(mm, "%o", &m) != 1) {
+                if (parse_mode(mm, &m) < 0) {
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
-                        return -ENOENT;
+                        return -EBADMSG;
                 }
 
                 i.mode = m;

@@ -759,41 +759,30 @@ int config_parse_strv(const char *unit,
         return 0;
 }
 
-int config_parse_mode(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
+int config_parse_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
                       unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         mode_t *m = data;
-        long l;
-        char *x = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        errno = 0;
-        l = strtol(rvalue, &x, 8);
-        if (!x || x == rvalue || *x || errno) {
-                log_syntax(unit, LOG_ERR, filename, line, errno,
-                           "Failed to parse mode value, ignoring: %s", rvalue);
+        if (parse_mode(rvalue, m) < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, errno, "Failed to parse mode value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (l < 0000 || l > 07777) {
-                log_syntax(unit, LOG_ERR, filename, line, ERANGE,
-                           "Mode value out of range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *m = (mode_t) l;
         return 0;
 }
 
