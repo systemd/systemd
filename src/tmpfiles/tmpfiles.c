@@ -1105,17 +1105,23 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
-        case COPY_FILES:
-                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path, false);
+        case COPY_FILES: {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
+
+                log_debug("Copying tree \"%s\" to \"%s\".", resolved, i->path);
+                r = copy_tree(resolved, i->path, false);
                 if (r < 0) {
                         struct stat a, b;
 
                         if (r != -EEXIST)
                                 return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                        if (stat(i->argument, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
+                        if (stat(resolved, &a) < 0)
+                                return log_error_errno(errno, "stat(%s) failed: %m", resolved);
 
                         if (stat(i->path, &b) < 0)
                                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
@@ -1224,29 +1230,35 @@ static int create_item(Item *i) {
                         return r;
 
                 break;
+        }
 
-        case CREATE_SYMLINK:
+        case CREATE_SYMLINK: {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to substitute specifiers in symlink target %s: %m", i->argument);
 
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlink(i->argument, i->path);
+                r = symlink(resolved, i->path);
                 mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
                         if (errno != EEXIST)
-                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", resolved, i->path);
 
                         r = readlink_malloc(i->path, &x);
-                        if (r < 0 || !streq(i->argument, x)) {
+                        if (r < 0 || !streq(resolved, x)) {
 
                                 if (i->force) {
                                         mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                        r = symlink_atomic(i->argument, i->path);
+                                        r = symlink_atomic(resolved, i->path);
                                         mac_selinux_create_file_clear();
 
                                         if (r < 0)
-                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", resolved, i->path);
                                         creation = CREATION_FORCE;
                                 } else {
                                         log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
@@ -1259,6 +1271,7 @@ static int create_item(Item *i) {
                 log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
 
                 break;
+        }
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
