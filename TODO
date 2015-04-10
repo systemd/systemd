@@ -45,6 +45,9 @@ Before 220:
 
 Features:
 
+* bus-proxy: fix return code when releasing name that we don't have:
+  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030494.html
+
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
 * check for the various fs-specific ioctls we call that we do so only
