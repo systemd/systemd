@@ -39,6 +39,16 @@
 #include "bus-dump.h"
 #include "bus-label.h"
 
+static void test_bus_path_encode_unique(void) {
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
+
+        assert_se(bus_path_encode_unique(NULL, "/foo/bar", "some.sender", "a.suffix", &a) >= 0 && streq_ptr(a, "/foo/bar/some_2esender/a_2esuffix"));
+        assert_se(bus_path_decode_unique(a, "/foo/bar", &b, &c) > 0 && streq_ptr(b, "some.sender") && streq_ptr(c, "a.suffix"));
+        assert_se(bus_path_decode_unique(a, "/bar/foo", &d, &d) == 0 && !d);
+        assert_se(bus_path_decode_unique("/foo/bar/onlyOneSuffix", "/foo/bar", &d, &d) == 0 && !d);
+        assert_se(bus_path_decode_unique("/foo/bar/_/_", "/foo/bar", &d, &e) > 0 && streq_ptr(d, "") && streq_ptr(e, ""));
+}
+
 static void test_bus_path_encode(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
 
@@ -357,6 +367,7 @@ int main(int argc, char *argv[]) {
 
         test_bus_label_escape();
         test_bus_path_encode();
+        test_bus_path_encode_unique();
 
         return 0;
 }

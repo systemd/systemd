@@ -34,6 +34,7 @@
 
 #include "sd-bus.h"
 #include "bus-error.h"
+#include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "bus-internal.h"
@@ -1890,4 +1891,131 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
                 return bus_log_parse_error(r);
 
         return 0;
+}
+
+/**
+ * bus_path_encode_unique() - encode unique object path
+ * @b: bus connection or NULL
+ * @prefix: object path prefix
+ * @sender_id: unique-name of client, or NULL
+ * @external_id: external ID to be chosen by client, or NULL
+ * @ret_path: storage for encoded object path pointer
+ *
+ * Whenever we provide a bus API that allows clients to create and manage
+ * server-side objects, we need to provide a unique name for these objects. If
+ * we let the server choose the name, we suffer from a race condition: If a
+ * client creates an object asynchronously, it cannot destroy that object until
+ * it received the method reply. It cannot know the name of the new object,
+ * thus, it cannot destroy it. Furthermore, it enforces a round-trip.
+ *
+ * Therefore, many APIs allow the client to choose the unique name for newly
+ * created objects. There're two problems to solve, though:
+ *    1) Object names are usually defined via dbus object paths, which are
+ *       usually globally namespaced. Therefore, multiple clients must be able
+ *       to choose unique object names without interference.
+ *    2) If multiple libraries share the same bus connection, they must be
+ *       able to choose unique object names without interference.
+ * The first problem is solved easily by prefixing a name with the
+ * unique-bus-name of a connection. The server side must enforce this and
+ * reject any other name. The second problem is solved by providing unique
+ * suffixes from within sd-bus.
+ *
+ * This helper allows clients to create unique object-paths. It uses the
+ * template '/prefix/sender_id/external_id' and returns the new path in
+ * @ret_path (must be freed by the caller).
+ * If @sender_id is NULL, the unique-name of @b is used. If @external_id is
+ * NULL, this function allocates a unique suffix via @b (by requesting a new
+ * cookie). If both @sender_id and @external_id are given, @b can be passed as
+ * NULL.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path) {
+        _cleanup_free_ char *sender_label = NULL, *external_label = NULL;
+        char external_buf[DECIMAL_STR_MAX(uint64_t)], *p;
+        int r;
+
+        assert_return(b || (sender_id && external_id), -EINVAL);
+        assert_return(object_path_is_valid(prefix), -EINVAL);
+        assert_return(ret_path, -EINVAL);
+
+        if (!sender_id) {
+                r = sd_bus_get_unique_name(b, &sender_id);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!external_id) {
+                xsprintf(external_buf, "%"PRIu64, ++b->cookie);
+                external_id = external_buf;
+        }
+
+        sender_label = bus_label_escape(sender_id);
+        if (!sender_label)
+                return -ENOMEM;
+
+        external_label = bus_label_escape(external_id);
+        if (!external_label)
+                return -ENOMEM;
+
+        p = strjoin(prefix, "/", sender_label, "/", external_label, NULL);
+        if (!p)
+                return -ENOMEM;
+
+        *ret_path = p;
+        return 0;
+}
+
+/**
+ * bus_path_decode_unique() - decode unique object path
+ * @path: object path to decode
+ * @prefix: object path prefix
+ * @ret_sender: output parameter for sender-id label
+ * @ret_external: output parameter for external-id label
+ *
+ * This does the reverse of bus_path_encode_unique() (see its description for
+ * details). Both trailing labels, sender-id and external-id, are unescaped and
+ * returned in the given output parameters (the caller must free them).
+ *
+ * Note that this function returns 0 if the path does not match the template
+ * (see bus_path_encode_unique()), 1 if it matched.
+ *
+ * Returns: Negative error code on failure, 0 if the given object path does not
+ *          match the template (return parameters are set to NULL), 1 if it was
+ *          parsed successfully (return parameters contain allocated labels).
+ */
+int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external) {
+        const char *p, *q;
+        char *sender, *external;
+
+        assert(object_path_is_valid(path));
+        assert(object_path_is_valid(prefix));
+        assert(ret_sender);
+        assert(ret_external);
+
+        p = object_path_startswith(path, prefix);
+        if (!p) {
+                *ret_sender = NULL;
+                *ret_external = NULL;
+                return 0;
+        }
+
+        q = strchr(p, '/');
+        if (!q) {
+                *ret_sender = NULL;
+                *ret_external = NULL;
+                return 0;
+        }
+
+        sender = bus_label_unescape_n(p, q - p);
+        external = bus_label_unescape(q + 1);
+        if (!sender || !external) {
+                free(sender);
+                free(external);
+                return -ENOMEM;
+        }
+
+        *ret_sender = sender;
+        *ret_external = external;
+        return 1;
 }

@@ -211,3 +211,6 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
 
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
+
+int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
+int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);
