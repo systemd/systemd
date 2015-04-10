@@ -32,6 +32,8 @@
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
 #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
 
+#ifdef HAVE_EFI
+
 bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 bool is_efi_secure_boot_setup_mode(void);
@@ -52,5 +54,77 @@ int efi_get_boot_options(uint16_t **options);
 
 int efi_loader_get_device_part_uuid(sd_id128_t *u);
 int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
+
+#else
+
+static inline bool is_efi_boot(void) {
+        return false;
+}
+
+static inline bool is_efi_secure_boot(void) {
+        return false;
+}
+
+static inline bool is_efi_secure_boot_setup_mode(void) {
+        return false;
+}
+
+static inline int efi_reboot_to_firmware_supported(void) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_reboot_to_firmware(void) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_set_reboot_to_firmware(bool value) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, size_t size) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *part_uuid, char **path, bool *active) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_remove_boot_option(uint16_t id) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_boot_order(uint16_t **order) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_set_boot_order(uint16_t *order, size_t n) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_boot_options(uint16_t **options) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_device_part_uuid(sd_id128_t *u) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
+        return -EOPNOTSUPP;
+}
+
+#endif
 
 char *efi_tilt_backslashes(char *s);

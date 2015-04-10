@@ -447,16 +447,6 @@ static uint16_t *tilt_slashes(uint16_t *s) {
         return s;
 }
 
-char *efi_tilt_backslashes(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
-                if (*p == '\\')
-                        *p = '/';
-
-        return s;
-}
-
 int efi_add_boot_option(uint16_t id, const char *title,
                         uint32_t part, uint64_t pstart, uint64_t psize,
                         sd_id128_t part_uuid, const char *path) {
@@ -687,3 +677,13 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
 }
 
 #endif
+
+char *efi_tilt_backslashes(char *s) {
+        char *p;
+
+        for (p = s; *p; p++)
+                if (*p == '\\')
+                        *p = '/';
+
+        return s;
+}
