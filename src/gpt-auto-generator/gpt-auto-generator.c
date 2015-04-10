@@ -658,8 +658,13 @@ static int add_mounts(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of root file system: %m");
         else if (r == 0) {
-                log_debug("Root file system not on a (single) block device.");
-                return 0;
+                r = get_block_device("/usr", &devno);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
+                else if (r == 0) {
+                        log_debug("Neither root nor /usr file system are on a (single) block device.");
+                        return 0;
+                }
         }
 
         return enumerate_partitions(devno);
