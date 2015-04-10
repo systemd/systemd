@@ -866,38 +866,41 @@ static void hashmap_free_no_clear(HashmapBase *h) {
                 free(h);
 }
 
-void internal_hashmap_free(HashmapBase *h) {
+HashmapBase *internal_hashmap_free(HashmapBase *h) {
 
         /* Free the hashmap, but nothing in it */
 
-        if (!h)
-                return;
+        if (h) {
+                internal_hashmap_clear(h);
+                hashmap_free_no_clear(h);
+        }
 
-        internal_hashmap_clear(h);
-        hashmap_free_no_clear(h);
+        return NULL;
 }
 
-void internal_hashmap_free_free(HashmapBase *h) {
+HashmapBase *internal_hashmap_free_free(HashmapBase *h) {
 
         /* Free the hashmap and all data objects in it, but not the
          * keys */
 
-        if (!h)
-                return;
+        if (h) {
+                internal_hashmap_clear_free(h);
+                hashmap_free_no_clear(h);
+        }
 
-        internal_hashmap_clear_free(h);
-        hashmap_free_no_clear(h);
+        return NULL;
 }
 
-void hashmap_free_free_free(Hashmap *h) {
+Hashmap *hashmap_free_free_free(Hashmap *h) {
 
         /* Free the hashmap and all data and key objects in it */
 
-        if (!h)
-                return;
+        if (h) {
+                hashmap_clear_free_free(h);
+                hashmap_free_no_clear(HASHMAP_BASE(h));
+        }
 
-        hashmap_clear_free_free(h);
-        hashmap_free_no_clear(HASHMAP_BASE(h));
+        return NULL;
 }
 
 void internal_hashmap_clear(HashmapBase *h) {

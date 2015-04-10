@@ -144,25 +144,25 @@ OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HA
 #define hashmap_new(ops) internal_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_new(ops) internal_ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
-void internal_hashmap_free(HashmapBase *h);
-static inline void hashmap_free(Hashmap *h) {
-        internal_hashmap_free(HASHMAP_BASE(h));
+HashmapBase *internal_hashmap_free(HashmapBase *h);
+static inline Hashmap *hashmap_free(Hashmap *h) {
+        return (void*)internal_hashmap_free(HASHMAP_BASE(h));
 }
-static inline void ordered_hashmap_free(OrderedHashmap *h) {
-        internal_hashmap_free(HASHMAP_BASE(h));
-}
-
-void internal_hashmap_free_free(HashmapBase *h);
-static inline void hashmap_free_free(Hashmap *h) {
-        internal_hashmap_free_free(HASHMAP_BASE(h));
-}
-static inline void ordered_hashmap_free_free(OrderedHashmap *h) {
-        internal_hashmap_free_free(HASHMAP_BASE(h));
+static inline OrderedHashmap *ordered_hashmap_free(OrderedHashmap *h) {
+        return (void*)internal_hashmap_free(HASHMAP_BASE(h));
 }
 
-void hashmap_free_free_free(Hashmap *h);
-static inline void ordered_hashmap_free_free_free(OrderedHashmap *h) {
-        hashmap_free_free_free(PLAIN_HASHMAP(h));
+HashmapBase *internal_hashmap_free_free(HashmapBase *h);
+static inline Hashmap *hashmap_free_free(Hashmap *h) {
+        return (void*)internal_hashmap_free_free(HASHMAP_BASE(h));
+}
+static inline OrderedHashmap *ordered_hashmap_free_free(OrderedHashmap *h) {
+        return (void*)internal_hashmap_free_free(HASHMAP_BASE(h));
+}
+
+Hashmap *hashmap_free_free_free(Hashmap *h);
+static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) {
+        return (void*)hashmap_free_free_free(PLAIN_HASHMAP(h));
 }
 
 HashmapBase *internal_hashmap_copy(HashmapBase *h);
