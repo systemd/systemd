@@ -2490,24 +2490,20 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
         r = sd_event_prepare(e);
-        if (r > 0) {
-                r = sd_event_dispatch(e);
-                if (r < 0)
-                        return r;
-                else
-                        return 1;
-        } else if (r < 0)
-                return r;
+        if (r == 0)
+                /* There was nothing? Then wait... */
+                r = sd_event_wait(e, timeout);
 
-        r = sd_event_wait(e, timeout);
         if (r > 0) {
+                /* There's something now, then let's dispatch it */
                 r = sd_event_dispatch(e);
                 if (r < 0)
                         return r;
-                else
-                        return 1;
-        } else
-                return r;
+
+                return 1;
+        }
+
+        return r;
 }
 
 _public_ int sd_event_loop(sd_event *e) {
