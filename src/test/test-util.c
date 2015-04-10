@@ -416,11 +416,10 @@ static void test_cescape(void) {
 
 static void test_cunescape(void) {
         _cleanup_free_ char *unescaped;
-        const char *x = "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00";
 
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, x));
+        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
         free(unescaped);
         unescaped = NULL;
 
@@ -452,6 +451,12 @@ static void test_cunescape(void) {
         assert_se(cunescape("\\1", 0, &unescaped) < 0);
         assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "\\1"));
+        free(unescaped);
+        unescaped = NULL;
+
+        assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
+        assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
+        assert_se(streq_ptr(unescaped, "ßßΠA"));
 }
 
 static void test_foreach_word(void) {

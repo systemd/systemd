@@ -27,6 +27,8 @@
 
 #define UTF8_REPLACEMENT_CHARACTER "\xef\xbf\xbd"
 
+bool unichar_is_valid(uint32_t c);
+
 const char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 

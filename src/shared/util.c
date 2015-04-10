@@ -1347,12 +1347,16 @@ char *cescape(const char *s) {
         return r;
 }
 
-static int cunescape_one(const char *p, size_t length, char *ret) {
+static int cunescape_one(const char *p, size_t length, char *ret, uint32_t *ret_unicode) {
         int r = 1;
 
         assert(p);
         assert(*p);
         assert(ret);
+
+        /* Unescapes C style. Returns the unescaped character in ret,
+         * unless we encountered a \u sequence in which case the full
+         * unicode character is returned in ret_unicode, instead. */
 
         if (length != (size_t) -1 && length < 1)
                 return -EINVAL;
@@ -1410,12 +1414,89 @@ static int cunescape_one(const char *p, size_t length, char *ret) {
                 if (b < 0)
                         return -EINVAL;
 
-                /* don't allow NUL bytes */
+                /* Don't allow NUL bytes */
                 if (a == 0 && b == 0)
                         return -EINVAL;
 
-                *ret = (char) ((a << 4) | b);
+                *ret = (char) ((a << 4U) | b);
                 r = 3;
+                break;
+        }
+
+        case 'u': {
+                /* C++11 style 16bit unicode */
+
+                int a[4];
+                unsigned i;
+                uint32_t c;
+
+                if (length != (size_t) -1 && length < 5)
+                        return -EINVAL;
+
+                for (i = 0; i < 4; i++) {
+                        a[i] = unhexchar(p[1 + i]);
+                        if (a[i] < 0)
+                                return a[i];
+                }
+
+                c = ((uint32_t) a[0] << 12U) | ((uint32_t) a[1] << 8U) | ((uint32_t) a[2] << 4U) | (uint32_t) a[3];
+
+                /* Don't allow 0 chars */
+                if (c == 0)
+                        return -EINVAL;
+
+                if (c < 128)
+                        *ret = c;
+                else {
+                        if (!ret_unicode)
+                                return -EINVAL;
+
+                        *ret = 0;
+                        *ret_unicode = c;
+                }
+
+                r = 5;
+                break;
+        }
+
+        case 'U': {
+                /* C++11 style 32bit unicode */
+
+                int a[8];
+                unsigned i;
+                uint32_t c;
+
+                if (length != (size_t) -1 && length < 9)
+                        return -EINVAL;
+
+                for (i = 0; i < 8; i++) {
+                        a[i] = unhexchar(p[1 + i]);
+                        if (a[i] < 0)
+                                return a[i];
+                }
+
+                c = ((uint32_t) a[0] << 28U) | ((uint32_t) a[1] << 24U) | ((uint32_t) a[2] << 20U) | ((uint32_t) a[3] << 16U) |
+                    ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] <<  8U) | ((uint32_t) a[6] <<  4U) |  (uint32_t) a[7];
+
+                /* Don't allow 0 chars */
+                if (c == 0)
+                        return -EINVAL;
+
+                /* Don't allow invalid code points */
+                if (!unichar_is_valid(c))
+                        return -EINVAL;
+
+                if (c < 128)
+                        *ret = c;
+                else {
+                        if (!ret_unicode)
+                                return -EINVAL;
+
+                        *ret = 0;
+                        *ret_unicode = c;
+                }
+
+                r = 9;
                 break;
         }
 
@@ -1428,7 +1509,8 @@ static int cunescape_one(const char *p, size_t length, char *ret) {
         case '6':
         case '7': {
                 /* octal encoding */
-                int a, b, c, m;
+                int a, b, c;
+                uint32_t m;
 
                 if (length != (size_t) -1 && length < 4)
                         return -EINVAL;
@@ -1450,11 +1532,11 @@ static int cunescape_one(const char *p, size_t length, char *ret) {
                         return -EINVAL;
 
                 /* Don't allow bytes above 255 */
-                m = (a << 6) | (b << 3) | c;
+                m = ((uint32_t) a << 6U) | ((uint32_t) b << 3U) | (uint32_t) c;
                 if (m > 255)
                         return -EINVAL;
 
-                *ret = (char) m;
+                *ret = m;
                 r = 3;
                 break;
         }
@@ -1487,6 +1569,8 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         for (f = s, t = r + pl; f < s + length; f++) {
                 size_t remaining;
+                uint32_t u;
+                char c;
                 int k;
 
                 remaining = s + length - f;
@@ -1509,7 +1593,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                         return -EINVAL;
                 }
 
-                k = cunescape_one(f + 1, remaining - 1, t);
+                k = cunescape_one(f + 1, remaining - 1, &c, &u);
                 if (k < 0) {
                         if (flags & UNESCAPE_RELAX) {
                                 /* Invalid escape code, let's take it literal then */
@@ -1521,8 +1605,14 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                         return k;
                 }
 
+                if (c != 0)
+                        /* Non-Unicode? Let's encode this directly */
+                        *(t++) = c;
+                else
+                        /* Unicode? Then let's encode this in UTF-8 */
+                        t += utf8_encode_unichar(t, u);
+
                 f += k;
-                t++;
         }
 
         *t = 0;
@@ -7198,16 +7288,22 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
-                                r = cunescape_one(*p, (size_t) -1, &c);
+                                uint32_t u;
+
+                                r = cunescape_one(*p, (size_t) -1, &c, &u);
                                 if (r < 0)
                                         return -EINVAL;
 
                                 (*p) += r - 1;
-                        }
 
-                        s[sz++] = c;
+                                if (c != 0)
+                                        s[sz++] = c; /* normal explicit char */
+                                else
+                                        sz += utf8_encode_unichar(s, u); /* unicode chars we'll encode as utf8 */
+                        } else
+                                s[sz++] = c;
+
                         state = VALUE;
-
                         break;
 
                 case SINGLE_QUOTE:
@@ -7239,14 +7335,21 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
-                                r = cunescape_one(*p, (size_t) -1, &c);
+                                uint32_t u;
+
+                                r = cunescape_one(*p, (size_t) -1, &c, &u);
                                 if (r < 0)
                                         return -EINVAL;
 
                                 (*p) += r - 1;
-                        }
 
-                        s[sz++] = c;
+                                if (c != 0)
+                                        s[sz++] = c;
+                                else
+                                        sz += utf8_encode_unichar(s, u);
+                        } else
+                                s[sz++] = c;
+
                         state = SINGLE_QUOTE;
                         break;
 
@@ -7277,14 +7380,21 @@ int unquote_first_word(const char **p, char **ret, UnquoteFlags flags) {
                                 return -ENOMEM;
 
                         if (flags & UNQUOTE_CUNESCAPE) {
-                                r = cunescape_one(*p, (size_t) -1, &c);
+                                uint32_t u;
+
+                                r = cunescape_one(*p, (size_t) -1, &c, &u);
                                 if (r < 0)
                                         return -EINVAL;
 
                                 (*p) += r - 1;
-                        }
 
-                        s[sz++] = c;
+                                if (c != 0)
+                                        s[sz++] = c;
+                                else
+                                        sz += utf8_encode_unichar(s, u);
+                        } else
+                                s[sz++] = c;
+
                         state = DOUBLE_QUOTE;
                         break;
 
