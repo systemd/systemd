@@ -28,6 +28,8 @@
 #include "sd-icmp6-nd.h"
 #include "sd-dhcp6-client.h"
 
+static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
+
 static int dhcp6_lease_information_acquired(sd_dhcp6_client *client,
                                         Link *link) {
         return 0;
@@ -42,6 +44,15 @@ static int dhcp6_address_handler(sd_rtnl *rtnl, sd_rtnl_message *m,
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
+                if (link->rtnl_extended_attrs) {
+                        log_link_warning(link, "Could not set extended netlink attributes, reverting to fallback mechanism");
+
+                        link->rtnl_extended_attrs = false;
+                        dhcp6_lease_address_acquired(link->dhcp6_client, link);
+
+                        return 1;
+                }
+
                 log_link_error(link, "Could not set DHCPv6 address: %s",
                                strerror(-r));
 
@@ -67,7 +78,7 @@ static int dhcp6_address_update(Link *link, struct in6_addr *ip6_addr,
         memcpy(&addr->in_addr.in6, ip6_addr, sizeof(*ip6_addr));
 
         addr->flags = IFA_F_NOPREFIXROUTE;
-        addr->prefixlen = 64;
+        addr->prefixlen = prefixlen;
 
         addr->cinfo.ifa_prefered = lifetime_preferred;
         addr->cinfo.ifa_valid = lifetime_valid;
@@ -262,6 +273,52 @@ static int dhcp6_configure(Link *link, int event) {
         return r;
 }
 
+static int dhcp6_prefix_expired(Link *link) {
+        int r;
+        sd_dhcp6_lease *lease;
+        struct in6_addr *expired_prefix, ip6_addr;
+        uint8_t expired_prefixlen;
+        uint32_t lifetime_preferred, lifetime_valid;
+
+        r = sd_icmp6_ra_get_expired_prefix(link->icmp6_router_discovery,
+                                        &expired_prefix, &expired_prefixlen);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_client_get_lease(link->dhcp6_client, &lease);
+        if (r < 0)
+                return r;
+
+        log_link_struct(link, LOG_INFO,
+                        "MESSAGE=%-*s: IPv6 prefix "SD_ICMP6_ADDRESS_FORMAT_STR"/%d expired",
+                        IFNAMSIZ, link->ifname,
+                        SD_ICMP6_ADDRESS_FORMAT_VAL(*expired_prefix),
+                        expired_prefixlen, NULL);
+
+        sd_dhcp6_lease_reset_address_iter(lease);
+
+        while (sd_dhcp6_lease_get_address(lease, &ip6_addr,
+                                                &lifetime_preferred,
+                                                &lifetime_valid) >= 0) {
+
+                r = sd_icmp6_prefix_match(expired_prefix, expired_prefixlen,
+                                        &ip6_addr);
+                if (r < 0)
+                        continue;
+
+                log_link_struct(link, LOG_INFO,
+                                "MESSAGE=%-*s: IPv6 prefix length updated "SD_ICMP6_ADDRESS_FORMAT_STR"/%d",
+                                IFNAMSIZ, link->ifname,
+                                SD_ICMP6_ADDRESS_FORMAT_VAL(ip6_addr), 128,
+                                NULL);
+
+                dhcp6_address_update(link, &ip6_addr, 128, lifetime_preferred,
+                                     lifetime_valid);
+        }
+
+        return 0;
+}
+
 static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
         Link *link = userdata;
 
@@ -274,13 +331,18 @@ static void icmp6_router_handler(sd_icmp6_nd *nd, int event, void *userdata) {
 
         switch(event) {
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_NONE:
-        case ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
                 return;
 
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_TIMEOUT:
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_OTHER:
         case ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED:
                 dhcp6_configure(link, event);
+
+                break;
+
+        case ICMP6_EVENT_ROUTER_ADVERTISMENT_PREFIX_EXPIRED:
+                if (!link->rtnl_extended_attrs)
+                        dhcp6_prefix_expired(link);
 
                 break;
 

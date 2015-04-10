@@ -225,6 +225,7 @@ static int link_new(Manager *manager, sd_rtnl_message *message, Link **ret) {
         link->n_ref = 1;
         link->manager = manager;
         link->state = LINK_STATE_PENDING;
+        link->rtnl_extended_attrs = true;
         link->ifindex = ifindex;
         link->ifname = strdup(ifname);
         if (!link->ifname)

@@ -215,7 +215,7 @@ int address_update(Address *address, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
 
-        if (address->flags & ~0xff) {
+        if (address->flags & ~0xff && link->rtnl_extended_attrs) {
                 r = sd_rtnl_message_append_u32(req, IFA_FLAGS, address->flags);
                 if (r < 0)
                         return log_error_errno(r, "Could not set extended flags: %m");
