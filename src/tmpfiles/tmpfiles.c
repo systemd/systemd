@@ -147,6 +147,14 @@ static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
 static Hashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
 
+static const Specifier specifier_table[] = {
+        { 'm', specifier_machine_id, NULL },
+        { 'b', specifier_boot_id, NULL },
+        { 'H', specifier_host_name, NULL },
+        { 'v', specifier_kernel_release, NULL },
+        {}
+};
+
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
                       WRITE_FILE,
@@ -622,7 +630,7 @@ static int path_set_perms(Item *i, const char *path) {
         return label_fix(path, false, false);
 }
 
-static int get_xattrs_from_arg(Item *i) {
+static int parse_xattrs_from_arg(Item *i) {
         const char *p;
         int r;
 
@@ -632,22 +640,26 @@ static int get_xattrs_from_arg(Item *i) {
         p = i->argument;
 
         for (;;) {
-                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
+                _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL, *xattr_replaced = NULL;
 
                 r = unquote_first_word(&p, &xattr, UNQUOTE_CUNESCAPE);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", p);
+                        log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
                 if (r <= 0)
                         break;
 
-                r = split_pair(xattr, "=", &name, &value);
+                r = specifier_printf(xattr, specifier_table, NULL, &xattr_replaced);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace specifiers in extended attribute '%s': %m", xattr);
+
+                r = split_pair(xattr_replaced, "=", &name, &value);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
                         continue;
                 }
 
                 if (isempty(name) || isempty(value)) {
-                        log_warning("Malformed xattr found, ignoring: %s", xattr);
+                        log_warning("Malformed extended attribute found, ignoring: %s", xattr);
                         continue;
                 }
 
@@ -670,17 +682,16 @@ static int path_set_xattrs(Item *i, const char *path) {
                 int n;
 
                 n = strlen(*value);
-                log_debug("\"%s\": setting xattr \"%s=%s\"", path, *name, *value);
+                log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
                 if (lsetxattr(path, *name, *value, n, 0) < 0) {
-                        log_error("Setting extended attribute %s=%s on %s failed: %m",
-                                  *name, *value, path);
+                        log_error("Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
                         return -errno;
                 }
         }
         return 0;
 }
 
-static int get_acls_from_arg(Item *item) {
+static int parse_acls_from_arg(Item *item) {
 #ifdef HAVE_ACL
         int r;
 
@@ -688,6 +699,7 @@ static int get_acls_from_arg(Item *item) {
 
         /* If force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
+
         r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->force);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
@@ -783,7 +795,7 @@ static int path_set_acls(Item *item, const char *path) {
          FS_TOPDIR_FL       |                   \
          FS_NOCOW_FL)
 
-static int get_attribute_from_arg(Item *item) {
+static int parse_attribute_from_arg(Item *item) {
 
         static const struct {
                 char character;
@@ -936,7 +948,7 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (i->argument) {
-                _cleanup_free_ char *unescaped = NULL;
+                _cleanup_free_ char *unescaped = NULL, *replaced = NULL;
 
                 log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
 
@@ -944,7 +956,11 @@ static int write_one_file(Item *i, const char *path) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
 
-                r = loop_write(fd, unescaped, strlen(unescaped), false);
+                r = specifier_printf(unescaped, specifier_table, NULL, &replaced);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace specifiers in parameter to write '%s': %m", unescaped);
+
+                r = loop_write(fd, replaced, strlen(replaced), false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write file \"%s\": %m", path);
         } else
@@ -1651,14 +1667,6 @@ static bool should_include_path(const char *path) {
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id, NULL },
-                { 'b', specifier_boot_id, NULL },
-                { 'H', specifier_host_name, NULL },
-                { 'v', specifier_kernel_release, NULL },
-                {}
-        };
-
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
         ItemArray *existing;
@@ -1739,7 +1747,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 if (i.argument)
-                        log_warning("[%s:%u] %c lines don't take argument field, ignoring.", fname, line, i.type);
+                        log_warning("[%s:%u] %c lines don't take argument fields, ignoring.", fname, line, i.type);
 
                 break;
 
@@ -1799,7 +1807,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_xattrs_from_arg(&i);
+                r = parse_xattrs_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
@@ -1810,7 +1818,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Set ACLs requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_acls_from_arg(&i);
+                r = parse_acls_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
@@ -1821,7 +1829,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         log_error("[%s:%u] Set file attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
-                r = get_attribute_from_arg(&i);
+                r = parse_attribute_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
