@@ -1082,6 +1082,7 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_item(Item *i) {
+        _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r = 0;
         CreationMode creation;
@@ -1106,8 +1107,6 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES: {
-                _cleanup_free_ char *resolved = NULL;
-
                 r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
                 if (r < 0)
                         return log_error_errno(r, "Failed to substitute specifiers in copy source %s: %m", i->argument);
@@ -1233,8 +1232,6 @@ static int create_item(Item *i) {
         }
 
         case CREATE_SYMLINK: {
-                _cleanup_free_ char *resolved = NULL;
-
                 r = specifier_printf(i->argument, specifier_table, NULL, &resolved);
                 if (r < 0)
                         return log_error_errno(r, "Failed to substitute specifiers in symlink target %s: %m", i->argument);
