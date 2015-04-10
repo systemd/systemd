@@ -76,20 +76,20 @@ typedef enum ItemType {
         COPY_FILES = 'C',
 
         /* These ones take globs */
+        WRITE_FILE = 'w',
         SET_XATTR = 't',
         RECURSIVE_SET_XATTR = 'T',
         SET_ACL = 'a',
         RECURSIVE_SET_ACL = 'A',
-        WRITE_FILE = 'w',
+        SET_ATTRIBUTE = 'h',
+        RECURSIVE_SET_ATTRIBUTE = 'H',
         IGNORE_PATH = 'x',
         IGNORE_DIRECTORY_PATH = 'X',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R',
-        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
         RELABEL_PATH = 'z',
         RECURSIVE_RELABEL_PATH = 'Z',
-        SET_ATTRIBUTE = 'h',
-        RECURSIVE_SET_ATTRIBUTE = 'H',
+        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
 } ItemType;
 
 typedef struct Item {
@@ -1610,6 +1610,31 @@ static void item_array_free(ItemArray *a) {
         free(a);
 }
 
+static int item_compare(const void *a, const void *b) {
+        const Item *x = a, *y = b;
+
+        /* Make sure that the ownership taking item is put first, so
+         * that we first create the node, and then can adjust it */
+
+        if (takes_ownership(x->type) && !takes_ownership(y->type))
+                return -1;
+        if (!takes_ownership(x->type) && takes_ownership(y->type))
+                return 1;
+
+        return (int) x->type - (int) y->type;
+}
+
+static void item_array_sort(ItemArray *a) {
+
+        /* Sort an item array, to enforce stable ordering in which we
+         * apply things. */
+
+        if (a->count <= 1)
+                return;
+
+        qsort(a->items, a->count, sizeof(Item), item_compare);
+}
+
 static bool item_compatible(Item *a, Item *b) {
         assert(a);
         assert(b);
@@ -1944,6 +1969,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return log_oom();
 
         memcpy(existing->items + existing->count++, &i, sizeof(i));
+        item_array_sort(existing);
+
         zero(i);
         return 0;
 }
@@ -2183,13 +2210,17 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        HASHMAP_FOREACH(a, globs, iterator) {
+        /* The non-globbing ones usually create things, hence we apply
+         * them first */
+        HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH(a, items, iterator) {
+        /* The globbing ones usually alter things, hence we apply them
+         * second. */
+        HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
