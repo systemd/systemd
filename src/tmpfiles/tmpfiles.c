@@ -1860,7 +1860,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.path = p;
         }
 
-        if (user && !streq(user, "-")) {
+        if (!isempty(user) && !streq(user, "-")) {
                 const char *u = user;
 
                 r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
@@ -1872,7 +1872,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.uid_set = true;
         }
 
-        if (group && !streq(group, "-")) {
+        if (!isempty(group) && !streq(group, "-")) {
                 const char *g = group;
 
                 r = get_group_creds(&g, &i.gid);
@@ -1884,7 +1884,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.gid_set = true;
         }
 
-        if (mode && !streq(mode, "-")) {
+        if (!isempty(mode) && !streq(mode, "-")) {
                 const char *mm = mode;
                 unsigned m;
 
@@ -1904,7 +1904,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i.mode = IN_SET(i.type, CREATE_DIRECTORY, CREATE_SUBVOLUME, TRUNCATE_DIRECTORY)
                         ? 0755 : 0644;
 
-        if (age && !streq(age, "-")) {
+        if (!isempty(age) && !streq(age, "-")) {
                 const char *a = age;
 
                 if (*a == '~') {
