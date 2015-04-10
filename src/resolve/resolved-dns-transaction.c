@@ -22,6 +22,7 @@
 #include "af-list.h"
 
 #include "resolved-dns-transaction.h"
+#include "random-util.h"
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         DnsQuery *q;

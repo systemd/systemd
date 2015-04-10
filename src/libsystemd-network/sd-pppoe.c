@@ -33,6 +33,7 @@
 #include "event-util.h"
 
 #include "util.h"
+#include "random-util.h"
 #include "socket-util.h"
 #include "async.h"
 #include "refcnt.h"

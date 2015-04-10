@@ -30,6 +30,7 @@
 #include "siphash24.h"
 #include "strv.h"
 #include "mempool.h"
+#include "random-util.h"
 
 #ifdef ENABLE_DEBUG_HASHMAP
 #include "list.h"

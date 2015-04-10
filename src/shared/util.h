@@ -283,22 +283,6 @@ int make_stdio(int fd);
 int make_null_stdio(void);
 int make_console_stdio(void);
 
-int dev_urandom(void *p, size_t n);
-void random_bytes(void *p, size_t n);
-void initialize_srand(void);
-
-static inline uint64_t random_u64(void) {
-        uint64_t u;
-        random_bytes(&u, sizeof(u));
-        return u;
-}
-
-static inline uint32_t random_u32(void) {
-        uint32_t u;
-        random_bytes(&u, sizeof(u));
-        return u;
-}
-
 /* For basic lookup tables with strictly enumerated entries */
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         scope const char *name##_to_string(type i) {                    \

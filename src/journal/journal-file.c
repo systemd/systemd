@@ -34,6 +34,7 @@
 #include "journal-authenticate.h"
 #include "lookup3.h"
 #include "compress.h"
+#include "random-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))

@@ -20,6 +20,7 @@
 #include "compress.h"
 #include "util.h"
 #include "macro.h"
+#include "random-util.h"
 
 #ifdef HAVE_XZ
 # define XZ_OK 0

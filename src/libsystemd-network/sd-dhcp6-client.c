@@ -28,6 +28,7 @@
 #include "udev-util.h"
 #include "util.h"
 #include "refcnt.h"
+#include "random-util.h"
 
 #include "network-internal.h"
 #include "sd-dhcp6-client.h"

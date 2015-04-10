@@ -35,6 +35,7 @@
 #include "formats-util.h"
 #include "mkdir.h"
 #include "strv.h"
+#include "random-util.h"
 
 #include "ask-password-api.h"
 

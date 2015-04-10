@@ -28,6 +28,7 @@
 
 #include "util.h"
 #include "refcnt.h"
+#include "random-util.h"
 #include "async.h"
 
 #include "dhcp-protocol.h"

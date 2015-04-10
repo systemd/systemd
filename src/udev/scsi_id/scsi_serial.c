@@ -37,6 +37,7 @@
 #include "libudev-private.h"
 #include "scsi.h"
 #include "scsi_id.h"
+#include "random-util.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

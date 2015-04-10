@@ -26,6 +26,7 @@
 #include "list.h"
 #include "util.h"
 #include "hashmap.h"
+#include "random-util.h"
 
 #define POOLS_MAX 5
 #define BUCKETS_MAX 127

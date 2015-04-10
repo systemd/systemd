@@ -901,6 +901,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/memfd-util.h \
 	src/shared/process-util.c \
 	src/shared/process-util.h \
+	src/shared/random-util.c \
+	src/shared/random-util.h \
 	src/shared/uid-range.c \
 	src/shared/uid-range.h \
 	src/shared/nss-util.h \

@@ -31,6 +31,7 @@
 #include "utf8.h"
 #include "fileio-label.h"
 #include "ordered-set.h"
+#include "random-util.h"
 
 #include "resolved-dns-domain.h"
 #include "resolved-conf.h"

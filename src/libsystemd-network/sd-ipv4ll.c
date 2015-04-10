@@ -27,6 +27,7 @@
 #include "siphash24.h"
 #include "list.h"
 #include "refcnt.h"
+#include "random-util.h"
 
 #include "ipv4ll-internal.h"
 #include "sd-ipv4ll.h"

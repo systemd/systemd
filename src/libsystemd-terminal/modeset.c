@@ -40,11 +40,13 @@
 #include <systemd/sd-login.h>
 #include <termios.h>
 #include <unistd.h>
+
 #include "build.h"
 #include "grdev.h"
 #include "macro.h"
 #include "sysview.h"
 #include "util.h"
+#include "random-util.h"
 
 typedef struct Modeset Modeset;
 

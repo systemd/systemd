@@ -37,6 +37,7 @@
 #include "conf-files.h"
 #include "rtnl-util.h"
 #include "network-internal.h"
+#include "random-util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);

@@ -52,6 +52,7 @@
 #include <blkid/blkid.h>
 #endif
 
+#include "random-util.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
 #include "sd-id128.h"
