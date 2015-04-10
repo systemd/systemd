@@ -39,8 +39,25 @@ static void test_set_steal_first(void) {
         assert_se(set_isempty(m));
 }
 
+static void test_set_put(void) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        m = set_new(&string_hash_ops);
+        assert_se(m);
+
+        assert_se(set_put(m, (void*) "1") == 1);
+        assert_se(set_put(m, (void*) "22") == 1);
+        assert_se(set_put(m, (void*) "333") == 1);
+        assert_se(set_put(m, (void*) "333") == 0);
+        assert_se(set_remove(m, (void*) "333"));
+        assert_se(set_put(m, (void*) "333") == 1);
+        assert_se(set_put(m, (void*) "333") == 0);
+        assert_se(set_put(m, (void*) "22") == 0);
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
+        test_set_put();
 
         return 0;
 }

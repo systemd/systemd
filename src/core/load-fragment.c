@@ -2369,7 +2369,7 @@ int config_parse_syscall_filter(
                                         continue;
 
                                 r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                                if (r == -EEXIST)
+                                if (r == 0)
                                         continue;
                                 if (r < 0)
                                         return log_oom();
@@ -2397,7 +2397,7 @@ int config_parse_syscall_filter(
                  */
                 if (!invert == c->syscall_whitelist)  {
                         r = set_put(c->syscall_filter, INT_TO_PTR(id + 1));
-                        if (r == -EEXIST)
+                        if (r == 0)
                                 continue;
                         if (r < 0)
                                 return log_oom();
@@ -2459,7 +2459,7 @@ int config_parse_syscall_archs(
                 }
 
                 r = set_put(*archs, UINT32_TO_PTR(a + 1));
-                if (r == -EEXIST)
+                if (r == 0)
                         continue;
                 if (r < 0)
                         return log_oom();
@@ -2570,7 +2570,7 @@ int config_parse_address_families(
                  */
                 if (!invert == c->address_families_whitelist)  {
                         r = set_put(c->address_families, INT_TO_PTR(af));
-                        if (r == -EEXIST)
+                        if (r == 0)
                                 continue;
                         if (r < 0)
                                 return log_oom();

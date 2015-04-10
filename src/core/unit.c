@@ -181,12 +181,8 @@ int unit_add_name(Unit *u, const char *text) {
                 return -E2BIG;
 
         r = set_put(u->names, s);
-        if (r < 0) {
-                if (r == -EEXIST)
-                        return 0;
-
+        if (r <= 0)
                 return r;
-        }
 
         r = hashmap_put(u->manager->units, s, u);
         if (r < 0) {
@@ -1161,7 +1157,6 @@ static int unit_add_mount_dependencies(Unit *u) {
 
 static int unit_add_startup_units(Unit *u) {
         CGroupContext *c;
-        int r = 0;
 
         c = unit_get_cgroup_context(u);
         if (!c)
@@ -1171,11 +1166,7 @@ static int unit_add_startup_units(Unit *u) {
             c->startup_blockio_weight == (unsigned long) -1)
                 return 0;
 
-        r = set_put(u->manager->startup_units, u);
-        if (r == -EEXIST)
-                return 0;
-
-        return r;
+        return set_put(u->manager->startup_units, u);
 }
 
 int unit_load(Unit *u) {
