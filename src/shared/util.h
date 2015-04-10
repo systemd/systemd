@@ -220,9 +220,6 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
 
-char *replace_env(const char *format, char **env);
-char **replace_env_argv(char **argv, char **env);
-
 int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
 int readlink_value(const char *p, char **ret);
