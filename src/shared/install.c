@@ -514,7 +514,7 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         int r;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *normal_path = NULL, *runtime_path = NULL;
         bool same_name_link_runtime = false, same_name_link = false;
 
         assert(scope >= 0);
@@ -522,11 +522,11 @@ static int find_symlinks_in_scope(
         assert(name);
 
         /* First look in runtime config path */
-        r = get_config_path(scope, true, root_dir, &path);
+        r = get_config_path(scope, true, root_dir, &normal_path);
         if (r < 0)
                 return r;
 
-        r = find_symlinks(name, path, &same_name_link_runtime);
+        r = find_symlinks(name, normal_path, &same_name_link_runtime);
         if (r < 0)
                 return r;
         else if (r > 0) {
@@ -535,11 +535,11 @@ static int find_symlinks_in_scope(
         }
 
         /* Then look in the normal config path */
-        r = get_config_path(scope, false, root_dir, &path);
+        r = get_config_path(scope, false, root_dir, &runtime_path);
         if (r < 0)
                 return r;
 
-        r = find_symlinks(name, path, &same_name_link);
+        r = find_symlinks(name, runtime_path, &same_name_link);
         if (r < 0)
                 return r;
         else if (r > 0) {
