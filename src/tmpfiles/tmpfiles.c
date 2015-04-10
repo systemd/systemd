@@ -1727,8 +1727,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         switch (i.type) {
 
-        case CREATE_FILE:
-        case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
         case CREATE_SUBVOLUME:
         case TRUNCATE_DIRECTORY:
@@ -1740,6 +1738,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+                if (i.argument)
+                        log_warning("[%s:%u] %c lines don't take argument field, ignoring.", fname, line, i.type);
+
+                break;
+
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
                 break;
 
         case CREATE_SYMLINK:
