@@ -30,6 +30,7 @@
 #include "path-util.h"
 #include "missing.h"
 #include "set.h"
+#include "unit-name.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"
@@ -1708,6 +1709,68 @@ static int bus_process_wait(sd_bus *bus) {
         }
 }
 
+static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
+        _cleanup_free_ char *dbus_path = NULL;
+
+        assert(d);
+        assert(d->name);
+        assert(result);
+
+        dbus_path = unit_dbus_path_from_name(d->name);
+        if (!dbus_path)
+                return -ENOMEM;
+
+        return sd_bus_get_property_string(d->bus,
+                                          "org.freedesktop.systemd1",
+                                          dbus_path,
+                                          "org.freedesktop.systemd1.Service",
+                                          "Result",
+                                          NULL,
+                                          result);
+}
+
+static const struct {
+        const char *result, *explanation;
+} explanations [] = {
+        { "resources", "configured resource limit was exceeded" },
+        { "timeout", "timeout was exceeded" },
+        { "exit-code", "control process exited with error code" },
+        { "signal", "fatal signal was delivered to the control process" },
+        { "core-dump", "fatal signal was delivered to the control process. Core dumped" },
+        { "watchdog", "service failed to send watchdog ping" },
+        { "start-limit", "start of the service was attempted too often too quickly" }
+};
+
+static void log_job_error_with_service_result(const char* service, const char *result) {
+        unsigned i;
+        _cleanup_free_ char *service_shell_quoted = NULL;
+
+        assert(service);
+        assert(result);
+
+        service_shell_quoted = shell_maybe_quote(service);
+
+        for (i = 0; i < ELEMENTSOF(explanations); ++i)
+                if (streq(result, explanations[i].result))
+                        break;
+
+        if (i < ELEMENTSOF(explanations))
+                log_error("Job for %s failed because %s. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                          service,
+                          explanations[i].explanation,
+                          strna(service_shell_quoted));
+        else
+                log_error("Job for %s failed. See \"systemctl status %s\" and \"journalctl -xe\" for details.\n",
+                          service,
+                          strna(service_shell_quoted));
+
+        /* For some results maybe additional explanation is required */
+        if (streq_ptr(result, "start-limit"))
+                log_info("To force a start please invoke \"systemctl reset-failed %s\" followed by \"systemctl start %s\" again.",
+                         strna(service_shell_quoted),
+                         strna(service_shell_quoted));
+}
+
 static int check_wait_response(BusWaitForJobs *d, bool quiet) {
         int r = 0;
 
@@ -1727,15 +1790,17 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet) {
                 else if (streq(d->result, "unsupported"))
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
                 else if (!streq(d->result, "done") && !streq(d->result, "skipped")) {
-                        _cleanup_free_ char *quoted = NULL;
+                        if (d->name) {
+                                int q;
+                                _cleanup_free_ char *result = NULL;
 
-                        if (d->name)
-                                quoted = shell_maybe_quote(d->name);
+                                q = bus_job_get_service_result(d, &result);
+                                if (q < 0)
+                                        log_debug_errno(q, "Failed to get Result property of service %s: %m", d->name);
 
-                        if (quoted)
-                                log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl -xe' for details.", d->name, quoted);
-                        else
-                                log_error("Job failed. See 'journalctl -xe' for details.");
+                                log_job_error_with_service_result(d->name, result);
+                        } else
+                                log_error("Job failed. See \"journalctl -xe\" for details.");
                 }
         }
 
