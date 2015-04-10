@@ -3675,36 +3675,6 @@ static char *unquote(const char *s, const char* quotes) {
         return strdup(s);
 }
 
-char *normalize_env_assignment(const char *s) {
-        _cleanup_free_ char *value = NULL;
-        const char *eq;
-        char *p, *name;
-
-        eq = strchr(s, '=');
-        if (!eq) {
-                char *r, *t;
-
-                r = strdup(s);
-                if (!r)
-                        return NULL;
-
-                t = strstrip(r);
-                if (t != r)
-                        memmove(r, t, strlen(t) + 1);
-
-                return r;
-        }
-
-        name = strndupa(s, eq - s);
-        p = strdupa(eq + 1);
-
-        value = unquote(strstrip(p), QUOTES);
-        if (!value)
-                return NULL;
-
-        return strjoin(strstrip(name), "=", value, NULL);
-}
-
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
         siginfo_t dummy;
 

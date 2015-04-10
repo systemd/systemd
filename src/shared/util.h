@@ -522,8 +522,6 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
-char *normalize_env_assignment(const char *s);
-
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
 
