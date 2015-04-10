@@ -134,6 +134,12 @@ enum {
 };
 
 enum {
+        DHCP6_NTP_SUBOPTION_SRV_ADDR            = 1,
+        DHCP6_NTP_SUBOPTION_MC_ADDR             = 2,
+        DHCP6_NTP_SUBOPTION_SRV_FQDN            = 3,
+};
+
+enum {
         DHCP6_STATUS_SUCCESS                    = 0,
         DHCP6_STATUS_UNSPEC_FAIL                = 1,
         DHCP6_STATUS_NO_ADDRS_AVAIL             = 2,

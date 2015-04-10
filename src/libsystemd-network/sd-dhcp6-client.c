@@ -768,7 +768,14 @@ static int client_parse_message(sd_dhcp6_client *client,
 
                         break;
 
+                case DHCP6_OPTION_NTP_SERVER:
+                        r = dhcp6_lease_set_ntp(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 }
+
         }
 
         if (r == -ENOMSG)
