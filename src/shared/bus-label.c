@@ -63,34 +63,35 @@ char *bus_label_escape(const char *s) {
         return r;
 }
 
-char *bus_label_unescape(const char *f) {
+char *bus_label_unescape_n(const char *f, size_t l) {
         char *r, *t;
+        size_t i;
 
         assert_return(f, NULL);
 
         /* Special case for the empty string */
-        if (streq(f, "_"))
+        if (l == 1 && *f == '_')
                 return strdup("");
 
-        r = new(char, strlen(f) + 1);
+        r = new(char, l + 1);
         if (!r)
                 return NULL;
 
-        for (t = r; *f; f++) {
-
-                if (*f == '_') {
+        for (i = 0, t = r; i < l; ++i) {
+                if (f[i] == '_') {
                         int a, b;
 
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
+                        if (l - i < 3 ||
+                            (a = unhexchar(f[i + 1])) < 0 ||
+                            (b = unhexchar(f[i + 2])) < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '_';
                         } else {
                                 *(t++) = (char) ((a << 4) | b);
-                                f += 2;
+                                i += 2;
                         }
                 } else
-                        *(t++) = *f;
+                        *(t++) = f[i];
         }
 
         *t = 0;
