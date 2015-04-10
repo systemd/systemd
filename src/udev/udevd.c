@@ -48,6 +48,7 @@
 #include "selinux-util.h"
 #include "udev.h"
 #include "udev-util.h"
+#include "formats-util.h"
 
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;

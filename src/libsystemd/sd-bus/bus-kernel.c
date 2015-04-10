@@ -39,6 +39,7 @@
 #include "memfd-util.h"
 #include "capability.h"
 #include "fileio.h"
+#include "formats-util.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"

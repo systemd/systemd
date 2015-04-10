@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "journald-server.h"
 #include "journald-console.h"
+#include "formats-util.h"
 
 static bool prefix_timestamp(void) {
 

@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include "util.h"
+#include "formats-util.h"
 
 int main(int argc, char** argv) {
         const char *p = argv[1] ?: "/tmp";

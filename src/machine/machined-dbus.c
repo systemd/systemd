@@ -35,6 +35,7 @@
 #include "image-dbus.h"
 #include "machined.h"
 #include "machine-dbus.h"
+#include "formats-util.h"
 
 static int property_get_pool_path(
                 sd_bus *bus,

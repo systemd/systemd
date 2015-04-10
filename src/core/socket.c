@@ -48,6 +48,7 @@
 #include "dbus-socket.h"
 #include "unit.h"
 #include "socket.h"
+#include "formats-util.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,

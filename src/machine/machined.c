@@ -30,6 +30,7 @@
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "formats-util.h"
 
 Manager *manager_new(void) {
         Manager *m;

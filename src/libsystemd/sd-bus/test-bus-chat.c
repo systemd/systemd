@@ -27,6 +27,7 @@
 #include "log.h"
 #include "util.h"
 #include "macro.h"
+#include "formats-util.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"

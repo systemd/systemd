@@ -42,6 +42,7 @@
 #include "driver.h"
 #include "proxy.h"
 #include "synthesize.h"
+#include "formats-util.h"
 
 static int proxy_create_destination(Proxy *p, const char *destination, const char *local_sec, bool negotiate_fds) {
         _cleanup_bus_close_unref_ sd_bus *b = NULL;

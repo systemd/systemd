@@ -26,6 +26,7 @@
 #include "unit-printf.h"
 #include "macro.h"
 #include "cgroup-util.h"
+#include "formats-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;

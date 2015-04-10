@@ -26,6 +26,7 @@
 #include "bus-util.h"
 #include "logind.h"
 #include "logind-user.h"
+#include "formats-util.h"
 
 static int property_get_display(
                 sd_bus *bus,

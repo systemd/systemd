@@ -31,6 +31,7 @@
 #include "journald-kmsg.h"
 #include "journald-console.h"
 #include "journald-wall.h"
+#include "formats-util.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)

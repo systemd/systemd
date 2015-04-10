@@ -40,6 +40,7 @@
 #include "special.h"
 #include "exit-status.h"
 #include "fstab-util.h"
+#include "formats-util.h"
 
 #define RETRY_UMOUNT_MAX 32
 

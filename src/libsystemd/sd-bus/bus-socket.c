@@ -29,6 +29,7 @@
 #include "missing.h"
 #include "utf8.h"
 #include "sd-daemon.h"
+#include "formats-util.h"
 
 #include "sd-bus.h"
 #include "bus-socket.h"

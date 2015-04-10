@@ -32,6 +32,7 @@
 #include <sys/signalfd.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "mkdir.h"
 #include "strv.h"
 

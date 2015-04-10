@@ -29,6 +29,7 @@
 #include "logind-acl.h"
 #include "util.h"
 #include "mkdir.h"
+#include "formats-util.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;

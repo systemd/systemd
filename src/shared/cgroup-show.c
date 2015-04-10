@@ -25,6 +25,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "cgroup-util.h"

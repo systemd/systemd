@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "logind-inhibit.h"
 #include "fileio.h"
+#include "formats-util.h"
 
 Inhibitor* inhibitor_new(Manager *m, const char* id) {
         Inhibitor *i;

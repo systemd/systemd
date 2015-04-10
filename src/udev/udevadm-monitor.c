@@ -27,6 +27,7 @@
 
 #include "udev.h"
 #include "udev-util.h"
+#include "formats-util.h"
 
 static bool udev_exit;
 

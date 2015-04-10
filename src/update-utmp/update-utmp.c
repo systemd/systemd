@@ -37,6 +37,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "unit-name.h"
+#include "formats-util.h"
 
 typedef struct Context {
         sd_bus *bus;

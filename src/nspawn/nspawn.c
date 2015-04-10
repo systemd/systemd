@@ -91,6 +91,7 @@
 #include "in-addr-util.h"
 #include "fw-util.h"
 #include "local-addresses.h"
+#include "formats-util.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"

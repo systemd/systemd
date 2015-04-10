@@ -35,6 +35,7 @@
 #include "bus-error.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "formats-util.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;

@@ -92,6 +92,7 @@
 #include "virt.h"
 #include "def.h"
 #include "sparse-endian.h"
+#include "formats-util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);

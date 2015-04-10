@@ -24,6 +24,7 @@
 #include "strv.h"
 #include "macro.h"
 #include "cap-list.h"
+#include "formats-util.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"

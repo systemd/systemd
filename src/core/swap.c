@@ -35,6 +35,7 @@
 #include "virt.h"
 #include "udev-util.h"
 #include "fstab-util.h"
+#include "formats-util.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,

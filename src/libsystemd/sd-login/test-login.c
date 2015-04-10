@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "strv.h"
+#include "formats-util.h"
 
 static void test_login(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };

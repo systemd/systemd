@@ -41,6 +41,7 @@
 #include "capability.h"
 #include "bus-xml-policy.h"
 #include "proxy.h"
+#include "formats-util.h"
 
 static char *arg_address = NULL;
 static char **arg_configuration = NULL;

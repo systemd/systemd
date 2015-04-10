@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "refcnt.h"
 #include "missing.h"
 

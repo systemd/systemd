@@ -25,6 +25,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "install-printf.h"
+#include "formats-util.h"
 
 static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
         InstallInfo *i = userdata;

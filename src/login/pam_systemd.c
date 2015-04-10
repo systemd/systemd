@@ -40,6 +40,7 @@
 #include "socket-util.h"
 #include "fileio.h"
 #include "bus-error.h"
+#include "formats-util.h"
 
 static int parse_argv(
                 pam_handle_t *handle,

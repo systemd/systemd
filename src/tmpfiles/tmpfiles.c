@@ -56,6 +56,7 @@
 #include "selinux-util.h"
 #include "btrfs-util.h"
 #include "acl-util.h"
+#include "formats-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create

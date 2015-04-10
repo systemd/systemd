@@ -34,6 +34,7 @@
 #include "conf-parser.h"
 #include "sigbus.h"
 #include "journal-upload.h"
+#include "formats-util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"

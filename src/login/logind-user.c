@@ -38,6 +38,7 @@
 #include "clean-ipc.h"
 #include "logind-user.h"
 #include "smack-util.h"
+#include "formats-util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;

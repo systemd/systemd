@@ -36,6 +36,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
+#include "formats-util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))

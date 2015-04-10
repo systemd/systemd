@@ -30,6 +30,7 @@
 #include "journald-syslog.h"
 
 #include "sigbus.h"
+#include "formats-util.h"
 
 int main(int argc, char *argv[]) {
         Server server;

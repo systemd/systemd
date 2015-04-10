@@ -45,6 +45,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "bus-kernel.h"
+#include "formats-util.h"
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,

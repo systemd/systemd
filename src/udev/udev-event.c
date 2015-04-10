@@ -32,6 +32,7 @@
 
 #include "udev.h"
 #include "rtnl-util.h"
+#include "formats-util.h"
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
         struct udev *udev = udev_device_get_udev(dev);

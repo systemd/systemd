@@ -32,6 +32,7 @@
 #include "log.h"
 #include "build.h"
 #include "env-util.h"
+#include "formats-util.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;

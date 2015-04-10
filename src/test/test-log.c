@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "formats-util.h"
 
 int main(int argc, char* argv[]) {
 

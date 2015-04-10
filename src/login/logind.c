@@ -32,6 +32,7 @@
 #include "bus-error.h"
 #include "logind.h"
 #include "udev-util.h"
+#include "formats-util.h"
 
 Manager *manager_new(void) {
         Manager *m;

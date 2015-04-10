@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "def.h"
 #include "proxy.h"
+#include "formats-util.h"
 
 static char *arg_address = NULL;
 static char *arg_command_line_buffer = NULL;

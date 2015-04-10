@@ -69,6 +69,7 @@
 #include "mkdir.h"
 #include "dropin.h"
 #include "efivars.h"
+#include "formats-util.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;

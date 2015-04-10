@@ -34,6 +34,7 @@
 #include "bus-error.h"
 #include "calendarspec.h"
 #include "ptyfwd.h"
+#include "formats-util.h"
 
 static bool arg_scope = false;
 static bool arg_remain_after_exit = false;

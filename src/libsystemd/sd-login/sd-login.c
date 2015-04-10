@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "fileio.h"
 #include "login-shared.h"
+#include "formats-util.h"
 #include "sd-login.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {

@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "acl-util.h"
 #include "set.h"
 #include "logind-acl.h"

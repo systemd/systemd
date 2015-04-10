@@ -29,6 +29,7 @@
 #include <mqueue.h>
 
 #include "util.h"
+#include "formats-util.h"
 #include "strv.h"
 #include "clean-ipc.h"
 

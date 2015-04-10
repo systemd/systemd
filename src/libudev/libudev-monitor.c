@@ -32,6 +32,7 @@
 #include "libudev-private.h"
 #include "socket-util.h"
 #include "missing.h"
+#include "formats-util.h"
 
 /**
  * SECTION:libudev-monitor

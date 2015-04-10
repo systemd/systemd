@@ -30,6 +30,7 @@
 #include "bus-policy.h"
 #include "dbus-busname.h"
 #include "busname.h"
+#include "formats-util.h"
 
 static const UnitActiveState state_translation_table[_BUSNAME_STATE_MAX] = {
         [BUSNAME_DEAD] = UNIT_INACTIVE,

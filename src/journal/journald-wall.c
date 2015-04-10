@@ -22,6 +22,7 @@
 #include "utmp-wtmp.h"
 #include "journald-server.h"
 #include "journald-wall.h"
+#include "formats-util.h"
 
 void server_forward_wall(
                 Server *s,

@@ -76,6 +76,7 @@
 #include "smack-util.h"
 #include "bus-endpoint.h"
 #include "cap-list.h"
+#include "formats-util.h"
 
 #ifdef HAVE_APPARMOR
 #include "apparmor-util.h"
