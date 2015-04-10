@@ -87,12 +87,12 @@ static int read_flag(const char *varname) {
         return r;
 }
 
-int is_efi_secure_boot(void) {
-        return read_flag("SecureBoot");
+bool is_efi_secure_boot(void) {
+        return read_flag("SecureBoot") > 0;
 }
 
-int is_efi_secure_boot_setup_mode(void) {
-        return read_flag("SetupMode");
+bool is_efi_secure_boot_setup_mode(void) {
+        return read_flag("SetupMode") > 0;
 }
 
 int efi_reboot_to_firmware_supported(void) {

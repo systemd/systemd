@@ -33,8 +33,8 @@
 #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
 
 bool is_efi_boot(void);
-int is_efi_secure_boot(void);
-int is_efi_secure_boot_setup_mode(void);
+bool is_efi_secure_boot(void);
+bool is_efi_secure_boot_setup_mode(void);
 int efi_reboot_to_firmware_supported(void);
 int efi_get_reboot_to_firmware(void);
 int efi_set_reboot_to_firmware(bool value);
