@@ -47,6 +47,7 @@ AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is
 SET_ARCH(X86_64, x86_64*)
 SET_ARCH(IA32, i*86*)
 SET_ARCH(MIPS, mips*)
+SET_ARCH(AARCH64, aarch64*)
 
 # i18n stuff for the PolicyKit policy files, heck whether intltool can be found, disable NLS otherwise
 AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
@@ -1159,6 +1160,9 @@ AM_COND_IF(ARCH_IA32, [
 
 AM_COND_IF(ARCH_X86_64, [
         EFI_MACHINE_TYPE_NAME=x64])
+
+AM_COND_IF(ARCH_AARCH64, [
+        EFI_MACHINE_TYPE_NAME=aa64])
 
 AC_SUBST([EFI_ARCH])
 AC_SUBST([EFI_MACHINE_TYPE_NAME])
