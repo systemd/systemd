@@ -921,7 +921,7 @@ finish:
 
 int main(int argc, char *argv[]) {
         int r, q;
-        LookupPaths lp;
+        _cleanup_lookup_paths_free_ LookupPaths lp = {};
         Hashmap *all_services;
         SysvStub *service;
         Iterator j;
@@ -979,8 +979,6 @@ int main(int argc, char *argv[]) {
                 if (q < 0)
                         continue;
         }
-
-        lookup_paths_free(&lp);
 
         return EXIT_SUCCESS;
 }
