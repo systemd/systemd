@@ -141,6 +141,7 @@ void manager_free(Manager *m) {
         set_free_free(m->busnames);
 
         sd_event_source_unref(m->idle_action_event_source);
+        sd_event_source_unref(m->inhibit_timeout_source);
 
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->udev_seat_event_source);
@@ -1093,8 +1094,6 @@ int manager_run(Manager *m) {
         assert(m);
 
         for (;;) {
-                usec_t us = (uint64_t) -1;
-
                 r = sd_event_get_state(m->event);
                 if (r < 0)
                         return r;
@@ -1103,19 +1102,7 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (manager_dispatch_delayed(m) > 0)
-                        continue;
-
-                if (m->action_what != 0 && !m->action_job) {
-                        usec_t x, y;
-
-                        x = now(CLOCK_MONOTONIC);
-                        y = m->action_timestamp + m->inhibit_delay_max;
-
-                        us = x >= y ? 0 : y - x;
-                }
-
-                r = sd_event_run(m->event, us);
+                r = sd_event_run(m->event, (uint64_t) -1);
                 if (r < 0)
                         return r;
         }

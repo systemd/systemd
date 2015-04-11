@@ -1459,17 +1459,75 @@ static int execute_shutdown_or_sleep(
         return 0;
 }
 
+static int manager_inhibit_timeout_handler(
+                        sd_event_source *s,
+                        uint64_t usec,
+                        void *userdata) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        Inhibitor *offending = NULL;
+        Manager *manager = userdata;
+        int r;
+
+        assert(manager);
+        assert(manager->inhibit_timeout_source == s);
+
+        if (manager->action_what == 0 || manager->action_job)
+                return 0;
+
+        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+                _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                (void) get_process_comm(offending->pid, &comm);
+                u = uid_to_name(offending->uid);
+
+                log_notice("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
+                           offending->uid, strna(u),
+                           offending->pid, strna(comm));
+        }
+
+        /* Actually do the operation */
+        r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
+        if (r < 0) {
+                log_warning("Failed to send delayed message: %s", bus_error_message(&error, r));
+
+                manager->action_unit = NULL;
+                manager->action_what = 0;
+        }
+
+        return 0;
+}
+
 static int delay_shutdown_or_sleep(
                 Manager *m,
                 InhibitWhat w,
                 const char *unit_name) {
+
+        int r;
+        usec_t timeout_val;
 
         assert(m);
         assert(w >= 0);
         assert(w < _INHIBIT_WHAT_MAX);
         assert(unit_name);
 
-        m->action_timestamp = now(CLOCK_MONOTONIC);
+        timeout_val = now(CLOCK_MONOTONIC) + m->inhibit_delay_max;
+
+        if (m->inhibit_timeout_source) {
+                r = sd_event_source_set_time(m->inhibit_timeout_source, timeout_val);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+
+                r = sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+        } else {
+                r = sd_event_add_time(m->event, &m->inhibit_timeout_source, CLOCK_MONOTONIC,
+                                      timeout_val, 0, manager_inhibit_timeout_handler, m);
+                if (r < 0)
+                        return r;
+        }
+
         m->action_unit = unit_name;
         m->action_what = w;
 
@@ -2356,44 +2414,6 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         l);
-}
-
-int manager_dispatch_delayed(Manager *manager) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        Inhibitor *offending = NULL;
-        int r;
-
-        assert(manager);
-
-        if (manager->action_what == 0 || manager->action_job)
-                return 0;
-
-        /* Continue delay? */
-        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
-                _cleanup_free_ char *comm = NULL, *u = NULL;
-
-                get_process_comm(offending->pid, &comm);
-                u = uid_to_name(offending->uid);
-
-                if (manager->action_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC))
-                        return 0;
-
-                log_info("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
-                         offending->uid, strna(u),
-                         offending->pid, strna(comm));
-        }
-
-        /* Actually do the operation */
-        r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
-        if (r < 0) {
-                log_warning("Failed to send delayed message: %s", bus_error_message(&error, r));
-
-                manager->action_unit = NULL;
-                manager->action_what = 0;
-                return r;
-        }
-
-        return 1;
 }
 
 int manager_start_scope(

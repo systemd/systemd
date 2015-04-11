@@ -95,7 +95,7 @@ struct Manager {
         /* If a shutdown/suspend is currently executed, then this is
          * the job of it */
         char *action_job;
-        usec_t action_timestamp;
+        sd_event_source *inhibit_timeout_source;
 
         sd_event_source *idle_action_event_source;
         usec_t idle_action_usec;
@@ -166,8 +166,6 @@ int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdat
 int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
 
 int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
-
-int manager_dispatch_delayed(Manager *manager);
 
 int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, sd_bus_error *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
