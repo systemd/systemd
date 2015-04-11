@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-03-15 22:59+0100\n"
-"PO-Revision-Date: 2015-03-15 23:00+0100\n"
+"POT-Creation-Date: 2015-04-12 01:40+0200\n"
+"PO-Revision-Date: 2015-04-12 01:44+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -418,6 +418,18 @@ msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zablokować lub odblokować aktywne sesje."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wskazać oprogramowaniu sprzętowemu, że "
+"należy uruchomić interfejs ustawień."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Logowanie do lokalnego kontenera"
@@ -490,13 +502,13 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: ../src/fsckd/fsckd.c:291
+#: ../src/fsckd/fsckd.c:297
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 msgstr ""
 "Naciśnięcie klawiszy Ctrl+C anuluje wszystkie trwające procesy sprawdzania "
 "systemów plików"
 
-#: ../src/fsckd/fsckd.c:336
+#: ../src/fsckd/fsckd.c:343
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
