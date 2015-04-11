@@ -1733,13 +1733,13 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
 static const struct {
         const char *result, *explanation;
 } explanations [] = {
-        { "resources", "configured resource limit was exceeded" },
-        { "timeout", "timeout was exceeded" },
-        { "exit-code", "control process exited with error code" },
-        { "signal", "fatal signal was delivered to the control process" },
-        { "core-dump", "fatal signal was delivered to the control process. Core dumped" },
-        { "watchdog", "service failed to send watchdog ping" },
-        { "start-limit", "start of the service was attempted too often too quickly" }
+        { "resources",   "a configured resource limit was exceeded" },
+        { "timeout",     "a timeout was exceeded" },
+        { "exit-code",   "the control process exited with error code" },
+        { "signal",      "a fatal signal was delivered to the control process" },
+        { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
+        { "watchdog",    "the service failed to send watchdog ping" },
+        { "start-limit", "start of the service was attempted too often" }
 };
 
 static void log_job_error_with_service_result(const char* service, const char *result) {
@@ -1767,8 +1767,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start please invoke \"systemctl reset-failed %s\" followed by \"systemctl start %s\" again.",
-                         strna(service_shell_quoted),
+                log_info("To force a start use \"systemctl reset-failed %1$s\" followed by \"systemctl start %1$s\" again.",
                          strna(service_shell_quoted));
 }
 
