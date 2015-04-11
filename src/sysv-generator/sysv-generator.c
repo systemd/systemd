@@ -793,7 +793,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         char **p;
         unsigned i;
         _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_free_ char *path = NULL, *fpath = NULL, *name = NULL;
+        _cleanup_free_ char *path = NULL, *fpath = NULL;
         SysvStub *service;
         Iterator j;
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
@@ -821,6 +821,8 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                         }
 
                         while ((de = readdir(d))) {
+                                _cleanup_free_ char *name = NULL;
+
                                 int a, b;
 
                                 if (hidden_file(de->d_name))
@@ -977,6 +979,8 @@ int main(int argc, char *argv[]) {
                 if (q < 0)
                         continue;
         }
+
+        lookup_paths_free(&lp);
 
         return EXIT_SUCCESS;
 }
