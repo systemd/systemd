@@ -80,7 +80,7 @@ static void map_keycode(int fd, const char *devnode, int scancode, const char *k
                 /* check if it's a numeric code already */
                 keycode_num = strtoul(keycode, &endptr, 0);
                 if (endptr[0] !='\0') {
-                        log_error("Error, unknown key identifier '%s'", keycode);
+                        log_error("Unknown key identifier '%s'", keycode);
                         return;
                 }
         }
@@ -123,8 +123,7 @@ static void override_abs(int fd, const char *devnode,
 
         rc = ioctl(fd, EVIOCGABS(evcode), &absinfo);
         if (rc < 0) {
-                log_error_errno(errno, "Error, unable to EVIOCGABS device '%s'",
-                                devnode);
+                log_error_errno(errno, "Unable to EVIOCGABS device \"%s\"", devnode);
                 return;
         }
 
@@ -134,18 +133,17 @@ static void override_abs(int fd, const char *devnode,
         next = parse_token(next, &absinfo.fuzz);
         next = parse_token(next, &absinfo.flat);
         if (!next) {
-                log_error("Error, unable to parse EV_ABS override '%s' for '%s'\n",
-                          value, devnode);
+                log_error("Unable to parse EV_ABS override '%s' for '%s'", value, devnode);
                 return;
         }
 
-        log_debug("keyboard: override %x with %d/%d/%d/%d/%d", evcode,
-                  absinfo.minimum, absinfo.maximum, absinfo.resolution,
-                  absinfo.fuzz, absinfo.flat);
+        log_debug("keyboard: %x overriden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32" for \"%s\"",
+                  evcode,
+                  absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat,
+                  devnode);
         rc = ioctl(fd, EVIOCSABS(evcode), &absinfo);
         if (rc < 0)
-                log_error_errno(errno, "Error, unable to update device '%s'",
-                                devnode);
+                log_error_errno(errno, "Unable to EVIOCSABS device \"%s\"", devnode);
 }
 
 static int open_device(const char *devnode) {
@@ -153,9 +151,9 @@ static int open_device(const char *devnode) {
 
         fd = open(devnode, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                log_error_errno(errno, "Error, opening device '%s': %m", devnode);
+                return log_error_errno(errno, "Error opening device \"%s\": %m", devnode);
 
-        return fd < 0 ? -errno : fd;
+        return fd;
 }
 
 static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
@@ -167,7 +165,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
 
         node = udev_device_get_devnode(dev);
         if (!node) {
-                log_error("Error, no device node for '%s'", udev_device_get_syspath(dev));
+                log_error("No device node for \"%s\"", udev_device_get_syspath(dev));
                 return EXIT_FAILURE;
         }
 
@@ -183,7 +181,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
                         scancode = strtoul(key + 13, &endptr, 16);
                         if (endptr[0] != '\0') {
-                                log_error("Error, unable to parse scan code from '%s'", key);
+                                log_warning("Unable to parse scan code from \"%s\"", key);
                                 continue;
                         }
 
@@ -214,7 +212,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         /* EVDEV_ABS_<EV_ABS code>=<min>:<max>:<res>:<fuzz>:<flat> */
                         evcode = strtoul(key + 10, &endptr, 16);
                         if (endptr[0] != '\0') {
-                                log_error("Error, unable to parse EV_ABS code from '%s'", key);
+                                log_warning("Unable to parse EV_ABS code from \"%s\"", key);
                                 continue;
                         }
 
