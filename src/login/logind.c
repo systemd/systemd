@@ -34,7 +34,9 @@
 #include "udev-util.h"
 #include "formats-util.h"
 
-Manager *manager_new(void) {
+static void manager_free(Manager *m);
+
+static Manager *manager_new(void) {
         Manager *m;
         int r;
 
@@ -100,7 +102,7 @@ fail:
         return NULL;
 }
 
-void manager_free(Manager *m) {
+static void manager_free(Manager *m) {
         Session *session;
         User *u;
         Device *d;
@@ -890,7 +892,7 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-void manager_gc(Manager *m, bool drop_not_started) {
+static void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
@@ -1001,7 +1003,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         return 0;
 }
 
-int manager_startup(Manager *m) {
+static int manager_startup(Manager *m) {
         int r;
         Seat *seat;
         Session *session;
@@ -1088,7 +1090,7 @@ int manager_startup(Manager *m) {
         return 0;
 }
 
-int manager_run(Manager *m) {
+static int manager_run(Manager *m) {
         int r;
 
         assert(m);
