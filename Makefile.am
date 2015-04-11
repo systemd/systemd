@@ -2591,6 +2591,15 @@ efi_ldflags = \
 	-L $(EFI_LIB_DIR) \
 	$(EFI_LDS_DIR)/crt0-efi-$(EFI_ARCH).o
 
+# Aarch64 and ARM32 don't have an EFI capable objcopy. Use 'binary' instead,
+# and add required symbols manually.
+if ARCH_AARCH64
+efi_ldflags += --defsym=EFI_SUBSYSTEM=0xa
+EFI_FORMAT = -O binary
+else
+EFI_FORMAT = --target=efi-app-$(EFI_ARCH)
+endif
+
 # ------------------------------------------------------------------------------
 systemd_boot_headers = \
 	src/boot/efi/util.h \
@@ -2624,8 +2633,7 @@ $(systemd_boot_solib): $(systemd_boot_objects)
 
 $(systemd_boot): $(systemd_boot_solib)
 	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
-	  -j .dynsym -j .rel -j .rela -j .reloc \
-	  --target=efi-app-$(EFI_ARCH) $< $@
+	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 
 # ------------------------------------------------------------------------------
 stub_headers = \
@@ -2662,8 +2670,7 @@ $(stub_solib): $(stub_objects)
 
 $(stub): $(stub_solib)
 	$(AM_V_GEN) objcopy -j .text -j .sdata -j .data -j .dynamic \
-	  -j .dynsym -j .rel -j .rela -j .reloc \
-	  --target=efi-app-$(EFI_ARCH) $< $@
+	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 
 # ------------------------------------------------------------------------------
 CLEANFILES += test-efi-disk.img
