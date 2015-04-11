@@ -39,6 +39,11 @@ UINT64 ticks_read(VOID) {
         __asm__ volatile ("rdtsc" : "=A" (val));
         return val;
 }
+#else
+UINT64 ticks_read(VOID) {
+        UINT64 val = 1;
+        return val;
+}
 #endif
 
 /* count TSC ticks during a millisecond delay */
