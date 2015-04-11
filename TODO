@@ -30,6 +30,9 @@ External:
 
 Before 220:
 
+* Figure out why 13790add4 breaks boot across all distributions. Revert it if
+  we cannot get it fixed.
+
 * rework fsckd/fsck's connection logic or remove fsck entirely
 
 * fix userns support in nspawn, or remove it entirely
