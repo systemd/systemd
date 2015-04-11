@@ -68,8 +68,10 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (path_is_mount_point("/boot", true) <= 0 &&
-            dir_is_empty("/boot") <= 0) {
+        r = path_is_mount_point("/boot", true);
+        if (r == -ENOENT)
+                log_debug("/boot does not exist, continuing.");
+        else if (r <= 0 && dir_is_empty("/boot") <= 0) {
                 log_debug("/boot already populated, exiting.");
                 return EXIT_SUCCESS;
         }
