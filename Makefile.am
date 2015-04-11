@@ -2564,15 +2564,21 @@ efi_cflags = \
 	-fno-strict-aliasing \
 	-fno-stack-protector \
 	-Wsign-compare \
-	-Wno-missing-field-initializers \
-	-mno-sse \
-	-mno-mmx
+	-Wno-missing-field-initializers
 
 if ARCH_X86_64
 efi_cflags += \
 	-mno-red-zone \
+	-mno-sse \
+	-mno-mmx \
 	-DEFI_FUNCTION_WRAPPER \
 	-DGNU_EFI_USE_MS_ABI
+endif
+
+if ARCH_IA32
+efi_cflags += \
+	-mno-sse \
+	-mno-mmx
 endif
 
 efi_ldflags = \
