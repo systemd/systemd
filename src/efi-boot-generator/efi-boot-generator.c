@@ -69,9 +69,13 @@ int main(int argc, char *argv[]) {
         }
 
         r = path_is_mount_point("/boot", true);
+        if (r > 0) {
+                log_debug("/boot is already a mount point, exiting.");
+                return EXIT_SUCCESS;
+        }
         if (r == -ENOENT)
                 log_debug("/boot does not exist, continuing.");
-        else if (r <= 0 && dir_is_empty("/boot") <= 0) {
+        else if (dir_is_empty("/boot") <= 0) {
                 log_debug("/boot already populated, exiting.");
                 return EXIT_SUCCESS;
         }
