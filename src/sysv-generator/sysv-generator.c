@@ -330,7 +330,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
 
                 n = strndup(word, z);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = sysv_translate_facility(n, basename(s->path), &m);
                 if (r < 0)
@@ -341,6 +341,10 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                 if (unit_name_to_type(m) == UNIT_SERVICE) {
                         log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                         r = add_alias(s->name, m);
+                        if (r < 0)
+                                log_unit_warning_errno(s->name, r,
+                                                       "[%s:%u] Failed to add LSB Provides name %s, ignoring: %m",
+                                                       s->path, line, m);
                 } else {
                         /* NB: SysV targets which are provided by a
                          * service are pulled in by the services, as
@@ -359,11 +363,6 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                                         return log_oom();
                         }
                 }
-
-                if (r < 0)
-                        log_unit_error(s->name,
-                                       "[%s:%u] Failed to add LSB Provides name %s, ignoring: %s",
-                                       s->path, line, m, strerror(-r));
         }
         if (!isempty(state_))
                 log_unit_error(s->name,
@@ -383,16 +382,15 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
 
                 n = strndup(word, z);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = sysv_translate_facility(n, basename(s->path), &m);
                 if (r < 0) {
-                        log_unit_error(s->name,
-                                       "[%s:%u] Failed to translate LSB dependency %s, ignoring: %s",
-                                       s->path, line, n, strerror(-r));
+                        log_unit_warning_errno(s->name, r,
+                                               "[%s:%u] Failed to translate LSB dependency %s, ignoring: %m",
+                                               s->path, line, n);
                         continue;
                 }
-
                 if (r == 0)
                         continue;
 
@@ -404,23 +402,16 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                         if (r < 0)
                                 return log_oom();
                         r = strv_extend(&s->wants, m);
-                        if (r < 0)
-                                return log_oom();
-                } else {
+                } else
                         r = strv_extend(is_before ? &s->before : &s->after, m);
-                        if (r < 0)
-                                return log_oom();
-                }
 
                 if (r < 0)
-                        log_unit_error(s->name,
-                                       "[%s:%u] Failed to add dependency on %s, ignoring: %s",
-                                       s->path, line, m, strerror(-r));
+                        return log_oom();
         }
         if (!isempty(state_))
-                log_unit_error(s->name,
-                               "[%s:%u] Trailing garbage in %*s, ignoring.",
-                               s->path, line, (int)(strchr(full_text, ':') - full_text), full_text);
+                log_unit_warning(s->name,
+                                 "[%s:%u] Trailing garbage in %*s, ignoring.",
+                                 s->path, line, (int)(strchr(full_text, ':') - full_text), full_text);
         return 0;
 }
 
@@ -454,10 +445,9 @@ static int load_sysv(SysvStub *s) {
                         if (feof(f))
                                 break;
 
-                        log_unit_error(s->name,
-                                       "Failed to read configuration file '%s': %m",
-                                       s->path);
-                        return -errno;
+                        return log_unit_error_errno(s->name, errno,
+                                                    "Failed to read configuration file '%s': %m",
+                                                    s->path);
                 }
 
                 line++;
