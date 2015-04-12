@@ -64,6 +64,8 @@ static const struct {
            UP must be read before DOWN */
 };
 
+const char *arg_dest = "/tmp";
+
 typedef struct SysvStub {
         char *name;
         char *path;
@@ -79,7 +81,29 @@ typedef struct SysvStub {
         bool reload;
 } SysvStub;
 
-const char *arg_dest = "/tmp";
+static void free_sysvstub(SysvStub *s) {
+        free(s->name);
+        free(s->path);
+        free(s->description);
+        free(s->pid_file);
+        strv_free(s->before);
+        strv_free(s->after);
+        strv_free(s->wants);
+        strv_free(s->wanted_by);
+        strv_free(s->conflicts);
+        free(s);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, free_sysvstub);
+
+static void free_sysvstub_hashmapp(Hashmap **h) {
+        SysvStub *stub;
+
+        while ((stub = hashmap_steal_first(*h)))
+                free_sysvstub(stub);
+
+        hashmap_free(*h);
+}
 
 static int add_symlink(const char *service, const char *where) {
         _cleanup_free_ char *from = NULL, *to = NULL;
@@ -132,31 +156,17 @@ static int add_alias(const char *service, const char *alias) {
 static int generate_unit_file(SysvStub *s) {
         char **p;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *unit = NULL;
-        _cleanup_free_ char *before = NULL;
-        _cleanup_free_ char *after = NULL;
-        _cleanup_free_ char *wants = NULL;
-        _cleanup_free_ char *conflicts = NULL;
+        _cleanup_free_ char *unit = NULL,
+                *before = NULL, *after = NULL,
+                *wants = NULL, *conflicts = NULL;
         int r;
 
         before = strv_join(s->before, " ");
-        if (!before)
-                return log_oom();
-
         after = strv_join(s->after, " ");
-        if (!after)
-                return log_oom();
-
         wants = strv_join(s->wants, " ");
-        if (!wants)
-                return log_oom();
-
         conflicts = strv_join(s->conflicts, " ");
-        if (!conflicts)
-                return log_oom();
-
         unit = strjoin(arg_dest, "/", s->name, NULL);
-        if (!unit)
+        if (!before || !after || !wants || !conflicts || !unit)
                 return log_oom();
 
         /* We might already have a symlink with the same name from a Provides:,
@@ -725,7 +735,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 
                 while ((de = readdir(d))) {
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
-                        _cleanup_free_ SysvStub *service = NULL;
+                        _cleanup_(free_sysvstubp) SysvStub *service = NULL;
                         struct stat st;
                         int r;
 
@@ -912,7 +922,7 @@ finish:
 int main(int argc, char *argv[]) {
         int r, q;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
-        Hashmap *all_services;
+        _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services;
         SysvStub *service;
         Iterator j;
 
