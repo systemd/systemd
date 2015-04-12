@@ -132,10 +132,10 @@ struct swap_entries {
 
 /* Distance from Initial Bucket */
 typedef uint8_t dib_raw_t;
-#define DIB_RAW_OVERFLOW ((dib_raw_t)0xfdU) /* indicates DIB value is greater than representable */
-#define DIB_RAW_REHASH   ((dib_raw_t)0xfeU) /* entry yet to be rehashed during in-place resize */
-#define DIB_RAW_FREE     ((dib_raw_t)0xffU) /* a free bucket */
-#define DIB_RAW_INIT   ((char)DIB_RAW_FREE) /* a byte to memset a DIB store with when initializing */
+#define DIB_RAW_OVERFLOW ((dib_raw_t)0xfdU)   /* indicates DIB value is greater than representable */
+#define DIB_RAW_REHASH   ((dib_raw_t)0xfeU)   /* entry yet to be rehashed during in-place resize */
+#define DIB_RAW_FREE     ((dib_raw_t)0xffU)   /* a free bucket */
+#define DIB_RAW_INIT     ((char)DIB_RAW_FREE) /* a byte to memset a DIB store with when initializing */
 
 #define DIB_FREE UINT_MAX
 
@@ -773,7 +773,7 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
-static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
+static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
         bool use_pool;
@@ -812,19 +812,19 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
 }
 
 Hashmap *internal_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN    HASHMAP_DEBUG_PASS_ARGS);
+        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
 }
 
 OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
+        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
 }
 
 Set *internal_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET      HASHMAP_DEBUG_PASS_ARGS);
+        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
 }
 
 static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops *hash_ops,
-                                         enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
+                                         enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *q;
 
         assert(h);
@@ -832,7 +832,7 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         if (*h)
                 return 0;
 
-        q = hashmap_base_new(hash_ops, type  HASHMAP_DEBUG_PASS_ARGS);
+        q = hashmap_base_new(hash_ops, type HASHMAP_DEBUG_PASS_ARGS);
         if (!q)
                 return -ENOMEM;
 
@@ -841,15 +841,15 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
 }
 
 int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN    HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
 }
 
 int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
 }
 
 int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET      HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
 }
 
 static void hashmap_free_no_clear(HashmapBase *h) {
@@ -995,7 +995,6 @@ static bool hashmap_put_robin_hood(HashmapBase *h, unsigned idx,
 
                 if (dib < distance) {
                         /* Found a wealthier entry. Go Robin Hood! */
-
                         bucket_set_dib(h, idx, distance);
 
                         /* swap the entries */
