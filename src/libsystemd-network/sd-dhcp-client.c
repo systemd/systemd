@@ -38,7 +38,7 @@
 #include "sd-dhcp-client.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
-#define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
+#define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 
 struct sd_dhcp_client {
         RefCount n_ref;
