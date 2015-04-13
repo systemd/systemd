@@ -28,6 +28,7 @@
 
 #include "util.h"
 #include "socket-util.h"
+#include "event-util.h"
 
 #include "sd-ipv4ll.h"
 #include "ipv4ll-internal.h"
@@ -212,7 +213,7 @@ static void test_basic_request(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        sd_event *e;
+        _cleanup_event_unref_ sd_event *e = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
