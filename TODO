@@ -48,6 +48,10 @@ Before 220:
 
 Features:
 
+* tmpfiles: creating new directories/subvolumes/fifos/device nodes
+  should not follow symlinks. None of the other adjustment or creation
+  calls follow symlinks.
+
 * bus-proxy: fix return code when releasing name that we don't have:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030494.html
 
