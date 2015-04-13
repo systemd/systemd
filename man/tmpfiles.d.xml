@@ -310,25 +310,23 @@
           <listitem><para>Set file/directory attributes. Lines of this type
           accept shell-style globs in place of normal path names.</para>
 
-          <para>The format of the argument field is <varname>[+-=][aAcCdDeijsStTu]
-          </varname></para>
-
-          <para>The prefix <varname>+</varname> (the default one) causes the
+          <para>The format of the argument field is
+          <varname>[+-=][aAcCdDeijsStTu] </varname>. The prefix
+          <varname>+</varname> (the default one) causes the
           attribute(s) to be added; <varname>-</varname> causes the
-          attribute(s) to be removed; <varname>=</varname>
-          causes the attributes to set exactly as the following letters.</para>
-          <para>The letters <literal>aAcCdDeijsStTu</literal> select the new
+          attribute(s) to be removed; <varname>=</varname> causes the
+          attributes to set exactly as the following letters. The
+          letters <literal>aAcCdDeijsStTu</literal> select the new
           attributes for the files, see
           <citerefentry><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
           </para>
-          <para>Passing only <varname>=</varname> as argument,
-          resets all the file attributes listed above. It has to be pointed
-          out that the <varname>=</varname> prefix, limits itself to the
-          attributes corresponding to the letters listed here. All other
-          attributes will be left untouched.</para>
-
-          <para>Does not follow symlinks.</para>
+          <para>Passing only <varname>=</varname> as argument resets
+          all the file attributes listed above. It has to be pointed
+          out that the <varname>=</varname> prefix, limits itself to
+          the attributes corresponding to the letters listed here. All
+          other attributes will be left untouched. Does not follow
+          symlinks.</para>
           </listitem>
         </varlistentry>
 
