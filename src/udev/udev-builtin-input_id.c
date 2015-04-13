@@ -265,6 +265,8 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
         unsigned long bitmask_rel[NBITS(REL_MAX)];
         unsigned long bitmask_props[NBITS(INPUT_PROP_MAX)];
         const char *sysname, *devnode;
+        bool is_pointer;
+        bool is_key;
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
@@ -281,9 +283,14 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
                 get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
                 get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
                 get_cap_mask(dev, pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
-                test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key,
-                              bitmask_rel, bitmask_props, test);
-                test_key(dev, bitmask_ev, bitmask_key, test);
+                is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs,
+                                           bitmask_key, bitmask_rel,
+                                           bitmask_props, test);
+                is_key = test_key(dev, bitmask_ev, bitmask_key, test);
+                /* Some evdev nodes have only a scrollwheel */
+                if (!is_pointer && !is_key && test_bit(EV_REL, bitmask_ev) &&
+                    (test_bit(REL_WHEEL, bitmask_rel) || test_bit(REL_HWHEEL, bitmask_rel)))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
         }
 
         devnode = udev_device_get_devnode(dev);
