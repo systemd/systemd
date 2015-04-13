@@ -528,9 +528,12 @@
       <varname>w</varname> may be used to specify a short string that
       is written to the file, suffixed by a newline. For
       <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname> determines extended
-      attributes to be set. For <varname>a</varname> determines
-      ACL attributes to be set. Ignored for all other lines.</para>
+      directory. For <varname>t</varname>, <varname>T</varname>
+      determines extended attributes to be set. For
+      <varname>a</varname>, <varname>A</varname> determines ACL
+      attributes to be set. For <varname>h</varname>,
+      <varname>H</varname> determines the file attributes to
+      set. Ignored for all other lines.</para>
     </refsect2>
 
   </refsect1>
