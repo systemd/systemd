@@ -583,50 +583,68 @@ finish:
 }
 
 static int path_set_perms(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
         struct stat st;
-        bool st_valid;
 
         assert(i);
         assert(path);
 
-        st_valid = stat(path, &st) == 0;
+        /* We open the file with O_PATH here, to make the operation
+         * somewhat atomic. Also there's unfortunately no fchmodat()
+         * with AT_SYMLINK_NOFOLLOW, hence we emulate it here via
+         * O_PATH. */
 
-        /* not using i->path directly because it may be a glob */
-        if (i->mode_set) {
-                mode_t m = i->mode;
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_PATH|O_NOATIME);
+        if (fd < 0)
+                return log_error_errno(errno, "Adjusting owner and mode for %s failed: %m", path);
 
-                if (i->mask_perms && st_valid) {
-                        if (!(st.st_mode & 0111))
-                                m &= ~0111;
-                        if (!(st.st_mode & 0222))
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (S_ISLNK(st.st_mode))
+                log_debug("Skipping mode an owner fix for symlink %s.", path);
+        else {
+                char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                xsprintf(fn, "/proc/self/fd/%i", fd);
+
+                /* not using i->path directly because it may be a glob */
+                if (i->mode_set) {
+                        mode_t m = i->mode;
+
+                        if (i->mask_perms) {
+                                if (!(st.st_mode & 0111))
+                                        m &= ~0111;
+                                if (!(st.st_mode & 0222))
                                 m &= ~0222;
-                        if (!(st.st_mode & 0444))
-                                m &= ~0444;
-                        if (!S_ISDIR(st.st_mode))
-                                m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                                if (!(st.st_mode & 0444))
+                                        m &= ~0444;
+                                if (!S_ISDIR(st.st_mode))
+                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                        }
+
+                        if (m == (st.st_mode & 07777))
+                                log_debug("\"%s\" has right mode %o", path, st.st_mode);
+                        else {
+                                log_debug("chmod \"%s\" to mode %o", path, m);
+                                if (chmod(fn, m) < 0)
+                                        return log_error_errno(errno, "chmod(%s) failed: %m", path);
+                        }
                 }
 
-                if (st_valid && m == (st.st_mode & 07777))
-                        log_debug("\"%s\" has right mode %o", path, st.st_mode);
-                else {
-                        log_debug("chmod \"%s\" to mode %o", path, m);
-                        if (chmod(path, m) < 0)
-                                return log_error_errno(errno, "chmod(%s) failed: %m", path);
-                }
-        }
-
-        if ((!st_valid || i->uid != st.st_uid || i->gid != st.st_gid) &&
-            (i->uid_set || i->gid_set)) {
-                log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
-                          path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID);
-                if (chown(path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID) < 0)
-
+                if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
+                    (i->uid_set || i->gid_set)) {
+                        log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
+                                  path,
+                                  i->uid_set ? i->uid : UID_INVALID,
+                                  i->gid_set ? i->gid : GID_INVALID);
+                        if (chown(fn,
+                                  i->uid_set ? i->uid : UID_INVALID,
+                                  i->gid_set ? i->gid : GID_INVALID) < 0)
                         return log_error_errno(errno, "chown(%s) failed: %m", path);
+                }
         }
+
+        fd = safe_close(fd);
 
         return label_fix(path, false, false);
 }
@@ -712,10 +730,10 @@ static int parse_acls_from_arg(Item *item) {
 }
 
 #ifdef HAVE_ACL
-static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modify) {
+static int path_set_acl(const char *path, const char *pretty, acl_type_t type, acl_t acl, bool modify) {
+        _cleanup_(acl_free_charpp) char *t = NULL;
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
-        _cleanup_(acl_free_charpp) char *t = NULL;
 
         /* Returns 0 for success, positive error if already warned,
          * negative error otherwise. */
@@ -741,9 +759,9 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
                 return r;
 
         t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
-        log_debug("\"%s\": setting %s ACL \"%s\"", path,
+        log_debug("Setting %s ACL %s on %s.",
                   type == ACL_TYPE_ACCESS ? "access" : "default",
-                  strna(t));
+                  strna(t), pretty);
 
         r = acl_set_file(path, type, dup);
         if (r < 0)
@@ -751,7 +769,7 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
                 return -log_error_errno(errno,
                                         "Setting %s ACL \"%s\" on %s failed: %m",
                                         type == ACL_TYPE_ACCESS ? "access" : "default",
-                                        strna(t), path);
+                                        strna(t), pretty);
 
         return 0;
 }
@@ -760,14 +778,32 @@ static int path_set_acl(const char *path, acl_type_t type, acl_t acl, bool modif
 static int path_set_acls(Item *item, const char *path) {
         int r = 0;
 #ifdef HAVE_ACL
+        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
         assert(item);
         assert(path);
 
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_PATH|O_NOATIME);
+        if (fd < 0)
+                return log_error_errno(errno, "Adjusting ACL of %s failed: %m", path);
+
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (S_ISLNK(st.st_mode)) {
+                log_debug("Skipping ACL fix for symlink %s.", path);
+                return 0;
+        }
+
+        xsprintf(fn, "/proc/self/fd/%i", fd);
+
         if (item->acl_access)
-                r = path_set_acl(path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+                r = path_set_acl(fn, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
 
         if (r == 0 && item->acl_default)
-                r = path_set_acl(path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+                r = path_set_acl(fn, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
 
         if (r > 0)
                 return -r; /* already warned */
@@ -891,9 +927,13 @@ static int path_set_attribute(Item *item, const char *path) {
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
-        if (fd < 0)
+        fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOATIME|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno == ELOOP)
+                        return log_error_errno(errno, "Skipping file attributes adjustment on symlink %s.", path);
+
                 return log_error_errno(errno, "Cannot open '%s': %m", path);
+        }
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Cannot stat '%s': %m", path);
