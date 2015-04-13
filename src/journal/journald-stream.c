@@ -720,7 +720,7 @@ int server_open_stdout_socket(Server *s, FDSet *fds) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
-                chmod(sa.un.sun_path, 0666);
+                (void) chmod(sa.un.sun_path, 0666);
 
                 if (listen(s->stdout_fd, SOMAXCONN) < 0)
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);

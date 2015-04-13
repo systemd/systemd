@@ -398,7 +398,7 @@ int server_open_syslog_socket(Server *s) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
-                chmod(sa.un.sun_path, 0666);
+                (void) chmod(sa.un.sun_path, 0666);
         } else
                 fd_nonblock(s->syslog_fd, 1);
 
