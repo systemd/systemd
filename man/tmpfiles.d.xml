@@ -546,15 +546,15 @@
       boot with specific modes and ownership.</para>
 
       <programlisting>d /run/screens  1777 root root 10d
-      d /run/uscreens 0755 root root 10d12h
-      t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
+d /run/uscreens 0755 root root 10d12h
+t /run/screen - - - - user.name="John Smith" security.SMACK64=screen</programlisting>
     </example>
     <example>
       <title>/etc/tmpfiles.d/abrt.conf example</title>
       <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
 
       <programlisting>d /var/tmp/abrt 0755 abrt abrt
-      x /var/tmp/abrt/*</programlisting>
+x /var/tmp/abrt/*</programlisting>
     </example>
   </refsect1>
 
