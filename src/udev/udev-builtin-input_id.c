@@ -126,65 +126,65 @@ static void get_cap_mask(struct udev_device *dev,
 }
 
 /* pointer devices */
-static void test_pointers (struct udev_device *dev,
-                           const unsigned long* bitmask_ev,
-                           const unsigned long* bitmask_abs,
-                           const unsigned long* bitmask_key,
-                           const unsigned long* bitmask_rel,
-                           const unsigned long* bitmask_props,
-                           bool test) {
+static void test_pointers(struct udev_device *dev,
+                          const unsigned long* bitmask_ev,
+                          const unsigned long* bitmask_abs,
+                          const unsigned long* bitmask_key,
+                          const unsigned long* bitmask_rel,
+                          const unsigned long* bitmask_props,
+                          bool test) {
         int is_mouse = 0;
         int is_touchpad = 0;
 
-        if (test_bit (INPUT_PROP_ACCELEROMETER, bitmask_props)) {
+        if (test_bit(INPUT_PROP_ACCELEROMETER, bitmask_props)) {
                 udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
                 return;
         }
 
-        if (!test_bit (EV_KEY, bitmask_ev)) {
-                if (test_bit (EV_ABS, bitmask_ev) &&
-                    test_bit (ABS_X, bitmask_abs) &&
-                    test_bit (ABS_Y, bitmask_abs) &&
-                    test_bit (ABS_Z, bitmask_abs))
+        if (!test_bit(EV_KEY, bitmask_ev)) {
+                if (test_bit(EV_ABS, bitmask_ev) &&
+                    test_bit(ABS_X, bitmask_abs) &&
+                    test_bit(ABS_Y, bitmask_abs) &&
+                    test_bit(ABS_Z, bitmask_abs))
                         udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
                 return;
         }
 
-        if (test_bit (EV_ABS, bitmask_ev) &&
-            test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
-                if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
+        if (test_bit(EV_ABS, bitmask_ev) &&
+            test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs)) {
+                if (test_bit(BTN_STYLUS, bitmask_key) || test_bit(BTN_TOOL_PEN, bitmask_key))
                         udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
-                else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
+                else if (test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key))
                         is_touchpad = 1;
-                else if (test_bit (BTN_MOUSE, bitmask_key))
+                else if (test_bit(BTN_MOUSE, bitmask_key))
                         /* This path is taken by VMware's USB mouse, which has
                          * absolute axes, but no touch/pressure button. */
                         is_mouse = 1;
-                else if (test_bit (BTN_TOUCH, bitmask_key))
+                else if (test_bit(BTN_TOUCH, bitmask_key))
                         udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
                 /* joysticks don't necessarily have to have buttons; e. g.
                  * rudders/pedals are joystick-like, but buttonless; they have
                  * other fancy axes */
-                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
-                         test_bit (BTN_A, bitmask_key) ||
-                         test_bit (BTN_1, bitmask_key) ||
-                         test_bit (ABS_RX, bitmask_abs) ||
-                         test_bit (ABS_RY, bitmask_abs) ||
-                         test_bit (ABS_RZ, bitmask_abs) ||
-                         test_bit (ABS_THROTTLE, bitmask_abs) ||
-                         test_bit (ABS_RUDDER, bitmask_abs) ||
-                         test_bit (ABS_WHEEL, bitmask_abs) ||
-                         test_bit (ABS_GAS, bitmask_abs) ||
-                         test_bit (ABS_BRAKE, bitmask_abs))
+                else if (test_bit(BTN_TRIGGER, bitmask_key) ||
+                         test_bit(BTN_A, bitmask_key) ||
+                         test_bit(BTN_1, bitmask_key) ||
+                         test_bit(ABS_RX, bitmask_abs) ||
+                         test_bit(ABS_RY, bitmask_abs) ||
+                         test_bit(ABS_RZ, bitmask_abs) ||
+                         test_bit(ABS_THROTTLE, bitmask_abs) ||
+                         test_bit(ABS_RUDDER, bitmask_abs) ||
+                         test_bit(ABS_WHEEL, bitmask_abs) ||
+                         test_bit(ABS_GAS, bitmask_abs) ||
+                         test_bit(ABS_BRAKE, bitmask_abs))
                         udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
         }
 
-        if (test_bit (INPUT_PROP_POINTING_STICK, bitmask_props))
+        if (test_bit(INPUT_PROP_POINTING_STICK, bitmask_props))
                 udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
 
-        if (test_bit (EV_REL, bitmask_ev) &&
-            test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel) &&
-            test_bit (BTN_MOUSE, bitmask_key))
+        if (test_bit(EV_REL, bitmask_ev) &&
+            test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel) &&
+            test_bit(BTN_MOUSE, bitmask_key))
                 is_mouse = 1;
 
         if (is_mouse)
@@ -194,16 +194,16 @@ static void test_pointers (struct udev_device *dev,
 }
 
 /* key like devices */
-static void test_key (struct udev_device *dev,
-                      const unsigned long* bitmask_ev,
-                      const unsigned long* bitmask_key,
-                      bool test) {
+static void test_key(struct udev_device *dev,
+                     const unsigned long* bitmask_ev,
+                     const unsigned long* bitmask_key,
+                     bool test) {
         unsigned i;
         unsigned long found;
         unsigned long mask;
 
         /* do we have any KEY_* capability? */
-        if (!test_bit (EV_KEY, bitmask_ev)) {
+        if (!test_bit(EV_KEY, bitmask_ev)) {
                 log_debug("test_key: no EV_KEY capability");
                 return;
         }
@@ -217,7 +217,7 @@ static void test_key (struct udev_device *dev,
         /* If there are no keys in the lower block, check the higher block */
         if (!found) {
                 for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
-                        if (test_bit (i, bitmask_key)) {
+                        if (test_bit(i, bitmask_key)) {
                                 log_debug("test_key: Found key %x in high block", i);
                                 found = 1;
                                 break;
