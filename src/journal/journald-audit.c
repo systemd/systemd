@@ -21,6 +21,7 @@
 
 #include "missing.h"
 #include "journald-audit.h"
+#include "audit-type.h"
 
 typedef struct MapField {
         const char *audit_field;
@@ -336,7 +337,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         size_t n_iov_allocated = 0;
         unsigned n_iov = 0, k;
         uint64_t seconds, msec, id;
-        const char *p;
+        const char *p, *type_name;
         unsigned z;
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
@@ -396,8 +397,9 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_FACILITY=32");
         IOVEC_SET_STRING(iov[n_iov++], "SYSLOG_IDENTIFIER=audit");
 
-        m = alloca(strlen("MESSAGE=<audit-") + DECIMAL_STR_MAX(int) + strlen("> ") + strlen(p) + 1);
-        sprintf(m, "MESSAGE=<audit-%i> %s", type, p);
+        type_name = audit_type_name_alloca(type);
+
+        m = strjoina("MESSAGE=", type_name, " ", p);
         IOVEC_SET_STRING(iov[n_iov++], m);
 
         z = n_iov;

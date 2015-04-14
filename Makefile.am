@@ -4533,6 +4533,12 @@ test_compress_benchmark_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-shared.la
 
+test_audit_type_SOURCES = \
+	src/journal/test-audit-type.c
+
+test_audit_type_LDADD = \
+	libsystemd-journal-core.la
+
 libsystemd_journal_core_la_SOURCES = \
 	src/journal/journald-kmsg.c \
 	src/journal/journald-kmsg.h \
@@ -4615,7 +4621,8 @@ tests += \
 	test-journal-interleaving \
 	test-journal-flush \
 	test-mmap-cache \
-	test-catalog
+	test-catalog \
+	test-audit-type
 
 if HAVE_COMPRESSION
 tests += \

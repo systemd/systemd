@@ -141,6 +141,7 @@
 /systemd-vconsole-setup
 /tags
 /test-architecture
+/test-audit-type
 /test-async
 /test-barrier
 /test-boot-timestamp
