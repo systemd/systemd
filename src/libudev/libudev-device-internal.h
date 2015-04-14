@@ -21,6 +21,7 @@
 #pragma once
 
 #include "libudev.h"
+#include "libudev-private.h"
 #include "sd-device.h"
 
 /**
