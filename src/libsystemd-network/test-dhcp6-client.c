@@ -701,7 +701,5 @@ int main(int argc, char *argv[]) {
         test_advertise_option(e);
         test_client_solicit(e);
 
-        assert_se(!sd_event_unref(e));
-
         return 0;
 }
