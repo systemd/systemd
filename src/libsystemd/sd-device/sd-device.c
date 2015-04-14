@@ -499,7 +499,10 @@ int device_read_uevent_file(sd_device *device) {
         path = strjoina(syspath, "/uevent");
 
         r = read_full_file(path, &uevent, &uevent_len);
-        if (r < 0) {
+        if (r == -EACCES)
+                /* empty uevent files may be write-only */
+                return 0;
+        else if (r < 0) {
                 log_debug("sd-device: failed to read uevent file '%s': %s", path, strerror(-r));
                 return r;
         }
