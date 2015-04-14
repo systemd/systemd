@@ -1205,6 +1205,8 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
                 client_reset(client);
 
                 sd_dhcp6_client_detach_event(client);
+                if (client->lease)
+                        sd_dhcp6_lease_unref(client->lease);
 
                 free(client->req_opts);
                 free(client);
