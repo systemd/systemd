@@ -47,6 +47,7 @@ struct Automount {
         AutomountState state, deserialized_state;
 
         char *where;
+        usec_t timeout_idle_usec;
 
         int pipe_fd;
         sd_event_source *pipe_event_source;
@@ -54,13 +55,16 @@ struct Automount {
         dev_t dev_id;
 
         Set *tokens;
+        Set *expire_tokens;
+
+        sd_event_source *expire_event_source;
 
         AutomountResult result;
 };
 
 extern const UnitVTable automount_vtable;
 
-int automount_send_ready(Automount *a, int status);
+int automount_update_mount(Automount *a, MountState old_state, MountState state);
 
 const char* automount_state_to_string(AutomountState i) _const_;
 AutomountState automount_state_from_string(const char *s) _pure_;

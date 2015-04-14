@@ -154,6 +154,28 @@ static bool mount_in_initrd(struct mntent *me) {
                streq(me->mnt_dir, "/usr");
 }
 
+static int write_idle_timeout(FILE *f, const char *where, const char *opts, char **filtered) {
+        _cleanup_free_ char *timeout = NULL;
+        char timespan[FORMAT_TIMESPAN_MAX];
+        usec_t u;
+        int r;
+
+        r = fstab_filter_options(opts, "x-systemd.idle-timeout\0", NULL, &timeout, filtered);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse options: %m");
+        if (r == 0)
+                return 0;
+
+        r = parse_sec(timeout, &u);
+        if (r < 0) {
+                log_warning("Failed to parse timeout for %s, ignoring: %s", where, timeout);
+                return 0;
+        }
+
+        fprintf(f, "TimeoutIdleSec=%s\n", format_timespan(timespan, sizeof(timespan), u, 0));
+
+        return 0;
+}
 static int add_mount(
                 const char *what,
                 const char *where,
@@ -292,6 +314,10 @@ static int add_mount(
                         "[Automount]\n"
                         "Where=%s\n",
                         where);
+
+                r = write_idle_timeout(f, where, opts, &filtered);
+                if (r < 0)
+                        return r;
 
                 fflush(f);
                 if (ferror(f))

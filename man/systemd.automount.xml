@@ -135,6 +135,14 @@
         creating these directories. Takes an access mode in octal
         notation. Defaults to 0755.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>TimeoutIdleSec=</varname></term>
+        <listitem><para>Configures an idleness timeout. Once the mount has been
+        idle for the specified time, systemd will attempt to unmount. Takes a
+        unit-less value in seconds, or a time span value such as "5min 20s".
+        Pass 0 to disable the timeout logic. The timeout is disabled by
+        default.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

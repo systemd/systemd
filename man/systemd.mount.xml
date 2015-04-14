@@ -148,6 +148,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.idle-timeout=</option></term>
+
+        <listitem><para>Configures the idleness timeout of the
+        automount unit. See <varname>TimeoutIdleSec=</varname> in
+        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.device-timeout=</option></term>
 
         <listitem><para>Configure how long systemd should wait for a
