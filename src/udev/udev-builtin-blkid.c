@@ -263,7 +263,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 
         fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
-                fprintf(stderr, "error: %s: %m\n", udev_device_get_devnode(dev));
+                err = log_debug_errno(errno, "Failure opening block device %s: %m", udev_device_get_devnode(dev));
                 goto out;
         }
 

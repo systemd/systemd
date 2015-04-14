@@ -168,10 +168,8 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
                 return log_oom();
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                fprintf(stderr, "error opening USB device 'descriptors' file\n");
-                return -errno;
-        }
+        if (fd < 0)
+                return log_debug_errno(errno, "Error opening USB device 'descriptors' file: %m");
 
         size = read(fd, buf, sizeof(buf));
         if (size < 18 || size == sizeof(buf))
