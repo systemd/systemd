@@ -772,10 +772,10 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                         r = device_set_subsystem(device, "drivers");
                 else if (path_startswith(device->devpath, "/subsystem/") ||
                          path_startswith(device->devpath, "/class/") ||
-                         path_startswith(device->devpath, "/buss/"))
+                         path_startswith(device->devpath, "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "sd-devcie: could not set subsystem for %s: %m", device->devpath);
 
                 device->subsystem_set = true;
         }
