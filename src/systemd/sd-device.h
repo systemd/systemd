@@ -7,7 +7,7 @@
   This file is part of systemd.
 
   Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright 2014-2015 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -31,6 +31,9 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_device sd_device;
+typedef struct sd_device_enumerator sd_device_enumerator;
+
+/* device */
 
 sd_device *sd_device_ref(sd_device *device);
 sd_device *sd_device_unref(sd_device *device);
@@ -71,6 +74,27 @@ int sd_device_get_property_value(sd_device *device, const char *key, const char 
 int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value);
 
 int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *value);
+
+/* device enumerator */
+
+int sd_device_enumerator_new(sd_device_enumerator **ret);
+sd_device_enumerator *sd_device_enumerator_ref(sd_device_enumerator *enumerator);
+sd_device_enumerator *sd_device_enumerator_unref(sd_device_enumerator *enumerator);
+
+int sd_device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device);
+
+sd_device *sd_device_enumerator_get_device_first(sd_device_enumerator *enumerator);
+sd_device *sd_device_enumerator_get_device_next(sd_device_enumerator *enumerator);
+sd_device *sd_device_enumerator_get_subsystem_first(sd_device_enumerator *enumerator);
+sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator *enumerator);
+
+int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator, const char *subsystem, int match);
+int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *sysattr, const char *value, int match);
+int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *property, const char *value);
+int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname);
+int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
+int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
+int sd_device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator);
 
 _SD_END_DECLARATIONS;
 

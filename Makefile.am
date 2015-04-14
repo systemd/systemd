@@ -3030,6 +3030,8 @@ libsystemd_internal_la_SOURCES = \
 	src/libsystemd/sd-hwdb/hwdb-internal.h \
 	src/libsystemd/sd-device/device-internal.h \
 	src/libsystemd/sd-device/device-util.h \
+	src/libsystemd/sd-device/device-enumerator.c \
+	src/libsystemd/sd-device/device-enumerator-private.h \
 	src/libsystemd/sd-device/sd-device.c \
 	src/libsystemd/sd-device/device-private.c \
 	src/libsystemd/sd-device/device-private.h
