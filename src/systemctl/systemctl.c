@@ -4466,6 +4466,12 @@ static int show(sd_bus *bus, char **args) {
         if (show_properties)
                 pager_open_if_enabled();
 
+        if (show_status)
+                /* Increase max number of open files to 16K if we can, we
+                 * might needs this when browsing journal files, which might
+                 * be split up into many files. */
+                setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
+
         /* If no argument is specified inspect the manager itself */
 
         if (show_properties && strv_length(args) <= 1)
@@ -7163,11 +7169,6 @@ found:
                         return -EIO;
                 }
         }
-
-        /* Increase max number of open files to 16K if we can, we
-         * might needs this when browsing journal files, which might
-         * be split up into many files. */
-        setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
         return verb->dispatch(bus, argv + optind);
 }
