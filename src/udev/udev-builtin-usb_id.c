@@ -430,10 +430,10 @@ fallback:
 
         s = serial;
         l = strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
-        if (isempty(serial_str))
+        if (!isempty(serial_str))
                 l = strpcpyl(&s, l, "_", serial_str, NULL);
 
-        if (isempty(instance_str))
+        if (!isempty(instance_str))
                 strpcpyl(&s, l, "-", instance_str, NULL);
 
         udev_builtin_add_property(dev, test, "ID_VENDOR", vendor_str);
@@ -444,14 +444,14 @@ fallback:
         udev_builtin_add_property(dev, test, "ID_MODEL_ID", product_id);
         udev_builtin_add_property(dev, test, "ID_REVISION", revision_str);
         udev_builtin_add_property(dev, test, "ID_SERIAL", serial);
-        if (isempty(serial_str))
+        if (!isempty(serial_str))
                 udev_builtin_add_property(dev, test, "ID_SERIAL_SHORT", serial_str);
-        if (isempty(type_str))
+        if (!isempty(type_str))
                 udev_builtin_add_property(dev, test, "ID_TYPE", type_str);
-        if (isempty(instance_str))
+        if (!isempty(instance_str))
                 udev_builtin_add_property(dev, test, "ID_INSTANCE", instance_str);
         udev_builtin_add_property(dev, test, "ID_BUS", "usb");
-        if (isempty(packed_if_str))
+        if (!isempty(packed_if_str))
                 udev_builtin_add_property(dev, test, "ID_USB_INTERFACES", packed_if_str);
         if (ifnum != NULL)
                 udev_builtin_add_property(dev, test, "ID_USB_INTERFACE_NUM", ifnum);
