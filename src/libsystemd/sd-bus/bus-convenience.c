@@ -462,11 +462,22 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
         /* No data passed? Or not enough data passed to retrieve the missing bits? */
         if (!c || !(c->mask & SD_BUS_CREDS_PID)) {
                 /* We couldn't read anything from the call, let's try
-                 * to get it from the sender or peer */
+                 * to get it from the sender or peer. */
 
                 if (call->sender)
+                        /* There's a sender, but the creds are
+                         * missing. This means we are talking via
+                         * dbus1, or are getting a message that was
+                         * sent to us via kdbus, but was converted
+                         * from a dbus1 message by the bus-proxy and
+                         * thus also lacks the creds. */
                         return sd_bus_get_name_creds(call->bus, call->sender, mask, creds);
                 else
+                        /* There's no sender, hence we are on a dbus1
+                         * direct connection. For direct connections
+                         * the credentials of the AF_UNIX peer matter,
+                         * which may be queried via
+                         * sd_bus_get_owner_creds(). */
                         return sd_bus_get_owner_creds(call->bus, mask, creds);
         }
 
