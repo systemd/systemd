@@ -2776,6 +2776,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_debug("Failed to parse CPU usage %s", v);
 
+                        continue;
                 } else if (streq(l, "cgroup")) {
                         char *s;
 
