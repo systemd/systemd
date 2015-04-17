@@ -158,15 +158,21 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         if (verify) {
                 r = readlink_and_canonicalize(_syspath, &syspath);
-                if (r == -EINVAL) {
+                if (r == -ENOENT)
+                        /* the device does not exist (any more?) */
+                        return -ENODEV;
+                else if (r == -EINVAL) {
                         /* not a symlink */
                         syspath = canonicalize_file_name(_syspath);
                         if (!syspath) {
+                                if (errno == ENOENT)
+                                        /* the device does not exist (any more?) */
+                                        return -ENODEV;
+
                                 log_debug("sd-device: could not canonicalize '%s': %m", _syspath);
                                 return -errno;
                         }
-                /* ignore errors due to the link not being a symlink */
-                } else if (r < 0 && r != -EINVAL) {
+                } else if (r < 0) {
                         log_debug("sd-device: could not get target of '%s': %s", _syspath, strerror(-r));
                         return r;
                 }
@@ -301,7 +307,7 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                         return sd_device_new_from_syspath(ret, syspath);
         }
 
-        return -ENOENT;
+        return -ENODEV;
 }
 
 int device_set_devtype(sd_device *device, const char *_devtype) {
@@ -627,7 +633,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 if (r < 0)
                         return r;
 
-                /* this si racey, so we might end up with the wrong device */
+                /* this is racey, so we might end up with the wrong device */
                 if (ifr.ifr_ifindex != ifindex)
                         return -ENODEV;
 
@@ -700,7 +706,7 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
                 return 0;
         }
 
-        return -ENOENT;
+        return -ENODEV;
 }
 
 _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {

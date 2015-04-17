@@ -504,8 +504,10 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
 
                 k = sd_device_new_from_syspath(&device, syspath);
                 if (k < 0) {
-                        log_debug_errno(k, "device-enumerator: failed to create device from syspath %s: %m", syspath);
-                        r = k;
+                        if (k != -ENODEV)
+                                /* this is necessarily racey, so ignore missing devices */
+                                r = k;
+
                         continue;
                 }
 
@@ -649,7 +651,10 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
                 k = sd_device_new_from_device_id(&device, dent->d_name);
                 if (k < 0) {
-                        r = k;
+                        if (k != -ENODEV)
+                                /* this is necessarily racy, so ignore missing devices */
+                                r = k;
+
                         continue;
                 }
 
@@ -712,7 +717,8 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         int r;
 
         r = sd_device_new_from_syspath(&device, path);
-        if (r == -ENOENT)
+        if (r == -ENODEV)
+                /* this is necessarily racy, so ignore missing devices */
                 return 0;
         else if (r < 0)
                 return r;
