@@ -351,7 +351,7 @@ _public_ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, c
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_device(udev_enumerate->enumerator, device);
+        r = device_enumerator_add_device(udev_enumerate->enumerator, device);
         if (r < 0)
                 return r;
 

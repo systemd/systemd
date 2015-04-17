@@ -81,8 +81,6 @@ int sd_device_enumerator_new(sd_device_enumerator **ret);
 sd_device_enumerator *sd_device_enumerator_ref(sd_device_enumerator *enumerator);
 sd_device_enumerator *sd_device_enumerator_unref(sd_device_enumerator *enumerator);
 
-int sd_device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device);
-
 sd_device *sd_device_enumerator_get_device_first(sd_device_enumerator *enumerator);
 sd_device *sd_device_enumerator_get_device_next(sd_device_enumerator *enumerator);
 sd_device *sd_device_enumerator_get_subsystem_first(sd_device_enumerator *enumerator);

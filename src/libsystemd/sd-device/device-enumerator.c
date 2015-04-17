@@ -317,7 +317,7 @@ static int device_compare(const void *_a, const void *_b) {
         return strcmp(devpath_a, devpath_b);
 }
 
-_public_ int sd_device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device) {
+int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device) {
         int r;
 
         assert_return(enumerator, -EINVAL);
@@ -544,7 +544,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 if (!match_sysattr(enumerator, device))
                         continue;
 
-                k = sd_device_enumerator_add_device(enumerator, device);
+                k = device_enumerator_add_device(enumerator, device);
                 if (k < 0)
                         r = k;
         }
@@ -670,7 +670,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
                 if (!match_sysattr(enumerator, device))
                         continue;
 
-                k = sd_device_enumerator_add_device(enumerator, device);
+                k = device_enumerator_add_device(enumerator, device);
                 if (k < 0) {
                         r = k;
                         continue;
@@ -727,7 +727,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         if (!match_sysattr(enumerator, device))
                 return 0;
 
-        r = sd_device_enumerator_add_device(enumerator, device);
+        r = device_enumerator_add_device(enumerator, device);
         if (r < 0)
                 return r;
 
