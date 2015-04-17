@@ -146,6 +146,32 @@ static void override_abs(int fd, const char *devnode,
                 log_error_errno(errno, "Unable to EVIOCSABS device \"%s\"", devnode);
 }
 
+static void set_trackpoint_sensitivity(struct udev_device *dev, const char *value)
+{
+        struct udev_device *pdev;
+        char val_s[DECIMAL_STR_MAX(int)];
+        int r, val_i;
+
+        /* The sensitivity sysfs attr belongs to the serio parent device */
+        pdev = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
+        if (!pdev) {
+                log_warning("Failed to get serio parent for '%s'", udev_device_get_devnode(dev));
+                return;
+        }
+
+        r = safe_atoi(value, &val_i);
+        if (r < 0) {
+                log_error("Unable to parse POINTINGSTICK_SENSITIVITY '%s' for '%s'", value, udev_device_get_devnode(dev));
+                return;
+        }
+
+        xsprintf(val_s, "%d", val_i);
+
+        r = udev_device_set_sysattr_value(pdev, "sensitivity", val_s);
+        if (r < 0)
+                log_error_errno(r, "Failed to write 'sensitivity' attribute for '%s': %m", udev_device_get_devnode(pdev));
+}
+
 static int open_device(const char *devnode) {
         int fd;
 
@@ -223,6 +249,8 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         }
 
                         override_abs(fd, node, evcode, udev_list_entry_get_value(entry));
+                } else if (streq(key, "POINTINGSTICK_SENSITIVITY")) {
+                        set_trackpoint_sensitivity(dev, udev_list_entry_get_value(entry));
                 }
         }
 
