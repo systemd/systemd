@@ -70,6 +70,18 @@
 # Sort by by brand, model
 
 #########################################
+# Dell
+#########################################
+
+# Latitude D620
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeD620*:pvr*
+  POINTINGSTICK_CONST_ACCEL=0.5
+
+# Latitude E6400
+evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6400*:pvr*
+  POINTINGSTICK_CONST_ACCEL=1.5
+
+#########################################
 # Lenovo
 #########################################
 
