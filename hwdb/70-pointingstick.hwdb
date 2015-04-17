@@ -68,3 +68,20 @@
 
 #
 # Sort by by brand, model
+
+#########################################
+# Lenovo
+#########################################
+
+# Lenovo Thinkpad X200s / X201s
+# Note these come with 2 revisions of keyboard, with the trackpoints having a
+# different sensitivity in the different revisions. 1.25 is a bit slow for the
+# least sensitive revision, but it is better to be a bit slow than too fast.
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?s:*
+  POINTINGSTICK_SENSITIVITY=200
+  POINTINGSTICK_CONST_ACCEL=1.25
+
+# Lenovo Thinkpad T440s
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440s:*
+  POINTINGSTICK_SENSITIVITY=200
+  POINTINGSTICK_CONST_ACCEL=1.0
