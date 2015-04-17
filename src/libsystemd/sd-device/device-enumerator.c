@@ -273,7 +273,7 @@ int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator)
 static int device_compare(const void *_a, const void *_b) {
         sd_device *a = (sd_device *)_a, *b = (sd_device *)_b;
         const char *devpath_a, *devpath_b, *sound_a;
-        bool delay_a = false, delay_b = false;
+        bool delay_a, delay_b;
 
         assert_se(sd_device_get_devpath(a, &devpath_a) >= 0);
         assert_se(sd_device_get_devpath(b, &devpath_b) >= 0);
@@ -312,17 +312,10 @@ static int device_compare(const void *_a, const void *_b) {
         }
 
         /* md and dm devices are enumerated after all other devices */
-        if (strstr(devpath_a, "/block/md") || strstr(devpath_a, "/block/dm-"))
-                delay_a = true;
-
-        if (strstr(devpath_b, "/block/md") || strstr(devpath_b, "/block/dm-"))
-                delay_b = true;
-
-        if (delay_a && !delay_b)
-                return 1;
-
-        if (!delay_a && delay_b)
-                return -1;
+        delay_a = strstr(devpath_a, "/block/md") || strstr(devpath_a, "/block/dm-");
+        delay_b = strstr(devpath_b, "/block/md") || strstr(devpath_b, "/block/dm-");
+        if (delay_a != delay_b)
+                return delay_a - delay_b;
 
         return strcmp(devpath_a, devpath_b);
 }
