@@ -52,7 +52,7 @@ struct sd_device_enumerator {
         Set *match_sysname;
         Set *match_tag;
         sd_device *match_parent;
-        bool match_is_initialized;
+        bool match_allow_uninitialized;
 };
 
 _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
@@ -250,10 +250,20 @@ _public_ int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumera
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator) {
+_public_ int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator) {
         assert_return(enumerator, -EINVAL);
 
-        enumerator->match_is_initialized = true;
+        enumerator->match_allow_uninitialized = true;
+
+        enumerator->scan_uptodate = false;
+
+        return 0;
+}
+
+int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator) {
+        assert_return(enumerator, -EINVAL);
+
+        enumerator->match_allow_uninitialized = false;
 
         enumerator->scan_uptodate = false;
 
@@ -527,7 +537,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                  * might not store a database, and have no way to find out
                  * for all other types of devices.
                  */
-                if (enumerator->match_is_initialized &&
+                if (!enumerator->match_allow_uninitialized &&
                     !initialized &&
                     (major(devnum) > 0 || ifindex > 0))
                         continue;

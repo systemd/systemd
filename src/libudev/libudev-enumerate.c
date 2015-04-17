@@ -66,7 +66,8 @@ struct udev_enumerate {
  * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
-        struct udev_enumerate *udev_enumerate;
+        _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
+        struct udev_enumerate *ret;
         int r;
 
         assert_return_errno(udev, NULL, EINVAL);
@@ -79,7 +80,12 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
 
         r = sd_device_enumerator_new(&udev_enumerate->enumerator);
         if (r < 0) {
-                free(udev_enumerate);
+                errno = -r;
+                return NULL;
+        }
+
+        r = sd_device_enumerator_allow_uninitialized(udev_enumerate->enumerator);
+        if (r < 0) {
                 errno = -r;
                 return NULL;
         }
@@ -89,7 +95,10 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
 
         udev_list_init(udev, &udev_enumerate->devices_list, false);
 
-        return udev_enumerate;
+        ret = udev_enumerate;
+        udev_enumerate = NULL;
+
+        return ret;
 }
 
 /**
@@ -311,7 +320,7 @@ _public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumera
 _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate) {
         assert_return(udev_enumerate, -EINVAL);
 
-        return sd_device_enumerator_add_match_is_initialized(udev_enumerate->enumerator);
+        return device_enumerator_add_match_is_initialized(udev_enumerate->enumerator);
 }
 
 /**

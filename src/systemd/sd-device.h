@@ -92,7 +92,7 @@ int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, co
 int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname);
 int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
-int sd_device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator);
+int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator);
 
 _SD_END_DECLARATIONS;
 
