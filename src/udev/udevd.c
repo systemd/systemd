@@ -1025,60 +1025,51 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink) {
 
 /*
  * read the kernel command line, in case we need to get into debug mode
- *   udev.log-priority=<level>              syslog priority
- *   udev.children-max=<number of workers>  events are fully serialized if set to 1
- *   udev.exec-delay=<number of seconds>    delay execution of every executed program
+ *   udev.log-priority=<level>                 syslog priority
+ *   udev.children-max=<number of workers>     events are fully serialized if set to 1
+ *   udev.exec-delay=<number of seconds>       delay execution of every executed program
+ *   udev.event-timeout=<number of seconds>    seconds to wait before terminating an event
  */
-static void kernel_cmdline_options(struct udev *udev) {
-        _cleanup_free_ char *line = NULL;
-        const char *word, *state;
-        size_t l;
+static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        r = proc_cmdline(&line);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
-                return;
-        }
+        assert(key);
 
-        FOREACH_WORD_QUOTED(word, l, line, state) {
-                char *s, *opt, *value;
+        if (!value)
+                return 0;
 
-                s = strndup(word, l);
-                if (!s)
-                        break;
+        if (startswith(key, "rd."))
+                key += strlen("rd.");
 
-                /* accept the same options for the initrd, prefixed with "rd." */
-                if (in_initrd() && startswith(s, "rd."))
-                        opt = s + 3;
-                else
-                        opt = s;
+        if (startswith(key, "udev."))
+                key += strlen("udev.");
+        else
+                return 0;
 
-                if ((value = startswith(opt, "udev.log-priority="))) {
-                        int prio;
+        if (streq(key, "log-priority")) {
+                int prio;
 
-                        prio = util_log_priority(value);
-                        log_set_max_level(prio);
-                } else if ((value = startswith(opt, "udev.children-max="))) {
-                        r = safe_atoi(value, &arg_children_max);
-                        if (r < 0)
-                                log_warning("Invalid udev.children-max ignored: %s", value);
-                } else if ((value = startswith(opt, "udev.exec-delay="))) {
-                        r = safe_atoi(value, &arg_exec_delay);
-                        if (r < 0)
-                                log_warning("Invalid udev.exec-delay ignored: %s", value);
-                } else if ((value = startswith(opt, "udev.event-timeout="))) {
-                        r = safe_atou64(value, &arg_event_timeout_usec);
-                        if (r < 0) {
-                                log_warning("Invalid udev.event-timeout ignored: %s", value);
-                                break;
-                        }
+                prio = util_log_priority(value);
+                log_set_max_level(prio);
+        } else if (streq(key, "children-max")) {
+                r = safe_atoi(value, &arg_children_max);
+                if (r < 0)
+                        log_warning("invalid udev.children-max ignored: %s", value);
+        } else if (streq(key, "exec-delay")) {
+                r = safe_atoi(value, &arg_exec_delay);
+                if (r < 0)
+                        log_warning("invalid udev.exec-delay ignored: %s", value);
+        } else if (streq(key, "event-timeout")) {
+                r = safe_atou64(value, &arg_event_timeout_usec);
+                if (r < 0)
+                        log_warning("invalid udev.event-timeout ignored: %s", value);
+                else {
                         arg_event_timeout_usec *= USEC_PER_SEC;
                         arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
                 }
-
-                free(s);
         }
+
+        return 0;
 }
 
 static void help(void) {
@@ -1199,7 +1190,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto exit;
 
-        kernel_cmdline_options(udev);
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
 
         if (arg_debug)
                 log_set_max_level(LOG_DEBUG);
