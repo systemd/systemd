@@ -877,12 +877,11 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_ensure_usec_initialized(event->dev, event->dev_db);
 
                 /* (re)write database file */
-                udev_device_update_db(dev);
                 udev_device_tag_index(dev, event->dev_db, true);
+                udev_device_update_db(dev);
                 udev_device_set_is_initialized(dev);
 
-                udev_device_unref(event->dev_db);
-                event->dev_db = NULL;
+                event->dev_db = udev_device_unref(event->dev_db);
         }
 }
 
