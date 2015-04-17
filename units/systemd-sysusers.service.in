@@ -18,3 +18,4 @@ ConditionNeedsUpdate=/etc
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-sysusers
+TimeoutSec=90s

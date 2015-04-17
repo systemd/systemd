@@ -18,3 +18,4 @@ ConditionPathIsReadWrite=/proc/sys/
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-sysctl
+TimeoutSec=90s

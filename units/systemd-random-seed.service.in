@@ -19,3 +19,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-random-seed load
 ExecStop=@rootlibexecdir@/systemd-random-seed save
+TimeoutSec=30s

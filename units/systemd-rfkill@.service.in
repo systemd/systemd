@@ -20,3 +20,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-rfkill load %I
 ExecStop=@rootlibexecdir@/systemd-rfkill save %I
+TimeoutSec=30s
