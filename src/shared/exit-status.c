@@ -166,7 +166,7 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
                         return "NOPERMISSION";
 
                 case EXIT_NOTINSTALLED:
-                        return "NOTINSSTALLED";
+                        return "NOTINSTALLED";
 
                 case EXIT_NOTCONFIGURED:
                         return "NOTCONFIGURED";
