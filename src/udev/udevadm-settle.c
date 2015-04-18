@@ -107,7 +107,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
 
                 uctrl = udev_ctrl_new(udev);
                 if (uctrl != NULL) {
-                        if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
+                        if (udev_ctrl_send_ping(uctrl, MAX(5U, timeout)) < 0) {
                                 log_debug("no connection to daemon");
                                 udev_ctrl_unref(uctrl);
                                 return EXIT_SUCCESS;
