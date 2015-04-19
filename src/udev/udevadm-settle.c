@@ -142,7 +142,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                         break;
                 }
 
-                if (timeout > 0 && now(CLOCK_MONOTONIC) >= deadline)
+                if (now(CLOCK_MONOTONIC) >= deadline)
                         break;
 
                 /* wake up when queue is empty */
