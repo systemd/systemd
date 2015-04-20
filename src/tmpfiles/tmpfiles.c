@@ -1760,7 +1760,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EIO;
         }
 
-        if (!isempty(buffer)) {
+        if (!isempty(buffer) && !streq(buffer, "-")) {
                 i.argument = strdup(buffer);
                 if (!i.argument)
                         return log_oom();
