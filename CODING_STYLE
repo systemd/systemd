@@ -239,3 +239,19 @@
   2, i.e. stdin, stdout, stderr, should those fds be closed. Given the
   special semantics of those fds, it's probably a good idea to avoid
   them. F_DUPFD_CLOEXEC with "3" as parameter avoids them.
+
+- When you define a destructor or unref() call for an object, please
+  accept a NULL object and simply treat this as NOP. This is similar
+  to how libc free() works, which accepts NULL pointers and becomes a
+  NOP for them. By following this scheme a lot of if checks can be
+  removed before invoking your destructor, which makes the code
+  substantially more readable and robust.
+
+- Related to this: when you define a destructor or unref() call for an
+  object, please make it return the same type it takes and always
+  return NULL from it. This allows writing code like this:
+
+            p = foobar_unref(p);
+
+  which will always work regardless if p is initialized or not, and
+  guarantees that p is NULL afterwards, all in just one line.
