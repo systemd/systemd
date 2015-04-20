@@ -937,17 +937,22 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
-                r = cg_pid_get_path(NULL, pid, &c->cgroup);
-                if (r < 0) {
-                        if (r != -EPERM && r != -EACCES)
-                                return r;
-                } else {
+                if (!c->cgroup) {
+                        r = cg_pid_get_path(NULL, pid, &c->cgroup);
+                        if (r < 0) {
+                                if (r != -EPERM && r != -EACCES)
+                                        return r;
+                        }
+                }
+
+                if (!c->cgroup_root) {
                         r = cg_get_root_path(&c->cgroup_root);
                         if (r < 0)
                                 return r;
-
-                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
                 }
+
+                if (c->cgroup)
+                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
