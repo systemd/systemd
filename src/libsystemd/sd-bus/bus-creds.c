@@ -231,7 +231,6 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         return 0;
 }
 
-
 _public_ int sd_bus_creds_get_egid(sd_bus_creds *c, gid_t *egid) {
         assert_return(c, -EINVAL);
         assert_return(egid, -EINVAL);
@@ -597,9 +596,10 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
         assert(capability >= 0);
         assert(c->capability);
 
-        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
-        if ((unsigned)capability > cap_last_cap())
+        if ((unsigned) capability > cap_last_cap())
                 return 0;
+
+        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
 
         return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
 }
@@ -982,6 +982,16 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
 
         /* Copy the original data over */
 
+        if (c->mask & mask & SD_BUS_CREDS_PID) {
+                n->pid = c->pid;
+                n->mask |= SD_BUS_CREDS_PID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_TID) {
+                n->tid = c->tid;
+                n->mask |= SD_BUS_CREDS_TID;
+        }
+
         if (c->mask & mask & SD_BUS_CREDS_UID) {
                 n->uid = c->uid;
                 n->mask |= SD_BUS_CREDS_UID;
@@ -1028,16 +1038,6 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                         return -ENOMEM;
                 n->n_supplementary_gids = c->n_supplementary_gids;
                 n->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
-        }
-
-        if (c->mask & mask & SD_BUS_CREDS_PID) {
-                n->pid = c->pid;
-                n->mask |= SD_BUS_CREDS_PID;
-        }
-
-        if (c->mask & mask & SD_BUS_CREDS_TID) {
-                n->tid = c->tid;
-                n->mask |= SD_BUS_CREDS_TID;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_COMM) {
@@ -1120,6 +1120,8 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 n->well_known_names = strv_copy(c->well_known_names);
                 if (!n->well_known_names)
                         return -ENOMEM;
+                n->well_known_names_driver = c->well_known_names_driver;
+                n->well_known_names_local = c->well_known_names_local;
                 n->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
         }
 
