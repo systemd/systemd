@@ -84,6 +84,17 @@ evdev:input:b0003v05ACp025b*
  EVDEV_ABS_36=::92
 
 #########################################
+# Google
+#########################################
+
+# Chromebook Pixel (2015) - Samus
+evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus*
+ EVDEV_ABS_00=::10
+ EVDEV_ABS_01=::10
+ EVDEV_ABS_35=::10
+ EVDEV_ABS_36=::10
+
+#########################################
 # Lenovo
 #########################################
 
