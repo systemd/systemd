@@ -234,7 +234,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         netdev->state = NETDEV_STATE_READY;
 
-        log_info_netdev(netdev, "netdev ready");
+        log_netdev_info(netdev, "netdev ready");
 
         LIST_FOREACH_SAFE(callbacks, callback, callback_next, netdev->callbacks) {
                 /* enslave the links that were attempted to be enslaved before the
@@ -260,9 +260,9 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
         r = sd_rtnl_message_get_errno(m);
         if (r == -EEXIST)
-                log_info_netdev(netdev, "netdev exists, using existing without changing its parameters");
+                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
         else if (r < 0) {
-                log_warning_netdev(netdev, "netdev could not be created: %s", strerror(-r));
+                log_netdev_warning(netdev, "netdev could not be created: %s", strerror(-r));
                 netdev_drop(netdev);
 
                 return 1;

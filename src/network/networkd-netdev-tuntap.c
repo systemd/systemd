@@ -108,7 +108,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
                 }
         }
 
-        if(t->group_name) {
+        if (t->group_name) {
 
                 group = t->group_name;
 
@@ -173,15 +173,11 @@ static void tuntap_done(NetDev *netdev) {
 static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
-        if (netdev->mtu) {
-                log_warning_netdev(netdev, "MTU configured for %s, ignoring",
-                                   netdev_kind_to_string(netdev->kind));
-        }
+        if (netdev->mtu)
+                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
 
-        if (netdev->mac) {
-                log_warning_netdev(netdev, "MAC configured for %s, ignoring",
-                                   netdev_kind_to_string(netdev->kind));
-        }
+        if (netdev->mac)
+                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
 
         return 0;
 }
