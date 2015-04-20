@@ -1700,7 +1700,7 @@ int parse_size(const char *t, off_t base, off_t *size) {
          * sometimes SI decimal suffixes. This function can parse
          * both. Which one is the right way depends on the
          * context. Wikipedia suggests that SI is customary for
-         * hardrware metrics and network speeds, while IEC is
+         * hardware metrics and network speeds, while IEC is
          * customary for most data sizes used by software and volatile
          * (RAM) memory. Hence be careful which one you pick!
          *
