@@ -754,10 +754,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                 if (sscanf(p, "%lu %lu %lu %lu", &uid, &euid, &suid, &fsuid) != 4)
                                                         return -EIO;
 
-                                                c->uid = (uid_t) uid;
-                                                c->euid = (uid_t) euid;
-                                                c->suid = (uid_t) suid;
-                                                c->fsuid = (uid_t) fsuid;
+                                                if (missing & SD_BUS_CREDS_UID)
+                                                        c->uid = (uid_t) uid;
+                                                if (missing & SD_BUS_CREDS_EUID)
+                                                        c->euid = (uid_t) euid;
+                                                if (missing & SD_BUS_CREDS_SUID)
+                                                        c->suid = (uid_t) suid;
+                                                if (missing & SD_BUS_CREDS_FSUID)
+                                                        c->fsuid = (uid_t) fsuid;
+
                                                 c->mask |= missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID);
                                                 continue;
                                         }
@@ -772,10 +777,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                 if (sscanf(p, "%lu %lu %lu %lu", &gid, &egid, &sgid, &fsgid) != 4)
                                                         return -EIO;
 
-                                                c->gid = (gid_t) gid;
-                                                c->egid = (gid_t) egid;
-                                                c->sgid = (gid_t) sgid;
-                                                c->fsgid = (gid_t) fsgid;
+                                                if (missing & SD_BUS_CREDS_GID)
+                                                        c->gid = (gid_t) gid;
+                                                if (missing & SD_BUS_CREDS_EGID)
+                                                        c->egid = (gid_t) egid;
+                                                if (missing & SD_BUS_CREDS_SGID)
+                                                        c->sgid = (gid_t) sgid;
+                                                if (missing & SD_BUS_CREDS_FSGID)
+                                                        c->fsgid = (gid_t) fsgid;
+
                                                 c->mask |= missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID);
                                                 continue;
                                         }
