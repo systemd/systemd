@@ -48,6 +48,14 @@ Before 220:
 
 Features:
 
+* rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
+  to unicode chars, to make things more expressive.
+
+* networkd: MTU= switch for .network units needs documentation in systemd.network(5)
+
+* "machinectl migrate" or similar to copy a container from or to a
+  difference host, via ssh
+
 * tmpfiles: creating new directories/subvolumes/fifos/device nodes
   should not follow symlinks. None of the other adjustment or creation
   calls follow symlinks.
