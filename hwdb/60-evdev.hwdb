@@ -36,6 +36,13 @@
 # If a field is missing the field will be left as-is. Not all fields need to
 # be present. e.g. ::45 sets the resolution to 45 units/mm.
 
+#
+# Sort by by brand, model
+
+#########################################
+# Apple
+#########################################
+
 # Macbook5,1 (unibody), aka wellspring3
 evdev:input:b0003v05ACp0236*
 evdev:input:b0003v05ACp0237*
@@ -75,3 +82,12 @@ evdev:input:b0003v05ACp025b*
  EVDEV_ABS_01=::92
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
+
+#########################################
+# Lenovo
+#########################################
+
+# Lenovo X230 series
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*X230*
+ EVDEV_ABS_01=::100
+ EVDEV_ABS_36=::100
