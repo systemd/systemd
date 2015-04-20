@@ -222,6 +222,14 @@ int mac_selinux_generic_access_check(
         if (r < 0)
                 goto finish;
 
+        /* The SELinux context is something we really should have
+         * gotten directly from the message or sender, and not be an
+         * augmented field. If it was augmented we cannot use it for
+         * authorization, since this is racy and vulnerable. Let's add
+         * an extra check, just in case, even though this really
+         * shouldn't be possible. */
+        assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_SELINUX_CONTEXT) == 0, -EPERM);
+
         r = sd_bus_creds_get_selinux_context(creds, &scon);
         if (r < 0)
                 goto finish;

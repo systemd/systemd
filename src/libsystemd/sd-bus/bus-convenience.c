@@ -499,9 +499,17 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                 return -ENOTCONN;
 
         if (capability >= 0) {
+
                 r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
                 if (r < 0)
                         return r;
+
+                /* We cannot use augmented caps for authorization,
+                 * since then data is acquired raceful from
+                 * /proc. This can never actually happen, but let's
+                 * better be safe than sorry, and do an extra check
+                 * here. */
+                assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EFFECTIVE_CAPS) == 0, -EPERM);
 
                 /* Note that not even on kdbus we might have the caps
                  * field, due to faked identities, or namespace
@@ -522,6 +530,13 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
         our_uid = getuid();
         if (our_uid != 0 || !know_caps || capability < 0) {
                 uid_t sender_uid;
+
+                /* We cannot use augmented uid/euid for authorization,
+                 * since then data is acquired raceful from
+                 * /proc. This can never actually happen, but let's
+                 * better be safe than sorry, and do an extra check
+                 * here. */
+                assert_return((sd_bus_creds_get_augmented_mask(creds) & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID)) == 0, -EPERM);
 
                 /* Try to use the EUID, if we have it. */
                 r = sd_bus_creds_get_euid(creds, &sender_uid);

@@ -131,6 +131,12 @@ _public_ uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c) {
         return c->mask;
 }
 
+_public_ uint64_t sd_bus_creds_get_augmented_mask(const sd_bus_creds *c) {
+        assert_return(c, 0);
+
+        return c->augmented;
+}
+
 sd_bus_creds* bus_creds_new(void) {
         sd_bus_creds *c;
 
@@ -697,25 +703,25 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (!(mask & SD_BUS_CREDS_AUGMENT))
                 return 0;
 
-        missing = mask & ~c->mask;
-        if (missing == 0)
-                return 0;
-
         /* Try to retrieve PID from creds if it wasn't passed to us */
         if (pid <= 0 && (c->mask & SD_BUS_CREDS_PID))
                 pid = c->pid;
-
-        if (tid <= 0 && (c->mask & SD_BUS_CREDS_TID))
-                tid = c->pid;
 
         /* Without pid we cannot do much... */
         if (pid <= 0)
                 return 0;
 
-        if (pid > 0) {
-                c->pid = pid;
-                c->mask |= SD_BUS_CREDS_PID;
-        }
+        /* Try to retrieve TID from creds if it wasn't passed to us */
+        if (tid <= 0 && (c->mask & SD_BUS_CREDS_TID))
+                tid = c->tid;
+
+        /* Calculate what we shall and can add */
+        missing = mask & ~(c->mask|SD_BUS_CREDS_PID|SD_BUS_CREDS_TID|SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_AUGMENT);
+        if (missing == 0)
+                return 0;
+
+        c->pid = pid;
+        c->mask |= SD_BUS_CREDS_PID;
 
         if (tid > 0) {
                 c->tid = tid;
@@ -973,6 +979,8 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
         }
 
+        c->augmented = missing & c->mask;
+
         return 0;
 }
 
@@ -1147,11 +1155,11 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
                 n->mask |= SD_BUS_CREDS_DESCRIPTION;
         }
 
+        n->augmented = c->augmented & n->mask;
+
         /* Get more data */
 
-        r = bus_creds_add_more(n, mask,
-                               c->mask & SD_BUS_CREDS_PID ? c->pid : 0,
-                               c->mask & SD_BUS_CREDS_TID ? c->tid : 0);
+        r = bus_creds_add_more(n, mask, 0, 0);
         if (r < 0)
                 return r;
 

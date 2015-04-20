@@ -322,6 +322,7 @@ global:
         sd_bus_creds_ref;
         sd_bus_creds_unref;
         sd_bus_creds_get_mask;
+        sd_bus_creds_get_augmented_mask;
         sd_bus_creds_get_uid;
         sd_bus_creds_get_gid;
         sd_bus_creds_get_pid;

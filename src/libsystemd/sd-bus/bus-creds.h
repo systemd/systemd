@@ -28,7 +28,9 @@
 struct sd_bus_creds {
         bool allocated;
         unsigned n_ref;
+
         uint64_t mask;
+        uint64_t augmented;
 
         uid_t uid;
         uid_t euid;

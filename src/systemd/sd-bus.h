@@ -329,6 +329,7 @@ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t creds_mask
 sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c);
 sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c);
+uint64_t sd_bus_creds_get_augmented_mask(const sd_bus_creds *c);
 
 int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid);
 int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid);

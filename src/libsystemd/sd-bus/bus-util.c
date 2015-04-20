@@ -206,6 +206,9 @@ static int check_good_user(sd_bus_message *m, uid_t good_user) {
         if (r < 0)
                 return r;
 
+        /* Don't trust augmented credentials for authorization */
+        assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EUID) == 0, -EPERM);
+
         r = sd_bus_creds_get_euid(creds, &sender_uid);
         if (r < 0)
                 return r;
