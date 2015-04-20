@@ -213,6 +213,33 @@ static int property_get_preparing(
         return sd_bus_message_append(reply, "b", b);
 }
 
+static int property_get_scheduled_shutdown(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'r', "st");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "st", m->scheduled_shutdown_type, m->scheduled_shutdown_timeout);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 
 static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1742,6 +1769,114 @@ static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata, 
                         error);
 }
 
+static int manager_scheduled_shutdown_handler(
+                        sd_event_source *s,
+                        uint64_t usec,
+                        void *userdata) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        Manager *m = userdata;
+        const char *target;
+        int r;
+
+        assert(m);
+
+        if (isempty(m->scheduled_shutdown_type))
+                return 0;
+
+        if (streq(m->scheduled_shutdown_type, "halt"))
+                target = SPECIAL_HALT_TARGET;
+        else if (streq(m->scheduled_shutdown_type, "poweroff"))
+                target = SPECIAL_POWEROFF_TARGET;
+        else
+                target = SPECIAL_REBOOT_TARGET;
+
+        r = execute_shutdown_or_sleep(m, 0, target, &error);
+        if (r < 0)
+                return log_error_errno(r, "Unable to execute transition to %s: %m\n", target);
+
+        return 0;
+}
+
+static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *action_multiple_sessions = NULL;
+        const char *action_ignore_inhibit = NULL;
+        const char *action = NULL;
+        uint64_t elapse;
+        char *type;
+        int r;
+
+        assert(m);
+        assert(message);
+
+        r = sd_bus_message_read(message, "st", &type, &elapse);
+        if (r < 0)
+                return r;
+
+        if (streq(type, "reboot")) {
+                action = "org.freedesktop.login1.reboot";
+                action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
+        } else if (streq(type, "halt")) {
+                action = "org.freedesktop.login1.halt";
+                action_multiple_sessions = "org.freedesktop.login1.halt-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.halt-ignore-inhibit";
+        } else if (streq(type, "poweroff")) {
+                action = "org.freedesktop.login1.poweroff";
+                action_multiple_sessions = "org.freedesktop.login1.poweroff-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.poweroff-ignore-inhibit";
+        } else
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
+
+        r = verify_shutdown_creds(m, message, INHIBIT_SHUTDOWN, false,
+                                  action, action_multiple_sessions, action_ignore_inhibit, error);
+        if (r != 0)
+                return r;
+
+        if (m->scheduled_shutdown_timeout_source) {
+                r = sd_event_source_set_time(m->scheduled_shutdown_timeout_source, elapse);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+
+                r = sd_event_source_set_enabled(m->scheduled_shutdown_timeout_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+        } else {
+                r = sd_event_add_time(m->event, &m->scheduled_shutdown_timeout_source,
+                                      CLOCK_REALTIME, elapse, 0, manager_scheduled_shutdown_handler, m);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_add_time() failed: %m\n");
+        }
+
+        r = free_and_strdup(&m->scheduled_shutdown_type, type);
+        if (r < 0) {
+                m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+                return log_oom();
+        }
+
+        m->scheduled_shutdown_timeout = elapse;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_cancel_scheduled_shutdown(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        bool cancelled;
+
+        assert(m);
+        assert(message);
+
+        cancelled = m->scheduled_shutdown_type != NULL;
+
+        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        free(m->scheduled_shutdown_type);
+        m->scheduled_shutdown_type = NULL;
+        m->scheduled_shutdown_timeout = 0;
+
+        return sd_bus_reply_method_return(message, "b", cancelled);
+}
+
 static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
@@ -2161,6 +2296,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
+        SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, 0),
 
         SD_BUS_METHOD("GetSession", "s", "o", method_get_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetSessionByPID", "u", "o", method_get_session_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -2190,6 +2326,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("PowerOff", "b", NULL, method_poweroff, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reboot", "b", NULL, method_reboot, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Suspend", "b", NULL, method_suspend, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ScheduleShutdown", "st", NULL, method_schedule_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CancelScheduledShutdown", NULL, "b", method_cancel_scheduled_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Hibernate", "b", NULL, method_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("HybridSleep", "b", NULL, method_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanPowerOff", NULL, "s", method_can_poweroff, SD_BUS_VTABLE_UNPRIVILEGED),

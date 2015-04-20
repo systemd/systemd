@@ -144,6 +144,7 @@ static void manager_free(Manager *m) {
 
         sd_event_source_unref(m->idle_action_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
+        sd_event_source_unref(m->scheduled_shutdown_timeout_source);
 
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->udev_seat_event_source);
@@ -176,6 +177,7 @@ static void manager_free(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
+        free(m->scheduled_shutdown_type);
         free(m->action_job);
         free(m);
 }
