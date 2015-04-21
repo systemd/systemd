@@ -119,23 +119,6 @@ int config_parse_mode(const char *unit, const char *filename, unsigned line, con
 int config_parse_log_facility(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_log_level(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
-int log_syntax_internal(
-                const char *unit,
-                int level,
-                const char *file,
-                int line,
-                const char *func,
-                const char *config_file,
-                unsigned config_line,
-                int error,
-                const char *format, ...) _printf_(9, 10);
-
-#define log_syntax(unit, level, config_file, config_line, error, ...)   \
-        log_syntax_internal(unit, level,                                \
-                            __FILE__, __LINE__, __func__,               \
-                            config_file, config_line,                   \
-                            error, __VA_ARGS__)
-
 #define log_invalid_utf8(unit, level, config_file, config_line, error, rvalue) \
         do {                                                            \
                 _cleanup_free_ char *_p = utf8_escape_invalid(rvalue);  \

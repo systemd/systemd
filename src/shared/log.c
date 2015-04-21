@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <printf.h>
 
+#include "sd-messages.h"
 #include "log.h"
 #include "util.h"
 #include "missing.h"
@@ -1063,4 +1064,59 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
 
 void log_set_upgrade_syslog_to_journal(bool b) {
         upgrade_syslog_to_journal = b;
+}
+
+int log_syntax_internal(
+                const char *unit,
+                int level,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) {
+
+        PROTECT_ERRNO;
+        char buffer[LINE_MAX];
+        int r;
+        va_list ap;
+
+        if (error < 0)
+                error = -error;
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return -error;
+
+        if (log_target == LOG_TARGET_NULL)
+                return -error;
+
+        if (error != 0)
+                errno = error;
+
+        va_start(ap, format);
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        va_end(ap);
+
+        if (unit)
+                r = log_struct_internal(
+                                level, error,
+                                file, line, func,
+                                getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
+                                "CONFIG_FILE=%s", config_file,
+                                "CONFIG_LINE=%u", config_line,
+                                LOG_MESSAGE("[%s:%u] %s", config_file, config_line, buffer),
+                                NULL);
+        else
+                r = log_struct_internal(
+                                level, error,
+                                file, line, func,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION),
+                                "CONFIG_FILE=%s", config_file,
+                                "CONFIG_LINE=%u", config_line,
+                                LOG_MESSAGE("[%s:%u] %s", config_file, config_line, buffer),
+                                NULL);
+
+        return r;
 }

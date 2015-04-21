@@ -34,50 +34,6 @@
 #include "path-util.h"
 #include "sd-messages.h"
 
-int log_syntax_internal(
-                const char *unit,
-                int level,
-                const char *file,
-                int line,
-                const char *func,
-                const char *config_file,
-                unsigned config_line,
-                int error,
-                const char *format, ...) {
-
-        _cleanup_free_ char *msg = NULL;
-        int r;
-        va_list ap;
-
-        va_start(ap, format);
-        r = vasprintf(&msg, format, ap);
-        va_end(ap);
-        if (r < 0)
-                return log_oom();
-
-        if (unit)
-                r = log_struct_internal(level,
-                                        error,
-                                        file, line, func,
-                                        getpid() == 1 ? "UNIT=%s" : "USER_UNIT=%s", unit,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
-                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
-                                        NULL);
-        else
-                r = log_struct_internal(level,
-                                        error,
-                                        file, line, func,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_CONFIG_ERROR),
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
-                                        LOG_MESSAGE("[%s:%u] %s", config_file, config_line, msg),
-                                        NULL);
-
-        return r;
-}
-
 int config_item_table_lookup(
                 const void *table,
                 const char *section,
