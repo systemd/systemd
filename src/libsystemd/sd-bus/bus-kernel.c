@@ -595,6 +595,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                                 m->creds.mask |= SD_BUS_CREDS_TID & bus->creds_mask;
                         }
 
+                        if (d->pids.ppid > 0) {
+                                m->creds.ppid = (pid_t) d->pids.ppid;
+                                m->creds.mask |= SD_BUS_CREDS_PPID & bus->creds_mask;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_CREDS:
@@ -1506,7 +1511,7 @@ uint64_t attach_flags_to_kdbus(uint64_t mask) {
                     SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID))
                 m |= KDBUS_ATTACH_CREDS;
 
-        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID))
+        if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID|SD_BUS_CREDS_PPID))
                 m |= KDBUS_ATTACH_PIDS;
 
         if (mask & SD_BUS_CREDS_COMM)

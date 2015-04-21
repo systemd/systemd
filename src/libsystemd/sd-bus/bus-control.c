@@ -413,6 +413,11 @@ static int bus_populate_creds_from_items(
                                 c->mask |= SD_BUS_CREDS_TID;
                         }
 
+                        if (mask & SD_BUS_CREDS_PPID && item->pids.ppid > 0) {
+                                c->ppid = (pid_t) item->pids.ppid;
+                                c->mask |= SD_BUS_CREDS_PPID;
+                        }
+
                         break;
 
                 case KDBUS_ITEM_CREDS:
@@ -644,7 +649,8 @@ int bus_get_name_creds_kdbus(
          * the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
         if ((mask & SD_BUS_CREDS_AUGMENT) &&
-            (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+            (mask & (SD_BUS_CREDS_PPID|
+                     SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                      SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                      SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                      SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
@@ -910,7 +916,8 @@ static int bus_get_owner_creds_kdbus(sd_bus *bus, uint64_t mask, sd_bus_creds **
          * to get the bits we want, then ask for the PID/TID so that we
          * can read the rest from /proc. */
         if ((mask & SD_BUS_CREDS_AUGMENT) &&
-            (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+            (mask & (SD_BUS_CREDS_PPID|
+                     SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
                      SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
                      SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
                      SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|

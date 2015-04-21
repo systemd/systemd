@@ -293,6 +293,17 @@ _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid) {
         return 0;
 }
 
+_public_ int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ppid) {
+        assert_return(c, -EINVAL);
+        assert_return(ppid, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_PPID))
+                return -ENODATA;
+
+        *ppid = c->ppid;
+        return 0;
+}
+
 _public_ int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid) {
         assert_return(c, -EINVAL);
         assert_return(tid, -EINVAL);
@@ -728,7 +739,8 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 c->mask |= SD_BUS_CREDS_TID;
         }
 
-        if (missing & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
+        if (missing & (SD_BUS_CREDS_PPID |
+                       SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID |
                        SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID |
                        SD_BUS_CREDS_SUPPLEMENTARY_GIDS |
                        SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
@@ -750,6 +762,20 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
                         FOREACH_LINE(line, f, return -errno) {
                                 truncate_nl(line);
+
+                                if (missing & SD_BUS_CREDS_PPID) {
+                                        p = startswith(line, "PPid:");
+                                        if (p) {
+                                                p += strspn(p, WHITESPACE);
+
+                                                r = parse_pid(p, &c->ppid);
+                                                if (r < 0)
+                                                        return r;
+
+                                                c->mask |= SD_BUS_CREDS_PPID;
+                                                continue;
+                                        }
+                                }
 
                                 if (missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID)) {
                                         p = startswith(line, "Uid:");
@@ -1013,6 +1039,11 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & SD_BUS_CREDS_TID) {
                 n->tid = c->tid;
                 n->mask |= SD_BUS_CREDS_TID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_PPID) {
+                n->ppid = c->ppid;
+                n->mask |= SD_BUS_CREDS_PPID;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_UID) {

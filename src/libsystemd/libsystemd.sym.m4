@@ -326,6 +326,7 @@ global:
         sd_bus_creds_get_uid;
         sd_bus_creds_get_gid;
         sd_bus_creds_get_pid;
+        sd_bus_creds_get_ppid;
         sd_bus_creds_get_tid;
         sd_bus_creds_get_comm;
         sd_bus_creds_get_tid_comm;

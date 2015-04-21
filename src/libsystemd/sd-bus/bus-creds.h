@@ -44,6 +44,7 @@ struct sd_bus_creds {
         gid_t *supplementary_gids;
         unsigned n_supplementary_gids;
 
+        pid_t ppid;
         pid_t pid;
         pid_t tid;
 
