@@ -2644,6 +2644,40 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
         fprintf(f, "%s=%s\n", key, value);
 }
 
+static int unit_set_cgroup_path(Unit *u, const char *path) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(u);
+
+        if (path) {
+                p = strdup(path);
+                if (!p)
+                        return -ENOMEM;
+        } else
+                p = NULL;
+
+        if (streq_ptr(u->cgroup_path, p))
+                return 0;
+
+        if (p) {
+                r = hashmap_put(u->manager->cgroup_unit, p, u);
+                if (r < 0)
+                        return r;
+        }
+
+        if (u->cgroup_path) {
+                log_unit_debug(u->id, "%s: Changing cgroup path from %s to %s.", u->id, u->cgroup_path, strna(p));
+                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
+                free(u->cgroup_path);
+        }
+
+        u->cgroup_path = p;
+        p = NULL;
+
+        return 0;
+}
+
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         ExecRuntime **rt = NULL;
         size_t offset;
@@ -2671,7 +2705,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 l = strstrip(line);
 
                 /* End marker */
-                if (l[0] == 0)
+                if (isempty(l))
                         return 0;
 
                 k = strcspn(l, "=");
@@ -2689,7 +2723,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                                 j = job_new_raw(u);
                                 if (!j)
-                                        return -ENOMEM;
+                                        return log_oom();
 
                                 r = job_deserialize(j, f, fds);
                                 if (r < 0) {
@@ -2739,61 +2773,48 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         dual_timestamp_deserialize(v, &u->assert_timestamp);
                         continue;
                 } else if (streq(l, "condition-result")) {
-                        int b;
 
-                        b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse condition result value %s", v);
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_debug("Failed to parse condition result value %s, ignoring.", v);
                         else
-                                u->condition_result = b;
+                                u->condition_result = r;
 
                         continue;
 
                 } else if (streq(l, "assert-result")) {
-                        int b;
 
-                        b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse assert result value %s", v);
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_debug("Failed to parse assert result value %s, ignoring.", v);
                         else
-                                u->assert_result = b;
+                                u->assert_result = r;
 
                         continue;
 
                 } else if (streq(l, "transient")) {
-                        int b;
 
-                        b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse transient bool %s", v);
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_debug("Failed to parse transient bool %s, ignoring.", v);
                         else
-                                u->transient = b;
+                                u->transient = r;
 
                         continue;
+
                 } else if (streq(l, "cpuacct-usage-base")) {
 
                         r = safe_atou64(v, &u->cpuacct_usage_base);
                         if (r < 0)
-                                log_debug("Failed to parse CPU usage %s", v);
+                                log_debug("Failed to parse CPU usage %s, ignoring.", v);
 
                         continue;
+
                 } else if (streq(l, "cgroup")) {
-                        char *s;
 
-                        s = strdup(v);
-                        if (!s)
-                                return -ENOMEM;
-
-                        if (u->cgroup_path) {
-                                void *p;
-
-                                p = hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                                log_info("Removing cgroup_path %s from hashmap (%p)", u->cgroup_path, p);
-                                free(u->cgroup_path);
-                        }
-
-                        u->cgroup_path = s;
-                        assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
+                        r = unit_set_cgroup_path(u, v);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to set cgroup path %s, ignoring: %m", v);
 
                         continue;
                 }
@@ -2801,15 +2822,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 if (unit_can_serialize(u)) {
                         if (rt) {
                                 r = exec_runtime_deserialize_item(rt, u, l, v, fds);
-                                if (r < 0)
-                                        return r;
+                                if (r < 0) {
+                                        log_unit_warning(u->id, "Failed to deserialize runtime parameter '%s', ignoring.", l);
+                                        continue;
+                                }
+
+                                /* Returns positive if key was handled by the call */
                                 if (r > 0)
                                         continue;
                         }
 
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
-                                return r;
+                                log_unit_warning(u->id, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
 }

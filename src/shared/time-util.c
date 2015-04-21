@@ -398,18 +398,21 @@ void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
                 t->monotonic);
 }
 
-void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
+int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         unsigned long long a, b;
 
         assert(value);
         assert(t);
 
-        if (sscanf(value, "%llu %llu", &a, &b) != 2)
-                log_debug("Failed to parse finish timestamp value %s", value);
-        else {
-                t->realtime = a;
-                t->monotonic = b;
+        if (sscanf(value, "%llu %llu", &a, &b) != 2) {
+                log_debug("Failed to parse finish timestamp value %s.", value);
+                return -EINVAL;
         }
+
+        t->realtime = a;
+        t->monotonic = b;
+
+        return 0;
 }
 
 int parse_timestamp(const char *t, usec_t *usec) {
