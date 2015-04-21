@@ -200,12 +200,20 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, unsign
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_netdev_full(level, netdev, fmt, ...) log_object_internal(level, 0, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
-#define log_netdev_debug(netdev, ...)       log_netdev_full(LOG_DEBUG, netdev, ##__VA_ARGS__)
-#define log_netdev_info(netdev, ...)        log_netdev_full(LOG_INFO, netdev, ##__VA_ARGS__)
-#define log_netdev_notice(netdev, ...)      log_netdev_full(LOG_NOTICE, netdev, ##__VA_ARGS__)
-#define log_netdev_warning(netdev, ...)     log_netdev_full(LOG_WARNING, netdev,## __VA_ARGS__)
-#define log_netdev_error(netdev, ...)       log_netdev_full(LOG_ERR, netdev, ##__VA_ARGS__)
+#define log_netdev_full(netdev, level, error, fmt, ...)                  \
+        log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
+
+#define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_netdev_info(netdev, ...)        log_netdev_full(netdev, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_netdev_notice(netdev, ...)      log_netdev_full(netdev, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_netdev_warning(netdev, ...)     log_netdev_full(netdev, LOG_WARNING, 0, ## __VA_ARGS__)
+#define log_netdev_error(netdev, ...)       log_netdev_full(netdev, LOG_ERR, 0, ##__VA_ARGS__)
+
+#define log_netdev_debug_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_netdev_info_errno(netdev, error, ...)    log_netdev_full(netdev, LOG_INFO, error, ##__VA_ARGS__)
+#define log_netdev_notice_errno(netdev, error, ...)  log_netdev_full(netdev, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_netdev_warning_errno(netdev, error, ...) log_netdev_full(netdev, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_netdev_error_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_ERR, error, ##__VA_ARGS__)
 
 #define log_netdev_struct(level, netdev, ...) log_struct(level, "INTERFACE=%s", netdev->ifname, __VA_ARGS__)
 

@@ -190,34 +190,21 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
         assert(link);
         assert(callback);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req,
-                                     RTM_SETLINK, link->ifindex);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not allocate RTM_SETLINK message: %s",
-                                 strerror(-r));
-                return r;
-        }
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not allocate RTM_SETLINK message: %m");
 
         r = sd_rtnl_message_append_u32(req, IFLA_MASTER, netdev->ifindex);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not append IFLA_MASTER attribute: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
 
         r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
-        if (r < 0) {
-                log_netdev_error(netdev,
-                                 "Could not send rtnetlink message: %s",
-                                 strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error(netdev, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
-        log_netdev_debug(netdev, "enslaving link '%s'", link->ifname);
+        log_netdev_debug(netdev, "Enslaving link '%s'", link->ifname);
 
         return 0;
 }
@@ -262,13 +249,13 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         if (r == -EEXIST)
                 log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
         else if (r < 0) {
-                log_netdev_warning(netdev, "netdev could not be created: %s", strerror(-r));
+                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
                 netdev_drop(netdev);
 
                 return 1;
         }
 
-        log_netdev_debug(netdev, "created");
+        log_netdev_debug(netdev, "Created");
 
         return 1;
 }
@@ -297,8 +284,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
 
-                log_netdev_debug(netdev, "will enslave '%s', when reday",
-                                 link->ifname);
+                log_netdev_debug(netdev, "Will enslave '%s', when ready", link->ifname);
         }
 
         return 0;
@@ -315,25 +301,23 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         assert(message);
 
         r = sd_rtnl_message_get_type(message, &type);
-        if (r < 0) {
-                log_netdev_error(netdev, "Could not get rtnl message type");
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
 
         if (type != RTM_NEWLINK) {
-                log_netdev_error(netdev, "Can not set ifindex from unexpected rtnl message type");
+                log_netdev_error(netdev, "Cannot set ifindex from unexpected rtnl message type.");
                 return -EINVAL;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_netdev_error(netdev, "Could not get ifindex: %s", strerror(-r));
+                log_netdev_error_errno(netdev, r, "Could not get ifindex: %m");
                 netdev_enter_failed(netdev);
                 return r;
         } else if (ifindex <= 0) {
                 log_netdev_error(netdev, "Got invalid ifindex: %d", ifindex);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         if (netdev->ifindex > 0) {
@@ -348,35 +332,26 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         }
 
         r = sd_rtnl_message_read_string(message, IFLA_IFNAME, &received_name);
-        if (r < 0) {
-                log_netdev_error(netdev, "Could not get IFNAME");
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not get IFNAME: %m");
 
         if (!streq(netdev->ifname, received_name)) {
-                log_netdev_error(netdev, "Received newlink with wrong IFNAME %s",
-                                 received_name);
+                log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
                 netdev_enter_failed(netdev);
                 return r;
         }
 
         r = sd_rtnl_message_enter_container(message, IFLA_LINKINFO);
-        if (r < 0) {
-                log_netdev_error(netdev, "Could not get LINKINFO");
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
 
         r = sd_rtnl_message_read_string(message, IFLA_INFO_KIND, &received_kind);
-        if (r < 0) {
-                log_netdev_error(netdev, "Could not get KIND");
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
 
         r = sd_rtnl_message_exit_container(message);
-        if (r < 0) {
-                log_netdev_error(netdev, "Could not exit container");
-                return r;
-        }
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
 
         if (netdev->kind == NETDEV_KIND_TAP)
                 /* the kernel does not distinguish between tun and tap */
@@ -468,72 +443,43 @@ static int netdev_create(NetDev *netdev, Link *link,
                 if (r < 0)
                         return r;
 
-                log_netdev_debug(netdev, "created");
+                log_netdev_debug(netdev, "Created");
         } else {
                 _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
 
                 r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not allocate RTM_NEWLINK message: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not allocate RTM_NEWLINK message: %m");
 
                 r = sd_rtnl_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_IFNAME, attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IFNAME, attribute: %m");
 
                 if (netdev->mac) {
                         r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
-                        if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not append IFLA_ADDRESS attribute: %s",
-                                                 strerror(-r));
-                            return r;
-                        }
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
                 }
 
                 if (netdev->mtu) {
                         r = sd_rtnl_message_append_u32(m, IFLA_MTU, netdev->mtu);
-                        if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not append IFLA_MTU attribute: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");
                 }
 
                 if (link) {
                         r = sd_rtnl_message_append_u32(m, IFLA_LINK, link->ifindex);
-                        if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not append IFLA_LINK attribute: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINK attribute: %m");
                 }
 
                 r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_LINKINFO attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA,
-                                                         netdev_kind_to_string(netdev->kind));
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_INFO_DATA attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                r = sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
                 if (NETDEV_VTABLE(netdev)->fill_message_create) {
                         r = NETDEV_VTABLE(netdev)->fill_message_create(netdev, link, m);
@@ -542,50 +488,30 @@ static int netdev_create(NetDev *netdev, Link *link,
                 }
 
                 r = sd_rtnl_message_close_container(m);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_LINKINFO attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
                 r = sd_rtnl_message_close_container(m);
-                if (r < 0) {
-                        log_netdev_error(netdev,
-                                         "Could not append IFLA_LINKINFO attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
                 if (link) {
-                        r = sd_rtnl_call_async(netdev->manager->rtnl, m,
-                                               callback, link, 0, NULL);
-                        if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not send rtnetlink message: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
+                        r = sd_rtnl_call_async(netdev->manager->rtnl, m, callback, link, 0, NULL);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
                         link_ref(link);
                 } else {
-                        r = sd_rtnl_call_async(netdev->manager->rtnl, m,
-                                               netdev_create_handler, netdev, 0,
-                                               NULL);
-                        if (r < 0) {
-                                log_netdev_error(netdev,
-                                                 "Could not send rtnetlink message: %s",
-                                                 strerror(-r));
-                                return r;
-                        }
+                        r = sd_rtnl_call_async(netdev->manager->rtnl, m, netdev_create_handler, netdev, 0, NULL);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
                         netdev_ref(netdev);
                 }
 
                 netdev->state = NETDEV_STATE_CREATING;
 
-                log_netdev_debug(netdev, "creating");
+                log_netdev_debug(netdev, "Creating");
         }
 
         return 0;
@@ -709,11 +635,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         if (!netdev->mac) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
-                if (r < 0) {
-                        log_error("Failed to generate predictable MAC address for %s",
-                                  netdev->ifname);
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
         }
 
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
@@ -742,8 +665,9 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 }
 
 int netdev_load(Manager *manager) {
+        _cleanup_strv_free_ char **files = NULL;
         NetDev *netdev;
-        char **files, **f;
+        char **f;
         int r;
 
         assert(manager);
@@ -760,8 +684,6 @@ int netdev_load(Manager *manager) {
                 if (r < 0)
                         return r;
         }
-
-        strv_free(files);
 
         return 0;
 }

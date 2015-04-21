@@ -425,8 +425,8 @@ int config_parse_netdev(const char *unit,
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Can not add VLAN '%s' to network: %s",
-                                   rvalue, strerror(-r));
+                                   "Can not add VLAN '%s' to network: %m",
+                                   rvalue);
                         return 0;
                 }
 
@@ -502,8 +502,7 @@ int config_parse_tunnel(const char *unit,
 
         r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Tunnel is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -523,9 +522,7 @@ int config_parse_tunnel(const char *unit,
 
         r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Can not add VLAN '%s' to network: %s",
-                           rvalue, strerror(-r));
+                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add VLAN '%s' to network, ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -694,13 +691,13 @@ int config_parse_ipv6token(
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse IPv6 token, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 token, ignoring: %s", rvalue);
                 return 0;
         }
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 

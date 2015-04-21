@@ -88,7 +88,7 @@ static int set_fdb_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_error(link, "Could not add FDB entry: %s", strerror(-r));
+                log_link_error_errno(link, r, "Could not add FDB entry: %m");
 
         return 1;
 }
@@ -133,10 +133,8 @@ int fdb_entry_configure(Link *const link, FdbEntry *const fdb_entry) {
 
         /* send message to the kernel to update its internal static MAC table. */
         r = sd_rtnl_call_async(rtnl, req, set_fdb_handler, link, 0, NULL);
-        if (r < 0) {
-                log_link_error(link, "Could not send rtnetlink message: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         return 0;
 }
@@ -182,10 +180,8 @@ int config_parse_fdb_hwaddr(const char *unit,
         assert(data);
 
         r = fdb_entry_new_static(network, section_line, &fdb_entry);
-        if (r < 0) {
-                log_error("Failed to allocate a new FDB entry: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_oom();
 
         /* read in the MAC address for the FDB table. */
         r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
@@ -229,18 +225,14 @@ int config_parse_fdb_vlan_id(const char *unit,
         assert(data);
 
         r = fdb_entry_new_static(network, section_line, &fdb_entry);
-        if (r < 0) {
-                log_error("Failed to allocate a new FDB entry: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return log_oom();
 
         r = config_parse_unsigned(unit, filename, line, section,
                                   section_line, lvalue, ltype,
                                   rvalue, &fdb_entry->vlan_id, userdata);
-        if (r < 0) {
-                log_error("Failed to parse the unsigned integer: %s", strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
         fdb_entry = NULL;
 

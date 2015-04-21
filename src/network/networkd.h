@@ -448,7 +448,7 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;
 
 int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
-/* Opeartional State */
+/* Operational State */
 
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
