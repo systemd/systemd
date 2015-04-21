@@ -363,7 +363,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
         if (param->ioctlfd < 0)
                 return -EIO;
 
-        fd_cloexec(param->ioctlfd, true);
+        (void) fd_cloexec(param->ioctlfd, true);
         return param->ioctlfd;
 }
 
@@ -713,8 +713,7 @@ static void automount_enter_runnning(Automount *a) {
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
-                log_unit_warning(UNIT(a)->id,
-                                 "%s failed to stat automount point: %m", UNIT(a)->id);
+                log_unit_warning_errno(UNIT(a)->id, errno, "%s failed to stat automount point: %m", UNIT(a)->id);
                 goto fail;
         }
 
@@ -840,13 +839,15 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                 if (safe_atou(value, &token) < 0)
                         log_unit_debug(u->id, "Failed to parse token value %s", value);
                 else {
-                        if (!a->tokens)
-                                if (!(a->tokens = set_new(NULL)))
-                                        return -ENOMEM;
+                        r = set_ensure_allocated(&a->tokens, NULL);
+                        if (r < 0) {
+                                log_oom();
+                                return 0;
+                        }
 
                         r = set_put(a->tokens, UINT_TO_PTR(token));
                         if (r < 0)
-                                return r;
+                                log_unit_error_errno(u->id, r, "Failed to add token to set: %m");
                 }
         } else if (streq(key, "expire-token")) {
                 unsigned token;
