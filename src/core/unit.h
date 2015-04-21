@@ -52,6 +52,8 @@ typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_KILL,
         KILL_ABORT,
+        _KILL_OPERATION_MAX,
+        _KILL_OPERATION_INVALID = -1
 } KillOperation;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {

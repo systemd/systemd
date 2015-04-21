@@ -1367,6 +1367,25 @@ fail:
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
+static int state_to_kill_operation(ServiceState state) {
+        switch (state) {
+
+        case SERVICE_STOP_SIGABRT:
+                return KILL_ABORT;
+
+        case SERVICE_STOP_SIGTERM:
+        case SERVICE_FINAL_SIGTERM:
+                return KILL_TERMINATE;
+
+        case SERVICE_STOP_SIGKILL:
+        case SERVICE_FINAL_SIGKILL:
+                return KILL_KILL;
+
+        default:
+                return _KILL_OPERATION_INVALID;
+        }
+}
+
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f) {
         int r;
 
@@ -1380,8 +1399,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        (state != SERVICE_STOP_SIGTERM && state != SERVICE_FINAL_SIGTERM && state != SERVICE_STOP_SIGABRT) ?
-                        KILL_KILL : (state == SERVICE_STOP_SIGABRT ? KILL_ABORT : KILL_TERMINATE),
+                        state_to_kill_operation(state),
                         s->main_pid,
                         s->control_pid,
                         s->main_pid_alien);
