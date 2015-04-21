@@ -141,7 +141,8 @@ int main(int argc, char *argv[]) {
               "[Unit]\n"
               "Description=EFI System Partition Automount\n\n"
               "[Automount]\n"
-              "Where=/boot\n", f);
+              "Where=/boot\n"
+              "TimeoutIdleSec=120\n", f);
 
         fflush(f);
         if (ferror(f)) {
