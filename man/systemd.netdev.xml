@@ -666,7 +666,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LearnPacketIntvSec,=</varname></term>
+        <term><varname>LearnPacketIntervalSec=</varname></term>
         <listitem>
           <para>Specifies the number of seconds between instances where the bonding
           driver sends learning packets to each slaves peer switch.
@@ -687,7 +687,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FailOverMac=</varname></term>
+        <term><varname>FailOverMACPolicy=</varname></term>
         <listitem>
           <para>Specifies whether active-backup mode should set all slaves to
           the same MAC address at enslavement or, when enabled, perform special handling of the
@@ -701,10 +701,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ArpValidate=</varname></term>
+        <term><varname>ARPValidate=</varname></term>
         <listitem>
           <para>Specifies whether or not ARP probes and replies should be
-          validated in any mode that supports arp monitoring, or whether
+          validated in any mode that supports ARP monitoring, or whether
           non-ARP traffic should be filtered (disregarded) for link
           monitoring purposes. Possible values are
           <literal>none</literal>,
@@ -716,7 +716,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ArpIntervalSec=</varname></term>
+        <term><varname>ARPIntervalSec=</varname></term>
         <listitem>
           <para>Specifies the ARP link monitoring frequency in milliseconds.
           A value of 0 disables ARP monitoring. The default value is 0.
@@ -725,10 +725,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ArpIpTargets=</varname></term>
+        <term><varname>ARPIPTargets=</varname></term>
         <listitem>
           <para>Specifies the IP addresses to use as ARP monitoring peers when
-          ArpIntervalSec is greater than 0. These are the targets of the ARP request
+          ARPIntervalSec is greater than 0. These are the targets of the ARP request
           sent to determine the health of the link to the targets.
           Specify these values in ipv4 dotted decimal format. At least one IP
           address must be given for ARP monitoring to function. The
@@ -739,12 +739,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ArpAllTargets=</varname></term>
+        <term><varname>ARPAllTargets=</varname></term>
         <listitem>
-          <para>Specifies the quantity of ArpIpTargets that must be reachable
+          <para>Specifies the quantity of ARPIPTargets that must be reachable
           in order for the ARP monitor to consider a slave as being up.
           This option affects only active-backup mode for slaves with
-          ArpValidate enabled. Possible values are
+          ARPValidate enabled. Possible values are
           <literal>any</literal>,
           <literal>all</literal>
           </para>
@@ -752,7 +752,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PrimaryReselect=</varname></term>
+        <term><varname>PrimaryReselectPolicy=</varname></term>
         <listitem>
           <para>Specifies the reselection policy for the primary slave.  This
           affects how the primary slave is chosen to become the active slave
@@ -791,16 +791,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NumGratuitousARP=</varname></term>
+        <term><varname>GratuitousARP=</varname></term>
         <listitem>
           <para>Specify the number of peer notifications (gratuitous ARPs and
             unsolicited IPv6 Neighbor Advertisements) to be issued after a
             failover event.  As soon as the link is up on the new slave
             a peer notification is sent on the  bonding device and each
             VLAN sub-device.  This is repeated at each link monitor interval
-            (ArpIntervalSec or MIIMonitorSec, whichever is active) if the number is
+            (ARPIntervalSec or MIIMonitorSec, whichever is active) if the number is
             greater than 1. The valid range is (0 - 255). Default value is 1.
-            These options affect only the active-backup mode
+            These options affect only the active-backup mode.
           </para>
         </listitem>
       </varlistentry>
