@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        assert_se(set_unit_path(TEST_DIR ":") >= 0);
+        assert_se(set_unit_path(TEST_DIR) >= 0);
 
         for (test = tests; test && *test; test++) {
                 int r;

@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        assert_se(set_unit_path(TEST_DIR ":") >= 0);
+        assert_se(set_unit_path(TEST_DIR) >= 0);
 
         r = manager_new(SYSTEMD_USER, true, &m);
         if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
