@@ -648,7 +648,6 @@ dist_doc_DATA = \
 	NEWS \
 	LICENSE.LGPL2.1 \
 	LICENSE.GPL2 \
-	LICENSE.MIT \
 	DISTRO_PORTING \
 	src/libsystemd/sd-bus/PORTING-DBUS1 \
 	src/libsystemd/sd-bus/DIFFERENCES \
