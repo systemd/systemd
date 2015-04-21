@@ -74,6 +74,7 @@ dbussessionservicedir=@dbussessionservicedir@
 dbussystemservicedir=@dbussystemservicedir@
 pamlibdir=@pamlibdir@
 pamconfdir=@pamconfdir@
+pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=@bashcompletiondir@
@@ -131,6 +132,7 @@ noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
 include_HEADERS =
 noinst_DATA =
+pkgconfigdata_DATA =
 pkgconfiglib_DATA =
 polkitpolicy_in_in_files =
 polkitpolicy_in_files =
@@ -164,6 +166,7 @@ in_in_files = $(filter %.in.in, $(in_files))
 m4_files = $(filter %.m4,$(EXTRA_DIST) $(in_files:.m4.in=.m4))
 
 CLEANFILES = $(BUILT_SOURCES) \
+	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(in_files:.in=) $(in_in_files:.in.in=) \
 	$(m4_files:.m4=)
@@ -1346,7 +1349,7 @@ dist_dbussystemservice_DATA += \
 polkitpolicy_in_in_files += \
 	src/core/org.freedesktop.systemd1.policy.in.in
 
-pkgconfiglib_DATA += \
+pkgconfigdata_DATA += \
 	src/core/systemd.pc
 
 nodist_rpmmacros_DATA = \

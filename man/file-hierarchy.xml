@@ -257,7 +257,6 @@
         architecture-dependent, too. To query
         <varname>$libdir</varname> for the primary architecture of the
         system, invoke:
-        <programlisting># pkg-config --variable=libdir systemd</programlisting> or
         <programlisting># systemd-path system-library-arch</programlisting></para></listitem>
 
       </varlistentry>
