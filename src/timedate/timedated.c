@@ -326,7 +326,7 @@ static int property_get_rtc_time(
                 log_debug("/dev/rtc not found.");
                 t = 0; /* no RTC found */
         } else if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
         else
                 t = (usec_t) timegm(&tm) * USEC_PER_SEC;
 
@@ -402,7 +402,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         r = context_write_data_timezone(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to set time zone: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
         }
 
         /* 2. Tell the kernel our timezone */
@@ -465,7 +465,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
         r = context_write_data_local_rtc(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to set RTC to local/UTC: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to local/UTC: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to local/UTC: %m");
         }
 
         /* 2. Tell the kernel our timezone */
