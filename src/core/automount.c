@@ -476,8 +476,6 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
 }
 
 int automount_update_mount(Automount *a, MountState old_state, MountState state) {
-        _cleanup_close_ int ioctl_fd = -1;
-
         assert(a);
 
         switch (state) {
