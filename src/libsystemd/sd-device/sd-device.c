@@ -184,15 +184,17 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         path = strjoina(syspath, "/uevent");
                         r = access(path, F_OK);
                         if (r < 0) {
+                                if (errno == ENOENT)
+                                        /* this is not a valid device */
+                                        return -ENODEV;
+
                                 log_debug("sd-device: %s does not have an uevent file: %m", syspath);
                                 return -errno;
                         }
                 } else {
                         /* everything else just just needs to be a directory */
-                        if (!is_dir(syspath, false)) {
-                                log_debug("sd-device: %s is not a directory", syspath);
-                                return -EINVAL;
-                        }
+                        if (!is_dir(syspath, false))
+                                return -ENODEV;
                 }
         } else {
                 syspath = strdup(_syspath);
