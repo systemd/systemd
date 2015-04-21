@@ -776,6 +776,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/architecture.h \
 	src/shared/efivars.c \
 	src/shared/efivars.h \
+	src/shared/formats-util.h \
 	src/shared/fstab-util.c \
 	src/shared/fstab-util.h \
 	src/shared/path-util.c \
