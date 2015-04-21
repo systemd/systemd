@@ -1409,11 +1409,11 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                 }
 
                 service_set_state(s, state);
-        } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGABRT)
+        } else if (IN_SET(state, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM) && s->kill_context.send_sigkill)
                 service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_SUCCESS);
-        else if (state == SERVICE_STOP_SIGKILL)
+        else if (IN_SET(state, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL))
                 service_enter_stop_post(s, SERVICE_SUCCESS);
-        else if (state == SERVICE_FINAL_SIGTERM)
+        else if (state == SERVICE_FINAL_SIGTERM && s->kill_context.send_sigkill)
                 service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
         else
                 service_enter_dead(s, SERVICE_SUCCESS, true);
