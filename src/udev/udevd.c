@@ -409,7 +409,7 @@ out:
                 udev_builtin_exit(udev);
                 udev_unref(udev);
                 log_close();
-                exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
         case -1:
                 event->state = EVENT_QUEUED;
