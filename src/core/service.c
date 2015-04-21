@@ -807,8 +807,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                    SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -816,8 +815,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                    SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
@@ -826,8 +824,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                    SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -840,8 +837,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_STOP_SIGABRT, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
+                    SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
             !(state == SERVICE_DEAD && UNIT(s)->job)) {
                 service_close_socket_fd(s);
                 service_connection_unref(s);
@@ -894,8 +891,7 @@ static int service_coldplug(Unit *u, Hashmap *deferred_work) {
                 if (IN_SET(s->deserialized_state,
                            SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                            SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                           SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
 
                         usec_t k;
@@ -923,8 +919,7 @@ static int service_coldplug(Unit *u, Hashmap *deferred_work) {
                      IN_SET(s->deserialized_state,
                             SERVICE_START, SERVICE_START_POST,
                             SERVICE_RUNNING, SERVICE_RELOAD,
-                            SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                            SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                            SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                             SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
                         r = unit_watch_pid(UNIT(s), s->main_pid);
                         if (r < 0)
@@ -935,8 +930,7 @@ static int service_coldplug(Unit *u, Hashmap *deferred_work) {
                     IN_SET(s->deserialized_state,
                            SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                            SERVICE_RELOAD,
-                           SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                           SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
+                           SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                         r = unit_watch_pid(UNIT(s), s->control_pid);
                         if (r < 0)
