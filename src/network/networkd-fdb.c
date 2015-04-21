@@ -148,9 +148,9 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
                 LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries,
                             fdb_entry);
 
-                if(fdb_entry->section)
-                    hashmap_remove(fdb_entry->network->fdb_entries_by_section,
-                                   UINT_TO_PTR(fdb_entry->section));
+                if (fdb_entry->section)
+                        hashmap_remove(fdb_entry->network->fdb_entries_by_section,
+                                       UINT_TO_PTR(fdb_entry->section));
         }
 
         free(fdb_entry->mac_addr);
@@ -159,16 +159,18 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
 }
 
 /* parse the HW address from config files. */
-int config_parse_fdb_hwaddr(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_fdb_hwaddr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
         int r;
@@ -192,9 +194,8 @@ int config_parse_fdb_hwaddr(const char *unit,
                    &fdb_entry->mac_addr->ether_addr_octet[4],
                    &fdb_entry->mac_addr->ether_addr_octet[5]);
 
-        if (ETHER_ADDR_LEN !=  r) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Not a valid MAC address, ignoring assignment: %s", rvalue);
+        if (ETHER_ADDR_LEN != r) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -204,16 +205,18 @@ int config_parse_fdb_hwaddr(const char *unit,
 }
 
 /* parse the VLAN Id from config files. */
-int config_parse_fdb_vlan_id(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_fdb_vlan_id(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
         int r;
