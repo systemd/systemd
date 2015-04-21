@@ -124,7 +124,6 @@ struct worker {
 
 /* passed from worker to main process */
 struct worker_message {
-        pid_t pid;
         int exitcode;
 };
 
@@ -332,7 +331,6 @@ skip:
                         /* send udevd the result of the event execution */
                         memzero(&msg, sizeof(struct worker_message));
                         msg.exitcode = err;
-                        msg.pid = getpid();
                         send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
                         log_debug("seq %llu processed with %i", udev_device_get_seqnum(dev), err);
@@ -599,18 +597,54 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type) 
 static void worker_returned(int fd_worker) {
         for (;;) {
                 struct worker_message msg;
+                struct iovec iovec = {
+                        .iov_base = &msg,
+                        .iov_len = sizeof(msg),
+                };
+                union {
+                        struct cmsghdr cmsghdr;
+                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+                } control = {};
+                struct msghdr msghdr = {
+                        .msg_iov = &iovec,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
+                struct cmsghdr *cmsg;
                 ssize_t size;
+                struct ucred *ucred = NULL;
                 struct udev_list_node *loop;
 
-                size = recv(fd_worker, &msg, sizeof(struct worker_message), MSG_DONTWAIT);
-                if (size != sizeof(struct worker_message))
-                        break;
+                size = recvmsg(fd_worker, &msghdr, MSG_DONTWAIT);
+                if (size < 0) {
+                        if (errno == EAGAIN || errno == EINTR)
+                                return;
+
+                        log_error_errno(errno, "failed to receive message: %m");
+                        return;
+                } else if (size != sizeof(struct worker_message)) {
+                        log_warning_errno(EIO, "ignoring worker message with invalid size %zi bytes", size);
+                        return;
+                }
+
+                for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg; cmsg = CMSG_NXTHDR(&msghdr, cmsg)) {
+                        if (cmsg->cmsg_level == SOL_SOCKET &&
+                            cmsg->cmsg_type == SCM_CREDENTIALS &&
+                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                                ucred = (struct ucred*) CMSG_DATA(cmsg);
+                }
+
+                if (!ucred || ucred->pid <= 0) {
+                        log_warning_errno(EIO, "ignoring worker message without valid PID");
+                        continue;
+                }
 
                 /* lookup worker who sent the signal */
                 udev_list_node_foreach(loop, &worker_list) {
                         struct worker *worker = node_to_worker(loop);
 
-                        if (worker->pid != msg.pid)
+                        if (worker->pid != ucred->pid)
                                 continue;
 
                         /* worker returned */
@@ -1132,7 +1166,7 @@ int main(int argc, char *argv[]) {
         struct epoll_event ep_netlink = { .events = EPOLLIN };
         struct epoll_event ep_worker = { .events = EPOLLIN };
         struct udev_ctrl_connection *ctrl_conn = NULL;
-        int rc = 1, r;
+        int rc = 1, r, one = 1;
 
         udev = udev_new();
         if (udev == NULL)
@@ -1326,6 +1360,10 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
         fd_worker = worker_watch[READ_END];
+
+        r = setsockopt(fd_worker, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0)
+                return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
 
         ep_ctrl.data.fd = fd_ctrl;
         ep_inotify.data.fd = fd_inotify;
