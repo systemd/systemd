@@ -2694,9 +2694,8 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_STOP_SIGABRT:
-                log_unit_warning(UNIT(s)->id,
-                                 "%s stop-sigabrt timed out. Terminating.", UNIT(s)->id);
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, s->result);
+                log_unit_warning(UNIT(s)->id, "%s stop-sigabrt timed out. Terminating.", UNIT(s)->id);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_STOP_SIGTERM:
