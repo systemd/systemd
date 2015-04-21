@@ -1423,8 +1423,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 fail:
         log_unit_warning_errno(UNIT(s)->id, r, "%s failed to kill processes: %m", UNIT(s)->id);
 
-        if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL ||
-            state == SERVICE_STOP_SIGABRT)
+        if (IN_SET(state, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL))
                 service_enter_stop_post(s, SERVICE_FAILURE_RESOURCES);
         else
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
@@ -1849,19 +1848,13 @@ static int service_start(Unit *u) {
 
         /* We cannot fulfill this request right now, try again later
          * please! */
-        if (s->state == SERVICE_STOP ||
-            s->state == SERVICE_STOP_SIGABRT ||
-            s->state == SERVICE_STOP_SIGTERM ||
-            s->state == SERVICE_STOP_SIGKILL ||
-            s->state == SERVICE_STOP_POST ||
-            s->state == SERVICE_FINAL_SIGTERM ||
-            s->state == SERVICE_FINAL_SIGKILL)
+        if (IN_SET(s->state,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
                 return -EAGAIN;
 
         /* Already on it! */
-        if (s->state == SERVICE_START_PRE ||
-            s->state == SERVICE_START ||
-            s->state == SERVICE_START_POST)
+        if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return 0;
 
         /* A service that will be restarted must be stopped first to
@@ -1874,7 +1867,7 @@ static int service_start(Unit *u) {
         if (s->state == SERVICE_AUTO_RESTART)
                 return -EAGAIN;
 
-        assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED);
+        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
 
         /* Make sure we don't enter a busy loop of some kind. */
         r = service_start_limit_test(s);
@@ -1909,13 +1902,9 @@ static int service_stop(Unit *u) {
         s->forbid_restart = true;
 
         /* Already on it */
-        if (s->state == SERVICE_STOP ||
-            s->state == SERVICE_STOP_SIGABRT ||
-            s->state == SERVICE_STOP_SIGTERM ||
-            s->state == SERVICE_STOP_SIGKILL ||
-            s->state == SERVICE_STOP_POST ||
-            s->state == SERVICE_FINAL_SIGTERM ||
-            s->state == SERVICE_FINAL_SIGKILL)
+        if (IN_SET(s->state,
+                   SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
                 return 0;
 
         /* A restart will be scheduled or is in progress. */
@@ -1926,16 +1915,12 @@ static int service_stop(Unit *u) {
 
         /* If there's already something running we go directly into
          * kill mode. */
-        if (s->state == SERVICE_START_PRE ||
-            s->state == SERVICE_START ||
-            s->state == SERVICE_START_POST ||
-            s->state == SERVICE_RELOAD) {
+        if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD)) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
                 return 0;
         }
 
-        assert(s->state == SERVICE_RUNNING ||
-               s->state == SERVICE_EXITED);
+        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
         service_enter_stop(s, SERVICE_SUCCESS);
         return 1;
