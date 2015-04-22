@@ -91,6 +91,7 @@ static void check_execcommand(ExecCommand *c,
 
 static void test_config_parse_exec(void) {
         /* int config_parse_exec(
+                 const char *unit,
                  const char *filename,
                  unsigned line,
                  const char *section,
@@ -298,6 +299,20 @@ static void test_config_parse_exec(void) {
         /* backslash is invalid */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* missing ending ' */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "/path 'foo",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        log_info("/* missing ending ' with trailing backslash */");
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
+                              "LValue", 0, "/path 'foo\\",
                               &c, NULL);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);

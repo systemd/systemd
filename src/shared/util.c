@@ -570,13 +570,12 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 char quotechars[2] = {*current, '\0'};
 
                 *l = strcspn_escaped(current + 1, quotechars);
-                if (current[*l + 1] == '\0' ||
+                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
                         *state = current;
                         return NULL;
                 }
-                assert(current[*l + 1] == quotechars[0]);
                 *state = current++ + *l + 2;
         } else if (quoted) {
                 *l = strcspn_escaped(current, separator);
