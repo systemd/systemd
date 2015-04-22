@@ -46,6 +46,8 @@ Before 220:
 
 Features:
 
+* nspawn: as soon as networkd has a bus interface, hook up --network-interface= with networkd, to trigger netdev creation should an interface be missing
+
 * networkd: make DHCP server IP range configurable, including only with a single IP address
 
 * rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
