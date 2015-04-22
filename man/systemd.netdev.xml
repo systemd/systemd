@@ -155,6 +155,9 @@
           <row><entry><varname>vti</varname></entry>
           <entry>An IPv4 over IPSec tunnel.</entry></row>
 
+          <row><entry><varname>vti6</varname></entry>
+          <entry>An IPv6 over IPSec tunnel.</entry></row>
+
           <row><entry><varname>vxlan</varname></entry>
           <entry>A virtual extensible LAN (vxlan), for connecting Cloud computing deployments.</entry></row>
         </tbody>
@@ -441,7 +444,8 @@
     <literal>gretap</literal>,
     <literal>ip6gre</literal>,
     <literal>ip6gretap</literal>,
-    <literal>vti</literal>, and
+    <literal>vti</literal>,
+    <literal>vti6</literal>, and
     <literal>ip6tnl</literal> and accepts
     the following keys:</para>
 
