@@ -346,11 +346,11 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
 Mon Dec  8 20:44:24 KST 2014
 Running as unit run-71.timer.
 Will run as unit run-71.service.
-# journalctl -b -u run-73.timer
+# journalctl -b -u run-71.timer
 -- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
 Dec 08 20:44:38 container systemd[1]: Starting /bin/touch /tmp/foo.
 Dec 08 20:44:38 container systemd[1]: Started /bin/touch /tmp/foo.
-# journalctl -b -u run-73.service
+# journalctl -b -u run-71.service
 -- Logs begin at Fri 2014-12-05 19:09:21 KST, end at Mon 2014-12-08 20:44:54 KST. --
 Dec 08 20:44:48 container systemd[1]: Starting /bin/touch /tmp/foo...
 Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisting>
