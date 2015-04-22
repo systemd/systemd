@@ -43,6 +43,7 @@
 #include "formats-util.h"
 #include "process-util.h"
 #include "terminal-util.h"
+#include "utmp-wtmp.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -1800,6 +1801,7 @@ static int manager_scheduled_shutdown_handler(
 
 static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *action_multiple_sessions = NULL;
         const char *action_ignore_inhibit = NULL;
         const char *action = NULL;
@@ -1857,6 +1859,24 @@ static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *
 
         m->scheduled_shutdown_timeout = elapse;
 
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_TTY|SD_BUS_CREDS_UID, &creds);
+        if (r >= 0) {
+                const char *tty;
+
+                (void) sd_bus_creds_get_uid(creds, &m->scheduled_shutdown_uid);
+                (void) sd_bus_creds_get_tty(creds, &tty);
+
+                r = free_and_strdup(&m->scheduled_shutdown_tty, tty);
+                if (r < 0) {
+                        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+                        return log_oom();
+                }
+        }
+
+        r = manager_setup_wall_message_timer(m);
+        if (r < 0)
+                return r;
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
@@ -1870,9 +1890,26 @@ static int method_cancel_scheduled_shutdown(sd_bus *bus, sd_bus_message *message
         cancelled = m->scheduled_shutdown_type != NULL;
 
         m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
         free(m->scheduled_shutdown_type);
         m->scheduled_shutdown_type = NULL;
         m->scheduled_shutdown_timeout = 0;
+
+        if (cancelled) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                const char *tty = NULL;
+                uid_t uid = 0;
+                int r;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_TTY|SD_BUS_CREDS_UID, &creds);
+                if (r >= 0) {
+                        (void) sd_bus_creds_get_uid(creds, &uid);
+                        (void) sd_bus_creds_get_tty(creds, &tty);
+                }
+
+                utmp_wall("The system shutdown has been cancelled",
+                          lookup_uid(uid), tty, logind_wall_tty_filter, m);
+        }
 
         return sd_bus_reply_method_return(message, "b", cancelled);
 }
@@ -2274,6 +2311,9 @@ fail:
 
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
+
+        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", NULL, NULL, offsetof(Manager, enable_wall_messages), 0),
+        SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),

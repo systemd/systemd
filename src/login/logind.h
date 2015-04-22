@@ -100,6 +100,12 @@ struct Manager {
         char *scheduled_shutdown_type;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;
+        uid_t scheduled_shutdown_uid;
+        char *scheduled_shutdown_tty;
+
+        char *wall_message;
+        unsigned enable_wall_messages;
+        sd_event_source *wall_message_timeout_source;
 
         sd_event_source *idle_action_event_source;
         usec_t idle_action_usec;
@@ -185,3 +191,6 @@ int config_parse_tmpfs_size(const char *unit, const char *filename, unsigned lin
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);
 int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret);
+
+int manager_setup_wall_message_timer(Manager *m);
+bool logind_wall_tty_filter(const char *tty, void *userdata);

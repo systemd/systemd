@@ -5987,6 +5987,7 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
+	src/login/logind-utmp.c \
 	src/login/logind-acl.h
 
 libsystemd_logind_core_la_LIBADD = \
