@@ -49,7 +49,8 @@ typedef enum BtrfsSnapshotFlags {
         BTRFS_SNAPSHOT_RECURSIVE = 4,
 } BtrfsSnapshotFlags;
 
-int btrfs_is_snapshot(int fd);
+int btrfs_is_filesystem(int fd);
+int btrfs_is_subvol(int fd);
 
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_make_label(const char *path);

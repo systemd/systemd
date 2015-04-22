@@ -136,12 +136,11 @@ static int image_make(
 
                 /* btrfs subvolumes have inode 256 */
                 if (st.st_ino == 256) {
-                        struct statfs sfs;
 
-                        if (fstatfs(fd, &sfs) < 0)
-                                return -errno;
-
-                        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC)) {
+                        r = btrfs_is_filesystem(fd);
+                        if (r < 0)
+                                return r;
+                        if (r) {
                                 BtrfsSubvolInfo info;
                                 BtrfsQuotaInfo quota;
 
