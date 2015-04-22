@@ -513,6 +513,7 @@ int config_parse_tunnel(const char *unit,
             netdev->kind != NETDEV_KIND_IP6GRE &&
             netdev->kind != NETDEV_KIND_IP6GRETAP &&
             netdev->kind != NETDEV_KIND_VTI &&
+            netdev->kind != NETDEV_KIND_VTI6 &&
             netdev->kind != NETDEV_KIND_IP6TNL
             ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,

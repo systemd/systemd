@@ -204,6 +204,7 @@ static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_
         [NL_UNION_LINK_INFO_DATA_IP6GRETAP_TUNNEL] = "ip6gretap",
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] = "sit",
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] = "vti",
+        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] = "vti6",
         [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] = "ip6tnl",
 };
 
@@ -237,6 +238,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[_NL_UNION_LINK_INFO_D
         [NL_UNION_LINK_INFO_DATA_SIT_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_iptun_types) - 1,
                                                   .types = rtnl_link_info_data_iptun_types },
         [NL_UNION_LINK_INFO_DATA_VTI_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
+                                                  .types = rtnl_link_info_data_ipvti_types },
+        [NL_UNION_LINK_INFO_DATA_VTI6_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ipvti_types) - 1,
                                                   .types = rtnl_link_info_data_ipvti_types },
         [NL_UNION_LINK_INFO_DATA_IP6TNL_TUNNEL] =  { .max = ELEMENTSOF(rtnl_link_info_data_ip6tnl_types) - 1,
                                                      .types = rtnl_link_info_data_ip6tnl_types },

@@ -212,6 +212,31 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_me
         return r;
 }
 
+static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
+        Tunnel *t = VTI6(netdev);
+        int r;
+
+        assert(netdev);
+        assert(link);
+        assert(m);
+        assert(t);
+        assert(t->family == AF_INET6);
+
+        r = sd_rtnl_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_VTI_LOCAL, &t->local.in6);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
+
+        r = sd_rtnl_message_append_in6_addr(m, IFLA_VTI_REMOTE, &t->remote.in6);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
+
+        return r;
+}
+
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_rtnl_message *m) {
         Tunnel *t = IP6TNL(netdev);
         uint8_t proto;
@@ -286,6 +311,9 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 break;
         case NETDEV_KIND_VTI:
                 t = VTI(netdev);
+                break;
+        case NETDEV_KIND_VTI6:
+                t = VTI6(netdev);
                 break;
         case NETDEV_KIND_IP6TNL:
                 t = IP6TNL(netdev);
@@ -374,6 +402,12 @@ static void vti_init(NetDev *n) {
         Tunnel *t = VTI(n);
 
         assert(n);
+
+        if (n->kind == NETDEV_KIND_VTI)
+                t =  VTI(n);
+        else
+                t = VTI6(n);
+
         assert(t);
 
         t->pmtudisc = true;
@@ -443,6 +477,15 @@ const NetDevVTable vti_vtable = {
         .init = vti_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_vti_fill_message_create,
+        .create_type = NETDEV_CREATE_STACKED,
+        .config_verify = netdev_tunnel_verify,
+};
+
+const NetDevVTable vti6_vtable = {
+        .object_size = sizeof(Tunnel),
+        .init = vti_init,
+        .sections = "Match\0NetDev\0Tunnel\0",
+        .fill_message_create = netdev_vti6_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };

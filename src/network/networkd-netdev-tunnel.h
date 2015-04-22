@@ -55,6 +55,7 @@ struct Tunnel {
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;
+extern const NetDevVTable vti6_vtable;
 extern const NetDevVTable gre_vtable;
 extern const NetDevVTable gretap_vtable;
 extern const NetDevVTable ip6gre_vtable;
