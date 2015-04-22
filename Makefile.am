@@ -3765,8 +3765,7 @@ udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
 	src/udev/udev.conf
 
-sharepkgconfigdir = $(datadir)/pkgconfig
-sharepkgconfig_DATA = \
+pkgconfigdata_DATA += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
