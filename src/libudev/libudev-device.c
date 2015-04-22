@@ -700,7 +700,8 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
 {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation) {
+        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation ||
+            !udev_device->devlinks_read) {
                 const char *devlink;
 
                 udev_list_cleanup(&udev_device->devlinks);
@@ -708,6 +709,7 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
                 FOREACH_DEVICE_DEVLINK(udev_device->device, devlink)
                         udev_list_entry_add(&udev_device->devlinks, devlink, NULL);
 
+                udev_device->devlinks_read = true;
                 udev_device->devlinks_generation = device_get_devlinks_generation(udev_device->device);
         }
 
@@ -730,7 +732,8 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
 {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation) {
+        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation ||
+            !udev_device->properties_read) {
                 const char *key, *value;
 
                 udev_list_cleanup(&udev_device->properties);
@@ -738,6 +741,7 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                 FOREACH_DEVICE_PROPERTY(udev_device->device, key, value)
                         udev_list_entry_add(&udev_device->properties, key, value);
 
+                udev_device->properties_read = true;
                 udev_device->properties_generation = device_get_properties_generation(udev_device->device);
         }
 
@@ -918,7 +922,8 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
 {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation) {
+        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation ||
+            !udev_device->tags_read) {
                 const char *tag;
 
                 udev_list_cleanup(&udev_device->tags);
@@ -926,6 +931,7 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
                         udev_list_entry_add(&udev_device->tags, tag, NULL);
 
+                udev_device->tags_read = true;
                 udev_device->tags_generation = device_get_tags_generation(udev_device->device);
         }
 
