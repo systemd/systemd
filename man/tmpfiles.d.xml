@@ -101,9 +101,12 @@
     the lexicographically earliest name will be applied.  All other
     conflicting entries will be logged as errors. When two lines are
     prefix and suffix of each other, then the prefix is always
-    processed first, the suffix later. Otherwise, the
-    files/directories are processed in the order they are
-    listed.</para>
+    processed first, the suffix later. Lines that take globs are
+    applied after those accepting no globs. If multiple operations
+    shall be applied on the same file (such as ACL, xattr, file
+    attribute adjustments) these are always done in the same fixed
+    order. Otherwise, the files/directories are processed in the order
+    they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
