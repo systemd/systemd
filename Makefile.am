@@ -5489,8 +5489,8 @@ systemd_pull_CFLAGS = \
 	-D USER_KEYRING_PATH=\"$(pkgsysconfdir)/import-pubring.gpg\"
 
 systemd_pull_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-label.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(LIBCURL_LIBS) \
 	$(XZ_LIBS) \
@@ -5517,8 +5517,8 @@ systemd_import_CFLAGS = \
 	$(ZLIB_CFLAGS)
 
 systemd_import_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-label.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(XZ_LIBS) \
 	$(ZLIB_LIBS) \
@@ -5541,8 +5541,8 @@ systemd_export_CFLAGS = \
 	$(ZLIB_CFLAGS)
 
 systemd_export_LDADD = \
-	libsystemd-internal.la \
 	libsystemd-label.la \
+	libsystemd-internal.la \
 	libsystemd-shared.la \
 	$(XZ_LIBS) \
 	$(ZLIB_LIBS) \
