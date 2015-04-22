@@ -145,7 +145,7 @@ static const char conf_file_dirs[] = CONF_DIRS_NULSTR("tmpfiles");
 
 #define MAX_DEPTH 256
 
-static Hashmap *items = NULL, *globs = NULL;
+static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
 
 static const Specifier specifier_table[] = {
@@ -193,11 +193,11 @@ static bool takes_ownership(ItemType t) {
                       RECURSIVE_REMOVE_PATH);
 }
 
-static struct Item* find_glob(Hashmap *h, const char *match) {
+static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         ItemArray *j;
         Iterator i;
 
-        HASHMAP_FOREACH(j, h, i) {
+        ORDERED_HASHMAP_FOREACH(j, h, i) {
                 unsigned n;
 
                 for (n = 0; n < j->count; n++) {
@@ -408,7 +408,7 @@ static int dir_cleanup(
                 }
 
                 /* Is there an item configured for this path? */
-                if (hashmap_get(items, sub_path)) {
+                if (ordered_hashmap_get(items, sub_path)) {
                         log_debug("Ignoring \"%s\": a separate entry exists.", sub_path);
                         continue;
                 }
@@ -1602,7 +1602,7 @@ static int process_item(Item *i) {
         PATH_FOREACH_PREFIX(prefix, i->path) {
                 ItemArray *j;
 
-                j = hashmap_get(items, prefix);
+                j = ordered_hashmap_get(items, prefix);
                 if (j) {
                         int s;
 
@@ -1735,7 +1735,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
         ItemArray *existing;
-        Hashmap *h;
+        OrderedHashmap *h;
         int r, pos;
         bool force = false, boot = false;
 
@@ -1987,7 +1987,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         h = needs_glob(i.type) ? globs : items;
 
-        existing = hashmap_get(h, i.path);
+        existing = ordered_hashmap_get(h, i.path);
         if (existing) {
                 unsigned n;
 
@@ -2000,7 +2000,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         } else {
                 existing = new0(ItemArray, 1);
-                r = hashmap_put(h, i.path, existing);
+                r = ordered_hashmap_put(h, i.path, existing);
                 if (r < 0)
                         return log_oom();
         }
@@ -2163,14 +2163,14 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         /* we have to determine age parameter for each entry of type X */
-        HASHMAP_FOREACH(i, globs, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, globs, iterator) {
                 Iterator iter;
                 Item *j, *candidate_item = NULL;
 
                 if (i->type != IGNORE_DIRECTORY_PATH)
                         continue;
 
-                HASHMAP_FOREACH(j, items, iter) {
+                ORDERED_HASHMAP_FOREACH(j, items, iter) {
                         if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY && j->type != CREATE_SUBVOLUME)
                                 continue;
 
@@ -2216,8 +2216,8 @@ int main(int argc, char *argv[]) {
 
         mac_selinux_init(NULL);
 
-        items = hashmap_new(&string_hash_ops);
-        globs = hashmap_new(&string_hash_ops);
+        items = ordered_hashmap_new(&string_hash_ops);
+        globs = ordered_hashmap_new(&string_hash_ops);
 
         if (!items || !globs) {
                 r = log_oom();
@@ -2254,7 +2254,7 @@ int main(int argc, char *argv[]) {
 
         /* The non-globbing ones usually create things, hence we apply
          * them first */
-        HASHMAP_FOREACH(a, items, iterator) {
+        ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
@@ -2262,21 +2262,21 @@ int main(int argc, char *argv[]) {
 
         /* The globbing ones usually alter things, hence we apply them
          * second. */
-        HASHMAP_FOREACH(a, globs, iterator) {
+        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
                 if (k < 0 && r == 0)
                         r = k;
         }
 
 finish:
-        while ((a = hashmap_steal_first(items)))
+        while ((a = ordered_hashmap_steal_first(items)))
                 item_array_free(a);
 
-        while ((a = hashmap_steal_first(globs)))
+        while ((a = ordered_hashmap_steal_first(globs)))
                 item_array_free(a);
 
-        hashmap_free(items);
-        hashmap_free(globs);
+        ordered_hashmap_free(items);
+        ordered_hashmap_free(globs);
 
         free(arg_include_prefixes);
         free(arg_exclude_prefixes);
