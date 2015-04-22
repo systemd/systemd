@@ -1524,61 +1524,76 @@ static int verify(sd_journal *j) {
         return r;
 }
 
-#ifdef HAVE_ACL
 static int access_check_var_log_journal(sd_journal *j) {
+#ifdef HAVE_ACL
         _cleanup_strv_free_ char **g = NULL;
-        bool have_access;
+        const char* dir;
+#endif
         int r;
 
         assert(j);
 
-        have_access = in_group("systemd-journal") > 0;
+        if (arg_quiet)
+                return 0;
 
-        if (!have_access) {
-                const char* dir;
+        /* If we are root, we should have access, don't warn. */
+        if (getuid() == 0)
+                return 0;
 
-                if (access("/run/log/journal", F_OK) >= 0)
-                        dir = "/run/log/journal";
-                else
-                        dir = "/var/log/journal";
+        /* If we are in the 'systemd-journal' group, we should have
+         * access too. */
+        r = in_group("systemd-journal");
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if we are in the 'systemd-journal' group: %m");
+        if (r > 0)
+                return 0;
 
-                /* Let's enumerate all groups from the default ACL of
-                 * the directory, which generally should allow access
-                 * to most journal files too */
-                r = search_acl_groups(&g, dir, &have_access);
+#ifdef HAVE_ACL
+        if (laccess("/run/log/journal", F_OK) >= 0)
+                dir = "/run/log/journal";
+        else
+                dir = "/var/log/journal";
+
+        /* If we are in any of the groups listed in the journal ACLs,
+         * then all is good, too. Let's enumerate all groups from the
+         * default ACL of the directory, which generally should allow
+         * access to most journal files too. */
+        r = acl_search_groups(dir, &g);
+        if (r < 0)
+                return log_error_errno(r, "Failed to search journal ACL: %m");
+        if (r > 0)
+                return 0;
+
+        /* Print a pretty list, if there were ACLs set. */
+        if (!strv_isempty(g)) {
+                _cleanup_free_ char *s = NULL;
+
+                /* Thre are groups in the ACL, let's list them */
+                r = strv_extend(&g, "systemd-journal");
                 if (r < 0)
-                        return r;
+                        return log_oom();
+
+                strv_sort(g);
+                strv_uniq(g);
+
+                s = strv_join(g, "', '");
+                if (!s)
+                        return log_oom();
+
+                log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                           "      Users in groups '%s' can see all messages.\n"
+                           "      Pass -q to turn off this notice.", s);
+                return 1;
         }
-
-        if (!have_access) {
-
-                if (strv_isempty(g))
-                        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
-                                   "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
-                                   "      turn off this notice.");
-                else {
-                        _cleanup_free_ char *s = NULL;
-
-                        r = strv_extend(&g, "systemd-journal");
-                        if (r < 0)
-                                return log_oom();
-
-                        strv_sort(g);
-                        strv_uniq(g);
-
-                        s = strv_join(g, "', '");
-                        if (!s)
-                                return log_oom();
-
-                        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
-                                   "      Users in groups '%s' can see all messages.\n"
-                                   "      Pass -q to turn off this notice.", s);
-                }
-        }
-
-        return 0;
-}
 #endif
+
+        /* If no ACLs were found, print a short version of the message. */
+        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                   "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
+                   "      turn off this notice.");
+
+        return 1;
+}
 
 static int access_check(sd_journal *j) {
         Iterator it;
@@ -1590,30 +1605,15 @@ static int access_check(sd_journal *j) {
         if (set_isempty(j->errors)) {
                 if (ordered_hashmap_isempty(j->files))
                         log_notice("No journal files were found.");
+
                 return 0;
         }
 
         if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
-#ifdef HAVE_ACL
-                /* If /run/log/journal or /var/log/journal exist, try
-                   to pring a nice notice if the user lacks access to it. */
-                if (!arg_quiet && geteuid() != 0) {
-                        r = access_check_var_log_journal(j);
-                        if (r < 0)
-                                return r;
-                }
-#else
-                if (geteuid() != 0 && in_group("systemd-journal") <= 0) {
-                        log_error("Unprivileged users cannot access messages. Users in the 'systemd-journal' group\n"
-                                  "group may access messages.");
-                        return -EACCES;
-                }
-#endif
+                (void) access_check_var_log_journal(j);
 
-                if (ordered_hashmap_isempty(j->files)) {
-                        log_error("No journal files were opened due to insufficient permissions.");
-                        r = -EACCES;
-                }
+                if (ordered_hashmap_isempty(j->files))
+                        r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
         }
 
         SET_FOREACH(code, j->errors, it) {
@@ -1622,8 +1622,12 @@ static int access_check(sd_journal *j) {
                 err = -PTR_TO_INT(code);
                 assert(err > 0);
 
-                if (err != EACCES)
-                        log_warning_errno(err, "Error was encountered while opening journal files: %m");
+                if (err == EACCES)
+                        continue;
+
+                log_warning_errno(err, "Error was encountered while opening journal files: %m");
+                if (r == 0)
+                        r = -err;
         }
 
         return r;
