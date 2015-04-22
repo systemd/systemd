@@ -3607,7 +3607,8 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Invalid image directory: %m");
 
-                        arg_read_only = arg_read_only || i->read_only;
+                        if (!arg_ephemeral)
+                                arg_read_only = arg_read_only || i->read_only;
                 } else
                         arg_directory = get_current_dir_name();
 
