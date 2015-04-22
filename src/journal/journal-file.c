@@ -2522,6 +2522,41 @@ void journal_file_print_header(JournalFile *f) {
                 printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
 }
 
+static int journal_file_warn_btrfs(JournalFile *f) {
+        unsigned attrs;
+        int r;
+
+        assert(f);
+
+        /* Before we write anything, check if the COW logic is turned
+         * off on btrfs. Given our write pattern that is quite
+         * unfriendly to COW file systems this should greatly improve
+         * performance on COW file systems, such as btrfs, at the
+         * expense of data integrity features (which shouldn't be too
+         * bad, given that we do our own checksumming). */
+
+        r = btrfs_is_filesystem(f->fd);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to determine if journal is on btrfs: %m");
+        if (!r)
+                return 0;
+
+        r = read_attr_fd(f->fd, &attrs);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read file attributes: %m");
+
+        if (attrs & FS_NOCOW_FL) {
+                log_debug("Detected btrfs file system with copy-on-write disabled, all is good.");
+                return 0;
+        }
+
+        log_notice("Creating journal file %s on a btrfs file system, and copy-on-write is enabled. "
+                   "This is likely to slow down journal access substantially, please consider turning "
+                   "off the copy-on-write file attribute on the journal directory, using chattr +C.", f->path);
+
+        return 1;
+}
+
 int journal_file_open(
                 const char *fname,
                 int flags,
@@ -2602,16 +2637,7 @@ int journal_file_open(
 
         if (f->last_stat.st_size == 0 && f->writable) {
 
-                /* Before we write anything, turn off COW logic. Given
-                 * our write pattern that is quite unfriendly to COW
-                 * file systems this should greatly improve
-                 * performance on COW file systems, such as btrfs, at
-                 * the expense of data integrity features (which
-                 * shouldn't be too bad, given that we do our own
-                 * checksumming). */
-                r = chattr_fd(f->fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0 && r != -ENOTTY)
-                        log_warning_errno(r, "Failed to set file attributes: %m");
+                (void) journal_file_warn_btrfs(f);
 
                 /* Let's attach the creation time to the journal file,
                  * so that the vacuuming code knows the age of this
