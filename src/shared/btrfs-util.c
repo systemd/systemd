@@ -803,6 +803,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         struct btrfs_ioctl_vol_args vol_args = {};
         _cleanup_close_ int subvol_fd = -1;
         struct stat st;
+        bool made_writable = false;
         int r;
 
         assert(fd >= 0);
@@ -871,6 +872,14 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
                         if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
+
+                        if (!made_writable) {
+                                r = btrfs_subvol_set_read_only_fd(subvol_fd, false);
+                                if (r < 0)
+                                        return r;
+
+                                made_writable = true;
+                        }
 
                         if (isempty(ino_args.name))
                                 /* Subvolume is in the top-level
