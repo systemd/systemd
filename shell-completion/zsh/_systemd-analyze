@@ -54,5 +54,5 @@ _arguments \
     '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
     '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machine' \
+    {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
     '*::systemd-analyze commands:_systemd_analyze_command'
