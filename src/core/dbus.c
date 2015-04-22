@@ -670,6 +670,15 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
+        r = sd_bus_negotiate_creds(bus, 1,
+                                   SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
+                                   SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
+                                   SD_BUS_CREDS_SELINUX_CONTEXT);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to enable credentials for new connection: %m");
+                return 0;
+        }
+
         r = sd_bus_start(bus);
         if (r < 0) {
                 log_warning_errno(r, "Failed to start new connection bus: %m");
