@@ -768,11 +768,14 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                         if (p) {
                                                 p += strspn(p, WHITESPACE);
 
-                                                r = parse_pid(p, &c->ppid);
-                                                if (r < 0)
-                                                        return r;
+                                                /* Explicitly check for PPID 0 (which is the case for PID 1) */
+                                                if (!streq(p, "0")) {
+                                                        r = parse_pid(p, &c->ppid);
+                                                        if (r < 0)
+                                                                return r;
 
-                                                c->mask |= SD_BUS_CREDS_PPID;
+                                                        c->mask |= SD_BUS_CREDS_PPID;
+                                                }
                                                 continue;
                                         }
                                 }
