@@ -44,8 +44,6 @@ Before 220:
 * timer units triggering services with failing conditions run busy:
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030095.html
 
-* figure out what to do about systemd.pc
-
 Features:
 
 * rework C11 utf8.[ch] to use char32_t instead of uint32_t when referring
@@ -65,13 +63,7 @@ Features:
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
-* check for the various fs-specific ioctls we call that we do so only
-  after verifying they are regular files or directories, and not
-  device files, so that we don't confuse drivers.
-
 * docs: bring http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
-
-* systemctl should set EFI firmware flag via logind
 
 * mounting and unmounting mount points manually with different source
   devices will result in collected collected on all devices used.
@@ -738,17 +730,6 @@ Features:
 * change Requires=basic.target to RequisiteOverride=basic.target
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
-
-* automount: implement expire:
-   - set superblock timeout AUTOFS_DEV_IOCTL_TIMEOUT_CMD
-   - periodically run AUTOFS_DEV_IOCTL_EXPIRE_CMD
-     - every timeout/4 (original autofs logic)
-     - blocking, needs a thread
-     - run until -EAGAIN
-   - receive expire packet on pipe if kernel tells the timeout is over
-     - call umount
-     - answer expire packet on pipe with AUTOFS_DEV_IOCTL_{READY,FAIL}_CMD
-   - AUTOFS_DEV_IOCTL_EXPIRE_CMD returns
 
 * ExecOnFailure=/usr/bin/foo
 
