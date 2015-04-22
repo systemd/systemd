@@ -948,6 +948,7 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                 .fd = old_fd,
         };
         int r;
+        _cleanup_close_ int subvolume_fd = -1;
 
         assert(old_fd >= 0);
         assert(new_fd >= 0);
@@ -1028,14 +1029,47 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
                         if (new_child_fd < 0)
                                 return -errno;
 
+                        if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
+                                /* If the snapshot is read-only we
+                                 * need to mark it writable
+                                 * temporarily, to put the subsnapshot
+                                 * into place. */
+
+                                if (subvolume_fd < 0) {
+                                        subvolume_fd = openat(new_fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                                        if (subvolume_fd < 0)
+                                                return -errno;
+                                }
+
+                                r = btrfs_subvol_set_read_only_fd(subvolume_fd, false);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         /* When btrfs clones the subvolumes, child
                          * subvolumes appear as directories. Remove
                          * them, so that we can create a new snapshot
                          * in their place */
-                        if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0)
-                                return -errno;
+                        if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0) {
+                                int k = -errno;
+
+                                if (flags & BTRFS_SNAPSHOT_READ_ONLY)
+                                        (void) btrfs_subvol_set_read_only_fd(subvolume_fd, true);
+
+                                return k;
+                        }
 
                         r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid, flags & ~BTRFS_SNAPSHOT_FALLBACK_COPY);
+
+                        /* Restore the readonly flag */
+                        if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
+                                int k;
+
+                                k = btrfs_subvol_set_read_only_fd(subvolume_fd, true);
+                                if (r >= 0 && k < 0)
+                                        return k;
+                        }
+
                         if (r < 0)
                                 return r;
                 }
