@@ -5988,8 +5988,21 @@ int same_fd(int a, int b) {
 
 int chattr_fd(int fd, unsigned value, unsigned mask) {
         unsigned old_attr, new_attr;
+        struct stat st;
 
         assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* Explicitly check whether this is a regular file or
+         * directory. If it is anything else (such as a device node or
+         * fifo), then the ioctl will not hit the file systems but
+         * possibly drivers, where the ioctl might have different
+         * effects. Notably, DRM is using the same ioctl() number. */
+
+        if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
+                return -ENOTTY;
 
         if (mask == 0)
                 return 0;
@@ -6023,7 +6036,15 @@ int chattr_path(const char *p, unsigned value, unsigned mask) {
 }
 
 int read_attr_fd(int fd, unsigned *ret) {
+        struct stat st;
+
         assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
+                return -ENOTTY;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, ret) < 0)
                 return -errno;
