@@ -1,6 +1,10 @@
 - 8ch indent, no tabs, except for files in man/ which are 2ch indent,
   and still no tabs
 
+- We prefer /* comments */ over // comments, please. This is not C++, after
+  all. (Yes we know that C99 supports both kinds of comments, but still,
+  please!)
+
 - Don't break code lines too eagerly. We do *not* force line breaks at
   80ch, all of today's screens should be much larger than that. But
   then again, don't overdo it, ~140ch should be enough really.
