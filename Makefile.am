@@ -394,7 +394,6 @@ rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \
 	systemd-initctl \
-	systemd-shutdownd \
 	systemd-shutdown \
 	systemd-remount-fs \
 	systemd-reply-password \
@@ -504,7 +503,6 @@ dist_systemunit_DATA = \
 	units/x-.slice \
 	units/systemd-fsckd.socket \
 	units/systemd-initctl.socket \
-	units/systemd-shutdownd.socket \
 	units/syslog.socket \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.mount \
@@ -540,7 +538,6 @@ nodist_systemunit_DATA = \
 	units/console-getty.service \
 	units/container-getty@.service \
 	units/systemd-initctl.service \
-	units/systemd-shutdownd.service \
 	units/systemd-remount-fs.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
@@ -594,7 +591,6 @@ EXTRA_DIST += \
 	units/container-getty@.service.m4.in \
 	units/rescue.service.in \
 	units/systemd-initctl.service.in \
-	units/systemd-shutdownd.service.in \
 	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
@@ -2161,18 +2157,6 @@ systemd_update_done_LDADD = \
 	libsystemd-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
-
-# ------------------------------------------------------------------------------
-systemd_shutdownd_SOURCES = \
-	src/shutdownd/shutdownd.c
-
-systemd_shutdownd_LDADD = \
-	libsystemd-label.la \
-	libsystemd-internal.la \
-	libsystemd-shared.la
-
-dist_doc_DATA += \
-	src/systemd/sd-shutdown.h
 
 # ------------------------------------------------------------------------------
 systemd_shutdown_SOURCES = \
@@ -6519,7 +6503,6 @@ substitutions = \
        '|systemgidmax=$(SYSTEM_GID_MAX)|' \
        '|TTY_GID=$(TTY_GID)|' \
        '|systemsleepdir=$(systemsleepdir)|' \
-       '|systemshutdowndir=$(systemshutdowndir)|' \
        '|binfmtdir=$(binfmtdir)|' \
        '|modulesloaddir=$(modulesloaddir)|'
 
@@ -6676,8 +6659,7 @@ EXTRA_DIST += \
 	docs/var-log/README.in
 
 SOCKETS_TARGET_WANTS += \
-	systemd-initctl.socket \
-	systemd-shutdownd.socket
+	systemd-initctl.socket
 
 if HAVE_UTMP
 if HAVE_SYSV_COMPAT

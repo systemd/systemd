@@ -1039,16 +1039,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/run/systemd/shutdownd</filename></term>
-
-        <listitem><para>Used internally by the
-        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        tool to implement delayed shutdowns. This is an
-        <constant>AF_UNIX</constant> datagram
-        socket.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><filename>/run/systemd/private</filename></term>
 
         <listitem><para>Used internally as communication channel

@@ -120,7 +120,6 @@
 /systemd-rfkill
 /systemd-run
 /systemd-shutdown
-/systemd-shutdownd
 /systemd-sleep
 /systemd-socket-proxyd
 /systemd-stdio-bridge

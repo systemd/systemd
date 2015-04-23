@@ -84,7 +84,6 @@ MANPAGES += \
 	man/systemd-path.1 \
 	man/systemd-remount-fs.service.8 \
 	man/systemd-run.1 \
-	man/systemd-shutdownd.service.8 \
 	man/systemd-sleep.conf.5 \
 	man/systemd-socket-proxyd.8 \
 	man/systemd-suspend.service.8 \
@@ -225,8 +224,6 @@ MANPAGES_ALIAS += \
 	man/systemd-reboot.service.8 \
 	man/systemd-remount-fs.8 \
 	man/systemd-shutdown.8 \
-	man/systemd-shutdownd.8 \
-	man/systemd-shutdownd.socket.8 \
 	man/systemd-sleep.8 \
 	man/systemd-sysctl.8 \
 	man/systemd-sysusers.service.8 \
@@ -339,8 +336,6 @@ man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
 man/systemd-shutdown.8: man/systemd-halt.service.8
-man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
-man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
 man/systemd-sysusers.service.8: man/systemd-sysusers.8
@@ -649,12 +644,6 @@ man/systemd-remount-fs.html: man/systemd-remount-fs.service.html
 	$(html-alias)
 
 man/systemd-shutdown.html: man/systemd-halt.service.html
-	$(html-alias)
-
-man/systemd-shutdownd.html: man/systemd-shutdownd.service.html
-	$(html-alias)
-
-man/systemd-shutdownd.socket.html: man/systemd-shutdownd.service.html
 	$(html-alias)
 
 man/systemd-sleep.html: man/systemd-suspend.service.html
@@ -1808,7 +1797,6 @@ EXTRA_DIST += \
 	man/systemd-resolved.service.xml \
 	man/systemd-rfkill@.service.xml \
 	man/systemd-run.xml \
-	man/systemd-shutdownd.service.xml \
 	man/systemd-sleep.conf.xml \
 	man/systemd-socket-proxyd.xml \
 	man/systemd-suspend.service.xml \
