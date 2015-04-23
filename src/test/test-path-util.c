@@ -36,6 +36,8 @@
         }
 
 static void test_path(void) {
+        _cleanup_close_ int fd = -1;
+
         test_path_compare("/goo", "/goo", 0);
         test_path_compare("/goo", "/goo", 0);
         test_path_compare("//goo", "/goo", 0);
@@ -89,8 +91,15 @@ static void test_path(void) {
         assert_se(path_is_mount_point("/", true) > 0);
         assert_se(path_is_mount_point("/", false) > 0);
 
+        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        assert_se(fd >= 0);
+        assert_se(fd_is_mount_point(fd) > 0);
+
         assert_se(path_is_mount_point("/proc", true) > 0);
         assert_se(path_is_mount_point("/proc", false) > 0);
+
+        assert_se(path_is_mount_point("/proc/1", true) == 0);
+        assert_se(path_is_mount_point("/proc/1", false) == 0);
 
         assert_se(path_is_mount_point("/sys", true) > 0);
         assert_se(path_is_mount_point("/sys", false) > 0);
