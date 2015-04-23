@@ -90,6 +90,9 @@ _public_ int sd_bus_track_new(
         assert_return(bus, -EINVAL);
         assert_return(track, -EINVAL);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         t = new0(sd_bus_track, 1);
         if (!t)
                 return -ENOMEM;

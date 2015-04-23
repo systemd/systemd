@@ -42,6 +42,9 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         assert_return(unique, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
@@ -130,11 +133,13 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
 _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(bus->bus_client, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         /* Don't allow requesting the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
@@ -213,10 +218,12 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
 _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(bus->bus_client, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         /* Don't allow releasing the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
@@ -373,6 +380,9 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         assert_return(bus, -EINVAL);
         assert_return(acquired || activatable, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -885,7 +895,9 @@ _public_ int sd_bus_get_name_creds(
         assert_return(mask == 0 || creds, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
-        assert_return(bus->bus_client, -ENODATA);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         if (streq(name, "org.freedesktop.DBus.Local"))
                 return -EINVAL;
@@ -1400,6 +1412,9 @@ int bus_add_match_internal(
 
         assert(bus);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         if (bus->is_kernel)
                 return bus_add_match_internal_kernel(bus, components, n_components, cookie);
         else
@@ -1459,6 +1474,9 @@ int bus_remove_match_internal(
 
         assert(bus);
 
+        if (!bus->bus_client)
+                return -EINVAL;
+
         if (bus->is_kernel)
                 return bus_remove_match_internal_kernel(bus, cookie);
         else
@@ -1475,6 +1493,9 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         assert_return(machine, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
