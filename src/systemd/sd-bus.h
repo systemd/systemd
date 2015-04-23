@@ -84,11 +84,12 @@ enum {
         SD_BUS_CREDS_SELINUX_CONTEXT    = 1ULL << 26,
         SD_BUS_CREDS_AUDIT_SESSION_ID   = 1ULL << 27,
         SD_BUS_CREDS_AUDIT_LOGIN_UID    = 1ULL << 28,
-        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 29,
-        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 30,
-        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 31,
+        SD_BUS_CREDS_TTY                = 1ULL << 29,
+        SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 30,
+        SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 31,
+        SD_BUS_CREDS_DESCRIPTION        = 1ULL << 32,
         SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
-        _SD_BUS_CREDS_ALL               = (1ULL << 32) -1,
+        _SD_BUS_CREDS_ALL               = (1ULL << 33) -1,
 };
 
 enum {
@@ -361,6 +362,7 @@ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability);
 int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **context);
 int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
 int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
+int sd_bus_creds_get_tty(sd_bus_creds *c, const char **tty);
 int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
 int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
 int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);

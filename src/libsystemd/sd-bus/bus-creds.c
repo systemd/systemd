@@ -25,6 +25,7 @@
 #include "util.h"
 #include "formats-util.h"
 #include "process-util.h"
+#include "terminal-util.h"
 #include "capability.h"
 #include "cgroup-util.h"
 #include "fileio.h"
@@ -54,6 +55,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->slice);
         free(c->unescaped_description);
         free(c->supplementary_gids);
+        free(c->tty);
 
         free(c->well_known_names); /* note that this is an strv, but
                                     * we only free the array, not the
@@ -543,6 +545,17 @@ _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
         return 0;
 }
 
+_public_ int sd_bus_creds_get_tty(sd_bus_creds *c, const char **ret) {
+        assert_return(c, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!(c->mask & SD_BUS_CREDS_TTY))
+                return -ENODATA;
+
+        *ret = c->tty;
+        return 0;
+}
+
 _public_ int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **unique_name) {
         assert_return(c, -EINVAL);
         assert_return(unique_name, -EINVAL);
@@ -1008,6 +1021,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
         }
 
+        if (missing & SD_BUS_CREDS_TTY) {
+                r = get_ctty(pid, NULL, &c->tty);
+                if (r < 0) {
+                        if (r != -EPERM && r != -EACCES && r != -ENOENT)
+                                return r;
+                } else
+                        c->mask |= SD_BUS_CREDS_TTY;
+        }
+
         c->augmented = missing & c->mask;
 
         return 0;
@@ -1164,6 +1186,16 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (c->mask & mask & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 n->audit_login_uid = c->audit_login_uid;
                 n->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_TTY) {
+                if (c->tty) {
+                        n->tty = strdup(c->tty);
+                        if (!n->tty)
+                                return -ENOMEM;
+                } else
+                        n->tty = NULL;
+                n->mask |= SD_BUS_CREDS_TTY;
         }
 
         if (c->mask & mask & SD_BUS_CREDS_UNIQUE_NAME) {

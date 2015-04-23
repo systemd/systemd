@@ -345,6 +345,7 @@ global:
         sd_bus_creds_get_selinux_context;
         sd_bus_creds_get_audit_session_id;
         sd_bus_creds_get_audit_login_uid;
+        sd_bus_creds_get_tty;
         sd_bus_creds_get_unique_name;
         sd_bus_creds_get_well_known_names;
         sd_bus_creds_get_description;
