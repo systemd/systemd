@@ -102,6 +102,8 @@ struct Manager {
         sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;
         char *scheduled_shutdown_tty;
+        sd_event_source *nologin_timeout_source;
+        bool unlink_nologin;
 
         char *wall_message;
         unsigned enable_wall_messages;

@@ -145,6 +145,7 @@ static void manager_free(Manager *m) {
         sd_event_source_unref(m->idle_action_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
         sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        sd_event_source_unref(m->nologin_timeout_source);
         sd_event_source_unref(m->wall_message_timeout_source);
 
         sd_event_source_unref(m->console_active_event_source);
@@ -167,6 +168,9 @@ static void manager_free(Manager *m) {
 
         if (m->udev)
                 udev_unref(m->udev);
+
+        if (m->unlink_nologin)
+                unlink("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 

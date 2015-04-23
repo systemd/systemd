@@ -1770,6 +1770,71 @@ static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata, 
                         error);
 }
 
+static int nologin_timeout_handler(
+                        sd_event_source *s,
+                        uint64_t usec,
+                        void *userdata) {
+
+        Manager *m = userdata;
+        int r;
+
+        log_info("Creating /run/nologin, blocking further logins...");
+
+        r = write_string_file_atomic("/run/nologin", "System is going down.");
+        if (r < 0)
+                log_error_errno(r, "Failed to create /run/nologin: %m");
+        else
+                m->unlink_nologin = true;
+
+        return 0;
+}
+
+static int update_schedule_file(Manager *m) {
+
+        int r;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *t = NULL, *temp_path = NULL;
+
+        assert(m);
+
+        r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
+
+        t = cescape(m->wall_message);
+        if (!t)
+                return log_oom();
+
+        r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
+
+        (void) fchmod(fileno(f), 0644);
+
+        fprintf(f,
+                "USEC="USEC_FMT"\n"
+                "WARN_WALL=%i\n"
+                "MODE=%s\n",
+                m->scheduled_shutdown_timeout,
+                m->enable_wall_messages,
+                m->scheduled_shutdown_type);
+
+        if (!isempty(m->wall_message))
+                fprintf(f, "WALL_MESSAGE=%s\n", t);
+
+        (void) fflush_and_check(f);
+
+        if (ferror(f) || rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
+                log_error_errno(errno, "Failed to write information about scheduled shutdowns: %m");
+                r = -errno;
+
+                (void) unlink(temp_path);
+                (void) unlink("/run/systemd/shutdown/scheduled");
+        }
+
+        return r;
+}
+
 static int manager_scheduled_shutdown_handler(
                         sd_event_source *s,
                         uint64_t usec,
@@ -1857,6 +1922,21 @@ static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *
                 return log_oom();
         }
 
+        if (m->nologin_timeout_source) {
+                r = sd_event_source_set_time(m->nologin_timeout_source, elapse);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+
+                r = sd_event_source_set_enabled(m->nologin_timeout_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+        } else {
+                r = sd_event_add_time(m->event, &m->nologin_timeout_source,
+                                      CLOCK_REALTIME, elapse - 5 * USEC_PER_MINUTE, 0, nologin_timeout_handler, m);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_add_time() failed: %m\n");
+        }
+
         m->scheduled_shutdown_timeout = elapse;
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_TTY|SD_BUS_CREDS_UID, &creds);
@@ -1877,6 +1957,13 @@ static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *
         if (r < 0)
                 return r;
 
+        if (!isempty(type)) {
+                r = update_schedule_file(m);
+                if (r < 0)
+                        return r;
+        } else
+                (void) unlink("/run/systemd/shutdown/scheduled");
+
         return sd_bus_reply_method_return(message, NULL);
 }
 
@@ -1891,6 +1978,7 @@ static int method_cancel_scheduled_shutdown(sd_bus *bus, sd_bus_message *message
 
         m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
         free(m->scheduled_shutdown_type);
         m->scheduled_shutdown_type = NULL;
         m->scheduled_shutdown_timeout = 0;
