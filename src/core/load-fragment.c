@@ -1202,17 +1202,15 @@ int config_parse_exec_mount_flags(const char *unit,
                         flags = MS_SHARED;
                 else if (streq(t, "slave"))
                         flags = MS_SLAVE;
-                else if (streq(word, "private"))
+                else if (streq(t, "private"))
                         flags = MS_PRIVATE;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Failed to parse mount flag %s, ignoring: %s", t, rvalue);
                         return 0;
                 }
         }
         if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Trailing garbage, ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Trailing garbage, ignoring.");
 
         c->mount_flags = flags;
         return 0;
