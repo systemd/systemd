@@ -34,7 +34,6 @@
 #include <stddef.h>
 
 #include "sd-daemon.h"
-#include "sd-shutdown.h"
 #include "sd-login.h"
 #include "sd-bus.h"
 #include "log.h"
@@ -7173,51 +7172,6 @@ found:
         return verb->dispatch(bus, argv + optind);
 }
 
-static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
-
-        struct sd_shutdown_command c = {
-                .usec = t,
-                .mode = mode,
-                .dry_run = dry_run,
-                .warn_wall = warn,
-        };
-
-        union sockaddr_union sockaddr = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/shutdownd",
-        };
-
-        struct iovec iovec[2] = {{
-                 .iov_base = (char*) &c,
-                 .iov_len = offsetof(struct sd_shutdown_command, wall_message),
-        }};
-
-        struct msghdr msghdr = {
-                .msg_name = &sockaddr,
-                .msg_namelen = offsetof(struct sockaddr_un, sun_path)
-                               + strlen("/run/systemd/shutdownd"),
-                .msg_iov = iovec,
-                .msg_iovlen = 1,
-        };
-
-        _cleanup_close_ int fd;
-
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0)
-                return -errno;
-
-        if (!isempty(message)) {
-                iovec[1].iov_base = (char*) message;
-                iovec[1].iov_len = strlen(message);
-                msghdr.msg_iovlen++;
-        }
-
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0)
-                return -errno;
-
-        return 0;
-}
-
 static int reload_with_fallback(sd_bus *bus) {
 
         if (bus) {
@@ -7325,23 +7279,68 @@ static int halt_main(sd_bus *bus) {
         }
 
         if (arg_when > 0) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_bus_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m;
+
+                if (avoid_bus()) {
+                        log_error("Unable to perform operation without bus connection.");
+                        return -ENOSYS;
+                }
+
+                r = sd_bus_open_system(&b);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to open system bus: %m\n");
 
                 m = strv_join(arg_wall, " ");
                 if (!m)
                         return log_oom();
 
-                r = send_shutdownd(arg_when,
-                                   arg_action == ACTION_HALT     ? 'H' :
-                                   arg_action == ACTION_POWEROFF ? 'P' :
-                                   arg_action == ACTION_KEXEC    ? 'K' :
-                                                                   'r',
-                                   arg_dry,
-                                   !arg_no_wall,
-                                   m);
+                r = sd_bus_set_property(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "WallMessage",
+                                &error,
+                                "s", m);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set WallMessage property in logind: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
 
+                r = sd_bus_set_property(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "EnableWallMessages",
+                                &error,
+                                "b", !arg_no_wall);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set EnableWallMessages property in logind: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
+
+                r = sd_bus_call_method(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "ScheduleShutdown",
+                                &error,
+                                NULL,
+                                "st",
+                                arg_action == ACTION_HALT     ? "halt" :
+                                arg_action == ACTION_POWEROFF ? "poweroff" :
+                                arg_action == ACTION_KEXEC    ? "kexec" :
+                                                                "reboot",
+                                arg_when);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to talk to shutdownd, proceeding with immediate shutdown: %m");
+                        log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s",
+                                          bus_error_message(&error, r));
                 else {
                         char date[FORMAT_TIMESTAMP_MAX];
 
@@ -7457,7 +7456,18 @@ int main(int argc, char*argv[]) {
                 break;
 
         case ACTION_CANCEL_SHUTDOWN: {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_bus_close_unref_ sd_bus *b = NULL;
                 _cleanup_free_ char *m = NULL;
+
+                if (avoid_bus()) {
+                        log_error("Unable to perform operation without bus connection.");
+                        return -ENOSYS;
+                }
+
+                r = sd_bus_open_system(&b);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to open system bus: %m\n");
 
                 if (arg_wall) {
                         m = strv_join(arg_wall, " ");
@@ -7467,9 +7477,45 @@ int main(int argc, char*argv[]) {
                         }
                 }
 
-                r = send_shutdownd(arg_when, SD_SHUTDOWN_NONE, false, !arg_no_wall, m);
+                r = sd_bus_set_property(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "WallMessage",
+                                &error,
+                                "s", arg_wall);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set WallMessage property in logind: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
+
+                r = sd_bus_set_property(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "EnableWallMessages",
+                                &error,
+                                "b", !arg_no_wall);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set EnableWallMessages property in logind: %s",
+                                          bus_error_message(&error, r));
+                        sd_bus_error_free(&error);
+                }
+
+                r = sd_bus_call_method(
+                                b,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "CancelScheduledShutdown",
+                                &error,
+                                NULL, NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to talk to shutdownd, shutdown hasn't been cancelled: %m");
+                        log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s",
+                                          bus_error_message(&error, r));
                 break;
         }
 
