@@ -915,8 +915,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         r = bus_message_from_malloc(bus,
                                     bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
-                                    !bus->bus_client && bus->ucred_valid ? &bus->ucred : NULL,
-                                    !bus->bus_client && !isempty(bus->label) ? bus->label : NULL,
+                                    NULL,
+                                    NULL,
                                     &t);
         if (r < 0) {
                 free(b);
