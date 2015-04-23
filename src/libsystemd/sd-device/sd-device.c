@@ -1220,7 +1220,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
         return 0;
 }
 
-static int device_read_db(sd_device *device) {
+int device_read_db_aux(sd_device *device, bool force) {
         _cleanup_free_ char *db = NULL;
         char *path;
         const char *id, *value;
@@ -1237,7 +1237,7 @@ static int device_read_db(sd_device *device) {
                 INVALID_LINE,
         } state = PRE_KEY;
 
-        if (device->db_loaded || device->sealed)
+        if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
         r = device_get_id_filename(device, &id);
@@ -1311,6 +1311,10 @@ static int device_read_db(sd_device *device) {
         device->db_loaded = true;
 
         return 0;
+}
+
+static int device_read_db(sd_device *device) {
+        return device_read_db_aux(device, false);
 }
 
 _public_ int sd_device_get_is_initialized(sd_device *device, int *initialized) {

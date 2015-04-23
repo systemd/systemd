@@ -407,3 +407,9 @@ void udev_device_set_info_loaded(struct udev_device *udev_device) {
 
         device_seal(udev_device->device);
 }
+
+void udev_device_read_db(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        device_read_db_force(udev_device->device);
+}

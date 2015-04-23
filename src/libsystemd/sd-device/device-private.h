@@ -61,3 +61,4 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
 int device_update_db(sd_device *device);
 int device_delete_db(sd_device *device);
+int device_read_db_force(sd_device *device);

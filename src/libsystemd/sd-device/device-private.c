@@ -1100,3 +1100,9 @@ int device_delete_db(sd_device *device) {
 
         return 0;
 }
+
+int device_read_db_force(sd_device *device) {
+        assert(device);
+
+        return device_read_db_aux(device, true);
+}
