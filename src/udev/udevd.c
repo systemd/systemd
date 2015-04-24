@@ -255,7 +255,7 @@ static void worker_new(struct event *event) {
                         struct udev_event *udev_event;
                         struct worker_message msg;
                         int fd_lock = -1;
-                        int err = 0;
+                        int err = 0, r;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
@@ -328,12 +328,15 @@ static void worker_new(struct event *event) {
                         udev_monitor_send_device(worker_monitor, NULL, dev);
 
 skip:
+                        log_debug("seq %llu processed with %i", udev_device_get_seqnum(dev), err);
+
                         /* send udevd the result of the event execution */
                         memzero(&msg, sizeof(struct worker_message));
                         msg.exitcode = err;
-                        send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
-
-                        log_debug("seq %llu processed with %i", udev_device_get_seqnum(dev), err);
+                        r = send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
+                        if (r < 0)
+                                log_error_errno(errno, "failed to send result of seq %llu to main daemon: %m",
+                                                udev_device_get_seqnum(dev));
 
                         udev_device_unref(dev);
                         dev = NULL;
