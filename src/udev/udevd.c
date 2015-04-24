@@ -869,21 +869,21 @@ static void handle_signal(struct udev *udev, int signo) {
 
                                 if (worker->pid != pid)
                                         continue;
-                                log_debug("worker ["PID_FMT"] exit", pid);
 
                                 if (WIFEXITED(status)) {
-                                        if (WEXITSTATUS(status) != 0)
-                                                log_error("worker ["PID_FMT"] exit with return code %i",
-                                                          pid, WEXITSTATUS(status));
+                                        if (WEXITSTATUS(status) == 0)
+                                                log_debug("worker ["PID_FMT"] exited", pid);
+                                        else
+                                                log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
                                 } else if (WIFSIGNALED(status)) {
-                                        log_error("worker ["PID_FMT"] terminated by signal %i (%s)",
-                                                  pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)",
+                                                    pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
-                                        log_error("worker ["PID_FMT"] stopped", pid);
+                                        log_info("worker ["PID_FMT"] stopped", pid);
                                 } else if (WIFCONTINUED(status)) {
-                                        log_error("worker ["PID_FMT"] continued", pid);
+                                        log_info("worker ["PID_FMT"] continued", pid);
                                 } else {
-                                        log_error("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
+                                        log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
                                 }
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
