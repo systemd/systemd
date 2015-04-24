@@ -22,3 +22,4 @@ Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
 MountFlags=slave
+KillMode=mixed
