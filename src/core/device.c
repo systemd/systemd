@@ -166,6 +166,8 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", device_state_to_string(d->state));
+
+        return 0;
 }
 
 static int device_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
