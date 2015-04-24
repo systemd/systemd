@@ -358,7 +358,24 @@
           the routing table. Takes either a boolean argument, or the
           values <literal>ipv4</literal> or <literal>ipv6</literal>,
           which only enables IP forwarding for the specified address
-          family.</para></listitem>
+          family. This controls the
+          <filename>net.ipv4.conf.&lt;interface&gt;.forwarding</filename>
+          and
+          <filename>net.ipv6.conf.&lt;interface&gt;.forwarding</filename>
+          sysctl options of the network interface (see <ulink
+          url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          for details about sysctl options). Defaults to
+          <literal>no</literal>.</para>
+
+          <para>Note: unless this option is turned on, no IP
+          forwarding is done on this interface, even if this is
+          globally turned on in the kernel, with the
+          <filename>net.ipv4.ip_forward</filename> and
+          <filename>net.ipv4.ip_forward</filename> sysctl
+          options. Also, if this option is enabled for at least one
+          interface, the global options in the kernel are also enabled
+          as necessary, to ensure IP forwarding can take place.</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPMasquerade=</varname></term>
@@ -366,7 +383,8 @@
           interface. If enabled packets forwarded from the network
           interface will be appear as coming from the local host.
           Takes a boolean argument. Implies
-          <varname>IPForward=yes</varname>.</para></listitem>
+          <varname>IPForward=yes</varname>. Defaults to
+          <literal>no</literal>.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Bridge=</varname></term>
