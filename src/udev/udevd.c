@@ -883,8 +883,10 @@ static void handle_signal(struct udev *udev, int signo) {
                                                     pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
                                         log_info("worker ["PID_FMT"] stopped", pid);
+                                        break;
                                 } else if (WIFCONTINUED(status)) {
                                         log_info("worker ["PID_FMT"] continued", pid);
+                                        break;
                                 } else {
                                         log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
                                 }
