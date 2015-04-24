@@ -122,11 +122,11 @@ static int wall_message_timeout_handler(
         if (next > 0) {
                 r = sd_event_source_set_time(s, n + next);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed. %m\n");
+                        return log_error_errno(r, "sd_event_source_set_time() failed. %m");
 
                 r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m\n");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
         }
 
         return 0;
@@ -166,16 +166,16 @@ int manager_setup_wall_message_timer(Manager *m) {
         if (m->wall_message_timeout_source) {
                 r = sd_event_source_set_time(m->wall_message_timeout_source, n + elapse);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed. %m\n");
+                        return log_error_errno(r, "sd_event_source_set_time() failed. %m");
 
                 r = sd_event_source_set_enabled(m->wall_message_timeout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m\n");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
         } else {
                 r = sd_event_add_time(m->event, &m->wall_message_timeout_source,
                                       CLOCK_REALTIME, n + elapse, 0, wall_message_timeout_handler, m);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_add_time() failed. %m\n");
+                        return log_error_errno(r, "sd_event_add_time() failed. %m");
         }
 
         return 0;

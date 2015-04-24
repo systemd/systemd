@@ -1544,11 +1544,11 @@ static int delay_shutdown_or_sleep(
         if (m->inhibit_timeout_source) {
                 r = sd_event_source_set_time(m->inhibit_timeout_source, timeout_val);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
                 r = sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         } else {
                 r = sd_event_add_time(m->event, &m->inhibit_timeout_source, CLOCK_MONOTONIC,
                                       timeout_val, 0, manager_inhibit_timeout_handler, m);
@@ -1859,7 +1859,7 @@ static int manager_scheduled_shutdown_handler(
 
         r = execute_shutdown_or_sleep(m, 0, target, &error);
         if (r < 0)
-                return log_error_errno(r, "Unable to execute transition to %s: %m\n", target);
+                return log_error_errno(r, "Unable to execute transition to %s: %m", target);
 
         return 0;
 }
@@ -1904,16 +1904,16 @@ static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *
         if (m->scheduled_shutdown_timeout_source) {
                 r = sd_event_source_set_time(m->scheduled_shutdown_timeout_source, elapse);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
                 r = sd_event_source_set_enabled(m->scheduled_shutdown_timeout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         } else {
                 r = sd_event_add_time(m->event, &m->scheduled_shutdown_timeout_source,
                                       CLOCK_REALTIME, elapse, 0, manager_scheduled_shutdown_handler, m);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_add_time() failed: %m\n");
+                        return log_error_errno(r, "sd_event_add_time() failed: %m");
         }
 
         r = free_and_strdup(&m->scheduled_shutdown_type, type);
@@ -1925,16 +1925,16 @@ static int method_schedule_shutdown(sd_bus *bus, sd_bus_message *message, void *
         if (m->nologin_timeout_source) {
                 r = sd_event_source_set_time(m->nologin_timeout_source, elapse);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
                 r = sd_event_source_set_enabled(m->nologin_timeout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m\n");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         } else {
                 r = sd_event_add_time(m->event, &m->nologin_timeout_source,
                                       CLOCK_REALTIME, elapse - 5 * USEC_PER_MINUTE, 0, nologin_timeout_handler, m);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_add_time() failed: %m\n");
+                        return log_error_errno(r, "sd_event_add_time() failed: %m");
         }
 
         m->scheduled_shutdown_timeout = elapse;
