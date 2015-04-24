@@ -58,31 +58,23 @@ char *sysctl_normalize(char *s) {
 }
 
 int sysctl_write(const char *property, const char *value) {
-        _cleanup_free_ char *p = NULL;
-        char *n;
+        char *p;
+
+        assert(property);
+        assert(value);
 
         log_debug("Setting '%s' to '%s'", property, value);
 
-        p = new(char, strlen("/proc/sys/") + strlen(property) + 1);
-        if (!p)
-                return log_oom();
-
-        n = stpcpy(p, "/proc/sys/");
-        strcpy(n, property);
-
+        p = strjoina("/proc/sys/", property);
         return write_string_file(p, value);
 }
 
 int sysctl_read(const char *property, char **content) {
-        _cleanup_free_ char *p = NULL;
-        char *n;
+        char *p;
 
-        p = new(char, strlen("/proc/sys/") + strlen(property) + 1);
-        if (!p)
-                return log_oom();
+        assert(property);
+        assert(content);
 
-        n = stpcpy(p, "/proc/sys/");
-        strcpy(n, property);
-
+        p = strjoina("/proc/sys/", property);
         return read_full_file(p, content, NULL);
 }
