@@ -3643,11 +3643,9 @@ int unit_require_mounts_for(Unit *u, const char *path) {
                 if (!x) {
                         char *q;
 
-                        if (!u->manager->units_requiring_mounts_for) {
-                                u->manager->units_requiring_mounts_for = hashmap_new(&string_hash_ops);
-                                if (!u->manager->units_requiring_mounts_for)
-                                        return -ENOMEM;
-                        }
+                        r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &string_hash_ops);
+                        if (r < 0)
+                                return r;
 
                         q = strdup(prefix);
                         if (!q)
