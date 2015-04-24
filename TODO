@@ -46,6 +46,15 @@ Before 220:
 
 Features:
 
+* nspawn: add a logic for cleaning up read-only, hidden container images in /var/lib/machines that are not ancestors of any non-hidden containers
+
+* nspawn: Improve error message when --bind= is used on a non-existing source directory
+
+* nspawn: maybe make copying of /etc/resolv.conf optional, and skip it if --read-only is used
+
+* man: document how update dkr images works with machinectl
+  http://lists.freedesktop.org/archives/systemd-devel/2015-February/028630.html
+
 * nspawn: as soon as networkd has a bus interface, hook up --network-interface= with networkd, to trigger netdev creation should an interface be missing
 
 * networkd: make DHCP server IP range configurable, including only with a single IP address
