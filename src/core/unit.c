@@ -2846,12 +2846,16 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 
         assert(u);
 
-        if (!what)
+        /* Adds in links to the device node that this unit is based on */
+        if (isempty(what))
                 return 0;
 
-        /* Adds in links to the device node that this unit is based on */
-
         if (!is_device_path(what))
+                return 0;
+
+        /* When device units aren't supported (such as in a
+         * container), don't create dependencies on them. */
+        if (unit_vtable[UNIT_DEVICE]->supported && !unit_vtable[UNIT_DEVICE]->supported(u->manager))
                 return 0;
 
         e = unit_name_from_path(what, ".device");
