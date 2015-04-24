@@ -267,12 +267,7 @@ static void timer_set_state(Timer *t, TimerState state) {
 
 static void timer_enter_waiting(Timer *t, bool initial);
 
-static int timer_enter_waiting_coldplug(Unit *u) {
-        timer_enter_waiting(TIMER(u), false);
-        return 0;
-}
-
-static int timer_coldplug(Unit *u, Hashmap *deferred_work) {
+static int timer_coldplug(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
@@ -280,10 +275,9 @@ static int timer_coldplug(Unit *u, Hashmap *deferred_work) {
 
         if (t->deserialized_state != t->state) {
 
-                if (t->deserialized_state == TIMER_WAITING) {
-                        hashmap_put(deferred_work, u, &timer_enter_waiting_coldplug);
-                        timer_set_state(t, TIMER_WAITING);
-                } else
+                if (t->deserialized_state == TIMER_WAITING)
+                        timer_enter_waiting(t, false);
+                else
                         timer_set_state(t, t->deserialized_state);
         }
 

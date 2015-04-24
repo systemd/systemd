@@ -303,14 +303,8 @@ struct UnitVTable {
         int (*load)(Unit *u);
 
         /* If a lot of units got created via enumerate(), this is
-         * where to actually set the state and call unit_notify().
-         *
-         * This must not reference other units (maybe implicitly through spawning
-         * jobs), because it is possible that they are not yet coldplugged.
-         * Such actions must be deferred until the end of coldplug bу adding
-         * a "Unit* -> int(*)(Unit*)" entry into the hashmap.
-         */
-        int (*coldplug)(Unit *u, Hashmap *deferred_work);
+         * where to actually set the state and call unit_notify(). */
+        int (*coldplug)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
 
@@ -546,7 +540,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 
 int unit_add_node_link(Unit *u, const char *what, bool wants);
 
-int unit_coldplug(Unit *u, Hashmap *deferred_work);
+int unit_coldplug(Unit *u);
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
 

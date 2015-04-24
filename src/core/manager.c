@@ -981,28 +981,7 @@ static int manager_coldplug(Manager *m) {
         Unit *u;
         char *k;
 
-        /*
-         * Some unit types tend to spawn jobs or check other units' state
-         * during coldplug. This is wrong because it is undefined whether the
-         * units in question have been already coldplugged (i. e. their state
-         * restored). This way, we can easily re-start an already started unit
-         * or otherwise make a wrong decision based on the unit's state.
-         *
-         * Solve this by providing a way for coldplug functions to defer
-         * such actions until after all units have been coldplugged.
-         *
-         * We store Unit* -> int(*)(Unit*).
-         *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=88401
-         */
-        _cleanup_hashmap_free_ Hashmap *deferred_work = NULL;
-        int(*proc)(Unit*);
-
         assert(m);
-
-        deferred_work = hashmap_new(&trivial_hash_ops);
-        if (!deferred_work)
-                return -ENOMEM;
 
         /* Then, let's set up their initial state. */
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
@@ -1012,17 +991,7 @@ static int manager_coldplug(Manager *m) {
                 if (u->id != k)
                         continue;
 
-                q = unit_coldplug(u, deferred_work);
-                if (q < 0)
-                        r = q;
-        }
-
-        /* After coldplugging and setting up initial state of the units,
-         * let's perform operations which spawn jobs or query units' state. */
-        HASHMAP_FOREACH_KEY(proc, u, deferred_work, i) {
-                int q;
-
-                q = proc(u);
+                q = unit_coldplug(u);
                 if (q < 0)
                         r = q;
         }

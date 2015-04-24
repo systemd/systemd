@@ -140,7 +140,7 @@ static void device_set_state(Device *d, DeviceState state) {
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], true);
 }
 
-static int device_coldplug(Unit *u, Hashmap *deferred_work) {
+static int device_coldplug(Unit *u) {
         Device *d = DEVICE(u);
 
         assert(d);

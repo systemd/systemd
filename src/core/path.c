@@ -438,12 +438,7 @@ static void path_set_state(Path *p, PathState state) {
 
 static void path_enter_waiting(Path *p, bool initial, bool recheck);
 
-static int path_enter_waiting_coldplug(Unit *u) {
-        path_enter_waiting(PATH(u), true, true);
-        return 0;
-}
-
-static int path_coldplug(Unit *u, Hashmap *deferred_work) {
+static int path_coldplug(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
@@ -452,10 +447,9 @@ static int path_coldplug(Unit *u, Hashmap *deferred_work) {
         if (p->deserialized_state != p->state) {
 
                 if (p->deserialized_state == PATH_WAITING ||
-                    p->deserialized_state == PATH_RUNNING) {
-                        hashmap_put(deferred_work, u, &path_enter_waiting_coldplug);
-                        path_set_state(p, PATH_WAITING);
-                } else
+                    p->deserialized_state == PATH_RUNNING)
+                        path_enter_waiting(p, true, true);
+                else
                         path_set_state(p, p->deserialized_state);
         }
 

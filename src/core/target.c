@@ -103,7 +103,7 @@ static int target_load(Unit *u) {
         return 0;
 }
 
-static int target_coldplug(Unit *u, Hashmap *deferred_work) {
+static int target_coldplug(Unit *u) {
         Target *t = TARGET(u);
 
         assert(t);

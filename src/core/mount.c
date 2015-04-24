@@ -601,7 +601,7 @@ static void mount_set_state(Mount *m, MountState state) {
         m->reload_result = MOUNT_SUCCESS;
 }
 
-static int mount_coldplug(Unit *u, Hashmap *deferred_work) {
+static int mount_coldplug(Unit *u) {
         Mount *m = MOUNT(u);
         MountState new_state = MOUNT_DEAD;
         int r;

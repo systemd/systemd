@@ -171,7 +171,7 @@ static int scope_load(Unit *u) {
         return scope_verify(s);
 }
 
-static int scope_coldplug(Unit *u, Hashmap *deferred_work) {
+static int scope_coldplug(Unit *u) {
         Scope *s = SCOPE(u);
         int r;
 

@@ -336,7 +336,7 @@ static void busname_set_state(BusName *n, BusNameState state) {
         unit_notify(UNIT(n), state_translation_table[old_state], state_translation_table[state], true);
 }
 
-static int busname_coldplug(Unit *u, Hashmap *deferred_work) {
+static int busname_coldplug(Unit *u) {
         BusName *n = BUSNAME(u);
         int r;
 

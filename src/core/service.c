@@ -879,7 +879,7 @@ static void service_set_state(Service *s, ServiceState state) {
         s->reload_result = SERVICE_SUCCESS;
 }
 
-static int service_coldplug(Unit *u, Hashmap *deferred_work) {
+static int service_coldplug(Unit *u) {
         Service *s = SERVICE(u);
         int r;
 

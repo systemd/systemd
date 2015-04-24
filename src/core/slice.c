@@ -150,7 +150,7 @@ static int slice_load(Unit *u) {
         return slice_verify(s);
 }
 
-static int slice_coldplug(Unit *u, Hashmap *deferred_work) {
+static int slice_coldplug(Unit *u) {
         Slice *t = SLICE(u);
 
         assert(t);
