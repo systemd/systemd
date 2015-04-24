@@ -42,24 +42,23 @@ static char **arg_prefixes = NULL;
 static const char conf_file_dirs[] = CONF_DIRS_NULSTR("sysctl");
 
 static int apply_all(Hashmap *sysctl_options) {
-        int r = 0;
         char *property, *value;
         Iterator i;
-
-        assert(sysctl_options);
+        int r = 0;
 
         HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
                 int k;
 
                 k = sysctl_write(property, value);
                 if (k < 0) {
-                        log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                                 "Failed to write '%s' to '%s': %s", value, property, strerror(-k));
+                        log_full_errno(k == -ENOENT ? LOG_DEBUG : LOG_WARNING, k,
+                                       "Failed to write '%s' to '%s': %m", value, property);
 
-                        if (r == 0)
+                        if (r == 0 && k != -ENOENT)
                                 r = k;
                 }
         }
+
         return r;
 }
 
@@ -208,13 +207,14 @@ static int parse_argv(int argc, char *argv[]) {
                          * we need to keep compatibility. We now support any
                          * sysctl name available. */
                         sysctl_normalize(optarg);
+
                         if (startswith(optarg, "/proc/sys"))
                                 p = strdup(optarg);
                         else
                                 p = strappend("/proc/sys/", optarg);
-
                         if (!p)
                                 return log_oom();
+
                         if (strv_consume(&arg_prefixes, p) < 0)
                                 return log_oom();
 
