@@ -381,7 +381,7 @@ static int wall_tty_block(void) {
         return fd;
 }
 
-static bool wall_tty_match(const char *path) {
+static bool wall_tty_match(const char *path, void *userdata) {
         int fd, r;
         struct stat st;
         _cleanup_free_ char *p = NULL;
@@ -455,7 +455,7 @@ static int show_passwords(void) {
                         r = q;
 
                 if (wall)
-                        utmp_wall(wall, NULL, wall_tty_match);
+                        utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
         }
 
         return r;

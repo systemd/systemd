@@ -251,7 +251,7 @@ static void warn_wall(enum action a) {
                 }
 
                 if (*p) {
-                        utmp_wall(p, NULL, NULL);
+                        utmp_wall(p, NULL, NULL, NULL, NULL);
                         return;
                 }
         }
@@ -259,7 +259,7 @@ static void warn_wall(enum action a) {
         if (!table[a])
                 return;
 
-        utmp_wall(table[a], NULL, NULL);
+        utmp_wall(table[a], NULL, NULL, NULL, NULL);
 }
 
 static bool avoid_bus(void) {

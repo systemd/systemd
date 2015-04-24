@@ -142,7 +142,7 @@ static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
 
         if (asprintf(&l, "%s%s%s%s!", c->wall_message, c->wall_message[0] ? "\n" : "",
                      prefix, format_timestamp(date, sizeof(date), c->usec)) >= 0)
-                utmp_wall(l, NULL, NULL);
+                utmp_wall(l, NULL, NULL, NULL, NULL);
         else
                 log_error("Failed to allocate wall message");
 }
