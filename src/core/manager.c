@@ -975,28 +975,25 @@ int manager_enumerate(Manager *m) {
         return r;
 }
 
-static int manager_coldplug(Manager *m) {
-        int r = 0;
+static void manager_coldplug(Manager *m) {
         Iterator i;
         Unit *u;
         char *k;
+        int r;
 
         assert(m);
 
         /* Then, let's set up their initial state. */
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                int q;
 
                 /* ignore aliases */
                 if (u->id != k)
                         continue;
 
-                q = unit_coldplug(u);
-                if (q < 0)
-                        r = q;
+                r = unit_coldplug(u);
+                if (r < 0)
+                        log_warning_errno(r, "We couldn't coldplug %s, proceeding anyway: %m", u->id);
         }
-
-        return r;
 }
 
 static void manager_build_unit_path_cache(Manager *m) {
@@ -1140,9 +1137,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         bus_track_coldplug(m, &m->subscribed, &m->deserialized_subscribed);
 
         /* Third, fire things up! */
-        q = manager_coldplug(m);
-        if (q < 0 && r == 0)
-                r = q;
+        manager_coldplug(m);
 
         if (serialization) {
                 assert(m->n_reloading > 0);
@@ -2560,9 +2555,7 @@ int manager_reload(Manager *m) {
                 r = q;
 
         /* Third, fire things up! */
-        q = manager_coldplug(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        manager_coldplug(m);
 
         assert(m->n_reloading > 0);
         m->n_reloading--;
