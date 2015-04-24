@@ -1958,8 +1958,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "reload-result", service_result_to_string(s->reload_result));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", PID_FMT,
-                                           s->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
 
         if (s->main_pid_known && s->main_pid > 0)
                 unit_serialize_item_format(u, f, "main-pid", PID_FMT, s->main_pid);
@@ -1973,8 +1972,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
          * multiple commands attached here, we will start from the
          * first one again */
         if (s->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command",
-                                    service_exec_command_to_string(s->control_command_id));
+                unit_serialize_item(u, f, "control-command", service_exec_command_to_string(s->control_command_id));
 
         if (s->socket_fd >= 0) {
                 int copy;
@@ -2007,20 +2005,16 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         }
 
         if (s->main_exec_status.pid > 0) {
-                unit_serialize_item_format(u, f, "main-exec-status-pid", PID_FMT,
-                                           s->main_exec_status.pid);
-                dual_timestamp_serialize(f, "main-exec-status-start",
-                                         &s->main_exec_status.start_timestamp);
-                dual_timestamp_serialize(f, "main-exec-status-exit",
-                                         &s->main_exec_status.exit_timestamp);
+                unit_serialize_item_format(u, f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
+                dual_timestamp_serialize(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
+                dual_timestamp_serialize(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
-                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i",
-                                                   s->main_exec_status.code);
-                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i",
-                                                   s->main_exec_status.status);
+                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i", s->main_exec_status.code);
+                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
                 }
         }
+
         if (dual_timestamp_is_set(&s->watchdog_timestamp))
                 dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
