@@ -149,10 +149,43 @@ static int device_coldplug(Unit *u, Hashmap *deferred_work) {
         if (d->found & DEVICE_FOUND_UDEV)
                 /* If udev says the device is around, it's around */
                 device_set_state(d, DEVICE_PLUGGED);
-        else if (d->found != DEVICE_NOT_FOUND)
+        else if (d->found != DEVICE_NOT_FOUND && d->deserialized_state != DEVICE_PLUGGED)
                 /* If a device is found in /proc/self/mountinfo or
-                 * /proc/swaps, it's "tentatively" around. */
+                 * /proc/swaps, and was not yet announced via udev,
+                 * it's "tentatively" around. */
                 device_set_state(d, DEVICE_TENTATIVE);
+
+        return 0;
+}
+
+static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
+        Device *d = DEVICE(u);
+
+        assert(u);
+        assert(f);
+        assert(fds);
+
+        unit_serialize_item(u, f, "state", device_state_to_string(d->state));
+}
+
+static int device_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
+        Device *d = DEVICE(u);
+
+        assert(u);
+        assert(key);
+        assert(value);
+        assert(fds);
+
+        if (streq(key, "state")) {
+                DeviceState state;
+
+                state = device_state_from_string(value);
+                if (state < 0)
+                        log_unit_debug(u->id, "Failed to parse state value %s", value);
+                else
+                        d->deserialized_state = state;
+        } else
+                log_unit_debug(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -406,7 +439,7 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
 }
 
 static void device_update_found_one(Device *d, bool add, DeviceFound found, bool now) {
-        DeviceFound n;
+        DeviceFound n, previous;
 
         assert(d);
 
@@ -414,16 +447,27 @@ static void device_update_found_one(Device *d, bool add, DeviceFound found, bool
         if (n == d->found)
                 return;
 
+        previous = d->found;
         d->found = n;
 
-        if (now) {
-                if (d->found & DEVICE_FOUND_UDEV)
-                        device_set_state(d, DEVICE_PLUGGED);
-                else if (add && d->found != DEVICE_NOT_FOUND)
-                        device_set_state(d, DEVICE_TENTATIVE);
-                else
-                        device_set_state(d, DEVICE_DEAD);
-        }
+        if (!now)
+                return;
+
+        if (d->found & DEVICE_FOUND_UDEV)
+                /* When the device is known to udev we consider it
+                 * plugged. */
+                device_set_state(d, DEVICE_PLUGGED);
+        else if (d->found != DEVICE_NOT_FOUND && (previous & DEVICE_FOUND_UDEV) == 0)
+                /* If the device has not been seen by udev yet, but is
+                 * now referenced by the kernel, then we assume the
+                 * kernel knows it now, and udev might soon too. */
+                device_set_state(d, DEVICE_TENTATIVE);
+        else
+                /* If nobody sees the device, or if the device was
+                 * previously seen by udev and now is only referenced
+                 * from the kernel, then we consider the device is
+                 * gone, the kernel just hasn't noticed it yet. */
+                device_set_state(d, DEVICE_DEAD);
 }
 
 static int device_update_found_by_sysfs(Manager *m, const char *sysfs, bool add, DeviceFound found, bool now) {
@@ -733,6 +777,16 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
                 if (!path_startswith(node, "/dev"))
                         return 0;
 
+                /* We make an extra check here, if the device node
+                 * actually exists. If it's missing, then this is an
+                 * indication that device was unplugged but is still
+                 * referenced in /proc/swaps or
+                 * /proc/self/mountinfo. Note that this check doesn't
+                 * really cover all cases where a device might be gone
+                 * away, since drives that can have a medium inserted
+                 * will still have a device node even when the medium
+                 * is not there... */
+
                 if (stat(node, &st) < 0) {
                         if (errno == ENOENT)
                                 return 0;
@@ -785,6 +839,9 @@ const UnitVTable device_vtable = {
         .load = unit_load_fragment_and_dropin_optional,
 
         .coldplug = device_coldplug,
+
+        .serialize = device_serialize,
+        .deserialize_item = device_deserialize_item,
 
         .dump = device_dump,
 
