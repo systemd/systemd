@@ -7290,7 +7290,7 @@ static int halt_main(sd_bus *bus) {
 
                 r = sd_bus_open_system(&b);
                 if (r < 0)
-                        return log_error_errno(r, "Unable to open system bus: %m\n");
+                        return log_error_errno(r, "Unable to open system bus: %m");
 
                 m = strv_join(arg_wall, " ");
                 if (!m)
@@ -7467,7 +7467,7 @@ int main(int argc, char*argv[]) {
 
                 r = sd_bus_open_system(&b);
                 if (r < 0)
-                        return log_error_errno(r, "Unable to open system bus: %m\n");
+                        return log_error_errno(r, "Unable to open system bus: %m");
 
                 if (arg_wall) {
                         m = strv_join(arg_wall, " ");
