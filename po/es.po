@@ -3,22 +3,23 @@
 # This file is distributed under the same license as the systemd package.
 # Alex Puchades <alex94puchades@gmail.com>, 2015.
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
+# Álex Puchades <alex94puchades@gmail.com>, 2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: https://bugs.freedesktop.org/enter_bug.cgi?"
 "product=systemd&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2015-03-11 23:57+0000\n"
-"PO-Revision-Date: 2015-03-12 12:27+0100\n"
-"Last-Translator: Daniel Mustieles <daniel.mustieles@gmail.com>\n"
+"POT-Creation-Date: 2015-04-23 23:43+0000\n"
+"PO-Revision-Date: 2015-04-24 13:26+0200\n"
+"Last-Translator: Álex Puchades <alex94puchades@gmail.com>\n"
 "Language-Team: Español; Castellano <gnome-es-list@gnome.org>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Gtranslator 2.91.6\n"
+"X-Generator: Gtranslator 2.91.7\n"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
 msgid "Send passphrase back to system"
@@ -433,6 +434,19 @@ msgstr "Bloquear/desbloquear sesiones activas"
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Se requiere autenticación para bloquear/desbloquear sesiones activas."
 
+#: ../src/login/org.freedesktop.login1.policy.in.h:53
+msgid "Allow indication to the firmware to boot to setup interface"
+msgstr ""
+"Permitir indicación al firmware para arrancar la interfaz de configuración"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:54
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Se requiere autenticación para indicar al firmware que arranque la interfaz "
+"de configuración."
+
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:1
 msgid "Log into a local container"
 msgstr "Conectarse a un contenedor local"
@@ -449,8 +463,8 @@ msgstr "Administrar máquinas virtuales y contenedores locales"
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
-"Se requiere autenticación para administrar máquinas virtuales y contenedores "
-"locales."
+"Se requiere autenticación para administrar las máquinas virtuales y los "
+"contenedores locales."
 
 #: ../src/machine/org.freedesktop.machine1.policy.in.h:5
 msgid "Manage local virtual machine and container images"
@@ -504,13 +518,13 @@ msgstr ""
 "Se requiere autenticación para activar/desactivar la sincronización de hora "
 "por red."
 
-#: ../src/fsckd/fsckd.c:291
+#: ../src/fsckd/fsckd.c:297
 msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 msgstr ""
 "Presione Ctrl+C para cancelar todas las comprobaciones del sistema de "
 "archivos en curso"
 
-#: ../src/fsckd/fsckd.c:336
+#: ../src/fsckd/fsckd.c:343
 #, c-format
 msgid "Checking in progress on %d disk (%3.1f%% complete)"
 msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
