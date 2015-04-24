@@ -488,7 +488,7 @@ int main(int argc, char *argv[]) {
                    log_start, interval, overrun);
 
         if (r < 0) {
-                log_error_errno(r, "Error generating svg file: %m\n");
+                log_error_errno(r, "Error generating svg file: %m");
                 return EXIT_FAILURE;
         }
 

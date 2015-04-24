@@ -157,7 +157,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
 
         r = read_one_line_file("/proc/cmdline", &cmdline);
         if (r < 0) {
-                log_error_errno(r, "Unable to read cmdline: %m\n");
+                log_error_errno(r, "Unable to read cmdline: %m");
                 return r;
         }
 
@@ -192,7 +192,7 @@ static int svg_title(FILE *of, const char *build, int pscount, double log_start,
         /* CPU type */
         r = read_full_file("/proc/cpuinfo", &buf, NULL);
         if (r < 0)
-                return log_error_errno(r, "Unable to read cpuinfo: %m\n");
+                return log_error_errno(r, "Unable to read cpuinfo: %m");
 
         cpu = strstr(buf, "model name");
         if (!cpu) {
