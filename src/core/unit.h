@@ -104,6 +104,7 @@ struct Unit {
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
+
         usec_t fragment_mtime;
         usec_t source_mtime;
         usec_t dropin_mtime;
@@ -233,6 +234,9 @@ struct Unit {
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
         bool cgroup_subtree_mask_valid:1;
+
+        /* Did we already invoke unit_coldplug() for this unit? */
+        bool coldplugged;
 };
 
 struct UnitStatusMessageFormats {

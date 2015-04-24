@@ -2876,13 +2876,32 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 }
 
 int unit_coldplug(Unit *u) {
+        Unit *other;
+        Iterator i;
         int r;
 
         assert(u);
 
-        if (UNIT_VTABLE(u)->coldplug)
-                if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
+        /* Make sure we don't enter a loop, when coldplugging
+         * recursively. */
+        if (u->coldplugged)
+                return 0;
+
+        u->coldplugged = true;
+
+        /* Make sure everything that we might pull in through
+         * triggering is coldplugged before us */
+        SET_FOREACH(other, u->dependencies[UNIT_TRIGGERS], i) {
+                r = unit_coldplug(other);
+                if (r < 0)
                         return r;
+        }
+
+        if (UNIT_VTABLE(u)->coldplug) {
+                r = UNIT_VTABLE(u)->coldplug(u);
+                if (r < 0)
+                        return r;
+        }
 
         if (u->job) {
                 r = job_coldplug(u->job);
