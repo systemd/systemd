@@ -510,6 +510,9 @@ int device_read_uevent_file(sd_device *device) {
         if (r == -EACCES)
                 /* empty uevent files may be write-only */
                 return 0;
+        else if (r == -ENOENT)
+                /* some devices may not have uevent files, see set_syspath() */
+                return 0;
         else if (r < 0) {
                 log_debug("sd-device: failed to read uevent file '%s': %s", path, strerror(-r));
                 return r;
