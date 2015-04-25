@@ -500,6 +500,8 @@ int device_read_uevent_file(sd_device *device) {
         if (device->uevent_loaded || device->sealed)
                 return 0;
 
+        device->uevent_loaded = true;
+
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
                 return r;
@@ -569,8 +571,6 @@ int device_read_uevent_file(sd_device *device) {
                 if (r < 0)
                         log_debug("sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %s", major, minor, path, strerror(-r));
         }
-
-        device->uevent_loaded = true;
 
         return 0;
 }
@@ -1243,6 +1243,8 @@ int device_read_db_aux(sd_device *device, bool force) {
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
+        device->db_loaded = true;
+
         r = device_get_id_filename(device, &id);
         if (r < 0)
                 return r;
@@ -1310,8 +1312,6 @@ int device_read_db_aux(sd_device *device, bool force) {
                         assert_not_reached("invalid state when parsing db");
                 }
         }
-
-        device->db_loaded = true;
 
         return 0;
 }
