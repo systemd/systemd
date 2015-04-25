@@ -86,7 +86,6 @@ struct event {
         struct udev_device *dev;
         struct udev_device *dev_kernel;
         enum event_state state;
-        int exitcode;
         unsigned long long int delaying_seqnum;
         unsigned long long int seqnum;
         const char *devpath;
@@ -124,7 +123,6 @@ struct worker {
 
 /* passed from worker to main process */
 struct worker_message {
-        int exitcode;
 };
 
 static inline struct worker *node_to_worker(struct udev_list_node *node) {
@@ -254,8 +252,7 @@ static void worker_new(struct event *event) {
                 for (;;) {
                         struct udev_event *udev_event;
                         struct worker_message msg;
-                        int fd_lock = -1;
-                        int err = 0, r;
+                        int fd_lock = -1, r;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
@@ -291,7 +288,6 @@ static void worker_new(struct event *event) {
                                         fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
                                                 log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
-                                                err = -EAGAIN;
                                                 fd_lock = safe_close(fd_lock);
                                                 goto skip;
                                         }
@@ -328,11 +324,10 @@ static void worker_new(struct event *event) {
                         udev_monitor_send_device(worker_monitor, NULL, dev);
 
 skip:
-                        log_debug("seq %llu processed with %i", udev_device_get_seqnum(dev), err);
+                        log_debug("seq %llu processed", udev_device_get_seqnum(dev));
 
                         /* send udevd the result of the event execution */
                         memzero(&msg, sizeof(struct worker_message));
-                        msg.exitcode = err;
                         r = send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
                         if (r < 0)
                                 log_error_errno(errno, "failed to send result of seq %llu to main daemon: %m",
@@ -655,7 +650,6 @@ static void worker_returned(int fd_worker) {
 
                         /* worker returned */
                         if (worker->event) {
-                                worker->event->exitcode = msg.exitcode;
                                 event_queue_delete(worker->event);
                                 worker->event = NULL;
                         }
@@ -938,7 +932,6 @@ static void handle_signal(struct udev *udev, int signo) {
                                         if (worker->event) {
                                                 log_error("worker ["PID_FMT"] failed while handling '%s'",
                                                           pid, worker->event->devpath);
-                                                worker->event->exitcode = -32;
                                                 /* delete state from disk */
                                                 udev_device_delete_db(worker->event->dev);
                                                 udev_device_tag_index(worker->event->dev, NULL, false);
@@ -1480,7 +1473,6 @@ int main(int argc, char *argv[]) {
                                                 worker->state = WORKER_KILLED;
 
                                                 log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
-                                                worker->event->exitcode = -64;
                                         } else if (!worker->event_warned) {
                                                 log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, worker->event->devpath);
                                                 worker->event_warned = true;
