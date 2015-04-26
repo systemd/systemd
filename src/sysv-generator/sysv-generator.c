@@ -922,7 +922,7 @@ finish:
 int main(int argc, char *argv[]) {
         int r, q;
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
-        _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services;
+        _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
         SysvStub *service;
         Iterator j;
 
