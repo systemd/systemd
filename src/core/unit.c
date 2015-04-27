@@ -2893,14 +2893,6 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        /* Make sure everything that we might pull in through
-         * triggering is coldplugged before us */
-        SET_FOREACH(other, u->dependencies[UNIT_TRIGGERS], i) {
-                r = unit_coldplug(other);
-                if (r < 0)
-                        return r;
-        }
-
         if (UNIT_VTABLE(u)->coldplug) {
                 r = UNIT_VTABLE(u)->coldplug(u);
                 if (r < 0)
