@@ -166,7 +166,7 @@ static void worker_list_cleanup(struct udev *udev) {
         }
 }
 
-static void worker_new(struct event *event) {
+static void worker_spawn(struct event *event) {
         struct udev *udev = event->udev;
         struct worker *worker;
         struct udev_monitor *worker_monitor;
@@ -446,7 +446,7 @@ static void event_run(struct event *event) {
         }
 
         /* start new worker and pass initial device */
-        worker_new(event);
+        worker_spawn(event);
 }
 
 static int event_queue_insert(struct udev_device *dev) {
