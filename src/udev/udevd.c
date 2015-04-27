@@ -85,6 +85,7 @@ struct event {
         struct udev *udev;
         struct udev_device *dev;
         struct udev_device *dev_kernel;
+        struct worker *worker;
         enum event_state state;
         unsigned long long int delaying_seqnum;
         unsigned long long int seqnum;
@@ -129,31 +130,32 @@ static inline struct worker *node_to_worker(struct udev_list_node *node) {
         return container_of(node, struct worker, node);
 }
 
-static void event_queue_delete(struct event *event) {
+static void event_free(struct event *event) {
+        if (!event)
+                return;
+
         udev_list_node_remove(&event->node);
         udev_device_unref(event->dev);
         udev_device_unref(event->dev_kernel);
+
+        if (event->worker)
+                event->worker->event = NULL;
+
         free(event);
 }
 
-static struct worker *worker_ref(struct worker *worker) {
-        worker->refcount++;
-        return worker;
-}
+static void worker_free(struct worker *worker) {
+        if (!worker)
+                return;
 
-static void worker_cleanup(struct worker *worker) {
         udev_list_node_remove(&worker->node);
         udev_monitor_unref(worker->monitor);
         udev_unref(worker->udev);
-        children--;
-        free(worker);
-}
+        event_free(worker->event);
 
-static void worker_unref(struct worker *worker) {
-        if (!worker || --worker->refcount > 0)
-                return;
-        log_debug("worker ["PID_FMT"] cleaned up", worker->pid);
-        worker_cleanup(worker);
+        children--;
+
+        free(worker);
 }
 
 static void worker_list_cleanup(struct udev *udev) {
@@ -162,7 +164,7 @@ static void worker_list_cleanup(struct udev *udev) {
         udev_list_node_foreach_safe(loop, tmp, &worker_list) {
                 struct worker *worker = node_to_worker(loop);
 
-                worker_cleanup(worker);
+                worker_free(worker);
         }
 }
 
@@ -193,12 +195,17 @@ static int worker_new(struct worker **ret, struct udev *udev, struct udev_monito
 }
 
 static void worker_attach_event(struct worker *worker, struct event *event) {
+        assert(worker);
+        assert(event);
+        assert(!event->worker);
+        assert(!worker->event);
+
         worker->state = WORKER_RUNNING;
         worker->event = event;
         event->state = EVENT_RUNNING;
         event->start_usec = now(CLOCK_MONOTONIC);
         event->warned = false;
-        worker_ref(worker);
+        event->worker = worker;
 }
 
 static void worker_spawn(struct event *event) {
@@ -602,7 +609,7 @@ static void event_queue_cleanup(struct udev *udev, enum event_state match_type) 
                 if (match_type != EVENT_UNDEF && match_type != event->state)
                         continue;
 
-                event_queue_delete(event);
+                event_free(event);
         }
 }
 
@@ -662,19 +669,17 @@ static void worker_returned(int fd_worker) {
                         else
                                 found = true;
 
-                        /* worker returned */
-                        if (worker->event) {
-                                event_queue_delete(worker->event);
-                                worker->event = NULL;
-                        }
                         if (worker->state != WORKER_KILLED)
                                 worker->state = WORKER_IDLE;
-                        worker_unref(worker);
+
+                        /* worker returned */
+                        event_free(worker->event);
+
                         break;
                 }
 
                 if (!found)
-                        log_warning("unknown worker ["PID_FMT"] returned", ucred->pid);
+                        log_debug("worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
         }
 }
 
@@ -944,20 +949,17 @@ static void handle_signal(struct udev *udev, int signo) {
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                                         if (worker->event) {
-                                                log_error("worker ["PID_FMT"] failed while handling '%s'",
-                                                          pid, worker->event->devpath);
+                                                log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
                                                 /* delete state from disk */
                                                 udev_device_delete_db(worker->event->dev);
                                                 udev_device_tag_index(worker->event->dev, NULL, false);
                                                 /* forward kernel event without amending it */
                                                 udev_monitor_send_device(monitor, NULL, worker->event->dev_kernel);
-                                                event_queue_delete(worker->event);
-
-                                                /* drop reference taken for state 'running' */
-                                                worker_unref(worker);
                                         }
                                 }
-                                worker_unref(worker);
+
+                                worker_free(worker);
+
                                 break;
                         }
 
