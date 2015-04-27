@@ -144,6 +144,7 @@ static struct worker *worker_ref(struct worker *worker) {
 static void worker_cleanup(struct worker *worker) {
         udev_list_node_remove(&worker->node);
         udev_monitor_unref(worker->monitor);
+        udev_unref(worker->udev);
         children--;
         free(worker);
 }
@@ -166,9 +167,36 @@ static void worker_list_cleanup(struct udev *udev) {
         }
 }
 
+static int worker_new(struct worker **ret, struct udev *udev, struct udev_monitor *worker_monitor, pid_t pid) {
+        struct worker *worker;
+
+        assert(ret);
+        assert(udev);
+        assert(worker_monitor);
+        assert(pid > 1);
+
+        worker = new0(struct worker, 1);
+        if (!worker)
+                return -ENOMEM;
+
+        /* worker + event reference */
+        worker->refcount = 2;
+        worker->udev = udev_ref(udev);
+        /* close monitor, but keep address around */
+        udev_monitor_disconnect(worker_monitor);
+        worker->monitor = udev_monitor_ref(worker_monitor);
+        worker->pid = pid;
+        udev_list_node_append(&worker->node, &worker_list);
+        children++;
+
+        *ret = worker;
+
+        return 0;
+}
+
 static void worker_spawn(struct event *event) {
         struct udev *udev = event->udev;
-        struct udev_monitor *worker_monitor;
+        _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
 
         /* listen for new events */
@@ -373,40 +401,28 @@ out:
                 close(worker_watch[WRITE_END]);
                 udev_rules_unref(rules);
                 udev_builtin_exit(udev);
-                udev_monitor_unref(worker_monitor);
                 udev_unref(udev);
                 log_close();
                 exit(rc);
         }
         case -1:
-                udev_monitor_unref(worker_monitor);
                 event->state = EVENT_QUEUED;
                 log_error_errno(errno, "fork of child failed: %m");
                 break;
         default:
         {
                 struct worker *worker;
+                int r;
 
-                worker = new0(struct worker, 1);
-                if (!worker) {
-                        udev_monitor_unref(worker_monitor);
+                r = worker_new(&worker, udev, worker_monitor, pid);
+                if (r < 0)
                         return;
-                }
 
-                /* worker + event reference */
-                worker->refcount = 2;
-                worker->udev = udev;
-                /* close monitor, but keep address around */
-                udev_monitor_disconnect(worker_monitor);
-                worker->monitor = worker_monitor;
-                worker->pid = pid;
                 worker->state = WORKER_RUNNING;
                 worker->event_start_usec = now(CLOCK_MONOTONIC);
                 worker->event_warned = false;
                 worker->event = event;
                 event->state = EVENT_RUNNING;
-                udev_list_node_append(&worker->node, &worker_list);
-                children++;
                 log_debug("seq %llu forked new worker ["PID_FMT"]", udev_device_get_seqnum(event->dev), pid);
                 break;
         }
