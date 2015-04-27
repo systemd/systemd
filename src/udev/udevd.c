@@ -94,6 +94,8 @@ struct event {
         dev_t devnum;
         int ifindex;
         bool is_block;
+        usec_t start_usec;
+        bool warned;
 };
 
 static inline struct event *node_to_event(struct udev_list_node *node) {
@@ -117,8 +119,6 @@ struct worker {
         struct udev_monitor *monitor;
         enum worker_state state;
         struct event *event;
-        usec_t event_start_usec;
-        bool event_warned;
 };
 
 /* passed from worker to main process */
@@ -195,10 +195,10 @@ static int worker_new(struct worker **ret, struct udev *udev, struct udev_monito
 
 static void worker_attach_event(struct worker *worker, struct event *event) {
         worker->state = WORKER_RUNNING;
-        worker->event_start_usec = now(CLOCK_MONOTONIC);
-        worker->event_warned = false;
         worker->event = event;
         event->state = EVENT_RUNNING;
+        event->start_usec = now(CLOCK_MONOTONIC);
+        event->warned = false;
         worker_ref(worker);
 }
 
@@ -1476,23 +1476,26 @@ int main(int argc, char *argv[]) {
                         /* check for hanging events */
                         udev_list_node_foreach(loop, &worker_list) {
                                 struct worker *worker = node_to_worker(loop);
+                                struct event *event = worker->event;
                                 usec_t ts;
 
                                 if (worker->state != WORKER_RUNNING)
                                         continue;
 
+                                assert(event);
+
                                 ts = now(CLOCK_MONOTONIC);
 
-                                if ((ts - worker->event_start_usec) > arg_event_timeout_warn_usec) {
-                                        if ((ts - worker->event_start_usec) > arg_event_timeout_usec) {
-                                                log_error("worker ["PID_FMT"] %s timeout; kill it", worker->pid, worker->event->devpath);
+                                if ((ts - event->start_usec) > arg_event_timeout_warn_usec) {
+                                        if ((ts - event->start_usec) > arg_event_timeout_usec) {
+                                                log_error("worker ["PID_FMT"] %s timeout; kill it", worker->pid, event->devpath);
                                                 kill(worker->pid, SIGKILL);
                                                 worker->state = WORKER_KILLED;
 
-                                                log_error("seq %llu '%s' killed", udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
-                                        } else if (!worker->event_warned) {
-                                                log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, worker->event->devpath);
-                                                worker->event_warned = true;
+                                                log_error("seq %llu '%s' killed", udev_device_get_seqnum(event->dev), event->devpath);
+                                        } else if (!event->warned) {
+                                                log_warning("worker ["PID_FMT"] %s is taking a long time", worker->pid, event->devpath);
+                                                event->warned = true;
                                         }
                                 }
                         }
