@@ -538,8 +538,10 @@
         same path in the container --, or a colon-separated pair of
         paths -- in which case the first specified path is the source
         in the host, and the second path is the destination in the
-        container. The <option>--bind-ro=</option> option creates
-        read-only bind mounts.</para></listitem>
+        container. This option may be specified multiple times for
+        creating multiple independent bind mount points. The
+        <option>--bind-ro=</option> option creates read-only bind
+        mounts.</para></listitem>
       </varlistentry>
 
       <varlistentry>
