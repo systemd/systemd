@@ -46,6 +46,14 @@ Before 220:
 
 Features:
 
+* journalctl: -m should access container journals directly by enumerating them via machined, and also watch containers coming and going. Benefit: nspawn --ephemeral would start working nicely with the journal.
+
+* nspawn: don't copy /etc/resolv.conf from host into container unless we are in shared-network mode
+
+* nspawn: optionally automatically add FORWARD rules to iptables whenever nspawn is running, remove them when shut down.
+
+* importd: generate a nice warning if mkfs.btrfs is missing
+
 * nspawn: add a logic for cleaning up read-only, hidden container images in /var/lib/machines that are not ancestors of any non-hidden containers
 
 * nspawn: Improve error message when --bind= is used on a non-existing source directory
