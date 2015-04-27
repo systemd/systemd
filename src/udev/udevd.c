@@ -223,7 +223,7 @@ static void worker_spawn(struct event *event) {
                 _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
                 struct epoll_event ep_signal, ep_monitor;
                 sigset_t mask;
-                int rc = EXIT_SUCCESS;
+                int r = 0;
 
                 /* take initial device from queue */
                 dev = event->dev;
@@ -240,15 +240,13 @@ static void worker_spawn(struct event *event) {
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
                 if (fd_signal < 0) {
-                        log_error_errno(errno, "error creating signalfd %m");
-                        rc = 2;
+                        r = log_error_errno(errno, "error creating signalfd %m");
                         goto out;
                 }
 
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0) {
-                        log_error_errno(errno, "error creating epoll fd: %m");
-                        rc = 3;
+                        r = log_error_errno(errno, "error creating epoll fd: %m");
                         goto out;
                 }
 
@@ -263,8 +261,7 @@ static void worker_spawn(struct event *event) {
 
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
                     epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
-                        log_error_errno(errno, "fail to add fds to epoll: %m");
-                        rc = 4;
+                        r = log_error_errno(errno, "fail to add fds to epoll: %m");
                         goto out;
                 }
 
@@ -277,12 +274,12 @@ static void worker_spawn(struct event *event) {
                 for (;;) {
                         struct udev_event *udev_event;
                         struct worker_message msg;
-                        int fd_lock = -1, r;
+                        int fd_lock = -1;
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
                         if (udev_event == NULL) {
-                                rc = 5;
+                                r = -ENOMEM;
                                 goto out;
                         }
 
@@ -314,6 +311,7 @@ static void worker_spawn(struct event *event) {
                                         if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
                                                 log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
                                                 fd_lock = safe_close(fd_lock);
+                                                r = -EAGAIN;
                                                 goto skip;
                                         }
                                 }
@@ -378,7 +376,7 @@ skip:
                                 if (fdcount < 0) {
                                         if (errno == EINTR)
                                                 continue;
-                                        log_error_errno(errno, "failed to poll: %m");
+                                        r = log_error_errno(errno, "failed to poll: %m");
                                         goto out;
                                 }
 
@@ -411,7 +409,7 @@ out:
                 udev_builtin_exit(udev);
                 udev_unref(udev);
                 log_close();
-                exit(rc);
+                exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
         case -1:
                 event->state = EVENT_QUEUED;
@@ -1176,11 +1174,13 @@ int main(int argc, char *argv[]) {
         struct epoll_event ep_netlink = { .events = EPOLLIN };
         struct epoll_event ep_worker = { .events = EPOLLIN };
         struct udev_ctrl_connection *ctrl_conn = NULL;
-        int rc = 1, r, one = 1;
+        int r = 0, one = 1;
 
         udev = udev_new();
-        if (udev == NULL)
+        if (!udev) {
+                r = log_error_errno(errno, "could not allocate udev context: %m");
                 goto exit;
+        }
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -1198,7 +1198,7 @@ int main(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
 
         if (getuid() != 0) {
-                log_error("root privileges required");
+                r = log_error_errno(EPERM, "root privileges required");
                 goto exit;
         }
 
@@ -1211,7 +1211,7 @@ int main(int argc, char *argv[]) {
         /* set umask before creating any file/directory */
         r = chdir("/");
         if (r < 0) {
-                log_error_errno(errno, "could not change dir to /: %m");
+                r = log_error_errno(errno, "could not change dir to /: %m");
                 goto exit;
         }
 
@@ -1221,7 +1221,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir("/run/udev", 0755);
         if (r < 0 && errno != EEXIST) {
-                log_error_errno(errno, "could not create /run/udev: %m");
+                r = log_error_errno(errno, "could not create /run/udev: %m");
                 goto exit;
         }
 
@@ -1247,16 +1247,14 @@ int main(int argc, char *argv[]) {
         if (systemd_fds(udev, &fd_ctrl, &fd_netlink) >= 0) {
                 /* get control and netlink socket from systemd */
                 udev_ctrl = udev_ctrl_new_from_fd(udev, fd_ctrl);
-                if (udev_ctrl == NULL) {
-                        log_error("error taking over udev control socket");
-                        rc = 1;
+                if (!udev_ctrl) {
+                        r = log_error_errno(EINVAL, "error taking over udev control socket");
                         goto exit;
                 }
 
                 monitor = udev_monitor_new_from_netlink_fd(udev, "kernel", fd_netlink);
-                if (monitor == NULL) {
-                        log_error("error taking over netlink socket");
-                        rc = 3;
+                if (!monitor) {
+                        r = log_error_errno(EINVAL, "error taking over netlink socket");
                         goto exit;
                 }
 
@@ -1266,17 +1264,15 @@ int main(int argc, char *argv[]) {
         } else {
                 /* open control and netlink socket */
                 udev_ctrl = udev_ctrl_new(udev);
-                if (udev_ctrl == NULL) {
-                        log_error("error initializing udev control socket");
-                        rc = 1;
+                if (!udev_ctrl) {
+                        r = log_error_errno(EINVAL, "error initializing udev control socket");
                         goto exit;
                 }
                 fd_ctrl = udev_ctrl_get_fd(udev_ctrl);
 
                 monitor = udev_monitor_new_from_netlink(udev, "kernel");
-                if (monitor == NULL) {
-                        log_error("error initializing netlink socket");
-                        rc = 3;
+                if (!monitor) {
+                        r = log_error_errno(EINVAL, "error initializing netlink socket");
                         goto exit;
                 }
                 fd_netlink = udev_monitor_get_fd(monitor);
@@ -1285,14 +1281,12 @@ int main(int argc, char *argv[]) {
         }
 
         if (udev_monitor_enable_receiving(monitor) < 0) {
-                log_error("error binding netlink socket");
-                rc = 3;
+                r = log_error_errno(EINVAL, "error binding netlink socket");
                 goto exit;
         }
 
         if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
-                log_error("error binding udev control socket");
-                rc = 1;
+                r = log_error_errno(EINVAL, "error binding udev control socket");
                 goto exit;
         }
 
@@ -1301,14 +1295,14 @@ int main(int argc, char *argv[]) {
         udev_builtin_init(udev);
 
         rules = udev_rules_new(udev, arg_resolve_names);
-        if (rules == NULL) {
-                log_error("error reading rules");
+        if (!rules) {
+                r = log_error_errno(ENOMEM, "error reading rules");
                 goto exit;
         }
 
-        rc = udev_rules_apply_static_dev_perms(rules);
-        if (rc < 0)
-                log_error_errno(rc, "failed to apply permissions on static device nodes - %m");
+        r = udev_rules_apply_static_dev_perms(rules);
+        if (r < 0)
+                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
 
         if (arg_daemonize) {
                 pid_t pid;
@@ -1318,11 +1312,9 @@ int main(int argc, char *argv[]) {
                 case 0:
                         break;
                 case -1:
-                        log_error_errno(errno, "fork of daemon failed: %m");
-                        rc = 4;
+                        r = log_error_errno(errno, "fork of daemon failed: %m");
                         goto exit;
                 default:
-                        rc = EXIT_SUCCESS;
                         goto exit_daemonize;
                 }
 
@@ -1349,8 +1341,7 @@ int main(int argc, char *argv[]) {
 
         fd_inotify = udev_watch_init(udev);
         if (fd_inotify < 0) {
-                log_error("error initializing inotify");
-                rc = 4;
+                r = log_error_errno(ENOMEM, "error initializing inotify");
                 goto exit;
         }
         udev_watch_restore(udev);
@@ -1360,15 +1351,13 @@ int main(int argc, char *argv[]) {
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
         fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (fd_signal < 0) {
-                log_error("error creating signalfd");
-                rc = 5;
+                r = log_error_errno(errno, "error creating signalfd");
                 goto exit;
         }
 
         /* unnamed socket from workers to the main daemon */
         if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
-                log_error("error creating socketpair");
-                rc = 6;
+                r = log_error_errno(errno, "error creating socketpair");
                 goto exit;
         }
         fd_worker = worker_watch[READ_END];
@@ -1599,7 +1588,6 @@ int main(int argc, char *argv[]) {
                         ctrl_conn = handle_ctrl_msg(udev_ctrl);
         }
 
-        rc = EXIT_SUCCESS;
 exit:
         udev_ctrl_cleanup(udev_ctrl);
         unlink("/run/udev/queue");
@@ -1623,5 +1611,5 @@ exit_daemonize:
         mac_selinux_finish();
         udev_unref(udev);
         log_close();
-        return rc;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
