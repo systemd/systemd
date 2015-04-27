@@ -759,7 +759,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         count = sendmsg(udev_monitor->sock, &smsg, 0);
         if (count < 0) {
                 if (!destination && errno == ECONNREFUSED) {
-                        log_debug("passed device to to netlink monitor %p", udev_monitor);
+                        log_debug("passed device to netlink monitor %p", udev_monitor);
                         return 0;
                 } else
                         return -errno;
