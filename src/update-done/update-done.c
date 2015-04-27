@@ -28,7 +28,10 @@
         "was updated. See systemd-update-done.service(8).\n"
 
 static int apply_timestamp(const char *path, struct timespec *ts) {
-        struct timespec twice[2];
+        struct timespec twice[2] = {
+                *ts,
+                *ts
+        };
         struct stat st;
 
         assert(path);
@@ -41,9 +44,6 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                         return 0;
 
                 /* It is older? Then let's update it */
-                twice[0] = *ts;
-                twice[1] = *ts;
-
                 if (utimensat(AT_FDCWD, path, twice, AT_SYMLINK_NOFOLLOW) < 0) {
 
                         if (errno == EROFS)
@@ -73,9 +73,6 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                 }
 
                 (void) loop_write(fd, MESSAGE, strlen(MESSAGE), false);
-
-                twice[0] = *ts;
-                twice[1] = *ts;
 
                 if (futimens(fd, twice) < 0)
                         return log_error_errno(errno, "Failed to update timestamp on %s: %m", path);
