@@ -224,9 +224,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        q = parse_proc_cmdline(parse_proc_cmdline_item);
-        if (q < 0)
-                log_warning_errno(q, "Failed to parse kernel command line, ignoring: %m");
+        r = parse_proc_cmdline(parse_proc_cmdline_item);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         test_files();
 
@@ -237,10 +237,15 @@ int main(int argc, char *argv[]) {
 
         if (argc > 1) {
                 device = argv[1];
-                root_directory = false;
 
                 if (stat(device, &st) < 0) {
-                        r = log_error_errno(errno, "Failed to stat '%s': %m", device);
+                        r = log_error_errno(errno, "Failed to stat %s: %m", device);
+                        goto finish;
+                }
+
+                if (!S_ISBLK(st.st_mode)) {
+                        log_error("%s is not a block device.", device);
+                        r = -EINVAL;
                         goto finish;
                 }
 
@@ -249,6 +254,8 @@ int main(int argc, char *argv[]) {
                         log_error_errno(r, "Failed to detect device %s: %m", device);
                         goto finish;
                 }
+
+                root_directory = false;
         } else {
                 struct timespec times[2];
 
@@ -261,7 +268,7 @@ int main(int argc, char *argv[]) {
 
                 /* Virtual root devices don't need an fsck */
                 if (major(st.st_dev) == 0) {
-                        log_debug("Root directory is virtual, skipping check.");
+                        log_debug("Root directory is virtual or btrfs, skipping check.");
                         r = 0;
                         goto finish;
                 }
@@ -269,6 +276,7 @@ int main(int argc, char *argv[]) {
                 /* check if we are already writable */
                 times[0] = st.st_atim;
                 times[1] = st.st_mtim;
+
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
                         log_info("Root directory is writable, skipping check.");
                         r = 0;
@@ -284,7 +292,6 @@ int main(int argc, char *argv[]) {
                 r = sd_device_get_devname(dev, &device);
                 if (r < 0) {
                         log_error_errno(r, "Failed to detect device node of root directory: %m");
-                        r = -ENXIO;
                         goto finish;
                 }
 
@@ -299,7 +306,7 @@ int main(int argc, char *argv[]) {
                         r = 0;
                         goto finish;
                 } else if (r < 0)
-                        log_warning_errno(r, "fsck.%s cannot be used for %s: %m", type, device);
+                        log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s: %m", type, device);
         }
 
         if (pipe(progress_pipe) < 0) {
@@ -380,7 +387,7 @@ int main(int argc, char *argv[]) {
                 r = 0;
 
         if (status.si_code == CLD_EXITED && (status.si_status & 1))
-                touch("/run/systemd/quotacheck");
+                (void) touch("/run/systemd/quotacheck");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
