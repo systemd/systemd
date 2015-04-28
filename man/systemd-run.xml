@@ -294,6 +294,18 @@
         <command>set-property</command> command.</para> </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem>
+          <para>Do not synchronously wait for the requested operation
+          to finish. If this is not specified, the job will be
+          verified, enqueued and <command>systemd-run</command> will
+          wait until the unit's start-up is completed. By passing this
+          argument, it is only verified and enqueued.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />

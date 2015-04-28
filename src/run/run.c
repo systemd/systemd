@@ -38,6 +38,7 @@
 
 static bool arg_scope = false;
 static bool arg_remain_after_exit = false;
+static bool arg_no_block = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
@@ -77,6 +78,7 @@ static void help(void) {
                "  -p --property=NAME=VALUE        Set unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
+               "     --no-block                   Do not wait until operation finished\n"
                "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
                "     --send-sighup                Send SIGHUP when terminating\n"
                "     --service-type=TYPE          Service type\n"
@@ -124,7 +126,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ON_UNIT_ACTIVE,
                 ARG_ON_UNIT_INACTIVE,
                 ARG_ON_CALENDAR,
-                ARG_TIMER_PROPERTY
+                ARG_TIMER_PROPERTY,
+                ARG_NO_BLOCK,
         };
 
         static const struct option options[] = {
@@ -155,6 +158,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE },
                 { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR      },
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
+                { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
                 {},
         };
 
@@ -327,6 +331,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_timer_property, optarg) < 0)
                                 return log_oom();
 
+                        break;
+
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
                         break;
 
                 case '?':
@@ -651,8 +659,9 @@ static int start_transient_service(
                 sd_bus *bus,
                 char **argv) {
 
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
         _cleanup_close_ int master = -1;
         int r;
@@ -673,7 +682,6 @@ static int start_transient_service(
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_bus_unref_ sd_bus *system_bus = NULL;
-                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                         const char *s;
 
                         r = sd_bus_open_system(&system_bus);
@@ -697,6 +705,8 @@ static int start_transient_service(
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
+                        reply = sd_bus_message_unref(reply);
+
                         master = fcntl(master, F_DUPFD_CLOEXEC, 3);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to duplicate master fd: %m");
@@ -709,6 +719,12 @@ static int start_transient_service(
 
                 if (unlockpt(master) < 0)
                         return log_error_errno(errno, "Failed to unlock tty: %m");
+        }
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
         }
 
         if (arg_unit) {
@@ -751,10 +767,22 @@ static int start_transient_service(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to start transient service unit: %s", bus_error_message(&error, -r));
                 return r;
+        }
+
+        if (w) {
+                const char *object;
+
+                r = sd_bus_message_read(reply, "o", &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = bus_wait_for_jobs_one(w, object, arg_quiet);
+                if (r < 0)
+                        return r;
         }
 
         if (master >= 0) {
