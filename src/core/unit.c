@@ -2880,8 +2880,6 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 }
 
 int unit_coldplug(Unit *u) {
-        Unit *other;
-        Iterator i;
         int r;
 
         assert(u);
