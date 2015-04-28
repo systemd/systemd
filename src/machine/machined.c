@@ -194,7 +194,8 @@ static int manager_connect_bus(Manager *m) {
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.DBus.Properties',"
-                             "member='PropertiesChanged'",
+                             "member='PropertiesChanged',"
+                             "arg0='org.freedesktop.systemd1.Unit'",
                              match_properties_changed,
                              m);
         if (r < 0)
