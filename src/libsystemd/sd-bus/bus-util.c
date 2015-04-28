@@ -1037,14 +1037,14 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return r;
 }
 
-int bus_message_map_all_properties(sd_bus *bus,
-                                   sd_bus_message *m,
-                                   const struct bus_properties_map *map,
-                                   void *userdata) {
+int bus_message_map_all_properties(
+                sd_bus_message *m,
+                const struct bus_properties_map *map,
+                void *userdata) {
+
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        assert(bus);
         assert(m);
         assert(map);
 
@@ -1080,9 +1080,9 @@ int bus_message_map_all_properties(sd_bus *bus,
 
                         v = (uint8_t *)userdata + prop->offset;
                         if (map[i].set)
-                                r = prop->set(bus, member, m, &error, v);
+                                r = prop->set(sd_bus_message_get_bus(m), member, m, &error, v);
                         else
-                                r = map_basic(bus, member, m, &error, v);
+                                r = map_basic(sd_bus_message_get_bus(m), member, m, &error, v);
                         if (r < 0)
                                 return r;
 
@@ -1099,22 +1099,24 @@ int bus_message_map_all_properties(sd_bus *bus,
                 if (r < 0)
                         return r;
         }
+        if (r < 0)
+                return r;
 
         return sd_bus_message_exit_container(m);
 }
 
-int bus_message_map_properties_changed(sd_bus *bus,
-                                       sd_bus_message *m,
-                                       const struct bus_properties_map *map,
-                                       void *userdata) {
+int bus_message_map_properties_changed(
+                sd_bus_message *m,
+                const struct bus_properties_map *map,
+                void *userdata) {
+
         const char *member;
         int r, invalidated, i;
 
-        assert(bus);
         assert(m);
         assert(map);
 
-        r = bus_message_map_all_properties(bus, m, map, userdata);
+        r = bus_message_map_all_properties(m, map, userdata);
         if (r < 0)
                 return r;
 
@@ -1129,6 +1131,8 @@ int bus_message_map_properties_changed(sd_bus *bus,
                                 ++invalidated;
                                 break;
                         }
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_exit_container(m);
         if (r < 0)
@@ -1137,11 +1141,13 @@ int bus_message_map_properties_changed(sd_bus *bus,
         return invalidated;
 }
 
-int bus_map_all_properties(sd_bus *bus,
-                           const char *destination,
-                           const char *path,
-                           const struct bus_properties_map *map,
-                           void *userdata) {
+int bus_map_all_properties(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const struct bus_properties_map *map,
+                void *userdata) {
+
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1163,7 +1169,7 @@ int bus_map_all_properties(sd_bus *bus,
         if (r < 0)
                 return r;
 
-        return bus_message_map_all_properties(bus, m, map, userdata);
+        return bus_message_map_all_properties(m, map, userdata);
 }
 
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {

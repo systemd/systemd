@@ -462,7 +462,7 @@ static int kbdctx_locale_props_changed_fn(sd_bus *bus,
         if (r < 0)
                 goto error;
 
-        r = bus_message_map_properties_changed(bus, signal, kbdctx_locale_map, kc);
+        r = bus_message_map_properties_changed(signal, kbdctx_locale_map, kc);
         if (r < 0)
                 goto error;
 
