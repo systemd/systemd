@@ -91,7 +91,8 @@
       to a given device; and a <literal>[Network]</literal> section
       specifying how the device should be configured. The first (in
       lexical order) of the network files that matches a given device
-      is applied.</para>
+      is applied, all later files are ignored, even if they match as
+      well.</para>
 
       <para>A network file is said to match a device if each of the
       entries in the <literal>[Match]</literal> section matches, or if
